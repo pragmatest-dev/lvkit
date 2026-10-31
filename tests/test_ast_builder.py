@@ -24,6 +24,7 @@ from lvkit.models import (
     Terminal,
     Tunnel,
 )
+from tests.corpus_graphs import OPENG_USERLIB
 from tests.helpers import build_graph, tunnel_terminals
 
 
@@ -473,7 +474,8 @@ def test_build_module_real_vi():
         pytest.skip("Sample VI not available")
 
     graph = InMemoryVIGraph()
-    graph.load_vi(vi_path, search_paths=[Path(".lvkit/cache/samples/OpenG/extracted")])
+    graph.set_library_roots(userlib_root=OPENG_USERLIB)
+    graph.load_vi(vi_path)
 
     vi_name = vi_path.name
     ctx = graph.get_vi_context(vi_name)

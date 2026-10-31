@@ -38,6 +38,7 @@ class DetectedLabVIEW:
     userlib_root: Path | None
     version: str | None
     source: str
+    instrlib_root: Path | None = None
 
 
 def detect_labview() -> DetectedLabVIEW | None:
@@ -73,12 +74,14 @@ def _candidate_from_install_dir(
         if not vilib.is_dir():
             return None
         userlib = install_dir / "user.lib"
+        instrlib = install_dir / "instr.lib"
         return DetectedLabVIEW(
             install_dir=install_dir,
             vilib_root=vilib,
             userlib_root=userlib if userlib.is_dir() else None,
             version=version,
             source=source,
+            instrlib_root=instrlib if instrlib.is_dir() else None,
         )
     except Exception:
         return None

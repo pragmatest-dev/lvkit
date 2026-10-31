@@ -184,7 +184,7 @@ def test_index_completes_reports_the_unreadable_vi_and_exits_partial(
     payload = json.loads(captured.out)
     assert rc == EXIT_PARTIAL
     assert payload["vis"] == 1
-    assert payload["collisions"] == 0
+    assert payload["loaded_alone"] == 0
     assert payload["status"] == "Partial"
     assert [p["vi"] for p in payload["problems"]] == ["Bad.vi"]
     assert captured.err.count("warning: Bad.vi: extract:") == 2  # line + summary

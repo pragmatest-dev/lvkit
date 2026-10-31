@@ -64,7 +64,6 @@ def _facts_from_info(
 
 
 def build_typedef_facts(
-    project_root: Path,
     ctl_path: Path,
     sha: str | None = None,
     run: RunProblems | None = None,
@@ -78,7 +77,7 @@ def build_typedef_facts(
     run = run or RunProblems()
     graph = run.new_graph(tracked=False)
     try:
-        _, key = load_ctl_by_path(resolved, search_paths=[project_root], graph=graph)
+        _, key = load_ctl_by_path(resolved, graph=graph)
         info = graph.get_typedef(key)
         catalog = TypeCatalog(lambda t: graph.get_type_fields(t, key))
         return _facts_from_info(info, catalog, sha, str(resolved))
@@ -116,7 +115,6 @@ def _with_dependents(
 
 
 def _rebuild_facts(
-    project_root: Path,
     to_rebuild: set[str],
     current: dict[str, Path],
     shas: dict[str, str],
@@ -127,7 +125,7 @@ def _rebuild_facts(
     built: list[TypedefFacts] = []
     unreadable: list[str] = []
     for path in sorted(to_rebuild):
-        facts = build_typedef_facts(project_root, current[path], shas[path], run)
+        facts = build_typedef_facts(current[path], shas[path], run)
         if facts is None:
             unreadable.append(path)
         else:
@@ -158,7 +156,7 @@ def sync_typedefs(
         to_rebuild = _with_dependents(
             dirty | set(deleted), current, load_typedef_dependents(project_root)
         )
-    changed, unreadable = _rebuild_facts(project_root, to_rebuild, current, shas, run)
+    changed, unreadable = _rebuild_facts(to_rebuild, current, shas, run)
     apply_typedefs(project_root, changed, [*deleted, *unreadable])
     return TypedefSyncResult(
         controls=len(current) - len(unreadable),
@@ -176,6 +174,6 @@ def warm_typedefs(project_root: Path, ctl_paths: list[Path]) -> None:
     stored = load_typedef_shas(project_root)
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     changed_paths = {path for path in current if stored.get(path) != shas[path]}
-    changed, unreadable = _rebuild_facts(project_root, changed_paths, current, shas)
+    changed, unreadable = _rebuild_facts(changed_paths, current, shas)
     if changed or unreadable:
         apply_typedefs(project_root, changed, unreadable)

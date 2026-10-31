@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from pathlib import Path
@@ -435,6 +436,9 @@ class ParsedDefaultValue:
     structure: str  # "Cluster", "Array", "scalar", etc.
 
 
+ABSOLUTE_PATH_TYPE = 0
+
+
 def is_symbolic_root(token: str) -> bool:
     """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
     LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
@@ -452,6 +456,9 @@ class ParsedDependencyRef:
     name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
     path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
     qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
+    # The recorded path's type: 0 absolute (a machine path, outside any project),
+    # 1 relative to the calling file; None when the record does not say.
+    path_type: int | None = None
 
     def get_relative_path(self) -> str:
         """Get a display string for the path tokens (display only).
@@ -465,6 +472,28 @@ class ParsedDependencyRef:
         if self.path_tokens and is_symbolic_root(self.path_tokens[0]):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
+
+    def absolute_path(self) -> Path | None:
+        """The file an ABSOLUTE recorded path names on this machine: a
+        drive-letter first token (``C``) is that drive on Windows, an empty
+        first token the root of the current drive (``Path.cwd().anchor``).
+        None for a relative or symbolic-root path, and for a drive letter on a
+        machine without drives (it names no file here)."""
+        tokens = self.path_tokens
+        if (
+            self.path_type != ABSOLUTE_PATH_TYPE
+            or len(tokens) < 2
+            or is_symbolic_root(tokens[0])
+        ):
+            return None
+        head = tokens[0]
+        if head == "":
+            base = Path(Path.cwd().anchor)
+        elif len(head) == 1 and head.isalpha() and os.name == "nt":
+            base = Path(f"{head}:\\")
+        else:
+            return None
+        return base.joinpath(*tokens[1:])
 
     def resolve_against(
         self,
@@ -503,7 +532,7 @@ class ParsedDependencyRef:
                 return None
             base = instrlib_root
             rest = tokens[1:]
-        elif is_symbolic_root(tokens[0]):
+        elif is_symbolic_root(tokens[0]) or self.path_type == ABSOLUTE_PATH_TYPE:
             return None
         else:
             # Each leading empty = one '..' starting from the caller file
@@ -765,14 +794,6 @@ class ParsedVIMetadata:
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)
-    # SubVI callee METHOD NAMES recovered from the ``_LIvi.bin`` VIPI table —
-    # the ONLY record of the dynamic-dispatch (``dynIUse``) methods the diagram
-    # calls (they leave no IUVI in ``_LIbd.bin``). Each entry is a method leaf
-    # (e.g. ``"GET_LayerData.vi"``); its concrete file is resolved against the
-    # owning class's member list at load time (the VIPI's own PTH0 class hint
-    # is unreliable for a cross-class dynamic dispatch, so it is never used).
-    # See ``parse_vipi_from_livi``.
-    subvi_method_names: list[str] = field(default_factory=list)
     # A leaf-filename -> recorded-path INDEX for every file the VI's link tables
     # (_LIvi/_LIbd/_LIfp PTH0 records) reference — classes, typedefs, VIs. The
     # loader consults it to give a type-derived class/typedef dep a recorded path

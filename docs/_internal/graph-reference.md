@@ -702,7 +702,7 @@ After all edges are added, `_propagate_types_and_rematch()`:
 2. Check _loaded_vis to prevent circular loading
 3. Extract SubVI references from metadata
 4. For each SubVI reference:
-   a. _find_subvi() → locate .vi file on disk
+   a. _resolve_dependency_path() → the file at its recorded path
    b. Extract XML
    c. Recurse (load SubVI first)
    d. Add edge to _dep_graph
@@ -712,11 +712,12 @@ After all edges are added, `_propagate_types_and_rematch()`:
 
 ### 11.2 SubVI File Resolution
 
-`_find_subvi()` search order:
-1. Caller's directory (if not vilib/userlib)
-2. Parent directories up to 3 levels
-3. Each search path (recursively)
-4. First match wins
+A SubVI is the file at the path its caller records (`_resolve_dependency_path`,
+`_locate_recorded`): a relative path joined onto the caller's folder, a
+`<vilib>`/`<userlib>`/`<instrlib>` path onto the configured root, an absolute
+path as it is. Nothing is looked up by file name; a SubVI not there is a stub
+keyed by its recorded path. See ARCHITECTURE.md, "A dependency is found only at
+the path its caller records".
 
 ### 11.3 SubVI Call Connection
 

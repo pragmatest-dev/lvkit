@@ -51,7 +51,7 @@ def test_error_ring_interior_does_not_break_the_strict_round_trip() -> None:
     if not _MAIN_VI.exists():
         pytest.skip(f"sample corpus VI not present: {_MAIN_VI}")
     graph, vi_name = load_vi_by_path(
-        _MAIN_VI, LoadMode.MINIMAL, search_paths=[_DQMH], layout=False
+        _MAIN_VI, LoadMode.MINIMAL, layout=False
     )
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name=_MAIN_VI.name, verbose=True)

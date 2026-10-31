@@ -24,8 +24,8 @@ lvkit structure <input> [options]
 | `--json` | Output as JSON instead of text. The JSON fields differ by `input` type — see the examples below. |
 | `--plan` | **Directory `input` only.** Print a Python module/package plan instead of the summary counts — see [Structure plan](#structure-plan). On a `.lvlib` or `.lvclass` input it has no effect: the ordinary text or JSON output prints instead, with no warning that `--plan` was ignored. |
 
-`structure` does not take the SubVI resolution flags (`--search-path`,
-`--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see
+`structure` does not take the SubVI resolution flags (`--vilib`,
+`--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see
 [SubVI & vi.lib resolution](subvi-resolution.md)): it only inspects
 library/class membership, not block-diagram wiring, so it needs no `.lvkit/`
 resolution store and no prior [`setup`](setup.md) run.

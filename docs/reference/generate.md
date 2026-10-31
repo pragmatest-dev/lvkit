@@ -27,13 +27,13 @@ lvkit generate <input_path> [options]
 | `-o OUTPUT`, `--output OUTPUT` | Output directory. Default: `outputs`. Generated files land in a VI-named subfolder beneath it (see [Output layout](#output-layout)). |
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. Codegen defaults to `full` — it compiles the whole SubVI/class-method tree. `--load-mode none` generates only the top-level VI, not the [SubVIs](subvi-resolution.md) it calls: the SubVI calls still appear in the output, but no module is generated for them. |
 | `--fail-fast` | End the run at the first problem (a gap or a VI that cannot be read): its warning is printed, nothing more is generated, and the exit code is `1` because the output is incomplete. What a gap generates is unchanged; use it to avoid waiting for a long run. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
 lvkit generate "Convert File Extension (String).vi" \
-  --search-path samples/OpenG/extracted \
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" \
   -o outputs
 ```
 

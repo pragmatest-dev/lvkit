@@ -55,7 +55,7 @@ _VIT_SIGNATURE = (
 
 
 def _describe(path: Path) -> str:
-    graph, key = load_corpus_vi(path.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(path.resolve())
     return describe_vi(graph, key)
 
 
@@ -69,7 +69,7 @@ def _describe(path: Path) -> str:
 def test_vim_and_vit_read_in_every_view(
     path: Path, signature: str, lvnet_header: str
 ) -> None:
-    graph, key = load_corpus_vi(path.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(path.resolve())
 
     assert describe_vi(graph, key).splitlines()[2] == signature
 
@@ -79,7 +79,7 @@ def test_vim_and_vit_read_in_every_view(
     )
     assert Path(netlist_to_dict(module)["vi"]).name == path.name
 
-    svg = render_vi_file(path, search_paths=[_SAMPLES])
+    svg = render_vi_file(path)
     assert svg is not None
     assert "<svg" in svg
 
@@ -94,7 +94,7 @@ def test_vim_and_vit_read_in_every_view(
 def test_vim_and_vit_generate_python(
     path: Path, mode: LoadMode, module_file: str, tmp_path: Path
 ) -> None:
-    summary = generate_python(path, tmp_path, search_paths=[_SAMPLES], mode=mode)
+    summary = generate_python(path, tmp_path, mode=mode)
 
     assert summary["error"] == 0
     [written] = tmp_path.rglob(module_file)
@@ -105,7 +105,7 @@ def test_vim_and_vit_generate_python(
 def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     tmp_path: Path,
 ) -> None:
-    generate_python(_CALLER, tmp_path, search_paths=[_SAMPLES])
+    generate_python(_CALLER, tmp_path)
 
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
     [callee] = tmp_path.rglob("create_annotations.py")
@@ -153,7 +153,7 @@ def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None
 
 
 def test_caller_of_a_malleable_vi_lists_the_vi_in_lvnet_and_json() -> None:
-    graph, key = load_corpus_vi(_CALLER.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(_CALLER.resolve())
     module = build_netlist_from_graph(graph, key)
 
     lvnet = render_lvnet(module, display_name=graph.vi_display_name(key))
@@ -177,7 +177,7 @@ def test_instances_of_one_malleable_vi_in_a_caller_share_its_file() -> None:
 
 
 def test_caller_loads_the_malleable_vi_as_one_graph_node() -> None:
-    graph, key = load_corpus_vi(_MANY_INSTANCES_CALLER.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(_MANY_INSTANCES_CALLER.resolve())
     callee_names = sorted(Path(k).name for k in graph.get_vi_dependencies(key))
 
     # Three instances of Create Connection Cluster.vim are one dependency.
@@ -187,7 +187,7 @@ def test_caller_loads_the_malleable_vi_as_one_graph_node() -> None:
 
 
 def test_generate_python_from_an_enum_control(tmp_path: Path) -> None:
-    summary = generate_python(_ENUM_CTL, tmp_path, search_paths=[_SAMPLES])
+    summary = generate_python(_ENUM_CTL, tmp_path)
 
     assert summary["error"] == 0
     [module] = tmp_path.rglob("actionctl.py")
@@ -206,7 +206,7 @@ def test_generate_python_from_an_enum_control(tmp_path: Path) -> None:
 
 
 def test_generate_python_from_a_cluster_control(tmp_path: Path) -> None:
-    summary = generate_python(_CLUSTER_CTL, tmp_path, search_paths=[_SAMPLES])
+    summary = generate_python(_CLUSTER_CTL, tmp_path)
 
     assert summary["error"] == 0
     [module] = tmp_path.rglob("paramsctl.py")
@@ -232,7 +232,7 @@ def test_library_loads_its_vim_members_as_real_vis() -> None:
     )
     graph = InMemoryVIGraph()
 
-    key = graph.load_lvlib(library, LoadMode.NONE, search_paths=[_SAMPLES])
+    key = graph.load_lvlib(library, LoadMode.NONE)
 
     members = {
         Path(target).name: target in graph._stubs

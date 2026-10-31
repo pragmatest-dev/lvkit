@@ -131,16 +131,16 @@ The conversion pipeline:
 
 ```bash
 # Single VI
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW class (.lvclass)
-python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW library (.lvlib)
-python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # Directory of VIs
-python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 ```
 
 ## Error Handling Strategy
@@ -296,7 +296,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 
 ```bash
 # CORRECT - outputs go to outputs/ folder in the repo
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # WRONG - never use /tmp/
 python scripts/generate_python.py "path/to/file.vi" -o /tmp/test

@@ -324,9 +324,7 @@ def test_corpus_wires_meet_the_node_edges_at_their_row(
 ) -> None:
     if not vi_path.exists():
         pytest.skip(f"sample corpus VI not present: {vi_path}")
-    graph, vi_name = load_vi_by_path(
-        vi_path, LoadMode.MINIMAL, search_paths=[root], layout=True
-    )
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.MINIMAL, layout=True)
     svg = render_vi(graph, vi_name, interactive=False)
     assert svg is not None
     markup = _node_markup(svg, node_uid)

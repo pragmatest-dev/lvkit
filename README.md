@@ -57,7 +57,7 @@ lvkit caches unpacked VIs in `~/.lvkit/cache` (override with `LVKIT_CACHE_DIR`);
 A human-readable signature, inputs/outputs, operations, and control flow — without opening LabVIEW.
 
 ```
-lvkit describe <path-to.vi> [--search-path <libraries/>] [--verbose]
+lvkit describe <path-to.vi> [--userlib <user.lib/>] [--verbose]
 ```
 
 `--verbose` adds a full netlist — a text projection of the block diagram.
@@ -66,7 +66,7 @@ lvkit describe <path-to.vi> [--search-path <libraries/>] [--verbose]
 Render a VI's block diagram to a faithful, self-contained SVG — nodes, wires, structures, and SubVI icons, all drawn from the parsed graph. No LabVIEW, no screenshots.
 
 ```
-lvkit render <path-to.vi> [--format {svg,html}] [--theme {light,dark,auto}] [--search-path <libraries/>]
+lvkit render <path-to.vi> [--format {svg,html}] [--theme {light,dark,auto}] [--userlib <user.lib/>]
 ```
 
 `--format html` writes an interactive single-VI viewer with zoom/pan and a light/dark diagram-theme toggle; hover a node to see its connector pane and documentation. The same renderer powers `diff --format html` and the VS Code extension.
@@ -84,14 +84,14 @@ Text (the default) is a concise, logical change summary for stdout or CI. `--for
 Cross-referenced HTML docs for a `.vi`, `.lvlib`, or `.lvclass` — inputs, outputs, operations, wiring diagrams.
 
 ```
-lvkit docs <input-path> <output-dir> [--search-path <libraries/>]
+lvkit docs <input-path> <output-dir> [--userlib <user.lib/>]
 ```
 
 ### Generate Python (experimental)
 This is lvkit's least mature capability, and the one most likely to need hand-finishing. It walks the graph to emit a Python transliteration of a `.vi`, `.lvlib`, or `.lvclass`. The transliteration is deterministic (same VI in, same Python out, no LLM), but coverage is incremental: a node that lvkit has no mapping for becomes a `raise NotImplementedError(...)` where the node would run, so how much of a VI runs as generated varies widely. Expect to resolve those gaps and clean up the output — see [Cleanroom approach](#cleanroom-approach).
 
 ```
-lvkit generate <input-path> -o <output-dir> [--search-path <libraries>]
+lvkit generate <input-path> -o <output-dir> [--userlib <user.lib>]
 ```
 
 For each node it cannot convert, `generate` prints `warning: <VI path>: generate: <node>: <reason> [<kind>]` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps. `generate` exits `0` when every VI converted, `3` when the result is partial (it has gaps), `1` when a VI could not be written.

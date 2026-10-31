@@ -14,7 +14,13 @@ const VI_FILE_RE = /\.vi[mt]?$/i;
 
 // ---- config ----------------------------------------------------------------
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }
-function extraSearchPaths() { return cfg().get('searchPaths', []); }
+// The folders a recorded <vilib>/<userlib>/<instrlib> dependency path starts
+// from (lvkit finds each dependency only at the path its caller records).
+function libraryRoots() {
+  return ['vilib', 'userlib', 'instrlib']
+    .map((root) => [root, cfg().get(root, '')])
+    .filter(([, dir]) => dir);
+}
 // Theme for the DIAGRAM SVG only (the viewer chrome always follows the editor
 // via prefers-color-scheme). Persisted as the `lvkit.diagramTheme` setting. The
 // diagram defaults to light — what LabVIEW users expect — independent of chrome.
@@ -186,8 +192,8 @@ function checkLvkitVersion(root) {
   } catch (_) { /* missing/broken lvkit -> handled by the command's ENOENT path */ }
 }
 
-function searchArgs(root) {
-  return [root, ...extraSearchPaths()].map((p) => `--search-path "${p}"`).join(' ');
+function libraryArgs() {
+  return libraryRoots().map(([flag, dir]) => `--${flag} "${dir}"`).join(' ');
 }
 
 // VS Code webviews are CSP-strict AND — unlike a normal browser — IGNORE
@@ -382,7 +388,7 @@ class ViPreviewProvider {
     panel.webview.options = { enableScripts: true };
     // `fsPath` is always the on-disk WORKING-TREE path, even when the URI is a
     // `git:` (or other provider) resource — the scheme/query are stripped. Use
-    // it to root SubVI resolution (--search-path) and to name the temp file,
+    // it to find the repository root and to name the temp file,
     // but NEVER render it directly for a non-file URI (see below).
     const origPath = document.uri.fsPath;
     const root = gitRootOr(path.dirname(origPath));
@@ -428,7 +434,7 @@ class ViPreviewProvider {
       // internally `--theme auto` (switchable in-viewer), so the injected
       // initial theme + the in-viewer control govern light/dark — no --theme
       // needed on this call.
-      run(`${cmd} render "${file}" ${searchArgs(root)} --format html${refArg} -o "${out}"`, { cwd: root });
+      run(`${cmd} render "${file}" ${libraryArgs()} --format html${refArg} -o "${out}"`, { cwd: root });
       const html = injectSubVIClickNav(injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme()));
       panel.webview.html = withNonceCsp(html);
       wireThemePersistence(panel.webview);
@@ -469,7 +475,7 @@ class ViTextProvider {
         fs.writeFileSync(file, Buffer.from(bytes));
       }
       const text = run(
-        `${cmd} describe "${file}" ${searchArgs(root)} --format lvnet`, { cwd: root }
+        `${cmd} describe "${file}" ${libraryArgs()} --format lvnet`, { cwd: root }
       ).toString();
       panel.webview.html = textHtml(text);
     } catch (e) {
@@ -568,7 +574,7 @@ async function diffVI(arg) {
         ].join(' ').trim();
         // --theme auto: the diff viewer chrome is prefers-color-scheme adaptive;
         // auto makes the embedded before/after diagrams follow the same signal.
-        run(`${cmd} diff "${before.viPath}" "${after.viPath}" ${searchArgs(root)} --format html --theme auto ${refArgs} -o "${out}"`, { cwd: root });
+        run(`${cmd} diff "${before.viPath}" "${after.viPath}" ${libraryArgs()} --format html --theme auto ${refArgs} -o "${out}"`, { cwd: root });
         const panel = vscode.window.createWebviewPanel(
           'lvkitDiff', `VI Diff: ${path.basename(file)}`, vscode.ViewColumn.Active,
           { enableScripts: true, retainContextWhenHidden: true }

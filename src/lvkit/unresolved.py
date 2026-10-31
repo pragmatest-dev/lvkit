@@ -51,10 +51,10 @@ def _item_key(gap: Gap) -> tuple[str, str, str]:
 
 def collect_unresolved(
     input_path: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     run: RunProblems | None = None,
 ) -> list[UnresolvedItem]:
     """Return every distinct gap under ``input_path``, aggregated.
@@ -79,10 +79,10 @@ def collect_unresolved(
             result = generate_python(
                 input_path,
                 scratch,
-                search_paths=search_paths,
                 mode=mode,
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
+                instrlib_root=instrlib_root,
                 run=inner,
             )
     if run is not None:

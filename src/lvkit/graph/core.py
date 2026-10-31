@@ -231,11 +231,6 @@ class InMemoryVIGraph(
         # vi_key -> qualified DISPLAY name (qname/basename). Display only, never a
         # lookup key — resolve_vi_name still returns the vi_key (path) identity.
         self._vi_display_names: dict[str, str] = {}
-        # Search paths the graph was loaded with, retained so decoration-only
-        # lookups (a SubVI's own _ICON.png) can locate a project-local .vi by
-        # name even under a MINIMAL load that never walks the SubVI tree.
-        self._search_paths: list[Path] = []
-        self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
         # VI metadata (identity only -- library/qualified_name/owning_libraries/
         # description). Sibling name-keyed facet dicts below carry the rest.
         self._vi_metadata: dict[str, VIMetadata] = {}
@@ -299,7 +294,9 @@ class InMemoryVIGraph(
         from lvkit import cache_paths
 
         cache_paths.set_extraction_roots(
-            vilib_root=vilib_root, userlib_root=userlib_root
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
         )
 
     def clear(self) -> None:
@@ -316,8 +313,6 @@ class InMemoryVIGraph(
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()
-        self._search_paths = []
-        self._vi_file_index = None
         self._vi_metadata.clear()
         self._vi_properties.clear()
         self._vi_health.clear()

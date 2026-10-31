@@ -114,7 +114,7 @@ def test_a_loaded_vi_is_not_parsed_again(
 
     def load(visited: set[str]) -> str | None:
         return graph._load_vi_recursive(  # noqa: SLF001
-            bd_xml, None, main_xml, [], visited, source_override=source
+            bd_xml, None, main_xml, visited, source_override=source
         )
 
     key = str(source.resolve())

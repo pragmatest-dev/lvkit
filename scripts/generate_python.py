@@ -29,13 +29,6 @@ def main():
         required=True,
         help="Output directory",
     )
-    parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Additional search paths",
-    )
     add_fail_fast_arg(parser)
     parser.add_argument(
         "--vilib",
@@ -49,6 +42,12 @@ def main():
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
     args = parser.parse_args()
     return run_command(_generate, args)
 
@@ -59,10 +58,10 @@ def _generate(args: argparse.Namespace) -> int:
     result = generate_python(
         input_path,
         args.output,
-        search_paths=[Path(p) for p in args.search_paths],
         mode=LoadMode.FULL,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        instrlib_root=Path(args.instrlib) if args.instrlib else None,
         run=run,
     )
     return finish(run, bool(result["error"] or result["failed"]))

@@ -31,10 +31,9 @@ def _run(coro: Coroutine[Any, Any, Any]) -> Any:
 
 def _expected(*, verbose: bool) -> str:
     # Reuse read_vi's own loader (`_load_one`) rather than re-deriving the
-    # graph load by hand, so the dependency-path root resolution (which
-    # includes the VI's own parent dir ahead of `search_paths`) matches
-    # EXACTLY what `read_vi` itself does.
-    graph, vi_name = srv._load_one(str(_GOLDEN_VI), [str(_JKI_SOURCE_ROOT)])
+    # graph load by hand, so the dependency resolution matches EXACTLY what
+    # `read_vi` itself does.
+    graph, vi_name = srv._load_one(str(_GOLDEN_VI))
     module = build_netlist_from_graph(graph, vi_name)
     return render_lvnet(
         module, display_name=graph.vi_display_name(vi_name), verbose=verbose
@@ -44,11 +43,7 @@ def _expected(*, verbose: bool) -> str:
 def test_read_vi_format_lvnet_terse() -> None:
     if not _GOLDEN_VI.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
-    result = _run(
-        srv.read_vi(
-            str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)], format="lvnet"
-        )
-    )
+    result = _run(srv.read_vi(str(_GOLDEN_VI), format="lvnet"))
     assert result == {
         "lvnet": _expected(verbose=False),
         "status": "Complete",
@@ -62,7 +57,6 @@ def test_read_vi_format_lvnet_verbose() -> None:
     result = _run(
         srv.read_vi(
             str(_GOLDEN_VI),
-            search_paths=[str(_JKI_SOURCE_ROOT)],
             format="lvnet",
             verbose=True,
         )
@@ -80,8 +74,8 @@ def test_read_vi_default_format_unchanged() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 
-    graph, vi_name = srv._load_one(str(_GOLDEN_VI), [str(_JKI_SOURCE_ROOT)])
+    graph, vi_name = srv._load_one(str(_GOLDEN_VI))
     expected = netlist_to_dict(build_netlist_from_graph(graph, vi_name))
 
-    result = _run(srv.read_vi(str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)]))
+    result = _run(srv.read_vi(str(_GOLDEN_VI)))
     assert result == {**expected, "status": "Complete", "problems": []}

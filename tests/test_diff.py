@@ -1389,7 +1389,7 @@ class TestQualifiedSubVINames:
         if not self.SAMPLE.exists():
             pytest.skip("measurement sample not present")
         g = InMemoryVIGraph()
-        g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL, search_paths=[self.SEARCH])
+        g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL)
         vn = g.resolve_vi_name(self.SAMPLE.name)
         calls = [
             op

@@ -44,18 +44,14 @@ def tree(tmp_path: Path) -> _Tree:
 def _layout(
     *keys: str,
     root: Path,
-    search_roots: tuple[Path, ...] = (),
+    userlib_root: Path | None = None,
     shared: frozenset[str] = frozenset(),
     recorded: dict[str, str] | None = None,
 ) -> ModuleLayout:
-    return ModuleLayout(
-        _graph(*keys),
-        list(keys),
-        root,
-        list(search_roots),
-        shared,
-        recorded or {},
-    )
+    graph = _graph(*keys)
+    if userlib_root is not None:
+        graph.set_library_roots(userlib_root=userlib_root)
+    return ModuleLayout(graph, list(keys), root, shared, recorded or {})
 
 
 def test_modules_mirror_the_folders_below_the_project_folder(tree: _Tree) -> None:
@@ -72,9 +68,7 @@ def test_what_else_was_loaded_does_not_move_a_module(tree: _Tree) -> None:
     vi = tree.key("a", "x.vi")
     other = tree.key("other", "deep", "y.vi", under=tree.base)
     alone = _layout(vi, root=tree.proj)
-    with_others = _layout(
-        vi, other, root=tree.proj, search_roots=(tree.base / "other",)
-    )
+    with_others = _layout(vi, other, root=tree.proj, userlib_root=tree.base / "other")
     assert alone.places[vi] == with_others.places[vi] == ModulePlace(("a",), "x")
 
 
@@ -110,14 +104,16 @@ def test_a_file_outside_the_project_is_placed_by_the_path_its_caller_recorded(
     )
 
 
-def test_a_search_path_file_with_no_recorded_path_is_under_its_search_path(
+def test_a_library_root_file_with_no_recorded_path_is_placed_as_recorded_there(
     tree: _Tree,
 ) -> None:
-    key = tree.key("lib", "Sub", "b.vi", under=tree.base)
+    """A file under the configured user.lib with no recorded path is placed as if
+    recorded as ``<userlib>/...`` — the same package its recorded path gives."""
+    key = tree.key("user.lib", "Sub", "b.vi", under=tree.base)
     layout = _layout(
-        tree.key("a.vi"), key, root=tree.proj, search_roots=(tree.base / "lib",)
+        tree.key("a.vi"), key, root=tree.proj, userlib_root=tree.base / "user.lib"
     )
-    assert layout.places[key] == ModulePlace(("lib", "sub"), "b")
+    assert layout.places[key] == ModulePlace(("userlib", "sub"), "b")
 
 
 def test_any_other_file_outside_the_project_is_under_external(tree: _Tree) -> None:

@@ -3,23 +3,23 @@
 Two tiers:
 
 - ``TestSmallClassBuild`` — fast, exercises build + SQLite round-trip on one
-  small class dir (~31 VIs, no same-name collisions). Runs on every test
+  small class dir (~31 VIs, every VI from the whole-project load). Runs on every test
   invocation that has the sample corpus.
 - ``TestFullCorpusDemo`` — the actual 4-question acceptance demo from
   ``docs/_internal/design/lvkit-mcp-index.md`` §5, built ONCE (module-scoped
-  fixture) over the full JKI VI Tester corpus (487 ``.vi`` files). A
+  fixture) over the full JKI VI Tester corpus (491 VI files: 487 ``.vi`` + 4
+  ``.vit``). A
   whole-repo MINIMAL load is O(minutes) even with a warm extraction cache
   (measured baseline in the design doc) — the fixture deliberately escapes
   the per-test hermetic cache dir (see ``jki_index`` below) to reuse the
   developer's real, already-warm extraction cache instead of re-extracting
-  487 VIs from scratch on every run.
+  491 VIs from scratch on every run.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 from collections import Counter
 from pathlib import Path
 
@@ -40,6 +40,8 @@ from lvkit.index.store import load as load_index
 from lvkit.index.store import load_lvproj_members, save_lvproj_members
 from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
+from lvkit.vi_files import rglob_vi_files
+from tests.corpus_graphs import build_corpus_index
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -71,7 +73,7 @@ class TestParallelBuildEquivalence:
         monkeypatch.setattr("lvkit.graph.loading.PARALLEL_THRESHOLD", 0)
         parallel = build_index(root, vi_paths)
 
-        assert serial.collisions == parallel.collisions
+        assert serial.loaded_alone == parallel.loaded_alone
         assert {f.path for f in serial.facts} == {f.path for f in parallel.facts}
 
         by_path_serial = {f.path: f for f in serial.facts}
@@ -93,8 +95,8 @@ class TestSmallClassBuild:
         result = build_index(root, vi_paths)
 
         assert len(result.facts) == len(vi_paths)
-        # A single class dir has no same-named siblings to shadow each other.
-        assert result.collisions == 0
+        # Every VI file in a single class dir comes out of the whole-repo load.
+        assert result.loaded_alone == 0
         assert {f.path for f in result.facts} == {str(p) for p in vi_paths}
         # Every method VI has a real content hash and terminals.
         assert all(f.content_sha for f in result.facts)
@@ -209,7 +211,7 @@ class TestIncrementalRefresh:
 
 # === Slow: the full JKI VI Tester corpus — the 4-question acceptance demo ==
 
-_HAVE_JKI = JKI_ROOT.is_dir() and any(JKI_ROOT.rglob("*.vi"))
+_HAVE_JKI = JKI_ROOT.is_dir() and bool(rglob_vi_files(JKI_ROOT))
 
 
 @pytest.fixture(scope="module")
@@ -217,32 +219,22 @@ def jki_index() -> BuildResult:
     if not _HAVE_JKI:
         pytest.skip("JKI-VI-Tester sample not present")
 
-    # The per-test ``_hermetic_cache`` autouse fixture (tests/conftest.py)
-    # points LVKIT_CACHE_DIR at a fresh tmp dir per test function so no test
-    # writes to the real cache. That's right for cheap tests, but a
-    # whole-repo 487-VI MINIMAL build pays full pylabview extraction from
-    # scratch every time it runs cold. This fixture is module-scoped (built
-    # once) AND deliberately unsets the override for the build itself, so it
-    # reuses the developer's real, already-warm extraction cache
-    # (~/.lvkit/cache) — same real-world path a `lvkit index` run takes.
-    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
-    try:
-        root, vi_paths = resolve_project(JKI_ROOT)
-        return build_index(root, vi_paths)
-    finally:
-        if saved is not None:
-            os.environ["LVKIT_CACHE_DIR"] = saved
+    return build_corpus_index(JKI_ROOT)
 
 
 @pytest.mark.slow
 class TestFullCorpusDemo:
-    def test_path_keyed_no_collision_loss(self, jki_index: BuildResult):
-        """Demo #1: indexed VI count == every .vi file under the repo, not
-        the name-collapsed 422 the bare in-memory graph gives."""
-        vi_paths = sorted(JKI_ROOT.rglob("*.vi"))
+    def test_path_keyed_none_loaded_alone(self, jki_index: BuildResult):
+        """Demo #1: indexed VI count == every VI file (.vi, .vim, .vit) under
+        the repo. The whole-repo graph is keyed by file path, so every file is
+        covered by it and none needs the single-VI fallback load
+        (``loaded_alone == 0``)."""
+        vi_paths = rglob_vi_files(JKI_ROOT)
         assert len(jki_index.facts) == len(vi_paths)
-        assert {f.path for f in jki_index.facts} == {str(p) for p in vi_paths}
-        assert jki_index.collisions > 0
+        assert {f.path for f in jki_index.facts} == {
+            str(p.resolve()) for p in vi_paths
+        }
+        assert jki_index.loaded_alone == 0
 
     def test_error_indicator_tally(self, jki_index: BuildResult):
         """Demo #2: error-indicator terminals, tallied by name — 'error out'
@@ -253,12 +245,16 @@ class TestFullCorpusDemo:
             for t in f.terminals
             if t.type_descriptor == "Error" and t.direction == "output"
         ]
-        assert len(names) == 406
+        # 424 = 420 in the .vi files (the 12 unlabeled `control_219` error
+        # clusters of NoObjectTestCase and two more are typed Error) + 4 in the
+        # .vit templates, which the index loads.
+        assert len(names) == 424
 
         tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
         assert top_name == "error out"
-        assert top_count == 382
+        # 382 .vi + one `error out` in each of the 4 .vit templates.
+        assert top_count == 386
 
     def test_callers_exclude_ownership_edges(self, jki_index: BuildResult):
         """Demo #3: a class method's calls and callers are pure VI->VI — its
@@ -344,10 +340,15 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        # 229 (no static caller): dead code + top-level entry points + VIs
+        # 194 (no static caller): dead code + top-level entry points + VIs
         # reached only dynamically (Call-By-Reference / VI Server). Matches the
-        # eval harness; the prior 284 was a stale pre-node-spine pin.
-        assert total_uncalled == 229
+        # eval harness (q18). A call names its callee by file path, and a method
+        # called through a subclass names the ancestor's file. 194, not the 181
+        # a search by file name gave: 13 methods are called only by VIs that
+        # record them (or the parent class they inherit them from) at the
+        # toolkit's installed <vilib>/addons/_JKI Toolkits/VI Tester/... path,
+        # where the source copies are not, so those calls are to missing VIs.
+        assert total_uncalled == 194
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
@@ -491,17 +492,13 @@ class TestLoadLvlibClassMember:
 
         # Enter through MyParentLibrary.lvlib (its real container) — not
         # MyLibrary.lvlib directly — so owner_chain accumulates the full,
-        # correct two-library prefix. search_paths=[JKI_ROOT]: both
-        # lvlib's own nested-Library URL and the class's URL are one
-        # directory off from their real on-disk locations, so resolution
-        # falls through to _find_file's rglob(project_root) fallback — the
-        # same search_paths build.py's _load_library_ownership passes for
-        # the real index build.
+        # correct two-library prefix. Each member URL is relative to its
+        # library FILE treated as a folder, so the nested library and the
+        # class are found at the paths the libraries record for them.
         graph = InMemoryVIGraph()
         graph.load_lvlib(
             _MYPARENTLIBRARY_LVLIB,
             LoadMode.FULL,
-            search_paths=[JKI_ROOT],
         )
 
         assert _MYLIBRARY_CLASS_NAME in graph.list_classes()
@@ -601,17 +598,13 @@ class TestLibraryMembership:
 
         ALL FOUR methods are asserted here, including ``setUp.vi``/
         ``tearDown.vi``: those are common JKI TestCase method names (16-17
-        same-named files elsewhere in this corpus) that hit ``build_index``'s
-        path-keyed COLLISION path (``build_one_vi``) for THIS specific file.
-        ``build_one_vi`` (``index/build.py``) now derives the owner chain
-        from the loaded VI's OWN fully-qualified ``vi_name``
-        (``_owner_chain_for_class``) and passes it to ``load_lvclass``, so
-        the collision path registers the class under the SAME qualified
-        qname its method VIs embed — matching what
+        same-named files elsewhere in this corpus). ``build_one_vi``
+        (``index/build.py``) derives the owner chain from the loaded VI's OWN
+        fully-qualified ``vi_name`` (``_owner_chain_for_class``) and passes it
+        to ``load_lvclass``, so the single-VI path registers the class under
+        the SAME qualified qname its method VIs embed — matching what
         ``_load_class_ownership``/``_load_library_ownership`` already do for
-        the whole-directory pass. Previously this was a narrow, documented
-        limitation (bare ``load_lvclass`` call, no ``owner_chain``) that left
-        ``class_fact`` ``None`` for these two collision-routed methods.
+        the whole-directory pass, so ``class_fact`` is set for these methods.
         """
         assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
 

@@ -559,7 +559,7 @@ def test_corpus_a_loaded_class_shows_the_private_data_of_its_default():
 
     def default_of(search_paths):
         g = InMemoryVIGraph()
-        g.load_vi(vi, mode=LoadMode.FULL, search_paths=search_paths)
+        g.load_vi(vi, mode=LoadMode.FULL)
         node = g._graph.nodes[str(vi.resolve())]["node"]
         return next(t.default_value for t in node.terminals if "Icon Data" in t.name)
 

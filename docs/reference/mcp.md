@@ -52,7 +52,7 @@ All take a `project` path (any file/dir inside the repo).
 
 | Tool | Description |
 |------|-------------|
-| `index` | Build/refresh the index for a repo (VIs and `.ctl` controls). A full build returns the VI count, `controls`, collisions handled, and ms; `refresh=true` returns `rebuilt`, `deleted`, `total`, `controls` and ms. |
+| `index` | Build/refresh the index for a repo (VIs and `.ctl` controls). A full build returns the VI count, `controls`, `loaded_alone` (VIs loaded on their own because the whole-project load did not produce them), and ms; `refresh=true` returns `rebuilt`, `deleted`, `total`, `controls` and ms. |
 | `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `node`, `type_use`, `type`, `type_field`, `type_item`, `vi_used_type`, `typedef`, `typedef_field`, `typedef_ref`, `typedef_use`, `typedef_type`, `class_fact`, `lvproj`. |
 | `query_schema` | List the views and their columns, so a query uses real column names. |
 
@@ -96,7 +96,7 @@ control — and loads it live (XML already cached) — no `load`/`clear` session
 
 Against JKI VI Tester (487 VIs):
 
-1. `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`.
+1. `index(project="…/source")` → `{vis: 491, loaded_alone: 0, ms: …}`.
 2. `query(project, sql="SELECT name, COUNT(*) AS n FROM terminal WHERE
    type_descriptor='Error' AND direction='output' GROUP BY name ORDER BY n DESC")` →
    *"what does this project call its error indicators?"* as a small histogram, in

@@ -40,6 +40,7 @@ from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
+from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.module_layout import ModuleLayout
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
@@ -95,6 +96,13 @@ def _write_syntax_error(
 
 # The dependency nodes that have a generated module.
 _MODULE_NODE_TYPES = (NodeType.VI, NodeType.CLASS, NodeType.TYPEDEF)
+
+
+def _as_given(path: Path, written_dir: Path, given_dir: Path) -> Path:
+    """``path``, a file under ``written_dir`` (the output folder in the form the
+    files are written through), in the form the caller gave the output folder:
+    ``given_dir`` joined with the part below it."""
+    return given_dir / display_path(path).relative_to(display_path(written_dir))
 
 
 def _ensure_packages(path: Path, output_dir: Path) -> None:
@@ -167,7 +175,9 @@ def create_import_resolver(
             if key in vi_paths:
                 return found(key, vi_name)
         raise MissingVIError(
-            vi_name, graph.recorded_path(qualified) if graph is not None else None
+            vi_name,
+            graph.recorded_path(qualified) if graph is not None else None,
+            graph.stub_reason(qualified) if graph is not None else None,
         )
 
     def found(key: str, name: str) -> Path:
@@ -177,7 +187,7 @@ def create_import_resolver(
             key
         )
         if graph is not None and graph.is_stub(key) and not implemented:
-            raise MissingVIError(name, graph.recorded_path(key))
+            raise MissingVIError(name, graph.recorded_path(key), graph.stub_reason(key))
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
@@ -305,6 +315,22 @@ def _write_errors_module(package_root: Path) -> None:
     ):
         (package_root / f"{ERRORS_MODULE_NAME}.py").write_text(
             ERRORS_MODULE_SOURCE, encoding="utf-8"
+        )
+
+
+def _warn_unimportable_paths(package_root: Path) -> None:
+    """Warn once when a written module is at a path Python cannot import on this
+    machine (a path over 260 characters while Windows long paths are off)."""
+    longest = too_long_to_import(sorted(package_root.rglob("*.py")))
+    if longest:
+        path = display_path(longest[0])
+        print(
+            f"warning: {len(longest)} generated modules are at paths over "
+            f"Windows' 260-character limit (the longest is {len(str(path))} "
+            f"characters: {path}). Python cannot import them from a normal "
+            "path: enable Windows long paths, or generate into a shorter "
+            "output folder.",
+            file=sys.stderr,
         )
 
 
@@ -540,10 +566,10 @@ def _generate_polymorphic_module(
 def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     run: RunProblems | None = None,
 ) -> dict:
     """Generate Python from VI files.
@@ -551,11 +577,11 @@ def generate_python(
     Args:
         input_path: Path to .vi, .lvlib, .lvclass, or directory
         output_dir: Output directory for generated Python
-        search_paths: Additional paths for SubVI resolution
         mode: dependency depth (``LoadMode``). Codegen defaults to ``FULL`` (the
             whole SubVI/class-method tree); ``NONE`` generates this VI only.
         vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
         userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
+        instrlib_root: Path to LabVIEW instr.lib on disk for <instrlib> resolution
         run: The run's problems (``run_report.py``). Each gap and each VI
             that cannot be written is recorded on its VI's node and collected in
             it; with ``fail_fast`` on, the run ends at the first problem.
@@ -563,6 +589,9 @@ def generate_python(
     Returns:
         Summary dict with keys: vilib, ast, error, failed counts and
         ``gaps``, the list of ``Gap`` records.
+        ``output_dir``, ``vi_paths`` and ``generated`` are in the form the
+        caller gave ``output_dir``. On Windows with long paths off, open a file
+        deeper than 260 characters through ``lvkit.long_paths.extended_length``.
     """
     input_path = Path(input_path)
     output_dir_root = Path(output_dir)
@@ -575,7 +604,8 @@ def generate_python(
     vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
     vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
 
-    output_dir_resolved = output_dir_root / vi_folder_name
+    output_dir_given = output_dir_root / vi_folder_name
+    output_dir_resolved = extended_length(output_dir_given)
 
     # Clean output directory
     if output_dir_resolved.exists():
@@ -585,42 +615,40 @@ def generate_python(
     print(f"Loading: {input_path}")
 
     graph = run.new_graph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    search_path_list = list(search_paths) if search_paths else []
+    if vilib_root or userlib_root or instrlib_root:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+        )
 
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
         graph.load_lvclass(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".lvlib":
         graph.load_lvlib(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".ctl":
-        graph.load_typedef(input_path, search_paths=search_path_list or None)
+        graph.load_typedef(input_path)
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.is_dir():
         graph.load_directory(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     else:
         graph.load_vi(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
 
     # Every command that parses a VI warms the index — generate parses the whole
@@ -671,7 +699,6 @@ def generate_python(
         graph,
         order,
         project_root(input_path),
-        search_path_list,
         shared=frozenset(poly_variants),
         reserved=[ERRORS_MODULE_NAME],
     )
@@ -800,7 +827,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=vi_gaps,
-                        )
+                    )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
@@ -893,7 +920,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=wrapper_gaps,
-                        )
+                    )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
@@ -903,7 +930,7 @@ def generate_python(
                     _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
 
-    # Generate minimal __init__.py (just makes it a package)
+        # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
@@ -962,7 +989,8 @@ def generate_python(
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
 
-    print(f"\nOutput: {output_dir_resolved}")
+    _warn_unimportable_paths(output_dir_resolved)
+    print(f"\nOutput: {display_path(output_dir_resolved)}")
 
     vilib_count = sum(1 for _, _, s in generated if s == "vilib")
     ast_count = sum(1 for _, _, s in generated if s == "ast")
@@ -1014,10 +1042,22 @@ def generate_python(
         "error": error_count,
         "failed": failed_count,
         "gaps": all_gaps,
-        "generated": generated,
-        "output_dir": output_dir_resolved,
+        "generated": [
+            (
+                name,
+                None
+                if path is None
+                else _as_given(path, output_dir_resolved, output_dir_given),
+                status,
+            )
+            for name, path, status in generated
+        ],
+        "output_dir": output_dir_given,
         "graph": graph,
         "vilib_resolver": vilib_resolver,
-        "vi_paths": vi_paths,
+        "vi_paths": {
+            key: _as_given(path, output_dir_resolved, output_dir_given)
+            for key, path in vi_paths.items()
+        },
         "vi_folder_name": vi_folder_name,
     }

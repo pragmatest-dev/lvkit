@@ -18,12 +18,13 @@ readable)::
     <cache>/adhoc/<kind>/…                              (see below)
 
 ``<ns>`` answers "who OWNS this VI?": ``projects/<slug>`` (owned by a repo /
-.lvkit project — ``<slug>`` = the project root), ``shared/vilib/<slug>`` or
-``shared/userlib/<slug>`` (owned by a library install — ``<slug>`` = the vi.lib /
-user.lib root), or ``adhoc`` (owned by NOBODY — a standalone file or throwaway
-temp). :func:`classify` returns which. The owned namespaces name the ``<slug>``
-identity ONCE and hang every ``<kind>`` off it, so a project/library reads as a
-single browsable subtree. ``adhoc`` has no identity to name, so it drops the slug
+.lvkit project — ``<slug>`` = the project root), ``shared/vilib/<slug>``,
+``shared/userlib/<slug>`` or ``shared/instrlib/<slug>`` (owned by a library
+install — ``<slug>`` = the vi.lib / user.lib / instr.lib root), or ``adhoc``
+(owned by NOBODY — a standalone file or throwaway temp). :func:`classify`
+returns which. The owned namespaces name the ``<slug>`` identity ONCE and hang
+every ``<kind>`` off it, so a project/library reads as a single browsable
+subtree. ``adhoc`` has no identity to name, so it drops the slug
 level and is a flat per-kind pool (``adhoc/<kind>/…``) — path-addressed for
 ``extract`` (one slot per VI file path), content-addressed for
 ``render``/``diff`` (see :mod:`output_cache`), TTL-swept. ``index`` is
@@ -65,36 +66,45 @@ def global_cache_root() -> Path:
 
 
 # ── Run-scoped extraction roots ─────────────────────────────────────────────
-# The resolved <vilib>/<userlib> roots for the current run, set once at
+# The resolved <vilib>/<userlib>/<instrlib> roots for the current run, set once at
 # `InMemoryVIGraph.set_library_roots` so `classify` can prefix-match a VI to its
 # tier without re-guessing from the path. One run at a time (same single-process
 # concurrency caveat the extractor has always had).
 _vilib_root: Path | None = None
 _userlib_root: Path | None = None
+_instrlib_root: Path | None = None
 
 
-def set_extraction_roots(*, vilib_root: Path | None, userlib_root: Path | None) -> None:
+def set_extraction_roots(
+    *,
+    vilib_root: Path | None,
+    userlib_root: Path | None,
+    instrlib_root: Path | None = None,
+) -> None:
     """Record the run's resolved library roots for cache classification.
 
     Roots are resolved to absolute paths so prefix-matching in :func:`classify`
     is stable regardless of how a VI path was spelled. Passing ``None`` clears
     that root.
     """
-    global _vilib_root, _userlib_root
+    global _vilib_root, _userlib_root, _instrlib_root
     _vilib_root = vilib_root.resolve() if vilib_root is not None else None
     _userlib_root = userlib_root.resolve() if userlib_root is not None else None
+    _instrlib_root = instrlib_root.resolve() if instrlib_root is not None else None
 
 
-def extraction_roots() -> tuple[Path | None, Path | None]:
-    """The run's ``(vilib_root, userlib_root)`` as last set (None when unset)."""
-    return _vilib_root, _userlib_root
+def extraction_roots() -> tuple[Path | None, Path | None, Path | None]:
+    """The run's ``(vilib_root, userlib_root, instrlib_root)`` as last set (None
+    when unset)."""
+    return _vilib_root, _userlib_root, _instrlib_root
 
 
 def clear_extraction_roots() -> None:
     """Forget the run's library roots (fall back to project/adhoc)."""
-    global _vilib_root, _userlib_root
+    global _vilib_root, _userlib_root, _instrlib_root
     _vilib_root = None
     _userlib_root = None
+    _instrlib_root = None
 
 
 # ── Namespace classification ────────────────────────────────────────────────
@@ -313,21 +323,18 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     # while same-build lookups still hit the same slot.
     fp = kind_fingerprint(kind)
 
-    vilib = _vilib_root
-    if vilib is not None:
-        rel = _rel_under(resolved, vilib)
+    for tier, library in (
+        ("vilib", _vilib_root),
+        ("userlib", _userlib_root),
+        ("instrlib", _instrlib_root),
+    ):
+        if library is None:
+            continue
+        rel = _rel_under(resolved, library)
         if rel is not None:
-            _note_owner(vilib)
-            d = cache / "shared" / "vilib" / _slug(vilib) / kind / fp / _vi_slot(rel)
-            return d, str(rel), "shared"
-
-    userlib = _userlib_root
-    if userlib is not None:
-        rel = _rel_under(resolved, userlib)
-        if rel is not None:
-            _note_owner(userlib)
-            slug = _slug(userlib)
-            d = cache / "shared" / "userlib" / slug / kind / fp / _vi_slot(rel)
+            _note_owner(library)
+            slug = _slug(library)
+            d = cache / "shared" / tier / slug / kind / fp / _vi_slot(rel)
             return d, str(rel), "shared"
 
     project = _project_root_for(resolved)

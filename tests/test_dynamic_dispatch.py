@@ -90,7 +90,7 @@ class TestVIPIExtraction:
         s2 = ET.SubElement(lsqn, "String")
         s2.text = "\x01\x0daddSuccess.vi"
 
-        qname = _resolve_qualified_name(vipi, caller_library=None)
+        qname = _resolve_qualified_name(vipi, caller_library=None, encoding="cp1252")
         assert qname == "TestResult.lvclass:addSuccess.vi"
 
     def test_vipi_with_same_library_flag(self):

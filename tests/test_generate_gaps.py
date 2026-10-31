@@ -474,8 +474,9 @@ def test_a_call_of_a_vi_that_was_not_found_is_one_missing_vi_gap(
     )
     assert gap.reason == (
         "The VI 'Flatten Channel String.vi' (<vilib>/daqmx/Flatten Channel String.vi)"
-        " was not found; add it to the project or to a --search-path and generate "
-        "again"
+        " was not found at the path its caller records; put it there (a "
+        "<userlib>/<vilib>/<instrlib> path needs that folder named with "
+        "--userlib/--vilib/--instrlib) and generate again"
     )
     # The raise carries the types and directions of the terminals the call wires.
     assert "input index=0 type=array" in gap.message

@@ -228,7 +228,7 @@ def _describe(source_root: Path, relative: str, search: Path | None = None) -> s
     if not vi.exists():
         pytest.skip(f"{vi} not present")
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi), LoadMode.MINIMAL, search_paths=[search or source_root])
+    graph.load_vi(str(vi), LoadMode.MINIMAL)
     return describe_vi(graph, graph.resolve_vi_name(vi.name))
 
 

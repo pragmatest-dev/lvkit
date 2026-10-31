@@ -24,8 +24,7 @@ from lvkit.render import render_vi
 
 # Lives in the same directory as its SubVI calls (Get Tag Content.vi, Get
 # Children.vi, Get Attributes.vi, Parse XML.vi, Draw Tree from XML.vi) — the
-# default search path (a VI's own parent directory — see
-# graph/loading.py::load_vi) resolves them all as project-local siblings.
+# paths it records for them resolve as project-local siblings.
 RESOLVABLE_SUBVI_VI = Path(
     ".lvkit/cache/samples/JKI-EasyXML/Source/Fast Parser/"
     "test TCX read (installed 71).vi"
@@ -94,31 +93,6 @@ def test_unresolvable_subvi_omits_the_attribute():
     assert "data-lv-vi-rel" not in svg
 
 
-def test_locate_vi_file_disambiguates_same_name_across_libraries(tmp_path: Path):
-    """Two SubVIs sharing a bare filename in sibling libraries (Lib1/Do.vi vs
-    Lib2/Do.vi) must EACH resolve to their own file via the caller's
-    qualified_path. A bare-name lookup collides — both resolve to whichever the
-    rglob saw first — which gave both nodes the SAME icon (the reported bug).
-    Hermetic: locate_vi_file only rglobs the search paths, never parses, so empty
-    marker files suffice."""
-    for lib in ("Lib1", "Lib2"):
-        (tmp_path / lib).mkdir()
-        (tmp_path / lib / "Do.vi").write_bytes(b"")
-    graph = InMemoryVIGraph()
-    graph._search_paths = [tmp_path]
-
-    # qualified_path picks the RIGHT library's file, per node.
-    assert graph.locate_vi_file("Do.vi", "/Lib1/Do.vi") == tmp_path / "Lib1" / "Do.vi"
-    assert graph.locate_vi_file("Do.vi", "/Lib2/Do.vi") == tmp_path / "Lib2" / "Do.vi"
-    # Windows-style separators in the token resolve the same.
-    assert graph.locate_vi_file("Do.vi", "\\Lib2\\Do.vi") == tmp_path / "Lib2" / "Do.vi"
-    # No qualified_path: unchanged bare-name behavior (deterministic single hit).
-    assert graph.locate_vi_file("Do.vi") in (
-        tmp_path / "Lib1" / "Do.vi",
-        tmp_path / "Lib2" / "Do.vi",
-    )
-
-
 def test_caller_relative_subvi_resolves_same_library_local_ref(tmp_path: Path):
     """A SubVI call to a VI in the CALLER's OWN library/class is stored by
     LabVIEW as a bare LOCAL ref (``/Do.vi``), not a fully-qualified path. It must
@@ -150,16 +124,3 @@ def test_caller_relative_subvi_resolves_same_library_local_ref(tmp_path: Path):
     )
     # a <vilib> token is not caller-relative -> None (resolved elsewhere)
     assert _resolve_caller_relative_vi(node("<vilib>/Utility/error.llb/Foo.vi")) is None
-
-
-def test_locate_vi_file_resolves_full_path_not_just_tail(tmp_path: Path):
-    """Resolution keys on the WHOLE project-relative path, not a parent/name tail:
-    two VIs sharing filename AND parent-dir name but different full paths
-    (A/sub/Do.vi vs B/sub/Do.vi) each resolve exactly."""
-    for top in ("A", "B"):
-        (tmp_path / top / "sub").mkdir(parents=True)
-        (tmp_path / top / "sub" / "Do.vi").write_bytes(b"")
-    graph = InMemoryVIGraph()
-    graph._search_paths = [tmp_path]
-    assert graph.locate_vi_file("Do.vi", "/A/sub/Do.vi") == tmp_path / "A/sub/Do.vi"
-    assert graph.locate_vi_file("Do.vi", "/B/sub/Do.vi") == tmp_path / "B/sub/Do.vi"

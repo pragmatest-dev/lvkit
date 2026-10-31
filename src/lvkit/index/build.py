@@ -1,18 +1,14 @@
-"""Build ``list[VIFacts]`` for a repo — path-keyed, no silent collisions.
+"""Build ``list[VIFacts]`` for a repo, keyed by file path.
 
-The in-memory graph (``InMemoryVIGraph``) is keyed by bare VI **name**, so a
-whole-repo ``load_directory`` silently collapses same-named loose VIs
-(measured: 487 files -> 422 in ``list_vis()`` on JKI VI Tester). This module
-path-keys ALL of them:
+The in-memory graph (``InMemoryVIGraph``) is keyed by VI file path, so every
+VI file is its own entry. This module builds the index in four steps:
 
-1. Load the whole repo once at ``LoadMode.MINIMAL`` — the 422 (or however
-   many) non-collided VIs come out with full facts + the ``_dep_graph``
-   call/ownership edges.
+1. Load the whole repo once at ``LoadMode.MINIMAL``: every VI it produces
+   comes out with full facts + the ``_dep_graph`` call/ownership edges.
 2. Project each loaded VI to ``VIFacts``, keyed by its resolved source path.
-3. Whatever ``.vi`` files under the repo did NOT come out of that load
-   (shadowed by a same-named sibling) get loaded + projected INDIVIDUALLY,
-   one fresh ``InMemoryVIGraph`` each — reported as ``collisions``, never
-   silently dropped.
+3. Any ``.vi`` file under the repo that the whole-repo load did not produce is
+   loaded and projected on its own, one fresh ``InMemoryVIGraph`` each, and
+   counted as ``loaded_alone``; no file is dropped.
 4. Merge: invert ``calls`` into a networkx call graph to compute
    ``impact_score`` (transitive dependent count) per VI.
 """
@@ -84,7 +80,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BuildResult:
-    """Result of a full index build: the facts + how many VIs collided.
+    """Result of a full index build: the facts + how many VIs were loaded alone.
 
     ``lvproj_members`` is the repo's ``.lvproj`` membership relation (project-
     level, many-to-many) — see :func:`build_lvproj_membership`. Persisted
@@ -93,7 +89,7 @@ class BuildResult:
     """
 
     facts: list[VIFacts]
-    collisions: int
+    loaded_alone: int
     lvproj_members: list[LVProjMemberFact]
 
 
@@ -102,9 +98,8 @@ def build_index(
 ) -> BuildResult:
     """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
 
-    ``project_root`` is used as the single ``search_paths`` root for both the
-    whole-repo load and each individual collision load, so dependency
-    resolution behaves identically in both passes.
+    Both the whole-repo load and each individual single-VI load resolve every
+    dependency by the path its caller records, so they resolve identically.
 
     .. important::
        On a directory of 50+ VIs this pre-parses across a ``spawn`` process
@@ -124,7 +119,7 @@ def build_index(
 
     run = run or RunProblems()
     graph = run.new_graph()
-    graph.load_directory(project_root, LoadMode.MINIMAL, search_paths=[project_root])
+    graph.load_directory(project_root, LoadMode.MINIMAL)
     _load_class_ownership(graph, project_root)
     _load_library_ownership(graph, project_root)
 
@@ -148,19 +143,19 @@ def build_index(
         except Exception as exc:
             graph.record_load_failure(resolved, exc, ProblemStage.INDEX)
 
-    collisions = 0
+    loaded_alone = 0
     unreadable = {cp for cp in all_paths if graph.problems([str(cp)])}
     for cp in sorted(all_paths - covered - unreadable):
         one = build_one_vi_recording(project_root, cp, run)
         if one is not None:
             facts[str(cp)] = one
-            collisions += 1
+            loaded_alone += 1
 
     resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     return BuildResult(
         facts=list(facts.values()),
-        collisions=collisions,
+        loaded_alone=loaded_alone,
         lvproj_members=build_lvproj_membership(project_root),
     )
 
@@ -225,7 +220,8 @@ def build_one_vi(
 ) -> VIFacts:
     """Project ONE ``.vi`` to ``VIFacts`` via a fresh single-VI graph.
 
-    The collision-safe path, shared by ``build_index`` (for shadowed VIs) and
+    The single-VI path, shared by ``build_index`` (for VIs the whole-repo load
+    did not produce) and
     ``refresh_index`` (for changed VIs): load just this VI at MINIMAL (which
     also leaf-loads its direct SubVIs), plus any ``.lvclass`` in its own
     directory so class-ownership facts resolve, then project. Every fact is
@@ -234,7 +230,7 @@ def build_one_vi(
     """
     cp = vi_path.resolve()
     cgraph = cgraph or InMemoryVIGraph()
-    cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
+    cgraph.load_vi(cp, LoadMode.MINIMAL)
     vi_name = _vi_name_for_path(cgraph, cp)
     if vi_name is None:
         raise RuntimeError(
@@ -259,7 +255,6 @@ def build_one_vi(
         cgraph.load_lvclass(
             cls_path,
             LoadMode.NONE,
-            search_paths=[project_root],
             owner_chain=oc,
         )
     return project_vi_facts(cgraph, vi_name, cp, project_root)
@@ -470,12 +465,12 @@ def refresh_index(
 @dataclass
 class SyncResult:
     """What :func:`sync_index` did: the merged VI facts, the incremental
-    ``refresh`` result (None for a full build), the collision count of a full
+    ``refresh`` result (None for a full build), the loaded-alone count of a full
     build, and the controls' sync."""
 
     facts: list[VIFacts]
     refresh: RefreshResult | None
-    collisions: int
+    loaded_alone: int
     controls: TypedefSyncResult
 
 
@@ -552,7 +547,7 @@ def _sync_index(
         store_delete(project_root, [f.path for f in stored if f.path not in kept])
         store_save(project_root, facts)
         store_save_lvproj_members(project_root, built.lvproj_members)
-        result = SyncResult(facts, None, built.collisions, controls)
+        result = SyncResult(facts, None, built.loaded_alone, controls)
     for f in facts:
         f.types = []  # the bodies are stored; the in-memory facts keep only ids
     return result
@@ -576,7 +571,7 @@ def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
     loaded, richer, from the MINIMAL directory pass.
     """
     for cls_path in sorted(project_root.rglob("*.lvclass")):
-        graph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
+        graph.load_lvclass(cls_path, LoadMode.NONE)
 
 
 def _load_library_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
@@ -601,7 +596,7 @@ def _load_library_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
     shadow VI node.
     """
     for lib_path in sorted(project_root.rglob("*.lvlib")):
-        graph.load_lvlib(lib_path, LoadMode.NONE, search_paths=[project_root])
+        graph.load_lvlib(lib_path, LoadMode.NONE)
 
 
 def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
@@ -741,7 +736,7 @@ def project_vi_facts(
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=_node_callee_key(gn),
-            callee_key=gn.callee_key if isinstance(gn, VINode) else None,
+            callee_key=_callee_key(graph, gn),
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             network_path=(
@@ -928,6 +923,16 @@ def _node_kind(node: AnyGraphNode) -> NodeKind:
     return NodeKind.OTHER
 
 
+def _callee_key(graph: InMemoryVIGraph, node: object) -> str | None:
+    """The file a call node (its recorded callee) or a global variable node (its
+    Global VI) refers to, else None."""
+    if isinstance(node, VINode):
+        return node.callee_key
+    if isinstance(node, GlobalVariableNode):
+        return graph.global_vi_key(node)
+    return None
+
+
 def _build_class_fact(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -936,20 +941,26 @@ def _build_class_fact(
     if owning_class is None:
         return None
     access = graph.get_method_access(vi_name)
+    # The class's attributes are read by its identity (the owns edge's path),
+    # never by its name: a missing dependency recorded elsewhere under the same
+    # name is a different node.
+    class_key = graph.owning_class_key(vi_name)
+    if class_key is None:
+        return None
     # The owning class's private data, rendered FAITHFULLY (never to_python) —
     # None when the class/its data isn't resolvable (e.g. an external class).
-    fields = graph.get_class_fields(owning_class)
+    fields = graph.get_class_fields(class_key)
     private_data = [
         f"{f.name}: {f.type.type_descriptor()}" if f.type else f.name
         for f in (fields or [])
     ]
     # Authoritative parent (get_class_parent, NOT the load-gated
-    # get_class_hierarchy): a collision-load graph never loads the parent, and
+    # get_class_hierarchy): a single-VI graph never loads the parent, and
     # gating on that produced a spurious NULL parent beside the real value for
     # the same class (the WaitOnTestComplete duplicate). See get_class_parent.
     return ClassFact(
         owning_class=owning_class,
-        parent=graph.get_class_parent(owning_class),
+        parent=graph.get_class_parent(class_key),
         scope=access.scope if access else None,
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,
@@ -957,6 +968,6 @@ def _build_class_fact(
         is_static=bool(access and access.is_static),
         must_override=bool(access and access.must_override),
         must_call_parent=bool(access and access.must_call_parent),
-        class_version=graph.get_class_version(owning_class),
-        ancestors=graph.get_class_ancestors(owning_class),
+        class_version=graph.get_class_version(class_key),
+        ancestors=graph.get_class_ancestors(class_key),
     )

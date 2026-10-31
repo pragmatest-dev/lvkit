@@ -55,15 +55,29 @@ def _check_format(format: str) -> None:
         raise ValueError(f"Unknown format {format!r}; expected one of {_FORMATS}")
 
 
-def _resolved_roots(p: Path, search_paths: list[str] | None) -> list[Path]:
-    """The dependency-resolution roots for the file at ``p``: its own directory
-    (always searched) followed by the caller's ``search_paths``."""
-    return [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+def _build(
+    vilib: str | None,
+    userlib: str | None,
+    instrlib: str | None,
+    store: Path | None = None,
+) -> BuildOptions:
+    """The build options of one tool call: the library roots it names (each
+    resolved) and the project store."""
+
+    def _root(folder: str | None) -> Path | None:
+        return Path(folder).resolve() if folder else None
+
+    return BuildOptions(
+        vilib_root=_root(vilib),
+        userlib_root=_root(userlib),
+        instrlib_root=_root(instrlib),
+        project_store=store,
+    )
 
 
 def _load_one(
     vi_path: str,
-    search_paths: list[str] | None = None,
+    build: BuildOptions | None = None,
     run: RunProblems | None = None,
 ) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
@@ -71,25 +85,27 @@ def _load_one(
     A MINIMAL load also leaf-loads direct SubVIs, so ``list_vis()`` may hold
     several names; ``vi_name`` is ``load_vi``'s OWN return key for ``vi_path``
     (see ``load_vi_by_path``), never re-derived from the bare filename.
-
-    ``search_paths`` are extra dependency-resolution roots (an out-of-tree
-    library the VI calls into) — searched IN ADDITION to the VI's own directory,
-    which is always included. The problems on the loaded VIs' nodes are collected
-    into ``run``.
+    ``build`` carries the library roots its recorded dependency paths resolve
+    against. The problems on the loaded VIs' nodes are collected into ``run``.
     """
     p = Path(vi_path).resolve()
     run = run or new_run(p)
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
-    roots = _resolved_roots(p, search_paths)
+    build = build or BuildOptions()
     # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
     # the exact file requested, never re-derived from p.name (which would
     # collide across two same-named VIs -- routine under LabVIEW dynamic
     # dispatch, where every class's override of a method is literally
     # "run.vi").
     graph, vi_name = load_vi_by_path(
-        p, LoadMode.MINIMAL, search_paths=roots, graph=run.new_graph()
+        p,
+        LoadMode.MINIMAL,
+        vilib_root=build.vilib_root,
+        userlib_root=build.userlib_root,
+        instrlib_root=build.instrlib_root,
+        graph=run.new_graph(),
     )
     # Progressive index: every parse warms the store — a MINIMAL load parses
     # this VI AND its SubVIs, so warm all of them (accumulates as the repo is
@@ -101,7 +117,9 @@ def _load_one(
 @mcp.tool()
 async def read_vi(
     vi_path: str,
-    search_paths: list[str] | None = None,
+    vilib: str | None = None,
+    userlib: str | None = None,
+    instrlib: str | None = None,
     format: str = "json",
     verbose: bool = False,
     ctx: Context | None = None,
@@ -131,9 +149,9 @@ async def read_vi(
     ``case{id}.out{k}`` = ``gamma`` (selector-dependent), ``loop{id}.shift{k}``
     = ``mu`` (shift register), ``loop{id}.out{k}`` = ``eta`` (loop output,
     array/last), and a feedback node is ``fb{k}`` = ``mu``. ``vi_path`` may be
-    relative to the client's workspace root. ``search_paths`` are extra
-    dependency-resolution roots for an out-of-tree library the VI calls into
-    (its own directory is always searched).
+    relative to the client's workspace root. ``vilib``/``userlib``/``instrlib`` are the
+    folders a recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts
+    from (each dependency is found only at the path its caller records).
 
     ``format`` picks the surface: ``"json"`` (default, unchanged when
     ``verbose=False``) returns the structured IR dict above; ``verbose=True``
@@ -153,7 +171,7 @@ async def read_vi(
     def _work() -> dict[str, Any]:
         run = new_run(vi_path)
         try:
-            graph, vi_name = _load_one(vi_path, search_paths, run)
+            graph, vi_name = _load_one(vi_path, _build(vilib, userlib, instrlib), run)
             module = build_netlist_from_graph(graph, vi_name)
         except FileNotFoundError:
             raise
@@ -178,7 +196,9 @@ async def read_vi(
 @mcp.tool()
 async def read_ctl(
     ctl_path: str,
-    search_paths: list[str] | None = None,
+    vilib: str | None = None,
+    userlib: str | None = None,
+    instrlib: str | None = None,
     format: str = "json",
     verbose: bool = False,
     ctx: Context | None = None,
@@ -201,8 +221,9 @@ async def read_ctl(
     it in LabVIEW. To SEE the control, call ``render`` on the same path. It does not
     report which VIs use the control (a lone control has no callers loaded); ask
     ``query`` for project-wide type use. ``ctl_path`` may be relative to the client's
-    workspace root; ``search_paths`` are extra dependency-resolution roots (its own
-    directory is always searched)."""
+    workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a recorded
+    ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
+    dependency is found only at the path its caller records)."""
     _check_format(format)
     ctl_path = await _facade._resolve_target(ctl_path, ctx)
 
@@ -212,11 +233,14 @@ async def read_ctl(
             raise FileNotFoundError(f"Control not found: {ctl_path}")
         _configure_resolvers_for_vi(p)
         run = new_run(p)
+        build = _build(vilib, userlib, instrlib)
         try:
             graph, key = load_ctl_by_path(
                 p,
-                search_paths=_resolved_roots(p, search_paths),
                 graph=run.new_graph(),
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
             )
             info = graph.get_typedef(key)
         except Exception as exc:
@@ -233,7 +257,9 @@ async def read_ctl(
 @mcp.tool()
 async def render(
     vi_path: str,
-    search_paths: list[str] | None = None,
+    vilib: str | None = None,
+    userlib: str | None = None,
+    instrlib: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Render one VI's **block diagram** — or a ``.ctl`` control's **front
@@ -259,8 +285,9 @@ async def render(
     IS how the diagram is produced. NEVER tell the user to open the VI in
     LabVIEW, click a node in LabVIEW, or take a screenshot from LabVIEW; that is
     neither necessary nor available. ``vi_path`` may be relative to the client's
-    workspace root; ``search_paths`` are extra dependency-resolution roots (the
-    VI's own directory is always searched).
+    workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a recorded
+    ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
+    dependency is found only at the path its caller records).
     """
     vi_path = await _facade._resolve_target(vi_path, ctx)
 
@@ -269,8 +296,7 @@ async def render(
         if not p.exists():
             raise FileNotFoundError(f"File not found: {vi_path}")
         store = _configure_resolvers_for_vi(p)
-        roots = _resolved_roots(p, search_paths)
-        build = BuildOptions(search_paths=tuple(roots), project_store=store)
+        build = _build(vilib, userlib, instrlib, store)
         opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
@@ -319,7 +345,9 @@ async def render(
 async def diff(
     before_vi: str,
     after_vi: str,
-    search_paths: list[str] | None = None,
+    vilib: str | None = None,
+    userlib: str | None = None,
+    instrlib: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Diff two versions of a VI — write a **visual HTML diff** and return its
@@ -338,9 +366,10 @@ async def diff(
 
     lvkit diffs ``.vi`` files WITHOUT a LabVIEW license — NEVER suggest opening
     either version in LabVIEW or comparing them by eye there; this tool IS the
-    compare. Paths may be relative to the client's workspace root;
-    ``search_paths`` are extra dependency-resolution roots (each VI's own
-    directory is always searched).
+    compare. Paths may be relative to the client's workspace root.
+    ``vilib``/``userlib``/``instrlib`` are the folders a recorded
+    ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
+    dependency is found only at the path its caller records).
     """
     before_vi = await _facade._resolve_target(before_vi, ctx)
     after_vi = await _facade._resolve_target(after_vi, ctx)
@@ -351,12 +380,7 @@ async def diff(
             if not p.exists():
                 raise FileNotFoundError(f"VI not found: {p}")
         store = _configure_resolvers_for_vi(pa)
-        roots = [
-            pa.parent,
-            pb.parent,
-            *(Path(s).resolve() for s in (search_paths or [])),
-        ]
-        build = BuildOptions(search_paths=tuple(roots), project_store=store)
+        build = _build(vilib, userlib, instrlib, store)
         opts = diff_options_tag("html", False, None, None, build)
         run = new_run(pb)
         try:
@@ -398,7 +422,9 @@ async def diff(
 @mcp.tool()
 async def unresolved(
     target: str,
-    search_paths: list[str] | None = None,
+    vilib: str | None = None,
+    userlib: str | None = None,
+    instrlib: str | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Every gap under ``target`` (a VI, library, class, or directory): what
@@ -410,7 +436,9 @@ async def unresolved(
     ``unmapped_vilib``/``terminal_mapping``/``missing_vi``/``unsupported_vi``);
     an empty list means no gaps. ``problems`` lists the VIs that could not be
     read or written (they are not gaps). ``target`` may be relative to the
-    client's workspace root."""
+    client's workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a
+    recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from
+    (each dependency is found only at the path its caller records)."""
     target = await _facade._resolve_target(target, ctx)
     _configure_resolvers_for_vi(target)
 
@@ -418,10 +446,13 @@ async def unresolved(
         from ...unresolved import collect_unresolved
 
         run = new_run(target)
+        build = _build(vilib, userlib, instrlib)
         try:
             items = collect_unresolved(
                 target,
-                search_paths=[Path(p) for p in (search_paths or [])],
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
                 run=run,
             )
         except Exception as exc:

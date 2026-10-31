@@ -7,13 +7,13 @@ into a Python name. The project is the one the generated VI belongs to (its
 never depends on what else was loaded.
 
 A file outside the project is placed by the path its caller recorded for it
-(``<vilib>/Utility/error.llb/X.vi`` is ``vilib.utility.errorllb.x``); one found
-through a search path with no recorded path, under a package named for that search
-path; any other under ``external``, by its path from the folder it shares with the
-project. A VI with no file and no recorded path cannot be imported and stops
-generation, naming it. Paths are unique, so modules are unique: no collision
-numbering. Two files whose parts transform to the same name stop generation, naming
-both.
+(``<vilib>/Utility/error.llb/X.vi`` is ``vilib.utility.errorllb.x``); one under a
+configured vi.lib / user.lib / instr.lib folder with no recorded path, by its path
+in that folder as if recorded (``<userlib>/...``); any other under ``external``, by
+its path from the folder it shares with the project. A VI with no file and no
+recorded path cannot be imported and stops generation, naming it. Paths are unique,
+so modules are unique: no collision numbering. Two files whose parts transform to
+the same name stop generation, naming both.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.vi_files import strip_vi_extension
 
-# The package a file outside the project and every search path is placed in.
+# The package a file outside the project and every library folder is placed in.
 EXTERNAL_PACKAGE = "external"
 
 
@@ -98,7 +98,6 @@ class ModuleLayout:
         graph: InMemoryVIGraph,
         keys: list[str],
         root: Path,
-        search_roots: Sequence[Path] = (),
         shared: frozenset[str] = frozenset(),
         recorded: Mapping[str, str] | None = None,
         reserved: Collection[str] = (),
@@ -111,7 +110,6 @@ class ModuleLayout:
         (``errors``): no VI module or package may take one."""
         self._graph = graph
         self._root = str(root.resolve())
-        self._search_roots = [str(p.resolve()) for p in search_roots]
         self._recorded = None if recorded is None else dict(recorded)
         self.unplaced: dict[str, UnplacedVIError] = {}
         self._reserved = frozenset(reserved)
@@ -152,10 +150,10 @@ class ModuleLayout:
             return list(inside)
         if recorded is not None:
             return _tokens(recorded)
-        for search_root in self._search_roots:
-            inside = _below(key, search_root)
+        for token, library_root in self._graph.library_roots():
+            inside = _below(key, str(library_root.resolve()))
             if inside is not None:
-                return [Path(search_root).name, *inside]
+                return [token, *inside]
         return [EXTERNAL_PACKAGE, *_beside_project(key, self._root)]
 
     def _place(self, key: str) -> ModulePlace:

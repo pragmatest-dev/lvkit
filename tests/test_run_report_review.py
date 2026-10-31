@@ -262,8 +262,8 @@ def test_an_unreadable_private_data_control_is_one_problem_on_the_control(
     ctl = tmp_path / "C.ctl"
     ctl.write_bytes(b"not a labview file")
     monkeypatch.setattr(graph, "_find_private_data_ctl", lambda *a: ctl)
-    cls = SimpleNamespace(name="C", private_data_ctl="C.ctl")
-    graph._load_private_data_ctl(cls_key, cls, tmp_path / "C.lvclass", [tmp_path])  # type: ignore[arg-type]
+    cls = SimpleNamespace(name="C", private_data_url="C.ctl")
+    graph._load_private_data_ctl(cls_key, cls, tmp_path / "C.lvclass")  # type: ignore[arg-type]
     assert graph.problems([cls_key]) == []
     (problem,) = graph.problems()
     assert problem.vi == "C.ctl" and "pylabview could not read" in problem.reason

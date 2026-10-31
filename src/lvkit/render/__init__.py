@@ -605,9 +605,9 @@ def render_vi_with_subvis(
 def render_vi_file(
     path: Path,
     *,
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
@@ -622,15 +622,15 @@ def render_vi_file(
     ``mode`` defaults to ``LoadMode.MINIMAL`` — the target VI plus its direct
     SubVIs' connector panes and referenced-type fields, which renders
     byte-identically to a full load but never walks the transitive SubVI tree
-    (8-40x faster on a deep hierarchy). Pass the library roots / search paths so
-    vi.lib / user.lib SubVIs resolve. If the load fails (unresolvable deps), it
+    (8-40x faster on a deep hierarchy). Pass the library roots so vi.lib /
+    user.lib / instr.lib SubVIs resolve. If the load fails (unresolvable deps), it
     degrades to ``LoadMode.NONE`` (this VI's own diagram only, fallback boxes for
     SubVIs) so the VI still renders."""
     return render_vi_file_titled(
         path,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
         mode=mode,
         theme=theme,
         theme_mode=theme_mode,
@@ -640,9 +640,9 @@ def render_vi_file(
 def render_vi_file_titled(
     path: Path,
     *,
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
@@ -653,9 +653,9 @@ def render_vi_file_titled(
     Same load/degrade behaviour."""
     svg, title, dependencies, _ = render_vi_file_report(
         path,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
         mode=mode,
         theme=theme,
         theme_mode=theme_mode,
@@ -666,9 +666,9 @@ def render_vi_file_titled(
 def render_vi_file_report(
     path: Path,
     *,
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
@@ -689,12 +689,14 @@ def render_vi_file_report(
 
     def _load(load_mode: LoadMode) -> tuple[InMemoryVIGraph, str | None]:
         graph = InMemoryVIGraph(run_settings)
-        if vilib_root or userlib_root:
-            graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        try:
-            vi_key = graph.load_vi(
-                path, mode=load_mode, search_paths=search_paths, layout=True
+        if vilib_root or userlib_root or instrlib_root:
+            graph.set_library_roots(
+                vilib_root=vilib_root,
+                userlib_root=userlib_root,
+                instrlib_root=instrlib_root,
             )
+        try:
+            vi_key = graph.load_vi(path, mode=load_mode, layout=True)
         except Exception:
             failed_attempt.extend(graph.problems())
             raise
@@ -742,9 +744,9 @@ def render_vi_body_with_name(
     path: Path,
     *,
     fmt: str = "html",
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
@@ -760,9 +762,9 @@ def render_vi_body_with_name(
     (#114's follow-up)."""
     svg, vi_title, dependencies, problems = render_vi_file_report(
         path,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
         mode=mode,
         theme_mode=theme_mode,
         run_settings=run_settings,
@@ -782,9 +784,9 @@ def render_vi_body(
     path: Path,
     *,
     fmt: str = "html",
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
@@ -802,9 +804,9 @@ def render_vi_body(
     result = render_vi_body_with_name(
         path,
         fmt=fmt,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
         mode=mode,
         theme_mode=theme_mode,
         ref=ref,

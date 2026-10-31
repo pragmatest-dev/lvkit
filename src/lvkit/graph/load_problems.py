@@ -37,9 +37,6 @@ class LoadProblemsMixin:
 
     run_settings: RunSettings
     _dep_graph: nx.DiGraph
-    _vilib_root: Path | None
-    _userlib_root: Path | None
-    _instrlib_root: Path | None
 
     if TYPE_CHECKING:
 
@@ -47,7 +44,6 @@ class LoadProblemsMixin:
             self,
             vi_path: Path | str,
             mode: LoadMode = ...,
-            search_paths: list[Path] | None = ...,
             clear_first: bool = ...,
             layout: bool = ...,
         ) -> str | None: ...
@@ -61,18 +57,6 @@ class LoadProblemsMixin:
             path_tokens: list[str] | None,
             caller: str | None,
         ) -> None: ...
-
-    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
-        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
-        the file at ``path`` is in, with that folder, else None."""
-        for token, root in (
-            ("<vilib>", self._vilib_root),
-            ("<userlib>", self._userlib_root),
-            ("<instrlib>", self._instrlib_root),
-        ):
-            if root is not None and path.resolve().is_relative_to(root.resolve()):
-                return token, root
-        return None
 
     def vi_label(self, path: Path | str) -> str:
         """How a user sees a VI file (see ``RunSettings.label``)."""
@@ -159,12 +143,11 @@ class LoadProblemsMixin:
         self,
         vi_path: Path | str,
         mode: LoadMode,
-        search_paths: list[Path] | None = None,
     ) -> str | None:
         """``load_vi`` for one VI of many: a failure is recorded on the VI's node
         and gives None, so the VIs after it still load."""
         try:
-            return self.load_vi(vi_path, mode, search_paths)
+            return self.load_vi(vi_path, mode)
         except Exception as exc:
             self.record_load_failure(vi_path, exc)
             return None

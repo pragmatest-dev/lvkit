@@ -15,6 +15,7 @@ from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.page_names import page_names
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.errors import DependencyFileError
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
@@ -37,60 +38,62 @@ from lvkit.vi_files import is_vi_file, rglob_vi_files
 # ---------------------------------------------------------------------------
 
 
+def _member_file(
+    locator: InMemoryVIGraph, container: Path, url: str, run: RunProblems
+) -> Path | None:
+    """The file of a library or class member at the URL its container records
+    (``member_file``). None when there is none, or it cannot be determined: that
+    is a problem in ``run``, labelled by the container."""
+    try:
+        found = locator.member_file(container, url)
+    except DependencyFileError as exc:
+        reason = f"member {url!r}: {exc.summary()}"
+    else:
+        if found is not None:
+            return found
+        reason = f"member {url!r} was not found at its recorded path"
+    run.add(
+        Problem(
+            vi=run.settings.label(container),
+            stage=ProblemStage.DOCUMENT,
+            kind=ProblemKind.UNREADABLE,
+            reason=reason,
+        )
+    )
+    return None
+
+
 def _collect_library_vis(library_path: Path, run: RunProblems) -> list[Path]:
     """Collect the file paths of a .lvlib's VI members -- its controls (.ctl) are
     listed as VI members too; ``_split_controls`` separates them. A member that is
-    not on disk is a problem in ``run``."""
+    not at its recorded path is a problem in ``run``."""
     library = parse_lvlib(library_path)
-    base_path = library_path.parent
+    locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
     for member in library.members:
-        if member.member_type != "VI":
+        if member.member_type != "VI" or not member.url:
             continue
-        vi_path = base_path / member.url
-        if vi_path.exists():
-            vi_paths.append(vi_path.resolve())
-            continue
-        # The lvlib's stored relative path may not match the on-disk layout
-        # (extracted samples get flattened/reorganized, so a member listed as
-        # "../foo.vi" actually sits beside the lvlib). Resolve by the bare file
-        # name — first in the library's own directory, then anywhere beneath it.
-        name = Path(member.url).name
-        candidate: Path | None = base_path / name
-        if not candidate.exists():
-            candidate = next(iter(base_path.rglob(name)), None)
-        if candidate is not None and candidate.exists():
-            vi_paths.append(candidate.resolve())
-        else:
-            run.add(
-                Problem(
-                    vi=run.settings.label(library_path),
-                    stage=ProblemStage.DOCUMENT,
-                    kind=ProblemKind.UNREADABLE,
-                    reason=f"member {name!r} (listed as {member.url!r}) was not found",
-                )
-            )
+        vi_path = _member_file(locator, library_path, member.url, run)
+        if vi_path is not None:
+            vi_paths.append(vi_path)
 
     return vi_paths
 
 
-def _collect_class_vis(class_path: Path) -> list[Path]:
-    """Collect all method VIs from a .lvclass class."""
+def _collect_class_vis(class_path: Path, run: RunProblems) -> list[Path]:
+    """Collect all method VIs from a .lvclass class. A method that is not at its
+    recorded path is a problem in ``run``."""
     lvclass = parse_lvclass(class_path)
-    base_path = class_path.parent
+    locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
     for method in lvclass.methods:
-        if method.vi_path:
-            vi_path = base_path / method.vi_path
-            if vi_path.exists():
-                vi_paths.append(vi_path.resolve())
-                continue
-        # Fallback: look for method VI directly in the class directory
-        vi_path = base_path / f"{method.name}.vi"
-        if vi_path.exists():
-            vi_paths.append(vi_path.resolve())
+        if not method.vi_path:
+            continue
+        vi_path = _member_file(locator, class_path, method.vi_path, run)
+        if vi_path is not None:
+            vi_paths.append(vi_path)
 
     return vi_paths
 
@@ -342,10 +345,10 @@ class NothingDocumentedError(RuntimeError):
 def generate_documents(
     library_path: str,
     output_dir: str,
-    search_paths: list[str] | None = None,
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     run: RunProblems | None = None,
 ) -> str:
     """Generate HTML docs for a LabVIEW library, class, directory, or VI.
@@ -383,7 +386,7 @@ def generate_documents(
     elif library_path_obj.suffix == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
-        vi_paths = _collect_class_vis(library_path_obj)
+        vi_paths = _collect_class_vis(library_path_obj, run)
     elif library_path_obj.is_dir():
         doc_type = "directory"
         doc_title = library_path_obj.name
@@ -406,9 +409,12 @@ def generate_documents(
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
     t0 = time.time()
     graph = run.new_graph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    search_path_objs = [Path(p) for p in (search_paths or [])]
+    if vilib_root or userlib_root or instrlib_root:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+        )
 
     loaded_vis: list[str] = []
 
@@ -423,7 +429,6 @@ def generate_documents(
             graph.load_vi(
                 vi_path,
                 mode=mode,
-                search_paths=search_path_objs or None,
                 layout=True,  # docs renders every VI — carry geometry from the
                 # same parse instead of a second heap read per VI.
             )
@@ -454,7 +459,7 @@ def generate_documents(
     loaded_ctls: list[str] = []
     for ctl_path in ctl_paths:
         try:
-            key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
+            key = graph.load_typedef(ctl_path)
         except Exception as e:
             graph.record_load_failure(ctl_path, e, node_type=NodeType.TYPEDEF)
             continue

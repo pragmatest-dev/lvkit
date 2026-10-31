@@ -82,12 +82,12 @@ def test_class_version_parsed() -> None:
 # === LVClass.ancestors ========================================================
 
 
-def test_ancestor_chain_resolves_across_directories() -> None:
-    """_TextTestResult.JUnitXML.lvclass's parent (_TextTestResult) is decoded
-    as a vi.lib-style link (is_vilib_parent=True) but its file is actually
-    IN-REPO under a different branch of the tree (Classes/_TextTestResult/,
-    not a sibling of the child) -- the walk-up+rglob resolution must still
-    find it and continue to the root (TestResult)."""
+def test_ancestor_chain_stops_at_a_parent_not_at_its_recorded_path() -> None:
+    """_TextTestResult.JUnitXML.lvclass's parent (_TextTestResult) is recorded
+    under ``<vilib>`` (where the toolkit installs it); the file in the repo
+    under a different branch of the tree (Classes/_TextTestResult/) is not at
+    that path, so it is not taken in its place: the chain names the parent and
+    stops there."""
     lvclass_path = (
         JKI_ROOT
         / "Ant Plugin"
@@ -98,7 +98,7 @@ def test_ancestor_chain_resolves_across_directories() -> None:
     _skip_unless(lvclass_path)
 
     cls = parse_lvclass(lvclass_path)
-    assert cls.ancestors == ["_TextTestResult", "TestResult"]
+    assert cls.ancestors == ["_TextTestResult"]
 
 
 def test_root_class_has_empty_ancestor_chain() -> None:
@@ -178,4 +178,4 @@ def test_is_static_reaches_class_fact() -> None:
     # class_version/ancestors are duplicated per method, same convention as
     # parent/private_data.
     assert static_fact.class_version == "1.0.0.0"
-    assert static_fact.ancestors == ["_TextTestResult", "TestResult"]
+    assert static_fact.ancestors == ["_TextTestResult"]

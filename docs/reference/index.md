@@ -28,8 +28,7 @@ to be resolved first.
 ## Query across a repo
 
 Index a repo once (`lvkit index`, though the commands below build/refresh it for
-you), then ask project-wide questions in one call — no per-VI round trips, no
-same-name collision loss.
+you), then ask project-wide questions in one call — no per-VI round trips.
 
 - [query](query.md) — read-only SQL over the repo's index (views: `vi`,
   `terminal`, `constant`, `node`, `type_use`, the type catalog `type` / `type_field` /
@@ -60,7 +59,7 @@ same-name collision loss.
 
 ## Shared options
 
-- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--search-path`, `--vilib`, `--userlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, and `render`, explained once.
+- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--vilib`, `--userlib`, `--instrlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, and `render`, explained once.
 - [Netlist](netlist.md) — the node-first text grammar shared by `describe --verbose`'s `## Netlist` section, `diff`'s text output, and the interactive diff viewer's Tree change list.
 
 ---

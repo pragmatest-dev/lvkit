@@ -25,23 +25,24 @@ trap 'rm -rf "$WORK"' EXIT
 lvk() { ( cd "$ROOT" && uv run lvkit "$@" ); }
 
 # --- JKI VI Tester: TestCase/run.vi at 3.0.0 (base) vs 3.0.1 (head) -----------
-# run_base = the committed run.vi at tag 3.0.0; run_head = the same file at 3.0.1
-# (JKI wrapped several nodes in a new Case between those releases). Both are real
-# public commits — extracted with `git show`, never hand-edited.
+# base = the committed tree at tag 3.0.0; head = the same tree at 3.0.1 (JKI
+# wrapped several nodes in a new Case between those releases). Both are real
+# public commits, checked out whole so every SubVI sits at the path run.vi
+# records for it — never hand-edited.
 JKI="$WORK/JKI-VI-Tester"
 RUNVI="source/Classes/TestCase/run.vi"
 echo "clone JKI-VI-Tester (BSD-3-Clause)"
 git clone --quiet https://github.com/JKISoftware/JKI-VI-Tester.git "$JKI"
-git -C "$JKI" show 3.0.0:"$RUNVI" > "$WORK/run_base.vi"
-git -C "$JKI" show 3.0.1:"$RUNVI" > "$WORK/run_head.vi"
+git -C "$JKI" worktree add --quiet --detach "$WORK/base" 3.0.0
+git -C "$JKI" worktree add --quiet --detach "$WORK/head" 3.0.1
 
 echo "→ render: testcase  ($OUT/render/testcase.html)"
-lvk render "$WORK/run_base.vi" --format html --search-path "$JKI/source" \
+lvk render "$WORK/base/$RUNVI" --format html \
     --no-cache -o "$OUT/render/testcase.html"
 
 echo "→ diff:   testcase  ($OUT/diff/testcase.html)"
-lvk diff "$WORK/run_base.vi" "$WORK/run_head.vi" --format html \
-    --search-path "$JKI/source" --no-cache -o "$OUT/diff/testcase.html"
+lvk diff "$WORK/base/$RUNVI" "$WORK/head/$RUNVI" --format html \
+    --no-cache -o "$OUT/diff/testcase.html"
 
 # --- OpenG MD5 (BSD-3-Clause), reproduced from upstream .vip packages ---------
 OPENG="$WORK/openg"
@@ -50,7 +51,7 @@ uv run python "$ROOT/scripts/reproduce_openg_corpus.py" "$OPENG"
 MD5="$OPENG/File Group 0/user.lib/_OpenG.lib/md5/md5.llb/MD5 Message Digest (Binary String)__ogtk.vi"
 
 echo "→ render: md5       ($OUT/render/md5.html)"
-lvk render "$MD5" --format html --search-path "$OPENG" \
+lvk render "$MD5" --format html --userlib "$OPENG/File Group 0/user.lib" \
     --no-cache -o "$OUT/render/md5.html"
 
 echo "done → $OUT"

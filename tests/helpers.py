@@ -31,7 +31,7 @@ def transitive_closure(
     ``entry`` itself (the extension stages the opened VI too)."""
     entry = entry.resolve()
     graph = InMemoryVIGraph()
-    name = graph.load_vi(entry, LoadMode.MINIMAL, search_paths=[root])
+    name = graph.load_vi(entry, LoadMode.MINIMAL)
     closure = {p.resolve() for p in graph.get_dependency_paths(name or str(entry))}
     if include_entry:
         closure.add(entry)
@@ -74,7 +74,7 @@ def progressive_closure(entry: Path, root: Path, proj: Path) -> set[Path]:
     entry_in_proj = proj / rel_entry
     for _ in range(20):  # bounded; real closures converge in a handful of passes
         graph = InMemoryVIGraph()
-        name = graph.load_vi(entry_in_proj, LoadMode.MINIMAL, search_paths=[proj])
+        name = graph.load_vi(entry_in_proj, LoadMode.MINIMAL)
         added = 0
         for dep in graph.get_dependency_paths(name or str(entry_in_proj)):
             try:

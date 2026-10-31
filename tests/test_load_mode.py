@@ -30,7 +30,7 @@ CLASS_VI = Path(
 
 def _render(vi: Path, mode: LoadMode) -> tuple[str, int]:
     g = InMemoryVIGraph()
-    key = g.load_vi(vi, search_paths=None, layout=True, mode=mode)
+    key = g.load_vi(vi, layout=True, mode=mode)
     assert key is not None
     n_vis = sum(
         1

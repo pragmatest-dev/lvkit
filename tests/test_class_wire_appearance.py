@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.cli import _auto_search_paths
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.models import WireLineStyle
@@ -67,8 +66,7 @@ def test_no_pen_is_none() -> None:
 
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    sp = _auto_search_paths([], vi_path, vi_path)
-    graph.load_vi(str(vi_path), LoadMode.MINIMAL, search_paths=sp, layout=True)
+    graph.load_vi(str(vi_path), LoadMode.MINIMAL, layout=True)
     return graph, graph.resolve_vi_name(vi_path.name)
 
 
@@ -124,20 +122,16 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
     """Issue #84: ConfigurableActor.lvclass's parent (Actor) has NO plain-XML
     ``Parent`` Item (no ``parent_url``) and no in-repo cross-subtree URL —
     only the binary ``ParentClassLinkInfo``'s ``<vilib>``-rooted PTH0 record
-    (``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``). Before the
-    fix, ``_resolve_parent``'s name-only ``_walk_up_find`` fallback (no
-    search_paths) couldn't reach a vi.lib-installed parent at all:
-    ``get_class_fields`` returned only ConfigurableActor's own 6 fields and
-    ``get_class_wire_style`` returned None (Actor's blue pen unreachable).
-    Resolved via ``ParsedDependencyRef.resolve_against`` (search_paths
-    mapped onto ``<vilib>``, no configured vilib_root needed) now inherits
-    both: Actor's fields prepend ConfigurableActor's own, and the wire style
-    is Actor's own pen."""
+    (``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``). With the
+    folder that path starts from named as the vi.lib root (the sample vendors
+    vi.lib's ActorFramework under ``actor-framework/Core``), the parent is the
+    file at that exact path, and the class inherits both: Actor's fields
+    prepend ConfigurableActor's own, and the wire style is Actor's own pen."""
     graph = InMemoryVIGraph()
+    graph.set_library_roots(vilib_root=AF_ROOT.parent)
     graph.load_lvclass(
         CONFIG_ACTOR_CLASS,
         LoadMode.MINIMAL,
-        search_paths=[AF_ROOT.parent.parent, CAF_ROOT],
     )
 
     fields = graph.get_class_fields("ConfigurableActor.lvclass")
@@ -161,13 +155,18 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
 
 @pytest.mark.skipif(not TESTLOADER_CLASS.exists(), reason="JKI sample not present")
 def test_in_repo_same_tree_parent_still_resolves() -> None:
-    """No regression (issue #84): a class whose parent has NO ``<vilib>``
-    marker (TextTestRunner's parent TestRunner — in-repo, resolved via the
-    existing bare-name ``_walk_up_find`` fallback, completely untouched by
-    the new vilib-rooted-parent path since ``is_vilib_parent`` gates it) is
-    unaffected: same field count and names before and after the fix."""
+    """A class whose parent has NO ``<vilib>`` marker (TextTestRunner's parent
+    TestRunner, in a sibling folder) is found by the path its link record
+    holds, so its fields are the parent's then its own."""
     lvclass_path = JKI_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
     graph = InMemoryVIGraph()
-    graph.load_lvclass(lvclass_path, LoadMode.MINIMAL, search_paths=[JKI_ROOT])
+    graph.load_lvclass(lvclass_path, LoadMode.MINIMAL)
     fields = graph.get_class_fields("TextTestRunner.lvclass")
-    assert [f.name for f in fields] == ["stream", "descriptions", "verbosity"]
+    assert [f.name for f in fields] == [
+        "publicEvents",
+        "Start Time",
+        "Stop Time",
+        "stream",
+        "descriptions",
+        "verbosity",
+    ]
