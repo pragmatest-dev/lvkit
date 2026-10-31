@@ -24,19 +24,23 @@ from .models import (
     vi_health_to_dict,
     vi_properties_to_dict,
 )
+from .netlist_fp_placement import placed_scopes
 from .netlist_models import (
     ConnectorPaneTerminal,
     DefaultValue,
     EtaMerge,
+    FrameOutputDrive,
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistComponent,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -45,9 +49,11 @@ from .netlist_models import (
     NetlistPropertyAccess,
     NetlistTerminalBinding,
     NetRef,
+    ReferenceTargetKind,
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
+    StructureInput,
 )
 from .typedef import TypedefField, TypedefInfo, TypedefRef
 
@@ -168,6 +174,19 @@ def _sequence_local_unreadable_to_dict(
     }
 
 
+def _frame_output_drive_to_dict(drive: FrameOutputDrive) -> dict[str, Any]:
+    return {
+        "net": drive.net,
+        "kind": "frame_output",
+        "frame": drive.frame,
+        "value": _netref_to_dict(drive.value),
+    }
+
+
+def _structure_input_to_dict(item: StructureInput) -> dict[str, Any]:
+    return {"net": item.net, "value": _netref_to_dict(item.value)}
+
+
 def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
     if isinstance(merge, GammaMerge):
         return _gamma_to_dict(merge)
@@ -179,6 +198,8 @@ def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
         return _sequence_local_drive_to_dict(merge)
     if isinstance(merge, SequenceLocalUnreadable):
         return _sequence_local_unreadable_to_dict(merge)
+    if isinstance(merge, FrameOutputDrive):
+        return _frame_output_drive_to_dict(merge)
     return _eta_to_dict(merge)
 
 
@@ -242,6 +263,8 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     - every other ``LVType`` field carried through verbatim.
     - ``dotnet_type``: the full assembly-qualified .NET type of a .NET node's
       terminal; the key is absent for every other type.
+    - ``unreadable``: why a type's descriptor could not be read; the key is
+      absent for every type that read.
     """
     result: dict[str, Any] = {
         "kind": lv_type.kind.value,
@@ -284,6 +307,9 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     if lv_type.dotnet_type is not None:
         # Only a .NET node's terminal has one: the assembly-qualified name.
         result["dotnet_type"] = lv_type.dotnet_type.qualified
+    if lv_type.unreadable is not None:
+        # Only a type whose descriptor could not be read has one: why.
+        result["unreadable"] = lv_type.unreadable
     return result
 
 
@@ -352,7 +378,9 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     additionally nests each wired input/output's own structured ``lv_type``
     (see ``_instance_input_to_dict``/``_instance_output_to_dict``) -- terse
     output is completely unaffected."""
-    if isinstance(item, NetlistConstant):
+    if isinstance(item, NetlistConstant | NetlistIndicatorDrive | NetlistControlRead):
+        # A placed terminal's line is the ``scope`` of its own ``inputs`` /
+        # ``outputs`` entry (``_scope_entry``), not a body item.
         return None
     if isinstance(item, NetlistInstance):
         # Phase A: ``item.inputs`` now carries EVERY real terminal, wired or
@@ -388,6 +416,19 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             instance["global_vi"] = item.global_vi
             instance["control"] = item.name
             instance["access"] = item.access
+        elif item.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
+            # A Control Reference constant: what it references -- ``target`` is
+            # "This VI", "This Application" or "control" (then ``control`` names
+            # it); ``null`` when the reference's type does not say.
+            assert item.reference is not None
+            instance["kind"] = "vi_server_reference"
+            instance["target"] = (
+                None
+                if item.reference.kind is ReferenceTargetKind.UNKNOWN
+                else item.reference.kind.value
+            )
+            instance["control"] = item.reference.control
+            instance["control_uid"] = item.reference.control_uid
         elif item.kind == NetlistInstanceKind.SHARED_VARIABLE:
             instance["kind"] = "shared_variable"
             instance["library"] = item.library
@@ -413,7 +454,13 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop
     # scope kinds rather than always-present-but-empty, to keep the JSON
     # shape for case/sequence/disabled/event scopes unchanged.
+    if item.inputs:
+        d["inputs"] = [_structure_input_to_dict(i) for i in item.inputs]
     if item.kind in ("for", "while"):
+        d["condition"] = (
+            item.condition_mode.name.lower() if item.condition_mode else None
+        )
+        d["count"] = _netref_to_dict(item.count) if item.count else None
         d["parallel"] = item.parallel
         d["parallel_static_workers"] = item.parallel_static_workers
         d["tunnels"] = [
@@ -428,6 +475,17 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             for t in item.tunnels
         ]
     return d
+
+
+def _scope_entry(where: tuple[str, str | None] | None) -> dict[str, Any]:
+    """``{"scope": {"uid": <structure uid>, "frame": <frame value>}}`` for a
+    front-panel terminal that sits inside a structure (a loop or In Place
+    Element body has ``"frame": null``); empty for one on the VI's own diagram,
+    so those entries keep their shape."""
+    if where is None:
+        return {}
+    uid, frame = where
+    return {"scope": {"uid": uid, "frame": frame}}
 
 
 def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str, Any]:
@@ -458,6 +516,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
     (and the netlist-from-graph parity test, which compares non-verbose
     output) is byte/JSON-identical to pre-verbose output.
     """
+    placed = placed_scopes(module)
     result: dict[str, Any] = {
         "vi": module.vi_name,
         # Authored connector pane (pattern + canonically-ordered terminals), a
@@ -474,6 +533,11 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "default": p.default,
                     "caption": p.caption,
                     "caption_visible": p.caption_visible,
+                    **_scope_entry(
+                        (placed.reads if p.direction == "input" else placed.drives).get(
+                            p.terminal_uid or p.name
+                        )
+                    ),
                     **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
                         {"lv_type": _lv_type_to_dict(p.lv_type)}
@@ -490,6 +554,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "type": inp.type_descriptor,
                 "caption": inp.caption,
                 "caption_visible": inp.caption_visible,
+                **_scope_entry(placed.reads.get(inp.terminal_uid or inp.name)),
                 **(
                     {"lv_type": _lv_type_to_dict(inp.lv_type)}
                     if verbose and inp.lv_type is not None
@@ -505,6 +570,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "source": _netref_to_dict(o.source) if o.source else None,
                 "caption": o.caption,
                 "caption_visible": o.caption_visible,
+                **_scope_entry(placed.drives_by_output.get(id(o))),
                 **(
                     {"lv_type": _lv_type_to_dict(o.lv_type)}
                     if verbose and o.lv_type is not None

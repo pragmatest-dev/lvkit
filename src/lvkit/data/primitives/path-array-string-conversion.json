@@ -59,7 +59,8 @@
           "index": 1,
           "direction": "in",
           "name": "is_relative",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,

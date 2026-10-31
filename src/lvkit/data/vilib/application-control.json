@@ -19,7 +19,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "machine_name",
-          "default_value": null,
           "description": "machine name is the address of the computer that runs an application instance to which you want to establish a connection. This address can be in dotted decimal notation (such as 130.164.15.250 ) or domain name notation (such as foo.ni.com ). An empty string causes this function to return a reference to the local application instance."
         },
         {
@@ -29,7 +28,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "port_number_or_service_name",
-          "default_value": null,
           "description": "port number or service name can accept a numeric or a string input. The default is a numeric. port number or service name is the port on which the remote LabVIEW application is listening. If you specify a service name, LabVIEW queries the NI Service Locator for the port number that the server registered. The default is to use the default VI Server listener port number (3363). To establish communication between a VI and another LabVIEW application, you must know both the machine name and the port number or service name on which the VI Server in the other LabVIEW application is listening. If you have more than one LabVIEW application on the same machine, one or more of those applications may be listening on a port other than the default VI Server listener port. In this case, make sure to supply the port number or service name . Use the VI Server page to set the port number and service name for a VI Server or use the Server:Port and Server:Service Name properties to set the port number or service name programmatically. Note The VI Server settings in the Options dialog box apply to the default application instance, or VIs not in a project. To set VI Server settings for a project application instance, right-click the target in the Project Explorer window."
         },
         {
@@ -39,7 +37,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -49,7 +46,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "application_reference",
-          "default_value": null,
           "description": "application reference is the reference to the specified application."
         },
         {
@@ -59,7 +55,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -81,7 +76,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_specifier_vi_refnum",
-          "default_value": null,
           "description": "type specifier VI Refnum (for type only) determines the connector pane information and data type of vi reference . LabVIEW ignores the actual value of this input. By default, the function returns a Generic VI reference. If you want to use the vi reference output of this function with the Call By Reference node or the Start Asynchronous Call node, you must wire a strictly typed VI reference to this input. If you wire a strictly typed VI reference to this input, the connector pane of the VI specified by vi path must match the connector pane of this input."
         },
         {
@@ -91,7 +85,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "application_reference",
-          "default_value": null,
           "description": "application reference is a reference to a LabVIEW application instance . By default, LabVIEW uses the application instance of the calling VI. You can obtain references to other application instances with the Open Application Reference function. If you wire a reference to another application instance to the application reference input, vi path refers to a location in the file system of the computer that is running that application instance."
         },
         {
@@ -101,7 +94,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_path",
-          "default_value": null,
           "description": "vi path accepts a path to the VI that you want to reference, a string containing the name of the VI that you want to reference, or a VI reference to the VI that you want to reference. If you wire a path, LabVIEW searches for a VI in memory that you previously loaded from that path on the same target. If you wire a name string, the string must match the full delimited name of a VI in memory on that target. If a matching VI is not found in memory, LabVIEW then tries to load the VI from that file on disk. An error occurs if LabVIEW cannot find the file. If the path is relative, the VI interprets the path as relative to the caller VI or to the application directory, if the caller VI is not saved. Note If you specify a remote application instance with application reference , the path is interpreted on the remote machine in the context of the remote file system. The path is expressed using the local computer's path separators, but is translated to the remote computer's path separators when the request arrives there. For example, to reference a VI on Linux at My HD/LabVIEW Vis/foo.vi from a Windows–based application, use the path My HD:\\LabVIEW Vis\\foo.vi . Conversely, to reference a VI on a computer running Windows at C:\\labview\\foo.vi from an Linux application, wire the path C/labview/foo.vi ."
         },
         {
@@ -111,7 +103,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "default_value": null,
           "description": ""
         },
         {
@@ -121,7 +112,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -131,7 +121,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "password",
-          "default_value": null,
           "description": "password is the password for the VI whose reference you want to open. Wire a password to this input if you want to edit a password-protected target VI. If you wire the correct password, the function returns an authenticated reference to the VI. If you wire an incorrect password to this input, the function returns an error and an invalid VI reference. LabVIEW ignores this input if the target VI is not password-protected. If you do not wire a password to this input and the target VI is password-protected, the Open VI Reference function returns a valid reference, but you cannot use the reference to edit the VI. Note You can also use a VI Server Reference to get an authenticated reference to a VI."
         },
         {
@@ -141,7 +130,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_reference",
-          "default_value": null,
           "description": "vi reference is the refnum associated with the requested VI. If the function fails, vi reference contains Not A Refnum ."
         },
         {
@@ -151,7 +139,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -184,7 +171,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with an open VI, VI object, an open application instance, or a .NET or ActiveX object. reference also accepts 1D arrays of references."
         },
         {
@@ -194,7 +180,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -204,7 +189,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -226,7 +210,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -236,7 +219,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "application_name",
-          "default_value": null,
           "description": "application name returns the name of the application that launched this VI. The application can be LabVIEW or a LabVIEW-built application."
         },
         {
@@ -246,7 +228,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "arguments",
-          "default_value": null,
           "description": "arguments returns the user-defined arguments passed from the command line. User-defined arguments start after two hyphens (--) surrounded by spaces in the command line."
         },
         {
@@ -256,7 +237,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -278,7 +258,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the object for which you want to set or get properties. If the Property Node class is Application or VI, you do not have to wire a refnum to this input. For the Application class, the default is the current application instance. For the VI class, the default is the VI containing the Property Node. You also can wire a LabVIEW class to the reference input to access the private data of the LabVIEW class."
         },
         {
@@ -288,7 +267,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -298,7 +276,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "property_",
-          "default_value": null,
           "description": "property 2..n are examples of properties you want to set (write)."
         },
         {
@@ -308,7 +285,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -318,7 +294,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -328,7 +303,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "property_",
-          "default_value": null,
           "description": "property 1..n are examples of properties you want to get (read)."
         }
       ]
@@ -350,7 +324,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the object on which you want to invoke a method or perform an action. If the Invoke Node class is Application or VI, you do not have to wire a refnum to this input. For the Application class, the default is the current application instance. For the VI class, the default is the VI containing the Invoke Node."
         },
         {
@@ -360,7 +333,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -370,7 +342,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -380,7 +351,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -402,7 +372,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with a VI that is already open. The reference must be a strictly typed VI reference."
         },
         {
@@ -412,7 +381,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -422,7 +390,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -432,7 +399,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -454,7 +420,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": ""
         },
         {
@@ -464,7 +429,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -474,7 +438,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -484,7 +447,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -506,7 +468,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": ""
         },
         {
@@ -516,7 +477,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -526,7 +486,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -536,7 +495,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -558,7 +516,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to downcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -568,7 +525,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to downcast."
         },
         {
@@ -578,7 +534,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -588,7 +543,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "specific_class_reference",
-          "default_value": null,
           "description": "specific class reference is the downcast reference. If the target class is incompatible with the reference , the function returns an error and specific class reference is Not A Refnum ."
         },
         {
@@ -598,7 +552,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -620,7 +573,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to upcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -630,7 +582,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to upcast."
         },
         {
@@ -640,7 +591,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "generic_class_reference",
-          "default_value": null,
           "description": "generic class reference is the upcasted reference. If an error occurs, generic class reference is Not A Refnum ."
         }
       ]
@@ -662,7 +612,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "call_chain",
-          "default_value": null,
           "description": "call chain is the chain of callers from the current VI to the top-level VI."
         }
       ]
@@ -684,7 +633,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_name",
-          "default_value": null,
           "description": "data name is the user-defined name of the drag data that you want to retrieve. You also can use the built-in LabVIEW data types. LabVIEW Data Type Definition LV_TEXT String LV_TREE_TAG String LV_TREE_ITEMS Array of a cluster that contains an array of strings in the item you are dragging (in order from left to right), an integer that represents the glyph index associated with the item from which you are dragging data, and an integer that represents the indent level of the item from which you are dragging. LV_LISTBOX_ITEMS Array of a cluster that contains an array of strings in the item you are dragging (in order from left to right) and an integer that represents the glyph index associated with the item from which you are dragging data. LV_PATH Path"
         },
         {
@@ -694,7 +642,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_",
-          "default_value": null,
           "description": "type is the data type of the drag data you want to retrieve."
         },
         {
@@ -704,7 +651,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -714,7 +660,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "data is the drag data returned from LabVIEW. data can adapt to any data type."
         },
         {
@@ -724,7 +669,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -746,7 +690,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stop",
-          "default_value": null,
           "description": "stop? is the Boolean value that determines if the VI stops. If you wire an error cluster to stop? and an error occurs, the error cluster passes a TRUE value to the function."
         }
       ]
@@ -768,7 +711,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "quit_",
-          "default_value": null,
           "description": "If quit? is TRUE (default), LabVIEW quits. If you wire an error cluster to quit? and an error occurs, the error cluster passes a TRUE value to the function."
         }
       ]
@@ -790,7 +732,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_refnum",
-          "default_value": null,
           "description": "VI Refnum specifies a reference to the VI for which you want to set multiple control values. You can wire a strict or non-strict reference to this input. The default is a reference to the current VI."
         },
         {
@@ -800,7 +741,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_indexes",
-          "default_value": null,
           "description": "control indexes specifies the indexes of the front panel controls for which you want to set values. Use the Control Index property in the Control class to retrieve control indexes."
         },
         {
@@ -810,7 +750,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_values",
-          "default_value": null,
           "description": "data values specifies the values to write to the controls. The default is a variant, but you also can specify the data type for the values you want to write to the control. To specify a single control, wire a scalar index to control indexes and wire a single value to data values ."
         },
         {
@@ -820,7 +759,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -830,7 +768,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -852,7 +789,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_refnum",
-          "default_value": null,
           "description": "VI Refnum specifies a reference to the VI from which you want to get control values. You can wire a strict or non-strict reference to this input. The default is a reference to the current VI."
         },
         {
@@ -862,7 +798,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_indexes",
-          "default_value": null,
           "description": "control indexes specifies an array of indices of front panel controls for which you want to get values. Use the Control Index property in the Control class to retrieve control indexes."
         },
         {
@@ -872,7 +807,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -882,7 +816,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_values",
-          "default_value": null,
           "description": "data values returns the control values."
         },
         {
@@ -892,7 +825,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -914,7 +846,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_logical_processors",
-          "default_value": null,
           "description": "# of logical processors is the number of processing units. Note This function returns the total number of logical processors, which might be different from the number currently available to LabVIEW. For example, this function includes disabled processors in # of logical processors ."
         },
         {
@@ -924,7 +855,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_packages",
-          "default_value": null,
           "description": "# of packages is the number of packages, or chips. For example, a single hyperthreaded processor can have two or more logical processors, and a machine with two quad-core processors has eight logical processors."
         },
         {
@@ -934,7 +864,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_cores_per_package",
-          "default_value": null,
           "description": "# of cores per package is the number of cores each package contains."
         },
         {
@@ -944,7 +873,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_logical_processors_per_core",
-          "default_value": null,
           "description": "# of logical processors per core is the number of processing units each core contains."
         }
       ]
@@ -966,7 +894,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cache_level",
-          "default_value": null,
           "description": "cache level is the cache level for which to return information. The default is 2."
         },
         {
@@ -976,7 +903,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "total_cache_size",
-          "default_value": null,
           "description": "total cache size (in bytes) is the size of the cache for the cache level you specify."
         },
         {
@@ -986,7 +912,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cache_entry_size",
-          "default_value": null,
           "description": "cache entry size (in bytes) is the size of entries for the cache level you specify."
         }
       ]
@@ -1008,7 +933,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_cache_levels",
-          "default_value": null,
           "description": "# of cache levels is the number of cache levels."
         }
       ]
@@ -1025,28 +949,24 @@
         {
           "name": "data value",
           "description": "data value is the data you want the reference to point to. Use the In Place Element structure to alter the data and the Delete Data Value Reference function to recover the data.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "data_value"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "data value reference",
           "description": "data value reference is the reference that points to the data. Functions 2414 ni.com",
-          "default_value": null,
           "enum_values": null,
           "python_param": "data_value_reference"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Data value references contain the same data type of the data they point to. Do not type cast data value references. However, you can upcast or downcast data value references that contain LabVIEW classes.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -1069,7 +989,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value",
-          "default_value": null,
           "description": "data value is the data you want the reference to point to. Use the In Place Element structure to alter the data and the Delete Data Value Reference function to recover the data."
         },
         {
@@ -1079,7 +998,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1089,7 +1007,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value_reference",
-          "default_value": null,
           "description": "data value reference is the reference that points to the data."
         },
         {
@@ -1099,7 +1016,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1121,7 +1037,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value_reference",
-          "default_value": null,
           "description": "data value reference points to the data you want to recover. LabVIEW deletes this reference after you recover the data. Use the New Data Value Reference function to create a data value reference."
         },
         {
@@ -1131,7 +1046,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -1141,7 +1055,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value",
-          "default_value": null,
           "description": "data value is the data the reference points to."
         },
         {
@@ -1151,7 +1064,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1173,7 +1085,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1183,7 +1094,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "total_physical_memory",
-          "default_value": null,
           "description": "total physical memory returns the total amount of physical memory, in kilobytes, on the system."
         },
         {
@@ -1193,7 +1103,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "memory_allocated_for_labview",
-          "default_value": null,
           "description": "memory allocated for LabVIEW returns the memory size, in kilobytes, allocated for the LabVIEW process."
         },
         {
@@ -1203,7 +1112,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "free_physical_memory",
-          "default_value": null,
           "description": "free physical memory returns the amount of physical memory, in kilobytes, on the system that is not used."
         },
         {
@@ -1213,7 +1121,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1235,7 +1142,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y is any data to place in the memory location of the x input."
         },
         {
@@ -1245,7 +1151,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "var",
-          "default_value": null,
           "description": "?(T) specifies whether you want to swap the values of the x and y inputs."
         },
         {
@@ -1255,7 +1160,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is any data to place in the memory location of the y input."
         },
         {
@@ -1265,7 +1169,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y' returns the data from the x input."
         },
         {
@@ -1275,7 +1178,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x' returns the data from the y input."
         }
       ]
@@ -1297,7 +1199,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "Input is any data to copy to a new location in memory."
         },
         {
@@ -1307,7 +1208,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "Output returns the data from Input that LabVIEW copied to a new location in memory."
         }
       ]
@@ -1329,7 +1229,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "flag",
-          "default_value": null,
           "description": "If flag is TRUE, this function deallocates memory after the VI that contains this function runs."
         }
       ]
@@ -1351,7 +1250,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_specifier_vi_refnum",
-          "default_value": null,
           "description": "type specifier VI Refnum (for type only) determines the data type of the new VI that this function returns in vi refnum . If you wire a reference to a pre-existing VI to this parameter, LabVIEW assigns the data type of that VI to the new VI. Note that LabVIEW does not copy the contents of the pre-existing VI into the new VI. If you do not wire data to this input, LabVIEW returns a Generic VI reference for vi refnum ."
         },
         {
@@ -1361,7 +1259,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "default_value": null,
           "description": "options is a bit set that specifies two optional characteristics of the new VI reference that this function creates. The default is 0x0 . options can be a combination of the following values. 0x01 Records VI Server modifications to the new VI created by this function. When you modify the new VI using VI Server properties or methods, an asterisk (*) appears by the title of the VI in its title bar, the list of open VIs displayed in the Window menu, and the All Windows dialog box. The VI must be in edit mode for LabVIEW to record the modifications. 0x04 Prompts user at close. When you attempt to close vi refnum after making changes, LabVIEW prompts you to save before closing the VI."
         },
         {
@@ -1371,7 +1268,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "application_refnum",
-          "default_value": null,
           "description": "application refnum is a reference to the LabVIEW application instance in which you want this function to create the new VI. By default, the function creates the new VI in the same application instance that called the New VI function. If you wire a reference to a remote application instance to application refnum , LabVIEW creates the new VI in the remote application instance."
         },
         {
@@ -1381,7 +1277,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "template",
-          "default_value": null,
           "description": "template is a path to a template VI whose contents you want LabVIEW to copy into the new VI that this function creates. When you create a new VI from a template by wiring a path to the template input, you avoid the need to create each template object individually in the new VI. You can modify small parts of the code that was copied from the template into the new VI to create a customized version of the template. To make modifications, you must obtain references to objects in the copied code . Then you can set properties or invoke methods to change the objects."
         },
         {
@@ -1391,7 +1286,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_type",
-          "default_value": null,
           "description": "vi type specifies the exact type of VI that this function returns as vi refnum . vi type must be at least as specific as type specifier VI Refnum (for type only) . 0 invalid VI type 1 Standard VI (default) 2 Control VI 3 Global VI 4 Polymorphic VI 5 Configuration VI 6 SubSystem 7 Facade VI 8 Method VI 9 Statechart Diagram VI"
         },
         {
@@ -1401,7 +1295,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1411,7 +1304,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "password",
-          "default_value": null,
           "description": "password is the password for the VI specified by the template parameter. If template is not password protected, LabVIEW ignores password . If template is password protected but you do not wire password , LabVIEW copies only the parts of the template VI that are not password protected into the new VI."
         },
         {
@@ -1421,7 +1313,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_refnum",
-          "default_value": null,
           "description": "vi refnum is a reference to the newly created VI. If LabVIEW fails to create a new VI, vi refnum returns Not A Refnum ."
         },
         {
@@ -1431,7 +1322,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1453,7 +1343,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_object_class",
-          "default_value": null,
           "description": "vi object class indicates the class of object whose reference you wish to obtain. To specify a class type, wire a class specifier constant to this input. A class specifier constant displays a hierarchical menu that contains the classes of all of the objects in LabVIEW. You can navigate this hierarchy to find the class of the object you need to reference. This function also uses vi object class to determine the type of reference returned by object refnum . For example, if you wire a Boolean-typed Class Specifier Constant to vi object class , the returned object refnum changes to a Boolean reference."
         },
         {
@@ -1463,7 +1352,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "owner_refnum",
-          "default_value": null,
           "description": "owner refnum is a reference to the owner of the object whose reference you want to obtain. The owner must be a front panel, a cluster, a block diagram, or a structure diagram. For example, to obtain a reference for a control on the front panel, wire a reference to the front panel to owner refnum . Likewise, to obtain a reference for an object inside a For Loop, wire a reference to the diagram of the For Loop to owner refnum ."
         },
         {
@@ -1473,7 +1361,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "nameorder",
-          "default_value": null,
           "description": "name/order indicates the object whose reference you want to obtain. name/order must match the label of the desired object. If you are obtaining the reference for an object within a cluster, you can use an array of strings that contain the names of the container hierarchy."
         },
         {
@@ -1483,7 +1370,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1493,7 +1379,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_refnum",
-          "default_value": null,
           "description": "object refnum returns a reference to the object that matches both the class specified by vi object class and the label specified by name/order . This reference is of the class specified by vi object class ."
         },
         {
@@ -1503,7 +1388,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1525,7 +1409,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "auto_wire",
-          "default_value": null,
           "description": "auto wire? specifies whether LabVIEW attempts to automatically wire the terminals of the new object with compatible terminals of the source object wired to location . National Instruments recommends that you do not use this input. Instead, use VI Scripting to wire the new object to other objects precisely ."
         },
         {
@@ -1535,7 +1418,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_object_class",
-          "default_value": null,
           "description": "vi object class indicates the class of the object you want to create. To specify a class, wire a class specifier constant to this input. A class specifier constant displays a hierarchical menu that contains the classes of all of the objects in LabVIEW. To identify which class to use for a specific object, explore the anatomy of common VI objects ."
         },
         {
@@ -1545,7 +1427,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "owner_refnum",
-          "default_value": null,
           "description": "owner refnum is a reference to the container into which you want to place the new object. The most common containers are VIs, clusters, and the diagrams of loops and other structures. For example, to add a new control to the front panel of a VI, wire a reference to either the relevant VI or the front panel of the relevant VI to owner refnum . To place a new object inside of a For Loop, wire a reference to the diagram of the relevant For Loop to owner refnum ."
         },
         {
@@ -1555,7 +1436,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "style",
-          "default_value": null,
           "description": "style indicates the exact kind of object to create. When you create a constant from the style terminal, you obtain a list of all the objects that are native to LabVIEW. Select a value for style that is compatible with the class specified by vi object class . For example, you can select the Round Push Button style if viobject class is Boolean, and you can select the Add style if viobject class is Function. However, LabVIEW returns a run time error if you select the Add style when viobject class is Boolean because this pairing is not compatible."
         },
         {
@@ -1565,7 +1445,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "location",
-          "default_value": null,
           "description": ""
         },
         {
@@ -1575,7 +1454,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "horizontal",
-          "default_value": null,
           "description": "Horizontal is the horizontal position."
         },
         {
@@ -1585,7 +1463,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
-          "default_value": null,
           "description": "Vertical is the vertical position."
         },
         {
@@ -1595,7 +1472,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1605,7 +1481,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "path",
-          "default_value": null,
           "description": "path is a path to a subVI or pre-existing custom control. Wire data to path only when you want to add one of these objects to the owner."
         },
         {
@@ -1615,7 +1490,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bounds",
-          "default_value": null,
           "description": "bounds specifies the width and height of the new object if the new object is resizable. LabVIEW ignores bounds for fixed-sized objects."
         },
         {
@@ -1625,7 +1499,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "height",
-          "default_value": null,
           "description": "Height specifies the height of the object."
         },
         {
@@ -1635,7 +1508,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_refnum",
-          "default_value": null,
           "description": "object refnum returns a reference to the new object created by this function. The reference is of the class specified by vi object class ."
         },
         {
@@ -1645,7 +1517,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1663,14 +1534,12 @@
         {
           "name": "Other Refnum",
           "description": "Other Refnum is a reference to the container object you want to search if you specify the Traverse Target as Other. The reference must be a VI Server class that inherits from GObject, FlatSequenceFrame, or Page. LabVIEW ignores this input if Traverse Target is either FP or BD.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "other_refnum"
         },
         {
           "name": "Traverse Target",
           "description": "Traverse Target indicates the type of container object that you want to traverse. The following table contains the possible values for this input: 0 FP—Front panel 1 BD—Block diagram 2 Other—Container objects other than the front panel or block diagram. These include structure Functions",
-          "default_value": null,
           "enum_values": [
             [
               0,
@@ -1706,7 +1575,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "other_refnum",
-          "default_value": null,
           "description": "Other Refnum is a reference to the container object you want to search if you specify the Traverse Target as Other . The reference must be a VI Server class that inherits from GObject, FlatSequenceFrame, or Page. LabVIEW ignores this input if Traverse Target is either FP or BD ."
         },
         {
@@ -1716,7 +1584,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "traverse_target",
-          "default_value": null,
           "description": "Traverse Target indicates the type of container object that you want to traverse. The following table contains the possible values for this input:"
         },
         {
@@ -1726,7 +1593,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_refnum",
-          "default_value": null,
           "description": "VI Refnum is the reference to the VI you want to traverse. LabVIEW uses this input when Traverse Target is either FP or BD . LabVIEW ignores this input if you wire a reference to a specific container object to Other Refnum ."
         },
         {
@@ -1736,7 +1602,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
-          "default_value": null,
           "description": "Class Name is the VI Server class name of the object for which you are searching."
         },
         {
@@ -1746,7 +1611,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1756,7 +1620,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "traverse_generated_code",
-          "default_value": null,
           "description": "Traverse Generated Code specifies whether to traverse code that LabVIEW generates in the process of implementing certain functions. The default is FALSE."
         },
         {
@@ -1766,7 +1629,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dup_vi_refnum",
-          "default_value": null,
           "description": "dup VI Refnum returns VI Refnum unchanged."
         },
         {
@@ -1776,7 +1638,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "references",
-          "default_value": null,
           "description": "References is an array of GObject references to the objects this VI finds. Use the To More Specific Class function to downcast each reference if necessary."
         },
         {
@@ -1786,7 +1647,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_of_refs",
-          "default_value": null,
           "description": "# of Refs is the number of references in the References array."
         },
         {
@@ -1796,7 +1656,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1818,7 +1677,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "gobject",
-          "default_value": null,
           "description": "GObject specifies the reference to the object whose label you want to get."
         },
         {
@@ -1828,7 +1686,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1838,7 +1695,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dup_gobject",
-          "default_value": null,
           "description": "dup GObject returns the same GObject reference you wire to GObject ."
         },
         {
@@ -1848,7 +1704,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_label",
-          "default_value": null,
           "description": "Object Label returns a string that contains the label text of the object you specify in GObject . This parameter returns the same value as the Label.Text property."
         },
         {
@@ -1858,7 +1713,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_has_label",
-          "default_value": null,
           "description": "Object Has Label? indicates whether the object has a label."
         },
         {
@@ -1868,7 +1722,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -1878,7 +1731,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "label_reference",
-          "default_value": null,
           "description": "Label Reference returns a reference to the label of the object you specify in GObject ."
         }
       ]
@@ -1900,7 +1752,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
-          "default_value": null,
           "description": "Class Name is the VI Server class name of the object for which you want to get a class hierarchy."
         },
         {
@@ -1910,7 +1761,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1920,7 +1770,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_hierarchy",
-          "default_value": null,
           "description": "Class Hierarchy returns an array of class names, in descending order of inheritance, from the top-level class name to the class name you specify. For example, if you specify WhileLoop in Class Name this VI returns the array [Generic, Gobject, Node, Structure, Loop, WhileLoop] ."
         },
         {
@@ -1930,7 +1779,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1947,35 +1795,30 @@
         {
           "name": "Path to project",
           "description": "Path to project specifies the full path to the LabVIEW project (.lvproj) file that contains the build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "path_to_project"
         },
         {
           "name": "Name of build specification (if empty: build all)",
           "description": "Name of build specification specifies the name of the build specification. Enter the name that appears under Build Specifications in the Project Explorer window to specify which build specification builds. You can change the name of the build specification in the Build specification name text box on the Information page of the build specification properties dialog box. If you do not specify a build specification, the VI builds all build specifications under the specified target.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_build_specification_if_empty_build_all"
         },
         {
           "name": "Name of target (My Computer)",
           "description": "Name of target specifies the target that contains the build specification. The target is My Computer by default.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_target_my_computer"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "Generated files",
           "description": "Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "generated_files"
         }
@@ -1994,49 +1837,42 @@
         {
           "name": "Path to project",
           "description": "Path to project specifies the full path to the LabVIEW project (.lvproj) file that contains the build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "path_to_project"
         },
         {
           "name": "Name of build specification",
           "description": "Name of build specification specifies the name of the build specification for which you want to get version information. Enter the name that appears under Build Specifications in the Project Explorer window to retrieve the version information of a build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_build_specification"
         },
         {
           "name": "Name of target (My Computer)",
           "description": "Name of target specifies the target that contains the build specification. The target is My Computer by default.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_target_my_computer"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "Build Specification Version",
           "description": "Build Specification Version returns the version information of the build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "build_specification_version"
         },
         {
           "name": "Major",
           "description": "Major specifies the major version. This number may increment to reflect significant feature changes. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "major"
         }
@@ -2055,70 +1891,60 @@
         {
           "name": "Path to project",
           "description": "Path to project specifies the full path to the LabVIEW project (.lvproj) file that contains the build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "path_to_project"
         },
         {
           "name": "Name of build specification",
           "description": "Name of build specification specifies the name of the build specification for which you want to set version information. Enter the name that appears under Build Specifications in the Project Explorer window to set the version information of a build specification. Note Installer build specifications contain only Major, Minor, and Fix version numbers. Functions 2446 ni.com",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_build_specification"
         },
         {
           "name": "Name of target (My Computer)",
           "description": "Name of target specifies the target that contains the build specification. The target is My Computer by default.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_of_target_my_computer"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "Build Specification Version",
           "description": "Build Specification Version returns the version information of the build specification.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "build_specification_version"
         },
         {
           "name": "Major",
           "description": "Major returns the major version. Increment this number to reflect significant feature changes.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "major"
         },
         {
           "name": "Minor",
           "description": "Minor returns the minor version. Similar to the Major version number, increment this number to reflect minor feature changes.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "minor"
         },
         {
           "name": "Fix",
           "description": "Fix returns the fix version number. Increment this number for smaller changes, such as bug fixes.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "fix"
         },
         {
           "name": "Build",
           "description": "Build returns the build number. Increment this number for nightly builds.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "build"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }

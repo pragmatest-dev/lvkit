@@ -11,7 +11,6 @@ still loading the rest of the library.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph, LoadMode
@@ -24,15 +23,14 @@ _LVLIB_XML = """<?xml version='1.0' encoding='UTF-8'?>
 """
 
 
-def test_nonvi_member_is_skipped_with_warning(tmp_path: Path, caplog) -> None:
+def test_nonvi_member_is_skipped_and_reported(tmp_path: Path) -> None:
     lvlib_path = tmp_path / "Example.lvlib"
     lvlib_path.write_text(_LVLIB_XML, encoding="utf-8")
     member_path = tmp_path / "member.bin"
     member_path.write_bytes(b"not a vi file")
 
     graph = InMemoryVIGraph()
-    with caplog.at_level(logging.WARNING, logger="lvkit.graph.loading"):
-        key = graph.load_lvlib(lvlib_path, LoadMode.NONE)
+    key = graph.load_lvlib(lvlib_path, LoadMode.NONE)
 
     # No exception, and the library itself still resolves + loads.
     assert key == str(lvlib_path.resolve())
@@ -44,10 +42,8 @@ def test_nonvi_member_is_skipped_with_warning(tmp_path: Path, caplog) -> None:
     assert member_key not in graph._stubs
     assert list(graph._dep_graph.successors(key)) == []
 
-    # The anomaly was surfaced, not swallowed.
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-    assert len(warnings) == 1
-    message = warnings[0].getMessage()
-    assert "member.bin" in message
-    assert "Example.lvlib" in message
-    assert 'Type="VI"' in message
+    # The anomaly was surfaced in the run's report, not swallowed.
+    (problem,) = graph.problems()
+    assert problem.vi == "Example.lvlib"
+    assert "member.bin" in problem.reason
+    assert 'Type="VI"' in problem.reason

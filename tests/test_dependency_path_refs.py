@@ -16,15 +16,14 @@ import pytest
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import AnyGraphNode
+from tests.corpus_graphs import OPENG_USERLIB
 
-SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DAQMX_CALLER_VI = Path(
     ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
 )  # noqa: E501
 TESTCASE_CLASS = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
 )
-TESTCASE_SEARCH = [Path(".lvkit/cache/samples/JKI-VI-Tester/source")]
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -37,7 +36,8 @@ def _skip_if_missing(*paths: Path) -> None:
 def daqmx_graph() -> InMemoryVIGraph:
     _skip_if_missing(DAQMX_CALLER_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(DAQMX_CALLER_VI), mode=LoadMode.NONE, search_paths=SEARCH_PATHS)
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
+    g.load_vi(str(DAQMX_CALLER_VI), mode=LoadMode.NONE)
     return g
 
 
@@ -45,9 +45,7 @@ def daqmx_graph() -> InMemoryVIGraph:
 def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_CLASS)
     g = InMemoryVIGraph()
-    g.load_lvclass(
-        str(TESTCASE_CLASS), mode=LoadMode.FULL, search_paths=TESTCASE_SEARCH
-    )
+    g.load_lvclass(str(TESTCASE_CLASS), mode=LoadMode.FULL)
     return g
 
 

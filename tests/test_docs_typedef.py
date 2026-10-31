@@ -9,13 +9,19 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.docs.generate import _prepare_vi_documentation_data, generate_documents
+from lvkit.docs.generate import (
+    NothingDocumentedError,
+    _prepare_vi_documentation_data,
+    generate_documents,
+)
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.page_names import PageName
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefField, TypedefInfo, TypedefRef
 from lvkit.models import EnumValue, LVType, LVTypeKind
+from lvkit.run_report import RunProblems
 
 from .conftest import SAMPLES_ROOT
 
@@ -86,8 +92,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     gen = _generator(tmp_path)
     gen.register_typedefs([("/p/Cfg.ctl", "Cfg.ctl"), ("/p/Dep.ctl", "Dep.ctl")])
     gen.all_vis.add("/p/use.vi")
-    gen.vi_groups["/p/use.vi"] = "p"
-    gen.vi_labels["/p/use.vi"] = "use.vi"
+    gen.register_vis({"/p/use.vi": PageName("p", "use")})
     gen.class_pages["Cls.lvclass"] = "Cls_lvclass/Cls.lvclass.html"
     info = _info(
         uses=(TypedefRef(NodeType.TYPEDEF, "Dep.ctl", "/p/Dep.ctl"),),
@@ -131,17 +136,18 @@ def test_a_control_free_index_is_unchanged(tmp_path: Path) -> None:
 def test_a_lone_unreadable_control_is_reported(tmp_path: Path) -> None:
     bad = tmp_path / "Bad.ctl"
     bad.write_bytes(b"not a labview file")
-    result = generate_documents(str(bad), str(tmp_path / "out"))
-    assert result.stopped
-    assert result.summary.startswith("Failed to load any VIs or controls")
-    assert "Bad.ctl" in result.summary
+    run = RunProblems()
+    with pytest.raises(NothingDocumentedError, match="Failed to load any VIs"):
+        generate_documents(str(bad), str(tmp_path / "out"), run=run)
+    (problem,) = run.report().problems
+    assert problem.vi == "Bad.ctl"
 
 
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CLUSTER_CTL.exists(), reason="icon-editor sample absent")
 def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
     single = tmp_path / "single"
-    summary = generate_documents(str(_CLUSTER_CTL), str(single)).summary
+    summary = generate_documents(str(_CLUSTER_CTL), str(single))
     assert "Type definitions documented:" in summary  # it, plus what it references
     page = (single / "typedef" / "API_Test_Settings.html").read_text(encoding="utf-8")
     assert "Text color" in page and "Front Panel" in page and "<svg" in page
@@ -159,8 +165,8 @@ def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_lists_its_typedefs_apart_from_its_subvis():
-    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
-    data = _prepare_vi_documentation_data(vi, graph, {}, [], str, None)
+    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL)
+    data = _prepare_vi_documentation_data(vi, graph, {}, None)
     assert data["type_definitions"], "the VI uses controls"
     typedefs = set(data["type_definitions"])
     assert typedefs.isdisjoint(data["dependencies"])  # not listed as SubVI calls
@@ -174,13 +180,10 @@ def test_a_corrupt_control_does_not_stop_the_others(tmp_path):
     project.mkdir()
     shutil.copy(_CLUSTER_CTL, project / "Good.ctl")
     (project / "Bad.ctl").write_bytes(b"not a labview file")
-    result = generate_documents(str(project), str(tmp_path / "out"))
-    summary = result.summary
+    run = RunProblems()
+    summary = generate_documents(str(project), str(tmp_path / "out"), run=run)
     assert (tmp_path / "out" / "typedef" / "Good.html").is_file()
-    assert [str(p) for p in result.problems] == [
-        "Bad.ctl: could not be read as a control"
-    ]
-    assert [p.stage for p in result.problems] == ["load"]
+    assert [p.vi for p in run.report().problems] == ["Bad.ctl"]
     assert "Type definitions documented:" in summary
 
 
@@ -203,7 +206,9 @@ _ICON_LVLIB = _ICON_API / "LabVIEW Icon API.lvlib"
 def test_a_library_lists_its_controls_apart_from_its_vis():
     from lvkit.docs.generate import _collect_library_vis, _split_controls
 
-    vis, controls = _split_controls(_collect_library_vis(_ICON_LVLIB))
+    vis, controls = _split_controls(
+        _collect_library_vis(_ICON_LVLIB, RunProblems())
+    )
     assert vis and controls
     assert all(p.suffix.lower() == ".vi" for p in vis)
     assert all(p.suffix.lower() == ".ctl" and p.is_file() for p in controls)

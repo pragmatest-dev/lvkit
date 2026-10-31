@@ -1,62 +1,50 @@
-"""Docs page and icon names, HTML text and SVG ids stay safe and unique."""
+"""Docs page and icon names come from ``docs/page_names.py``; HTML text is
+escaped and SVG ids stay unique."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.page_names import PageName, page_names
 from lvkit.render import _root_id
 from lvkit.render.backend import SvgBackend
 
 SAFE = re.compile(r"[A-Za-z0-9_./-]+")
 
 
-def _generator(tmp_path: Path, labels: dict[str, str]) -> HTMLDocGenerator:
+def _generator(tmp_path: Path, pages: dict[str, PageName]) -> HTMLDocGenerator:
     gen = HTMLDocGenerator(tmp_path / "out", "Docs", "directory")
-    gen.register_vi_names(dict.fromkeys(labels, "Group #1"), labels)
+    gen.register_vis(pages)
     return gen
 
 
-def test_page_names_hold_only_safe_characters(tmp_path: Path) -> None:
-    labels = {
-        "/p/a.vi": "50% done #2.vi",
-        "/p/b.vi": "Lib.lvlib:Größe (x).vi",
-        "/p/c.vi": "Cls.lvclass:Do it?.vi",
+def test_a_page_is_the_file_page_names_gives_it(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+    keys = [str(project / "sub" / "a b.vi"), str(project / "sub" / "a_b.vi")]
+    graph = SimpleNamespace(get_vi_source_path=lambda key: Path(key))
+    pages = page_names(graph, keys, project)  # type: ignore[arg-type]
+    gen = _generator(tmp_path, pages)
+    assert sorted(gen._vi_name_to_filename(k) for k in keys) == [
+        "Project/sub_a_b-2.html",
+        "Project/sub_a_b.html",
+    ]
+    # The page title is the bare file name.
+    assert gen._extract_display_name(keys[0]) == "a b"
+
+
+def test_icons_follow_their_pages(tmp_path: Path) -> None:
+    pages = {
+        "/p/1.vi": PageName("Project", "a_b"),
+        "/p/2.vi": PageName("Project", "a_b-2"),
     }
-    gen = _generator(tmp_path, labels)
-    for key in labels:
-        assert SAFE.fullmatch(gen._vi_name_to_filename(key))
-    assert SAFE.fullmatch(gen._class_name_to_filename("Lib.lvlib:Cls.lvclass"))
-    assert {k: gen._vi_name_to_filename(k) for k in labels} == {
-        "/p/a.vi": "Group_1/50_done_2.html",
-        "/p/b.vi": "Group_1/Lib.lvlib_Gr_e_x_.html",
-        "/p/c.vi": "Group_1/Cls.lvclass_Do_it_.html",
+    gen = _generator(tmp_path, pages)
+    icons = {
+        gen._vi_name_to_filename(k).removesuffix(".html") + ".png" for k in pages
     }
-    assert (
-        gen._class_name_to_filename("Lib.lvlib:Cls.lvclass")
-        == "Lib_lvlib_Cls_lvclass/Lib.lvlib_Cls.lvclass.html"
-    )
-
-
-def test_names_that_sanitize_alike_get_distinct_pages_and_icons(
-    tmp_path: Path,
-) -> None:
-    labels = {"/p/1.vi": "a b.vi", "/p/2.vi": "a_b.vi", "/p/3.vi": "A_B.vi"}
-    gen = _generator(tmp_path, labels)
-    pages = {gen._vi_name_to_filename(k) for k in labels}
-    assert pages == {
-        "Group_1/a_b-50fdf54c.html",
-        "Group_1/a_b-5c8434fb.html",
-        "Group_1/A_B-79873dd1.html",
-    }
-    icons = {p.removesuffix(".html") + ".png" for p in pages}
-    assert len(icons) == 3
-
-
-def test_a_name_that_sanitizes_alone_keeps_its_plain_page(tmp_path: Path) -> None:
-    gen = _generator(tmp_path, {"/p/1.vi": "a b.vi"})
-    assert gen._vi_name_to_filename("/p/1.vi") == "Group_1/a_b.html"
+    assert icons == {"Project/a_b.png", "Project/a_b-2.png"}
 
 
 def test_control_names_types_and_defaults_are_escaped(tmp_path: Path) -> None:
@@ -70,7 +58,7 @@ def test_control_names_types_and_defaults_are_escaped(tmp_path: Path) -> None:
 
 
 def test_variant_parameter_names_are_escaped(tmp_path: Path) -> None:
-    gen = _generator(tmp_path, {"/p/v.vi": "v.vi"})
+    gen = _generator(tmp_path, {"/p/v.vi": PageName("Project", "v")})
     gen.all_vis = {"/p/v.vi"}
     params = [
         {

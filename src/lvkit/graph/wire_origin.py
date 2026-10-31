@@ -13,6 +13,7 @@ import operator
 import posixpath
 from typing import TYPE_CHECKING
 
+from ..path_value import path_text
 from .models import AnyGraphNode, ConstantNode, PrimitiveNode
 
 if TYPE_CHECKING:
@@ -163,22 +164,19 @@ class WireOriginMixin:
 
 
 def constant_text(const: ConstantNode) -> str | None:
-    """The text of a String or Path constant (recorded as a Python expression)."""
+    """The text of a String constant (recorded as a Python expression) or a Path
+    constant (recorded as its path text); None for Not a Path."""
     if const.lv_type is None or not isinstance(const.value, str):
         return None
-    if const.lv_type.underlying_type not in ("String", "Path"):
+    underlying = const.lv_type.underlying_type
+    if underlying == "Path":
+        return path_text(const.value)
+    if underlying != "String":
         return None
     try:
         expr = ast.parse(const.value, mode="eval").body
     except SyntaxError:
         return None
-    if (
-        isinstance(expr, ast.Call)
-        and isinstance(expr.func, ast.Name)
-        and expr.func.id == "Path"
-        and len(expr.args) == 1
-    ):
-        expr = expr.args[0]
     if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
         return expr.value
     return None

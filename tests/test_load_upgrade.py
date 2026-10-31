@@ -65,11 +65,11 @@ def test_call_edges_are_load_order_independent():
     run_path = next(p for p in vi_paths if p.name == "run.vi").resolve()
 
     after = InMemoryVIGraph()  # run.vi leaf-loaded before its own turn
-    after.load_directory(root, LoadMode.MINIMAL, search_paths=[root])
+    after.load_directory(root, LoadMode.MINIMAL)
 
     first = InMemoryVIGraph()  # run.vi loaded as primary first
-    first.load_vi(run_path, LoadMode.MINIMAL, search_paths=[root])
-    first.load_directory(root, LoadMode.MINIMAL, search_paths=[root])
+    first.load_vi(run_path, LoadMode.MINIMAL)
+    first.load_directory(root, LoadMode.MINIMAL)
 
     n_after = _run_out_degree(after, run_path)
     n_first = _run_out_degree(first, run_path)

@@ -32,11 +32,11 @@ from lvkit.codegen.ast_utils import to_function_name
 from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
+from tests.corpus_graphs import OPENG_USERLIB
 
 pytestmark = [pytest.mark.functional, pytest.mark.needs_samples]
 
 CORPUS = Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
-SEARCH = Path(".lvkit/cache/samples/OpenG/extracted")
 _GEN = Path("scripts/generate_python.py")
 
 
@@ -79,7 +79,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     outdir = Path(tempfile.mkdtemp(prefix=f"lvkit_pkg_{_slug(vi.name)}_"))
     proc = subprocess.run(
         [sys.executable, str(_GEN), str(vi), "-o", str(outdir),
-         "--search-path", str(SEARCH)],
+         "--userlib", str(OPENG_USERLIB)],
         capture_output=True, text=True, timeout=180, check=False,
     )
     assert "error: 0" in proc.stdout, (
@@ -508,7 +508,7 @@ def test_compare_two_paths_common_and_relative() -> None:
         Path("/a/b/d"),
     )
     assert _posix(r.common_path) == "/a/b"
-    assert _posix(r.relative_path_from_1_to_2) == "d"
+    assert _posix(r.relative_path_from_1_to_2) == "../d"
     assert r.different_types is False
 
 

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..models import ServerClass
 from .models import AnyGraphNode, ConstantNode, LocalVariableNode, PrimitiveNode
 from .node_kinds import NodeType
 from .op_walk import correlate_property_terminals
@@ -221,7 +222,10 @@ def is_this_vi(node: AnyGraphNode) -> bool:
         isinstance(node, LocalVariableNode)
         and not node.is_write
         and node.control_terminal_id is None
-        and any(t.lv_type and t.lv_type.server_class == "VI" for t in node.terminals)
+        and any(
+            t.lv_type and t.lv_type.server_class is ServerClass.VI
+            for t in node.terminals
+        )
     )
 
 

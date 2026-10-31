@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
     ClusterField,
@@ -22,7 +23,9 @@ from ..models import (
     contains_class_instance,
 )
 from ..parser.models import ParsedType, ParsedVI
+from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
+from .search_path import SearchPath
 
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
@@ -157,6 +160,7 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
 # Import mixins - these define methods that InMemoryVIGraph inherits
 from .analysis import AnalysisMixin  # noqa: E402
 from .construction import ConstructionMixin  # noqa: E402
+from .load_problems import LoadProblemsMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
 from .package_queries import PackageQueriesMixin  # noqa: E402
@@ -167,6 +171,7 @@ from .wire_queries import WireQueriesMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
+    LoadProblemsMixin,
     LoadingMixin,
     ConstructionMixin,
     QueryMixin,
@@ -191,7 +196,9 @@ class InMemoryVIGraph(
                     # ... generate code ...
     """
 
-    def __init__(self) -> None:
+    def __init__(self, run_settings: RunSettings | None = None) -> None:
+        # How a problem recorded on a VI's node is announced (echo, fail-fast).
+        self.run_settings: RunSettings = run_settings or RunSettings()
         # Unified graph: all VIs, all nodes, all edges
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         # Per-VI node index: vi_name -> set of node UIDs in that VI
@@ -234,11 +241,6 @@ class InMemoryVIGraph(
         # vi_key -> qualified DISPLAY name (qname/basename). Display only, never a
         # lookup key — resolve_vi_name still returns the vi_key (path) identity.
         self._vi_display_names: dict[str, str] = {}
-        # Search paths the graph was loaded with, retained so decoration-only
-        # lookups (a SubVI's own _ICON.png) can locate a project-local .vi by
-        # name even under a MINIMAL load that never walks the SubVI tree.
-        self._search_paths: list[Path] = []
-        self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
         # VI metadata (identity only -- library/qualified_name/owning_libraries/
         # description). Sibling name-keyed facet dicts below carry the rest.
         self._vi_metadata: dict[str, VIMetadata] = {}
@@ -251,10 +253,12 @@ class InMemoryVIGraph(
         self._vi_health: dict[str, VIHealth] = {}
         # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
         self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
-        # Optional disk roots for <vilib> / <userlib> / <instrlib> path tokens
-        self._vilib_root: Path | None = None
-        self._userlib_root: Path | None = None
-        self._instrlib_root: Path | None = None
+        # The folders <vilib> / <userlib> / <instrlib> path tokens name, in order,
+        # and the VI Search Path for files not at their recorded path.
+        self._vilib_roots: tuple[Path, ...] = ()
+        self._userlib_roots: tuple[Path, ...] = ()
+        self._instrlib_roots: tuple[Path, ...] = ()
+        self._search_path = SearchPath(search_path_entries(None), {})
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
         # same parse (see parse_vi layout=), never a second heap read.
@@ -273,11 +277,14 @@ class InMemoryVIGraph(
 
     def set_library_roots(
         self,
-        vilib_root: Path | None = None,
-        userlib_root: Path | None = None,
-        instrlib_root: Path | None = None,
+        vilib_root: Folders = None,
+        userlib_root: Folders = None,
+        instrlib_root: Folders = None,
+        search_path: SearchEntries = None,
     ) -> None:
-        """Set disk roots for <vilib>, <userlib> and <instrlib> path tokens.
+        """Set the folders <vilib>, <userlib> and <instrlib> path tokens name
+        (each one or several, tried in order) and the VI Search Path
+        (``search_path``, LabVIEW's default when None; ``graph/search_path.py``).
 
         Call before loading any VIs. When set, dependency refs with
         <vilib>, <userlib> or <instrlib> tokens resolve to real .vi files on
@@ -289,15 +296,24 @@ class InMemoryVIGraph(
         This is the single wiring point for all entry points (CLI, MCP,
         pipeline, render, docs), which each call this before ``load_vi``.
         """
-        self._vilib_root = vilib_root
-        self._userlib_root = userlib_root
-        self._instrlib_root = instrlib_root
+        self._vilib_roots = folder_list(vilib_root)
+        self._userlib_roots = folder_list(userlib_root)
+        self._instrlib_roots = folder_list(instrlib_root)
+        pseudo = {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
+        }
+        self._search_path = SearchPath(search_path_entries(search_path), pseudo)
+        self.run_settings.library_roots = dict(pseudo)
         # The run's library roots feed the cache classifier; set them on the
         # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
         from lvkit import cache_paths
 
         cache_paths.set_extraction_roots(
-            vilib_root=vilib_root, userlib_root=userlib_root
+            vilib_root=self._vilib_roots,
+            userlib_root=self._userlib_roots,
+            instrlib_root=self._instrlib_roots,
         )
 
     def set_catalog_stop(self, stop: bool) -> None:
@@ -322,8 +338,6 @@ class InMemoryVIGraph(
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()
-        self._search_paths = []
-        self._vi_file_index = None
         self._vi_metadata.clear()
         self._vi_properties.clear()
         self._vi_health.clear()

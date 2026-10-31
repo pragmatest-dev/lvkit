@@ -17,12 +17,35 @@ class _VILibVariantMixin:
     # can type-check attribute access within this mixin.
     _types: dict[str, LVType]
     _variants: dict[str, list[VIEntry]]
+    _vis: dict[str, VIEntry]
+    _by_name: dict[str, VIEntry]
+    _by_poly_selector: dict[tuple[str, str], VIEntry]
+    # Set on a fork: it shares its entries with the resolver it was made from.
+    _shares_entries: bool
+    _owned_entries: set[int]
 
     # Implemented by _VILibLookupMixin. Declared here (stub body, never
     # executed) only so pyright can type-check the call below — on the
     # composed VILibResolver, MRO always resolves to the real
     # implementation since _VILibLookupMixin precedes this mixin.
     def resolve_by_name(self, vi_name: str) -> VIEntry | None: ...
+
+    def _own(self, entry: VIEntry) -> VIEntry:
+        """``entry`` for this resolver to change: itself, or on a fork the copy that
+        replaces it in every index of this resolver."""
+        if not self._shares_entries or id(entry) in self._owned_entries:
+            return entry
+        own = entry.model_copy(deep=True)
+        for index in (self._vis, self._by_name, self._by_poly_selector):
+            for key, held in index.items():
+                if held is entry:
+                    index[key] = own  # type: ignore[index]
+        for variants in self._variants.values():
+            for position, held in enumerate(variants):
+                if held is entry:
+                    variants[position] = own
+        self._owned_entries.add(id(own))
+        return own
 
     def _compute_signature(self, terminals: dict[int, dict[str, Any]]) -> str:
         """Compute a signature from terminal observations.
@@ -189,9 +212,10 @@ class _VILibVariantMixin:
         On conflicts, creates a polymorphic variant instead of failing.
         Observations are always trusted - they come from actual wire connections.
         """
-        vi = self.resolve_by_name(vi_name)
-        if not vi:
+        shipped = self.resolve_by_name(vi_name)
+        if not shipped:
             raise ValueError(f"VI not found: {vi_name}")
+        vi = self._own(shipped)
 
         existing_map: dict[int, VITerminal] = {
             t.index: t for t in vi.terminals if t.index is not None
@@ -247,6 +271,7 @@ class _VILibVariantMixin:
             matching = self.find_matching_variant(vi_name, observed_map)
             if matching and matching.is_variant:
                 # Update existing variant with any new info
+                matching = self._own(matching)
                 self._update_variant_terminals(matching, observed_map)
                 return matching
 

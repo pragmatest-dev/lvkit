@@ -20,13 +20,14 @@ OPENG = SAMPLES / "OpenG/extracted"
 def test_a_catalog_variant_is_inlined_and_no_wrapper_module_is_written(
     tmp_path: Path,
 ) -> None:
-    generate_python(CALLER, tmp_path, search_paths=[OPENG])
+    generate_python(CALLER, tmp_path, userlib_root=OPENG)
     modules = [p.name for p in tmp_path.rglob("*.py")]
     assert not [m for m in modules if m.startswith("trim_whitespace")]
     # shortDescription is a method of the TestCase class module.
     source = next(tmp_path.rglob("testcase.py")).read_text()
     assert "import trim_whitespace" not in source
-    line = next(ln.strip() for ln in source.splitlines() if ".strip() if" in ln)
+    line = next(ln.strip() for ln in source.splitlines() if ".lstrip() if" in ln)
     scope = {"element_0": "  hi \n"}
     exec(line, scope)  # noqa: S102
-    assert scope["trim_whitespace__ogtk_string_out"] == "  hi"
+    # The ring's saved default is "both" (2): leading 0, trailing 1, both 2.
+    assert scope["trim_whitespace__ogtk_string_out"] == "hi"

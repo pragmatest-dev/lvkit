@@ -1,14 +1,13 @@
-"""Docs: a VI's group comes from its library or recorded path, and a dependency
-with no description shows none."""
+"""Docs: the index lists a VI under its library, installation folder or project
+folder, never naming its page by it; a dependency with no description shows none."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
+from lvkit.docs.page_names import PageName
 from lvkit.docs.utils import generate_dependency_description
 
 
@@ -23,27 +22,31 @@ def test_library_group_sources() -> None:
     assert library_group(None, ()) == "Project"
 
 
-def test_group_comes_from_the_registration_only(tmp_path: Path) -> None:
-    gen = HTMLDocGenerator(tmp_path, "t", "vi")
-    gen.vi_groups = {"a/Build Path__ogtk.vi": "src", "b/Do.vi": "vi.lib"}
-    assert gen._extract_library_group("a/Build Path__ogtk.vi") == "src"
-    assert gen._extract_library_group("b/Do.vi") == "vi.lib"
-    with pytest.raises(KeyError):
-        gen._extract_library_group("Get System Directory.vi")
-    gen.vi_groups["Lib.lvlib:Do.vi"] = "Lib.lvlib"
-    assert gen._vi_name_to_filename("Lib.lvlib:Do.vi").startswith("Lib_lvlib/")
-
-
-def test_label_names_the_page_not_the_key(tmp_path: Path) -> None:
+def test_the_index_section_comes_from_the_registration(tmp_path: Path) -> None:
     gen = HTMLDocGenerator(tmp_path, "t", "vi")
     key = "/home/someone/proj/src/Do.vi"
-    gen.vi_groups = {key: "src"}
-    gen.vi_labels = {key: "Do.vi"}
-    assert gen._vi_name_to_filename(key) == "src/Do.html"
-    assert gen._extract_display_name(key) == "Do"
-    # The VI's own name is shown as it is.
-    gen.vi_labels = {key: "Build Path__ogtk.vi"}
-    assert gen._extract_display_name(key) == "Build Path__ogtk"
+    gen.register_vis({key: PageName("Project", "src_Do")})
+    gen.register_index_sections({key: "src"})
+    assert gen._index_section(key) == "src"
+    # The section never names the page: the page is where ``page_names`` puts it.
+    assert gen._vi_name_to_filename(key) == "Project/src_Do.html"
+    # A VI with no registered section is listed under its page's folder.
+    gen.register_index_sections({})
+    assert gen._index_section(key) == "Project"
+
+
+def test_the_index_lists_pages_under_their_sections(tmp_path: Path) -> None:
+    gen = HTMLDocGenerator(tmp_path, "t", "vi")
+    owned, util = "/proj/Lib/Do.vi", "/vilib/Utility/Util.vi"
+    gen.register_vis(
+        {owned: PageName("Project", "Lib_Do"), util: PageName("vi.lib", "Utility_Util")}
+    )
+    gen.register_index_sections({owned: "Lib.lvlib", util: "vi.lib"})
+    index = gen._render_index_page([owned, util])
+    assert '<span class="library-name">Lib.lvlib</span>' in index
+    assert '<span class="library-name">vi.lib</span>' in index
+    assert 'href="Project/Lib_Do.html"' in index
+    assert 'href="vi_lib/Utility_Util.html"' in index
 
 
 def test_empty_description_renders_nothing(tmp_path: Path) -> None:

@@ -6,88 +6,97 @@ without reaching into ``scripts/``.
 
 from __future__ import annotations
 
-import logging
 import shutil
-import sys
 import time
-from collections import Counter
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from enum import Enum
+from collections.abc import Callable
 from pathlib import Path
 
+from lvkit.cache_paths import project_root
 from lvkit.docs.html_generator import HTMLDocGenerator
-from lvkit.docs.html_generator.naming import folders_below_root, library_group
+from lvkit.docs.html_generator.naming import library_group
+from lvkit.docs.page_names import page_names
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.errors import DependencyFileError
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
-from lvkit.module_layout import ModuleLayout, UnplacedVIError, project_root
+from lvkit.library_folders import Folders, SearchEntries
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
+from lvkit.run_report import (
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunProblems,
+    problem_for_exception,
+)
 from lvkit.structure import parse_lvclass, parse_lvlib
 from lvkit.vi_files import is_vi_file, rglob_vi_files
-
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Collection helpers
 # ---------------------------------------------------------------------------
 
 
-def _collect_library_vis(library_path: Path) -> list[Path]:
+def _member_file(
+    locator: InMemoryVIGraph, container: Path, url: str, run: RunProblems
+) -> Path | None:
+    """The file of a library or class member at the URL its container records
+    (``member_file``). None when there is none, or it cannot be determined: that
+    is a problem in ``run``, labelled by the container."""
+    try:
+        found = locator.member_file(container, url)
+    except DependencyFileError as exc:
+        reason = f"member {url!r}: {exc.summary()}"
+    else:
+        if found is not None:
+            return found
+        reason = f"member {url!r} was not found at its recorded path"
+    run.add(
+        Problem(
+            vi=run.settings.label(container),
+            stage=ProblemStage.DOCUMENT,
+            kind=ProblemKind.UNREADABLE,
+            reason=reason,
+        )
+    )
+    return None
+
+
+def _collect_library_vis(library_path: Path, run: RunProblems) -> list[Path]:
     """Collect the file paths of a .lvlib's VI members -- its controls (.ctl) are
-    listed as VI members too; ``_split_controls`` separates them."""
+    listed as VI members too; ``_split_controls`` separates them. A member that is
+    not at its recorded path is a problem in ``run``."""
     library = parse_lvlib(library_path)
-    base_path = library_path.parent
+    locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
     for member in library.members:
-        if member.member_type != "VI":
+        if member.member_type != "VI" or not member.url:
             continue
-        vi_path = base_path / member.url
-        if vi_path.exists():
-            vi_paths.append(vi_path.resolve())
-            continue
-        # The lvlib's stored relative path may not match the on-disk layout
-        # (extracted samples get flattened/reorganized, so a member listed as
-        # "../foo.vi" actually sits beside the lvlib). Resolve by the bare file
-        # name — first in the library's own directory, then anywhere beneath it.
-        name = Path(member.url).name
-        candidate: Path | None = base_path / name
-        if not candidate.exists():
-            candidate = next(iter(base_path.rglob(name)), None)
-        if candidate is not None and candidate.exists():
-            vi_paths.append(candidate.resolve())
-        else:
-            logger.warning(
-                "lvlib member not found: %r (listed as %r)",
-                name,
-                member.url,
-            )
+        vi_path = _member_file(locator, library_path, member.url, run)
+        if vi_path is not None:
+            vi_paths.append(vi_path)
 
     return vi_paths
 
 
-def _collect_class_vis(class_path: Path) -> list[Path]:
-    """Collect all method VIs from a .lvclass class."""
+def _collect_class_vis(class_path: Path, run: RunProblems) -> list[Path]:
+    """Collect all method VIs from a .lvclass class. A method that is not at its
+    recorded path is a problem in ``run``."""
     lvclass = parse_lvclass(class_path)
-    base_path = class_path.parent
+    locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
     for method in lvclass.methods:
-        if method.vi_path:
-            vi_path = base_path / method.vi_path
-            if vi_path.exists():
-                vi_paths.append(vi_path.resolve())
-                continue
-        # Fallback: look for method VI directly in the class directory
-        vi_path = base_path / f"{method.name}.vi"
-        if vi_path.exists():
-            vi_paths.append(vi_path.resolve())
+        if not method.vi_path:
+            continue
+        vi_path = _member_file(locator, class_path, method.vi_path, run)
+        if vi_path is not None:
+            vi_paths.append(vi_path)
 
     return vi_paths
 
@@ -112,8 +121,13 @@ def _generate_typedef_pages(
         note = None
         try:
             svg = render_ctl_front_panel(graph, info.key)
-        except Exception:
-            logger.exception("front panel render failed for %s", info.name)
+        except Exception as exc:
+            graph.record_problem(
+                info.key,
+                problem_for_exception(
+                    graph.vi_label(info.key), ProblemStage.DOCUMENT, exc
+                ),
+            )
             svg, note = None, "Front panel unavailable: it could not be rendered."
         generator.generate_typedef_page(info, svg, note)
 
@@ -132,43 +146,31 @@ def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     return [p for p in paths if p.suffix.lower() != ".ctl"], controls
 
 
-def _collect_library_groups(
-    graph: InMemoryVIGraph,
-    vi_names: list[str],
-    project: Path,
-    search_roots: Sequence[Path] = (),
-) -> tuple[dict[str, str], dict[str, str]]:
-    """The group and the shown name of every VI that has a page or is linked from
-    one. The group is its owning class or library; else the installation folder
-    (``vi.lib``, ``user.lib``) its caller recorded; else its project-relative
-    folder (the recorded path's folder for a VI outside the project)."""
-    layout = ModuleLayout(graph, [], project, search_roots)
-    poly_groups = graph.get_polymorphic_groups()
-    names: set[str] = set(vi_names)
-    for vi_name in vi_names:
-        names.update(graph.get_vi_dependencies(vi_name))
-        names.update(graph.get_vi_dependents(vi_name))
-        names.update(poly_groups.get(vi_name, []))
-    groups: dict[str, str] = {}
-    labels: dict[str, str] = {}
-    folders_of: dict[str, tuple[str, ...]] = {}
-    for name in sorted(names):
-        try:
-            folders_of[name] = layout.folders_of(name)
-        except UnplacedVIError:
-            folders_of[name] = ()
-        labels[name] = graph.vi_display_name(name)
+def _index_sections(
+    graph: InMemoryVIGraph, vi_names: list[str], project: Path
+) -> dict[str, str]:
+    """The section the index page lists each VI under (``library_group``): its
+    owning class or library; else the installation folder (``vi.lib``,
+    ``user.lib``) its caller recorded, or the configured library folder it is in;
+    else its folder in the project; else, for a file outside the project, its own
+    project folder's name. The section never names a page."""
+    sections: dict[str, str] = {}
+    for name in vi_names:
         owner = graph.get_owning_class(name) or graph.get_owning_library(name)
-        groups[name] = library_group(owner, folders_of[name])
-    # Two VIs filed under one group with one name (vi.lib holds many folders):
-    # the folders they sit in tell them apart.
-    taken = Counter((groups[n], labels[n]) for n in names)
-    for name in names:
-        if taken[(groups[name], labels[name])] > 1:
-            labels[name] = "/".join(
-                (*folders_below_root(folders_of[name]), labels[name])
-            )
-    return groups, labels
+        recorded = graph.recorded_path(name)
+        source = graph.get_vi_source_path(name)
+        library = graph.library_root_of(source) if source is not None else None
+        if owner is not None or recorded is not None:
+            folders = recorded.split("/")[:-1] if recorded is not None else []
+            sections[name] = library_group(owner, folders)
+        elif library is not None:
+            sections[name] = library_group(None, [library[0]])
+        elif source is not None and source.resolve().is_relative_to(project.resolve()):
+            below = source.resolve().relative_to(project.resolve()).parent.parts
+            sections[name] = library_group(None, below)
+        elif source is not None:
+            sections[name] = project_root(source).name
+    return sections
 
 
 def _collect_icons(
@@ -202,55 +204,14 @@ def _collect_icons(
     return icon_map
 
 
-class DocsStage(str, Enum):
-    """The stage of documentation generation a problem happened in."""
-
-    LOAD = "load"
-    DIAGRAM = "diagram"
-    PAGE = "page"
-
-
-@dataclass(frozen=True)
-class DocsProblem:
-    """One problem of one VI: its path as generation shows it
-    (``ModuleLayout.display_path``), the stage that failed (a ``DocsStage``) and why."""
-
-    vi: str
-    stage: DocsStage
-    reason: str
-
-    def __str__(self) -> str:
-        return f"{self.vi}: {self.reason}"
-
-
-@dataclass
-class DocsResult:
-    """What ``generate_documents`` did: the summary to print, every problem found,
-    and whether nothing could be loaded."""
-
-    summary: str
-    problems: list[DocsProblem] = field(default_factory=list)
-    stopped: bool = False
-
-    def __str__(self) -> str:
-        return self.summary
-
-
-def _failed_path(layout: ModuleLayout, path: Path) -> str:
-    """The path a file that could not be loaded is named by."""
-    return layout.display_path(str(path.resolve()))
-
-
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
     poly_groups: dict[str, list[str]],
-    problems: list[DocsProblem],
-    shown: Callable[[str], str],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
     """Prepare all data needed for one VI documentation page. A part of the page
-    that cannot be built is left out and named in ``problems``."""
+    that cannot be built is left out and recorded on the VI's node."""
     inputs_dc = graph.get_inputs(vi_name)
     outputs_dc = graph.get_outputs(vi_name)
     operations_dc = graph.top_level_nodes(vi_name)
@@ -323,28 +284,39 @@ def _prepare_vi_documentation_data(
     callers = graph.get_vi_dependents(vi_name)
 
     is_poly = vi_name in poly_groups
-    poly_variants = poly_groups.get(vi_name, [])
+    poly_variants = poly_groups.get(vi_name, []) if is_poly else []
 
-    variant_params = [
-        {
-            "name": variant_key,
-            "inputs": [
-                {
-                    "name": inp.name,
-                    "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
-                }
-                for inp in graph.get_inputs(variant_key)
-            ],
-            "outputs": [
-                {
-                    "name": out.name,
-                    "type": out.lv_type.type_descriptor() if out.lv_type else "Any",
-                }
-                for out in graph.get_outputs(variant_key)
-            ],
-        }
-        for variant_key in poly_variants
-    ]
+    variant_params = []
+    if is_poly and poly_variants:
+        for variant_name in poly_variants:
+            try:
+                variant_inputs = graph.get_inputs(variant_name)
+                variant_outputs = graph.get_outputs(variant_name)
+                variant_params.append(
+                    {
+                        "name": variant_name,
+                        "inputs": [
+                            {
+                                "name": inp.name or f"input_{inp.index}",
+                                "type": inp.lv_type.type_descriptor()
+                                if inp.lv_type
+                                else "Any",
+                            }
+                            for inp in variant_inputs
+                        ],
+                        "outputs": [
+                            {
+                                "name": out.name or f"output_{out.index}",
+                                "type": out.lv_type.type_descriptor()
+                                if out.lv_type
+                                else "Any",
+                            }
+                            for out in variant_outputs
+                        ],
+                    }
+                )
+            except Exception:
+                pass
 
     icon_path = None
     if icon_map and vi_name in icon_map:
@@ -352,14 +324,14 @@ def _prepare_vi_documentation_data(
 
     try:
         diagram_svg, subvi_nodes = render_vi_with_subvis(graph, vi_name)
-    except Exception as e:  # noqa: BLE001 — per-VI; the page is written without it
-        logger.exception("SVG diagram render failed for %s", shown(vi_name))
-        problems.append(
-            DocsProblem(
-                shown(vi_name),
-                DocsStage.DIAGRAM,
-                f"the diagram could not be drawn ({e})",
-            )
+    except Exception as exc:
+        graph.record_problem(
+            vi_name,
+            problem_for_exception(
+                graph.key_label(vi_name),
+                ProblemStage.DOCUMENT,
+                exc,
+            ),
         )
         diagram_svg, subvi_nodes = None, {}
 
@@ -397,15 +369,27 @@ def _prepare_vi_documentation_data(
 # ---------------------------------------------------------------------------
 
 
+class NothingDocumentedError(RuntimeError):
+    """No VI or control of the input could be loaded; the reasons are the problems
+    recorded on their nodes."""
+
+
 def generate_documents(
     library_path: str,
     output_dir: str,
-    search_paths: list[str] | None = None,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-) -> DocsResult:
-    """Generate HTML docs for a LabVIEW library, class, directory, or VI."""
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
+    run: RunProblems | None = None,
+) -> str:
+    """Generate HTML docs for a LabVIEW library, class, directory, or VI.
+
+    A VI or control that cannot be read, and a page that cannot be built, is
+    recorded on its node and in ``run`` and the rest is documented. Raises
+    ``NothingDocumentedError`` when no VI or control could be loaded."""
+    run = run or RunProblems()
     start_time = time.time()
     library_path_obj = Path(library_path)
     output_dir_obj = Path(output_dir)
@@ -429,11 +413,13 @@ def generate_documents(
     elif library_path_obj.suffix == ".lvlib":
         doc_type = "library"
         doc_title = library_path_obj.stem
-        vi_paths, ctl_paths = _split_controls(_collect_library_vis(library_path_obj))
+        vi_paths, ctl_paths = _split_controls(
+            _collect_library_vis(library_path_obj, run)
+        )
     elif library_path_obj.suffix == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
-        vi_paths = _collect_class_vis(library_path_obj)
+        vi_paths = _collect_class_vis(library_path_obj, run)
     elif library_path_obj.is_dir():
         doc_type = "directory"
         doc_title = library_path_obj.name
@@ -450,19 +436,21 @@ def generate_documents(
     )
 
     if not vi_paths and not ctl_paths:
-        return DocsResult(f"No VIs or controls found in {library_path}")
+        return f"No VIs or controls found in {library_path}"
 
     # Load all VIs into graph
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
     t0 = time.time()
-    graph = InMemoryVIGraph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    search_path_objs = [Path(p) for p in (search_paths or [])]
+    graph = run.new_graph()
+    if vilib_root or userlib_root or instrlib_root or search_path:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+            search_path=search_path,
+        )
 
     loaded_vis: list[str] = []
-    problems: list[DocsProblem] = []
-    layout = ModuleLayout(graph, [], project_root(library_path_obj), search_path_objs)
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
@@ -475,7 +463,6 @@ def generate_documents(
             graph.load_vi(
                 vi_path,
                 mode=mode,
-                search_paths=search_path_objs or None,
                 layout=True,  # docs renders every VI — carry geometry from the
                 # same parse instead of a second heap read per VI.
             )
@@ -489,11 +476,9 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            problems.append(
-                DocsProblem(_failed_path(layout, vi_path), DocsStage.LOAD, str(e))
-            )
+            graph.record_load_failure(vi_path, e)
             print(
-                f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
+                f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name}",
                 flush=True,
             )
 
@@ -508,29 +493,16 @@ def generate_documents(
     loaded_ctls: list[str] = []
     for ctl_path in ctl_paths:
         try:
-            key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
+            key = graph.load_typedef(ctl_path)
         except Exception as e:
-            problems.append(
-                DocsProblem(_failed_path(layout, ctl_path), DocsStage.LOAD, str(e))
-            )
+            graph.record_load_failure(ctl_path, e, node_type=NodeType.TYPEDEF)
             continue
-        if graph.is_stub(key):
-            problems.append(
-                DocsProblem(
-                    _failed_path(layout, ctl_path),
-                    DocsStage.LOAD,
-                    "could not be read as a control",
-                )
-            )
-        else:
+        if not graph.is_stub(key):
             loaded_ctls.append(ctl_path.name)
 
     if not loaded_vis and not loaded_ctls:
-        return DocsResult(
-            "Failed to load any VIs or controls. Errors:\n"
-            + "\n".join(str(p) for p in problems),
-            problems,
-            stopped=True,
+        raise NothingDocumentedError(
+            f"Failed to load any VIs or controls from {library_path_obj.name}"
         )
     typedef_keys = graph.list_typedefs()
 
@@ -551,11 +523,9 @@ def generate_documents(
 
     all_vis = graph.list_vis()
     generator.all_vis = set(all_vis)
-    generator.register_vi_names(
-        *_collect_library_groups(
-            graph, all_vis, project_root(library_path_obj), search_path_objs
-        )
-    )
+    project = project_root(library_path_obj)
+    generator.register_vis(page_names(graph, all_vis, project))
+    generator.register_index_sections(_index_sections(graph, all_vis, project))
 
     # Collect and copy icons
     print("[TIMING] Collecting VI icons...")
@@ -570,7 +540,6 @@ def generate_documents(
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
     t0 = time.time()
-
     generated_count = 0
 
     for i, vi_name in enumerate(all_vis, 1):
@@ -579,8 +548,6 @@ def generate_documents(
                 vi_name,
                 graph,
                 poly_groups,
-                problems,
-                layout.display_path,
                 icon_map,
             )
             generator.generate_vi_page(vi_data)
@@ -591,8 +558,13 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            problems.append(
-                DocsProblem(layout.display_path(vi_name), DocsStage.PAGE, str(e))
+            graph.record_problem(
+                vi_name,
+                problem_for_exception(
+                    graph.key_label(vi_name),
+                    ProblemStage.DOCUMENT,
+                    e,
+                ),
             )
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
@@ -657,10 +629,4 @@ def generate_documents(
         summary_parts.append(f"Type definitions documented: {len(typedef_infos)}")
     summary_parts.append(f"Index page: {output_dir_obj / 'index.html'}")
 
-    if problems:
-        summary_parts.append(f"\nPartial: {len(problems)} problems:")
-        summary_parts.extend(f"  - {err}" for err in problems)
-        for err in problems:
-            print(f"warning: {err}", file=sys.stderr)
-
-    return DocsResult("\n".join(summary_parts), problems)
+    return "\n".join(summary_parts)

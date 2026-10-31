@@ -19,7 +19,6 @@ from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
-from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .errors import AmbiguousVIReferenceError
@@ -109,11 +108,9 @@ class QueryMixin:
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _layouts: dict[str, Layout]
-    _search_paths: list[Path]
-    _vilib_root: Path | None
-    _userlib_root: Path | None
-    _instrlib_root: Path | None
-    _vi_file_index: dict[str, Path] | None
+    _vilib_roots: tuple[Path, ...]
+    _userlib_roots: tuple[Path, ...]
+    _instrlib_roots: tuple[Path, ...]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -285,57 +282,65 @@ class QueryMixin:
         """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
         return self._source_paths.get(self.resolve_vi_name(vi_name))
 
-    def locate_vi_file(
-        self, vi_name: str, qualified_path: str | None = None
-    ) -> Path | None:
-        """Best-effort on-disk ``.vi`` for a SubVI. Decoration-only (SubVI icons /
-        click-nav) — never forces a load.
+    def library_folders(self) -> dict[str, tuple[Path, ...]]:
+        """The folders each pseudo path names, in the order they are tried."""
+        return {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
+        }
 
-        ``qualified_path`` (the caller's project-relative token, e.g.
-        ``/Lib1/Do.vi``) resolves to the EXACT file by PATH: joined to each search
-        root, the file AT that path IS the SubVI. This is what disambiguates two
-        SubVIs that share a bare filename across libraries (``Lib1/Do.vi`` vs
-        ``Lib2/Do.vi``) — a bare-name lookup collides, the path does not. A
-        ``<vilib>``/``<userlib>`` token is skipped here (resolved separately).
+    def library_roots(self) -> list[tuple[str, Path]]:
+        """The configured library folders, each with the symbolic root token a
+        recorded path names it by (``("<userlib>", Path(".../user.lib"))``), in
+        the order they are tried."""
+        return [
+            (token, root)
+            for token, roots in self.library_folders().items()
+            for root in roots
+        ]
 
-        Falls back to an already-loaded source, then a bare-filename search of the
-        retained search paths (the last-resort path, which CAN collide on
-        duplicate names — callers with a ``qualified_path`` never reach it). Under
-        a MINIMAL load the SubVIs aren't in ``_source_paths``, so the filename
-        search is what lets a project-local SubVI's own ``_ICON.png`` resolve; its
-        index is built once, lazily, and cached."""
-        if qualified_path:
-            rel = qualified_path.replace("\\", "/").lstrip("/")
-            if rel and not rel.startswith("<"):
-                for root in self._search_paths:
-                    candidate = root / rel
-                    if candidate.is_file():
-                        return candidate
-        try:
-            loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
-        except AmbiguousVIReferenceError:
-            # Several VIs share the name: no icon rather than a wrong one.
-            return None
-        if loaded is not None:
-            return loaded
-        if self._vi_file_index is None:
-            index: dict[str, Path] = {}
-            for root in self._search_paths:
-                try:
-                    for found in rglob_vi_files(root):
-                        index.setdefault(found.name, found)
-                except OSError:
-                    continue
-            self._vi_file_index = index
-        return self._vi_file_index.get(vi_name)
+    def recorded_candidates(
+        self, ref: ParsedDependencyRef, caller_file: Path
+    ) -> list[Path]:
+        """Where a record names its file on this machine, in the order they are
+        tried: an absolute path as it is, a relative path joined onto the
+        caller's folder, a pseudo path joined onto each folder it names. Empty
+        for a pseudo path with no folder, or an absolute path with no file here
+        (another machine's folder, never shown or staged)."""
+        absolute = ref.absolute_path()
+        if absolute is not None:
+            return [absolute] if absolute.exists() else []
+        head = ref.path_tokens[0] if ref.path_tokens else ""
+        folders = self.library_folders().get(head)
+        if folders is None:
+            only = ref.resolve_against(caller_file)
+            return [only] if only is not None else []
+        keyword = {
+            "<vilib>": "vilib_root",
+            "<userlib>": "userlib_root",
+            "<instrlib>": "instrlib_root",
+        }[head]
+        found: list[Path] = []
+        for folder in folders:
+            candidate = ref.resolve_against(caller_file, **{keyword: folder})
+            if candidate is not None:
+                found.append(candidate)
+        return found
+
+    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
+        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
+        the file at ``path`` is in, with that folder, else None."""
+        resolved = path.resolve()
+        for token, root in self.library_roots():
+            if resolved.is_relative_to(root.resolve()):
+                return token, root
+        return None
 
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
         root (the user's own library install, not their project)."""
-        return any(
-            root is not None and path.is_relative_to(root)
-            for root in (self._vilib_root, self._userlib_root, self._instrlib_root)
-        )
+        return any(path.is_relative_to(root) for _, root in self.library_roots())
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
@@ -350,17 +355,14 @@ class QueryMixin:
         ``path_tokens`` (``["<vilib>", "Utility", ...]``)."""
         if not qualified_path:
             return None
-        for token, root in (
-            ("<vilib>", self._vilib_root),
-            ("<userlib>", self._userlib_root),
-            ("<instrlib>", self._instrlib_root),
-        ):
-            if qualified_path.startswith(token) and root is not None:
+        for token, root in self.library_roots():
+            if qualified_path.startswith(token):
                 rel = qualified_path[len(token) :].lstrip("/\\")
                 if ".llb/" in rel.replace("\\", "/").lower():
                     return None  # packed member — needs archive extraction
                 candidate = root / rel
-                return candidate if candidate.is_file() else None
+                if candidate.is_file():
+                    return candidate
         return None
 
     def get_layout(self, vi_name: str) -> Layout | None:
@@ -385,6 +387,14 @@ class QueryMixin:
         if key not in self._dep_graph:
             return None
         return self._recorded.path(key)
+
+    def stub_reason(self, key: str) -> str | None:
+        """Why the absent dependency ``key`` is missing, when more than its
+        absence (several files of its name, a candidate that cannot be read);
+        None otherwise."""
+        if key not in self._stubs or key not in self._dep_graph:
+            return None
+        return self._dep_graph.nodes[key].get("stub_reason")
 
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
@@ -528,9 +538,7 @@ class QueryMixin:
     def class_declares(self, class_key: str, file_name: str) -> bool:
         """Whether the class at ``class_key`` lists a VI file named ``file_name``
         itself (not an ancestor)."""
-        return file_name in (
-            self._dep_graph.nodes[class_key].get("method_paths") or {}
-        )
+        return file_name in (self._dep_graph.nodes[class_key].get("method_paths") or {})
 
     def call_edges(self) -> list[tuple[str, str]]:
         """``(importer, imported)`` for every plain reference of a VI to another VI
@@ -650,19 +658,19 @@ class QueryMixin:
         leaf = node_key.rsplit(":", 1)[-1]
         for caller in sorted(self._dep_graph.predecessors(node_key)):
             caller_file = self._source_paths.get(caller)
-            tokens = installed or self._recorded.recorded_by(node_key, caller)
-            if caller_file is None or not tokens:
-                continue
-            cand = ParsedDependencyRef(
-                name=leaf, path_tokens=list(tokens)
-            ).resolve_against(
-                caller_file,
-                vilib_root=self._vilib_root,
-                userlib_root=self._userlib_root,
-                instrlib_root=self._instrlib_root,
+            ref = (
+                ParsedDependencyRef(name=leaf, path_tokens=list(installed))
+                if installed
+                else self._recorded.recorded_by(node_key, caller)
             )
-            if cand is None:
+            if caller_file is None or ref is None:
                 continue
+            # The recorded tokens already end at a class or library member's own
+            # file (``recorded_paths.member_tokens``).
+            candidates = self.recorded_candidates(ref, caller_file)
+            if not candidates:
+                continue
+            cand = next((c for c in candidates if c.exists()), candidates[0])
             return _real_member_path(cand)
         return None
 
@@ -1476,6 +1484,13 @@ class QueryMixin:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
 
+    def owning_class_key(self, vi_name: str) -> str | None:
+        """PATH key of the class that owns this method VI (its "owns" edge), or
+        None — the class's identity, for class queries that must not be
+        resolved by the class's name (another file of that name may be in the
+        graph)."""
+        return self._owning_class_key(self.resolve_vi_name(vi_name))
+
     def _owner_key(self, key: str, owner_type: NodeType) -> str | None:
         """PATH key of the ``owner_type`` node that owns ``key`` via an "owns"
         edge, or None. The one owner walk behind ``get_owning_class`` /
@@ -1495,10 +1510,6 @@ class QueryMixin:
         KEY (path) for edge/attr lookups — distinct from :meth:`get_owning_class`,
         which returns the display qname."""
         return self._owner_key(vi_key, NodeType.CLASS)
-
-    def owning_class_key(self, vi_key: str) -> str | None:
-        """The key (path) of the class that lists the VI ``vi_key``, or None."""
-        return self._owning_class_key(vi_key)
 
     def get_owning_library(self, vi_name: str) -> str | None:
         """Get the ``.lvlib`` that owns this VI directly, via its "owns" edge.

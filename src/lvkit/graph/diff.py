@@ -39,6 +39,8 @@ from .models import (
     bool_str,
 )
 from .netlist import (
+    NetlistControlRead,
+    NetlistIndicatorDrive,
     NetlistItem,
     NetlistScope,
     ambiguous_bares,
@@ -2744,6 +2746,8 @@ def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
     order instead of structures-first/leaves-second."""
     order: list[str] = []
     for item in items:
+        if isinstance(item, NetlistIndicatorDrive | NetlistControlRead):
+            continue
         order.append(item.uid)
         if isinstance(item, NetlistScope):
             for frame in item.frames:

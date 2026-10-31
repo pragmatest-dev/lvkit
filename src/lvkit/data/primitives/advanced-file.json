@@ -298,7 +298,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
@@ -396,25 +396,28 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Delete"
         },
         {
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "in",
           "name": "entire_hierarchy",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
           "direction": "in",
           "name": "confirm",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 11,
@@ -528,7 +531,7 @@
           "index": 4,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
@@ -570,7 +573,7 @@
           "index": 4,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
@@ -612,7 +615,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
@@ -772,7 +775,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
@@ -826,7 +829,7 @@
           "index": 4,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 5,
@@ -1004,7 +1007,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
@@ -1086,7 +1089,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,

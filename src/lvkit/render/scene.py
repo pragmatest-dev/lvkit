@@ -38,6 +38,11 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.constants import (
+    TUNNEL_CLASS_CASE_SEL,
+    TUNNEL_CLASS_EVENT_DYNAMIC,
+    TUNNEL_CLASS_EVENT_TIMEOUT,
+)
 from ..parser.layout import (
     Layout,
     Point,
@@ -757,9 +762,9 @@ _TUNNEL_GLYPH_KIND = {
     "lSR": "sr_down",
     "rSR": "sr_up",
     "lpTun": "autoindex",
-    "caseSel": "selector",
-    "eventTimeOut": "eventTimeout",
-    "eventDynDCO": "eventDyn",
+    TUNNEL_CLASS_CASE_SEL: "selector",
+    TUNNEL_CLASS_EVENT_TIMEOUT: "eventTimeout",
+    TUNNEL_CLASS_EVENT_DYNAMIC: "eventDyn",
     "initFeedback": "feedback_init",
 }
 

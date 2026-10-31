@@ -19,7 +19,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -29,7 +28,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is –100."
         },
         {
@@ -39,7 +37,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -49,7 +46,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -59,7 +55,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -69,7 +64,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -79,7 +73,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -89,7 +82,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -99,7 +91,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -109,7 +100,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. If this VI receives an invalid input, output returns NaN ."
         },
         {
@@ -119,7 +109,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -141,7 +130,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is -100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -151,7 +139,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is -100."
         },
         {
@@ -161,7 +148,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled. This VI resizes the setpoint input array to match the size of the process variable input array."
         },
         {
@@ -171,7 +157,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -181,7 +166,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains is an array of clusters of the following elements."
         },
         {
@@ -191,7 +175,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -201,7 +184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -211,7 +193,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -221,7 +202,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -231,7 +211,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. This VI determines the length of the output array from the size of the process variable input array."
         },
         {
@@ -241,7 +220,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -263,7 +241,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -273,7 +250,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -283,7 +259,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_parameters",
-          "default_value": null,
           "description": "PID parameters is a cluster containing the updated PID gains parameters for each controller. You can use the updated values with other PID VIs."
         },
         {
@@ -293,7 +268,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ti",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -303,7 +277,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "td",
-          "default_value": null,
           "description": ""
         },
         {
@@ -313,7 +286,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
-          "default_value": null,
           "description": "manual control specifies the value of the control output when auto? is FALSE."
         },
         {
@@ -323,7 +295,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "default_value": null,
           "description": "options specifies the settings for the PID control."
         },
         {
@@ -333,7 +304,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sp_high",
-          "default_value": null,
           "description": "sp high specifies the upper bound of the setpoint range in terms of percentage points or engineering units."
         },
         {
@@ -343,7 +313,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "out_low",
-          "default_value": null,
           "description": "out low specifies the lower bound of the output range in terms of percentage points or engineering units."
         },
         {
@@ -353,7 +322,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "out_high",
-          "default_value": null,
           "description": "out high specifies the upper bound of the output range in terms of percentage points or engineering units."
         },
         {
@@ -363,7 +331,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "hold",
-          "default_value": null,
           "description": "hold specifies whether the controller ignores changes in the process variable and suspends any integral action. If you set hold as TRUE, output will retain its previous value. The default is FALSE."
         },
         {
@@ -373,7 +340,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "auto",
-          "default_value": null,
           "description": "TRUE selects automatic control, FALSE puts controller in manual. Bumpless transfer is used from automatic to manual."
         },
         {
@@ -383,7 +349,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pro_band",
-          "default_value": null,
           "description": "pro. band indicates whether the proportional value of PID parameters input is proportional gain (Kc) or proportional band (PB). The default is FALSE, which means the proportional value is proportional gain. The conversion rate is Kc = 100/PB."
         },
         {
@@ -393,7 +358,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reverse_acting",
-          "default_value": null,
           "description": "reverse acting specifies whether the control is reverse- or forward-acting. The default is TRUE, which means output decreases if the input is greater than the setpoint."
         },
         {
@@ -403,7 +367,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "beta",
-          "default_value": null,
           "description": "beta specifies the relative emphasis of setpoint tracking to disturbance rejection. The default value of 1 is appropriate for most applications. You can use a smaller value between 0 and 1 to specify emphasis on disturbance rejection, such as process load changes."
         },
         {
@@ -413,7 +376,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
-          "default_value": null,
           "description": "linearity specifies the linearity of the error response. The valid range for linearity is 0 to 1. A value of 1 provides a normal linear response, while a value of 0.1 provides an approximately parabolic response."
         },
         {
@@ -423,7 +385,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -433,7 +394,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "iteration",
-          "default_value": null,
           "description": "iteration is the current iteration of the loop."
         },
         {
@@ -443,7 +403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. If this VI receives an invalid input, output returns NaN ."
         }
       ]
@@ -465,7 +424,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "alpha",
-          "default_value": null,
           "description": "alpha specifies the derivative filter time constant. Increasing this value increases damping of derivative action."
         },
         {
@@ -475,7 +433,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "gamma",
-          "default_value": null,
           "description": "gamma specifies an amount by which to weight the error applied to derivative action. The default value is 0, which avoids the derivative kick , or sudden change in controller output, that can occur after a change in the setpoint value. In certain cascade control operations where derivative kick is not a concern, increasing gamma might improve the speed of the first PID controller."
         },
         {
@@ -485,7 +442,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
-          "default_value": null,
           "description": "manual control specifies the value of the control output when auto? is FALSE."
         },
         {
@@ -495,7 +451,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "auto",
-          "default_value": null,
           "description": "auto? specifies whether to use automatic or manual control. In some situations, you might need to switch off the PID controller and operate the system in manual, or open-loop, mode. The default is TRUE."
         },
         {
@@ -505,7 +460,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -515,7 +469,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is –100."
         },
         {
@@ -525,7 +478,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -535,7 +487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -545,7 +496,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_range",
-          "default_value": null,
           "description": "setpoint range specifies the maximum and minimum values for the setpoint/process variable range. This VI uses the setpoint range to calculate nonlinear integral action. The default range is 0 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage."
         },
         {
@@ -555,7 +505,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_low",
-          "default_value": null,
           "description": "setpoint low specifies the minimum value of the setpoint/process variable range."
         },
         {
@@ -565,7 +514,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -575,7 +523,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -585,7 +532,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -595,7 +541,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -605,7 +550,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -615,7 +559,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "beta",
-          "default_value": null,
           "description": "beta specifies the relative emphasis of setpoint tracking to disturbance rejection. The default value of 1 is appropriate for most applications. You can use a smaller value between 0 and 1 to specify emphasis on disturbance rejection, such as process load changes."
         },
         {
@@ -625,7 +568,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
-          "default_value": null,
           "description": "linearity specifies the linearity of the error response. The valid range for linearity is 0 to 1. A value of 1 provides a normal linear response, while a value of 0.1 provides an approximately parabolic response."
         },
         {
@@ -635,7 +577,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. If this VI receives an invalid input, output returns NaN ."
         },
         {
@@ -645,7 +586,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -667,7 +607,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "gamma",
-          "default_value": null,
           "description": "gamma specifies an amount by which to weight the error applied to derivative action. The default value is 0, which avoids the derivative kick , or sudden change in controller output, that can occur after a change in the setpoint value. In certain cascade control operations where derivative kick is not a concern, increasing gamma might improve the speed of the first PID controller."
         },
         {
@@ -677,7 +616,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
-          "default_value": null,
           "description": "manual control specifies the value of the control output when auto? is FALSE. This VI resizes the manual control input array to match the size of the process variable input array."
         },
         {
@@ -687,7 +625,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "auto",
-          "default_value": null,
           "description": "auto? specifies whether to use automatic or manual control. When auto? is TRUE, this VI uses automatic control. When auto? is FALSE, this VI uses manual control. This VI uses bumpless transfer from manual control to automatic control. The default is TRUE. This VI resizes the auto? input array to match the size of the process variable input array."
         },
         {
@@ -697,7 +634,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is -100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -707,7 +643,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is –100."
         },
         {
@@ -717,7 +652,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled. This VI resizes the setpoint input array to match the size of the process variable input array."
         },
         {
@@ -727,7 +661,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -737,7 +670,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_range",
-          "default_value": null,
           "description": "setpoint range specifies the maximum and minimum values for the setpoint/process variable range. This VI uses the setpoint range to calculate nonlinear integral action. The default range is 0 to 100, which corresponds to values specified in terms of percentage of full scale. You can change this range to something that is appropriate for your control system. For example, you can relate engineering units to engineering units instead of percentage to percentage."
         },
         {
@@ -747,7 +679,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_low",
-          "default_value": null,
           "description": "setpoint low specifies the minimum value of the setpoint/process variable range."
         },
         {
@@ -757,7 +688,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains is an array of clusters of the following elements."
         },
         {
@@ -767,7 +697,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -777,7 +706,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -787,7 +715,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -797,7 +724,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -807,7 +733,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "beta",
-          "default_value": null,
           "description": "beta specifies the relative emphasis of disturbance rejection to setpoint tracking. The default value of 1 is appropriate for most applications. You can use a smaller value between 0 and 1 to specify emphasis on disturbance rejection, such as process load changes. This VI resizes the beta input array to match the size of the process variable input array."
         },
         {
@@ -817,7 +742,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
-          "default_value": null,
           "description": "linearity specifies the linearity of the error response. The valid range for linearity is 0 to 1. A value of 1 provides a normal linear response, while a value of 0.1 provides an approximately parabolic response."
         },
         {
@@ -827,7 +751,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. This VI determines the length of the output array from the size of the process variable input array."
         },
         {
@@ -837,7 +760,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -859,7 +781,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "gain_scheduling_value",
-          "default_value": null,
           "description": "gain scheduling value specifies the current input value to use to select PID gains from the gain schedule."
         },
         {
@@ -869,7 +790,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gain_schedule",
-          "default_value": null,
           "description": "PID gain schedule specifies the gain schedule for the proportional, integral, and derivative gain parameters. Specify the maximum values for the PID gain schedule in ascending order. This VI uses the first set of PID gains in the array for all gain scheduling values less than the corresponding maximum value. If you define a maximum setpoint value and the actual setpoint rises above that value, this VI continues to behave as if the maximum setpoint value were still in effect."
         },
         {
@@ -879,7 +799,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -889,7 +808,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -899,7 +817,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
-          "default_value": null,
           "description": "max value specifies the maximum value of the range of the gain scheduling value."
         },
         {
@@ -909,7 +826,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index_out",
-          "default_value": null,
           "description": "index out returns the index of the element in the PID gain schedule array corresponding to the PID gains out output."
         },
         {
@@ -919,7 +835,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the current PID gains from the gain schedule."
         },
         {
@@ -929,7 +844,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -939,7 +853,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -961,7 +874,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "gain_scheduling_value",
-          "default_value": null,
           "description": "gain scheduling value specifies the current input value to use to select PID gains from the gain schedule."
         },
         {
@@ -971,7 +883,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gain_schedule",
-          "default_value": null,
           "description": "PID gain schedule specifies the gain schedule for the proportional, integral, and derivative gain parameters. Specify the maximum values for the PID gain schedule in ascending order. This VI uses the first set of PID gains in the array for all gain scheduling values less than the corresponding maximum value. If you define a maximum setpoint value and the actual setpoint rises above that value, this VI continues to behave as if the maximum setpoint value were still in effect."
         },
         {
@@ -981,7 +892,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -991,7 +901,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -1001,7 +910,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
-          "default_value": null,
           "description": "max value specifies the maximum value of the range of the gain scheduling value."
         },
         {
@@ -1011,7 +919,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index_out",
-          "default_value": null,
           "description": "index out returns the indexes of the elements in the PID gain schedule array corresponding to each element of the PID gains out output array."
         },
         {
@@ -1021,7 +928,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the current PID gains from the gain schedule."
         },
         {
@@ -1031,7 +937,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1041,7 +946,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -1063,7 +967,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "proportional_unit",
-          "default_value": null,
           "description": "proportional unit specifies the units associated with the proportional (P) component of the PID controller to convert."
         },
         {
@@ -1073,7 +976,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_structure",
-          "default_value": null,
           "description": "PID structure specifies the initial form of the PID controller."
         },
         {
@@ -1083,7 +985,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "proportional",
-          "default_value": null,
           "description": "proportional specifies the value of the proportional (P) component of the PID controller to convert."
         },
         {
@@ -1093,7 +994,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral",
-          "default_value": null,
           "description": "integral specifies the value of the integral (I) component of the PID controller to convert."
         },
         {
@@ -1103,7 +1003,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative",
-          "default_value": null,
           "description": "derivative specifies the value of the derivative (D) component of the PID controller to convert."
         },
         {
@@ -1113,7 +1012,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_unit",
-          "default_value": null,
           "description": "integral unit specifies the units associated with the integral (I) component of the PID controller to convert."
         },
         {
@@ -1123,7 +1021,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_unit",
-          "default_value": null,
           "description": "derivative unit specifies the units associated with the derivative (D) component of the PID controller to convert."
         },
         {
@@ -1133,7 +1030,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the updated PID gains parameters, which you can use with other PID VIs."
         },
         {
@@ -1143,7 +1039,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1153,7 +1048,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -1175,7 +1069,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "proportional_unit",
-          "default_value": null,
           "description": "proportional unit specifies the units associated with the proportional (P) component of the PID controller to convert."
         },
         {
@@ -1185,7 +1078,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_structure",
-          "default_value": null,
           "description": "PID structure specifies the initial form of the PID controller."
         },
         {
@@ -1195,7 +1087,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "proportional",
-          "default_value": null,
           "description": "proportional specifies the values of the proportional (P) components of the PID controllers to convert."
         },
         {
@@ -1205,7 +1096,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral",
-          "default_value": null,
           "description": "integral specifies the values of the integral (I) components of the PID controllers to convert."
         },
         {
@@ -1215,7 +1105,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative",
-          "default_value": null,
           "description": "derivative specifies the values of the derivative (D) components of the PID controllers to convert."
         },
         {
@@ -1225,7 +1114,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_unit",
-          "default_value": null,
           "description": "integral unit specifies the units associated with the integral (I) component of the PID controller to convert."
         },
         {
@@ -1235,7 +1123,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_unit",
-          "default_value": null,
           "description": "derivative unit specifies the units associated with the derivative (D) component of the PID controller to convert."
         },
         {
@@ -1245,7 +1132,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_parameters",
-          "default_value": null,
           "description": "PID parameters returns an array containing the updated PID gains parameters for each controller. You can use the updated values with other PID VIs."
         },
         {
@@ -1255,7 +1141,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1265,7 +1150,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -1287,7 +1171,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ziegler_nichols_speed",
-          "default_value": null,
           "description": "Ziegler-Nichols Speed specifies the desired response performance of the PID parameters."
         },
         {
@@ -1297,7 +1180,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
-          "default_value": null,
           "description": "Type of Controller specifies which parameters to return as the PID gains ."
         },
         {
@@ -1307,7 +1189,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
-          "default_value": null,
           "description": "Stimulus signal specifies an array that represents the stimulus signal."
         },
         {
@@ -1317,7 +1198,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
-          "default_value": null,
           "description": "Response signal specifies an array that represents the response signal."
         },
         {
@@ -1327,7 +1207,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
-          "default_value": null,
           "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals."
         },
         {
@@ -1337,7 +1216,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0."
         },
         {
@@ -1347,7 +1225,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
-          "default_value": null,
           "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains . The default is 0."
         },
         {
@@ -1357,7 +1234,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_operating_point",
-          "default_value": null,
           "description": "stimulus operating point returns the calculated stimulus offset for the plant."
         },
         {
@@ -1367,7 +1243,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_operating_point",
-          "default_value": null,
           "description": "response operating point returns the calculated response offset for the plant."
         },
         {
@@ -1377,7 +1252,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the calculated PID gains values for the plant."
         },
         {
@@ -1387,7 +1261,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1397,7 +1270,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -1407,7 +1279,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
-          "default_value": null,
           "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant."
         },
         {
@@ -1417,7 +1288,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
-          "default_value": null,
           "description": "Time Constant (T) returns the calculated time constant ( T ), in seconds."
         },
         {
@@ -1427,7 +1297,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
-          "default_value": null,
           "description": "Dead Time (L) returns the calculated dead time ( L ), in seconds."
         }
       ]
@@ -1449,7 +1318,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ziegler_nichols_speed",
-          "default_value": null,
           "description": "Ziegler-Nichols Speed specifies the desired response performance of the PID parameters."
         },
         {
@@ -1459,7 +1327,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
-          "default_value": null,
           "description": "Type of Controller specifies which parameters to return as the PID gains ."
         },
         {
@@ -1469,7 +1336,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
-          "default_value": null,
           "description": "Stimulus signal specifies an array that represents the stimulus signal."
         },
         {
@@ -1479,7 +1345,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
-          "default_value": null,
           "description": "Response signal specifies an array that represents the response signal."
         },
         {
@@ -1489,7 +1354,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
-          "default_value": null,
           "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals."
         },
         {
@@ -1499,7 +1363,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0."
         },
         {
@@ -1509,7 +1372,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
-          "default_value": null,
           "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains . The default is 0."
         },
         {
@@ -1519,7 +1381,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_operating_point",
-          "default_value": null,
           "description": "stimulus operating point returns the calculated stimulus offset for the plant."
         },
         {
@@ -1529,7 +1390,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_operating_point",
-          "default_value": null,
           "description": "response operating point returns the calculated response offset for the plant."
         },
         {
@@ -1539,7 +1399,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the calculated PID gains values for the plant."
         },
         {
@@ -1549,7 +1408,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1559,7 +1417,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -1569,7 +1426,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
-          "default_value": null,
           "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant."
         },
         {
@@ -1579,7 +1435,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
-          "default_value": null,
           "description": "Time Constant (T) returns the calculated time constant ( T ), in seconds."
         },
         {
@@ -1589,7 +1444,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
-          "default_value": null,
           "description": "Dead Time (L) returns the calculated dead time ( L ), in seconds."
         }
       ]
@@ -1611,7 +1465,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
-          "default_value": null,
           "description": "Type of Controller specifies which parameters to return as the PID gains ."
         },
         {
@@ -1621,7 +1474,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
-          "default_value": null,
           "description": "Stimulus signal specifies an array that represents the stimulus signal."
         },
         {
@@ -1631,7 +1483,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
-          "default_value": null,
           "description": "Response signal specifies an array that represents the response signal."
         },
         {
@@ -1641,7 +1492,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
-          "default_value": null,
           "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals."
         },
         {
@@ -1651,7 +1501,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0."
         },
         {
@@ -1661,7 +1510,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
-          "default_value": null,
           "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains . The default is 0."
         },
         {
@@ -1671,7 +1519,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
-          "default_value": null,
           "description": "stimulus offset returns the calculated stimulus offset for the plant."
         },
         {
@@ -1681,7 +1528,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
-          "default_value": null,
           "description": "response offset returns the calculated response offset for the plant."
         },
         {
@@ -1691,7 +1537,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the calculated PID gains values for the plant."
         },
         {
@@ -1701,7 +1546,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1711,7 +1555,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -1721,7 +1564,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
-          "default_value": null,
           "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant."
         },
         {
@@ -1731,7 +1573,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
-          "default_value": null,
           "description": "Time Constant (T) returns the calculated time constant ( T ), in seconds."
         },
         {
@@ -1741,7 +1582,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
-          "default_value": null,
           "description": "Dead Time (L) returns the calculated dead time ( L ), in seconds."
         }
       ]
@@ -1763,7 +1603,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_specifications",
-          "default_value": null,
           "description": "Tuning specifications specifies which formula to use to convert the model to PID parameters."
         },
         {
@@ -1773,7 +1612,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
-          "default_value": null,
           "description": "Type of Controller specifies which parameters to return as the PID gains ."
         },
         {
@@ -1783,7 +1621,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
-          "default_value": null,
           "description": "Stimulus signal specifies an array that represents the stimulus signal."
         },
         {
@@ -1793,7 +1630,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
-          "default_value": null,
           "description": "Response signal specifies an array that represents the response signal."
         },
         {
@@ -1803,7 +1639,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
-          "default_value": null,
           "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals."
         },
         {
@@ -1813,7 +1648,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0."
         },
         {
@@ -1823,7 +1657,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
-          "default_value": null,
           "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains . The default is 0."
         },
         {
@@ -1833,7 +1666,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
-          "default_value": null,
           "description": "stimulus offset returns the calculated stimulus offset for the plant."
         },
         {
@@ -1843,7 +1675,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
-          "default_value": null,
           "description": "response offset returns the calculated response offset for the plant."
         },
         {
@@ -1853,7 +1684,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the calculated PID gains values for the plant."
         },
         {
@@ -1863,7 +1693,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -1873,7 +1702,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -1883,7 +1711,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
-          "default_value": null,
           "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant."
         },
         {
@@ -1893,7 +1720,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
-          "default_value": null,
           "description": "Time Constant (T) returns the calculated time constant ( T ), in seconds."
         },
         {
@@ -1903,7 +1729,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
-          "default_value": null,
           "description": "Dead Time (L) returns the calculated dead time ( L ), in seconds."
         }
       ]
@@ -1925,7 +1750,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "desired_time_constant",
-          "default_value": null,
           "description": "Desired Time Constant (tau_c) specifies a time constant value at which you want the system to perform after you close the loop. This VI uses this value to adjust the PID gains according to the internal model control method and as appropriate for a first-order model with delay."
         },
         {
@@ -1935,7 +1759,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
-          "default_value": null,
           "description": "Type of Controller specifies which parameters to return as the PID gains ."
         },
         {
@@ -1945,7 +1768,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
-          "default_value": null,
           "description": "Stimulus signal specifies an array that represents the stimulus signal."
         },
         {
@@ -1955,7 +1777,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
-          "default_value": null,
           "description": "Response signal specifies an array that represents the response signal."
         },
         {
@@ -1965,7 +1786,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
-          "default_value": null,
           "description": "closed-loop? specifies whether the system is a closed-loop system. If you set closed-loop? to TRUE, this VI estimates open-loop parameter values based on the closed-loop values it identifies from the input signals."
         },
         {
@@ -1975,7 +1795,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is 0."
         },
         {
@@ -1985,7 +1804,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
-          "default_value": null,
           "description": "Controller Gain (K) specifies an initial value for the controller gain, which this VI uses to calculate the integral time (Ti, min) component of PID gains . The default is 0."
         },
         {
@@ -1995,7 +1813,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
-          "default_value": null,
           "description": "stimulus offset returns the calculated stimulus offset for the plant."
         },
         {
@@ -2005,7 +1822,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
-          "default_value": null,
           "description": "response offset returns the calculated response offset for the plant."
         },
         {
@@ -2015,7 +1831,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
-          "default_value": null,
           "description": "PID gains returns the calculated PID gains values for the plant."
         },
         {
@@ -2025,7 +1840,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2035,7 +1849,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -2045,7 +1858,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
-          "default_value": null,
           "description": "Plant Parameters returns the calculated gain, time constant, and dead time of the plant."
         },
         {
@@ -2055,7 +1867,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
-          "default_value": null,
           "description": "Time Constant (T) returns the calculated time constant ( T ), in seconds."
         },
         {
@@ -2065,7 +1876,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
-          "default_value": null,
           "description": "Dead Time (L) returns the calculated dead time ( L ), in seconds."
         }
       ]
@@ -2087,7 +1897,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
-          "default_value": null,
           "description": "autotuning parameters specifies various parameters used for the autotuning process."
         },
         {
@@ -2097,7 +1906,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
-          "default_value": null,
           "description": "relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles."
         },
         {
@@ -2107,7 +1915,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
-          "default_value": null,
           "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude ."
         },
         {
@@ -2117,7 +1924,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
-          "default_value": null,
           "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process."
         },
         {
@@ -2127,7 +1933,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
-          "default_value": null,
           "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action."
         },
         {
@@ -2137,7 +1942,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
-          "default_value": null,
           "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output."
         },
         {
@@ -2147,7 +1951,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -2157,7 +1960,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -2167,7 +1969,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
-          "default_value": null,
           "description": "PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2177,7 +1978,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -2187,7 +1987,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -2197,7 +1996,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -2207,7 +2005,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -2217,7 +2014,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
-          "default_value": null,
           "description": "autotune? specifies to begin autotuning. Wire this input from a Boolean control with latched mechanical action and a default value of FALSE. The default is FALSE."
         },
         {
@@ -2227,7 +2023,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
-          "default_value": null,
           "description": "setpoint out returns the updated setpoint value."
         },
         {
@@ -2237,7 +2032,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
-          "default_value": null,
           "description": "process variable out returns the value of the process variable. If autotune? is TRUE, this output returns 0."
         },
         {
@@ -2247,7 +2041,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
-          "default_value": null,
           "description": "tuning completed? returns TRUE when the autotuning process is complete. You can use this output to determine when to update the PID gains in ."
         },
         {
@@ -2257,7 +2050,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the updated PID gain parameters upon completion of the autotuning process. Normal output values are identical to the values in the PID gains in input."
         },
         {
@@ -2267,7 +2059,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2277,7 +2068,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -2287,7 +2077,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
-          "default_value": null,
           "description": "tuned PID gains returns the tuned proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2297,7 +2086,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2307,7 +2095,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -2329,7 +2116,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
-          "default_value": null,
           "description": "autotuning parameters specifies various parameters used for the autotuning process."
         },
         {
@@ -2339,7 +2125,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
-          "default_value": null,
           "description": "relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles."
         },
         {
@@ -2349,7 +2134,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
-          "default_value": null,
           "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude ."
         },
         {
@@ -2359,7 +2143,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
-          "default_value": null,
           "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process."
         },
         {
@@ -2369,7 +2152,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
-          "default_value": null,
           "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action."
         },
         {
@@ -2379,7 +2161,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
-          "default_value": null,
           "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output."
         },
         {
@@ -2389,7 +2170,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -2399,7 +2179,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -2409,7 +2188,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
-          "default_value": null,
           "description": "PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2419,7 +2197,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -2429,7 +2206,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -2439,7 +2215,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -2449,7 +2224,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -2459,7 +2233,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
-          "default_value": null,
           "description": "autotune? specifies to begin autotuning. Wire this input from a Boolean control with latched mechanical action and a default value of FALSE. The default is FALSE."
         },
         {
@@ -2469,7 +2242,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
-          "default_value": null,
           "description": "setpoint out returns the updated setpoint value."
         },
         {
@@ -2479,7 +2251,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
-          "default_value": null,
           "description": "process variable out returns the value of the process variable. If autotune? is TRUE, this output returns 0."
         },
         {
@@ -2489,7 +2260,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
-          "default_value": null,
           "description": "tuning completed? returns TRUE when the autotuning process is complete. You can use this output to determine when to update the PID gains in ."
         },
         {
@@ -2499,7 +2269,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the updated PID gain parameters upon completion of the autotuning process. Normal output values are identical to the values in the PID gains in input."
         },
         {
@@ -2509,7 +2278,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2519,7 +2287,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -2529,7 +2296,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
-          "default_value": null,
           "description": "tuned PID gains returns the tuned proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2539,7 +2305,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2549,7 +2314,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -2571,7 +2335,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
-          "default_value": null,
           "description": "autotuning parameters specifies various parameters used for the autotuning process."
         },
         {
@@ -2581,7 +2344,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
-          "default_value": null,
           "description": "relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles."
         },
         {
@@ -2591,7 +2353,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
-          "default_value": null,
           "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude ."
         },
         {
@@ -2601,7 +2362,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
-          "default_value": null,
           "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process."
         },
         {
@@ -2611,7 +2371,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
-          "default_value": null,
           "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action."
         },
         {
@@ -2621,7 +2380,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
-          "default_value": null,
           "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output."
         },
         {
@@ -2631,7 +2389,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -2641,7 +2398,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -2651,7 +2407,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
-          "default_value": null,
           "description": "PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2661,7 +2416,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -2671,7 +2425,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -2681,7 +2434,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -2691,7 +2443,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -2701,7 +2452,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
-          "default_value": null,
           "description": "autotune? specifies to begin autotuning. Wire this input from a Boolean control with latched mechanical action and a default value of FALSE. The default is FALSE."
         },
         {
@@ -2711,7 +2461,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
-          "default_value": null,
           "description": "setpoint out returns the updated setpoint value."
         },
         {
@@ -2721,7 +2470,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
-          "default_value": null,
           "description": "process variable out returns the value of the process variable. If autotune? is TRUE, this output returns 0."
         },
         {
@@ -2731,7 +2479,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
-          "default_value": null,
           "description": "tuning completed? returns TRUE when the autotuning process is complete. You can use this output to determine when to update the PID gains in ."
         },
         {
@@ -2741,7 +2488,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the updated PID gain parameters upon completion of the autotuning process. Normal output values are identical to the values in the PID gains in input."
         },
         {
@@ -2751,7 +2497,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2761,7 +2506,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -2771,7 +2515,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
-          "default_value": null,
           "description": "tuned PID gains returns the tuned proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2781,7 +2524,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -2791,7 +2533,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -2813,7 +2554,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
-          "default_value": null,
           "description": "autotuning parameters specifies various parameters used for the autotuning process."
         },
         {
@@ -2823,7 +2563,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
-          "default_value": null,
           "description": "relay cycles specifies the number of setpoint relay cycles to use to determine the ultimate gain and period. More cycles result in more accurate parameter estimation; however, slower systems might require more time for numerous cycles."
         },
         {
@@ -2833,7 +2572,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
-          "default_value": null,
           "description": "relay amplitude specifies the amplitude of the setpoint relay action. The setpoint relay is between setpoint – relay amplitude and setpoint + relay amplitude ."
         },
         {
@@ -2843,7 +2581,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
-          "default_value": null,
           "description": "control specification specifies the desired response performance of the PID parameters determined by the autotuning process."
         },
         {
@@ -2853,7 +2590,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
-          "default_value": null,
           "description": "PV noise level specifies an estimation of the noise level of the process variable. This value is used as the hysteresis for the setpoint relay action."
         },
         {
@@ -2863,7 +2599,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
-          "default_value": null,
           "description": "manipulated variable specifies a quantity or condition to vary as a function of the actuating error signal so as to change the value of the directly controlled variable. The manipulated variable also can be referred to as the controller output."
         },
         {
@@ -2873,7 +2608,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
-          "default_value": null,
           "description": "setpoint specifies the setpoint value, or desired value, of the process variable being controlled."
         },
         {
@@ -2883,7 +2617,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
-          "default_value": null,
           "description": "process variable specifies the measured value of the process variable being controlled. This value is equal to the feedback value of the feedback control loop."
         },
         {
@@ -2893,7 +2626,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
-          "default_value": null,
           "description": "PID gains in specifies the proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -2903,7 +2635,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) specifies the integral time in minutes. The default is 0.01."
         },
         {
@@ -2913,7 +2644,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) specifies the derivative time in minutes. The default is 0."
         },
         {
@@ -2923,7 +2653,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -2933,7 +2662,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the internal parameters, such as the integrated error, of the controller. Set reinitialize? to TRUE if your application must stop and restart the control loop without restarting the entire application. The default is FALSE."
         },
         {
@@ -2943,7 +2671,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
-          "default_value": null,
           "description": "autotune? specifies to begin autotuning. Wire this input from a Boolean control with latched mechanical action and a default value of FALSE. The default is FALSE."
         },
         {
@@ -2953,7 +2680,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
-          "default_value": null,
           "description": "setpoint out returns the updated setpoint value."
         },
         {
@@ -2963,7 +2689,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
-          "default_value": null,
           "description": "process variable out returns the value of the process variable. If autotune? is TRUE, this output returns 0."
         },
         {
@@ -2973,7 +2698,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
-          "default_value": null,
           "description": "tuning completed? returns TRUE when the autotuning process is complete. You can use this output to determine when to update the PID gains in ."
         },
         {
@@ -2983,7 +2707,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
-          "default_value": null,
           "description": "PID gains out returns the updated PID gain parameters upon completion of the autotuning process. Normal output values are identical to the values in the PID gains in input."
         },
         {
@@ -2993,7 +2716,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -3003,7 +2725,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         },
         {
@@ -3013,7 +2734,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
-          "default_value": null,
           "description": "tuned PID gains returns the tuned proportional gain, integral time, and derivative time parameters of the controller."
         },
         {
@@ -3023,7 +2743,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
-          "default_value": null,
           "description": "integral time (Ti, min) returns the integral time in minutes."
         },
         {
@@ -3033,7 +2752,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
-          "default_value": null,
           "description": "derivative time (Td, min) returns the derivative time in minutes."
         }
       ]
@@ -3055,7 +2773,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_unit",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3065,7 +2782,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input specifies the input value."
         },
         {
@@ -3075,7 +2791,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_parameters",
-          "default_value": null,
           "description": "tuning parameters specifies the tuning parameters."
         },
         {
@@ -3085,7 +2800,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "lag_time",
-          "default_value": null,
           "description": "lag time specifies the phase lag in minutes. A value of zero turns off the lag."
         },
         {
@@ -3095,7 +2809,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "lead_time",
-          "default_value": null,
           "description": "lead time specifies the phase lead in minutes. A value of zero turns off the lead. Large lead time values might result in a wild oscillation of the output."
         },
         {
@@ -3105,7 +2818,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -3115,7 +2827,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is –100."
         },
         {
@@ -3125,7 +2836,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -3135,7 +2845,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the current input value."
         },
         {
@@ -3145,7 +2854,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process."
         },
         {
@@ -3155,7 +2863,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -3177,7 +2884,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "time_unit",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3187,7 +2893,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input specifies the input value."
         },
         {
@@ -3197,7 +2902,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "tuning_parameters",
-          "default_value": null,
           "description": "tuning parameters specifies the tuning parameters."
         },
         {
@@ -3207,7 +2911,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "lag_time",
-          "default_value": null,
           "description": "lag time specifies the phase lag in minutes. A value of zero turns off the lag."
         },
         {
@@ -3217,7 +2920,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "lead_time",
-          "default_value": null,
           "description": "lead time specifies the phase lead in minutes. A value of zero turns off the lead. Large lead time values might result in a wild oscillation of the output."
         },
         {
@@ -3227,7 +2929,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
-          "default_value": null,
           "description": "output range specifies the range to which to coerce the control output. The default range is –100 to 100, which corresponds to values specified in terms of percentage of full scale."
         },
         {
@@ -3237,7 +2938,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
-          "default_value": null,
           "description": "output low specifies the minimum value of the controller output. The default is –100."
         },
         {
@@ -3247,7 +2947,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the loop-cycle time, or interval in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI calculates the time since it was last called using an internal timer with 1 ms resolution. If dt (s) must be less than 1 ms, specify the value explicitly. The default is -1."
         },
         {
@@ -3257,7 +2956,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the current input value."
         },
         {
@@ -3267,7 +2965,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the control output of the PID algorithm that is applied to the controlled process. This VI determines the length of the output from the size of the input array."
         },
         {
@@ -3277,7 +2974,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -3299,7 +2995,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input specifies the unfiltered measured input value."
         },
         {
@@ -3309,7 +3004,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the current input value."
         },
         {
@@ -3319,7 +3013,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the filtered input value."
         }
       ]
@@ -3341,7 +3034,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input specifies the unfiltered measured input value."
         },
         {
@@ -3351,7 +3043,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the current input value."
         },
         {
@@ -3361,7 +3052,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the filtered input value. This VI determines the length of the output array from the size of the input array."
         }
       ]
@@ -3383,7 +3073,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input (controller output) specifies the current control output value from the PID VI."
         },
         {
@@ -3393,7 +3082,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "initial_output",
-          "default_value": null,
           "description": "initial output specifies the output value on the first call or reinitialization of this VI."
         },
         {
@@ -3403,7 +3091,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_rate",
-          "default_value": null,
           "description": "output rate (EGU/min) specifies the maximum rate of change of the controller output."
         },
         {
@@ -3413,7 +3100,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -3423,7 +3109,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the initial output value."
         },
         {
@@ -3433,7 +3118,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the current control output with a limited rate change."
         },
         {
@@ -3443,7 +3127,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -3465,7 +3148,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input (controller output) specifies the current control output value from the PID VI."
         },
         {
@@ -3475,7 +3157,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "initial_output",
-          "default_value": null,
           "description": "initial output specifies the output value on the first call or reinitialization of this VI. This VI resizes the initial output input array to match the size of the input (controller output) input array."
         },
         {
@@ -3485,7 +3166,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_rate",
-          "default_value": null,
           "description": "output rate (EGU/min) specifies the maximum rate of change of the controller output. This VI resizes the output rate (EGU/min) input array to match the size of the input (controller output) input array."
         },
         {
@@ -3495,7 +3175,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "dt (s) specifies the interval, in seconds, at which this VI is called. If dt (s) is less than or equal to zero, this VI uses an internal timer with a one millisecond resolution. The default is –1. Use the same dt (s) value as you use for the PID or PID Advanced VI."
         },
         {
@@ -3505,7 +3184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
-          "default_value": null,
           "description": "reinitialize? specifies whether to reinitialize the output to the initial output value."
         },
         {
@@ -3515,7 +3193,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output returns the current control output with a limited rate change. This VI determines the length of the output array from the size of the input (controller output) input array."
         },
         {
@@ -3525,7 +3202,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
-          "default_value": null,
           "description": "dt out (s) returns the actual time interval in seconds. dt out (s) returns either the value of dt (s) or the computed interval if you set dt (s) to –1."
         }
       ]
@@ -3547,7 +3223,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale."
         },
         {
@@ -3557,7 +3232,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input (EGU) specifies the input value in engineering units."
         },
         {
@@ -3567,7 +3241,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale."
         },
         {
@@ -3577,7 +3250,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_span",
-          "default_value": null,
           "description": "% span returns the output value in percentage of full scale."
         }
       ]
@@ -3599,7 +3271,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array."
         },
         {
@@ -3609,7 +3280,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_",
-          "default_value": null,
           "description": "input (EGU) specifies the input value in engineering units."
         },
         {
@@ -3619,7 +3289,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale. This VI resizes the minimum (EGU) input array to match the size of the input (EGU) array."
         },
         {
@@ -3629,7 +3298,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_span",
-          "default_value": null,
           "description": "% span returns the output value in percentage of full scale. This VI determines the length of the % span array from the size of the input (EGU) array."
         }
       ]
@@ -3651,7 +3319,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "coerce_output_to_range",
-          "default_value": null,
           "description": "coerce output to range? specifies whether to coerce the output to the specified range when % span is greater than 100% or less than 0%."
         },
         {
@@ -3661,7 +3328,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale."
         },
         {
@@ -3671,7 +3337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_span",
-          "default_value": null,
           "description": "% span specifies the input value in percentage of full scale."
         },
         {
@@ -3681,7 +3346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale."
         },
         {
@@ -3691,7 +3355,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output (EGU) returns the output value in engineering units."
         }
       ]
@@ -3713,7 +3376,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "coerce_output_to_range",
-          "default_value": null,
           "description": "coerce output to range? specifies whether to coerce the output to the specified range when % span is greater than 100% or less than 0%."
         },
         {
@@ -3723,7 +3385,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum (EGU) specifies the input value, in engineering units, corresponding to 100% of the full scale. This VI resizes the maximum (EGU) input array to match the % span input array."
         },
         {
@@ -3733,7 +3394,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_span",
-          "default_value": null,
           "description": "% span specifies the input value in percentage of full scale."
         },
         {
@@ -3743,7 +3403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum (EGU) specifies the input value, in engineering units, corresponding to 0% of the full scale. This VI resizes the minimum (EGU) input array to match the % span input array."
         },
         {
@@ -3753,7 +3412,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output",
-          "default_value": null,
           "description": "output (EGU) returns the output value in engineering units. This VI determines the length of the output (EGU) array from the size of the % span input array."
         }
       ]
@@ -3775,7 +3433,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -3785,7 +3442,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_value",
-          "default_value": null,
           "description": "input value specifies the value of the input variable in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input value and the rules of the fuzzy system."
         },
         {
@@ -3795,7 +3451,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3805,7 +3460,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_value",
-          "default_value": null,
           "description": "rule-invoked value? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output value . output value is zero either if the fuzzy controller evaluates the output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked value? indicates, when FALSE, that the rule base is incomplete."
         },
         {
@@ -3815,7 +3469,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI."
         },
         {
@@ -3825,7 +3478,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_value",
-          "default_value": null,
           "description": "output value returns the value of the output variable in the fuzzy system. The fuzzy logic controller evaluates the output value according to the input value(s) and the rules of the fuzzy system. If output value is zero, use the rule-invoked value? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable."
         },
         {
@@ -3835,7 +3487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
-          "default_value": null,
           "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule."
         },
         {
@@ -3845,7 +3496,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3867,7 +3517,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -3877,7 +3526,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_value",
-          "default_value": null,
           "description": "input value specifies the value of the input variable in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input value and the rules of the fuzzy system."
         },
         {
@@ -3887,7 +3535,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3897,7 +3544,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_values",
-          "default_value": null,
           "description": "rule-invoked values? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output values . An element of the output values array is zero either if the fuzzy controller evaluates the corresponding output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked values? indicates, when FALSE, that the rule base is incomplete."
         },
         {
@@ -3907,7 +3553,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI."
         },
         {
@@ -3917,7 +3562,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_values",
-          "default_value": null,
           "description": "output values returns the values of the output variables in the fuzzy system. The fuzzy logic controller evaluates the output values according to the input value(s) and the rules of the fuzzy system. If an element of the output values array is zero, use the rule-invoked values? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable."
         },
         {
@@ -3927,7 +3571,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
-          "default_value": null,
           "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule."
         },
         {
@@ -3937,7 +3580,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3959,7 +3601,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -3969,7 +3610,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_values",
-          "default_value": null,
           "description": "input values specifies the values of the input variables in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input values and the rules of the fuzzy system."
         },
         {
@@ -3979,7 +3619,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3989,7 +3628,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_value",
-          "default_value": null,
           "description": "rule-invoked value? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output value . output value is zero either if the fuzzy controller evaluates the output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked value? indicates, when FALSE, that the rule base is incomplete."
         },
         {
@@ -3999,7 +3637,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI."
         },
         {
@@ -4009,7 +3646,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_value",
-          "default_value": null,
           "description": "output value returns the value of the output variable in the fuzzy system. The fuzzy logic controller evaluates the output value according to the input value(s) and the rules of the fuzzy system. If output value is zero, use the rule-invoked value? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable."
         },
         {
@@ -4019,7 +3655,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
-          "default_value": null,
           "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule."
         },
         {
@@ -4029,7 +3664,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4051,7 +3685,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -4061,7 +3694,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_values",
-          "default_value": null,
           "description": "input values specifies the values of the input variables in the fuzzy system. The fuzzy logic controller evaluates the output value(s) according to the input values and the rules of the fuzzy system."
         },
         {
@@ -4071,7 +3703,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4081,7 +3712,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_values",
-          "default_value": null,
           "description": "rule-invoked values? indicates whether the fuzzy logic controller invoked a rule to evaluate the corresponding output values . An element of the output values array is zero either if the fuzzy controller evaluates the corresponding output variable to zero based on the input value(s) and the rules of the fuzzy system or if the fuzzy logic controller does not invoke any rule to evaluate the output variable. rule-invoked values? indicates, when FALSE, that the rule base is incomplete."
         },
         {
@@ -4091,7 +3721,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI."
         },
         {
@@ -4101,7 +3730,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_values",
-          "default_value": null,
           "description": "output values returns the values of the output variables in the fuzzy system. The fuzzy logic controller evaluates the output values according to the input value(s) and the rules of the fuzzy system. If an element of the output values array is zero, use the rule-invoked values? indicator to determine whether the fuzzy controller evaluated the corresponding output variable to zero or if the fuzzy logic controller did not invoke any rule to evaluate the output variable."
         },
         {
@@ -4111,7 +3739,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
-          "default_value": null,
           "description": "rule weights returns the rule weights that the fuzzy logic controller uses to scale the membership functions of the output linguistic variables. The implication method specifies how the fuzzy logic controller performs this scaling. For each rule, the rule weight is the truth value of the aggregated antecedent multiplied by the degree of support you specify for the rule."
         },
         {
@@ -4121,7 +3748,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4143,7 +3769,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
-          "default_value": null,
           "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created."
         },
         {
@@ -4153,7 +3778,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
-          "default_value": null,
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable."
         },
         {
@@ -4163,7 +3787,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -4173,7 +3796,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4183,7 +3805,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire the fuzzy system out output of this VI to the fuzzy system in input of another VI."
         },
         {
@@ -4193,7 +3814,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name returns the name of the linguistic variable."
         },
         {
@@ -4203,7 +3823,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum returns the minimum value of the linguistic variable."
         },
         {
@@ -4213,7 +3832,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum returns the maximum value of the linguistic variable."
         },
         {
@@ -4223,7 +3841,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -4233,7 +3850,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
-          "default_value": null,
           "description": "membership functions returns the membership functions for the linguistic variable."
         },
         {
@@ -4243,7 +3859,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shape",
-          "default_value": null,
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable."
         },
         {
@@ -4253,7 +3868,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "points",
-          "default_value": null,
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions."
         },
         {
@@ -4263,7 +3877,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "default_value": null,
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input."
         },
         {
@@ -4273,7 +3886,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
-          "default_value": null,
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined . Define the user-defined shapes in the user-defined membership function shapes array in both the FL New Fuzzy System VI and the User-Defined instance of the FL Create Membership Function VI."
         }
       ]
@@ -4295,7 +3907,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
-          "default_value": null,
           "description": "variable index specifies the index of the linguistic variable whose information you want to modify. variable index corresponds to the order in which the linguistic variable was created."
         },
         {
@@ -4305,7 +3916,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
-          "default_value": null,
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable."
         },
         {
@@ -4315,7 +3925,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -4325,7 +3934,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": ""
         },
         {
@@ -4335,7 +3943,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum specifies the minimum value of the linguistic variable."
         },
         {
@@ -4345,7 +3952,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum specifies the maximum value of the linguistic variable."
         },
         {
@@ -4355,7 +3961,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4365,7 +3970,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
-          "default_value": null,
           "description": "membership functions specifies the membership functions for the linguistic variable."
         },
         {
@@ -4375,7 +3979,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shape",
-          "default_value": null,
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable."
         },
         {
@@ -4385,7 +3988,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "points",
-          "default_value": null,
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions."
         },
         {
@@ -4395,7 +3997,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "default_value": null,
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input."
         },
         {
@@ -4405,7 +4006,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
-          "default_value": null,
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined . Define the user-defined shapes in the user-defined membership function shapes array in both the FL New Fuzzy System VI and the User-Defined instance of the FL Create Membership Function VI."
         },
         {
@@ -4415,7 +4015,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire the fuzzy system out output of this VI to the fuzzy system in input of another VI."
         },
         {
@@ -4425,7 +4024,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4447,7 +4045,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
-          "default_value": null,
           "description": ""
         },
         {
@@ -4457,7 +4054,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
-          "default_value": null,
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable."
         },
         {
@@ -4467,7 +4063,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "The Fuzzy Set datatype contains all information related to the Fuzzy controller here specified."
         },
         {
@@ -4477,7 +4072,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "graph_refnum",
-          "default_value": null,
           "description": ""
         },
         {
@@ -4487,7 +4081,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in can accept error information wired from VIs previously called. Use this information to decide if any functionality should be bypassed in the event of errors from other VIs. Right-click the error in control on the front panel and select Explain Error or Explain Warning from the shortcut menu for more information about the error."
         },
         {
@@ -4497,7 +4090,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "The Fuzzy Set datatype contains all information related to the Fuzzy controller here specified."
         },
         {
@@ -4507,7 +4099,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions_plot",
-          "default_value": null,
           "description": ""
         },
         {
@@ -4517,7 +4108,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out passes error or warning information out of a VI to be used by other VIs. Right-click the error out indicator on the front panel and select Explain Error or Explain Warning from the shortcut menu for more information about the error."
         }
       ]
@@ -4534,84 +4124,72 @@
         {
           "name": "name",
           "description": "name specifies the name of the membership function, or linguistic term, you want to create.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name"
         },
         {
           "name": "left base",
           "description": "left base specifies the numerical value of the linguistic variable corresponding to the left base point of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the left base value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "left_base"
         },
         {
           "name": "top",
           "description": "top specifies the numerical value of the linguistic variable corresponding to the top of the triangle membership function. The degree of membership of the linguistic variable within the linguistic term name is 1 at the top value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "top"
         },
         {
           "name": "right base",
           "description": "right base specifies the numerical value of the linguistic variable corresponding to the right base point of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the right base value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "right_base"
         },
         {
           "name": "error in (no error)",
           "description": "Functions 5848 ni.com error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "color",
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "color"
         },
         {
           "name": "membership function",
           "description": "membership function returns the membership function with the shape, points, and color you specify.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "membership_function"
         },
         {
           "name": "name",
           "description": "name specifies the name of the membership function, or linguistic term, you want to modify.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name"
         },
         {
           "name": "shape",
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "shape"
         },
         {
           "name": "points",
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "points"
         },
         {
           "name": "color",
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "color"
         },
         {
           "name": "user-defined shape index",
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined. Define the user-defined shapes in the user-defined membership Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index"
         }
@@ -4630,21 +4208,18 @@
         {
           "name": "membership function index",
           "description": "membership function index specifies the index of the membership function whose information you want to return. membership function index corresponds to the order in which the membership function was created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "membership_function_index"
         },
         {
           "name": "variable index",
           "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "variable_index"
         },
         {
           "name": "input/output",
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "input_output"
         }
@@ -4663,21 +4238,18 @@
         {
           "name": "membership function index",
           "description": "membership function index specifies the index of the membership function you want to modify. membership function index corresponds to the order in which the membership function was created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "membership_function_index"
         },
         {
           "name": "variable index",
           "description": "variable index specifies the index of the linguistic variable you want to modify. variable index corresponds to the order in which the linguistic variable was created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "variable_index"
         },
         {
           "name": "input/output",
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
-          "default_value": null,
           "enum_values": [
             [
               0,
@@ -4693,21 +4265,18 @@
         {
           "name": "fuzzy system in",
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in"
         },
         {
           "name": "name",
           "description": "Functions 5870 ni.com name specifies the name of the membership function, or linguistic term, you want to modify.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name"
         },
         {
           "name": "shape",
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable. 0 Triangle—Specifies that a triangle function determines the degrees of membership for the linguistic variable. 1 Trapezoid—Specifies that a trapezoid function determines the degrees of membership for the linguistic variable. 2 Singleton—Specifies that a singleton function determines the degrees of membership for the linguistic variable. A singleton function has only one point. Theref",
-          "default_value": null,
           "enum_values": [
             [
               0,
@@ -4739,28 +4308,24 @@
         {
           "name": "points",
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "points"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "color",
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "color"
         },
         {
           "name": "user-defined shape index",
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index"
         }
@@ -4783,7 +4348,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
-          "default_value": null,
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI."
         },
         {
@@ -4793,7 +4357,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4803,7 +4366,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
-          "default_value": null,
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire this output to the fuzzy system in input of another VI."
         },
         {
@@ -4813,7 +4375,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_input_membership_functions",
-          "default_value": null,
           "description": "number of input membership functions returns the number of membership functions, or linguistic terms, for each input variable in the fuzzy system. Each element in the number of input membership functions array represents the number of membership functions for the input variable that corresponds, in order of creation, to the index of the array element."
         },
         {
@@ -4823,7 +4384,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_output_membership_functions",
-          "default_value": null,
           "description": "number of output membership functions returns the number of membership functions, or linguistic terms, for each output variable in the fuzzy system. Each element in the number of output membership functions array represents the number of membership functions for the output variable that corresponds, in order of creation, to the index of the array element."
         },
         {
@@ -4833,7 +4393,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4851,14 +4410,12 @@
         {
           "name": "variable index",
           "description": "variable index specifies the index of the linguistic variable whose information you want to return. variable index corresponds to the order in which the linguistic variable was created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "variable_index"
         },
         {
           "name": "input/output",
           "description": "input/output specifies whether the linguistic variable corresponding to variable index is an input or output variable. 0 Input—Specifies that the linguistic variable corresponding to variable index is an input variable. 1 Output—Specifies that the linguistic variable corresponding to variable index is an output variable.",
-          "default_value": null,
           "enum_values": [
             [
               0,
@@ -4874,56 +4431,48 @@
         {
           "name": "fuzzy system in",
           "description": "fuzzy system in specifies the complete information for a fuzzy system. Wire the fuzzy system out output from another VI to the fuzzy system in input of this VI.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "fuzzy system out",
           "description": "fuzzy system out returns the complete information for a fuzzy system. Wire the fuzzy system out output of this VI to the fuzzy system in input of another VI.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out"
         },
         {
           "name": "membership function names",
           "description": "Functions 5878 ni.com membership function names returns the names of the membership functions, or linguistic terms, for the linguistic variable.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "membership_function_names"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. FL Get Membership Function Names (MF FL Get Membership Function Names (MF Array) VI Array) VI Returns the names of the linguistic terms for a linguistic variable. Membership functions represent the degree of membership of linguistic variables within their linguistic terms. You can return the names of the membership functions from a fuzzy system or from an array of membership functions. The data type you ",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "membership functions in",
           "description": "membership functions in specifies an array of membership functions. Wire the membership functions out output from another VI to the membership functions in input of this VI.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "membership_functions_in"
         },
         {
           "name": "name",
           "description": "name specifies the name of the membership function, or linguistic term, you want to modify.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name"
         },
         {
           "name": "shape",
           "description": "shape specifies the shape of the function that determines the degrees of membership for Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "shape"
         }
@@ -4946,7 +4495,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system",
-          "default_value": null,
           "description": "Specifies the complete information for a fuzzy system. Wire the fuzzy system out output from one VI to the fuzzy system in input of another VI."
         },
         {
@@ -4956,7 +4504,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "range_",
-          "default_value": null,
           "description": "range specifies the minimum and maximum values of the linguistic variable."
         },
         {
@@ -4966,7 +4513,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
-          "default_value": null,
           "description": "membership functions specifies the linguistic terms for the linguistic variable and the degree of membership of the linguistic variable within those linguistic terms. Each element of the membership functions array corresponds to a linguistic term."
         },
         {
@@ -4976,7 +4522,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shape",
-          "default_value": null,
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable."
         },
         {
@@ -4986,7 +4531,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "points",
-          "default_value": null,
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions."
         },
         {
@@ -4996,7 +4540,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "default_value": null,
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input."
         },
         {
@@ -5006,7 +4549,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
-          "default_value": null,
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined . Define the user-defined shapes in the user-defined membership function shapes array in both the FL New Fuzzy System VI and the User-Defined instance of the FL Create Membership Function VI."
         },
         {
@@ -5016,7 +4558,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_variables",
-          "default_value": null,
           "description": "output variables specifies the output linguistic variables for the fuzzy system."
         },
         {
@@ -5026,7 +4567,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "range_",
-          "default_value": null,
           "description": "range specifies the minimum and maximum values of the linguistic variable."
         },
         {
@@ -5036,7 +4576,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
-          "default_value": null,
           "description": "membership functions specifies the linguistic terms for the linguistic variable and the degree of membership of the linguistic variable within those linguistic terms. Each element of the membership functions array corresponds to a linguistic term."
         },
         {
@@ -5046,7 +4585,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shape",
-          "default_value": null,
           "description": "shape specifies the shape of the function that determines the degrees of membership for the linguistic variable."
         },
         {
@@ -5056,7 +4594,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "points",
-          "default_value": null,
           "description": "points specifies the values of the linguistic variable corresponding to the base and top points, in order from left to right and base to top, of the membership function. The degree of membership of the linguistic variable within the linguistic term name is 0 at the base points and 1 at the top points. Specify one point for a singleton function, three points for a triangle function, and four points for trapezoid, sigmoid, Gaussian, or user-defined functions."
         },
         {
@@ -5066,7 +4603,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "default_value": null,
           "description": "color specifies the color of the membership function when you view the membership function in the Fuzzy System Designer. You can wire a color box constant to this input."
         },
         {
@@ -5076,7 +4612,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
-          "default_value": null,
           "description": "user-defined shape index specifies the index of the user-defined shape that determines the degrees of membership for the linguistic variable. This parameter is applicable only if you set shape to User-Defined . Define the user-defined shapes in the user-defined membership function shapes array in both the FL New Fuzzy System VI and the User-Defined instance of the FL Create Membership Function VI."
         },
         {
@@ -5086,7 +4621,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rules",
-          "default_value": null,
           "description": "rules specifies the rules for the fuzzy system. Use the input variables and output variables to form the antecedents and consequents, respectively, of the rules."
         },
         {
@@ -5096,7 +4630,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mf_index",
-          "default_value": null,
           "description": "The index of the linguistic term."
         },
         {
@@ -5106,7 +4639,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cond",
-          "default_value": null,
           "description": "An operator that specifies whether to calculate the degree of membership or the degree of non-membership of the linguistic variable within a linguistic term."
         },
         {
@@ -5116,7 +4648,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "antecedent_connective",
-          "default_value": null,
           "description": "antecedent connective specifies how this VI calculates the truth value of the aggregated rule antecedent."
         },
         {
@@ -5126,7 +4657,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "consequents",
-          "default_value": null,
           "description": "consequents specifies the consequents, or THEN portions, of the rule. Each consequent consists of three parts: the index of an output linguistic variable, an operator that specifies whether to calculate the degree of membership or the degree of non-membership of the output linguistic variable within a linguistic term, and the index of the linguistic term. The indexes correspond to the order in which the variables or linguistic terms were created."
         },
         {
@@ -5136,7 +4666,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mf_index",
-          "default_value": null,
           "description": "The index of the linguistic term."
         },
         {
@@ -5146,7 +4675,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cond",
-          "default_value": null,
           "description": "An operator that specifies whether to calculate the degree of membership or the degree of non-membership of the linguistic variable within a linguistic term."
         },
         {
@@ -5156,7 +4684,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "consequent_implication",
-          "default_value": null,
           "description": "consequent implication specifies the implication method this VI uses to scale the membership functions of the output linguistic variable based on the rule weight."
         },
         {
@@ -5166,7 +4693,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "degree_of_support",
-          "default_value": null,
           "description": "degree of support specifies the weight, between 0 and 1, that you want to apply to the rule. The default is 1. Multiply the degree of support by the truth value of the aggregated rule antecedent to calculate the rule weight."
         },
         {
@@ -5176,7 +4702,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "defuzzification_method",
-          "default_value": null,
           "description": "defuzzification method specifies the defuzzification method this VI uses to convert the degrees of membership of output linguistic variables into numerical values."
         },
         {
@@ -5186,7 +4711,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "description",
-          "default_value": null,
           "description": "description specifies a description for the fuzzy system."
         },
         {
@@ -5196,7 +4720,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_mf_interpolating_polynomials",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5206,7 +4729,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5216,7 +4738,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "yx_coeff",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5226,7 +4747,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "xy_coeff",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5236,7 +4756,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "areay_coeff",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5246,7 +4765,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "coa_xy_coeff",
-          "default_value": null,
           "description": ""
         }
       ]

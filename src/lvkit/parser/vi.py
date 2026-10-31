@@ -38,6 +38,7 @@ from lvkit.models import (
     LVType,
     LVTypeKind,
     UndecodedPicture,
+    UnreadPath,
     UnreadPrivateData,
     ValuesNotKept,
     contains_class_instance,
@@ -45,11 +46,15 @@ from lvkit.models import (
     leading_element,
     unique_names,
 )
+from lvkit.path_value import format_path
+from lvkit.text_encoding import xml_text_encoding
+from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
+    NODE_CLASS_ARRAY_INDEX,
     NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
@@ -57,10 +62,12 @@ from .constants import (
     STRUCTURE_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
+    TUNNEL_CLASS_CASE_SEL,
 )
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
+    is_indexing_disabled,
     is_indicator,
     is_inverted_terminal,
     is_method_row_input,
@@ -112,6 +119,8 @@ from .metadata import (
     parse_link_path_refs,
     parse_vi_metadata,
     parse_vipi_from_livi,
+    parse_xml_link_path_refs,
+    pth0_path_type,
 )
 from .models import (
     ParsedBlockDiagram,
@@ -412,29 +421,37 @@ def _parse_metadata(
     }
 
     # Recover the FULL subVI callee list from the VI-level _LIvi.bin link table.
-    # It records EVERY callee — including the dynamic-dispatch (dynIUse) methods
-    # that leave no IUVI in _LIbd.bin — so it is the only place those callees are
-    # named. Their concrete files are resolved against the owning class at load.
+    # It records EVERY callee -- including the dynamic-dispatch (dynIUse) methods
+    # that leave no IUVI in _LIbd.bin -- each with its owner chain and the path of
+    # the class that owns it; they are dependencies like the block-diagram ones.
     livi_bin = main_xml.with_name(main_xml.stem + "_LIvi.bin")
-    subvi_method_names = parse_vipi_from_livi(livi_bin) if livi_bin.exists() else []
+    if livi_bin.exists():
+        recorded = {(r.qualified_name, tuple(r.path_tokens)) for r in dependency_refs}
+        for vipi_ref in parse_vipi_from_livi(livi_bin):
+            key = (vipi_ref.qualified_name, tuple(vipi_ref.path_tokens))
+            if key not in recorded:
+                recorded.add(key)
+                dependency_refs.append(vipi_ref)
 
     # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
-    # from LabVIEW's link tables (_LIvi/_LIbd/_LIfp PTH0 records) — a leaf -> path
+    # from LabVIEW's link tables (the decoded LIvi/LIbd/LIfp records and the
+    # _LIvi/_LIbd/_LIfp PTH0 records pylabview left raw) — a leaf -> path
     # INDEX the loader consults to give the type-derived class/typedef deps a
-    # recorded path instead of a name-search, making the closure path-driven and
+    # recorded path, making the closure path-driven and
     # identical on web and desktop. Kept SEPARATE from dependency_refs (never
     # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
     link_path_refs: list[ParsedDependencyRef] = []
     seen_refs: set[tuple[str, ...]] = set()
+    recorded_refs = parse_xml_link_path_refs(main_root)
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
-        if not link_bin.exists():
-            continue
-        for ref in parse_link_path_refs(link_bin):
-            key = (ref.name, *ref.path_tokens)
-            if key not in seen_refs:
-                seen_refs.add(key)
-                link_path_refs.append(ref)
+        if link_bin.exists():
+            recorded_refs.extend(parse_link_path_refs(link_bin))
+    for ref in recorded_refs:
+        key = (ref.name, *ref.path_tokens)
+        if key not in seen_refs:
+            seen_refs.add(key)
+            link_path_refs.append(ref)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
@@ -461,7 +478,6 @@ def _parse_metadata(
         dotnet_assemblies=sorted({link.assembly for link in dotnet_table.links}),
         dotnet_assembly_failures=dotnet_table.failures,
         dependency_refs=dependency_refs,
-        subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
         instance_files=parse_instance_files(main_root),
     )
@@ -954,7 +970,7 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
 # Case/select tunnel dco classes: pass-through (no array<->element transform),
 # so every face shares the dco's own <typeDesc> -- unlike an lpTun, whose inner
 # face has a DISTINCT type in <innerLpTunDCO>.
-_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", "caseSel"})
+_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", TUNNEL_CLASS_CASE_SEL})
 
 
 def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
@@ -1223,9 +1239,12 @@ def _process_element_terminals(
         # reuse the same bit for an unrelated purpose, so only extract
         # it when the containing element is cpdArith.
         inverted = False
+        indexing_disabled = False
+        dco_flags_elem = dco.find("objFlags") if dco is not None else None
         if elem_class == NODE_CLASS_CPD_ARITH:
-            dco_flags_elem = dco.find("objFlags") if dco is not None else None
             inverted = is_inverted_terminal(safe_int(dco_flags_elem))
+        elif elem_class == NODE_CLASS_ARRAY_INDEX:
+            indexing_disabled = is_indexing_disabled(safe_int(dco_flags_elem))
 
         terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,
@@ -1235,6 +1254,7 @@ def _process_element_terminals(
             parsed_type=parsed_type,
             name=term_name,
             inverted=inverted,
+            indexing_disabled=indexing_disabled,
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )
@@ -1411,6 +1431,7 @@ def _extract_terminal_info(
 def _resolve_qualified_name(
     elem: ET.Element,
     caller_library: str | None,
+    encoding: str,
 ) -> str | None:
     """Resolve qualified name from an element with LinkSaveQualName.
 
@@ -1419,14 +1440,19 @@ def _resolve_qualified_name(
     Args:
         elem: Element with LinkSaveQualName and LinkSaveFlag attributes
         caller_library: Library name of the calling VI, for same-library refs
+        encoding: Text encoding the XML was decoded with
 
     Returns:
         Qualified name string, or None if no name found
     """
     strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
-    return qualified_link_name(
-        strings, int(elem.get("LinkSaveFlag", "0")), caller_library
+    qname = qualified_link_name(
+        strings, int(elem.get("LinkSaveFlag", "0")), caller_library, encoding
     )
+    if qname is None:
+        return None
+    tokens = [s.text or "" for s in elem.findall("LinkSavePathRef/String")]
+    return _class_owned_name(qname, tokens)
 
 
 _DOTNET_ITEM_INFO = "dnetItemInfo"
@@ -1538,9 +1564,11 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
     if not path_tokens and name_parts:
         return None
+    tp_val = path_ref.get("TpVal")
     return IUseLink(
         name_parts=name_parts,
         path_tokens=path_tokens,
+        path_type=int(tp_val) if tp_val is not None else None,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
             int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
@@ -1555,18 +1583,36 @@ def _caller_library(qualified_name: str | None) -> str | None:
     return None
 
 
+def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
+    """The qualified name of a record that names only a method but whose path is
+    a class file: that class owns the method, so it is the name's owner. Any
+    other name is returned as is."""
+    if (
+        ":" not in qname
+        and is_vi_file(qname)
+        and path_tokens
+        and path_tokens[-1].lower().endswith(".lvclass")
+    ):
+        return f"{path_tokens[-1]}:{qname}"
+    return qname
+
+
 def _link_dependency_ref(
-    link: IUseLink | DynamicDispatchLink, caller_library: str | None
+    link: IUseLink | DynamicDispatchLink, caller_library: str | None, encoding: str
 ) -> ParsedDependencyRef | None:
     """The VI a block-diagram link record refers to, with the path it records;
     None when the record names no VI."""
-    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    qname = qualified_link_name(
+        list(link.name_parts), link.link_flag, caller_library, encoding
+    )
     if not qname:
         return None
+    qname = _class_owned_name(qname, link.path_tokens)
     return ParsedDependencyRef(
         name=qname.rsplit(":", 1)[-1],
         path_tokens=list(link.path_tokens),
         qualified_name=qname,
+        path_type=link.path_type,
     )
 
 
@@ -1600,16 +1646,17 @@ def _extract_dyn_refs(
     of the class file the method sits beside. The record lists the calls it
     belongs to in ``APILinkCacheList``."""
     dyn_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/DyOM"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if ref is None:
             continue
         for offset in elem.findall("APILinkCacheList/Offset"):
             if offset.text:
                 dyn_refs[str(int(offset.text, 16))] = ref
     for raw in dyn_links:
-        ref = _link_dependency_ref(raw, caller_library)
+        ref = _link_dependency_ref(raw, caller_library, encoding)
         for uid in raw.node_uids:
             if ref is not None:
                 dyn_refs[str(uid)] = ref
@@ -1623,9 +1670,10 @@ def _extract_poly_refs(
     ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
     call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
     poly_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if link is None or ref is None:
             continue
         for uid in link.node_uids:
@@ -1657,6 +1705,7 @@ def _extract_subvi_info(
 
     # Get caller's library for qualifying same-library references
     caller_library = _caller_library(caller_qualified_name)
+    encoding = xml_text_encoding(main_root)
 
     # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
@@ -1686,7 +1735,10 @@ def _extract_subvi_info(
     ]
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
 
-    def _add_dependency(qname: str, path_tokens: Sequence[str]) -> None:
+    def _add_dependency(
+        qname: str, path_tokens: Sequence[str], path_type: int | None = None
+    ) -> None:
+        qname = _class_owned_name(qname, path_tokens)
         key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
         if key in seen_deps:
             return
@@ -1696,35 +1748,36 @@ def _extract_subvi_info(
                 name=qname.rsplit(":", 1)[-1],
                 path_tokens=list(path_tokens),
                 qualified_name=qname,
+                path_type=path_type,
             )
         )
 
     for xpath_template, tags in scopes:
         for tag in tags:
             for elem in main_root.findall(xpath_template.format(tag=tag)):
-                qname = _resolve_qualified_name(elem, caller_library)
+                qname = _resolve_qualified_name(elem, caller_library, encoding)
                 if not qname:
                     continue
                 link = _xml_iuse_link(elem)
                 if link is None:
                     continue
-                _add_dependency(qname, link.path_tokens)
+                _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The sidecar's records name the same dependencies the decoded elements do.
     for link in libd_links:
         qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
+            list(link.name_parts), link.link_flag, caller_library, encoding
         )
         if qname:
-            _add_dependency(qname, link.path_tokens)
+            _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The class method each raw dynamic-dispatch record names is a dependency.
     for dyn in dyn_links:
         qname = qualified_link_name(
-            list(dyn.name_parts), dyn.link_flag, caller_library
+            list(dyn.name_parts), dyn.link_flag, caller_library, encoding
         )
         if qname:
-            _add_dependency(qname, dyn.path_tokens)
+            _add_dependency(qname, dyn.path_tokens, dyn.path_type)
 
     # The project library each Shared Variable belongs to.
     for sv_link in shared_variable_links:
@@ -1734,7 +1787,7 @@ def _extract_subvi_info(
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
     for tag in ("VIVI", "VIPI", "DyOM", "VIPV", "BSVR"):
         for elem in main_root.findall(f".//LIvi//{tag}"):
-            qname = _resolve_qualified_name(elem, caller_library)
+            qname = _resolve_qualified_name(elem, caller_library, encoding)
             if qname:
                 subvi_qualified_names.append(qname)
 
@@ -1748,7 +1801,7 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        ref = _link_dependency_ref(link, caller_library)
+        ref = _link_dependency_ref(link, caller_library, encoding)
         if ref is None:
             continue
         for uid in link.node_uids:
@@ -2424,27 +2477,33 @@ def _decode_default_data(
     return None, None
 
 
-def _walk_path(data: bytes | memoryview) -> tuple[str | None, int]:
+def _walk_path(data: bytes | memoryview) -> tuple[str | UnreadPath | None, int]:
     """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
 
     Delegates the pascal-string component decode to
     ``metadata._decode_pth0_components`` (the single source of the ``PTH0``
-    component walk, shared with the link-table ``PTH0`` scan), keeping only
-    the ``Path("…")`` string formatting local -- so a path field inside a
-    cluster stays aligned with the following field. Returns ``(None, 0)``
-    when ``data`` is not a ``PTH0`` blob.
+    component walk, shared with the link-table ``PTH0`` scan) and the path text
+    to ``path_value.format_path`` -- so a path field inside a cluster stays
+    aligned with the following field. The value is ``UnreadPath`` when the
+    record's path type is not one NI documents, and ``(None, 0)`` when ``data``
+    is not a ``PTH0`` blob or is cut short.
     """
     # An equality slice (not ``.startswith``, which memoryview lacks) works for
     # both ``bytes`` and ``memoryview`` callers.
     if data[:4] != b"PTH0":
         return None, 0
     parts, idx = _decode_pth0_components(data, 0, len(data))
-    return (f'Path("{"/".join(parts)}")' if parts else None), idx
+    if idx == 0:
+        return None, 0
+    path_type = pth0_path_type(data, 0)
+    text = format_path(path_type, parts)
+    return (UnreadPath(path_type) if text is None else text), idx
 
 
 def _decode_path_default(data: bytes) -> str | None:
     """Decode a LabVIEW path from DefaultData bytes (value only)."""
-    return _walk_path(data)[0]
+    value = _walk_path(data)[0]
+    return None if isinstance(value, UnreadPath) else value
 
 
 def _decode_string_default(data: bytes) -> str | None:
@@ -2934,7 +2993,10 @@ def _decode_element(
     # Path: PTH0 prefix — one walk yields both the value and the byte count.
     if underlying == "Path":
         value, consumed = _walk_path(data)
-        value = value or 'Path("")'
+        if value is None:
+            return None, 0, None
+        if isinstance(value, UnreadPath):
+            return str(value), consumed, value
         return value, consumed, value
 
     # Array: one 4-byte size per dimension (slowest-varying first), then the

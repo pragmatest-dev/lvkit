@@ -11,7 +11,14 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from ..models import ClusterField, EnumValue, LVType, LVTypeKind, PaneSlot
+from ..models import (
+    ClusterField,
+    EnumValue,
+    LVType,
+    LVTypeKind,
+    PaneSlot,
+    ServerClass,
+)
 from .constants import CORRUPT_STUB_FORMAT
 from .flags import CONPANE_FLAG_DYNAMIC_DISPATCH, CONPANE_FLAG_OUTPUT
 from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
@@ -21,7 +28,10 @@ from .xml_trees import parsed_xml
 
 # The VI Server class a generic reference's ``CtlFlags`` names
 # (docs/_internal/design/labview-binary-format.md).
-_SERVER_CLASSES = {"0x0001": "Application", "0x0002": "VI"}
+_SERVER_CLASSES = {
+    "0x0001": ServerClass.APPLICATION,
+    "0x0002": ServerClass.VI,
+}
 
 
 class TypeMap(dict[int, LVType]):

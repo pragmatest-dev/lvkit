@@ -344,11 +344,15 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        # 181 (no static caller): dead code + top-level entry points + VIs
+        # 194 (no static caller): dead code + top-level entry points + VIs
         # reached only dynamically (Call-By-Reference / VI Server). Matches the
         # eval harness (q18). A call names its callee by file path, and a method
-        # called through a subclass names the ancestor's file.
-        assert total_uncalled == 181
+        # called through a subclass names the ancestor's file. 194, not the 181
+        # a search by file name gave: 13 methods are called only by VIs that
+        # record them (or the parent class they inherit them from) at the
+        # toolkit's installed <vilib>/addons/_JKI Toolkits/VI Tester/... path,
+        # where the source copies are not, so those calls are to missing VIs.
+        assert total_uncalled == 194
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
@@ -492,17 +496,13 @@ class TestLoadLvlibClassMember:
 
         # Enter through MyParentLibrary.lvlib (its real container) — not
         # MyLibrary.lvlib directly — so owner_chain accumulates the full,
-        # correct two-library prefix. search_paths=[JKI_ROOT]: both
-        # lvlib's own nested-Library URL and the class's URL are one
-        # directory off from their real on-disk locations, so resolution
-        # falls through to _find_file's rglob(project_root) fallback — the
-        # same search_paths build.py's _load_library_ownership passes for
-        # the real index build.
+        # correct two-library prefix. Each member URL is relative to its
+        # library FILE treated as a folder, so the nested library and the
+        # class are found at the paths the libraries record for them.
         graph = InMemoryVIGraph()
         graph.load_lvlib(
             _MYPARENTLIBRARY_LVLIB,
             LoadMode.FULL,
-            search_paths=[JKI_ROOT],
         )
 
         assert _MYLIBRARY_CLASS_NAME in graph.list_classes()

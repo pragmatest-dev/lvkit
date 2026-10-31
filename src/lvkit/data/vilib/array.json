@@ -19,7 +19,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be an n -dimensional array of any type."
         },
         {
@@ -29,7 +28,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size(s) is a 32-bit integer if array is one-dimensional (1D). If array is multidimensional, the returned value is a 1D array in which each element is a 32-bit integer that represents the number of elements in the corresponding dimension of array . The order of elements in the return array corresponds to row-major order. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning."
         }
       ]
@@ -51,7 +49,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "n-dimension array can be an n-dimensional array of any type. If n-dimension array is an empty array, element or subarray returns the default value of the defined data type for the array."
         },
         {
@@ -61,7 +58,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index 0..n-1 specifies a number that refers to a location within the input array. LabVIEW automatically provides an index input for each dimension of the array."
         },
         {
@@ -71,7 +67,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element or subarray has the same type as the elements of n-dimension array ."
         }
       ]
@@ -93,7 +88,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "n-dimension array is the array in which you want to replace an element(s), row(s), column(s), or page(s). This input can be an n-dimension array of any type."
         },
         {
@@ -103,7 +97,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index 0..n-1 specifies the element, row, column, or page you want to replace in the array. If you do not wire this input, the dimensions of the new element/subarray input determines the number of elements of n-dimension array , starting with element 0, this function replaces. If you specify an index without wiring the following indexes, this function continues from the last index you specify. For example, if you do not wire this input and n-dimension array consists of three elements, and new element/subarray consists of two elements, this function replaces only the first two elements (0 and 1) of n-dimension array . If you specify 1 for the first index without wiring other indexes and n-dimension array consists of three elements, and new element/subarray consists of two elements, this function replaces only the second and the third element (1 and 2) of n-dimension array ."
         },
         {
@@ -113,7 +106,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubarray",
-          "default_value": null,
           "description": "new element/subarray is the array or element that replaces an element, row, column, or page in the array specified in n-dimension array . Note The base data type of the new element or subarray must be the same type as the input array."
         },
         {
@@ -123,7 +115,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
-          "default_value": null,
           "description": "output array is the array this function returns with the replaced element(s), row(s), column(s), or page(s)."
         }
       ]
@@ -145,7 +136,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "n-dim array is the array in which you want to insert an element, row, column, page, and so on. This input can be an n -dimension array of any type."
         },
         {
@@ -155,7 +145,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index 0..n-1 specifies the point in the array at which you want to insert the element, row, column, page, and so on. You can wire only one index input. For example, to insert a 1D array as the fourth row of a 2D array, wire 3 to the first index input, and the second index input becomes disabled. To insert the array as the fourth column of the 2D array, wire 3 to the second index input, and the first index input becomes disabled."
         },
         {
@@ -165,7 +154,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubarray",
-          "default_value": null,
           "description": "n or n-1 dim array is the element, row, column, or page you want to insert into the array specified in n-dim array ."
         },
         {
@@ -175,7 +163,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
-          "default_value": null,
           "description": "output array is the array this function returns with the inserted element(s), row(s), column(s), or page(s)."
         }
       ]
@@ -197,7 +184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "n-dim array is the array from which you want to delete element(s), row(s), column(s), page(s), and so on. This input can be an n-dimension array of any type."
         },
         {
@@ -207,7 +193,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "length",
-          "default_value": null,
           "description": "length determines how many elements, rows, columns, or pages to delete. The default length is one element."
         },
         {
@@ -217,7 +202,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index 0..n-1 specifies what you want to delete from the array, such as an element, row, column, or page. Array functions in LabVIEW access array data in row-major order. In a 2D array, row is the first, major index. Column is the last, minor index. In bigger multidimensional arrays, column remains the last index and the more major indexes are added to the front. Thus, vol is the first index, followed by page, row, and column. These names are index identifiers and have no other meaning. The default is the index of the last element in the array. You can wire only one index input."
         },
         {
@@ -227,7 +211,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_w_subset_deleted",
-          "default_value": null,
           "description": "array w/ subset deleted is the array returned with the deleted element(s), row(s), column(s), or page(s)."
         },
         {
@@ -237,7 +220,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "deleted_portion",
-          "default_value": null,
           "description": "deleted portion is the deleted element or array. If you wire a value to length , deleted portion is an array of the same number of dimensions as n-dim array containing all the elements deleted from n-dim array . The outer dimension size of deleted portion is the value of length , and the inner dimension size(s) match that of n-dim array . For example, if you wire a 3D array of dimensions 10x4x6 to n-dim array and a value of 2 to length , and do not wire values to the index inputs, deleted portion is a 3D array of dimensions 2x4x6 containing the last 2 pages from n-dim array . If you wire a value to length and a negative value to the index , deleted portion is an array with an outer dimension size of the value of length minus the absolute value of the index . If the index is a negative value and the value of length is smaller than the absolute value of the index , deleted portion is empty. If you do not wire a value to length , deleted portion is an array of one less dimension than n-dim array containing the portion of the array deleted from n-dim array . For example, if you wired a 2D array of dimensions 8x5 to n-dim array and do not wire a value to length , and wire 3 to index 0 (row), deleted portion is a 1D array containing all elements from row 3 of n-dim array ."
         }
       ]
@@ -259,7 +241,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the value used to initialize all elements of initialized array . element can be any scalar type."
         },
         {
@@ -269,7 +250,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dimension_size",
-          "default_value": null,
           "description": "dimension size 0..n-1 must be a number. The function creates an empty array if any dimension size is less than or equal to 0. You must have n dimension size terminals for n-dimensions."
         },
         {
@@ -279,7 +259,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "initialized_array",
-          "default_value": null,
           "description": "initialized array is an array of the same type as the type you wire to element ."
         }
       ]
@@ -301,7 +280,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "array or element can be any n-dimensional array or scalar element. All inputs must be either elements and 1D arrays or n-dimensional and (n-1)-dimensional arrays. All inputs must have the same base type."
         },
         {
@@ -311,7 +289,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "appended_array",
-          "default_value": null,
           "description": "appended array is the resulting array."
         }
       ]
@@ -333,7 +310,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be an n -dimensional array of any type."
         },
         {
@@ -343,7 +319,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index specifies the first element, row, column, or page to include in the portion of array you want to return. If index is less than 0, the function treats it as 0. If index is greater than or equal to the array size, the function returns an empty array."
         },
         {
@@ -353,7 +328,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "length",
-          "default_value": null,
           "description": "length specifies how many elements, rows, columns, or pages to include in the portion of array you want to return. If index plus length is larger than the size of the array, the function returns only as much data as is available. The default is the length from index to the end of array . If length is less than 0, the function treats it as 0."
         },
         {
@@ -363,7 +337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subarray",
-          "default_value": null,
           "description": "subarray is of the same type as array ."
         }
       ]
@@ -385,7 +358,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be an n -dimensional array of any type."
         },
         {
@@ -395,7 +367,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
-          "default_value": null,
           "description": "max value is of the same data type and structure as the elements in array ."
         },
         {
@@ -405,7 +376,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_index",
-          "default_value": null,
           "description": "max index(es) is the index for the first max value. If array is multidimensional, max index(es) is an array whose elements are the indexes for the first maximum value in array ."
         },
         {
@@ -415,7 +385,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "min_value",
-          "default_value": null,
           "description": "min value is of the same data type and structure as the elements in array ."
         },
         {
@@ -425,7 +394,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "min_index",
-          "default_value": null,
           "description": "min index(es) is the index for the first min value. If array is multidimensional, min index(es) is an array whose elements are the indexes for the first minimum value in array ."
         }
       ]
@@ -447,7 +415,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "n-dim array can be an n-dimensional array of any type."
         },
         {
@@ -457,7 +424,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dimension_size",
-          "default_value": null,
           "description": "dimension size 0..m-1 specifies the dimensions of m-dim array and must be a numeric. The function creates an empty array if any dimension size is 0. You must have m dimension size terminals for m -dimensions."
         },
         {
@@ -467,7 +433,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
-          "default_value": null,
           "description": "m-dim array If the product of the dimension sizes is greater than the number of elements in the input array, the function pads the new array with the default of the data type of n-dim array . If the product of the dimension sizes is less than the number of elements in the input array, the function truncates the array."
         }
       ]
@@ -489,7 +454,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "unsorted array can be a 1D array of any type."
         },
         {
@@ -499,7 +463,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array",
-          "default_value": null,
           "description": "sorted array is the output array."
         }
       ]
@@ -521,7 +484,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_array",
-          "default_value": null,
           "description": "2D array specifies the 2D array that you want to sort. This input accepts an array of any data type except refnums."
         },
         {
@@ -531,7 +493,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dimension_to_index",
-          "default_value": null,
           "description": "dimension to index specifies the dimension of the 2D array to sort by."
         },
         {
@@ -541,7 +502,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index specifies the index of the column or row with elements that you want to rearrange. This input accepts a signed 32-bit integer or an array of signed 32-bit integers."
         },
         {
@@ -551,7 +511,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_2d_array",
-          "default_value": null,
           "description": "sorted 2D array returns a sorted version of the 2D array."
         },
         {
@@ -561,7 +520,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index_out_of_range",
-          "default_value": null,
           "description": "index out of range? returns TRUE if the indexed column or row, or any of the indexed columns or rows does not exist in the 2D array. Otherwise, this output returns FALSE."
         }
       ]
@@ -583,7 +541,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array specifies the 1D array with elements that you want to shuffle. The array can be a 1D array of any data type."
         },
         {
@@ -593,7 +550,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shuffled_array",
-          "default_value": null,
           "description": "shuffled array returns a shuffled version of the 1D array."
         }
       ]
@@ -615,7 +571,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array specifies the 2D array with elements that you want to shuffle. The array can be a 2D array of any data type."
         },
         {
@@ -625,7 +580,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "shuffled_array",
-          "default_value": null,
           "description": "shuffled array returns a shuffled version of the 2D array."
         }
       ]
@@ -647,7 +601,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array is a one-dimensional array of any type."
         },
         {
@@ -657,7 +610,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reversed_array",
-          "default_value": null,
           "description": "reversed array . If array has n elements, array [0] becomes reversed array [n-1], array [1] becomes reversed array [n-2], and so on."
         }
       ]
@@ -679,7 +631,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "var_1d_array",
-          "default_value": null,
           "description": "1D array can be a 1D array of any type."
         },
         {
@@ -689,7 +640,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the value to search for in the array. element must be the same data type as the elements in 1D array ."
         },
         {
@@ -699,7 +649,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
-          "default_value": null,
           "description": "start index is the index that LabVIEW begins the search from. The default is 0."
         },
         {
@@ -709,7 +658,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index_of_element",
-          "default_value": null,
           "description": "index of element is the index where element is found. If the function does not find element , index of element is –1."
         }
       ]
@@ -731,7 +679,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be a 1D array of any type."
         },
         {
@@ -741,7 +688,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index must be numeric. If index is negative or 0, first subarray is empty. If index is equal to or greater than the size of array , second subarray is empty."
         },
         {
@@ -751,7 +697,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "first_subarray",
-          "default_value": null,
           "description": "first subarray contains array [0] through array [ index -1]."
         },
         {
@@ -761,7 +706,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "second_subarray",
-          "default_value": null,
           "description": "second subarray contains the remaining array elements not already contained in first subarray ."
         }
       ]
@@ -783,7 +727,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "n",
-          "default_value": null,
           "description": "n must be a numeric data type. The function coerces n to a 32-bit integer if you wire another representation to it."
         },
         {
@@ -793,7 +736,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be a 1D array of any type."
         },
         {
@@ -803,7 +745,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array (last n elements first) is the output array. For example, if n is 1, the input array [0] becomes output array[1], input array [1] becomes output array[2], and so on, and input array [ m –1] becomes output array[0], where m is the number of elements in the array. If n is –2, input array [0] becomes output array[ m –2], input array [1] becomes output array[ m –1], and so on, and input array [ m –1] becomes output array[ m –3], where m is the number of elements in the array."
         }
       ]
@@ -825,7 +766,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_in",
-          "default_value": null,
           "description": ""
         },
         {
@@ -835,7 +775,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index specifies the index of the element in the array that you want to increment. This input accepts a signed 32-bit integer or an array of signed 32-bit integers."
         },
         {
@@ -845,7 +784,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_out",
-          "default_value": null,
           "description": "array out returns the 1D array with the specified element incremented."
         }
       ]
@@ -867,7 +805,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_in",
-          "default_value": null,
           "description": ""
         },
         {
@@ -877,7 +814,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index specifies the index of the element in the array that you want to decrement. This input accepts a signed 32-bit integer or an array of signed 32-bit integers."
         },
         {
@@ -887,7 +823,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_out",
-          "default_value": null,
           "description": "array out returns the 1D array with the specified element decremented."
         }
       ]
@@ -909,7 +844,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_of_numbers_or_points",
-          "default_value": null,
           "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x and y coordinates. If this input is an array of points, the function uses the first element in the cluster (x) to obtain a fractional index by linear interpolation. The function then uses this fractional index to compute the output y value from the second cluster element (y)."
         },
         {
@@ -919,7 +853,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fractional_index_or_x",
-          "default_value": null,
           "description": "fractional index or x is the index or x-value at which the function should return a y-value. For example, if array of numbers or points contains two double-precision, floating-point numeric values, 5 and 7, and fractional index or x is set to 0.5, the function returns 6.0, which is halfway between the values at elements 0 and 1. If array of numbers or points contains an array of data point sets, the function returns the linearly interpolated y value at the x-value corresponding to fractional index or x . For example, if the array contains two points, (3,7) and (5,9), and fractional index or x is set to 3.5, the function returns 7.5. fractional index or x does not interpolate beyond the bounds of an array or data point set. For example, if the parameter is set lower than the first element or x-value in an array, the function returns the value of the first element or the y-value of the first data point. Similarly, if the parameter is set too high, the function returns the value in the final element or the final y-value. fractional index or x must be located directly on a point or between two points for the function to work correctly."
         },
         {
@@ -929,7 +862,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
-          "default_value": null,
           "description": "y value is the interpolated value of the element at the fractional index or the interpolated y-value of the fractional data point, in array of numbers or points ."
         }
       ]
@@ -951,7 +883,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_of_numbers_or_points",
-          "default_value": null,
           "description": "array of numbers or points can be an array of numbers or an array of points where each point is a cluster of x- and y-coordinates. If this input is an array of points, this function uses the second elements in the clusters, or the y-coordinates, to obtain a fractional index that it then uses to interpolate the corresponding x value."
         },
         {
@@ -961,7 +892,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "threshold_y",
-          "default_value": null,
           "description": "threshold y is the threshold value for the function. If threshold y is less than or equal to the array value at start index , the function returns start index for fractional index or x . If threshold y is greater than every value in the array, the function returns the index of the last value. If the array is empty, the function returns NaN ."
         },
         {
@@ -971,7 +901,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
-          "default_value": null,
           "description": "start index must be a number. The default is 0, which means the function returns the result calculated from the entire array, rather than a specified section of the array."
         },
         {
@@ -981,7 +910,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fractional_index_or_x",
-          "default_value": null,
           "description": "fractional index or x is the interpolated result LabVIEW calculates for the array of numbers or points 1D input array. For example, suppose array of numbers or points is an array of four numbers [4, 5, 5, 6], start index is 0, and threshold y is 5. The fractional index or x is 1, corresponding to the index of the first value of 5 the function finds. Suppose the array elements are 2.3, 5.2, 7.8, 7.9, 10.0, the start index is 0, and the threshold y is 6.5. The output is 1.5 because 6.5 is halfway between 5.2 (index 1) and 7.8 (index 2). If threshold y is 7 for the same set of numbers, the output is 1.69. If threshold y is 14.2, start index is 5, and the values in the array starting at index 5 are 9.1, 10.3, 12.9, and 15.5, threshold y falls between elements 7 and 8 because 14.2 is midway between 12.9 and 15.5. The value for fractional index or x is 7.5, that is, halfway between 7 and 8. If the array input consists of an array of points where each point is a cluster of x- and y-coordinates, the output is the interpolated x value corresponding to the interpolated position of threshold y among the y-coordinates, rather than the fractional index of the array. If the interpolated position of threshold y is midway between the y values at indexes 4 and 5 of the array with x values of –2.5 and 0 respectively, the output is not an index value of 4.5 as it would be for a numeric array, but rather an x value of –1.25. In other words, this function returns the interpolated x value associated with the given y value if you graphed the points. This function works the same for arrays of numbers as it does for arrays of points. If you have an array of numbers, this function assumes the x-coordinates are the same as the indexes of the array itself. In other words, this function assumes the points are uniformly spaced."
         }
       ]
@@ -1003,7 +931,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array 0..n-1 must be 1D. If the input array is not the same size, the number of elements in interleaved array equals the number of elements in the smallest input array multiplied by the number of input arrays."
         },
         {
@@ -1013,7 +940,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": ""
         },
         {
@@ -1023,7 +949,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "interleaved_array",
-          "default_value": null,
           "description": "interleaved array [0] contains array 0 [0], interleaved array [1] contains array 1 [0], interleaved array [n-1] contains array n-1 [0], interleaved array [n] contains array 0 [1], and so on, where n is the number of input terminals. The following table shows how elements from the input arrays affect interleaved array . array 0 array 1 array 2 interleaved array [0, 3] [1, 4] [2, 5] [0, 1, 2, 3, 4, 5] [0, 3, 5] [1] [2, 4] [0, 1, 2]"
         }
       ]
@@ -1045,7 +970,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be a 1D array of any type."
         },
         {
@@ -1055,7 +979,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "decimated_array",
-          "default_value": null,
           "description": "elements 0, n, 2n, … is the first output array. The function stores array [0] at index 0 of the first output array, array [1] is stored at index 0 of the second output array, array [n-1] at index 0 of the last output array, array [n] at index 1 of the first output array, and so on, where n is the number of output terminals for this function. For example, assume the array has 16 elements and that you wire four output arrays. The first output array receives elements 0, 4, 8, and 12. The second output array receives elements 1, 5, 9, and 13. The third output array receives elements 2, 6, 10, and 14. The last output array receives elements 3, 7, 11, and 15. This is the expected behavior. If you remove one element from the input array there will only be 15 elements. The last decimated array will only have 3 elements (3, 7, and 11) since element 15 was deleted. Since the function will only return arrays of the same size, the other 3 decimated arrays will drop their last element so that all of the arrays now contain 3 elements."
         },
         {
@@ -1065,7 +988,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "decimated_array",
-          "default_value": null,
           "description": "elements 1, n+1, 2n+1, … is the second output array, and so on."
         }
       ]
@@ -1087,7 +1009,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_array",
-          "default_value": null,
           "description": "2D array can be a 2D array of any type."
         },
         {
@@ -1097,7 +1018,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "transposed_array",
-          "default_value": null,
           "description": "transposed array is the output array."
         }
       ]
@@ -1119,7 +1039,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array is a one-dimensional array of any type."
         },
         {
@@ -1129,7 +1048,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
-          "default_value": null,
           "description": "Each element in cluster is the same as the corresponding element in array . The cluster order matches the order of the elements in the array ."
         }
       ]
@@ -1151,7 +1069,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
-          "default_value": null,
           "description": "The cluster components cannot be arrays."
         },
         {
@@ -1161,7 +1078,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "The elements in array are of the same type as the elements in cluster . The order of the elements in array is the same as the cluster order of the elements."
         }
       ]
@@ -1179,28 +1095,24 @@
         {
           "name": "Real 2D Array",
           "description": "Real 2D Array specifies a two-dimensional array.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "real_2d_array"
         },
         {
           "name": "Real Matrix",
           "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array. The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements. If the array elements are not real or complex double-precision floating-point numbers, LabVIEW converts the array elements to the closest data type. LabVIEW stores the elements of 1D arrays in the first column of the matrix. Functions 424 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "real_matrix"
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_linear_algebra_matrix"
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix to a",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_linear_algebra_matrix_to_a"
         }
@@ -1223,7 +1135,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_2d_array",
-          "default_value": null,
           "description": "Real 2D Array specifies a two-dimensional array."
         },
         {
@@ -1233,7 +1144,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
-          "default_value": null,
           "description": "The elements in Real Matrix are of the same type as the elements in Real 2D Array . The order of the elements in Real Matrix is the same as the Real 2D Array order of the elements."
         }
       ]
@@ -1255,7 +1165,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_1d_array",
-          "default_value": null,
           "description": "Real 1D Array specifies a one-dimensional array."
         },
         {
@@ -1265,7 +1174,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
-          "default_value": null,
           "description": "The elements in Real Matrix (Column Vector) are of the same type as the elements in Real 1D Array . The order of the elements in Real Matrix (Column Vector) is the same as the Real 1D Array order of the elements."
         }
       ]
@@ -1287,7 +1195,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_2d_array",
-          "default_value": null,
           "description": "Complex 2D Array specifies a complex two-dimensional array."
         },
         {
@@ -1297,7 +1204,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
-          "default_value": null,
           "description": "The elements in Complex Matrix are of the same type as the elements in Complex 2D Array . The order of the elements in Complex Matrix is the same as the Complex 2D Array order of the elements."
         }
       ]
@@ -1319,7 +1225,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_1d_array",
-          "default_value": null,
           "description": "Complex 1D Array specifies a complex one-dimensional array."
         },
         {
@@ -1329,7 +1234,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
-          "default_value": null,
           "description": "The elements in Complex Matrix (Column Vector) are of the same type as the elements in Complex 1D Array . The order of the elements in Complex Matrix (Column Vector) is the same as the Complex 1D Array order of the elements."
         }
       ]
@@ -1347,21 +1251,18 @@
         {
           "name": "Real Matrix",
           "description": "Real Matrix specifies a real matrix.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "real_matrix"
         },
         {
           "name": "Real 2D Array",
           "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix. The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements. Functions 428 ni.com Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "real_2d_array"
         },
         {
           "name": "labview\\examples\\Mathematics\\Linear Algebra\\Matrix",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_linear_algebra_matrix"
         }
@@ -1384,7 +1285,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
-          "default_value": null,
           "description": "Real Matrix specifies a real matrix."
         },
         {
@@ -1394,7 +1294,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "real_2d_array",
-          "default_value": null,
           "description": "The elements in Real 2D Array are of the same type as the elements in Real Matrix . The order of the elements in Real 2D Array is the same as the Real Matrix order of the elements."
         }
       ]
@@ -1416,7 +1315,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
-          "default_value": null,
           "description": "Complex Matrix specifies a complex matrix."
         },
         {
@@ -1426,7 +1324,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "complex_2d_array",
-          "default_value": null,
           "description": "The elements in Complex 2D Array are of the same type as the elements in Complex Matrix . The order of the elements in Complex 2D Array is the same as the Complex Matrix order of the elements."
         }
       ]
@@ -1444,7 +1341,6 @@
         {
           "name": "array",
           "description": "array specifies the input array. This input accepts a 1D array of any data type.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "array",
           "index": 0,
@@ -1453,7 +1349,6 @@
         {
           "name": "array with duplicates removed",
           "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "array_with_duplicates_removed",
           "index": 1,
@@ -1462,7 +1357,6 @@
         {
           "name": "indices of removed elements",
           "description": "indices of removed elements returns the indices of the removed duplicate elements from the original array.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "indices_of_removed_elements",
           "index": 2,
@@ -1490,7 +1384,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "unsorted_1d_array",
-          "default_value": null,
           "description": "unsorted 1D array can be a 1D array of any type."
         },
         {
@@ -1500,7 +1393,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the value to search for in the array. element must be the same data type as the elements in 1D array ."
         },
         {
@@ -1510,7 +1402,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
-          "default_value": null,
           "description": "start index is the index that LabVIEW begins the search from. The default is 0."
         },
         {
@@ -1520,7 +1411,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "equals_function",
-          "default_value": null,
           "description": "equals function is the comparison used to search the array. By default, this is the same comparison the standard Equal? function uses."
         },
         {
@@ -1530,7 +1420,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index_of_element",
-          "default_value": null,
           "description": "index of element is the index where element is found."
         }
       ]
@@ -1552,7 +1441,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "unsorted array can be a 1D array of any type."
         },
         {
@@ -1562,7 +1450,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array",
-          "default_value": null,
           "description": "sorted array is the output array."
         }
       ]
@@ -1584,7 +1471,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_1d_array",
-          "default_value": null,
           "description": "sorted 1D array can be a 1D array of any type."
         },
         {
@@ -1594,7 +1480,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array ."
         },
         {
@@ -1604,7 +1489,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "less_function",
-          "default_value": null,
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses."
         },
         {
@@ -1614,7 +1498,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "found",
-          "default_value": null,
           "description": "found? indicates whether the element was found."
         },
         {
@@ -1624,7 +1507,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "nearest_index",
-          "default_value": null,
           "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0."
         }
       ]
@@ -1641,49 +1523,42 @@
         {
           "name": "sorted 1D array",
           "description": "sorted 1D array can be a 1D array of any type.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "sorted_1d_array"
         },
         {
           "name": "element",
           "description": "Functions 434 ni.com element is the value to insert into the array. element must be the same data type as the elements in sorted 1D array.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element"
         },
         {
           "name": "less function (built-in <)",
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses. If the array element is a class with a Less Than method that includes two inputs of the same type and a boolean output in the connector pane , the default changes to use that comparison. To specify a different sort order, wire this terminal to one of the following objects:",
-          "default_value": "changes to use that comparison",
           "enum_values": null,
           "python_param": "less_function_built_in"
         },
         {
           "name": "A class that defines a Less Than method with the following connector pane configuration",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "a_class_that_defines_a_less_than_method_with_the_following_connector_pane_configuration"
         },
         {
           "name": "A VI refnum with the following connector pane configuration",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "a_vi_refnum_with_the_following_connector_pane_configuration"
         },
         {
           "name": "found?",
           "description": "found? indicates whether the element was found.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "found"
         },
         {
           "name": "nearest index",
           "description": "nearest index is the index of the element if found? is TRUE. If found? is FALSE, nearest index is the index where the element would have been in the sorted array. If element is greater than all the elements in the array, nearest index is equal to the size of the array. If element is less than all the elements in the array, nearest index is 0. If you search an empty array, nearest index is 0. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "nearest_index"
         }
@@ -1706,7 +1581,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array_in",
-          "default_value": null,
           "description": "sorted array in can be a 1D array of any type."
         },
         {
@@ -1716,7 +1590,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the value to insert into the array. element must be the same data type as the elements in sorted array in ."
         },
         {
@@ -1726,7 +1599,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "less_function",
-          "default_value": null,
           "description": "less function is the comparison used to search the array. By default, this is the same comparison the standard Less? function uses."
         },
         {
@@ -1736,7 +1608,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array_out",
-          "default_value": null,
           "description": "sorted array out is the sorted array with the new element."
         }
       ]
@@ -1758,7 +1629,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "number of rows is the row dimension of the matrix."
         },
         {
@@ -1768,7 +1638,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
-          "default_value": null,
           "description": "number of columns is the column dimension of the matrix."
         },
         {
@@ -1778,7 +1647,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_columns",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         }
       ]
@@ -1800,7 +1668,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "matrix or element can be a numeric scalar, a real or complex matrix, or a 1D or 2D array of any numeric type."
         },
         {
@@ -1810,7 +1677,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "appended_array",
-          "default_value": null,
           "description": "appended matrix is the resulting matrix."
         }
       ]
@@ -1832,7 +1698,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -1842,7 +1707,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
-          "default_value": null,
           "description": "number of rows specifies the new row dimension."
         },
         {
@@ -1852,7 +1716,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_columns",
-          "default_value": null,
           "description": "number of columns specifies the new column dimension."
         },
         {
@@ -1862,7 +1725,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "resized_matrix",
-          "default_value": null,
           "description": "resized matrix is matrix with the number of rows and columns you specify in number of rows and number of columns ."
         }
       ]
@@ -1884,7 +1746,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -1894,7 +1755,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "transposed_matrix",
-          "default_value": null,
           "description": "transposed matrix is the output matrix with transposed elements."
         }
       ]
@@ -1916,7 +1776,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -1926,7 +1785,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0."
         },
         {
@@ -1936,7 +1794,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0."
         },
         {
@@ -1946,7 +1803,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "diagonal",
-          "default_value": null,
           "description": "matrix diagonal is the matrix or 2D array that contains the diagonal elements in matrix ."
         }
       ]
@@ -1968,7 +1824,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -1978,7 +1833,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is a 1D array of integers that contains all row indexes."
         },
         {
@@ -1988,7 +1842,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric. The default is 0."
         },
         {
@@ -1998,7 +1851,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
-          "default_value": null,
           "description": "element is the scalar, matrix, or 2D array that contains the matrix elements. The data type of element is the same as the data type of matrix."
         }
       ]
@@ -2020,7 +1872,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -2030,7 +1881,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "row_1",
-          "default_value": null,
           "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0."
         },
         {
@@ -2040,7 +1890,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "row_n",
-          "default_value": null,
           "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix ."
         },
         {
@@ -2050,7 +1899,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "column_1",
-          "default_value": null,
           "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0."
         },
         {
@@ -2060,7 +1908,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "column_n",
-          "default_value": null,
           "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix ."
         },
         {
@@ -2070,7 +1917,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "submatrix",
-          "default_value": null,
           "description": "submatrix is a matrix that contains the submatrix. If matrix is an empty matrix or array, submatrix returns matrix ."
         }
       ]
@@ -2092,7 +1938,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -2102,7 +1947,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "disabled_index",
-          "default_value": null,
           "description": "row must be an integer or real number. row is the starting row index in the output. The default is 0."
         },
         {
@@ -2112,7 +1956,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "column must be an integer or real number. column is the starting column index in the output. The default is 0."
         },
         {
@@ -2122,7 +1965,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_diagonalfill_element",
-          "default_value": null,
           "description": "new diagonal can be a real or complex matrix or a 2D array of any numeric type. new diagonal specifies the elements to set."
         },
         {
@@ -2132,7 +1974,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
-          "default_value": null,
           "description": "output matrix is the matrix with the new diagonal."
         }
       ]
@@ -2154,7 +1995,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -2164,7 +2004,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "disabled_index",
-          "default_value": null,
           "description": "row must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric."
         },
         {
@@ -2174,7 +2013,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "column must be an integer, a floating-point numeric, a 1D array of integers, or a 1D array of a floating-point numeric."
         },
         {
@@ -2184,7 +2022,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubmatrix",
-          "default_value": null,
           "description": "new element is the scalar, matrix, or 2D array that replaces one or more elements in matrix ."
         },
         {
@@ -2194,7 +2031,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
-          "default_value": null,
           "description": "output matrix is the matrix with the new elements. If matrix is an empty matrix or array, output matrix resizes to receive the new elements."
         }
       ]
@@ -2216,7 +2052,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
-          "default_value": null,
           "description": "matrix must be a 2D array of any numeric type or a real or complex matrix."
         },
         {
@@ -2226,7 +2061,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "row_1",
-          "default_value": null,
           "description": "row 1 must be an integer or real numeric. row 1 specifies the first row in matrix you want to appear in the output. The default is 0."
         },
         {
@@ -2236,7 +2070,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "row_n",
-          "default_value": null,
           "description": "row N must be an integer or real numeric. row N specifies the last row in matrix you want to appear in the output. The default is the index of the last row in matrix ."
         },
         {
@@ -2246,7 +2079,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "column_1",
-          "default_value": null,
           "description": "column 1 must be an integer or real numeric. column 1 specifies the first column in matrix you want to appear in the output. The default is 0."
         },
         {
@@ -2256,7 +2088,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "column_n",
-          "default_value": null,
           "description": "column N must be an integer or real numeric. column N specifies the last column in matrix you want to appear in the output. The default is the index of the last column in matrix ."
         },
         {
@@ -2266,7 +2097,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_submatrixfill_element",
-          "default_value": null,
           "description": "new submatrix can be a real or complex matrix, a 2D array of any numeric type, or a numeric scalar. If you do not wire an input to new submatrix , the default is 0."
         },
         {
@@ -2276,7 +2106,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
-          "default_value": null,
           "description": "output matrix is the matrix with the new submatrix. If matrix is an empty matrix or array, output matrix resizes to receive the new elements."
         }
       ]

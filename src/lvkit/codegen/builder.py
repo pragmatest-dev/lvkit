@@ -705,9 +705,6 @@ def build_module_ast(
     """Build complete module AST."""
     module_body: list[ast.stmt] = []
 
-    # Imports
-    module_body.extend(build_imports(vi_context, ctx))
-
     # Result class
     spell = ctx.type_namer()
     result_class = build_result_class(vi_context, spell)
@@ -732,7 +729,18 @@ def build_module_ast(
     func_def = build_function_def(vi_context, vi_name, body, spell)
     module_body.append(func_def)
 
-    return ast.Module(body=module_body, type_ignores=[])
+    # ``os`` is imported when a path expression in the module spells its volume
+    # for the running OS. A bare ``os`` name can only be that module: generated
+    # variable and function names never take a module's name (``to_var_name``).
+    if any(
+        isinstance(node, ast.Name) and node.id == "os"
+        for stmt in module_body
+        for node in ast.walk(stmt)
+    ):
+        ctx.add_import("import os")
+
+    imports = build_imports(vi_context, ctx)
+    return ast.Module(body=[*imports, *module_body], type_ignores=[])
 
 
 def build_imports(

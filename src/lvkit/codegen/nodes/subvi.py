@@ -9,13 +9,14 @@ from typing import NoReturn
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
+from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     CatalogPaneMismatch,
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
+    VILibResolver,
     derive_python_location,
     get_resolver,
 )
@@ -28,13 +29,15 @@ from ..ast_utils import (
 )
 from ..callee_names import callee_names
 from ..class_model import accessor_of, member_shape
-from ..context import CodeGenContext
+from ..context import CodeGenContext, terminal_default_expression
 from ..error_path import is_error_wire_vi
+from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..value_copy import is_by_value_object, owned_input
-from ..vilib_pane import check_against_pane, literal_default
+from ..vilib_pane import check_against_pane
 from . import accessor_call, error_vi, method_call
+from .template_inputs import template_reads
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -66,7 +69,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     # Look up VI — polymorphic variant if selected, otherwise the recorded path
     vilib_vi = None
     if node.poly_variant_name:
-        vilib_vi = get_resolver().resolve_call(
+        vilib_vi = _vilib_resolver(ctx).resolve_call(
             catalog_path, node.poly_variant_name, wrapper_fallback=False
         )
         if not vilib_vi:
@@ -197,24 +200,12 @@ def _generate_inline(
         elif vt.direction == "out":
             vilib_outputs[vt.index] = param_key
 
-    # Defaults from the catalog: a value that is a literal of the input's type is
-    # substituted; a default the catalog only describes in words is unknown, so an
-    # unwired input with one leaves its placeholder for the code that reads it.
-    node_types = {t.index: t.lv_type for t in ctx.enriched_terminals(node)}
+    # Build default values from the catalog's documented terminal defaults
     vilib_defaults: dict[str, str] = {}
-    unknown_defaults: set[str] = set()
     for vt in vilib_vi.terminals:
-        if vt.direction == "in" and vt.default_value is not None:
+        if vt.direction == "in" and vt.default is not None:
             param_key = vt.python_param or to_var_name(vt.name)
-            literal = literal_default(
-                vt.default_value,
-                (node_types.get(vt.index) if vt.index is not None else None)
-                or control_type_to_lvtype(vt.type or ""),
-            )
-            if literal is None:
-                unknown_defaults.add(param_key)
-            else:
-                vilib_defaults[param_key] = literal
+            vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
     # Substitute input placeholders with wired values
     for term in ctx.enriched_terminals(node):
@@ -227,11 +218,15 @@ def _generate_inline(
 
         if term_index in vilib_inputs:
             param_key = vilib_inputs[term_index]
-            if value is None and param_key in unknown_defaults:
-                continue
             placeholder = "{" + param_key + "}"
-            fallback = vilib_defaults.get(param_key, "None")
-            template = template.replace(placeholder, value or fallback)
+            if not value and template_reads(template, placeholder):
+                if term.is_error_cluster:
+                    value = "None"
+                elif param_key in vilib_defaults:
+                    value = vilib_defaults[param_key]
+                else:
+                    raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
+            template = template.replace(placeholder, value or "None")
 
     # Substitute any remaining unresolved input placeholders with defaults
     for param_key, default in vilib_defaults.items():
@@ -324,6 +319,12 @@ def _generate_inline(
     )
 
 
+def _vilib_resolver(ctx: CodeGenContext | None) -> VILibResolver:
+    """The vi.lib resolver this run reads: its own copy once it has learned, else
+    the shared catalog."""
+    return ctx.learned_vilib[0] if ctx and ctx.learned_vilib else get_resolver()
+
+
 def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
     """``entry`` completed from the connector pane of the VI the call names when
     that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
@@ -345,7 +346,7 @@ def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
     with context to help resolve the indices.
     """
     try:
-        resolver = get_resolver()
+        resolver = _vilib_resolver(ctx)
         recorded_path = ctx.catalog_path(node)
 
         vi = resolver.resolve_recorded(recorded_path)
@@ -383,11 +384,14 @@ def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
             )
 
             if wired_node_terminals:
-                # Auto-update terminals
-                vi = resolver.auto_update_terminals(
+                # Learn the observed terminals into this run's own copy of the
+                # catalog.
+                if not ctx.learned_vilib:
+                    ctx.learned_vilib.append(get_resolver().fork())
+                vi = ctx.learned_vilib[0].auto_update_terminals(
                     vi_name=catalog_name,
                     wired_terminals=wired_node_terminals,
-                    caller_vi=ctx.vi_name if ctx else None,
+                    caller_vi=ctx.vi_name,
                 )
                 # Successfully updated - continue with updated VI
 
@@ -423,16 +427,17 @@ def _raise_terminal_resolution(
     )
 
 
-def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int | None, str]:
-    """The default each input terminal of the catalog entry carries, by index.
-    Only a call that runs the entry's Python takes them: a call of a generated
-    module already carries the control's own default."""
+def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int, str]:
+    """The Python expression of the default each input terminal of the catalog
+    entry documents (``terminal_default_expression``), by index. Only a call that
+    runs the entry's Python takes them: a call of a generated module already
+    carries the control's own default."""
     if vilib_vi is None or vilib_vi.python_code is None:
         return {}
     return {
-        t.index: t.default_value
+        t.index: terminal_default_expression(t.default, t.type)
         for t in vilib_vi.terminals
-        if t.direction == "in" and t.index is not None and t.default_value is not None
+        if t.direction == "in" and t.index is not None and t.default is not None
     }
 
 
@@ -479,7 +484,7 @@ def _build_arguments(
         # the loaded VI's control) gives it; any other unwired input uses the
         # called function's own default.
         if value is None:
-            value = literal_default(catalog_defaults.get(term_index), term.lv_type)
+            value = catalog_defaults.get(term_index)
         if value is None:
             continue
 
@@ -552,7 +557,7 @@ def _resolve_enum_value(
         return value
 
     # Get the LVType from vilib resolver
-    resolver = get_resolver()
+    resolver = _vilib_resolver(ctx)
     lv_type = resolver.resolve_type(vilib_term.type)
 
     if not lv_type or lv_type.kind != LVTypeKind.ENUM or not lv_type.values:

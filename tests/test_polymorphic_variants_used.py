@@ -143,7 +143,7 @@ def test_a_variant_called_by_a_chosen_variant_is_written_and_importable(
     poly: _Tree, tmp_path: Path
 ) -> None:
     out = tmp_path / "gen"
-    result = generate_python(poly.root / "main.vi", out, search_paths=[poly.root])
+    result = generate_python(poly.root / "main.vi", out)
     assert not result["gaps"]
     wrap = next(out.rglob("wrap.py"))
     source = wrap.read_text()
@@ -160,7 +160,7 @@ def test_a_polymorphic_call_resolves_to_the_variant_its_record_names(
     poly: _Tree,
 ) -> None:
     graph = InMemoryVIGraph()
-    graph.load_vi(poly.root / "main.vi", LoadMode.MINIMAL, search_paths=[poly.root])
+    graph.load_vi(poly.root / "main.vi", LoadMode.MINIMAL)
     key = lambda rel: str((poly.root / rel).resolve())  # noqa: E731
     assert graph.poly_call_choices() == {
         key("wrap.vi"): {key("main.vi"): {key("One/array.vi")}}

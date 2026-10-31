@@ -1,5 +1,6 @@
-"""An unwired input of a catalog call takes only a default that is a real value of
-the input's type; the words a catalog description gives are never passed as code."""
+"""An unwired input of a catalog call takes the default the catalog documents
+(``default``); one with none is left to the called function, or is a gap where an
+inline template reads it."""
 
 from __future__ import annotations
 
@@ -9,7 +10,6 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
-from lvkit.codegen.vilib_pane import literal_default
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
@@ -23,28 +23,6 @@ _DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 _I32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 _BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
 _ENUM = LVType(kind=LVTypeKind.ENUM)
-
-
-@pytest.mark.parametrize(
-    ("text", "lv_type", "expected"),
-    [
-        ("FALSE", _BOOL, None),
-        ("False", _BOOL, "False"),
-        ("value is 30000", _I32, None),
-        ("30000", _I32, "30000"),
-        ("-1", _I32, "-1"),
-        ("–1, which indicates never to time out", _I32, None),
-        ("1.5", _I32, None),
-        ("1", _BOOL, None),
-        ("0.5", _DBL, "0.5"),
-        ("None", _DBL, None),
-        ("2", _ENUM, "2"),
-        ("'abc'", LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"), "'abc'"),
-        ("1", None, None),
-    ],
-)
-def test_literal_default(text: str, lv_type: LVType | None, expected: str | None):
-    assert literal_default(text, lv_type) == expected
 
 
 def _caller_source(
@@ -118,7 +96,7 @@ def _caller_source(
     )
 
 
-def _entry(default: str, *, inline: bool, template: str) -> VIEntry:
+def _entry(default: bool | None, *, inline: bool, template: str) -> VIEntry:
     return VIEntry(
         name="Inverse FFT",
         python_code=template,
@@ -130,75 +108,72 @@ def _entry(default: str, *, inline: bool, template: str) -> VIEntry:
                 index=2,
                 direction="in",
                 python_param="shift",
-                default_value=default,
+                default=default,
             ),
             VITerminal(name="x", index=3, direction="out", python_param="out"),
         ],
     )
 
 
-def test_module_call_omits_prose_default(
+def test_module_call_omits_an_unknown_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gaps: list[Gap] = []
     source = _caller_source(
         tmp_path,
         monkeypatch,
-        _entry("FALSE", inline=False, template="ifft({fft_x}, {shift})"),
+        _entry(None, inline=False, template="ifft({fft_x}, {shift})"),
         gaps,
     )
     assert "shift=" not in source
-    assert "FALSE" not in source
 
 
-def test_module_call_passes_literal_default(
+def test_module_call_passes_the_documented_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = _caller_source(
         tmp_path,
         monkeypatch,
-        _entry("True", inline=False, template="ifft({fft_x}, {shift})"),
+        _entry(True, inline=False, template="ifft({fft_x}, {shift})"),
         [],
     )
     assert "shift=True" in source
 
 
-def test_inline_prose_default_is_a_gap_where_read(
+def test_inline_unknown_default_is_a_gap_where_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gaps: list[Gap] = []
     source = _caller_source(
         tmp_path,
         monkeypatch,
-        _entry("FALSE", inline=True, template="{out} = f({fft_x}, {shift})"),
+        _entry(None, inline=True, template="{out} = f({fft_x}, {shift})"),
         gaps,
     )
     assert len(gaps) == 1
-    assert "FALSE" not in source
     assert "NotImplementedError" in source
 
 
-def test_inline_prose_default_unread_is_no_gap(
+def test_inline_unknown_default_unread_is_no_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gaps: list[Gap] = []
-    source = _caller_source(
+    _caller_source(
         tmp_path,
         monkeypatch,
-        _entry("FALSE", inline=True, template="{out} = f({fft_x})"),
+        _entry(None, inline=True, template="{out} = f({fft_x})"),
         gaps,
     )
     assert gaps == []
-    assert "FALSE" not in source
 
 
-def test_inline_literal_default_substitutes(
+def test_inline_documented_default_substitutes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     source = _caller_source(
         tmp_path,
         monkeypatch,
-        _entry("True", inline=True, template="{out} = f({fft_x}, {shift})"),
+        _entry(True, inline=True, template="{out} = f({fft_x}, {shift})"),
         [],
     )
     assert "True" in source

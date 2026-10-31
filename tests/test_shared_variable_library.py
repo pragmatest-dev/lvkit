@@ -65,7 +65,7 @@ BOTH_FIXTURES = pytest.mark.parametrize(
 
 def _load(vi: Path = SV_SAMPLE) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    graph.load_vi(vi, LoadMode.MINIMAL, search_paths=[vi.parent])
+    graph.load_vi(vi, LoadMode.MINIMAL)
     return graph, graph.list_vis()[0]
 
 
@@ -175,9 +175,12 @@ def test_library_is_listed_without_its_file(tmp_path: Path) -> None:
 
 
 def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
+    """The VI records no path for the library its Shared Variables belong to
+    (the ``HpVL`` record's path is empty), so it is listed without a file even
+    beside it: nothing is looked up by name."""
     graph, vi = _load()
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib ; " in text
+    assert "    library SV Sample.lvlib\n" in text
     assert "shared-variable Value_1033 : SV Sample.lvlib::Value : write" in text
     assert "shared-variable Value_1112 : SV Sample.lvlib::Value : read" in text
     assert "shared-variable Value_977 : SV Sample.lvlib::Value : read" in text

@@ -20,7 +20,7 @@ from lvkit._data import data_dir
 from lvkit.codegen.builder import build_module
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.vilib_resolver import VILibResolver, get_resolver, own_resolver
+from lvkit.vilib_resolver import VILibResolver
 from tests.helpers import build_graph
 
 _CATALOG_ENTRY = {
@@ -132,6 +132,8 @@ def _restore_resolver() -> Iterator[None]:
 def test_learned_terminal_is_used_and_nothing_is_written(
     read_only_catalog: Path,
 ) -> None:
+    """The generated code uses the terminal learned from the call; the shared
+    catalog keeps its entry and nothing is written to disk."""
     before = _tree_digest(read_only_catalog)
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
     resolver = VILibResolver(data_dir=read_only_catalog)
@@ -139,10 +141,9 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     source = _generate(resolver, wired, "a.txt")
 
     assert "file_path='a.txt'" in source
-    learned = resolver.resolve_by_name("Learn Me.vi")
-    assert learned is not None
-    assert [t.index for t in learned.terminals] == [4, 1]
-    assert learned.terminals[0].direction == "in"
+    kept = resolver.resolve_by_name("Learn Me.vi")
+    assert kept is not None
+    assert [t.index for t in kept.terminals] == [None, 1]
     assert _tree_digest(read_only_catalog) == before
 
 
@@ -220,18 +221,37 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
     assert _tree_digest(bundled) == before
 
 
-def test_what_generation_learns_stays_in_its_run() -> None:
-    outside = get_resolver()
-    entry = outside.resolve_by_name("Inverse FFT.vi")
-    assert entry is not None
-    assert [t.index for t in entry.terminals if t.name == "shift?"] == [None]
-    wired = Terminal(id="t:s", index=2, direction="input", name="shift?")
-    with own_resolver() as run:
-        assert get_resolver() is run
-        learned = run.auto_update_terminals("Inverse FFT.vi", [wired])
-        assert [t.index for t in learned.terminals if t.name == "shift?"] == [2]
-    assert get_resolver() is outside
-    assert [t.index for t in entry.terminals if t.name == "shift?"] == [None]
+def test_a_fork_learns_privately(read_only_catalog: Path) -> None:
+    """Generating code learns terminals into the run's own copy: the catalog every
+    view reads keeps its entry."""
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    learned = fork.resolve_by_name("Learn Me.vi")
+    kept = shared.resolve_by_name("Learn Me.vi")
+    assert learned is not None and kept is not None
+    assert learned.terminals[0].index == 4
+    assert kept.terminals[0].index is None
+
+
+def test_a_fork_copies_only_the_entry_it_learns_into(
+    read_only_catalog: Path,
+) -> None:
+    """Every entry the fork has not learned into is the very object the shared
+    catalog holds."""
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+
+    assert fork.resolve_by_name("Learn Me.vi") is shared.resolve_by_name("Learn Me.vi")
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    assert fork.resolve_by_name("Learn Me.vi") is not shared.resolve_by_name(
+        "Learn Me.vi"
+    )
 
 
 def test_an_unnamed_terminal_number_is_not_guessed(read_only_catalog: Path) -> None:

@@ -6,6 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NamedTuple
 
+from ..run_report import Problem
+
 
 class RenderedBody(NamedTuple):
     """One ``render_body_with_name`` result. ``dependencies`` are the on-disk
@@ -15,3 +17,5 @@ class RenderedBody(NamedTuple):
     body: str
     name: str
     dependencies: tuple[Path, ...]
+    # The problems recorded on the nodes of the VIs the render loaded.
+    problems: tuple[Problem, ...] = ()

@@ -21,18 +21,18 @@ STATUS = ROOT / "shared/PicoStatus.vi"
 
 
 def _written(vi: Path, tmp_path: Path) -> Path:
-    result = generate_python(vi, tmp_path, search_paths=[ROOT])
+    result = generate_python(vi, tmp_path)
     return Path(result["vi_paths"][str(vi.resolve())])
 
 
 def test_a_vi_saved_in_labview_85_loads_with_the_vi_it_calls() -> None:
-    graph, key = load_corpus_vi(STATUS, ROOT)
+    graph, key = load_corpus_vi(STATUS)
     names = {node.name for node in graph.iter_nodes(key)}
     assert "Merge Errors.vi" in names, names
 
 
 def test_call_library_nodes_call_the_whole_function_name() -> None:
-    graph, key = load_corpus_vi(TRIGGER, ROOT)
+    graph, key = load_corpus_vi(TRIGGER)
     functions = {
         node.ext_func.function
         for node in graph.iter_nodes(key)

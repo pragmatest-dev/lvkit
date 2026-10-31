@@ -35,6 +35,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -717,6 +718,15 @@ class ConstructionMixin:
             ):
                 continue
 
+            # Collect terminals, then resolve unknown indices by elimination
+            raw_terms: list[tuple[str, Any, LVType | None]] = []
+            for term_uid, t_info in bd.terminal_info.items():
+                if t_info.parent_uid == node.uid:
+                    lv_type = None
+                    if t_info.parsed_type:
+                        lv_type = self._enrich_type(t_info.parsed_type)
+                    raw_terms.append((term_uid, t_info, lv_type))
+
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.
             known_terminals = None
@@ -725,7 +735,13 @@ class ConstructionMixin:
             # using.
             terminals_are_complete = True
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
-                prim_resolved = resolve_primitive(prim_id=node.prim_res_id)
+                prim_resolved = resolve_primitive(
+                    prim_id=node.prim_res_id,
+                    node_slots={
+                        (t_info.index, "out" if t_info.is_output else "in")
+                        for _, t_info, _ in raw_terms
+                    },
+                )
                 if prim_resolved and prim_resolved.terminals:
                     known_terminals = prim_resolved.terminals
             if not known_terminals and node.node_type:
@@ -750,15 +766,6 @@ class ConstructionMixin:
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals
                     terminals_are_complete = False
-
-            # Collect terminals, then resolve unknown indices by elimination
-            raw_terms: list[tuple[str, Any, LVType | None]] = []
-            for term_uid, t_info in bd.terminal_info.items():
-                if t_info.parent_uid == node.uid:
-                    lv_type = None
-                    if t_info.parsed_type:
-                        lv_type = self._enrich_type(t_info.parsed_type)
-                    raw_terms.append((term_uid, t_info, lv_type))
 
             # Resolve -1 indices by type+direction matching
             if known_terminals:
@@ -812,6 +819,7 @@ class ConstructionMixin:
                     ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
+                    indexing_disabled=t_info.indexing_disabled,
                     dco_uid=t_info.dco_uid,
                 )
                 node_terminals.append(terminal)
@@ -1528,7 +1536,13 @@ class ConstructionMixin:
 
             prim_terminals = None
             if hasattr(gnode, "prim_id") and gnode.prim_id:
-                prim_resolved = resolve_primitive(prim_id=gnode.prim_id)
+                prim_resolved = resolve_primitive(
+                    prim_id=gnode.prim_id,
+                    node_slots={
+                        (t.index, "out" if t.direction == "output" else "in")
+                        for t in gnode.terminals
+                    },
+                )
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
 
@@ -1556,7 +1570,7 @@ class ConstructionMixin:
             "lSR",
             "lMax",
             "lpTun",
-            "caseSel",
+            TUNNEL_CLASS_CASE_SEL,
             "seqTun",
             "flatSeqTun",
         }
@@ -1697,6 +1711,7 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
+                frame_position=tunnel.frame_position,
                 mode=tun_mode,
                 conditional=tun_conditional,
                 condition_terminal=q_condition,

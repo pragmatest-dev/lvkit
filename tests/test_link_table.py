@@ -23,6 +23,7 @@ from lvkit.parser.link_table import (
     read_iuse_links,
     read_shared_variable_links,
 )
+from lvkit.text_encoding import labview_text_encoding
 
 SAMPLES = Path(".lvkit/cache/samples")
 LV_ICON = SAMPLES / "ni-labview-icon-editor/resource/plugins/lv_icon.vi"
@@ -167,6 +168,7 @@ def test_decodes_a_one_part_name_with_every_uid() -> None:
             path_tokens=("", "NIIconEditor", "Global Variables", "Data.vi"),
             link_flag=0,
             node_uids=(22767, 23163, 18698, 19484),
+            path_type=1,
         )
     ]
 
@@ -188,8 +190,22 @@ def test_a_static_vi_reference_record_lists_the_reference_uid() -> None:
             path_tokens=("", "utils", "SSR_Write.vi"),
             link_flag=2,
             node_uids=(944,),
+            path_type=1,
         )
     ]
+
+
+@pytest.mark.parametrize("name", ["Größe über.vi", "Ä" * 130 + ".vi"])
+def test_a_wrapped_method_name_is_read_by_byte_length(name: str) -> None:
+    raw = name.encode(labview_text_encoding())
+    data = b"\x00\x01BDHP" + build_iuvi_record(
+        offset=6,
+        name_parts=[b"Cls.lvclass", b"\x01" + bytes([len(raw)]) + raw],
+        path_tokens=[b"", b"Cls", b"Cls.lvclass"],
+        node_uids=[5],
+    )
+    (link,) = decode_iuse_links(data, V20)
+    assert link.name_parts == ("Cls.lvclass", name)
 
 
 def test_a_call_by_reference_setup_record_lists_the_node_uid() -> None:
@@ -260,13 +276,15 @@ def test_a_table_without_iuvi_records_is_empty() -> None:
 
 
 def test_qualified_link_name_rules() -> None:
-    assert qualified_link_name(["A.lvclass", "m.vi"], 0, None) == "A.lvclass:m.vi"
-    assert qualified_link_name(["\nToTable.vi"], 0, None) == "ToTable.vi"
+    enc = "cp1252"
+    assert qualified_link_name(["A.lvclass", "m.vi"], 0, None, enc) == "A.lvclass:m.vi"
+    assert qualified_link_name(["\nToTable.vi"], 0, None, enc) == "ToTable.vi"
     assert (
-        qualified_link_name(["Data.vi"], 2, "lv_icon.lvlib") == "lv_icon.lvlib:Data.vi"
+        qualified_link_name(["Data.vi"], 2, "lv_icon.lvlib", enc)
+        == "lv_icon.lvlib:Data.vi"
     )
-    assert qualified_link_name(["Data.vi"], 0, "lv_icon.lvlib") == "Data.vi"
-    assert qualified_link_name(["", " "], 0, None) is None
+    assert qualified_link_name(["Data.vi"], 0, "lv_icon.lvlib", enc) == "Data.vi"
+    assert qualified_link_name(["", " "], 0, None, enc) is None
 
 
 def _sidecar(vi: Path) -> tuple[Path, LinkTableVersion]:
@@ -715,7 +733,7 @@ def test_dyn_link_reads_the_method_class_path_and_call_uids(
 ) -> None:
     data = _dyn_record(extra, [365, 1024])
     (link,) = decode_dyn_links(data, LinkTableVersion(major, 0, 0, 4))
-    assert link.name_parts == ("Cls.lvclass", "\x01\x05id.vi")
+    assert link.name_parts == ("Cls.lvclass", "id.vi")
     assert link.path_tokens == ("", "Classes", "Cls.lvclass")
     assert link.node_uids == (365, 1024)
 

@@ -139,7 +139,9 @@ def _lp_tun_conditional(dco: ET.Element) -> bool:
     return safe_text(dco.find("IsConditional")).strip() == "True"
 
 
-def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
+def extract_tunnel_mapping(
+    dco: ET.Element, dco_class: str, *, per_frame: bool = False
+) -> list[Tunnel]:
     """Extract tunnel mapping(s) from a dco element.
 
     Tunnels connect outer terminals to inner terminals across structure
@@ -164,6 +166,9 @@ def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
     Args:
         dco: dco element with tunnel info
         dco_class: Class of the dco (e.g., lSR, rSR, lpTun, lMax, csTun, seqTun)
+        per_frame: True when the inner faces are one per frame of the structure
+            (Event, Stacked Sequence): each Tunnel then records its inner face's
+            position in the termList as ``frame_position``.
 
     Returns:
         List of Tunnels (one per inner face); empty if invalid.
@@ -193,6 +198,7 @@ def extract_tunnel_mapping(dco: ET.Element, dco_class: str) -> list[Tunnel]:
             tunnel_type=dco_class,
             mode=mode,
             conditional=conditional,
+            frame_position=position if per_frame else None,
         )
-        for inner_uid in term_refs[:-1]
+        for position, inner_uid in enumerate(term_refs[:-1])
     ]

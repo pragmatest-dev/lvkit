@@ -157,7 +157,7 @@ def frame_label_checks(rel_path: str) -> list[FrameLabelCheck]:
     vi_path = SAMPLES_ROOT / rel_path
     heap = _heap_labels(vi_path)
     graph = InMemoryVIGraph()
-    graph.load_vi(vi_path, mode=LoadMode.MINIMAL, search_paths=[vi_path.parent])
+    graph.load_vi(vi_path, mode=LoadMode.MINIMAL)
     vi_name = graph.resolve_vi_name(vi_path.name)
     checks: list[FrameLabelCheck] = []
     for node_id in sorted(graph._vi_nodes[vi_name]):

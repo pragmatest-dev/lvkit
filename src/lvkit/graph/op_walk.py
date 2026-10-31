@@ -71,8 +71,8 @@ def _own_class_private_data_fields(
 ) -> list[ClusterField]:
     """This VI's OWN inline "Cluster of class private data" typedef — a
     snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
-    owning ``.lvclass`` at all (works under a ``MINIMAL`` load with no
-    ``--search-path``: the VI's own extracted XML already carries it). Tried
+    owning ``.lvclass`` at all (works under a ``MINIMAL`` load whose class file
+    is absent: the VI's own extracted XML already carries it). Tried
     before the dep_graph class fields in ``_nmux_field_sources`` because
     it's cheap and available in the common case; ``get_type_fields`` (via
     ``get_class_fields``) is the fallback, authoritative once the owning
@@ -226,7 +226,7 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     field name resolves -- never clobbers an already-resolved name, and
     never stamps a bracketed-index/no-name placeholder (a caller's own
     index fallback still applies for those, and a later fuller load, e.g.
-    once a class search-path resolves, can fill it in). Safe to call
+    once the class file is at its recorded path, can fill it in). Safe to call
     repeatedly (e.g. once per top-level ``load_vi``).
 
     Gated to ``NMUX_NAMED_LANE_NODE_CLASSES`` (``nMux``/

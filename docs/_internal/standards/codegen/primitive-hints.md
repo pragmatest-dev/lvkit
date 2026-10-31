@@ -37,13 +37,18 @@ For single-output primitives. Assignment target is stripped; expression assigned
 
 Terminal names in code are replaced with resolved variable names:
 - `array[index]` becomes `my_array[i]` if wired to those variables
-- Unwired inputs become `None` (or `default_value` if specified)
+- An unwired input the code uses takes the terminal's `default` (the value NI documents, converted to Python as a constant of its type is) or the Python its generator writes for its `default_behavior`; with neither it is an `unknown_default` gap
 
 ## Terminal Definition
 
 ```json
 "terminals": [
   {"index": 0, "direction": "out", "name": "result"},
-  {"index": 1, "direction": "in", "name": "input", "default_value": "0"}
+  {"index": 1, "direction": "in", "name": "input", "default": 0}
 ]
 ```
+
+`default` is a typed value (number, Boolean, string, or path text) read from NI's
+public page for the function. `default_behavior` is one of the `DefaultBehavior`
+members (`rest`, `append`, `one element`, ...) for a default NI documents that is no
+value. A terminal with neither has no documented default.

@@ -9,6 +9,7 @@ import pytest
 
 from lvkit.docs.generate import _prepare_vi_documentation_data
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.page_names import page_names
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.load_mode import LoadMode
@@ -48,7 +49,7 @@ def _key(tree: _Tree, rel: str) -> str:
 
 def test_the_variants_are_the_keys_of_the_wrappers_dependencies(poly: _Tree) -> None:
     graph = InMemoryVIGraph()
-    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.MINIMAL, [poly.root])
+    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.MINIMAL)
     expected = [_key(poly, "One/v1.vi"), _key(poly, "Two/v2.vi")]
     assert graph.get_polymorphic_groups() == {wrapper: expected}
     assert graph.get_poly_variants(wrapper) == expected
@@ -62,17 +63,14 @@ def test_the_docs_variants_section_links_each_variant_page(
         "lvkit.docs.generate.render_vi_with_subvis", lambda graph, key: (None, {})
     )
     graph = InMemoryVIGraph()
-    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.MINIMAL, [poly.root])
+    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.MINIMAL)
     groups = graph.get_polymorphic_groups()
-    problems: list[str] = []
-    data = _prepare_vi_documentation_data(wrapper, graph, groups, problems, str)
+    data = _prepare_vi_documentation_data(wrapper, graph, groups)
     one, two = groups[wrapper]
     assert [v["name"] for v in data["variant_params"]] == [one, two]
     gen = HTMLDocGenerator(tmp_path / "out", "Docs", "directory")
     names = [wrapper, one, two]
-    gen.register_vi_names(
-        dict.fromkeys(names, "src"), {wrapper: "wrap.vi", one: "v1.vi", two: "v2.vi"}
-    )
+    gen.register_vis(page_names(graph, names, poly.root))
     gen.all_vis = set(names)
     section = gen._render_polymorphic_section(
         data["variant_params"], gen._vi_name_to_filename
@@ -86,7 +84,7 @@ def test_the_generator_leaves_the_variants_out_of_their_own_modules(
     poly: _Tree, tmp_path: Path
 ) -> None:
     graph = InMemoryVIGraph()
-    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.FULL, [poly.root])
+    wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.FULL)
     groups = graph.get_polymorphic_groups()
     variants = {v for vs in groups.values() for v in vs}
     layout = ModuleLayout(
@@ -99,7 +97,7 @@ def test_generate_writes_the_wrapper_module_and_none_for_its_variants(
     poly: _Tree, tmp_path: Path
 ) -> None:
     out = tmp_path / "gen"
-    result = generate_python(poly.root / "wrap.vi", out, search_paths=[poly.root])
+    result = generate_python(poly.root / "wrap.vi", out)
     written = sorted(
         p.relative_to(result["output_dir"]).as_posix() for p in out.rglob("*.py")
     )

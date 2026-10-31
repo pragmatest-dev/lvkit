@@ -83,7 +83,9 @@ def _gap_reasons(tmp_path: Path, *args: str, **kwargs: str) -> list[str]:
     graph, vi_name = _loaded(tmp_path, *args, **kwargs)
     gaps: list[Gap] = []
     build_module(graph.get_vi_context(vi_name), vi_name, graph=graph, gaps=gaps)
-    return [gap.reason for gap in gaps]
+    # The fixture's String To IP and IP To String carry one terminal each, so
+    # their own inputs are terminal-mapping gaps; only the call's gap is checked.
+    return [gap.reason for gap in gaps if "Call Library Function Node" in gap.reason]
 
 def _call(
     tmp_path: Path, nexf: str = "", dsef: str = "", extra: str = ""

@@ -20,6 +20,7 @@ from lvkit.parser.heap_types import HeapTypes, decode_heap_types
 from lvkit.parser.node_types import _build_nmux_dco_maps
 from lvkit.parser.td_pool import TdPool, read_td_list
 from lvkit.parser.vi import _inline_dco_definitions
+from lvkit.string_literal import quote_string
 
 
 def _td(type_code: int, body: bytes, flags: int = 0x40) -> bytes:
@@ -132,7 +133,8 @@ def test_a_descriptor_that_does_not_decode_is_an_unreadable_type():
     assert heap.types[1].unreadable is None
     reason = heap.types[2].unreadable
     assert reason is not None and "refers to descriptor 5" in reason
-    assert heap.types[2].type_descriptor().endswith(f"(unreadable: {reason})")
+    expected = f"(unreadable {quote_string(reason)})"
+    assert heap.types[2].type_descriptor().endswith(expected)
 
 
 def test_a_label_is_read_exactly_when_the_flag_says_there_is_one():

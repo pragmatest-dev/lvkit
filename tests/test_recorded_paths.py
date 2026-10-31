@@ -66,7 +66,6 @@ def _modules(tree: _Tree, tmp_path: Path, caller: str) -> list[str]:
     generate_python(
         tree.root / "proj" / f"{caller}.vi",
         out,
-        search_paths=[tree.root / "proj"],
         vilib_root=tree.root / "vilib",
     )
     return sorted(p.relative_to(out).as_posix() for p in out.rglob("*.py"))
@@ -118,7 +117,6 @@ def test_an_absent_catalog_vi_beside_its_caller_uses_the_catalog(
     result = generate_python(
         built.root / "proj" / "caller.vi",
         out,
-        search_paths=[built.root / "proj"],
         vilib_root=built.root / "vilib",
     )
     source = next(out.rglob("aother.py")).read_text()
@@ -180,7 +178,6 @@ def test_a_gap_warning_shows_the_recorded_path_not_an_absolute_one(
     generate_python(
         built.root / "proj" / "caller.vi",
         tmp_path / "gen",
-        search_paths=[built.root / "proj"],
         vilib_root=built.root / "vilib",
     )
     warnings = [
@@ -223,7 +220,7 @@ def test_a_missing_vi_two_callers_record_relatively_is_named_by_its_project_path
     )
     out = tmp_path / "gen"
     generate_python(
-        built.root / "proj" / "main.vi", out, search_paths=[built.root / "proj"]
+        built.root / "proj" / "main.vi", out
     )
     messages = [
         line for line in capsys.readouterr().err.splitlines() if "was not found" in line
@@ -251,7 +248,8 @@ def test_recordings_that_differ_only_in_case_pick_one_path_in_every_order() -> N
 def test_a_relative_path_of_a_caller_without_one_is_not_a_resolved_path() -> None:
     recorded = _paths(("/p/m.vi", "/p/a.vi", ["", "sub", "m.vi"]))
     assert recorded.resolved("/p/m.vi") is None
-    assert recorded.recorded_by("/p/m.vi", "/p/a.vi") == ["", "sub", "m.vi"]
+    by_a = recorded.recorded_by("/p/m.vi", "/p/a.vi")
+    assert by_a is not None and by_a.path_tokens == ["", "sub", "m.vi"]
     assert recorded.recorded_by("/p/m.vi", "/p/other.vi") is None
 
 

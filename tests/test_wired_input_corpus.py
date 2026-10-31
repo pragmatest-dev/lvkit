@@ -15,8 +15,8 @@ SAMPLES = Path(".lvkit/cache/samples")
 AF = SAMPLES / "actor-framework"
 
 
-def _generate(vi: Path, root: Path, tmp_path: Path) -> tuple[str, list[str]]:
-    result = generate_python(vi, tmp_path, search_paths=[root])
+def _generate(vi: Path, tmp_path: Path) -> tuple[str, list[str]]:
+    result = generate_python(vi, tmp_path)
     written = Path(result["vi_paths"][str(vi.resolve())])
     return written.read_text(), [gap.reason for gap in result["gaps"]]
 
@@ -29,7 +29,7 @@ def test_a_disable_structure_output_left_unwired_sends_the_type_default(
         / "Core/ActorFramework/Time-Delayed Send Message"
         / "Time-Delayed Send Message.vi"
     )
-    source, _ = _generate(vi, AF, tmp_path)
+    source, _ = _generate(vi, tmp_path)
     assert "tunnel_default = None" in source
 
 
@@ -41,14 +41,14 @@ def test_a_bundle_with_an_element_that_selects_no_field_is_a_gap(
         / "Providers/MessageMakerProvider/_Message Maker/_templates"
         / "Concrete Message Template/Dummy Read Attributes.vi"
     )
-    source, gaps = _generate(vi, AF, tmp_path)
+    source, gaps = _generate(vi, tmp_path)
     assert any("selects no field of its cluster" in gap for gap in gaps)
     assert "selects no field of its cluster" in source
 
 
 def test_wires_that_close_a_cycle_make_each_node_of_it_a_gap(tmp_path: Path) -> None:
     root = SAMPLES / "lv-flex-channel-examples"
-    _, gaps = _generate(root / "DAQ AO SFP/Main.vi", root, tmp_path)
+    _, gaps = _generate(root / "DAQ AO SFP/Main.vi", tmp_path)
     cycle = [gap for gap in gaps if "read as a cycle" in gap]
     assert len(cycle) == 3
     assert cycle[0] == (

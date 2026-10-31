@@ -58,7 +58,8 @@
           "index": 1,
           "direction": "in",
           "name": "button_name",
-          "type": "String"
+          "type": "String",
+          "default": "OK"
         },
         {
           "index": 2,

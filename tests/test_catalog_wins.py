@@ -62,7 +62,6 @@ def _generate(tree: Path | _Tree, tmp_path: Path, caller: str) -> list[str]:
     generate_python(
         tree.root / "proj" / f"{caller}.vi",
         out,
-        search_paths=[tree.root / "proj"],
         vilib_root=tree.root / "vilib",
     )
     return sorted(p.relative_to(out).as_posix() for p in out.rglob("*.py"))
@@ -135,14 +134,14 @@ def test_a_catalog_terminal_without_an_index_takes_its_controls_slot() -> None:
 def test_an_input_the_catalog_gives_no_default_takes_the_saved_default() -> None:
     entry = _entry(
         VITerminal(name="count", direction="in", index=0),
-        VITerminal(name="size", direction="in", index=1, default_value="7"),
+        VITerminal(name="size", direction="in", index=1, default=7),
     )
     pane = [
         _terminal(0, "count", "input", "NumInt32", default=5),
         _terminal(1, "size", "input", "NumInt32", default=9),
     ]
     checked = check_against_pane(entry, pane)
-    assert [t.default_value for t in checked.entry.terminals] == ["5", "7"]
+    assert [t.default for t in checked.entry.terminals] == [5, 7]
 
 
 def test_an_index_or_type_that_disagrees_with_the_pane_is_reported() -> None:

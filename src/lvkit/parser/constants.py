@@ -53,7 +53,7 @@ NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
 # a diagram, class="mergeErrors") AND a thin vi.lib WRAPPER VI with the same
 # semantics that some callers invoke via an ordinary SubVI call (class="iUse")
 # instead of the primitive glyph. NI's own vi.lib copy of this wrapper is never
-# present in a downstream user's search path (only the resolvable copy of a
+# present at a downstream user's recorded path (only the resolvable copy of a
 # VI a user actually owns would be), so it can't be identified by loading its
 # body -- only by this exact, canonical vi.lib name, the same way vilib.json
 # entries and NODE_CLASS_MERGE_ERRORS itself identify other known builtins.
@@ -199,6 +199,12 @@ TUNNEL_CLASS_INIT_FEEDBACK = "initFeedback"
 # A Conditional loop output tunnel's condition terminal (its own border dco,
 # named by the lpTun's <LpTunConditionDCO>; termList [inner, outer])
 TUNNEL_CLASS_LOOP_TUNNEL_CONDITION = "lpTunConditionDCO"
+
+# A Case structure's selector terminal (not a data tunnel)
+TUNNEL_CLASS_CASE_SEL = "caseSel"
+# An Event Structure's timeout input and its dynamic-registration pair
+TUNNEL_CLASS_EVENT_TIMEOUT = "eventTimeOut"
+TUNNEL_CLASS_EVENT_DYNAMIC = "eventDynDCO"
 
 # Shift register node (contains inner tunnel terminals)
 NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels

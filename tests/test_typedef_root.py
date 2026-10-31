@@ -66,22 +66,25 @@ def test_scalar_control_keeps_a_root_type_and_no_fields():
 
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _PQ_CLASS.exists(), reason="actor-framework sample absent")
-def test_class_private_data_control_becomes_a_typedef_node():
+def test_class_private_data_kept_inside_the_class_has_no_control_file():
+    """The class records its private-data control at a URL inside the
+    ``.lvclass`` (``Message Priority Queue.ctl``): no file is there, so there is
+    no private-data control node (another ``.ctl`` beside the class is not
+    taken in its place), and the fields come from the class itself."""
     g = InMemoryVIGraph()
     cls_key = g.load_lvclass(_PQ_CLASS, LoadMode.MINIMAL)
     edges = [
-        (target, data)
+        target
         for _, target, data in g._dep_graph.out_edges(cls_key, data=True)
         if data.get("rel") == EdgeRel.PRIVATE_DATA
     ]
-    assert len(edges) == 1
-    ctl_key = edges[0][0]
-    assert Path(ctl_key).name == "DVR Contents.ctl"
-    assert g._dep_graph.nodes[ctl_key]["node_type"] == NodeType.TYPEDEF
-    assert not g.is_stub(ctl_key)
-    # the class's own fields are that control's fields
-    nodes = g._dep_graph.nodes
-    assert nodes[cls_key]["fields"] == nodes[ctl_key]["fields"]
+    assert edges == []
+    assert [f.name for f in g._dep_graph.nodes[cls_key]["fields"]] == [
+        "# Waiting",
+        "Buffers",
+        "Wait Msg",
+        "Wait Prior",
+    ]
 
 
 def test_absent_control_is_a_stub(tmp_path: Path):

@@ -350,7 +350,8 @@ def test_a_disable_output_left_unwired_is_the_type_default() -> None:
         {},
         {"r": I32},
         [disable, plus],
-        [("dis:out", "ad:2"), ("ad:0", "fp:r")],
+        [("c0", "ad:1"), ("dis:out", "ad:2"), ("ad:0", "fp:r")],
+        constants={"c0": (0, I32)},
     )
     assert "tunnel_default = 0" in generated.source
     assert "r=0 + tunnel_default" in generated.source
@@ -381,7 +382,10 @@ def test_wires_round_a_cycle_make_its_nodes_a_gap_not_a_bystander() -> None:
             ("b:0", "a:1"),
             ("b:0", "c:2"),
             ("c:0", "fp:r"),
+            ("c0", "b:1"),
+            ("c0", "c:1"),
         ],
+        constants={"c0": (0, I32)},
         gaps=gaps,
     )
     reasons = sorted(g.reason for g in gaps)
@@ -507,7 +511,8 @@ def test_an_in_place_output_port_takes_the_value_of_an_inner_node() -> None:
         {"x": I32},
         {"r": I32, "s": I32},
         [ipe, plus],
-        [("fp:x", "ad:2"), ("ad:0", "fp:s"), ("ipe:o", "fp:r")],
+        [("c0", "ad:1"), ("fp:x", "ad:2"), ("ad:0", "fp:s"), ("ipe:o", "fp:r")],
+        constants={"c0": (0, I32)},
     )
     result = generated.function(4)
     assert (result.r, result.s) == (4, 4)

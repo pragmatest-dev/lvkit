@@ -206,6 +206,16 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
             inner_node_uids: list[str] = []
             bg_color: str | None = None
 
+            # A For loop defines its right shift registers once, in
+            # ``srDCOList``; the loop's termList terminal for one holds only a
+            # ``<dco uid=.../>`` reference to that entry.
+            right_sr_defs = {
+                entry.get("uid"): entry
+                for entry in loop_elem.findall(
+                    f"srDCOList/SL__arrayElement[@class='{TUNNEL_CLASS_RIGHT_SR}']"
+                )
+            }
+
             # Find boundary terminals in the loop's termList
             term_list_elem = loop_elem.find("termList")
             if term_list_elem is not None:
@@ -218,6 +228,8 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
 
                     # Check for tunnel dco inside this terminal
                     dco = term_elem.find("dco")
+                    if dco is not None and not dco.get("class"):
+                        dco = right_sr_defs.pop(dco.get("uid"), dco)
                     if dco is not None:
                         dco_class = dco.get("class", "")
                         if dco_class in TUNNEL_DCO_CLASSES:

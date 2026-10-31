@@ -19,14 +19,28 @@ from lvkit.index.build import BuildResult, build_index
 from lvkit.index.project import resolve_project
 from lvkit.load_mode import LoadMode
 
+# The sample corpus's user.lib: the OpenG libraries the samples call through
+# their recorded ``<userlib>/_OpenG.lib/...`` paths.
+OPENG_USERLIB = (
+    Path(__file__).resolve().parent.parent
+    / ".lvkit"
+    / "cache"
+    / "samples"
+    / "OpenG"
+    / "extracted"
+    / "File Group 0"
+    / "user.lib"
+)
+
 
 @functools.cache
-def load_corpus_vi(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str]:
-    """``(graph, vi key)`` for ``vi_path`` loaded without layout, searching
-    ``search_root`` for its dependencies. The key is the one ``load_vi`` gave
-    ``vi_path``. The graph is shared: do not change it."""
+def load_corpus_vi(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
+    """``(graph, vi key)`` for ``vi_path`` loaded without layout, with the
+    corpus's user.lib (``OPENG_USERLIB``) as the ``<userlib>`` root. The key is
+    the one ``load_vi`` gave ``vi_path``. The graph is shared: do not change
+    it."""
     return load_vi_by_path(
-        vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
+        vi_path, LoadMode.MINIMAL, userlib_root=OPENG_USERLIB, layout=False
     )
 
 

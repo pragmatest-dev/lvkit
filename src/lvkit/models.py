@@ -33,6 +33,7 @@ from .lv_type_codes import (
     is_int32_type_name,
     is_string_type_name,
 )
+from .string_literal import quote_string
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -113,15 +114,38 @@ class ValueNotStored:
         )
 
 
-UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored
+@dataclass(frozen=True)
+class UnreadPath:
+    """A saved path whose recorded path type is none of absolute, relative or Not
+    a Path, so its components cannot be told apart from a path's."""
+
+    path_type: int
+
+    def __str__(self) -> str:
+        return f"<Path of unknown type {self.path_type}>"
+
+    def reason(self) -> str:
+        return f"a path of unknown type {self.path_type}"
+
+
+UnwritableValue = (
+    ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored | UnreadPath
+)
+
+
+_UNWRITABLE_TYPES = (
+    ValuesNotKept,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValueNotStored,
+    UnreadPath,
+)
 
 
 def find_unwritable(value: object) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
     recursively) that holds no value code generation could write, else None."""
-    if isinstance(
-        value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData, ValueNotStored)
-    ):
+    if isinstance(value, _UNWRITABLE_TYPES):
         return value
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
@@ -242,6 +266,14 @@ class PaneSlot:
     dynamic_dispatch: bool = False
 
 
+class ServerClass(str, Enum):
+    """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
+    says (``CtlFlags``, ``labview-binary-format.md``)."""
+
+    VI = "VI"
+    APPLICATION = "Application"
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
@@ -251,8 +283,8 @@ class LVType:
     ref_type: str | None = None
     classname: str | None = None
     # The VI Server class a generic reference (``LVObjCtl``) is of, when its type
-    # says: "VI" or "Application". None for any other reference.
-    server_class: str | None = None
+    # says. None for any other reference.
+    server_class: ServerClass | None = None
     # A User Event refnum's event name: the label of the data type wired to
     # Create User Event (for a type-definition data type, the label on the
     # constant's own instance of it, not the .ctl file name). None for every
@@ -400,6 +432,17 @@ class LVType:
         except ValueError:
             return None
 
+    def item_labels(self, spell: Callable[[str], str] = str) -> list[str]:
+        """The items of this enum or ring in value order, each ``name`` when the
+        values are 0, 1, 2, ... and ``name = value`` when they are not (a ring
+        numbered by its own values). ``spell`` writes each name."""
+        if not self.values:
+            return []
+        items = sorted(self.values.items(), key=lambda kv: kv[1].value)
+        if [ev.value for _, ev in items] == list(range(len(items))):
+            return [spell(name) for name, _ in items]
+        return [f"{spell(name)} = {ev.value}" for name, ev in items]
+
     def member_name(self, ordinal: int) -> str | None:
         """The enum/ring item whose value is ``ordinal``, or None when this type
         has no such item (or no items loaded)."""
@@ -457,7 +500,7 @@ class LVType:
             readable = replace(self, unreadable=None)
             return (
                 f"{readable.type_descriptor(expand_named=expand_named)} "
-                f"(unreadable: {self.unreadable})"
+                f"(unreadable {quote_string(self.unreadable)})"
             )
         if self.dotnet_type is not None:
             if self._refnum_leaf():
@@ -476,28 +519,8 @@ class LVType:
                 name = _strip_typedef_stem(self.typedef_name)
                 if not expand_named:
                     return name
-                members = (
-                    [
-                        n
-                        for n, _ev in sorted(
-                            self.values.items(), key=lambda kv: kv[1].value
-                        )
-                    ]
-                    if self.values
-                    else []
-                )
-                return f"{name}{{{', '.join(members)}}}"
-            members = (
-                [
-                    n
-                    for n, _ev in sorted(
-                        self.values.items(), key=lambda kv: kv[1].value
-                    )
-                ]
-                if self.values
-                else []
-            )
-            body = "{" + ", ".join(members) + "}"
+                return f"{name}{{{', '.join(self.item_labels())}}}"
+            body = "{" + ", ".join(self.item_labels()) + "}"
             return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
         if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):
@@ -718,6 +741,8 @@ class Terminal(BaseModel):
     # Picture's drawing) that code generation has no value to write for.
     unwritable: UnwritableValue | None = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
+    # An Index Array index with indexing disabled: its dimension is taken whole.
+    indexing_disabled: bool = False
     # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
     # same DCO are one value: an In Place Element structure's In/Out Element
     # port and its border node's cluster/array/index terminal have no wire
@@ -976,6 +1001,9 @@ class TunnelTerminal(Terminal):
     condition_terminal: str | None = None
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
+    # Position of the frame an inner tunnel terminal sits in (see
+    # ``Tunnel.frame_position``); ``frame`` above keeps the case selector value.
+    frame_position: int | None = None
 
 
 class Tunnel(BaseModel):
@@ -1009,6 +1037,10 @@ class Tunnel(BaseModel):
     #   1 for a normal (unstacked) shift register, N for an N-deep stacked
     #   one. Set on tunnel_type == "rSR" tunnels only.
     sr_stack_depth: int | None = None
+    # Position, in its structure's frame list, of the frame this tunnel's inner
+    # face sits in. Set for the structures whose inner faces are per frame
+    # (Event, Sequence); None elsewhere.
+    frame_position: int | None = None
 
 
 class PropertySegment(BaseModel):
@@ -1192,7 +1224,7 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumFloat64": "float",
     **{name: "str" for name in STRING_TYPE_NAMES},
     **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
-    "Path": "Path",
+    "Path": "Path | None",
     "Variant": "Any",
     "LVVariant": "Any",
     "Refnum": "Any",

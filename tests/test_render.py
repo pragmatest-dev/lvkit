@@ -48,6 +48,7 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
+from tests.corpus_graphs import OPENG_USERLIB
 from tests.helpers import error_cluster_type
 
 # --------------------------------------------------------------------------- #
@@ -1057,7 +1058,6 @@ CONST_LABEL_VI = Path(
     ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
     "appcontrol.llb/Current VIs Reference__ogtk.vi"
 )
-OPENG_SEARCH = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
@@ -1715,7 +1715,6 @@ def test_project_local_subvi_hover_shows_real_terminal_names():
         svg = render_vi_file(
             caller,
             mode=LoadMode.MINIMAL,
-            search_paths=[root],
         )
         assert svg is not None
         # The fail.vi SubVI hover <title> block. The title line is the callee's
@@ -1745,7 +1744,8 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     if not CONST_LABEL_VI.exists():
         pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
     graph = InMemoryVIGraph()
-    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH)
+    graph.set_library_roots(userlib_root=OPENG_USERLIB)
+    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE)
     name = graph.resolve_vi_name(CONST_LABEL_VI.name)
     scene = build_scene(graph, name)
 
@@ -1766,8 +1766,8 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
 
     svg = render_vi_file(
         CONST_LABEL_VI,
+        userlib_root=OPENG_USERLIB,
         mode=LoadMode.NONE,
-        search_paths=OPENG_SEARCH,
     )
     assert svg is not None
     assert ">x2<" in svg  # #59 hex radix value survives re-extraction
@@ -4565,7 +4565,7 @@ def test_nmux_on_class_private_data_draws_field_name():
         pytest.skip("sample VI not available")
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[testresult_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = "TestResult.lvclass:GetTestsRun.vi"
 
     nmux = [
@@ -4784,7 +4784,7 @@ def test_bundle_by_name_resolves_nested_class_private_data_field_names():
     vi_path, module_dir = paths
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [
@@ -4907,7 +4907,7 @@ def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
     vi_path, module_dir = paths
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [

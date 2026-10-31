@@ -21,7 +21,8 @@
           "index": 5,
           "direction": "in",
           "type": "stdRing",
-          "python_param": "remove_leading_and_trailing"
+          "python_param": "remove_leading_and_trailing",
+          "default": 2
         },
         {
           "name": "String out",
@@ -32,7 +33,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{string_out} = {string_in}.strip() if {remove_leading_and_trailing} == 0 else ({string_in}.lstrip() if {remove_leading_and_trailing} == 1 else {string_in}.rstrip())",
+      "python_code": "{string_out} = {string_in}.lstrip() if {remove_leading_and_trailing} == 0 else ({string_in}.rstrip() if {remove_leading_and_trailing} == 1 else {string_in}.strip())",
       "inline": true,
       "imports": []
     },

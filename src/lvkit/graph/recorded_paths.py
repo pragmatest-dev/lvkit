@@ -28,7 +28,11 @@ from pathlib import Path
 
 import networkx as nx
 
-from ..parser.models import is_symbolic_root
+from ..parser.models import (
+    ABSOLUTE_PATH_TYPE,
+    ParsedDependencyRef,
+    is_symbolic_root,
+)
 from .node_kinds import EdgeRel
 
 _CONTAINER_SUFFIXES = (".lvclass", ".lvlib")
@@ -43,11 +47,12 @@ def redirect_member_beside_container(cand: Path, leaf: str) -> Path:
     is carried separately as ``leaf``, NOT in the tokens. So resolving those
     tokens yields the ``.lvclass``/``.lvlib`` file itself, which is not the
     member's file. Member files are stored BESIDE their container, so when
-    ``cand`` is a ``.lvclass``/``.lvlib`` that isn't ``leaf`` itself, the member
-    is the sibling ``container_dir/leaf``. Returns ``cand`` unchanged otherwise.
+    ``cand`` is a ``.lvclass``/``.lvlib`` that isn't ``leaf`` itself (names
+    compared without regard to case, as LabVIEW compares them), the member is
+    the sibling ``container_dir/leaf``. Returns ``cand`` unchanged otherwise.
     Pure path math: it does not check that the file exists.
     """
-    if cand.suffix.lower() in _CONTAINER_SUFFIXES and leaf != cand.name:
+    if cand.suffix.lower() in _CONTAINER_SUFFIXES and leaf.lower() != cand.name.lower():
         # A file name holds no separator: a name recorded as "/x.vi" or "\\x.vi" is
         # the file x.vi.
         return cand.with_name(re.split(r"[/\\]", leaf)[-1])
@@ -92,10 +97,13 @@ def resolve_against(tokens: list[str], caller: list[str] | None) -> list[str]:
 @dataclass(frozen=True)
 class _Reference:
     """One recorded path: the key of the caller that recorded it (None when the
-    reference has no caller in the graph) and its tokens."""
+    reference has no caller in the graph), its tokens, and the path's type as
+    recorded (``ParsedDependencyRef.path_type``: an absolute path is never
+    relative to its caller)."""
 
     caller: str | None
     tokens: tuple[str, ...]
+    path_type: int | None = None
 
 
 def _order(tokens: list[str]) -> tuple[str, str]:
@@ -127,12 +135,21 @@ class RecordedPaths:
         self._recorded = 0
         self._owners = 0
 
-    def record(self, key: str, caller: str | None, tokens: list[str]) -> None:
-        """Remember that ``caller`` recorded ``tokens`` for the file ``key`` (a
-        class or library member's tokens already end at the member)."""
+    def record(
+        self,
+        key: str,
+        caller: str | None,
+        tokens: list[str],
+        path_type: int | None = None,
+    ) -> None:
+        """Remember that ``caller`` recorded ``tokens`` (of ``path_type``) for the
+        file ``key`` (a class or library member's tokens already end at the
+        member)."""
         if not tokens:
             return
-        reference = _Reference(caller if caller != key else None, tuple(tokens))
+        reference = _Reference(
+            caller if caller != key else None, tuple(tokens), path_type
+        )
         references = self._references.setdefault(key, set())
         if reference not in references:
             references.add(reference)
@@ -171,14 +188,20 @@ class RecordedPaths:
         tokens = self.resolved(key)
         return "/".join(tokens) if tokens else None
 
-    def recorded_by(self, key: str, caller: str) -> list[str] | None:
+    def recorded_by(self, key: str, caller: str) -> ParsedDependencyRef | None:
         """The path ``caller`` recorded for ``key``, as recorded (relative to
-        ``caller`` unless it starts at an installation folder): the smallest when
-        it recorded several. For placing a file relative to that caller on disk."""
-        tokens = [
-            list(r.tokens) for r in self._references.get(key, ()) if r.caller == caller
-        ]
-        return min(tokens, key=_order) if tokens else None
+        ``caller`` unless it starts at an installation folder or is absolute): the
+        smallest when it recorded several. For placing a file relative to that
+        caller on disk."""
+        references = [r for r in self._references.get(key, ()) if r.caller == caller]
+        if not references:
+            return None
+        chosen = min(references, key=lambda r: _order(list(r.tokens)))
+        return ParsedDependencyRef(
+            name=chosen.tokens[-1],
+            path_tokens=list(chosen.tokens),
+            path_type=chosen.path_type,
+        )
 
     def _sources(self, key: str) -> list[str]:
         """The keys whose paths decide ``key``'s: its callers and its owners."""
@@ -223,7 +246,8 @@ class RecordedPaths:
 
         candidates: list[list[str]] = []
         for reference in self._references.get(key, ()):
-            caller = of(reference.caller) if reference.caller else None
+            relative = reference.path_type != ABSOLUTE_PATH_TYPE
+            caller = of(reference.caller) if reference.caller and relative else None
             candidates.append(resolve_against(list(reference.tokens), caller))
         for container in self._containers_of(key):
             tokens = of(container)

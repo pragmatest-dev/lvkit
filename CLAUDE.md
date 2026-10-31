@@ -58,7 +58,21 @@ The output of `generate` is a Python port, not LabVIEW running in Python. **It i
 - **Generated code imports nothing from `lvkit`.** No `lvkit.runtime`, no `lvkit.labview_error`, no `LabVIEWObject`, no `labview_queue`, no registry or table that re-implements LabVIEW at run time. A count of `lvkit` imports in the generated sample corpus only ever goes down.
 - A VI reference whose path is computed only at run time resolves against the project's VIs, listed at generation time: a plain dict in the generated module of the VIs matching the reference's connector pane, keyed by project-relative path. If the project has the VIs it works; if it has none, that node is a gap (below). What has no Python meaning is never emulated.
 - **ONE rule for every gap, across the whole generation process: warn at generation time, raise at run time.** A gap is anything generation cannot convert (unknown primitive or vi.lib VI, placeholder primitive, a property with no Python meaning, a library file not found, a VI reference with nothing to resolve to, …). Every gap goes through one mechanism: generation prints a warning naming the VI, the node and the reason (`lvkit unresolved` lists the same warnings), and the generated code raises `NotImplementedError("<reason>")` where the node would run, its outputs bound to `None`; a gap outside any node makes the VI's function body that `raise`. A run with gaps is a PARTIAL success and never looks like a full one: `generate` says so in its summary and exits with its own nonzero code (distinct from a stopped run), and every warning and every raise message carries enough detail (VI, node, kind, what was needed) for a person or an AI to finish the conversion. No per-site variant, no lvkit import, and no flag that changes what a gap generates; the one run option is `--fail-fast`, which stops the run at the first gap's warning (exit 1, the output is incomplete) for people who don't want to wait for a long run. Generation stops only for what makes the package itself unwritable (two files mapping to one module, a VI with no file and no recorded path) and for lvkit's own internal checks (a bug in lvkit, not a gap in the VI).
+- **Exit codes (every command):** 0 complete, 1 stopped or an lvkit error, 2 usage error (a bad flag, a missing input path, or an input that is not a VI), 3 partial (output written, with problems or gaps).
 - A brief or plan that adds a runtime helper for generated code must name why Python has no construct for it, and the maintainer approves it first. Any agent report that "differs from the plan" is stopped and brought to the maintainer.
+
+## ⛔ ONE RULE FOR PROBLEMS, IN EVERY COMMAND AND MCP TOOL (READ THIS FIRST)
+
+Every command (`index`, `render`, `docs`, `describe`, `generate`, `unresolved`, `callers`/`callees`/`blast-radius`, `query`, `diff`, …) and every MCP tool reports problems the same way (maintainer's decision, 2026-10-28):
+
+- **A problem with one VI never stops the run.** A VI that can't be extracted, parsed or built, or that fails in the view, is recorded and the command continues; the VI is shown as unreadable wherever it is referenced (for `generate`, a call to it is a gap).
+- **One record type and one reporter** (`lvkit/run_report.py`): each problem prints one warning line to stderr (VI path, stage, reason); pylabview's block warnings are captured into that VI's problem, not dumped raw; `generate`'s gaps go through the same reporter.
+- **One summary:** Complete / Partial / Stopped, with the FULL list, never cut off; `--format json` gives the same list.
+- **One set of exit codes** (above: 0 / 1 / 2 / 3), and `--fail-fast` on every command that processes many VIs.
+- **An empty answer says why:** an unknown VI is an error ("not found in the index", exit 1); a found VI with no results gives an empty result and a note on stderr.
+- **MCP tools** return their result plus the same problem list; a whole call fails only for bad arguments.
+- **An lvkit bug in one VI** is recorded as an lvkit error (with a hint to report it); the run continues and exits 1.
+- **Paths lvkit shows a user** (docs page names, warnings) are project-relative, or the recorded `<vilib>/…` path for a vi.lib VI; never an absolute path, the cache folder or a user name. The one exception is a problem about the cache itself (it can't be written), which names the cache folder as `~/…` so the user can fix it.
 
 ## ⛔ NO JARGON — SAY IT IN LABVIEW'S WORDS (READ THIS FIRST)
 
@@ -117,16 +131,16 @@ The conversion pipeline:
 
 ```bash
 # Single VI
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW class (.lvclass)
-python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW library (.lvlib)
-python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # Directory of VIs
-python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 ```
 
 ## Error Handling Strategy
@@ -282,7 +296,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 
 ```bash
 # CORRECT - outputs go to outputs/ folder in the repo
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # WRONG - never use /tmp/
 python scripts/generate_python.py "path/to/file.vi" -o /tmp/test

@@ -19,14 +19,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, StructureNode
 from lvkit.models import Terminal, TunnelTerminal
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded, TerminalResolutionNeeded
+from lvkit.run_report import Problem, ProblemKind, ProblemStage
 from lvkit.vilib_resolver import CatalogPaneMismatch, VILibResolutionNeeded
 
 from .ast_utils import build_assign, to_var_name
-from .errors import MissingVIError
+from .errors import MissingVIError, UnknownDefault
 from .fragment import CodeFragment
 from .module_declarations import ModuleDeclarations
 
@@ -36,12 +38,15 @@ if TYPE_CHECKING:
 # The kinds `lvkit unresolved` lists. A gap fits the first four by what it is;
 # every other node gap is an "unsupported_node", and a gap in no node at all (a
 # class whose parent is not loaded, a constant with no value to write) is an
-# "unsupported_vi". A call of a VI that was not found is a "missing_vi".
+# "unsupported_vi". A call of a VI that was not found is a "missing_vi", and an
+# unwired input the function's code uses, whose default the catalog does not
+# know, is an "unknown_default".
 UNKNOWN_PRIMITIVE = "unknown_primitive"
 PLACEHOLDER_PRIMITIVE = "placeholder_primitive"
 UNSUPPORTED_NODE = "unsupported_node"
 UNMAPPED_VILIB = "unmapped_vilib"
 TERMINAL_MAPPING = "terminal_mapping"
+UNKNOWN_DEFAULT = "unknown_default"
 UNSUPPORTED_VI = "unsupported_vi"
 MISSING_VI = "missing_vi"
 
@@ -85,27 +90,40 @@ class Gap:
         return "\n".join(lines)
 
 
-class GapStop(BaseException):
-    """A fail-fast run reached its first gap. Not an ``Exception``, so no handler
-    that keeps a run going after a stopped VI catches it."""
-
-    def __init__(self, gap: Gap) -> None:
-        self.gap = gap
-        super().__init__(gap.reason)
+def gap_problem(gap: Gap, graph: InMemoryVIGraph) -> Problem:
+    """The problem a gap is on its VI's node: the VI as the user sees it, the
+    node, the reason and the gap's diagnostic."""
+    vi = graph.key_label(gap.vi)
+    return Problem(
+        vi=vi,
+        stage=ProblemStage.GENERATE,
+        kind=ProblemKind.GAP,
+        reason=gap.reason,
+        node=gap.node_name,
+        detail=tuple(gap.diagnostic()),
+        code=gap.kind,
+    )
 
 
 class GapLog(list[Gap]):
-    """The gaps of a run, in the order found. Recording a gap is the one place a
-    fail-fast run ends: it raises ``GapStop`` right after the gap is added."""
+    """The gaps of a VI, in the order found. In a fail-fast run, recording a gap is
+    where the run ends: the gap is put on its VI's node right after it is added,
+    and the run stops there."""
 
-    def __init__(self, fail_fast: bool = False) -> None:
+    def __init__(self, graph: InMemoryVIGraph | None = None) -> None:
         super().__init__()
-        self.fail_fast = fail_fast
+        self.graph = graph
 
     def append(self, gap: Gap) -> None:
         super().append(gap)
-        if self.fail_fast:
-            raise GapStop(gap)
+        settings = self.graph.run_settings if self.graph is not None else None
+        if (
+            self.graph is not None
+            and settings is not None
+            and settings.fail_fast
+            and settings.gaps_are_problems
+        ):
+            self.graph.record_problem(gap.vi, gap_problem(gap, self.graph))
 
 
 def gap_of(
@@ -135,6 +153,8 @@ def gap_of(
         kind, identifier, name = MISSING_VI, exc.name, exc.name
     elif isinstance(exc, TerminalResolutionNeeded):
         kind, identifier, name = TERMINAL_MAPPING, exc.prim_name, exc.prim_name
+    elif isinstance(exc, UnknownDefault):
+        kind, identifier, name = UNKNOWN_DEFAULT, exc.function, exc.terminal
     elif node is not None:
         kind = UNSUPPORTED_NODE
         identifier = get_display_name(node.node_type) if node.node_type else "node"

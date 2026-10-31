@@ -23,7 +23,7 @@ class IndexPageMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
-        def _extract_library_group(self, vi_name: str) -> str: ...
+        def _index_section(self, vi_name: str) -> str: ...
         def _vi_name_to_filename(self, vi_name: str) -> str: ...
         def _extract_display_name(self, vi_name: str) -> str: ...
 
@@ -32,7 +32,7 @@ class IndexPageMixin:
         # Group VIs by library
         grouped_vis: dict[str, list[str]] = {}
         for vi_name in all_vis:
-            library = self._extract_library_group(vi_name)
+            library = self._index_section(vi_name)
             if library not in grouped_vis:
                 grouped_vis[library] = []
             grouped_vis[library].append(vi_name)

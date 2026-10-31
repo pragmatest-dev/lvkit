@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.primitive_resolver import ResolvedPrimitive
+from lvkit.terminal_default import DefaultBehavior
 
 if TYPE_CHECKING:
     from ...context import CodeGenContext
@@ -53,6 +54,31 @@ def register_op(op: str) -> Callable[[OpTemplate], OpTemplate]:
 def get_op_template(op: str) -> OpTemplate | None:
     """The registered handler for ``op``, or None if no backend covers it yet."""
     return _OP_PYTHON.get(op)
+
+
+# op tag -> {documented default behaviour of an unwired input -> the Python
+# expression this op writes for it}.
+_OP_BEHAVIORS: dict[str, dict[DefaultBehavior, str]] = {}
+
+
+def register_op_behaviors(op: str, behaviors: dict[DefaultBehavior, str]) -> None:
+    """Say how ``op`` writes each documented default behaviour of its inputs."""
+    if op in _OP_BEHAVIORS:
+        raise ValueError(f"duplicate Python op behaviors for {op!r}")
+    _OP_BEHAVIORS[op] = behaviors
+
+
+def get_op_behavior(
+    resolved: ResolvedPrimitive, behavior: DefaultBehavior
+) -> str | None:
+    """The Python expression the primitive writes for ``behavior``: its op's, or
+    its own when it has no op (registered as ``prim:<id>``). None when it has
+    none."""
+    for key in (resolved.op, f"prim:{resolved.prim_id}"):
+        written = _OP_BEHAVIORS.get(key or "", {}).get(behavior)
+        if written is not None:
+            return written
+    return None
 
 
 # op tag -> emits a whole CodeFragment for shapes a single template can't

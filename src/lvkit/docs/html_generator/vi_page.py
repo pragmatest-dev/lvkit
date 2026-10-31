@@ -11,8 +11,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from html import escape
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from lvkit.docs.page_names import PageName
 from lvkit.graph.models import MethodAccessInfo, MethodOverrideInfo
 
 from .typedef_page import TypedefPage
@@ -26,11 +28,11 @@ class ViPageMixin:
     doc_type: str
     all_vis: set[str]
     typedef_pages: dict[str, TypedefPage]
+    page_names: dict[str, PageName]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
         def _extract_library_group(self, vi_name: str) -> str: ...
-        def _vi_label(self, vi_name: str) -> str: ...
         def _vi_short_label(self, vi_name: str) -> str: ...
         def _vi_name_to_filename(self, vi_name: str) -> str: ...
         def _class_name_to_filename(self, classname: str) -> str: ...
@@ -88,7 +90,6 @@ class ViPageMixin:
 
         # Create a relative link function for this VI's directory
         current_lib = self._extract_library_group(vi_name)
-        vi_label = self._vi_label(vi_name)
 
         def relative_link(target_vi_name: str) -> str:
             target_path = self._vi_name_to_filename(target_vi_name)
@@ -138,13 +139,15 @@ class ViPageMixin:
         # Class hierarchy: breadcrumb link back to the owning class, an
         # access-scope badge, and an Overrides/Overridden-by section.
         breadcrumb_class_html = ""
-        display_vi_name = vi_label
+        # A VI that is a file is shown by its file name, never its path.
+        shown_name = Path(vi_name).name if vi_name in self.page_names else vi_name
+        display_vi_name = shown_name
         if owning_class:
             class_href = "../" + self._class_name_to_filename(owning_class)
             breadcrumb_class_html = (
                 f'<a href="{escape(class_href)}">{escape(owning_class)}</a> / '
             )
-            display_vi_name = vi_label.rsplit(":", 1)[-1]
+            display_vi_name = shown_name.rsplit(":", 1)[-1]
         access_badge_html = self._render_access_badge(method_access)
         overrides_html = self._render_method_overrides_section(
             method_overrides, relative_link
@@ -171,7 +174,7 @@ class ViPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{escape(vi_label)} - {escape(self.doc_title)}</title>
+    <title>{escape(shown_name)} - {escape(self.doc_title)}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -184,7 +187,7 @@ class ViPageMixin:
         <div class="vi-header">
             {icon_html}
             <div class="vi-header-text">
-                <h1>{escape(vi_label)}{access_badge_html}</h1>
+                <h1>{escape(shown_name)}{access_badge_html}</h1>
                 <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>

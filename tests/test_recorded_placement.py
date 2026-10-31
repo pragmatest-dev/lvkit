@@ -7,7 +7,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from lvkit.docs.generate import _collect_library_groups
+from lvkit.docs.generate import _index_sections
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.recorded_paths import resolve_against
@@ -55,7 +55,6 @@ def _load_pair(tmp_path: Path, sibling_first: bool) -> dict[str, object]:
             name,
             ref,
             caller,
-            [shared],
             caller_qname=caller_key,
             mode=LoadMode.MINIMAL,
         )
@@ -73,8 +72,8 @@ def _load_pair(tmp_path: Path, sibling_first: bool) -> dict[str, object]:
     for step in (beside, from_main) if sibling_first else (from_main, beside):
         step()
     x_key = str(x.resolve())
-    layout = ModuleLayout(graph, [main_key, x_key, y_key], project, [shared])
-    groups, _ = _collect_library_groups(graph, [main_key], project, [shared])
+    layout = ModuleLayout(graph, [main_key, x_key, y_key], project)
+    groups = _index_sections(graph, [main_key, x_key, y_key], project)
     return {
         "recorded": graph.recorded_path(x_key),
         "place": layout.places[x_key],
@@ -91,8 +90,9 @@ def test_a_path_relative_to_the_caller_never_places_a_loaded_file(
     assert first == second
     assert first["recorded"] is None
     assert first["group"] == "Shared"
-    assert first["folders"] == ("Shared",)
-    assert first["place"].packages == ("shared",)  # type: ignore[attr-defined]
+    # Outside the project and every library folder: beside the project.
+    assert first["folders"] == ("external", "Shared")
+    assert first["place"].packages == ("external", "shared")  # type: ignore[attr-defined]
 
 
 def test_a_file_found_through_a_search_path_is_placed_by_its_installation_path(
@@ -103,21 +103,20 @@ def test_a_file_found_through_a_search_path_is_placed_by_its_installation_path(
     search.mkdir()
     shutil.copy(THREE, search / "Lib.vi")
     graph = InMemoryVIGraph()
+    graph.set_library_roots(search_path=[str(search)])
     main_key = graph.load_vi(main, mode=LoadMode.MINIMAL)
     key = graph._load_dependency(
         "Lib.vi",
         _ref("Lib.vi", "<userlib>", "_OpenG.lib", "lib.llb", "Lib.vi"),
         main,
-        [search],
         caller_qname=main_key,
         mode=LoadMode.MINIMAL,
     )
     assert key is not None and not graph.is_stub(key)
-    layout = ModuleLayout(graph, [main_key, key], project, [search])
+    layout = ModuleLayout(graph, [main_key, key], project)
     assert layout.places[key].parts == ("userlib", "_openglib", "libllb", "lib")
     assert layout.folders_of(key) == ("<userlib>", "_OpenG.lib", "lib.llb")
-    groups, _ = _collect_library_groups(graph, [main_key], project, [search])
-    assert groups[key] == "user.lib"
+    assert _index_sections(graph, [main_key, key], project)[key] == "user.lib"
 
 
 def test_a_class_and_its_members_are_placed_in_one_package(tmp_path: Path) -> None:
@@ -133,7 +132,6 @@ def test_a_class_and_its_members_are_placed_in_one_package(tmp_path: Path) -> No
             "Class.lvclass",
             ref,
             main,
-            [],
             caller_qname=main_key,
             mode=LoadMode.FULL,
         )
@@ -165,19 +163,15 @@ def test_absent_members_of_one_class_are_not_placed_at_the_class_file(
             f"Foo.lvclass:{member}",
             _ref(member, *tokens),
             main,
-            [],
             caller_qname=main_key,
             mode=LoadMode.MINIMAL,
         )
-    stubs = sorted(graph._stubs)
-    assert [graph.recorded_path(s) for s in stubs] == [
-        "<vilib>/X/m.vi",
-        "<vilib>/X/n.vi",
-    ]
-    layout = ModuleLayout(graph, [main_key, *stubs], project)
-    assert [layout.places[s].parts for s in stubs] == [
-        ("vilib", "x", "m"),
-        ("vilib", "x", "n"),
+    # The class does not list them, so neither has a path of its own: each is
+    # its class plus its name, never the class file.
+    assert sorted(graph._stubs) == [
+        "Foo.lvclass",
+        "Foo.lvclass:m.vi",
+        "Foo.lvclass:n.vi",
     ]
 
 
@@ -194,6 +188,7 @@ def _sibling_graph(tmp_path: Path, order: int) -> tuple[InMemoryVIGraph, str, st
     a = Path(shutil.copy(ONE, search / "A.vi"))
     Path(shutil.copy(TWO, search / "B.vi"))
     graph = InMemoryVIGraph()
+    graph.set_library_roots(search_path=[str(search)])
     main_key = graph.load_vi(main, mode=LoadMode.MINIMAL)
 
     def load(name: str, tokens: list[str], caller: Path, caller_key: str) -> str:
@@ -201,7 +196,6 @@ def _sibling_graph(tmp_path: Path, order: int) -> tuple[InMemoryVIGraph, str, st
             name,
             _ref(name, *tokens),
             caller,
-            [search],
             caller_qname=caller_key,
             mode=LoadMode.MINIMAL,
         )
@@ -230,12 +224,7 @@ def test_a_sibling_call_in_an_installation_folder_is_placed_there_in_any_order(
         graph, main_key, a_key, b_key = _sibling_graph(tmp_path / str(order), order)
         project = tmp_path / str(order) / "proj"
         assert graph.recorded_path(b_key) == "/".join([*_LLB, "B.vi"])
-        layout = ModuleLayout(
-            graph,
-            [main_key, a_key, b_key],
-            project,
-            [tmp_path / str(order) / "extracted"],
-        )
+        layout = ModuleLayout(graph, [main_key, a_key, b_key], project)
         assert layout.places[a_key].packages == layout.places[b_key].packages
         assert layout.places[b_key].parts == (
             "userlib",
@@ -244,12 +233,7 @@ def test_a_sibling_call_in_an_installation_folder_is_placed_there_in_any_order(
             "arrayllb",
             "b",
         )
-        groups, _ = _collect_library_groups(
-            graph,
-            [main_key, a_key, b_key],
-            project,
-            [tmp_path / str(order) / "extracted"],
-        )
+        groups = _index_sections(graph, [main_key, a_key, b_key], project)
         assert groups[a_key] == groups[b_key] == "user.lib"
 
 

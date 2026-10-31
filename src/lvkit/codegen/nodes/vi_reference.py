@@ -48,7 +48,7 @@ from lvkit.graph.vi_reference import (
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
 
-from ..ast_utils import build_assign, module_part, parse_expr
+from ..ast_utils import GENERATED_MODULE_NAMES, build_assign, module_part, parse_expr
 from ..callee_names import pane_names
 from ..class_attributes import run_time_name
 from ..class_model import (
@@ -379,14 +379,15 @@ def _module_part(name):
     return name or "module"
 """
 
-# A VI's function is its module name, with ``_`` after a keyword or builtin name.
+# A VI's function is its module name, with ``_`` after a keyword, a builtin or a
+# module the generated code imports (``ast_utils.RESERVED_NAMES``).
 FUNCTION_NAME_SOURCE = """\
 def _function_name(stem):
     name = _module_part(stem)
-    if keyword.iskeyword(name) or name in dir(builtins):
+    if keyword.iskeyword(name) or name in dir(builtins) or name in {modules}:
         return name + "_"
     return name
-"""
+""".replace("{modules}", repr(sorted(GENERATED_MODULE_NAMES)))
 
 _IMPORT_BY_PATH = """\
 {here} = os.path.dirname(__file__)

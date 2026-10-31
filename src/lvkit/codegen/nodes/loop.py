@@ -6,7 +6,7 @@ import ast
 import keyword
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, LoopNode
+from lvkit.graph.models import AnyGraphNode, ConstantNode, LoopNode
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -15,6 +15,7 @@ from lvkit.models import (
     TunnelMode,
     TunnelTerminal,
 )
+from lvkit.path_value import path_name_stem
 
 from ..ast_utils import (
     build_assign,
@@ -265,7 +266,10 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # a real local before the loop instead of leaving it undefined.
                 if outer_var and not outer_var.isidentifier():
                     literal = outer_var
-                    outer_var = to_var_name(literal) or "items"
+                    outer_var = (
+                        to_var_name(_literal_name_stem(tunnel.outer_terminal_uid, ctx))
+                        or "items"
+                    )
                     if outer_var not in materialized:
                         pre_loop_stmts.append(
                             build_assign(outer_var, parse_expr(literal))
@@ -668,6 +672,26 @@ def _singularize(array_var: str, ctx: CodeGenContext) -> str:
         suffix += 1
 
     return candidate
+
+
+def _literal_name_stem(terminal_uid: str, ctx: CodeGenContext) -> str:
+    """The text a literal source's local is named from: a Path constant's own
+    components, else the literal's expression."""
+    literal = ctx.resolve(terminal_uid) or ""
+    if ctx.graph is None:
+        return literal
+    origins = ctx.graph.wire_origins(terminal_uid)
+    if len(origins) != 1:
+        return literal
+    node, _ = origins[0]
+    if (
+        isinstance(node, ConstantNode)
+        and node.lv_type is not None
+        and node.lv_type.underlying_type == "Path"
+        and isinstance(node.value, str)
+    ):
+        return path_name_stem(node.value) or literal
+    return literal
 
 
 def _get_source_terminal_name(terminal_uid: str, ctx: CodeGenContext) -> str | None:

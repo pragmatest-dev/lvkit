@@ -121,7 +121,7 @@
           "direction": "in",
           "name": "start_index",
           "type": "NumInt32",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
@@ -355,7 +355,8 @@
           "index": 3,
           "direction": "in",
           "name": "length",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "rest"
         }
       ],
       "verified": false,
@@ -511,7 +512,8 @@
           "index": 2,
           "direction": "in",
           "name": "index",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "append"
         },
         {
           "index": 3,
@@ -542,7 +544,8 @@
           "index": 2,
           "direction": "in",
           "name": "length",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "one element"
         },
         {
           "index": 3,
@@ -554,7 +557,8 @@
           "index": 4,
           "direction": "in",
           "name": "index",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "last element"
         }
       ],
       "verified": false,

@@ -138,7 +138,7 @@ def test_static_reference_then_call_views_and_source(tmp_path: Path) -> None:
     assert _lvnet(loaded).endswith(
         '    constant Callee_10 : VIRefnum = "Callee.vi"\n'
         "    subVI Call_By_Reference_30 : Call By Reference\n"
-        '      in   0  : ?        = "5"\n'
+        '      in   0  : ?        = 5\n'
         "      in   -3 : ?        default\n"
         "      in   -1 : VIRefnum = Callee_10\n"
         "      out  1  : ?\n"
@@ -158,10 +158,10 @@ def test_open_vi_reference_of_a_constant_path_calls_that_vi(tmp_path: Path) -> N
     assert _lvnet(loaded).endswith(
         "    function Open_VI_Reference_20 : Open VI Reference\n"
         "      in   options      : ? default\n"
-        '      in   vi_path      : ? = "Path(\\"Callee_BDHb.xml\\")"\n'
+        '      in   vi_path      : ? = Path("Callee_BDHb.xml")\n'
         "      out  vi_reference : ?\n"
         "    subVI Call_By_Reference_30 : Call By Reference\n"
-        '      in   0  : ? = "5"\n'
+        '      in   0  : ? = 5\n'
         "      in   -3 : ? default\n"
         "      in   -1 : ? = Open_VI_Reference_20::vi_reference\n"
         "      out  1  : ?\n"
@@ -230,7 +230,7 @@ def test_static_reference_name_open_start_submits_the_call(tmp_path: Path) -> No
         "      in   vi_path      : ? = Property_Node_60::Name\n"
         "      out  vi_reference : ?\n"
         "    subVI Start_Asynchronous_Call_30 : Start Asynchronous Call\n"
-        '      in   0  : ? = "5"\n'
+        '      in   0  : ? = 5\n'
         "      in   -3 : ? default\n"
         "      in   -1 : ? = Open_VI_Reference_20::vi_reference\n"
         "      out  1  : ?\n"

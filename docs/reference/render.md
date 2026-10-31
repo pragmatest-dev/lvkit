@@ -25,13 +25,13 @@ lvkit render <input_path> [options]
 |--------|-------------|
 | `-o FILE`, `--output FILE` | Output SVG path. Defaults to `<vi-stem>.svg` next to the input. |
 | `--load-mode MODE` | How deep to load dependencies: `minimal` (default), `none`, or `full`. `minimal` loads this VI plus each **direct** SubVI's connector pane and the field definitions of referenced classes/typedefs — enough to render the diagram exactly, while skipping the transitive SubVI tree the render never needs (8–40× faster on a deep hierarchy). `none` loads this VI only, so SubVIs render as plain boxes. `full` walks the whole SubVI tree; its output is identical to `minimal`, just slower. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
 lvkit render "Convert File Extension (String).vi" \
-  --search-path samples/OpenG/extracted \
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" \
   -o outputs/convert-file-extension.svg
 ```
 
@@ -53,7 +53,7 @@ Opened in a browser:
 ## Unresolved SubVIs
 
 Under the default `minimal` load mode, an unresolved SubVI call — one that
-doesn't resolve on `--search-path`/`--vilib`/`--userlib` — does not fail the
+isn't at the path its caller records — does not fail the
 render. It draws the same way `--load-mode none` draws every SubVI: a box with
 the SubVI's name wrapped inside, no real icon. The rest of the diagram,
 including other, resolvable SubVI calls, still renders with real icons.
