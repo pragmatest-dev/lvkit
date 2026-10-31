@@ -154,7 +154,14 @@ def test_an_absolute_recorded_path_that_exists_is_loaded(tree: _Tree) -> None:
         "caller_abs.vi",
         "caller_abs.vi",
         [],
-        [_static(["target.vi"], ["", *target.resolve().parts[1:]])],
+        # The drive letter on Windows (the file may be on another drive than
+        # the current one), the root of the drive elsewhere.
+        [
+            _static(
+                ["target.vi"],
+                [target.resolve().drive[:1], *target.resolve().parts[1:]],
+            )
+        ],
     )
     main = tree.extract(caller)[2]
     main.write_text(main.read_text().replace('TpVal="1"', 'TpVal="0"'))
