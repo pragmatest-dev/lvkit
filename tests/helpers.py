@@ -48,7 +48,7 @@ def progressive_closure(entry: Path, root: Path, proj: Path) -> set[Path]:
     path AND EDGED to its caller while its file is missing, and its stub key must
     match the key a later present load produces). Those branches are what the web
     depends on and what silently regresses. This mirrors ``stageDependencyClosure``:
-    stage only ``entry`` into ``proj``, MINIMAL-load it with ``search_paths=[proj]``,
+    stage only ``entry`` into ``proj``, MINIMAL-load it by its recorded paths,
     fetch every newly-named dependency from ``root`` into ``proj`` preserving
     layout, and repeat until the set stops growing.
 

@@ -35,7 +35,7 @@ _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
 def _fixture_vis() -> list:
     """Every ``.vi`` under the committed issue corpus, paired with its issue
-    directory (used as the search-path root so a multi-VI project resolves)."""
+    directory."""
     params = []
     for issue_dir in sorted(p for p in _CORPUS.iterdir() if p.is_dir()):
         for vi in sorted(issue_dir.rglob("*.vi")):
