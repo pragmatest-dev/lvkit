@@ -23,7 +23,7 @@ Add `-v`/`--verbose` for full depth — the same change set, plus a `Signature` 
 lvkit diff "path/to/Some VI (old).vi" "path/to/Some VI (new).vi" --verbose
 ```
 
-If a SubVI referenced by either VI isn't found, `diff` doesn't fail — it's recorded as unresolved and the comparison proceeds with what could be loaded. Add `--search-path` for SubVIs that live outside the VI's own directory or project; see [SubVI & vi.lib resolution](../reference/subvi-resolution.md).
+If a SubVI referenced by either VI isn't found, `diff` doesn't fail — it's recorded as unresolved and the comparison proceeds with what could be loaded. Name LabVIEW's library folders with `--vilib`, `--userlib` or `--instrlib` for SubVIs the VI records under them; see [SubVI & vi.lib resolution](../reference/subvi-resolution.md).
 
 ## Open the interactive diff viewer
 
@@ -76,4 +76,4 @@ lvkit diff "path/to/Some VI (old).vi" "path/to/Some VI (new).vi" --no-auto-vilib
 - [reference/diff](../reference/diff.md) — the full flag reference: `--format`, `--verbose`/`--long`, `-o`, `--open`, `--load-mode`, exit codes.
 - [reference/netlist](../reference/netlist.md) — the node-first, named-port grammar the text output and diff viewer's Tree change list both use.
 - [View a block diagram](view-a-block-diagram.md) — render a single VI's diagram faithfully, without a comparison.
-- [reference/subvi-resolution](../reference/subvi-resolution.md) — `--search-path`, `--vilib`, `--userlib`, `--no-auto-vilib`, shared by `diff` and every command that resolves SubVIs.
+- [reference/subvi-resolution](../reference/subvi-resolution.md) — `--vilib`, `--userlib`, `--instrlib`, `--no-auto-vilib`, shared by `diff` and every command that resolves SubVIs.

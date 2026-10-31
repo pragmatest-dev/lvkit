@@ -829,7 +829,7 @@ read the Item (prefer it; fall back to the binary).
 VIs read `../X.vi` and the parent reads `../../X/X.lvclass`; resolve against
 `lvclass_path` ITSELF (not its parent dir) so the extra leading `..` is absorbed:
 `Path(lvclass_path) / url` → correct. The parent commonly lives in a **sibling
-subtree** (`../../Layer/`), so a directory walk-UP (`_walk_up_find`) can NOT reach
+subtree** (`../../Layer/`), so a directory walk up from the child can NOT reach
 it — only the URL does.
 
 **Every dependency has a recorded PATH — in the link tables.** LabVIEW stores a
@@ -847,6 +847,12 @@ into a duplicate node (broke class private-data field resolution). A nested
 typedef used only inside another type (e.g. an enum inside a cluster) has NO
 `PTH0` link and resolves via the type system inline — that's the one thing not
 in the path index, and it needs no file staging.
+
+**Member URLs of a `.lvlib` / `.lvproj` / `.lvclass` are relative to the container FILE treated as a folder (LabVIEW 2010+), to its folder in a LabVIEW 8.x save.** Measured over every container in the sample corpus (member `Item` URLs; `.tmp` scan of which base holds the file): every `.lvlib` member URL (LVVersion 13–21: 2,028 of 2,030 resolve file-as-folder, 2 name absent files), `.lvproj` 10–21 and `.lvclass` 10–21 resolves as `<container>/<url>` (`../X.vi` is X.vi beside the container); the LVVersion 8.2 `.lvclass`/`.lvproj` files (17 + 16 URLs) write `X.vi`, relative to the container's folder. A class's `Class Private Data` URL (`X.ctl`, no `..`) is INSIDE the `.lvclass` (the control is embedded; no file is at that URL for any of the 155 corpus classes that list one).
+
+**A VI records its own class or library in a `VILB` link record ("VI To Lib Object Ref") whose `LinkSaveQualName` is empty** — e.g. `["", "", "TextTestRunner.JUnitXML.lvclass"]` from a method in the class's `protected/` subfolder. When pylabview decodes `LIvi` into the main XML the record is there as XML, not in a `_LIvi.bin` sidecar.
+
+**An absolute `PTH0` (`TpVal="0"`) starts with a drive letter (`C`) or an empty token (the current drive's root: `["", "Program Files", "Pico Technology", ...]`); a `<vilib>`/`<userlib>` path is also `TpVal="0"`, told apart by its symbolic first token.**
 
 **Follow the URL, never rglob.** Ancestor resolution must follow each class's
 recorded URL and STOP at the bare name when the file isn't vendored — do NOT fall

@@ -21,7 +21,7 @@ for:
 Merge Errors.vi(4=error out, 7=error in (no error)) -> Merge Errors.vi.0
 ```
 
-(`lvkit describe "Close Generic Object Refnum (Array)__ogtk.vi" --search-path samples/OpenG/extracted -v`,
+(`lvkit describe "Close Generic Object Refnum (Array)__ogtk.vi" --userlib "samples/OpenG/extracted/File Group 0/user.lib" -v`,
 `## Components` + `## Netlist` sections.) The component is declared once,
 with its port name and type (`Gen Refnum: Any`); the instance inside the
 `for:` loop wires that same port to a net by name (`Gen Refnum=Gen Refnum
@@ -70,7 +70,7 @@ entries, the second tagged `Name (2)`:
   Match Pattern (2)(string: str, regular expression: str, offset: int) -> (before substring: str, match substring: str, after substring: str, offset past match: int)
 ```
 
-(`lvkit describe "Convert File Extension (String)__ogtk.vi" --search-path samples/OpenG/extracted -v`.)
+(`lvkit describe "Convert File Extension (String)__ogtk.vi" --userlib "samples/OpenG/extracted/File Group 0/user.lib" -v`.)
 
 ### VI signature line
 
