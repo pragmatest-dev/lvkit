@@ -31,6 +31,7 @@ from lvkit.parser.vi import (
     _decode_element,
     _process_element_terminals,
 )
+from tests.helpers import vi_key
 
 # === Model Dataclass Tests ===
 
@@ -2297,7 +2298,7 @@ class TestRealVIParsing:
             graph.load_vi(gtr, mode=LoadMode.NONE)
         assert "constant-array decode truncated" not in caplog.text
 
-        vi = graph.resolve_vi_name(gtr.name)
+        vi = vi_key(graph, gtr.name)
         target = next(
             (
                 n

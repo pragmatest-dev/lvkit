@@ -314,6 +314,17 @@ class LVType:
     # them. ``compare=False`` -- the same identity, kept as its own part.
     typedef_file: str | None = field(default=None, compare=False)
     class_file: str | None = field(default=None, compare=False)
+    # The position of this type's descriptor in its VI's type table (the VCTP's
+    # flat type id): which typedef instance of that VI it is. ``compare=False``:
+    # it identifies the type within one file, not the type.
+    type_id: int | None = field(default=None, compare=False)
+    # The dependency key (file path) of the class (``classname``) or typedef
+    # (``typedef_name``) file this type is, tied through the link records of the
+    # VI or control that has the type when it loads (``graph/type_records.py``);
+    # None for any other type, and for a class or typedef no record gives a file
+    # for. Every lookup of a class's or typedef's fields, wire style or private
+    # data reads this key, never the name.
+    file_key: str | None = field(default=None, compare=False)
     description: str | None = None
     # Why this type could not be read from the file, when the VI records a
     # descriptor that did not decode; None for a type that read cleanly.

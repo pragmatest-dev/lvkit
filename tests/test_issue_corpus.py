@@ -28,7 +28,7 @@ from lvkit.graph.models import (
 from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
 from lvkit.render import render_vi_file
 from lvkit.render.scene import _frame_info, _structure_borders
-from tests.helpers import normalize_render_ids, transitive_closure
+from tests.helpers import normalize_render_ids, transitive_closure, vi_key
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
@@ -47,7 +47,7 @@ def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     vi = _CORPUS / rel
     graph = InMemoryVIGraph()
     graph.load_vi(vi, mode=LoadMode.MINIMAL, layout=True)
-    return graph, graph.resolve_vi_name(vi.name)
+    return graph, vi_key(graph, vi.name)
 
 
 # Issue #82's repro embeds a real ~3.6MB photograph (the whole point of the
@@ -71,7 +71,7 @@ def _load_issue82() -> tuple[InMemoryVIGraph, str]:
         mode=LoadMode.MINIMAL,
         layout=True,
     )
-    return graph, graph.resolve_vi_name(_ISSUE82_VI.name)
+    return graph, vi_key(graph, _ISSUE82_VI.name)
 
 
 def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:

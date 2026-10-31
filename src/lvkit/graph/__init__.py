@@ -4,10 +4,10 @@ Re-exports InMemoryVIGraph, connect(), and LoadMode for convenient access.
 """
 
 from .core import InMemoryVIGraph, connect
+from .errors import AmbiguousVIReferenceError
 from .load_ctl import load_ctl_by_path
 from .loading import LoadMode, load_vi_by_path
 from .node_kinds import EdgeRel, NodeType
-from .queries import AmbiguousVIReferenceError
 from .typedef import TypedefField, TypedefInfo, TypedefRef
 
 VIGraph = InMemoryVIGraph

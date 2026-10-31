@@ -102,7 +102,6 @@ def describe_vi(
     node-first wiring body) is a SEPARATE output entirely -- see
     ``lvkit.graph.netlist`` and the CLI's ``describe --format lvnet``.
     """
-    vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
     lines: list[str] = []
@@ -152,7 +151,7 @@ def describe_vi(
     lines.extend(_describe_off_pane_front_panel(ctx, verbose))
 
     # Class context: when this VI is a .lvclass method
-    lines.extend(_describe_class_context(graph, ctx))
+    lines.extend(_describe_class_context(graph, vi_name))
 
     # Constants: show actual values. Constants nested inside a structure
     # are shown with their frame (in Control Flow below), not here.
@@ -577,7 +576,7 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
 
 def _describe_class_context(
     graph: InMemoryVIGraph,
-    ctx: VIContext,
+    vi_key: str,
 ) -> list[str]:
     """Describe the owning class when this VI is a .lvclass method.
 
@@ -592,15 +591,16 @@ def _describe_class_context(
     aren't part of that shared context (netlist has no use for them) and are
     still gathered here directly.
     """
-    cc = collect_class_context(graph, ctx)
-    if cc is None:
+    cc = collect_class_context(graph, vi_key)
+    class_key = graph.owning_class_key(vi_key)
+    if cc is None or class_key is None:
         return []
 
-    fields = graph.get_class_fields(cc.owning_class) or []
+    fields = graph.get_class_fields(class_key) or []
     siblings = sorted(
         {
-            t.split(":")[-1]
-            for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
+            graph.vi_display_name(t).rsplit(":", 1)[-1]
+            for _, t, e in graph._dep_graph.edges(class_key, data=True)
             if e.get("rel") == EdgeRel.OWNS and is_vi_file(t)
         }
     )

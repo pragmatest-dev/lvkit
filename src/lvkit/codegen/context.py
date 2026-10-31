@@ -685,8 +685,7 @@ class CodeGenContext:
             return
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
-            type_ref = named.type_ref()
-            imported = self.import_resolver.type_import(type_ref) if type_ref else None
+            imported = self.import_resolver.type_import(named)
             if imported is not None:
                 target.add(imported.statement)
 
@@ -1069,8 +1068,7 @@ def type_namer(
     resolver = import_resolver
 
     def names(lv_type: LVType) -> str | None:
-        type_ref = lv_type.type_ref()
-        imported = resolver.type_import(type_ref) if type_ref else None
+        imported = resolver.type_import(lv_type) if lv_type.type_ref() else None
         return imported.name if imported is not None else None
 
     return names

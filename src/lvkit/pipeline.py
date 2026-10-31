@@ -35,11 +35,12 @@ from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
-from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
+from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
@@ -170,19 +171,12 @@ def create_import_resolver(
         reference constant (which names its VI by name). A call of a project VI
         is never found this way -- it is found by its key, and a call that has
         none stops code generation first."""
-        qualified = vi_name
-        if graph is not None:
-            try:
-                qualified = graph.resolve_vi_name(vi_name) or vi_name
-            except AmbiguousVIReferenceError:
-                pass
-        for key in (qualified, vi_name):
-            if key in vi_paths:
-                return found(key, vi_name)
+        if vi_name in vi_paths:
+            return found(vi_name, vi_name)
         raise MissingVIError(
             vi_name,
-            shown(qualified),
-            graph.stub_reason(qualified) if graph is not None else None,
+            shown(vi_name),
+            graph.stub_reason(vi_name) if graph is not None else None,
         )
 
     def found(key: str, name: str) -> Path:
@@ -200,8 +194,13 @@ def create_import_resolver(
     def locate(subvi_name: str, callee_key: str | None) -> Path:
         """The output file of the VI a call names: the one generated for
         ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
-        if callee_key is not None and callee_key in vi_paths:
-            return found(callee_key, subvi_name)
+        if callee_key is not None:
+            if callee_key in vi_paths:
+                return found(callee_key, subvi_name)
+            if graph is not None and graph.is_stub(callee_key):
+                raise MissingVIError(
+                    subvi_name, shown(callee_key), graph.stub_reason(callee_key)
+                )
         return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
@@ -262,11 +261,10 @@ def create_import_resolver(
         dotted = f"{package}.{module}" if package else module
         return f"from {dots}{dotted} import {', '.join(sorted(names))}"
 
-    def type_import(type_ref: str, scope: str | None) -> NameImport | None:
-        lookup_key = scope or caller_key
-        if graph is None or lookup_key is None:
+    def type_import(lv_type: LVType) -> NameImport | None:
+        if graph is None:
             return None
-        key = graph.type_key(type_ref, lookup_key)
+        key = graph.type_key(lv_type)
         if key is None or key not in vi_paths:
             return None
         return node_import(key)

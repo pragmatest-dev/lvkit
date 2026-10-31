@@ -25,6 +25,7 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.diff import format_diff
 from lvkit.graph.loading import LoadMode
+from tests.helpers import vi_key
 
 SAMPLE_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
@@ -75,7 +76,7 @@ def loaded_graph(empty_resolvers) -> tuple[InMemoryVIGraph, str]:
     """
     graph = InMemoryVIGraph()
     graph.load_vi(str(SAMPLE_VI))
-    vi_name = graph.resolve_vi_name(SAMPLE_VI.name)
+    vi_name = vi_key(graph, SAMPLE_VI.name)
     return graph, vi_name
 
 

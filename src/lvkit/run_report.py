@@ -89,8 +89,7 @@ class Outcome(str, Enum):
 # How the summary counts each kind of note.
 _NOTE_PHRASES = {
     ProblemKind.FOUND_ELSEWHERE: (
-        "file(s) loaded from the VI search path, not from the path their caller "
-        "records"
+        "file(s) loaded from the VI search path, not from the path their caller records"
     ),
     ProblemKind.UNLABELED_CONTROL: (
         "control(s) record no label and are named control_<uid>"

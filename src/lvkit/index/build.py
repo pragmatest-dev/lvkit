@@ -288,9 +288,7 @@ def _warming_failed(
     lvkit error."""
     if isinstance(exc, (OSError, sqlite3.Error)):
         exc = index_write_error(root, exc)
-    problem = problem_for_exception(
-        graph.vi_label(first), ProblemStage.INDEX, exc
-    )
+    problem = problem_for_exception(graph.vi_label(first), ProblemStage.INDEX, exc)
     graph.record_file_problem(first, problem, node_type, may_stop=False)
 
 
@@ -667,7 +665,7 @@ def project_vi_facts(
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
-    catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
+    catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
     all_terminals = [
         *graph.get_inputs(vi_name, public_only=False),
         *graph.get_outputs(vi_name, public_only=False),
@@ -676,7 +674,7 @@ def project_vi_facts(
         field_names: list[str] = []
         enum_values: list[str] = []
         if t.lv_type is not None:
-            fields = graph.get_type_fields(t.lv_type, vi_name)
+            fields = graph.get_type_fields(t.lv_type)
             if fields:
                 field_names = [f.name for f in fields]
             if t.lv_type.classname:
@@ -773,7 +771,7 @@ def project_vi_facts(
     # nested under it) would count as a type THIS VI uses even when no
     # terminal/constant of its own ever reaches it. type_id is a pure function
     # of structure, so a throwaway catalog computes the identical id.
-    version_catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
+    version_catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
     typedef_versions = [
         TypedefVersionFact(dep, _typedef_root_type_id(graph, dep, version_catalog))
         for dep in typedef_deps

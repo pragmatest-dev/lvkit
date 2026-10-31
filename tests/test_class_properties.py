@@ -26,7 +26,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
-from tests.helpers import build_graph
+from tests.helpers import build_graph, key_graph_types, with_file_keys
 
 _CLASS_TYPE = LVType(
     kind=LVTypeKind.PRIMITIVE,
@@ -342,6 +342,7 @@ def build_class(
             must_call_parent=method.must_call_parent,
         )
         contexts[method.name] = context
+    key_graph_types(graph, {"C.lvclass": class_key, "Lib.lvlib:C.lvclass": class_key})
     return Built(graph, lvclass, class_key, keys, contexts)
 
 
@@ -655,12 +656,16 @@ def test_a_library_qualified_class_name_finds_the_class_its_vi_belongs_to(
     tmp_path: Path,
 ) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
-    method = built.keys["Peek"]
     qualified = "Lib.lvlib:C.lvclass"
-    fields = built.graph.get_class_fields(qualified, caller_vi_key=method)
+    lv_type = with_file_keys(
+        dataclasses.replace(_CLASS_TYPE, classname=qualified),
+        {qualified: built.class_key},
+    )
+    fields = built.graph.get_type_fields(lv_type)
     assert fields is not None and [f.name for f in fields] == ["Count", "Name"]
-    # A caller that is not one of the class's VIs does not find it by a bare name.
-    assert built.graph.get_class_fields(qualified, caller_vi_key="/else.vi") is None
+    # A type no record tied to a class file has no fields, whatever its name.
+    untied = dataclasses.replace(_CLASS_TYPE, classname=qualified)
+    assert built.graph.get_type_fields(untied) is None
 
 
 def test_bundle_and_unbundle_on_a_library_owned_class_use_its_fields(

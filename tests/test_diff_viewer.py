@@ -25,12 +25,13 @@ from lvkit.graph.diff import (
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
+from tests.helpers import vi_key
 
 
 def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 

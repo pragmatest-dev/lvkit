@@ -26,6 +26,7 @@ from lvkit.graph.models import (
     MethodOverrideInfo,
 )
 from lvkit.models import ClusterField, LVType, LVTypeKind
+from tests.helpers import vi_key
 
 SAMPLE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
@@ -51,6 +52,7 @@ def _add_class(
         node_type="class",
         fields=fields or [],
         parent_class=parent_class,
+        parent_key=f"{parent_class}.lvclass" if parent_class else None,
     )
 
 
@@ -419,31 +421,32 @@ class TestClassPageGeneration:
 class TestRealSampleHierarchy:
     def test_testrunner_texttestrunner_hierarchy(self):
         g = InMemoryVIGraph()
-        g.load_lvclass(
+        parent_key = g.load_lvclass(
             SAMPLE_ROOT / "Classes/TestRunner/TestRunner.lvclass",
             mode=LoadMode.FULL,
         )
-        g.load_lvclass(
+        child_key = g.load_lvclass(
             SAMPLE_ROOT / "Classes/TextTestRunner/TextTestRunner.lvclass",
             mode=LoadMode.FULL,
         )
 
-        parent_hierarchy = g.get_class_hierarchy("TestRunner.lvclass")
+        parent_hierarchy = g.get_class_hierarchy(parent_key)
         assert parent_hierarchy is not None
         assert "TextTestRunner.lvclass" in parent_hierarchy.child_classes
 
-        child_hierarchy = g.get_class_hierarchy("TextTestRunner.lvclass")
+        child_hierarchy = g.get_class_hierarchy(child_key)
         assert child_hierarchy is not None
         assert child_hierarchy.parent_class == "TestRunner.lvclass"
 
-        overrides = g.get_method_overrides("TextTestRunner.lvclass:makeResult.vi")
+        child_method = vi_key(g, "TextTestRunner.lvclass:makeResult.vi")
+        overrides = g.get_method_overrides(child_method)
         assert overrides is not None
         assert overrides.overrides is not None
         assert g.vi_display_name(overrides.overrides) == (
             "TestRunner.lvclass:makeResult.vi"
         )
 
-        reverse = g.get_method_overrides("TestRunner.lvclass:makeResult.vi")
+        reverse = g.get_method_overrides(vi_key(g, "TestRunner.lvclass:makeResult.vi"))
         assert reverse is not None
         assert "TextTestRunner.lvclass:makeResult.vi" in [
             g.vi_display_name(key) for key in reverse.overridden_by

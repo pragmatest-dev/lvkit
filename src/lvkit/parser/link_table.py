@@ -467,13 +467,18 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     )
     r.align(2)
     path_type, path_tokens = r.typed_path()
+    return _LinkHead(name_parts, path_tokens, _read_link_flag(r, version), path_type)
 
-    link_flag = 0
+
+def _read_link_flag(r: _Reader, version: LinkTableVersion) -> int:
+    """The link flag that follows a record's path: a u32 from LabVIEW 8.6, a u8
+    in 8.5, absent (0) before. Its bit 2 marks a file in the caller's own
+    library or class: the record's name omits the owners the two share."""
     if version.at_least(8, 6, 0, 1):
-        link_flag = r.u32()
-    elif version.at_least(8, 5, 0, 1):
-        link_flag = r.u8()
-    return _LinkHead(name_parts, path_tokens, link_flag, path_type)
+        return r.u32()
+    if version.at_least(8, 5, 0, 1):
+        return r.u8()
+    return 0
 
 
 def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
@@ -677,17 +682,23 @@ _PATH_IDENTS = (b"PTH0", b"PTH1", b"PTH2")
 
 @dataclass(frozen=True)
 class RecordName:
-    """The ident and name parts a link record starts with."""
+    """The ident and name parts a link record starts with, and the link flag
+    after its path (``_read_link_flag``; None when not read)."""
 
     ident: str
     name_parts: tuple[str, ...]
+    link_flag: int | None = None
+    uids: tuple[int, ...] = ()
 
 
-def decode_record_names(data: bytes) -> dict[int, RecordName]:
+def decode_record_names(
+    data: bytes, version: LinkTableVersion | None = None
+) -> dict[int, RecordName]:
     """The ident and name parts of every record of a link table whose head
     reads, keyed by the offset of the path the head ends at. Every record starts
     the same way (``_read_basic_head``: pad to 4, the name parts, pad to 2, the
-    path), whatever the saving version; nothing after the path is read.
+    path, the link flag), whatever the saving version; the flag is read when the
+    table's ``version`` is given, nothing after it.
 
     A record can name a second file after its own path: another name list (a
     u32 count, the name parts) ending exactly where that file's path starts
@@ -709,7 +720,15 @@ def decode_record_names(data: bytes) -> dict[int, RecordName]:
         except LinkTableError:
             continue
         if data[r.pos : r.pos + 4] in _PATH_IDENTS:
-            names.setdefault(r.pos, RecordName(ident, parts))
+            names.setdefault(
+                r.pos,
+                RecordName(
+                    ident,
+                    parts,
+                    _flag_after(r, version),
+                    _uids_after(r, version, ident),
+                ),
+            )
     for path_ident in _PATH_IDENTS:
         for match in re.finditer(re.escape(path_ident), data):
             path = match.start()
@@ -720,6 +739,56 @@ def decode_record_names(data: bytes) -> dict[int, RecordName]:
             if inner is not None and owner:
                 names[path] = RecordName(owner[-1], inner)
     return names
+
+
+# The records that carry a ``LinkOffsetList``: the typedef-to-control-link record
+# (``TDCC``) and the heap-to-VI record (``IUVI``). Both read the same way after
+# their head (``_read_link_head``).
+_OFFSET_LIST_IDENTS = ("TDCC", "IUVI")
+
+
+def _uids_after(
+    r: _Reader, version: LinkTableVersion | None, ident: str
+) -> tuple[int, ...]:
+    """The heap object uids of the offset list of the ``TDCC`` or ``IUVI`` record
+    whose path is at ``r``'s position: the list that follows the record's head
+    and typed-link flags. Empty for another record, or when it does not read.
+    ``r`` is not moved."""
+    if version is None or ident not in _OFFSET_LIST_IDENTS:
+        return ()
+    after = _Reader(r.data, r.pos)
+    try:
+        after.typed_path()
+        _read_link_flag(after, version)
+        if not version.at_least(8, 6, 0, 1):
+            after.u32()
+        after.variable_size_u2p2()
+        flag_byte = 0xFF
+        if version.at_least(14, 0, 0, 3):
+            flag_byte = after.u8()
+        if flag_byte == 0xFF:
+            if version.at_least(8, 0, 0, 3):
+                after.take(4 + 8)
+            if version.at_least(6, 0, 0, 1):
+                after.take(4 + 4 + 4)
+        if version.at_least(12, 0, 0, 3):
+            after.u32()
+        return _read_node_uids(after)
+    except LinkTableError:
+        return ()
+
+
+def _flag_after(r: _Reader, version: LinkTableVersion | None) -> int | None:
+    """The link flag after the path at ``r``'s position; None without a
+    ``version`` or when the path does not read. ``r`` is not moved."""
+    if version is None:
+        return None
+    after = _Reader(r.data, r.pos)
+    try:
+        after.typed_path()
+        return _read_link_flag(after, version)
+    except LinkTableError:
+        return None
 
 
 def _name_parts(r: _Reader) -> tuple[str, ...]:

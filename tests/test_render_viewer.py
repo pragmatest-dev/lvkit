@@ -18,6 +18,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.render_viewer import build_render_viewer
 from lvkit.render.theme_control import THEME_CONTROL_BTN_ID
+from tests.helpers import vi_key
 
 WD_BASE_VI = Path(__file__).resolve().parent.parent / ".tmp" / "wd_base.vi"
 
@@ -25,7 +26,7 @@ WD_BASE_VI = Path(__file__).resolve().parent.parent / ".tmp" / "wd_base.vi"
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
-    return graph, graph.resolve_vi_name(vi_path.name)
+    return graph, vi_key(graph, vi_path.name)
 
 
 def _require_vi() -> None:

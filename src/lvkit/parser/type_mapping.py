@@ -239,9 +239,7 @@ def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
         return heap
     for lv_type in heap.types.values():
         if lv_type.typedef_file is not None and lv_type.typedef_file in vicc_paths:
-            lv_type.typedef_path = build_relative_path(
-                vicc_paths[lv_type.typedef_file]
-            )
+            lv_type.typedef_path = build_relative_path(vicc_paths[lv_type.typedef_file])
     return heap
 
 
@@ -539,6 +537,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             return None
 
         lv_type = build_lvtype(flat_types[fid], visited | {fid})
+        lv_type.type_id = fid
         resolved[fid] = lv_type
         return lv_type
 

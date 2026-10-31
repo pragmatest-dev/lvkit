@@ -362,7 +362,9 @@ def _global_node(
                 direction="input" if is_write else "output",
             )
         ],
-        global_vi=GlobalVIRef(qualified_name=_GLOBAL_KEY, path_tokens=(_GLOBAL_KEY,)),
+        global_vi=GlobalVIRef(
+            qualified_name=_GLOBAL_KEY, path_tokens=(_GLOBAL_KEY,), key=_GLOBAL_KEY
+        ),
         control_name=control,
         param_idx=param_idx,
         is_write=is_write,

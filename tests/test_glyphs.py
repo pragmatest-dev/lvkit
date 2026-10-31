@@ -39,6 +39,7 @@ from lvkit.render.nodes import (
 from lvkit.render.scene import build_scene
 from lvkit.render.style import DEFAULT_THEME
 from lvkit.vilib_resolver import VIEntry
+from tests.helpers import vi_key
 
 GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
 
@@ -488,7 +489,7 @@ def test_ground_truth_add_still_resolves_to_arith_glyph():
         pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
     graph = InMemoryVIGraph()
     graph.load_vi(GROUND_TRUTH_VI, mode=LoadMode.NONE)
-    vi = graph.resolve_vi_name(GROUND_TRUTH_VI.name)
+    vi = vi_key(graph, GROUND_TRUTH_VI.name)
     scene = build_scene(graph, vi)
     assert scene is not None
     add_nodes = [

@@ -16,6 +16,7 @@ from lvkit.flattened_typedesc import private_data_from_lvclass_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import PrimitiveNode
+from tests.helpers import vi_key
 
 # A class member VI whose .lvclass sits one directory up (subfolder case).
 SUBFOLDER_VI = Path(
@@ -35,14 +36,13 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     g.load_vi(SUBFOLDER_VI, mode=LoadMode.MINIMAL)
 
     # The owning class resolves its private-data fields...
-    fields = g.get_class_fields("TextTestRunner.JUnitXML.lvclass")
+    class_key = vi_key(g, "TextTestRunner.JUnitXML.lvclass")
+    fields = g.get_class_fields(class_key)
     assert fields is not None
     assert [f.name for f in fields] == ["Report Path"]
 
     # ...and the field-only load is a placeholder, not a full class load. The
     # class node is keyed by PATH now — resolve the qname to its key first.
-    class_key = g._dep_key_for_ref("TextTestRunner.JUnitXML.lvclass")
-    assert class_key is not None
     node = g._dep_graph.nodes[class_key]
     assert node.get("fields_only") is True
     # The ONLY method VI of that class in the graph is the target VI itself
@@ -53,8 +53,9 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     # dep_graph qname-prefix scan.
     class_method_vis = [
         q
-        for q in g._qname_to_keys
-        if q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
+        for _key, q in g._dep_graph.nodes(data="qname")
+        if q
+        and q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
 
@@ -138,7 +139,7 @@ def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
     g = InMemoryVIGraph()
     g.load_vi(cdir / "Create.vi", mode=LoadMode.MINIMAL)
 
-    fields = g.get_class_fields(_MC_CLASS)
+    fields = g.get_class_fields(vi_key(g, _MC_CLASS))
     assert fields is not None
     assert [f.name for f in fields] == _MC_FIELDS_BEFORE
 
@@ -214,7 +215,7 @@ def test_ctl_private_data_class_fields_resolve(tmp_path: Path, mode) -> None:
 
     # The class's private data is the Data.ctl control — its fields resolve
     # (previously 0, because the inline-VCTP hunt found nothing).
-    fields = g.get_class_fields(_MC_CLASS)
+    fields = g.get_class_fields(vi_key(g, _MC_CLASS))
     assert fields is not None
     assert [f.name for f in fields] == _MC_FIELDS
 

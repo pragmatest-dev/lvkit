@@ -113,10 +113,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     class_attrs: ClassAttributes | None = None
     if agg_terminals and agg_terminals[0].lv_type:
         if ctx.graph is not None:
-            class_fields = ctx.graph.get_type_fields(
-                agg_terminals[0].lv_type,
-                caller_vi_key=ctx.vi_name,
-            )
+            class_fields = ctx.graph.get_type_fields(agg_terminals[0].lv_type)
             class_attrs = type_attributes(
                 ctx.graph, agg_terminals[0].lv_type, ctx.vi_name
             )

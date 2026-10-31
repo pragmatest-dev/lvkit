@@ -67,9 +67,7 @@ def _callee_receiver_inputs(graph: InMemoryVIGraph, node: GraphNode) -> list[Ter
     if callee is None or class_key is None:
         return []
     inputs, _, _, _ = graph.vi_interface(callee)
-    slots = {
-        t.index for t in inputs if graph.is_class_wire(t.lv_type, callee, class_key)
-    }
+    slots = {t.index for t in inputs if graph.is_class_wire(t.lv_type, class_key)}
     return [t for t in node.terminals if t.direction == "input" and t.index in slots][
         :2
     ]

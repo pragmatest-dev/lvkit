@@ -27,6 +27,7 @@ from lvkit.graph.op_walk import _selector_label
 from lvkit.models import _is_error_cluster
 from lvkit.parser.utils import clean_labview_string
 from tests.conftest import SAMPLES_ROOT
+from tests.helpers import vi_key
 
 pytestmark = pytest.mark.needs_samples
 
@@ -158,7 +159,7 @@ def frame_label_checks(rel_path: str) -> list[FrameLabelCheck]:
     heap = _heap_labels(vi_path)
     graph = InMemoryVIGraph()
     graph.load_vi(vi_path, mode=LoadMode.MINIMAL)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     checks: list[FrameLabelCheck] = []
     for node_id in sorted(graph._vi_nodes[vi_name]):
         node = graph.get_graph_node(node_id)

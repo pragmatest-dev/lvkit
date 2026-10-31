@@ -21,7 +21,7 @@ from lvkit.text_encoding import (
 )
 from lvkit.vi_files import is_vi_file
 
-from .link_table import decode_record_names, unwrap_link_names
+from .link_table import LinkTableVersion, decode_record_names, unwrap_link_names
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
 from .utils import clean_labview_string
@@ -604,7 +604,9 @@ def name_records_by_path(
 
 
 def parse_link_path_refs(
-    link_bin: Path, owners: Sequence[str] = ()
+    link_bin: Path,
+    owners: Sequence[str] = (),
+    version: LinkTableVersion | None = None,
 ) -> list[ParsedDependencyRef]:
     """A recorded PATH for EVERY file a link binary references, from its ``PTH0``
     path records. LabVIEW stores a ``PTH0`` for each dependency it tracks (it is
@@ -621,14 +623,16 @@ def parse_link_path_refs(
     by PATH with no name-search, identically on web and desktop. Each ref's
     qualified name is the one its record gives that file
     (``recorded_file_name``; ``owners`` is the VI's own ``LIBN`` chain), None
-    when the record names none (it is then named by its file).
+    when the record names none (it is then named by its file). Each ref carries
+    its record's link flag when the table's ``version`` is given.
     """
     try:
         data = link_bin.read_bytes()
     except OSError:
         return []
 
-    record_names = decode_record_names(data)
+    record_names = decode_record_names(data, version)
+    section = link_bin.stem.rsplit("_", 1)[-1]  # LIvi, LIbd or LIfp
     refs: list[ParsedDependencyRef] = []
     seen: set[tuple[str, ...]] = set()
     for m in re.finditer(b"PTH0", data):
@@ -657,6 +661,9 @@ def parse_link_path_refs(
                 ),
                 path_type=path_type,
                 record=record.ident if record is not None else None,
+                link_flag=record.link_flag if record is not None else None,
+                uids=record.uids if record is not None else (),
+                section=section,
             )
         )
     return refs
@@ -690,10 +697,7 @@ def parse_xml_link_path_refs(
         for table in main_root.findall(section):
             for record in table.iter():
                 name_parts = unwrap_link_names(
-                    [
-                        s.text or ""
-                        for s in record.findall("LinkSaveQualName/String")
-                    ],
+                    [s.text or "" for s in record.findall("LinkSaveQualName/String")],
                     encoding,
                 )
                 for path_ref in record.findall("LinkSavePathRef"):
@@ -705,6 +709,7 @@ def parse_xml_link_path_refs(
                     if not tokens or not _names_a_dependency_file(tokens[-1]):
                         continue
                     tp_val = path_ref.get("TpVal")
+                    flag = record.get("LinkSaveFlag")
                     refs.append(
                         ParsedDependencyRef(
                             name=tokens[-1],
@@ -714,6 +719,13 @@ def parse_xml_link_path_refs(
                             ),
                             path_type=int(tp_val) if tp_val is not None else None,
                             record=record.tag,
+                            link_flag=int(flag) if flag is not None else None,
+                            uids=tuple(
+                                int(o.text, 16)
+                                for o in record.findall("LinkOffsetList/Offset")
+                                if o.text
+                            ),
+                            section=section,
                         )
                     )
     return refs

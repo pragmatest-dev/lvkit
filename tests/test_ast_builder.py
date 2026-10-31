@@ -475,9 +475,8 @@ def test_build_module_real_vi():
 
     graph = InMemoryVIGraph()
     graph.set_library_roots(userlib_root=OPENG_USERLIB)
-    graph.load_vi(vi_path)
-
-    vi_name = vi_path.name
+    vi_name = graph.load_vi(vi_path)
+    assert vi_name is not None
     ctx = graph.get_vi_context(vi_name)
 
     # Should have operations

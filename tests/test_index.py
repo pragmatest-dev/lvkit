@@ -42,6 +42,7 @@ from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
 from lvkit.vi_files import rglob_vi_files
 from tests.corpus_graphs import build_corpus_index
+from tests.helpers import vi_key
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -510,7 +511,7 @@ class TestLoadLvlibClassMember:
         # The class's methods loaded as real VI nodes, owned by the class
         # (not left as a dead/unreachable member). The class node is keyed by
         # PATH now, so resolve the qname to its key before walking edges.
-        class_key = graph._dep_key_for_ref(_MYLIBRARY_CLASS_NAME)
+        class_key = vi_key(graph, _MYLIBRARY_CLASS_NAME)
         assert class_key is not None
         owned = {
             succ

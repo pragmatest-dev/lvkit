@@ -119,7 +119,7 @@ def _generated_function(tmp_path: Path, saved: bytes):
 def _generate(views: Views):
     """The generated function ``t`` of ``views`` and the module source."""
     context = views.graph.get_vi_context(views.vi)
-    source = build_module(context, "T.vi", graph=views.graph)
+    source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
     return namespace["t"], source
@@ -220,7 +220,7 @@ def test_a_symbolic_folder_path_is_a_plain_path_value(
     gaps: list[Gap] = []
     views = _constant_views_for_function(tmp_path, path_bytes(0, [symbolic, b"x.vi"]))
     context = views.graph.get_vi_context(views.vi)
-    source = build_module(context, "T.vi", graph=views.graph, gaps=gaps)
+    source = build_module(context, views.vi, graph=views.graph, gaps=gaps)
     assert gaps == []
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
@@ -233,7 +233,7 @@ def test_an_absolute_path_with_an_empty_volume_is_a_gap(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     views = _constant_views_for_function(tmp_path, path_bytes(0, [b"", b"x.vi"]))
     context = views.graph.get_vi_context(views.vi)
-    build_module(context, "T.vi", graph=views.graph, gaps=gaps)
+    build_module(context, views.vi, graph=views.graph, gaps=gaps)
     assert len(gaps) == 1
     assert "no volume" in gaps[0].reason
 

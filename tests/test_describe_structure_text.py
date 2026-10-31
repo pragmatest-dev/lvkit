@@ -38,7 +38,7 @@ from lvkit.models import (
     Terminal,
     TunnelTerminal,
 )
-from tests.helpers import register_nodes
+from tests.helpers import register_nodes, vi_key
 
 _VI = "test.vi"
 _ENUM = LVType(
@@ -229,7 +229,7 @@ def _describe(source_root: Path, relative: str, search: Path | None = None) -> s
         pytest.skip(f"{vi} not present")
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi), LoadMode.MINIMAL)
-    return describe_vi(graph, graph.resolve_vi_name(vi.name))
+    return describe_vi(graph, vi_key(graph, vi.name))
 
 
 @pytest.mark.needs_samples

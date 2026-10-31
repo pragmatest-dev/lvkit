@@ -69,7 +69,7 @@ def _loop_over(
     )
     views: Views = load(tmp_path, xml, TYPES + PATH_TYPES)
     context = views.graph.get_vi_context(views.vi)
-    return build_module(context, "T.vi", graph=views.graph)
+    return build_module(context, views.vi, graph=views.graph)
 
 
 def _labelled(literal: str, label: str) -> str:

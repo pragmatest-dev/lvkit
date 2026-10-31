@@ -522,13 +522,13 @@ def _class_graph():
 
 def test_the_graph_gives_a_class_its_levels_oldest_ancestor_first():
     g = _class_graph()
-    levels = g.get_class_private_levels("Child.lvclass")
+    levels = g.class_private_levels("Child.lvclass")
     assert levels is not None
     assert [[f.name for f in level] for level in levels] == [
         ["count"],
         ["label", "mode"],
     ]
-    assert g.get_class_private_levels("Missing.lvclass") is None
+    assert g.class_private_levels("Missing.lvclass") is None
 
 
 def test_a_type_holding_a_class_is_stamped_with_a_copy():
@@ -538,6 +538,7 @@ def test_a_type_holding_a_class_is_stamped_with_a_copy():
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname="Child.lvclass",
+        file_key="Child.lvclass",
     )
     holder = _cluster(("objects", _array(plain)))
     stamped = g.with_class_levels(holder)
@@ -577,6 +578,7 @@ def _instance(name: str) -> LVType:
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname=name,
+        file_key=name,
     )
 
 

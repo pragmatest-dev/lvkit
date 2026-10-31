@@ -46,6 +46,7 @@ from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
 from lvkit.render.properties_panel import PROPERTIES_GLYPH
 from lvkit.render.render_viewer import build_render_viewer
+from tests.helpers import vi_key
 
 # The content-rich VI the vi-node-properties diff sample uses (a real class
 # method, NOT the gutted VITester built project) — same VI loaded twice with
@@ -62,7 +63,7 @@ def _require_run_vi() -> Path:
 def _load_run_vi() -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(_RUN_VI), mode=LoadMode.NONE, layout=True)
-    return graph, graph.resolve_vi_name(_RUN_VI.name)
+    return graph, vi_key(graph, _RUN_VI.name)
 
 
 def _flipped_run_vi_graphs() -> tuple[
@@ -121,7 +122,7 @@ def _require_vitester_item_init() -> Path:
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
-    return graph, graph.resolve_vi_name(vi_path.name)
+    return graph, vi_key(graph, vi_path.name)
 
 
 class TestSvgCarriesPropertiesData:

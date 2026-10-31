@@ -127,8 +127,7 @@ def build_global_module(
         needs_namespace = needs_namespace or namespace
         if isinstance(import_resolver, ImportResolver) and control.lv_type:
             for named in control.lv_type.named_types():
-                type_ref = named.type_ref()
-                imported = import_resolver.type_import(type_ref) if type_ref else None
+                imported = import_resolver.type_import(named)
                 if imported is not None:
                     annotation_imports.add(imported.statement)
         assignments.append(

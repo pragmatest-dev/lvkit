@@ -23,8 +23,7 @@ def annotation_imports(
         if lv_type is None:
             continue
         for named in lv_type.named_types():
-            type_ref = named.type_ref()
-            imported = import_resolver.type_import(type_ref) if type_ref else None
+            imported = import_resolver.type_import(named)
             if imported is not None and imported.statement:
                 imports.add(imported.statement)
     return imports

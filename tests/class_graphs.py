@@ -26,7 +26,7 @@ from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, key_graph_types
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
@@ -209,7 +209,16 @@ class Project:
         )
         self.graph._vi_display_names[key] = f"{name}.lvclass"  # noqa: SLF001
         self.classes[name] = key
+        self._record_types()
         return key
+
+    def _record_types(self) -> None:
+        """Tie every class type on the VIs' terminals to its class, as a loaded VI
+        does through its link records."""
+        key_graph_types(
+            self.graph,
+            {f"{name}.lvclass": key for name, key in self.classes.items()},
+        )
 
     def _register(self, key: str, recipe: Recipe, display: str) -> VIContext:
         context, nodes = recipe(key)
@@ -272,6 +281,7 @@ class Project:
         )
         self.members[key] = class_key
         self.vis[f"{cls}.{vi}"] = key
+        self._record_types()
         return key
 
     def add_vi(self, vi: str, recipe: Recipe) -> str:
@@ -280,6 +290,7 @@ class Project:
         self._register(key, recipe, f"{vi}.vi")
         self.free.append(key)
         self.vis[vi] = key
+        self._record_types()
         return key
 
     def generate(self, gaps: list[Gap] | None = None) -> Package:

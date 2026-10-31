@@ -174,7 +174,7 @@ def _nmux_field_sources(
                 agg.lv_type.classname,
                 graph,
             )
-        dep_fields = graph.get_type_fields(agg.lv_type, caller_vi_key=vi_name) or []
+        dep_fields = graph.get_type_fields(agg.lv_type) or []
     return own_fields, dep_fields
 
 
@@ -438,9 +438,7 @@ def selector_frame_values(
         # alone is "Error"; a frame that stores no value is the default.
         status = 0 if frame.is_no_error else 1
         codes = [
-            r
-            for r in frame.selector_ranges
-            if not (r.is_single and r.start == status)
+            r for r in frame.selector_ranges if not (r.is_single and r.start == status)
         ]
         listed = [f"Error {_format_ranges(codes, str)}"] if codes else []
         if frame.is_no_error:

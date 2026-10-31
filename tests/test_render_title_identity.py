@@ -5,7 +5,7 @@ by bare filename.
 Every JKI VI Tester class ships its own ``run.vi``, and opening one loads several
 into the same graph (opening ``TestRunner/run.vi`` transitively pulls in
 ``TestCase/run.vi`` and ``TestSuite/run.vi``). A bare-name
-``resolve_vi_name("run.vi")`` then collapses all of them to ONE candidate
+``key_for_user_input("run.vi")`` then collapses all of them to ONE candidate
 (TestCase's), so opening TestRunner's or TestSuite's run.vi used to render and
 title TestCase's instead.
 """

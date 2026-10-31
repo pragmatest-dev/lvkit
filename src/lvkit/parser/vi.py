@@ -155,6 +155,7 @@ from .nodes import (
 from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
+from .typedef_ties import tie_typedef_records
 from .utils import (
     decode_xml_entities_to_bytes,
     extract_caption,
@@ -440,7 +441,9 @@ def _parse_metadata(
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
         if link_bin.exists():
-            recorded_refs.extend(parse_link_path_refs(link_bin, owning_libraries))
+            recorded_refs.extend(
+                parse_link_path_refs(link_bin, owning_libraries, link_version)
+            )
     for ref in name_records_by_path(recorded_refs):
         key = (ref.record, ref.qualified_name, ref.name, *ref.path_tokens)
         if key not in seen_refs:
@@ -449,6 +452,9 @@ def _parse_metadata(
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
+    link_path_refs = tie_typedef_records(
+        link_path_refs, main_xml, getattr(type_map, "flat_ids", {})
+    )
 
     return ParsedVIMetadata(
         qualified_name=qualified_name,
