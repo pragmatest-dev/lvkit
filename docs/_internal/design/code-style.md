@@ -101,7 +101,7 @@ All user-defined LabVIEW types — classes, typedefs, custom controls — are id
 ## "Codegen must be byte-reproducible: per-VI node UIDs live in hash-randomized sets — any order-materializing query MUST sort by _node_order_key"
 <!-- was memory: feedback_deterministic_node_order -->
 
-Non-determinism in generated code is unacceptable ("non-determinism is death" — rfried, 2026-06-23). lvkit stores per-VI node UIDs as **sets** (`_vi_nodes: dict[str, set[str]]`), so iterating `node_uids` / any UID set has **hash-randomized order between processes** (`PYTHONHASHSEED`).
+Non-determinism in generated code is unacceptable ("non-determinism is death" — the maintainer, 2026-06-23). lvkit stores per-VI node UIDs as **sets** (`_vi_nodes: dict[str, set[str]]`), so iterating `node_uids` / any UID set has **hash-randomized order between processes** (`PYTHONHASHSEED`).
 
 **Why:** the same VI generated twice produced different Python — independent parallel-tier ops swapped order, dragging their collision-suffix variable names (`output_array_696`↔`_999`) with them.
 

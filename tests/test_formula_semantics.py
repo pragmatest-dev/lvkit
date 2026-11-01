@@ -1,6 +1,6 @@
 """Locked LabVIEW Formula Node numeric-semantics regression.
 
-Ground truth: a real Formula Node run reported by @Himmelt on
+Ground truth: a real Formula Node run reported by an outside tester on
 github.com/pragmatest-dev/lvkit issues/8 (the probe in
 docs/formula_semantics_probe.md). Each case below transpiles a tiny
 script, EXECUTES the emitted Python, and asserts the value LabVIEW
