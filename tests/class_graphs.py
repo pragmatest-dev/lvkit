@@ -17,11 +17,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
@@ -255,30 +255,22 @@ class Project:
         Definition folder of that property."""
         key = self.key_of(cls, vi)
         class_key = self.classes[cls]
-        context = self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
+        self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
         self.graph._dep_graph.nodes[class_key]["method_paths"][  # noqa: SLF001
             f"{vi}.vi"
         ] = key
-        role: PropertyRole | None = None
-        if property_name is not None:
-            role = property_role(
-                context.inputs,
-                context.outputs,
-                lambda t, cls=cls: bool(
-                    t.lv_type and t.lv_type.classname == f"{cls}.lvclass"
-                ),
-            )
-        self.graph._add_ownership_edge(  # noqa: SLF001
-            class_key,
-            key,
+        # Listed in the class's file, as a loaded class records it; the
+        # ``owns`` edge follows (``graph/membership.py``).
+        listed = self.graph.listed_members(class_key)
+        listed[key] = ListedMethod(
             scope=scope,
-            is_accessor=property_name is not None,
-            accessor_type=role.value if role else None,
-            accessor_field=property_name,
             is_static=static,
+            is_accessor=property_name is not None,
+            accessor_field=property_name,
             must_override=False,
             must_call_parent=False,
         )
+        self.graph._record_members(class_key, listed)  # noqa: SLF001
         self.members[key] = class_key
         self.vis[f"{cls}.{vi}"] = key
         self._record_types()

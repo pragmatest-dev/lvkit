@@ -161,7 +161,11 @@ def create_import_resolver(
 
     def shown(key: str) -> str | None:
         """The path a message names the VI at ``key`` by: the one that places its
-        module (project-relative, or the installation path its caller recorded)."""
+        module (project-relative, or the installation path its caller recorded);
+        a key that is not a file and has no recorded path (a class method no
+        class lists) as ``key_label`` shows it."""
+        if graph is not None and not Path(key).is_absolute():
+            return graph.recorded_path(key) or graph.key_label(key)
         if layout is not None:
             return layout.display_path(key)
         return graph.recorded_path(key) if graph is not None else None

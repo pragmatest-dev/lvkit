@@ -348,13 +348,6 @@ def parse_vi(
     )
 
 
-def own_container_record(main_xml_path: Path | str) -> ParsedDependencyRef | None:
-    """The VI's ``VILB`` record: its link, by recorded path, to the class or
-    library it says it is in. None when it records none."""
-    refs = _parse_metadata(main_xml_path, None).link_path_refs
-    return next((r for r in refs if r.record == "VILB"), None)
-
-
 def _parse_metadata(
     main_xml_path: Path | str | None,
     source_path: str | None,

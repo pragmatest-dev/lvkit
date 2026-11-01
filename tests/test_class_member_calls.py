@@ -288,7 +288,10 @@ def test_method_no_class_of_the_chain_lists_has_no_invented_path(tree: _Tree) ->
     ]
     assert declared == [("Sub.lvclass:Gone.vi", None)]
     (call,) = _calls(graph, key)
-    assert call.callee_key is None
+    stub = call.callee_key
+    assert stub == f"Sub.lvclass@{_key(tree, 'Sub/Sub.lvclass')}:Gone.vi"
+    assert graph.is_stub(stub)
+    assert graph.stub_reason(stub) == "Sub.lvclass lists no method of that name"
 
 
 def test_long_method_name_drops_its_printable_length_byte() -> None:
@@ -320,8 +323,9 @@ def test_method_of_a_class_not_at_its_recorded_path_is_missing(
     for by name. The missing class keeps its recorded path."""
     graph, key = _load(tree, "caller_abs.vi")
     (call,) = _calls(graph, key)
-    assert call.callee_key is None
     absent_class = _key(tree, "Abs/Abs.lvclass")
+    assert call.callee_key == f"Abs.lvclass@{absent_class}:Stop.vi"
+    assert graph.is_stub(call.callee_key)
     assert absent_class in graph.get_vi_dependencies(key)
     assert graph.is_stub(absent_class)
     assert _key(tree, "Abs/sub/Stop.vi") not in graph.list_vis()

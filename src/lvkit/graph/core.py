@@ -161,6 +161,7 @@ from .analysis import AnalysisMixin  # noqa: E402
 from .construction import ConstructionMixin  # noqa: E402
 from .load_problems import LoadProblemsMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
+from .membership import MembershipMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
 from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
@@ -172,6 +173,7 @@ from .wire_queries import WireQueriesMixin  # noqa: E402
 class InMemoryVIGraph(
     LoadProblemsMixin,
     LoadingMixin,
+    MembershipMixin,
     ConstructionMixin,
     QueryMixin,
     OperationsMixin,
@@ -211,6 +213,10 @@ class InMemoryVIGraph(
         self._stubs: set[str] = set()
         # The path each dependency's callers recorded for it, resolved.
         self._recorded = RecordedPaths(self._dep_graph)
+        # Membership (graph/membership.py): member path -> the containers whose
+        # file lists it, and container path -> the loaded VIs that claim it.
+        self._listed_by: dict[str, set[str]] = {}
+        self._claimants: dict[str, set[str]] = {}
         # Whether a load stops at a VI the catalog gives Python for (see
         # ``set_catalog_stop``).
         self._catalog_stop = False

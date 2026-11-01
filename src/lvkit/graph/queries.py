@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ..class_property import property_role
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
@@ -32,7 +33,6 @@ from .models import (
     Label,
     LabelNode,
     MethodAccessInfo,
-    MethodOverrideInfo,
     PolyInfo,
     SharedVariableNode,
     StructureNode,
@@ -53,6 +53,9 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
+
+if TYPE_CHECKING:
+    from .membership import ListedMethod
 from .recorded_paths import RecordedPaths, resolve_against
 from .type_records import TypeRecords, resolve_name, resolve_type
 
@@ -121,6 +124,9 @@ class QueryMixin:
         def class_type_key(self, lv_type: LVType) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
         def key_label(self, key: str) -> str: ...
+        def listed_members(
+            self, container_key: str
+        ) -> dict[str, ListedMethod | None]: ...
 
     # === Dependency Graph Queries ===
 
@@ -504,9 +510,10 @@ class QueryMixin:
 
     def class_member_keys(self, key: str) -> list[str]:
         """The keys of the VIs the class at ``key`` owns, in the order its file
-        lists them."""
+        lists them (``listed_members``; an ``owns`` edge is added when the
+        member loads, in any order)."""
         members = []
-        for member in self._dep_graph.successors(key):
+        for member in self.listed_members(key):
             edge = self._dep_graph.get_edge_data(key, member) or {}
             if (
                 edge.get("rel") == EdgeRel.OWNS
@@ -1511,12 +1518,13 @@ class QueryMixin:
         )
 
     def _class_member_keys(self, class_key: str) -> list[str]:
-        """The keys of the loaded VIs the class node ``class_key`` owns."""
+        """The keys of the loaded VIs the class node ``class_key`` owns, in the
+        order its file lists them."""
         return [
-            succ
-            for succ in self._dep_graph.successors(class_key)
-            if succ in self._vi_nodes
-            and (self._dep_graph.get_edge_data(class_key, succ) or {}).get("rel")
+            member
+            for member in self.listed_members(class_key)
+            if member in self._vi_nodes
+            and (self._dep_graph.get_edge_data(class_key, member) or {}).get("rel")
             == EdgeRel.OWNS
         ]
 
@@ -1592,11 +1600,11 @@ class QueryMixin:
         return list(ancestors) if ancestors else []
 
     def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
-        """Get access-scope info for a class method VI.
+        """Get access-scope info for a class method VI: what its class's file
+        records for it (its ``owns`` edge), and, for a property accessor whose
+        VI is loaded, its role from its connector pane.
 
-        Returns None if ``vi_name`` isn't a class method VI, or its "owns"
-        edge predates the scope/accessor attrs (should not happen for
-        anything loaded via ``load_lvclass()``).
+        Returns None if ``vi_name`` isn't a method its class lists.
         """
         method_key = vi_name
         owner_key = self._owning_class_key(method_key)
@@ -1606,66 +1614,21 @@ class QueryMixin:
         scope = edata.get("scope")
         if scope is None:
             return None
+        role = None
+        if edata.get("is_accessor") and method_key in self._vi_nodes:
+            inputs, _, outputs, _ = self.vi_interface(method_key)
+            role = property_role(
+                inputs, outputs, lambda t: self.is_class_wire(t.lv_type, owner_key)
+            )
         return MethodAccessInfo(
             vi_name=vi_name,
             scope=scope,
             is_accessor=bool(edata.get("is_accessor")),
-            accessor_type=edata.get("accessor_type"),
+            accessor_type=role.value if role else None,
             accessor_field=edata.get("accessor_field"),
             is_static=bool(edata.get("is_static")),
             must_override=bool(edata.get("must_override")),
             must_call_parent=bool(edata.get("must_call_parent")),
-        )
-
-    def get_method_overrides(self, vi_name: str) -> MethodOverrideInfo | None:
-        """Get bidirectional override links for a class method VI.
-
-        Matches by bare method name (e.g. "run.vi") against the immediate
-        parent class and each immediate child class. Only links to VIs that
-        are themselves documented (in ``list_vis()``). Returns None if
-        ``vi_name`` isn't a class method VI, or no override link exists in
-        either direction.
-        """
-        owner_key = self._owning_class_key(vi_name)
-        if owner_key is None or self._class_node_key(owner_key) is None:
-            return None
-
-        # An override is the same-named method owned by the parent class or by
-        # a child class; each class's methods are the VIs it owns.
-        def _bare_name(key: str) -> str:
-            node = self._graph.nodes[key].get("node") if key in self._graph else None
-            if isinstance(node, VINode) and node.name:
-                return node.name
-            return self.vi_display_name(key).rsplit(":", 1)[-1]
-
-        bare_method = _bare_name(vi_name)
-
-        def _method_of(class_key: str) -> str | None:
-            for member in self._class_member_keys(class_key):
-                if _bare_name(member) == bare_method:
-                    return member
-            return None
-
-        parent_key = self._parent_class_key(owner_key)
-        overrides = _method_of(parent_key) if parent_key is not None else None
-        overridden_by = sorted(
-            (
-                found
-                for found in (
-                    _method_of(child) for child in self._child_class_keys(owner_key)
-                )
-                if found is not None
-            ),
-            key=lambda key: (self.vi_display_name(key), key),
-        )
-
-        if overrides is None and not overridden_by:
-            return None
-
-        return MethodOverrideInfo(
-            vi_name=vi_name,
-            overrides=overrides,
-            overridden_by=overridden_by,
         )
 
 

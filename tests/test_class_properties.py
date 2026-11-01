@@ -21,6 +21,7 @@ from lvkit.codegen.class_model import class_model
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
@@ -293,7 +294,8 @@ def build_class(
     tmp_path: Path, xml: str, specs: dict[str, Spec], fields: list[ClusterField]
 ) -> Built:
     """The class file ``xml`` as the loader makes it: a class node, a node per
-    VI with its pane, and an ownership edge carrying the scope and the accessor."""
+    VI with its pane, and the members the class file lists (they link as
+    ownership edges)."""
     path = tmp_path / "C.lvclass"
     path.write_text(xml, encoding="utf-8")
     lvclass = parse_lvclass(path)
@@ -315,6 +317,7 @@ def build_class(
     )
     graph._vi_display_names[class_key] = "C.lvclass"  # noqa: SLF001
     contexts: dict[str, VIContext] = {}
+    listed: dict[str, ListedMethod | None] = {}
     for method in lvclass.methods:
         key = keys[method.name]
         context, nodes = specs.get(method.name, passthrough)(key)
@@ -329,19 +332,9 @@ def build_class(
             ),
         )
         graph._dep_graph.add_node(key)  # noqa: SLF001
-        role = property_role(context.inputs, context.outputs, _is_c)
-        graph._add_ownership_edge(  # noqa: SLF001
-            class_key,
-            key,
-            scope=method.scope,
-            is_accessor=method.property_name is not None,
-            accessor_type=role.value if role else None,
-            accessor_field=method.property_name,
-            is_static=method.is_static,
-            must_override=method.must_override,
-            must_call_parent=method.must_call_parent,
-        )
+        listed[key] = ListedMethod.from_item(method)
         contexts[method.name] = context
+    graph._record_members(class_key, listed)  # noqa: SLF001
     key_graph_types(graph, {"C.lvclass": class_key, "Lib.lvlib:C.lvclass": class_key})
     return Built(graph, lvclass, class_key, keys, contexts)
 

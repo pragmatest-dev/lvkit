@@ -238,40 +238,10 @@ def build_one_vi(
             "(unexpected — every repo .vi should be individually loadable)"
         )
     # A class method's own directory holds its .lvclass (LabVIEW's convention);
-    # scoped to this VI's directory since only ONE VI is projected here. A
-    # class nested inside one or more .lvlib embeds a FULLY qualified name in
-    # its method VIs (e.g. "A.lvlib:B.lvlib:C.lvclass:m.vi") — load_lvclass
-    # must register the class under that SAME qualified qname (via
-    # owner_chain) or its "owns" edge lands on an under-qualified key that
-    # doesn't match the VI's actual node, and get_owning_class silently
-    # returns None (see _owner_chain_for_class).
-    chain, class_seg = _owner_chain_for_class(vi_name)
+    # scoped to this VI's directory since only ONE VI is projected here.
     for cls_path in sorted(cp.parent.glob("*.lvclass")):
-        oc = (
-            chain
-            if (chain and class_seg and cls_path.name.lower() == class_seg.lower())
-            else None
-        )
-        cgraph.load_lvclass(
-            cls_path,
-            LoadMode.NONE,
-            owner_chain=oc,
-        )
+        cgraph.load_lvclass(cls_path, LoadMode.NONE)
     return project_vi_facts(cgraph, vi_name, cp, project_root)
-
-
-def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
-    """From a fully-qualified VI key like
-    ``"A.lvlib:B.lvlib:C.lvclass:m.vi"``, return the ``.lvlib`` segments
-    BEFORE the class (``["A.lvlib", "B.lvlib"]``) and the class segment
-    filename (``"C.lvclass"``), so ``build_one_vi`` registers the class
-    under the SAME qualified qname its method VIs embed. ``(None, None)``
-    when the VI isn't a class method."""
-    parts = vi_name.split(":")
-    for i, seg in enumerate(parts):
-        if seg.endswith(".lvclass"):
-            return (parts[:i] or None), seg
-    return None, None
 
 
 def _warming_failed(

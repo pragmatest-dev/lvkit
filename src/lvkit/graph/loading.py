@@ -31,7 +31,6 @@ import networkx as nx
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..cache_paths import project_root
-from ..class_property import property_role
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
@@ -50,7 +49,6 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
-from ..parser.vi import own_container_record
 from ..run_report import (
     CacheWriteError,
     Problem,
@@ -75,6 +73,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
+from .membership import ListedMethod
 from .models import (
     ExecSystem,
     ExecutionProps,
@@ -489,6 +488,15 @@ class LoadingMixin:
         def class_private_data_key(self, key: str) -> str | None: ...
         def key_label(self, key: str) -> str: ...
         def recorded_type_key(self, file_key: str, lv_type: LVType) -> str | None: ...
+        def _record_members(
+            self, container_key: str, members: dict[str, ListedMethod | None]
+        ) -> None: ...
+        def _record_claim(
+            self,
+            vi_key: str,
+            own_record: ParsedDependencyRef | None,
+            vi_file: Path,
+        ) -> None: ...
 
     @_with_extraction_pool
     def load_vi(
@@ -833,12 +841,16 @@ class LoadingMixin:
         self._register_dep_node(lib_key, lib_path_r, lib_name, lib_qname)
         self._stubs.discard(lib_key)
         member_chain = chain + [lib_name]
+        # The members the library lists, by path: its membership
+        # (``graph/membership.py``).
+        listed: dict[str, ListedMethod | None] = {}
 
         for member in lib.members:
             if not member.url:
                 continue  # records no path: nothing to name or load
             member_name = Path(member.url).name
             recorded, found = self._member_file(lvlib_path, member.url)
+            listed[str(found or recorded)] = None
             member_qname = lib_qname + ":" + member_name
             if member.member_type == "VI":
                 if member_name.lower().endswith(".ctl"):
@@ -879,21 +891,9 @@ class LoadingMixin:
                     continue
             elif member.member_type == "LVClass":
                 if found is not None:
-                    # owner_chain matters here: a library-owned class's own
-                    # method VIs embed a FULLY qualified name that DOES carry
-                    # the containing library chain (verified against the real
-                    # corpus — JKI VI Tester's "ABC - Parentheses (Valid)."
-                    # "lvclass", nested under MyParentLibrary.lvlib:MyLibrary.
-                    # lvlib, has methods whose OWN metadata.qualified_name is
-                    # "MyParentLibrary.lvlib:MyLibrary.lvlib:ABC - Parentheses"
-                    # " (Valid).lvclass:setUp.vi" — so cls_qname must match
-                    # that chain for the "owns" edge (added inside
-                    # load_lvclass) to land on the real VI node. Dropping
-                    # owner_chain here silently loses that ownership
-                    # attribution instead of fixing anything.
-                    member_key = self.load_lvclass(
-                        found, mode, owner_chain=member_chain
-                    )
+                    # The class names itself by the library chain its own
+                    # file records (``NI.Lib.ContainingLib``).
+                    member_key = self.load_lvclass(found, mode)
                     self._add_ownership_edge(lib_key, member_key)
                     continue
                 node_type = NodeType.CLASS
@@ -915,6 +915,7 @@ class LoadingMixin:
                 rel=EdgeRel.OWNS,
             )
 
+        self._record_members(lib_key, listed)
         return lib_key
 
     def member_file(self, container: Path, url: str) -> Path | None:
@@ -938,16 +939,13 @@ class LoadingMixin:
         self,
         lvclass_path: Path | str,
         mode: LoadMode = LoadMode.FULL,
-        owner_chain: list[str] | None = None,
     ) -> str:
         """Load a .lvclass file. Returns the dep-graph KEY (the resolved
         ``.lvclass`` path) it was registered under — mirrors ``load_lvlib``/
         ``load_typedef``: callers add ownership/reference edges to THIS key,
-        never to the qname (``cls_qname``, built from the ON-DISK file's own
-        stem casing — the CALLER may have referenced this class under a
-        different casing, e.g. a type reference's recorded casing can differ
-        from the file's actual casing, so the qname alone isn't a safe edge
-        target; see ``_load_dependency``'s ``.lvclass`` branch).
+        never to the qname. The qname is display text from the class's own
+        file: the library chain its ``NI.Lib.ContainingLib`` records and its
+        file name, whoever loads it and however a caller spells it.
 
         ``MINIMAL`` is an INTERFACE load: add the class's private-data fields
         (and its parent chain's, via walk-up — nMux field indices run into the
@@ -962,9 +960,12 @@ class LoadingMixin:
         fields_only = mode is LoadMode.MINIMAL
         cls = parse_lvclass(lvclass_path)
 
-        chain = list(owner_chain or [])
         cls_name = cls.name + ".lvclass"
-        cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
+        cls_qname = (
+            f"{cls.containing_library}:{cls_name}"
+            if cls.containing_library
+            else cls_name
+        )
 
         # PATH is the class's identity (finishes #26): key the node by the
         # resolved .lvclass path and index its qname/bare-name so a type
@@ -995,11 +996,15 @@ class LoadingMixin:
         # nothing until the file is already staged — chicken-and-egg — so the web
         # closure would converge WITHOUT the SubVIs (they'd never be fetched).
         method_paths: dict[str, str] = {}
+        # The methods the class lists, by path: its membership
+        # (``graph/membership.py``), recorded whatever the load mode.
+        members: dict[str, ListedMethod | None] = {}
         for method in cls.methods:
             if not method.vi_path:
                 continue  # records no path: nothing to name or load
             recorded, found = self._member_file(lvclass_path, method.vi_path)
             method_paths[Path(method.vi_path).name] = str(found or recorded)
+            members[str(found or recorded)] = ListedMethod.from_item(method)
         self._dep_graph.add_node(
             cls_key,
             node_type=NodeType.CLASS,
@@ -1024,7 +1029,11 @@ class LoadingMixin:
         # The names its private data records are the private-data control's.
         private_data = self.class_private_data_key(cls_key)
         self._dep_graph.nodes[cls_key]["type_records"] = TypeRecords(
-            owners=tuple(chain),
+            # The library chain as owners: a record names a file without the
+            # owners they share, compared prefix by prefix (``type_records``).
+            owners=tuple(cls.containing_library.split(":"))
+            if cls.containing_library
+            else (),
             records=(),
             nested=(private_data,) if private_data is not None else (),
         )
@@ -1067,40 +1076,19 @@ class LoadingMixin:
                 self._register_dep_name(parent_key, parent + ".lvclass", parent)
             self._dep_graph.add_edge(cls_key, parent_key)
 
+        self._record_members(cls_key, members)
+
         if fields_only:
             return cls_key
 
+        # Each method loads under its path; its ``owns`` edge is added as it
+        # loads (``_record_claim`` -> ``_link_membership``).
         for method in cls.methods:
             if not method.vi_path:
                 continue
             _, vi_path = self._member_file(lvclass_path, method.vi_path)
             if vi_path is not None:
-                method_key = self.load_vi_recording(vi_path, mode)
-                # Ownership edge — carries scope/property info for docs (class
-                # landing pages, access-level badges). A method VI's identity is
-                # its file path (the vi_key it loaded under), which is unique, so
-                # attach the edge straight to it — no bare-name collision to lose
-                # (path identity subsumes the old #18 source-path fallback).
-                if method_key and method_key in self._dep_graph:
-                    role = None
-                    if method.property_name is not None:
-                        inputs, _, outputs, _ = self.vi_interface(method_key)
-                        role = property_role(
-                            inputs,
-                            outputs,
-                            lambda t, ck=cls_key: self.is_class_wire(t.lv_type, ck),
-                        )
-                    self._add_ownership_edge(
-                        cls_key,
-                        method_key,
-                        scope=method.scope,
-                        is_accessor=method.property_name is not None,
-                        accessor_type=role.value if role else None,
-                        accessor_field=method.property_name,
-                        is_static=method.is_static,
-                        must_override=method.must_override,
-                        must_call_parent=method.must_call_parent,
-                    )
+                self.load_vi_recording(vi_path, mode)
 
         return cls_key
 
@@ -1123,9 +1111,8 @@ class LoadingMixin:
         fields. The control is its file at the URL the class records, else the
         copy a source-only class keeps inside itself
         (``embedded_private_data_copy``), at its path INSIDE the ``.lvclass``
-        treated as a folder (``<X.lvclass>/<url>``; the paths it records for
-        the files it references are relative to that path;
-        ``docs/_internal/design/labview-binary-format.md``, member URLs). Runs
+        (``LVClass.private_data_path``; the paths it records for the files it
+        references are relative to that path). Runs
         AFTER the class node is registered, so a private data type that
         references its own class dedups on that node instead of recursing.
         Empty when the class records no control or neither file nor copy is
@@ -1134,7 +1121,7 @@ class LoadingMixin:
         not edged (it stays a typedef node). An unreadable control stays edged
         as a stub, so staging can still name it; the problem is on the
         control."""
-        url = cls.private_data_url
+        url, inside = cls.private_data_url, cls.private_data_path
         if not url:
             return []
         # The classes its fields name are needed for their types only.
@@ -1142,7 +1129,8 @@ class LoadingMixin:
         if found is not None:
             ctl_key = self.load_typedef(found, mode=LoadMode.MINIMAL)
         else:
-            inside = (lvclass_path / url).resolve()
+            if inside is None:
+                return []
             copy = embedded_private_data_copy(lvclass_path, inside.name)
             if copy is None:
                 return []
@@ -1646,6 +1634,12 @@ class LoadingMixin:
         # registered above).
         self._dep_graph.add_node(vi_key, name=unqualified_name, qname=own_qname)
         self._name_by_owner(vi_key)
+        # The class or library the VI's own record says it is in.
+        self._record_claim(
+            vi_key,
+            next((r for r in metadata.link_path_refs if r.record == "VILB"), None),
+            source_file,
+        )
 
         # Mark as loaded, and record the depth we're loading its deps at — BEFORE
         # the dependency walk below, so a cyclic callee that re-enters this VI at
@@ -2181,53 +2175,28 @@ class LoadingMixin:
             if class_path is None or cls_key is None:
                 return None
         found = self.class_method(cls_key, method)
-        if found is not None:
-            return Path(found[1])
-        # A method file the class does not list is still its method when the file
-        # sits beside the class and its own ``VILB`` record's path is this class
-        # file (JKI-VI-Tester ``Prototype/.../MyTestCase/MyNewVI.vi``: its VILB
-        # names ``/MyClass.lvclass``, which does not list it).
-        if class_path is not None:
-            beside = class_path.parent / method
-            if beside.is_file() and self._records_owner(beside, class_path):
-                return beside
-        return None
-
-    def _records_owner(self, vi_path: Path, owner_path: Path) -> bool:
-        """Whether the VI at ``vi_path`` records, in its ``VILB`` record, the
-        class or library file ``owner_path`` as its own (by recorded path)."""
-        try:
-            _, _, main_xml = extract_vi_xml(vi_path)
-        except (UnreadableVIError, CacheWriteError):
-            return False
-        if main_xml is None:
-            return False
-        own = own_container_record(main_xml)
-        if own is None:
-            return False
-        target = owner_path.resolve()
-        return any(
-            c.resolve() == target for c in self.recorded_candidates(own, vi_path)
-        )
+        return Path(found[1]) if found is not None else None
 
     def _class_method_stub_key(
         self,
         owner_ref: ParsedDependencyRef,
         method: str,
         caller_file: Path,
-    ) -> str:
-        """The dependency key of a class method no class lists. The file has no
-        path, so the key is not one: the owning class's qualified name, then
-        the class's identity (the class file when on disk, else the path the
-        record intends, else nothing), then the method. Two different classes
-        of one name never share the method's stub."""
+    ) -> tuple[str, bool]:
+        """The dependency key of a class method no class lists, and whether it
+        is an identity. The file has no path, so the key is not one: the owning
+        class's qualified name, then the class's identity (the class file when
+        on disk, else the path the record intends), then the method -- an
+        identity, so two different classes of one name never share the
+        method's stub. A record naming no class path keys it by the class's
+        qualified name and the method only, which is not an identity."""
         owner_name = owner_ref.qualified_name or owner_ref.name
         class_path = self._resolve_dependency_path(owner_name, owner_ref, caller_file)
         if class_path is None:
             class_path = self._intended_dep_path(owner_name, owner_ref, caller_file)
         if class_path is None:
-            return f"{owner_name}:{method}"
-        return f"{owner_name}@{class_path.resolve()}:{method}"
+            return f"{owner_name}:{method}", False
+        return f"{owner_name}@{class_path.resolve()}:{method}", True
 
     def _intended_dep_path(
         self,
@@ -2418,9 +2387,14 @@ class LoadingMixin:
             # A class method's record names the class's path, not the method's: the
             # class does not list it, so the file has no recorded path and the
             # stub is identified by its owning class's identity plus the method.
+            reason = None
             if owner_ref is not None:
-                stub_key = self._class_method_stub_key(owner_ref, leaf, caller_file)
-                stub_identity = None
+                stub_key, identity = self._class_method_stub_key(
+                    owner_ref, leaf, caller_file
+                )
+                stub_identity = stub_key if identity else None
+                owner_name = owner_ref.qualified_name or owner_ref.name
+                reason = f"{owner_name} lists no method of that name"
             else:
                 computed = self._intended_dep_path(qualified_name, dep_ref, caller_file)
                 stub_key = str(computed) if computed is not None else qualified_name
@@ -2434,6 +2408,7 @@ class LoadingMixin:
                 leaf,
                 qualified_name,
                 caller=caller_qname,
+                reason=reason,
             )
             return stub_identity
 
@@ -2446,15 +2421,9 @@ class LoadingMixin:
                 or dep_key
             )
         elif leaf.endswith(".lvclass"):
-            parts = qualified_name.split(":")
-            owner_chain = parts[:-1] if len(parts) > 1 else None
             # MINIMAL: field-load the class (no method bodies) — enough for
             # by-name field names. FULL: load its whole method tree for codegen.
-            loaded_key = self.load_lvclass(
-                resolved,
-                mode,
-                owner_chain=owner_chain,
-            )
+            loaded_key = self.load_lvclass(resolved, mode)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, loaded_key)
             return loaded_key

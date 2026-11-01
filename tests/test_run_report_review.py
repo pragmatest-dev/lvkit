@@ -261,7 +261,7 @@ def test_an_unreadable_private_data_control_is_one_problem_on_the_control(
     graph._add_stub(cls_key, NodeType.CLASS, "C.lvclass", None, None, None)
     ctl = tmp_path / "C.ctl"
     ctl.write_bytes(b"not a labview file")
-    cls = SimpleNamespace(name="C", private_data_url="C.ctl")
+    cls = SimpleNamespace(name="C", private_data_url="C.ctl", private_data_path=None)
     graph._load_private_data_ctl(cls_key, cls, tmp_path / "C.lvclass")  # type: ignore[arg-type]
     assert graph.problems([cls_key]) == []
     (problem,) = graph.problems()

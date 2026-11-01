@@ -22,6 +22,7 @@ from lvkit.graph.op_walk import ComponentPort, _render_ports, _subvi_ports
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.models import ParsedDependencyRef
 from lvkit.parser.type_mapping import typedef_qualified_name
+from lvkit.run_report import ProblemKind
 from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
 from tests.corpus_graphs import load_corpus_vi
 
@@ -150,10 +151,12 @@ _JKI_PROTOTYPE = (
 
 
 @pytest.mark.needs_samples
-def test_a_method_its_class_does_not_list_is_found_by_its_owner_record() -> None:
-    """``MyClass.lvclass`` does not list ``MyNewVI.vi``; the file beside it records
-    that class file in its ``VILB`` record, so a dispatch call to
-    ``MyClass.lvclass:MyNewVI.vi`` calls it."""
+def test_a_method_its_class_does_not_list_is_missing() -> None:
+    """``MyClass.lvclass`` does not list ``MyNewVI.vi``. The file beside it
+    claims that class in its own ``VILB`` record, but the class's list decides
+    membership (LabVIEW: "This VI claims to be part of a library, but that
+    library does not claim to own this VI"): a dispatch call to
+    ``MyClass.lvclass:MyNewVI.vi`` calls a method the class does not have."""
     graph, key = load_corpus_vi((_JKI_PROTOTYPE / "testMyNewVI.vi").resolve())
     (call,) = [
         n
@@ -161,4 +164,29 @@ def test_a_method_its_class_does_not_list_is_found_by_its_owner_record() -> None
         if isinstance(n, VINode)
         and graph.call_qualified_name(n) == "MyClass.lvclass:MyNewVI.vi"
     ]
-    assert call.callee_key == str((_JKI_PROTOTYPE / "MyNewVI.vi").resolve())
+    callee = call.callee_key
+    assert callee is not None and graph.is_stub(callee)
+    assert graph.stub_reason(callee) == "MyClass.lvclass lists no method of that name"
+
+
+@pytest.mark.needs_samples
+def test_a_vi_claiming_a_class_that_does_not_list_it_is_a_membership_problem() -> (
+    None
+):
+    """The VI's claim is recorded (``claimed_owner``, by path), the class does not
+    own it (no ``owns`` edge either way; the VI's own dependency on the class
+    is an ordinary edge), and the disagreement is a problem on the VI in NI's
+    words."""
+    vi = (_JKI_PROTOTYPE / "MyNewVI.vi").resolve()
+    cls = str((_JKI_PROTOTYPE / "MyClass.lvclass").resolve())
+    graph, key = load_corpus_vi(vi)
+    assert graph.claimed_owner(key) == cls
+    assert graph._dep_graph.get_edge_data(cls, key) is None
+    assert (graph._dep_graph.get_edge_data(key, cls) or {}).get("rel") is None
+    assert graph.owning_class_key(key) is None
+    (problem,) = graph.problems([key])
+    assert problem.kind is ProblemKind.MEMBERSHIP
+    assert problem.reason == (
+        "this VI claims to be part of MyTestCase/MyClass.lvclass, but that "
+        "class does not claim to own this VI: it is not a member"
+    )
