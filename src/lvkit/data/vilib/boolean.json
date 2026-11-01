@@ -15,31 +15,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .and. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_and_y",
-          "default_value": null,
           "description": "x .and. y? is the logical AND of x and y ."
         }
       ]
@@ -57,31 +54,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .or. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_or_y",
-          "default_value": null,
           "description": "x .or. y? is the logical Or of x and y ."
         }
       ]
@@ -99,31 +93,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .xor. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_xor_y",
-          "default_value": null,
           "description": "x .xor. y? is the logical exclusive or (XOR) of x and y ."
         }
       ]
@@ -141,21 +132,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar Boolean value or number, array or cluster of Boolean values or numbers, array of clusters of Boolean values or numbers, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. x?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x",
-          "default_value": null,
           "description": ".not. x? is the logical negation of x ."
         }
       ]
@@ -173,31 +162,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .and. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_and_y",
-          "default_value": null,
           "description": ".not. (x .and. y)? is the logical NAND of x and y ."
         }
       ]
@@ -215,31 +201,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .or. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_or_y",
-          "default_value": null,
           "description": ".not. (x .or. y)? is the logical NOR of x and y ."
         }
       ]
@@ -257,31 +240,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .xor. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_xor_y",
-          "default_value": null,
           "description": ".not. (x .xor. y)? is the logical negation of the logical exclusive or (XOR) of x and y ."
         }
       ]
@@ -299,31 +279,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .implies. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_implies_y",
-          "default_value": null,
           "description": "x .implies. y? is the logical OR of y and of the logical negation of x ."
         }
       ]
@@ -341,21 +318,19 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
-          "default_value": null,
           "description": "Boolean array can have any number of dimensions."
         },
         {
           "name": "logical AND",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "logical_and",
-          "default_value": null,
           "description": "logical AND indicates if all elements in Boolean array are TRUE."
         }
       ]
@@ -373,21 +348,19 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
-          "default_value": null,
           "description": "number can be a number."
         },
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
-          "default_value": null,
           "description": "Boolean array can have 8, 16, 32, or 64 elements if number is an integer. If number is a fixed-point number, Boolean array can have between 1 and 64 elements."
         }
       ]
@@ -405,21 +378,19 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
-          "default_value": null,
           "description": "Boolean array can have any number of dimensions."
         },
         {
           "name": "logical OR",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "logical_or",
-          "default_value": null,
           "description": "logical OR indicates if all of the elements in Boolean array are false."
         }
       ]
@@ -437,21 +408,19 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
-          "default_value": null,
           "description": "number is an integer or a fixed-point number. You can change the numeric representation of number on the Output Configuration page of the Properties dialog box. Right-click the function and select Properties to display the Properties dialog box."
         }
       ]
@@ -469,21 +438,19 @@
         {
           "name": "Boolean",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean",
-          "default_value": null,
           "description": "Boolean can be a scalar, an array, a cluster of Boolean values, an array of clusters of Boolean values, and so on. If Boolean is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "0, 1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_0_1",
-          "default_value": null,
           "description": "0, 1 is 0 if Boolean is FALSE and 1 if Boolean is TRUE."
         }
       ]

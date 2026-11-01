@@ -17,6 +17,7 @@ from typing import Any
 from lvkit.models import Terminal
 from lvkit.parser.link_table import SharedVariableRecordFailure
 from lvkit.parser.node_types import (
+    CallByRefNode,
     CpdArithNode,
     EventRegNode,
     ExtFuncNode,
@@ -179,6 +180,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
         if isinstance(node, ParserPrimitiveNode):
             prim_kwargs["prim_id"] = node.prim_res_id
             prim_kwargs["prim_index"] = node.prim_index
+            prim_kwargs["obj_flags"] = node.obj_flags
         if isinstance(node, CpdArithNode):
             prim_kwargs["operation"] = node.operation
         if isinstance(node, (PropertyNode, InvokeNode, EventRegNode)):
@@ -300,6 +302,9 @@ class SubVIBuildHandler(NodeBuildHandler):
             qualified_name=qualified_name,
             callee_key=callee_key,
             variant_key=variant_key,
+            call_save_style=(
+                node.save_style if isinstance(node, CallByRefNode) else None
+            ),
         )
 
 

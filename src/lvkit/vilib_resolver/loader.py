@@ -37,12 +37,16 @@ class _VILibLoaderMixin:
             data_dir = _bundled_data_dir()
 
         self.data_dir = data_dir
+        self.project_data_dir = project_data_dir
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
         self._types: dict[str, LVType] = {}  # Indexed by qualified name
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
         self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
+        # True on a fork, which shares its entries until it learns into one.
+        self._shares_entries = False
+        self._owned_entries: set[int] = set()
 
         # Project data wins: load project subdirs first. _load_vilib_data
         # has "only add if not present" semantics, so first-loaded entries

@@ -5,7 +5,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "occurrence",
           "type": "Refnum",
           "refnum_type": "occurence"
@@ -20,25 +20,26 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore_previous",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "occurrence",
           "type": "Refnum"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "ms_timeout",
           "type": "NumInt32"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         }
@@ -54,7 +55,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "occurrence",
           "type": "Refnum",
           "refnum_type": "occurence"

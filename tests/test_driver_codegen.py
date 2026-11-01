@@ -189,8 +189,8 @@ class TestWaitMsPrimitive:
         resolved = resolver.resolve(prim_id=1302)
         assert resolved is not None
 
-        inputs = [t for t in resolved.terminals if t.direction == "in"]
-        outputs = [t for t in resolved.terminals if t.direction == "out"]
+        inputs = [t for t in resolved.terminals if t.direction == "input"]
+        outputs = [t for t in resolved.terminals if t.direction == "output"]
 
         assert len(inputs) == 1
         assert inputs[0].name == "milliseconds_to_wait"

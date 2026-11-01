@@ -1,13 +1,15 @@
 """Arrays too large to write into a generated module go to a data file beside it.
 
 The VI stores such an array's elements flattened big-endian; the data file holds
-those bytes unchanged and the module reads them back with ``lv.load_array``.
+those bytes unchanged and the module reads them back with ``struct.unpack``.
 """
 
 from __future__ import annotations
 
 import array
+from collections.abc import Sequence
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import (
     FLOAT_BYTE_WIDTHS,
     INTEGER_BYTE_WIDTHS,
@@ -18,6 +20,20 @@ from lvkit.models import LVType, LVTypeKind, UnwritableValue, ValuesNotKept
 
 from .ast_utils import to_var_name
 from .errors import CodeGenError, unwritable_value_error
+
+DATA_FILE_IMPORTS = "import struct\nfrom pathlib import Path"
+
+# ``struct``'s standard (big-endian) integer code of each byte width.
+_STRUCT_INTEGER_CODES = {1: "b", 2: "h", 4: "i", 8: "q"}
+
+
+def _struct_code(typecode: str, as_bool: bool) -> str:
+    if as_bool:
+        return "?"
+    if typecode in "fd":
+        return typecode
+    code = _STRUCT_INTEGER_CODES[array.array(typecode).itemsize]
+    return code if typecode.islower() else code.upper()
 
 
 def array_typecode(element: LVType | None) -> tuple[str, bool] | None:
@@ -70,17 +86,17 @@ def data_file_expression(
     if unwritable is None:
         raise ValueError("data_file_expression needs an unwritable value")
     if not isinstance(unwritable, ValuesNotKept) or not whole_value:
-        raise unwritable_value_error(what, name, unwritable)
+        raise unwritable_value_error(what, name, unwritable, uid)
     coded = array_typecode(unwritable.element_type)
     if coded is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"The {what} {name!r} holds {unwritable.reason()}; its element type "
             "has no fixed width to write to a data file."
         )
     typecode, as_bool = coded
     width = array.array(typecode).itemsize
     if len(unwritable.element_bytes) != width * unwritable.element_count:
-        raise CodeGenError(
+        raise ConversionGap(
             f"The {what} {name!r} holds {unwritable.reason()}, but the VI stores "
             "fewer bytes than that many elements take."
         )
@@ -92,10 +108,21 @@ def data_file_expression(
         )
     file_name = f"{module_stem}.{to_var_name(name or 'array')}_{uid}.bin"
     data_files[file_name] = unwritable.element_bytes
-    sizes = ", ".join(str(size) for size in unwritable.dimension_sizes)
-    trailing = "," if len(unwritable.dimension_sizes) == 1 else ""
-    extra = ", as_bool=True" if as_bool else ""
-    return (
-        f"_lv.load_array(__file__, {file_name!r}, {typecode!r}, "
-        f"({sizes}{trailing}){extra})"
-    )
+    return _load_expression(file_name, typecode, as_bool, unwritable.dimension_sizes)
+
+
+def _load_expression(
+    file_name: str, typecode: str, as_bool: bool, sizes: Sequence[int]
+) -> str:
+    """The expression that reads ``file_name`` (big-endian, row-major) into nested
+    lists: ``struct.unpack`` for one dimension, ``struct.iter_unpack`` over rows of
+    the last dimension for more, grouped into lists once more per further
+    dimension."""
+    code = _struct_code(typecode, as_bool)
+    data = f"Path(__file__).with_name({file_name!r}).read_bytes()"
+    if len(sizes) == 1:
+        return f"list(struct.unpack('>{sizes[0]}{code}', {data}))"
+    rows = f"[list(row) for row in struct.iter_unpack('>{sizes[-1]}{code}', {data})]"
+    for size in reversed(sizes[1:-1]):
+        rows = f"[list(group) for group in zip(*[iter({rows})] * {size})]"
+    return rows

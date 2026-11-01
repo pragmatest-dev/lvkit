@@ -1,45 +1,45 @@
-"""Batch-collect every dependency-resolution gap in a VI / library / project.
+"""List every gap in a VI / library / project.
 
-The one-at-a-time conversion loop (`lvkit generate`) stops at the FIRST unknown
-primitive or unmapped vi.lib VI it hits, raising `PrimitiveResolutionNeeded` /
-`VILibResolutionNeeded` so the gap can be filled before proceeding. That's the
-right shape for producing a complete port, but a poor shape for triage: you fix
-one gap, re-run, hit the next, repeat.
-
-`collect_unresolved` walks the whole conversion order once in soft-collect mode
-(``build_module(..., unresolved_sink=...)``) so every gap is recorded in a
-single pass, then aggregates them by identity. It reuses the exact diagnostics
-the exceptions carry — no parallel resolution logic.
-
-Scope: unknown primitives (no entry in primitives.json) and unmapped vi.lib VIs
-(no entry in data/vilib/). A resolved VI with an unmappable *terminal* index
-(`TerminalResolutionNeeded`) is a different class of gap — usually a
-search-path problem, not a missing mapping — and is reported per-VI as a
-``terminal_mapping`` item (first occurrence), not exhaustively.
+A gap is anything code generation cannot convert (see ``codegen/gaps.py``).
+``collect_unresolved`` runs ``generate_python`` into a scratch folder it deletes
+and aggregates the gaps that run found, so the list is exactly the warnings
+``generate`` prints for the same input.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import tempfile
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from .codegen.builder import build_module
-from .graph import InMemoryVIGraph
+from lvkit.library_folders import Folders, SearchEntries
+
+from .cache_paths import project_root
+from .codegen.gaps import (
+    MISSING_VI,
+    PLACEHOLDER_PRIMITIVE,
+    TERMINAL_MAPPING,
+    UNKNOWN_DEFAULT,
+    UNKNOWN_PRIMITIVE,
+    UNMAPPED_VILIB,
+    UNSUPPORTED_NODE,
+    UNSUPPORTED_VI,
+    Gap,
+)
 from .graph.loading import LoadMode
-from .primitive_resolver import PrimitiveResolutionNeeded, TerminalResolutionNeeded
-from .vilib_resolver import VILibResolutionNeeded
-from .vilib_resolver import get_resolver as get_vilib_resolver
+from .pipeline import generate_python
+from .run_report import RunProblems, RunSettings
+from .stderr_capture import capture_stdout
 
 
 @dataclass
 class UnresolvedItem:
     """One distinct resolution gap, aggregated across every VI it appears in."""
 
-    # "unknown_primitive" | "placeholder_primitive" | "unsupported_node" |
-    # "unmapped_vilib" | "terminal_mapping"
+    # One of the kinds in ``codegen/gaps.py``.
     kind: str
-    # primResID for a primitive; the node kind for an unsupported node; VI
-    # filename otherwise
+    # primResID for a primitive; the node kind for an unsupported node; the VI
+    # name otherwise
     identifier: str
     name: str  # human-readable name
     vi_names: list[str] = field(default_factory=list)  # VIs where it occurs
@@ -47,116 +47,66 @@ class UnresolvedItem:
     detail: str = ""  # the full formatted diagnostic (from first occurrence)
 
 
-def _load_graph(
-    input_path: Path,
-    mode: LoadMode,
-    search_paths: list[Path] | None,
-    vilib_root: Path | None,
-    userlib_root: Path | None,
-) -> InMemoryVIGraph:
-    """Build the graph for a .vi / .lvclass / .lvlib / .llb / directory input."""
-    graph = InMemoryVIGraph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    sp: list[Path] = list(search_paths) if search_paths else []
-    suffix = input_path.suffix.lower()
-    if suffix == ".lvclass":
-        graph.load_lvclass(str(input_path), mode, search_paths=sp)
-    elif suffix == ".lvlib":
-        graph.load_lvlib(str(input_path), mode, search_paths=sp)
-    elif suffix == ".llb":
-        graph.load_llb(str(input_path), mode, search_paths=sp)
-    elif input_path.is_dir():
-        graph.load_directory(str(input_path), mode, search_paths=sp)
-    else:
-        graph.load_vi(str(input_path), mode, search_paths=sp)
-    return graph
-
-
-def _item_key(exc: Exception) -> tuple[str, str, str]:
-    """(kind, identifier, name) for an appended resolution exception."""
-    if isinstance(exc, PrimitiveResolutionNeeded):
-        # A node with no primResID (a Call Library Function Node) is named by
-        # its kind: there is no primitives.json entry to add.
-        if exc.node_kind:
-            return ("unsupported_node", exc.node_kind, exc.prim_name or "unknown")
-        # A placeholder is a KNOWN primitive with no implementation (tagged at
-        # the emit site); a fully-unknown primResID is not in primitives.json.
-        kind = (
-            "placeholder_primitive"
-            if getattr(exc, "is_placeholder", False)
-            else "unknown_primitive"
-        )
-        return (kind, str(exc.prim_id), exc.prim_name or "unknown")
-    if isinstance(exc, VILibResolutionNeeded):
-        return ("unmapped_vilib", exc.vi_name, exc.vi_name)
-    if isinstance(exc, TerminalResolutionNeeded):
-        return ("terminal_mapping", exc.prim_name, exc.prim_name)
-    return ("unknown", str(exc), str(exc))
-
-
-def _vi_of(exc: Exception) -> str | None:
-    """The qualified VI name an exception was raised in, if it carries one."""
-    return getattr(exc, "qualified_vi_name", None) or getattr(exc, "vi_name", None)
+def _item_key(gap: Gap) -> tuple[str, str, str]:
+    """(kind, identifier, name) of a gap: what makes two gaps the same item."""
+    return (gap.kind, gap.identifier, gap.name)
 
 
 def collect_unresolved(
     input_path: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
+    run: RunProblems | None = None,
 ) -> list[UnresolvedItem]:
-    """Return every distinct resolution gap under ``input_path``, aggregated.
+    """Return every distinct gap under ``input_path``, aggregated.
 
     Sorted most-frequent first, then by kind and identifier for stable output.
+    Every other problem the run found (a VI that cannot be read, a VI that cannot
+    be written) is recorded in ``run``; the gaps are the result, not problems.
     """
     input_path = Path(input_path)
-    graph = _load_graph(input_path, mode, search_paths, vilib_root, userlib_root)
-    vilib_resolver = get_vilib_resolver()
-
-    sink: list[Exception] = []
-    for vi_name in graph.get_conversion_order():
-        # Skip VIs we don't generate from their own graph: stubs, and vi.lib
-        # VIs that already have a provided implementation (a resolved dep).
-        if graph.is_stub(vi_name) or vilib_resolver.has_implementation(vi_name):
-            continue
-        try:
-            vi_context = graph.get_vi_context(vi_name)
-            build_module(
-                vi_context,
-                vi_name,
-                graph=graph,
-                soft_unresolved=True,
-                unresolved_sink=sink,
+    root = project_root(input_path)
+    # Its own run: the gaps it finds are the result, so they are not problems; every
+    # other problem prints and stops (``--fail-fast``) as this run's settings say.
+    inner = RunProblems(
+        replace(
+            run.settings if run is not None else RunSettings(),
+            root=root,
+            gaps_are_problems=False,
+        )
+    )
+    with tempfile.TemporaryDirectory(prefix="lvkit-gaps-") as scratch:
+        with capture_stdout():
+            result = generate_python(
+                input_path,
+                scratch,
+                mode=mode,
+                vilib_root=vilib_root,
+                userlib_root=userlib_root,
+                instrlib_root=instrlib_root,
+                search_path=search_path,
+                run=inner,
             )
-        except (
-            PrimitiveResolutionNeeded,
-            VILibResolutionNeeded,
-            TerminalResolutionNeeded,
-        ) as e:
-            # Softened sites append to the sink and continue; only the
-            # not-yet-softened terminal-resolution sites still raise. Record
-            # that first gap and move to the next VI.
-            sink.append(e)
-        except Exception:  # noqa: BLE001 — per-VI; a build failure isn't a gap
-            continue
+    if run is not None:
+        run.take(inner.report().problems, announce=False)
 
-    # Aggregate by identity.
     items: dict[tuple[str, str, str], UnresolvedItem] = {}
-    for exc in sink:
-        key = _item_key(exc)
+    for gap in result["gaps"]:
+        key = _item_key(gap)
         item = items.get(key)
         if item is None:
             item = UnresolvedItem(
-                kind=key[0],
-                identifier=key[1],
-                name=key[2],
-                detail=str(exc),
+                kind=gap.kind,
+                identifier=gap.identifier,
+                name=gap.name,
+                detail=gap.detail,
             )
             items[key] = item
         item.count += 1
-        vi = _vi_of(exc)
+        vi = result["layout"].display_path(gap.vi)
         if vi and vi not in item.vi_names:
             item.vi_names.append(vi)
 
@@ -169,35 +119,35 @@ def collect_unresolved(
 def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
     """Human-readable report of collected gaps (used by the CLI)."""
     if not items:
-        return f"No unresolved primitives or vi.lib VIs in {target}."
+        return f"No gaps in {target}."
 
     _labels = {
-        "unknown_primitive": "Unknown primitives (not in primitives.json)",
-        "placeholder_primitive": "Placeholder primitives (known, no implementation)",
-        "unsupported_node": "Nodes with no code generation yet",
-        "unmapped_vilib": "Unmapped vi.lib VIs",
-        "terminal_mapping": "Terminal-mapping gaps",
+        UNKNOWN_PRIMITIVE: "Unknown primitives (not in primitives.json)",
+        PLACEHOLDER_PRIMITIVE: "Placeholder primitives (known, no implementation)",
+        UNSUPPORTED_NODE: "Nodes that cannot be converted",
+        UNMAPPED_VILIB: "Unmapped vi.lib VIs",
+        TERMINAL_MAPPING: "Terminal-mapping gaps",
+        UNKNOWN_DEFAULT: "Unwired inputs whose default is not known",
+        MISSING_VI: "VIs that were not found",
+        UNSUPPORTED_VI: "VIs and modules that cannot be converted",
     }
-    _order = (
-        "unknown_primitive",
-        "placeholder_primitive",
-        "unsupported_node",
-        "unmapped_vilib",
-        "terminal_mapping",
-    )
+    _order = tuple(_labels)
 
     def _n(kind: str) -> int:
         return sum(1 for it in items if it.kind == kind)
 
     lines = [
-        f"# Unresolved dependencies in {target}",
+        f"# Gaps in {target}",
         "",
         f"{len(items)} distinct gap(s): "
-        f"{_n('unknown_primitive')} unknown primitive(s), "
-        f"{_n('placeholder_primitive')} placeholder primitive(s), "
-        f"{_n('unsupported_node')} node(s) with no code generation, "
-        f"{_n('unmapped_vilib')} unmapped vi.lib VI(s), "
-        f"{_n('terminal_mapping')} terminal-mapping gap(s).",
+        f"{_n(UNKNOWN_PRIMITIVE)} unknown primitive(s), "
+        f"{_n(PLACEHOLDER_PRIMITIVE)} placeholder primitive(s), "
+        f"{_n(UNSUPPORTED_NODE)} node(s) that cannot be converted, "
+        f"{_n(UNMAPPED_VILIB)} unmapped vi.lib VI(s), "
+        f"{_n(TERMINAL_MAPPING)} terminal-mapping gap(s), "
+        f"{_n(UNKNOWN_DEFAULT)} input(s) whose default is not known, "
+        f"{_n(MISSING_VI)} VI(s) not found, "
+        f"{_n(UNSUPPORTED_VI)} VI(s) or module(s) that cannot be converted.",
     ]
     for kind in _order:
         group = [it for it in items if it.kind == kind]
@@ -205,10 +155,12 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
             continue
         lines += ["", f"## {_labels[kind]}"]
         for it in group:
-            if kind in ("unknown_primitive", "placeholder_primitive"):
+            if kind in (UNKNOWN_PRIMITIVE, PLACEHOLDER_PRIMITIVE):
                 head = f"[prim {it.identifier}] {it.name}"
-            elif kind == "unsupported_node":
+            elif kind == UNSUPPORTED_NODE:
                 head = f"{it.identifier} {it.name}"
+            elif kind == UNKNOWN_DEFAULT:
+                head = f"{it.identifier}, input '{it.name}'"
             else:
                 head = it.name
             where = f" — {it.count}x in {len(it.vi_names)} VI(s)"
@@ -217,4 +169,6 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
                 lines.append(f"    · {vi}")
             if len(it.vi_names) > 8:
                 lines.append(f"    · … and {len(it.vi_names) - 8} more")
+            if it.detail and it.detail != it.name:
+                lines.extend(f"    | {line}" for line in it.detail.splitlines())
     return "\n".join(lines)

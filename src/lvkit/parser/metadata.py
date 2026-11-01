@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -12,11 +14,17 @@ from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
 
 from lvkit.models import vi_kind_label
 from lvkit.parser.xml_trees import parsed_xml
-from lvkit.text_encoding import decode_labview_text
+from lvkit.text_encoding import (
+    decode_labview_text,
+    unwrap_pascal_name,
+    xml_text_encoding,
+)
 from lvkit.vi_files import is_vi_file
 
+from .link_table import decode_record_names, unwrap_link_names
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
+from .utils import clean_labview_string
 
 # lock_state string values -- MUST mirror graph.models.LockState.value exactly
 # (parser/ never imports graph/, per graph/models.py's module docstring, so the
@@ -513,6 +521,12 @@ def _decode_pth0_components(
     return tokens, idx
 
 
+def pth0_path_type(data: bytes | memoryview, pth0_offset: int) -> int:
+    """The path type a ``PTH0`` record saves (bytes 8-9 after the tag offset):
+    0 absolute, 1 relative, 2 Not a Path."""
+    return int.from_bytes(data[pth0_offset + 8 : pth0_offset + 10], "big")
+
+
 def parse_instance_files(root: ET.Element) -> list[str]:
     """The sidecar file of each ``VINS`` section of a VI's main XML, in section
     order (empty when the VI has no ``VINS`` block)."""
@@ -522,7 +536,76 @@ def parse_instance_files(root: ET.Element) -> list[str]:
     return [f for s in sections if (f := s.get("File"))]
 
 
-def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
+def recorded_file_name(
+    ident: str, name_parts: Sequence[str], leaf: str, owners: Sequence[str]
+) -> str | None:
+    """The qualified name a link record gives the file its path names
+    (``leaf``): its name parts up to the one that is that file, as the record
+    spells them (a record in the caller's own library or class omits that
+    owner). The ``VILB`` record is the VI's link to its own class or library and
+    names none: that file is the last of the VI's own ``LIBN`` chain
+    (``owners``), so its name is that chain. None when the record does not
+    name the file its path ends in. Names compare without regard to
+    case, as LabVIEW's do."""
+    if ident == "VILB":
+        own = owners[-1].casefold() == leaf.casefold() if owners else False
+        return ":".join(owners) if own else None
+    cleaned = [clean_labview_string(part).strip() for part in name_parts]
+    for i in range(len(cleaned) - 1, -1, -1):
+        if cleaned[i].casefold() == leaf.casefold():
+            return ":".join(part for part in cleaned[: i + 1] if part)
+    return None
+
+
+def _path_key(ref: ParsedDependencyRef) -> tuple[str, ...]:
+    """A recorded path compared without regard to case."""
+    return tuple(token.casefold() for token in ref.path_tokens)
+
+
+def own_container_chain(
+    owners: Sequence[str], refs: list[ParsedDependencyRef]
+) -> list[str]:
+    """The VI's owner chain (``LIBN``, ``owners``) with its own class or
+    library spelled as that file is named: the file name the VI's ``VILB``
+    record's path gives (``recorded_file_name``), which can differ from the
+    ``LIBN`` spelling in case. ``owners`` as they are when no record names
+    that file."""
+    if not owners:
+        return list(owners)
+    chain = ":".join(owners).casefold()
+    for ref in refs:
+        if (
+            ref.qualified_name is not None
+            and ref.qualified_name.casefold() == chain
+            and ref.name.casefold() == owners[-1].casefold()
+        ):
+            return [*owners[:-1], ref.name]
+    return list(owners)
+
+
+def name_records_by_path(
+    refs: list[ParsedDependencyRef],
+) -> list[ParsedDependencyRef]:
+    """``refs`` with each record that gives its file no qualified name named
+    like another record of the same recorded path that does: both are links to
+    one file (the ``FPPI`` record of a VI's own class has the ``VILB`` record's
+    path). A record no other names stays unnamed: it is named by its file."""
+    names: dict[tuple[str, ...], str] = {}
+    for ref in refs:
+        if ref.qualified_name is not None:
+            names.setdefault(_path_key(ref), ref.qualified_name)
+    named: list[ParsedDependencyRef] = []
+    for ref in refs:
+        name = names.get(_path_key(ref))
+        if ref.qualified_name is None and name is not None:
+            ref = replace(ref, qualified_name=name)
+        named.append(ref)
+    return named
+
+
+def parse_link_path_refs(
+    link_bin: Path, owners: Sequence[str] = ()
+) -> list[ParsedDependencyRef]:
     """A recorded PATH for EVERY file a link binary references, from its ``PTH0``
     path records. LabVIEW stores a ``PTH0`` for each dependency it tracks (it is
     what LabVIEW uses to relink / to prompt "find <this file>" when one is
@@ -535,13 +618,17 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
 
     Recovering these gives the loader a recorded path for the referenced CLASSES
     and TYPEDEFS too — not just SubVIs — so the whole dependency closure resolves
-    by PATH with no name-search, identically on web and desktop.
+    by PATH with no name-search, identically on web and desktop. Each ref's
+    qualified name is the one its record gives that file
+    (``recorded_file_name``; ``owners`` is the VI's own ``LIBN`` chain), None
+    when the record names none (it is then named by its file).
     """
     try:
         data = link_bin.read_bytes()
     except OSError:
         return []
 
+    record_names = decode_record_names(data)
     refs: list[ParsedDependencyRef] = []
     seen: set[tuple[str, ...]] = set()
     for m in re.finditer(b"PTH0", data):
@@ -549,21 +636,91 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
         if not tokens:
             continue
         leaf = tokens[-1]
-        if not (is_vi_file(leaf) or leaf.endswith((".lvclass", ".ctl", ".lvlib"))):
+        if not _names_a_dependency_file(leaf):
             continue
         key = (leaf, *tokens)
         if key in seen:
             continue
         seen.add(key)
+        # The ``PTH0`` header is the tag, the total length, the path type, the
+        # component count.
+        path_type = int.from_bytes(data[m.start() + 8 : m.start() + 10], "big")
+        record = record_names.get(m.start())
         refs.append(
-            ParsedDependencyRef(name=leaf, path_tokens=tokens, qualified_name=leaf)
+            ParsedDependencyRef(
+                name=leaf,
+                path_tokens=tokens,
+                qualified_name=(
+                    recorded_file_name(record.ident, record.name_parts, leaf, owners)
+                    if record is not None
+                    else None
+                ),
+                path_type=path_type,
+            )
         )
     return refs
 
 
-def parse_vipi_from_livi(livi_path: Path) -> list[str]:
-    """Parse subVI callee METHOD NAMES from a ``_LIvi.bin`` (VI-level link
-    identity).
+def _names_a_dependency_file(leaf: str) -> bool:
+    """Whether a recorded path's last component is a file a VI depends on."""
+    return is_vi_file(leaf) or leaf.endswith((".lvclass", ".ctl", ".lvlib"))
+
+
+# The decoded link-table sections whose ``LinkSavePathRef`` records
+# ``parse_xml_link_path_refs`` reads: the XML form of ``_LIvi.bin``,
+# ``_LIbd.bin`` and ``_LIfp.bin``.
+_LINK_TABLE_SECTIONS = ("LIvi", "LIbd", "LIfp")
+
+
+def parse_xml_link_path_refs(
+    main_root: ET.Element, owners: Sequence[str] = ()
+) -> list[ParsedDependencyRef]:
+    """The recorded PATH of every file the DECODED link tables reference — the
+    XML counterpart of :func:`parse_link_path_refs`, for a VI whose link tables
+    pylabview decoded into its main XML (no ``_LI*.bin`` sidecar). Every
+    ``LinkSavePathRef`` counts, also one whose record names no qualified name
+    (``VILB``, the VI's link to its own class or library), so the loader finds
+    that file by the path the VI records for it. Each ref's qualified name is
+    the one its record gives that file (``recorded_file_name``, from the
+    record's ``LinkSaveQualName``). In document order."""
+    encoding = xml_text_encoding(main_root)
+    refs: list[ParsedDependencyRef] = []
+    for section in _LINK_TABLE_SECTIONS:
+        for table in main_root.findall(section):
+            for record in table.iter():
+                name_parts = unwrap_link_names(
+                    [
+                        s.text or ""
+                        for s in record.findall("LinkSaveQualName/String")
+                    ],
+                    encoding,
+                )
+                for path_ref in record.findall("LinkSavePathRef"):
+                    # <String /> (self-closing) is an empty token: one '..' step.
+                    tokens = [
+                        s.text if s.text is not None else ""
+                        for s in path_ref.findall("String")
+                    ]
+                    if not tokens or not _names_a_dependency_file(tokens[-1]):
+                        continue
+                    tp_val = path_ref.get("TpVal")
+                    refs.append(
+                        ParsedDependencyRef(
+                            name=tokens[-1],
+                            path_tokens=tokens,
+                            qualified_name=recorded_file_name(
+                                record.tag, name_parts, tokens[-1], owners
+                            ),
+                            path_type=int(tp_val) if tp_val is not None else None,
+                        )
+                    )
+    return refs
+
+
+def parse_vipi_from_livi(livi_path: Path) -> list[ParsedDependencyRef]:
+    """Parse the callees of a ``_LIvi.bin`` (VI-level link identity) as
+    dependency refs, each with the owner chain and path its ``VIPI`` record
+    carries.
 
     ``_LIvi.bin`` is LabVIEW's VI-LEVEL link table — distinct from the
     ``_LIbd.bin`` block-diagram table read by ``link_table.read_iuse_links``. It
@@ -571,29 +728,28 @@ def parse_vipi_from_livi(livi_path: Path) -> list[str]:
     dynamic-dispatch (``dynIUse``) calls that leave NO ``IUVI`` in ``_LIbd.bin``
     — so it is the only record that names those callees. Each record:
 
-        VIPI [uint32 count] [count name strings] [PTH0 path hint] [trailer]
+        VIPI [uint32 count] [count name strings] [PTH0 path] [trailer]
 
     ``count`` name strings: 0 = the VI's own class-context record (no callee,
-    skipped); 1 = a bare method name whose class is the ``PTH0``'s own class;
-    2 = an explicit ``"<Class>.lvclass"`` + method pair. A method name is a
-    wrapped pascal string ``[len][0x01][inner_len][text]``; a class name is a
-    plain ``[len][text]`` (its text never starts with ``0x01``, so the wrapper
-    is detected by the first byte).
+    skipped); otherwise the owner chain of the called method, outermost first —
+    ``[<Library>.lvlib,] [<Class>.lvclass,] <Method>.vi``. A method name is a
+    wrapped pascal string ``[len][0x01][inner_len][text]``; a library or class
+    name is a plain ``[len][text]`` (its text never starts with ``0x01``, so the
+    wrapper is detected by the first byte).
 
-    The record's ``PTH0`` locates the class the call is ROOTED ON (the static
-    type at the call site) — for a cross-class dynamic dispatch that is NOT
-    where the method file lives, so it is an unreliable hint, not a guaranteed
-    owner. It is not decoded here: the caller resolves each returned method
-    name's owning file against the classes the VI already depends on (see
-    ``graph.loading._load_subvi_method_deps``), never from this record's own
-    class hint. Returns the ``.vi`` leaf name of each callee.
+    The record's ``PTH0`` is the path of the file the chain's owner is: the class
+    for a class method (the method file itself sits in that class's member list,
+    possibly in a subfolder or an ancestor class — not assumed to sit beside the
+    class file). A record naming only the method gets the ``PTH0`` class's name
+    as its owner. A record with no path gives no ref. Each ref's qualified name is the
+    owner chain joined with ``:`` (as the block-diagram records name it).
     """
     try:
         data = livi_path.read_bytes()
     except OSError:
         return []
 
-    names_out: list[str] = []
+    refs: list[ParsedDependencyRef] = []
     starts = [m.start() for m in re.finditer(b"VIPI", data)]
     starts.append(len(data))
 
@@ -617,17 +773,27 @@ def parse_vipi_from_livi(livi_path: Path) -> list[str]:
                 break
             raw = data[p : p + slen]
             p += slen
-            # A method name is wrapped [0x01][inner_len][text]; a class name is
-            # a plain pascal string (never starts with 0x01).
-            if raw[0] == 0x01 and slen >= 2:
-                inner = raw[1]
-                text = decode_labview_text(raw[2 : 2 + inner])
-            else:
-                text = decode_labview_text(raw)
+            text = decode_labview_text(unwrap_pascal_name(raw))
             names.append(text.strip())
 
-        method = next((n for n in names if is_vi_file(n)), None)
-        if method:
-            names_out.append(method)
+        if not names or not is_vi_file(names[-1]):
+            continue
+        pth0 = data.find(b"PTH0", p, rec_end)
+        if pth0 < 0:
+            continue
+        tokens, _next = _decode_pth0_components(data, pth0, rec_end)
+        if not tokens:
+            continue
+        method = names[-1]
+        if len(names) == 1 and tokens[-1].lower().endswith(".lvclass"):
+            names = [tokens[-1], method]
+        refs.append(
+            ParsedDependencyRef(
+                name=method,
+                path_tokens=tokens,
+                qualified_name=":".join(names),
+                path_type=int.from_bytes(data[pth0 + 8 : pth0 + 10], "big"),
+            )
+        )
 
-    return names_out
+    return refs

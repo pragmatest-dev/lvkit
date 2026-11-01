@@ -4,27 +4,32 @@
 - Special Characters for Match Pattern (labview
   ``special-characters-for-match-pattern.html``)
 
-Every test runs the translated pattern through ``match_pattern``.
+The translation tests run the translated pattern through ``match_pattern``, which
+searches the way the generated code does. The generated-code tests build a one-node
+VI, check its exact source and run it.
 """
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
 
 import pytest
 
-from lvkit.runtime.match_pattern import match_pattern, to_python_regex
+from lvkit.codegen.match_pattern_regex import to_python_regex
+from lvkit.codegen.module_function import function_source
+from tests.native_vi import generate, node, scalar
 
-_PRIMITIVES = (
-    Path(__file__).parent.parent
-    / "src"
-    / "lvkit"
-    / "data"
-    / "primitives"
-    / "string.json"
-)
+STRING = scalar("String")
+INT = scalar("NumInt32")
+
+
+def match_pattern(string: str, pattern: str, offset: int = 0) -> tuple:
+    start = max(offset, 0)
+    m = re.search(to_python_regex(pattern), string[start:])
+    if m is None:
+        return string, "", "", -1
+    end = start + m.end()
+    return string[: start + m.start()], m.group(), string[end:], end
 
 
 def _match(string: str, pattern: str, offset: int = 0) -> str:
@@ -227,21 +232,7 @@ class TestFunction:
         assert match_pattern("bbbcd", "b*")[3] == 3
 
 
-class TestPrimitiveTemplate:
-    def test_template_runs_a_wired_windows_separator(self) -> None:
-        """Match Pattern's template calls the runtime translator, so a wired
-        pattern of one backslash works instead of reaching ``re`` raw."""
-        entry = json.loads(_PRIMITIVES.read_text(encoding="utf-8"))["primitives"][
-            "1535"
-        ]
-        hint = entry["python_code"]
-        scope: dict = {"in_0": "C:\\dir\\file.vi", "in_1": "\\", "in_2": 0}
-        exec(hint["_import"], scope)
-        exec(hint["_body"], scope)
-        assert eval(hint["before_substring"], scope) == "C:"
-        assert eval(hint["match_substring"], scope) == "\\"
-        assert eval(hint["offset_past_match"], scope) == 3
-
+class TestTranslator:
     def test_translator_output_always_compiles(self) -> None:
         for pattern in ["", "[", "[~]", "[^]", "\\", "a**", "^$", "[a-z]+\\21"]:
             re.compile(to_python_regex(pattern))
@@ -250,3 +241,177 @@ class TestPrimitiveTemplate:
 @pytest.mark.parametrize("separator", ["\\", "/"])
 def test_both_platform_separators_work_as_patterns(separator: str) -> None:
     assert _match(f"a{separator}b", separator) == separator
+
+
+def _node(prefix: str = "mp"):
+    return node(
+        prefix,
+        1535,
+        [
+            (0, "input", STRING),
+            (1, "input", STRING),
+            (2, "input", INT),
+            (3, "output", STRING),
+            (4, "output", STRING),
+            (5, "output", STRING),
+            (6, "output", INT),
+        ],
+    )
+
+
+_OUTPUTS = {"before": STRING, "match": STRING, "after": STRING, "past": INT}
+_OUTPUT_WIRES = [
+    ("mp:3", "fp:before"),
+    ("mp:4", "fp:match"),
+    ("mp:5", "fp:after"),
+    ("mp:6", "fp:past"),
+]
+
+
+def _constant_pattern(pattern: str, with_offset: bool = False):
+    inputs = {"s": STRING}
+    wires = [("fp:s", "mp:0"), ("c1", "mp:1"), *_OUTPUT_WIRES]
+    if with_offset:
+        inputs["o"] = INT
+        wires.append(("fp:o", "mp:2"))
+    return generate(
+        inputs, _OUTPUTS, [_node()], wires, constants={"c1": (pattern, STRING)}
+    )
+
+
+def _computed_pattern():
+    return generate(
+        {"s": STRING, "p": STRING, "o": INT},
+        _OUTPUTS,
+        [_node()],
+        [("fp:s", "mp:0"), ("fp:p", "mp:1"), ("fp:o", "mp:2"), *_OUTPUT_WIRES],
+    )
+
+
+def test_constant_pattern_is_written_as_a_regex_literal() -> None:
+    generated = _constant_pattern("^Lev.*")
+    body = generated.source.split("def native_test", 1)[1]
+    assert body == (
+        "(s: str='') -> NativeTestResult:\n"
+        "    pattern_match = re.search('\\\\ALev.*', s)\n"
+        "    before_substring = s if pattern_match is None "
+        "else s[:pattern_match.start()]\n"
+        "    match_substring = '' if pattern_match is None "
+        "else pattern_match.group()\n"
+        "    after_substring = '' if pattern_match is None "
+        "else s[pattern_match.end():]\n"
+        "    offset_past_match = -1 if pattern_match is None "
+        "else pattern_match.end()\n"
+        "    return NativeTestResult(before=before_substring, "
+        "match=match_substring, after=after_substring, past=offset_past_match)"
+    )
+    assert "import re\n" in generated.source
+    assert "lvkit" not in generated.source
+    assert "_match_pattern_regex" not in generated.source
+
+
+def test_constant_pattern_runs() -> None:
+    run = _constant_pattern("c.")
+    assert tuple(run.function("abcde")) == ("ab", "cd", "e", 4)
+    assert tuple(run.function("hello")) == ("hello", "", "", -1)
+
+
+def test_constant_pattern_with_offset_runs() -> None:
+    run = _constant_pattern("ab", with_offset=True)
+    assert "search_start = max(o, 0)" in run.source
+    assert tuple(run.function("abab", 1)) == ("ab", "ab", "", 4)
+    assert tuple(run.function("abc", -5)) == ("", "ab", "c", 2)
+    assert tuple(run.function("abab", 3)) == ("abab", "", "", -1)
+
+
+def test_caret_anchors_at_a_nonzero_offset() -> None:
+    run = _constant_pattern("^Level", with_offset=True)
+    assert tuple(run.function("a Level", 2)) == ("a ", "Level", "", 7)
+    assert tuple(run.function("a Level", 0)) == ("a Level", "", "", -1)
+
+
+def test_computed_pattern_writes_the_translator_once() -> None:
+    run = _computed_pattern()
+    assert run.source.count("def _match_pattern_regex(pattern: str) -> str:") == 1
+    assert "re.search(_match_pattern_regex(p), s[search_start:])" in run.source
+    assert "lvkit" not in run.source
+    assert tuple(run.function("a Level", "^Level", 2)) == ("a ", "Level", "", 7)
+    assert tuple(run.function("C:\\dir\\file.vi", "\\", 0)) == (
+        "C:",
+        "\\",
+        "dir\\file.vi",
+        3,
+    )
+    assert tuple(run.function("hello", "z", 2)) == ("hello", "", "", -1)
+
+
+def test_two_computed_patterns_share_one_translator() -> None:
+    first, second = _node("mp"), _node("mq")
+    run = generate(
+        {"s": STRING, "p": STRING},
+        {"a": STRING, "b": STRING},
+        [first, second],
+        [
+            ("fp:s", "mp:0"),
+            ("fp:p", "mp:1"),
+            ("mp:4", "fp:a"),
+            ("fp:s", "mq:0"),
+            ("fp:p", "mq:1"),
+            ("mq:5", "fp:b"),
+        ],
+    )
+    assert run.source.count("def _match_pattern_regex") == 1
+    assert run.source.count("re.search(_match_pattern_regex(p)") == 2
+    result = run.function("abcde", "cd")
+    assert (result.a, result.b) == ("cd", "e")
+
+
+def test_translator_source_matches_the_function_codegen_calls() -> None:
+    namespace: dict = {"re": re}
+    exec(function_source(to_python_regex, "translate"), namespace)
+    for pattern in ["", "[", "[~]", "a*?", "^x[a-c]+\\21$", "\\"]:
+        assert namespace["translate"](pattern) == to_python_regex(pattern)
+
+
+def _bd_xml() -> str:
+    terms = "".join(
+        f'<SL__arrayElement class="term" uid="{11 + 2 * i}">{flags}'
+        f'<dco class="parm" uid="{12 + 2 * i}">{flags}'
+        f"<parmIndex>{i}</parmIndex></dco></SL__arrayElement>"
+        for i in range(7)
+        for flags in ["<objFlags>1</objFlags>" if i >= 3 else ""]
+    )
+    return (
+        "<?xml version='1.0' encoding='utf-8'?>"
+        '<SL__rootObject class="oHExt" uid="1"><root class="diag" uid="2">'
+        '<zPlaneList elements="0" /><nodeList elements="1">'
+        '<SL__arrayElement class="prim" uid="10"><primResID>1535</primResID>'
+        f'<termList elements="7">{terms}</termList></SL__arrayElement>'
+        '</nodeList><signalList elements="0" /></root></SL__rootObject>'
+    )
+
+
+def test_describe_and_lvnet_show_the_node_terminals(tmp_path) -> None:
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.graph.describe import describe_vi
+    from lvkit.graph.netlist import build_netlist_from_graph
+    from lvkit.graph.render_lvnet import render_lvnet
+
+    bd_xml = tmp_path / "MP_BDHb.xml"
+    bd_xml.write_text(_bd_xml())
+    graph = InMemoryVIGraph()
+    graph.load_vi(bd_xml)
+    vi_name = graph.list_vis()[0]
+    assert describe_vi(graph, vi_name).endswith(
+        "## Operations\nMatch Pattern [prim 1535]"
+    )
+    assert render_lvnet(build_netlist_from_graph(graph, vi_name)).endswith(
+        "    function Match_Pattern_10 : Match Pattern\n"
+        "      in   string             : ? default\n"
+        "      in   regular expression : ? default\n"
+        "      in   offset             : ? default\n"
+        "      out  before substring   : ?\n"
+        "      out  match substring    : ?\n"
+        "      out  after substring    : ?\n"
+        "      out  offset past match  : ?"
+    )

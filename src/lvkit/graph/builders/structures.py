@@ -17,6 +17,7 @@ from lvkit.models import (
     EventFrame,
     SequenceFrame,
     Terminal,
+    TerminalDirection,
 )
 from lvkit.parser.models import ParsedFlatSequenceStructure, ParsedNode
 
@@ -142,7 +143,7 @@ class CaseBuildHandler(StructureBuildHandler):
                     Terminal(
                         id=selector_term,
                         index=sel_index,
-                        direction="input",
+                        direction=TerminalDirection.INPUT,
                         name="selector",
                     )
                 )
@@ -356,7 +357,7 @@ class InPlaceBuildHandler(StructureBuildHandler):
             structure_terminals.append(
                 Terminal(
                     id=q_t_uid,
-                    direction="output" if t_info.is_output else "input",
+                    direction=TerminalDirection.of(t_info.is_output),
                     index=t_info.index,
                     lv_type=extra_lv_type,
                     name=t_info.name,

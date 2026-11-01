@@ -7,9 +7,9 @@ No classes — each module exposes generate(node, ctx) + helpers.
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Callable
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import _graph_node_to_op_kind
 from lvkit.graph.models import (
     AnyGraphNode,
@@ -20,6 +20,7 @@ from lvkit.graph.models import (
     FormulaNode,
     GlobalVariableNode,
     InPlaceNode,
+    LocalVariableNode,
     LoopNode,
     PrimitiveNode,
     SequenceNode,
@@ -28,8 +29,9 @@ from lvkit.graph.models import (
 )
 
 from ..context import CodeGenContext
-from ..errors import CodeGenError, MissingDependencyError, UnknownNodeError
+from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
+from ..gaps import catch_gap
 
 # Import modules (not classes) for dispatch
 from . import (
@@ -44,6 +46,7 @@ from . import (
     global_variable,
     in_place,
     invoke_node,
+    local_variable,
     loop,
     nmux,
     primitive,
@@ -53,16 +56,30 @@ from . import (
     sequence,
     shared_variable,
     subvi,
+    vi_reference,
 )
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate code for a graph node.
+    """Generate code for a graph node. A node that cannot be converted (a
+    ``ConversionGap``) is recorded as a gap and generates the ``raise`` that
+    stands where it would run (see ``gaps.py``)."""
+    with catch_gap(node, ctx) as guard:
+        return _generate(node, ctx)
+    assert guard.fragment is not None
+    return guard.fragment
+
+
+def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
+    """Dispatch a graph node to the module that generates it.
 
     isinstance-based dispatch on the typed ``GraphNode`` subtype, calling the
     right module. A ``PrimitiveNode`` fans out to property/invoke/primitive
     by its own fields (``.properties``/``.method_name``/plain primitive).
     """
+    circular = ctx.circular_nodes.get(node.id)
+    if circular is not None:
+        raise ConversionGap(circular, node)
     # Structures first (StructureNode subtypes). DisableStructureNode is NOT a
     # CaseStructureNode subclass: it has no runtime selector.
     if isinstance(node, InPlaceNode):
@@ -78,6 +95,8 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     if isinstance(node, EventStructureNode):
         return event.generate(node, ctx)
     if isinstance(node, VINode):
+        if node.node_type == "callByRefNode":
+            return vi_reference.generate_call(node, ctx)
         return subvi.generate(node, ctx)
     if isinstance(node, FormulaNode):
         return formula.generate(node, ctx)
@@ -87,13 +106,10 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return shared_variable.generate(node, ctx)
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
-        # graph. Faithful Python codegen isn't implemented yet -- fail loud
-        # rather than emit a silently wrong body (describe/netlist DO model it).
+        # graph. Faithful Python codegen is not implemented: it is a gap
+        # (describe/netlist do model it).
         if ctx.is_feedback_node(node):
-            raise UnknownNodeError(
-                f"Feedback Node codegen not yet supported "
-                f"(id={node.id}, name={node.name or 'Feedback Node'})"
-            )
+            raise UnknownNodeError("Feedback Node codegen not yet supported", node)
         if node.properties:
             return property_node.generate(node, ctx)
         if node.method_name:
@@ -101,6 +117,8 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return _generate_primitive(node, ctx)
     if isinstance(node, ConstantNode):
         return constant.generate(node, ctx)
+    if isinstance(node, LocalVariableNode):
+        return local_variable.generate(node, ctx)
     return _generate_unknown(node)
 
 
@@ -140,22 +158,28 @@ def _generate_primitive(
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
         return first_call.generate(node, ctx)
+    # Open VI Reference and Close Reference are generic `class="prim"` nodes
+    # too -- see nodes/vi_reference.py.
+    if node.node_type == "prim":
+        if node.prim_id == vi_reference.OPEN_VI_REFERENCE_PRIM_ID:
+            return vi_reference.generate_open(node, ctx)
+        if (
+            node.prim_id == vi_reference.CLOSE_REFERENCE_PRIM_ID
+            and vi_reference.closes_vi_reference(node, ctx)
+        ):
+            return CodeFragment.empty()
     handler = _PRIM_CODEGEN.get(node.node_type or "", primitive.generate)
     return handler(node, ctx)
 
 
 def _generate_unknown(node: AnyGraphNode) -> CodeFragment:
-    """Emit a warning comment for unsupported node types."""
-    node_name = node.name or "unknown"
+    """A node type with no generator is a gap."""
     kind = _graph_node_to_op_kind(node)
-    warning = f"# WARNING: Unknown node type {kind} (id={node.id}, name={node_name})"
-    stmt = ast.Expr(value=ast.Constant(value=warning))
-    return CodeFragment(statements=[stmt])
+    raise UnknownNodeError(f"Unknown node type {kind}", node)
 
 
 __all__ = [
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
     "generate",
 ]

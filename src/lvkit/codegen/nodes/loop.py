@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import ast
+import keyword
 
-from lvkit.graph.models import AnyGraphNode, LoopNode
-from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelMode, TunnelTerminal
+from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.models import AnyGraphNode, ConstantNode, LoopNode
+from lvkit.models import (
+    LVType,
+    LVTypeKind,
+    Terminal,
+    Tunnel,
+    TunnelMode,
+    TunnelTerminal,
+)
 
 from ..ast_utils import (
     build_assign,
@@ -15,7 +24,6 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 
@@ -27,9 +35,9 @@ def _when_condition(
     is wrapped in ``if <condition>:``."""
     if tunnel.condition_terminal_uid is None:
         return write
-    condition = ctx.resolve(tunnel.condition_terminal_uid)
+    condition = ctx.wired_input(tunnel.condition_terminal_uid, node)
     if condition is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Conditional tunnel's condition terminal is not wired", node
         )
     return ast.If(test=parse_expr(condition), body=[write], orelse=[])
@@ -99,7 +107,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 shift_reg_vars[outer_term] = shift_var
                 initialized_sr_outers.add(outer_term)
                 # An array-typed shift register carries an array; track it so the
-                # module arrayify pass broadcasts operators over it (e.g. an
+                # module pass writes operators as comprehensions over it (e.g. an
                 # element-wise Add of the accumulator to a per-iteration array,
                 # inlined past the per-node hook -- MD5's block-state update).
                 _sr_t = term_by_id.get(outer_term)
@@ -108,7 +116,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     and _sr_t.lv_type is not None
                     and _sr_t.lv_type.kind == LVTypeKind.ARRAY
                 ):
-                    ctx.array_vars.add(shift_var)
+                    ctx.array_vars[shift_var] = _sr_t.lv_type.dimensions or 1
             else:
                 # Uninitialized shift register: nothing wired into the
                 # left terminal from outside the loop. In LabVIEW this is
@@ -245,7 +253,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # (outer_var, inner_term, outer_term)
         lpTun_array_inputs: list[tuple[str, str, str]] = []
         lpTun_scalar_inputs: list[tuple[str, str]] = []  # (outer_var, inner_term)
-        materialized: set[str] = set()  # literal array sources already assigned
+        # Each literal source already assigned, and the local it is in.
+        materialized: dict[str, str] = {}
 
         for tunnel in tunnels:
             if tunnel.tunnel_type == "lpTun" and _tunnel_is_input(
@@ -257,12 +266,15 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # a real local before the loop instead of leaving it undefined.
                 if outer_var and not outer_var.isidentifier():
                     literal = outer_var
-                    outer_var = to_var_name(literal) or "items"
-                    if outer_var not in materialized:
-                        pre_loop_stmts.append(
-                            build_assign(outer_var, parse_expr(literal))
+                    if literal not in materialized:
+                        materialized[literal] = ctx.make_output_var(
+                            _literal_local_name(tunnel.outer_terminal_uid, ctx),
+                            node.id,
                         )
-                        materialized.add(outer_var)
+                        pre_loop_stmts.append(
+                            build_assign(materialized[literal], parse_expr(literal))
+                        )
+                    outer_var = materialized[literal]
                 if outer_var and tunnel.inner_terminal_uid:
                     outer_term = tunnel.outer_terminal_uid
                     inner_term = tunnel.inner_terminal_uid
@@ -288,6 +300,33 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             (outer_var, inner) for outer_var, inner, _ in lpTun_array_inputs
         ]
 
+        # The count terminal read inside the loop is the number of iterations:
+        # the wired count, or the shortest auto-indexed array. Its edge to its
+        # own outer terminal is the tunnel, not a read.
+        count_inners = [
+            t.inner_terminal_uid
+            for t in tunnels
+            if t.tunnel_type == "lMax"
+            and t.inner_terminal_uid
+            and any(
+                d.dest_terminal != t.outer_terminal_uid
+                for d in ctx.get_destinations(t.inner_terminal_uid)
+            )
+        ]
+        count_parts = [f"len({array})" for array, _ in for_input_arrays]
+        if n_terminal_var:
+            count_parts.append(n_terminal_var)
+        if count_inners and count_parts:
+            count_var = ctx.make_output_var("count", node.id)
+            count_expr = (
+                count_parts[0]
+                if len(count_parts) == 1
+                else f"min({', '.join(count_parts)})"
+            )
+            pre_loop_stmts.append(build_assign(count_var, parse_expr(count_expr)))
+            for inner in count_inners:
+                inner_ctx.bind(inner, count_var)
+
         # Bind scalar inputs directly - same value each iteration
         for outer_var, inner_term in lpTun_scalar_inputs:
             inner_ctx.bind(inner_term, outer_var)
@@ -300,14 +339,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Terminal, not a tunnel) is the Python loop index. Bind it so code inside
         # the body reads `i`, not the terminal's default 0. Both the enumerate and
         # the range(...) forms emit `idx_var` as the loop variable.
-        iter_term = next(
-            (
-                t
-                for t in node.terminals
-                if t.direction == "output" and not isinstance(t, TunnelTerminal)
-            ),
-            None,
-        )
+        iter_term = _iteration_terminal(node)
         if iter_term is not None:
             inner_ctx.bind(iter_term.id, idx_var)
 
@@ -320,6 +352,18 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             # Multiple arrays or N terminal: use indexed access
             for outer_var, inner_term, _ in lpTun_array_inputs:
                 inner_ctx.bind(inner_term, f"{outer_var}[{idx_var}]")
+
+    # A While Loop's iteration terminal counts from 0; Python has no counter in
+    # `while True`, so a wired one is a local that starts at 0 and steps at the
+    # end of each iteration.
+    while_counter: str | None = None
+    if loop_type == "whileLoop":
+        iter_term = _iteration_terminal(node)
+        if iter_term is not None and ctx.is_wired(iter_term.id):
+            depth = ctx.loop_depth
+            while_counter = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
+            inner_ctx.bind(iter_term.id, while_counter)
+            pre_loop_stmts.append(build_assign(while_counter, ast.Constant(value=0)))
 
     # 4. Generate inner node code
     inner_stmts = _generate_inner(inner_nodes, inner_ctx)
@@ -451,6 +495,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     loop_ast: ast.While | ast.For
     if loop_type == "whileLoop":
         loop_ast, stop_condition_var = _build_while_loop(node, inner_stmts, inner_ctx)
+        if while_counter is not None:
+            loop_ast.body.append(
+                ast.AugAssign(
+                    target=ast.Name(id=while_counter, ctx=ast.Store()),
+                    op=ast.Add(),
+                    value=ast.Constant(value=1),
+                )
+            )
     else:
         loop_ast = _build_for_loop(
             node, inner_stmts, inner_ctx, n_terminal_var, for_input_arrays
@@ -474,10 +526,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # Add initialization for while loop stop condition
     # (condition is computed inside loop, so we init to False before)
     # Skip if the variable is already a function parameter or if the
-    # resolved value is an expression (not a valid assignment target)
+    # resolved value is an expression or a constant such as True (not a valid
+    # assignment target)
     if stop_condition_var:
         param_names = ctx.parameter_var_names()
-        is_identifier = stop_condition_var.isidentifier()
+        is_identifier = (
+            stop_condition_var.isidentifier()
+            and not keyword.iskeyword(stop_condition_var)
+        )
         if is_identifier and stop_condition_var not in param_names:
             pre_loop_stmts.append(
                 build_assign(stop_condition_var, ast.Constant(value=False))
@@ -622,6 +678,32 @@ def _singularize(array_var: str, ctx: CodeGenContext) -> str:
     return candidate
 
 
+def _literal_local_name(terminal_uid: str, ctx: CodeGenContext) -> str:
+    """The name of the local a literal source (a constant wired into a loop
+    tunnel) is assigned to before the loop. Never its value: the constant's
+    label, else the name of the terminal it flows to, pluralised, else a name
+    from its type."""
+    label = _constant_label(terminal_uid, ctx)
+    if label and to_var_name(label):
+        return to_var_name(label)
+    dest = _get_dest_terminal_name(terminal_uid, ctx)
+    if dest and to_var_name(dest):
+        return _pluralize(to_var_name(dest))
+    lv_type = _get_terminal_type(terminal_uid, ctx)
+    return "items" if lv_type is None or lv_type.kind == LVTypeKind.ARRAY else "value"
+
+
+def _constant_label(terminal_uid: str, ctx: CodeGenContext) -> str | None:
+    """The label of the one constant wired to ``terminal_uid``, if any."""
+    if ctx.graph is None:
+        return None
+    origins = ctx.graph.wire_origins(terminal_uid)
+    if len(origins) != 1:
+        return None
+    node, _ = origins[0]
+    return node.label if isinstance(node, ConstantNode) else None
+
+
 def _get_source_terminal_name(terminal_uid: str, ctx: CodeGenContext) -> str | None:
     """Get the name of the source feeding a terminal.
 
@@ -735,6 +817,19 @@ def _generate_inner(
     return ctx.generate_body(inner_nodes)
 
 
+def _iteration_terminal(node: LoopNode) -> Terminal | None:
+    """The loop's iteration terminal (the LabVIEW `i` counter): its plain output
+    terminal, not a tunnel."""
+    return next(
+        (
+            t
+            for t in node.terminals
+            if t.direction == "output" and not isinstance(t, TunnelTerminal)
+        ),
+        None,
+    )
+
+
 def _build_while_loop(
     node: LoopNode, body: list[ast.stmt], ctx: CodeGenContext
 ) -> tuple[ast.While, str | None]:
@@ -770,7 +865,7 @@ def _build_while_loop(
     if stop_terminal:
         # Resolve the stop condition variable from the loop body
         # The cpdArith or other operation computes this inside the loop
-        stop_condition = ctx.resolve(stop_terminal)
+        stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
             cond_expr = parse_expr(stop_condition)
             if node.stop_condition_inverted:
@@ -828,7 +923,7 @@ def _build_for_loop(
     # iteration still contributes its output — LabVIEW stops after it completes.
     stop_terminal = node.stop_condition_terminal
     if stop_terminal:
-        stop_condition = ctx.resolve(stop_terminal)
+        stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
             cond_expr = parse_expr(stop_condition)
             if node.stop_condition_inverted:

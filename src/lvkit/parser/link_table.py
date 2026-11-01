@@ -110,6 +110,7 @@ the "pad" steps align to that absolute offset::
     pad to 2
     path                                    PTH0 / PTH1 / PTH2
     flag                                    u32 (>= 8.6), u8 (>= 8.5)
+    u32                                     (< 8.6; 0 in every record seen)
     type id                                 u16, or u32 when the top bit is set
     VI link reference                       u8 flag byte (>= 14.0.0.3) -- else
                                             u32 + u64 (>= 8.0.0.3), then
@@ -135,14 +136,20 @@ from pathlib import Path
 
 from lvkit.dotnet_types import DotNetAssembly
 from lvkit.models import SharedVariableKind
-from lvkit.text_encoding import decode_labview_text
+from lvkit.text_encoding import (
+    decode_labview_text,
+    unwrap_pascal_name,
+)
 
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_SVVI_IDENT = b"SVVI"
+_SCVI_IDENT = b"SCVI"
 _DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
+_NEXF_IDENT = b"NEXF"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -183,6 +190,16 @@ class LinkTableVersion:
             stage=stage,
         )
 
+    @classmethod
+    def of_vi(cls, main_root: ET.Element) -> LinkTableVersion | None:
+        """The version a VI was saved in: its save record's (``LVSR``), else its
+        version block's (``vers``) when pylabview left the save record raw, as it
+        does for LabVIEW 8.2 files. None when the VI records neither."""
+        element = main_root.find(".//LVSR/Section/Version")
+        if element is None:
+            element = main_root.find(".//vers/Section/Version")
+        return cls.from_lvsr(element) if element is not None else None
+
     def at_least(self, major: int, minor: int, bugfix: int, stage: int) -> bool:
         return self >= LinkTableVersion(major, minor, bugfix, stage)
 
@@ -202,16 +219,34 @@ class DynamicDispatchLink:
     path_tokens: tuple[str, ...]
     link_flag: int
     node_uids: tuple[int, ...]
+    path_type: int | None = None
+
+
+@dataclass(frozen=True)
+class ExtFuncLink:
+    """One ``NEXF`` record: the library a Call Library Function Node names as
+    typed in its setup (``name_parts``, last part), the path LabVIEW recorded for
+    it (``path_type`` and ``path_tokens``), the function, and the heap uid of
+    every node that calls it."""
+
+    name_parts: tuple[str, ...]
+    path_type: int | None
+    path_tokens: tuple[str, ...]
+    function: str
+    node_uids: tuple[int, ...]
 
 
 @dataclass(frozen=True)
 class IUseLink:
-    """One ``IUVI`` record: the VI referenced and every node that uses it."""
+    """One ``IUVI`` record: the VI referenced and every node that uses it, with
+    the type of the path it records (0 absolute, 1 relative; ``None`` when the
+    record does not say)."""
 
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
     link_flag: int
     node_uids: tuple[int, ...]
+    path_type: int | None = None
 
 
 class SharedVariableRecordKind(str, Enum):
@@ -262,7 +297,7 @@ class SharedVariableLink:
     @property
     def library_qualified_name(self) -> str:
         """The library's qualified name, ``a:b`` from its name parts."""
-        name = qualified_link_name(list(self.library_parts), 0, None)
+        name = joined_link_name(list(self.library_parts), 0, None)
         if name is None:
             raise LinkTableError("Shared Variable record names no library")
         return name
@@ -343,6 +378,7 @@ class _LinkHead:
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
     link_flag: int
+    path_type: int | None = None
 
 
 class _Reader:
@@ -392,14 +428,21 @@ class _Reader:
         return val
 
     def path(self) -> tuple[str, ...]:
+        return self.typed_path()[1]
+
+    def typed_path(self) -> tuple[int | None, tuple[str, ...]]:
+        """A path's type (``PTH0`` only: 0 absolute, 1 relative, 2 not a path,
+        3 UNC) and its tokens."""
         ident = self.take(4)
         total = self.u32()
         if ident == b"PTH0":
-            self.u16()  # path type
+            path_type = self.u16()
             count = self.u16()
             if count > _MAX_PATH_COMPONENTS:
                 raise LinkTableError(f"path with {count} components")
-            return tuple(decode_labview_text(self.pascal()) for _ in range(count))
+            return path_type, tuple(
+                decode_labview_text(self.pascal()) for _ in range(count)
+            )
         if ident in (b"PTH1", b"PTH2"):
             self.take(4)  # path type ident
             tokens: list[str] = []
@@ -408,7 +451,7 @@ class _Reader:
                 part = self.take(self.u16())
                 tokens.append(decode_labview_text(part))
                 done += 2 + len(part)
-            return tuple(tokens)
+            return None, tuple(tokens)
         raise LinkTableError(f"unrecognized path class {ident!r}")
 
 
@@ -419,21 +462,25 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     count = r.u32()
     if count > _MAX_NAME_PARTS:
         raise LinkTableError(f"qualified name with {count} parts")
-    name_parts = tuple(decode_labview_text(r.pascal()) for _ in range(count))
+    name_parts = tuple(
+        decode_labview_text(unwrap_pascal_name(r.pascal())) for _ in range(count)
+    )
     r.align(2)
-    path_tokens = r.path()
+    path_type, path_tokens = r.typed_path()
 
     link_flag = 0
     if version.at_least(8, 6, 0, 1):
         link_flag = r.u32()
     elif version.at_least(8, 5, 0, 1):
         link_flag = r.u8()
-    return _LinkHead(name_parts, path_tokens, link_flag)
+    return _LinkHead(name_parts, path_tokens, link_flag, path_type)
 
 
 def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     """The head of a heap-to-VI link record, read from just after its ident."""
     head = _read_basic_head(r, version)
+    if not version.at_least(8, 6, 0, 1):
+        r.u32()  # held by every heap-to-VI record of LabVIEW 8.2 and 8.5 files
     r.variable_size_u2p2()  # type id of the link's client type
 
     flag_byte = 0xFF
@@ -469,6 +516,7 @@ def _decode_record(data: bytes, ident_pos: int, version: LinkTableVersion) -> IU
         path_tokens=head.path_tokens,
         link_flag=head.link_flag,
         node_uids=node_uids,
+        path_type=head.path_type,
     )
 
 
@@ -624,6 +672,50 @@ def _record_starts(data: bytes, ident: bytes) -> list[int]:
     ]
 
 
+_PATH_IDENTS = (b"PTH0", b"PTH1", b"PTH2")
+
+
+@dataclass(frozen=True)
+class RecordName:
+    """The ident and name parts a link record starts with."""
+
+    ident: str
+    name_parts: tuple[str, ...]
+
+
+def decode_record_names(data: bytes) -> dict[int, RecordName]:
+    """The ident and name parts of every record of a link table whose head
+    reads, keyed by the offset of the path the head ends at. Every record starts
+    the same way (``_read_basic_head``: pad to 4, the name parts, pad to 2, the
+    path), whatever the saving version; nothing after the path is read."""
+    names: dict[int, RecordName] = {}
+    pattern = re.escape(_NEXT_LINK_ITEM) + rb"([A-Za-z0-9]{4})"
+    for match in re.finditer(pattern, data):
+        r = _Reader(data, match.end())
+        try:
+            r.align(4)
+            count = r.u32()
+            if count > _MAX_NAME_PARTS:
+                continue
+            parts = tuple(
+                decode_labview_text(unwrap_pascal_name(r.pascal()))
+                for _ in range(count)
+            )
+            r.align(2)
+        except LinkTableError:
+            continue
+        if data[r.pos : r.pos + 4] in _PATH_IDENTS:
+            names.setdefault(r.pos, RecordName(match.group(1).decode("ascii"), parts))
+    return names
+
+
+def unwrap_link_names(parts: Sequence[str], encoding: str) -> list[str]:
+    """Name parts read from XML text with a wrapped method name unwrapped
+    (``_unwrap_name``); ``encoding`` is the text encoding the XML was decoded
+    with."""
+    return [_unwrap_name(p, encoding) for p in parts]
+
+
 def _require_supported(version: LinkTableVersion) -> None:
     if not version.at_least(*_OLDEST_SUPPORTED):
         raise LinkTableError(
@@ -684,6 +776,7 @@ def _decode_dyn_record(
         path_tokens=head.path_tokens,
         link_flag=head.link_flag,
         node_uids=uids,
+        path_type=head.path_type,
     )
 
 
@@ -710,19 +803,67 @@ def read_dyn_links(
 
 
 def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
-    """Every ``IUVI`` record in a ``_LIbd.bin`` sidecar, in file order.
+    """Every ``IUVI``, ``SVVI`` and ``SCVI`` record in a ``_LIbd.bin`` sidecar, in
+    file order. An ``SVVI`` record is how a Static VI Reference names the VI it
+    refers to, an ``SCVI`` record how a Call By Reference or Start Asynchronous
+    Call node whose VI is chosen in the node's setup names it; both have the
+    layout of an ``IUVI`` record and list the uid of every such node.
 
-    Raises ``LinkTableError`` when the table holds an ``IUVI`` record but the
-    saving VI predates the oldest layout read here, or a record does not follow
-    the layout -- an unreadable record is never skipped.
+    Raises ``LinkTableError`` when the table holds such a record but the saving VI
+    predates the oldest layout read here, or a record does not follow the layout
+    -- an unreadable record is never skipped.
     """
+    starts = sorted(
+        (start, ident)
+        for ident in (_IUVI_IDENT, _SVVI_IDENT, _SCVI_IDENT)
+        for start in _record_starts(data, ident)
+    )
     records: list[IUseLink] = []
-    for start in _record_starts(data, _IUVI_IDENT):
+    for start, ident in starts:
         _require_supported(version)
         try:
             records.append(_decode_record(data, start, version))
         except LinkTableError as exc:
-            raise LinkTableError(f"IUVI record at offset {start}: {exc}") from exc
+            raise LinkTableError(
+                f"{ident.decode()} record at offset {start}: {exc}"
+            ) from exc
+    return records
+
+
+def _decode_ext_func_record(
+    data: bytes, ident_pos: int, version: LinkTableVersion
+) -> ExtFuncLink:
+    """A ``NEXF`` record, field by field as pylabview ``parseExtFuncLinkSaveInfo``
+    reads it (LabVIEW 8.0.0.3 and later): the basic link head, the node uid list,
+    then the function name as a pascal string padded to an even length."""
+    if not version.at_least(8, 0, 0, 3):
+        raise LinkTableError("NEXF record of a VI older than 8.0")
+    r = _Reader(data, ident_pos + len(_NEXF_IDENT))
+    head = _read_basic_head(r, version)
+    uids = _read_node_uids(r)
+    raw = r.pascal()
+    if (len(raw) + 1) % 2:
+        r.take(1)
+    function = decode_labview_text(raw)
+    return ExtFuncLink(
+        name_parts=head.name_parts,
+        path_type=head.path_type,
+        path_tokens=head.path_tokens,
+        function=function,
+        node_uids=uids,
+    )
+
+
+def decode_ext_func_links(data: bytes, version: LinkTableVersion) -> list[ExtFuncLink]:
+    """Every ``NEXF`` record in a ``_LIbd.bin`` sidecar, in file order. An
+    unreadable record raises ``LinkTableError``, never skipped."""
+    records: list[ExtFuncLink] = []
+    for start in _record_starts(data, _NEXF_IDENT):
+        _require_supported(version)
+        try:
+            records.append(_decode_ext_func_record(data, start, version))
+        except LinkTableError as exc:
+            raise LinkTableError(f"NEXF record at offset {start}: {exc}") from exc
     return records
 
 
@@ -733,6 +874,7 @@ class InstanceSourceLink:
 
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
+    path_type: int | None = None
 
 
 def decode_instance_source(
@@ -756,7 +898,7 @@ def decode_instance_source(
         raise LinkTableError(
             f"VIVI record at offset {source_starts[0]}: {exc}"
         ) from exc
-    return InstanceSourceLink(head.name_parts, head.path_tokens)
+    return InstanceSourceLink(head.name_parts, head.path_tokens, head.path_type)
 
 
 def read_iuse_links(libd_path: Path, version: LinkTableVersion) -> list[IUseLink]:
@@ -837,12 +979,39 @@ def read_shared_variable_links(
     return decode_shared_variable_links(libd_path.read_bytes(), version)
 
 
-def qualified_link_name(
-    parts: list[str],
-    link_flag: int,
-    caller_library: str | None,
+_NAME_WRAPPER_RE = re.compile(
+    r"^(?:&#x01;|\x01)(?:&#x([0-9A-Fa-f]{2});|(.))(.*)$", re.DOTALL
+)
+
+
+def _unwrap_name(part: str, encoding: str) -> str:
+    """A method name in a block-diagram link record, as XML text, is the decoded
+    wrapped name (see ``unwrap_pascal_name``), its control characters written as
+    ``&#xNN;`` entities. ``encoding`` is the text encoding the XML was decoded
+    with (``xml_text_encoding``): the text is turned back into the record's bytes
+    in it, so the name's length is counted in bytes and the same helper unwraps it
+    as the binary reader. Text that has no bytes in that encoding is not a wrapped
+    name, and is returned as it is."""
+    wrapped = _NAME_WRAPPER_RE.match(part)
+    if wrapped is None:
+        return part
+    hex_length, char_length, name = wrapped.groups()
+    try:
+        length = (
+            bytes([int(hex_length, 16)])
+            if hex_length is not None
+            else char_length.encode(encoding)
+        )
+        raw = b"\x01" + length + name.encode(encoding)
+    except UnicodeEncodeError:
+        return part
+    return part if unwrap_pascal_name(raw) is raw else name
+
+
+def joined_link_name(
+    parts: list[str], link_flag: int, caller_library: str | None
 ) -> str | None:
-    """The qualified name of a link record, ``a:b:c`` from its name parts.
+    """The qualified name of a link record, ``a:b:c`` from its decoded name parts.
 
     Control characters and surrounding whitespace are stripped from each part (a
     member name can carry a spurious newline from the binary that would corrupt
@@ -857,3 +1026,17 @@ def qualified_link_name(
     if link_flag == 2 and caller_library and len(cleaned) == 1:
         return f"{caller_library}:{cleaned[0]}"
     return ":".join(cleaned)
+
+
+def qualified_link_name(
+    parts: list[str],
+    link_flag: int,
+    caller_library: str | None,
+    encoding: str,
+) -> str | None:
+    """``joined_link_name`` of name parts read from XML text: a method name
+    wrapped as the record holds it is unwrapped first (``_unwrap_name``).
+    ``encoding`` is the text encoding the XML was decoded with."""
+    return joined_link_name(
+        [_unwrap_name(p, encoding) for p in parts], link_flag, caller_library
+    )

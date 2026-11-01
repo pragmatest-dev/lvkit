@@ -29,9 +29,9 @@ from lvkit.models import (
     Terminal,
     TunnelTerminal,
 )
-from lvkit.pipeline import create_import_resolver, module_stem, unique_module_stems
-from lvkit.type_names import ROOT_CLASS, derive_python_name, is_enum_member_name
-from tests.helpers import make_graph_with_edge
+from lvkit.pipeline import create_import_resolver
+from lvkit.type_names import derive_python_name, is_enum_member_name
+from tests.helpers import error_cluster_type, make_graph_with_edge
 
 
 def _enum(typedef_name: str | None, **members: int) -> LVType:
@@ -63,7 +63,6 @@ class TestClassNames:
             ("TestCase.lvclass", "TestCase"),
             ("Lib.lvlib:Foo Bar.ctl", "FooBar"),
             ("Type Descriptor__ogtk.ctl", "TypeDescriptorOgtk"),
-            (ROOT_CLASS, "LabVIEWObject"),
             ("3D Point.ctl", "_3DPoint"),
         ],
     )
@@ -164,15 +163,6 @@ class TestImportDepth:
             "from .lib_a import dep_vi as dep_vi_global"
         )
 
-    def test_the_root_class_is_a_runtime_module(self, tmp_path: Path):
-        resolver = self._resolver(tmp_path, "root_vi.py")
-        root = resolver.type_import(ROOT_CLASS)
-        assert root is not None
-        assert root.statement == (
-            "from lvkit.runtime.labview_object import LabVIEWObject"
-        )
-        assert root.name == "LabVIEWObject"
-
     def test_a_type_with_no_graph_is_not_importable(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "root_vi.py")
         assert resolver.type_import("TestCase.lvclass") is None
@@ -207,14 +197,7 @@ class TestErrorClusterTunnels:
         ]
 
     def test_tunnels_skip_the_error_cluster(self):
-        error = LVType(
-            kind=LVTypeKind.CLUSTER,
-            fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
-            ],
-        )
+        error = error_cluster_type()
         number = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
         node = CaseStructureNode(
             id="case",
@@ -369,36 +352,6 @@ class TestSameDerivedName:
             check=False,
         )
         assert result.returncode == 0, result.stdout
-
-
-class TestModuleNames:
-    """A module is named from its VI's own name, qualified by its class or
-    library, never from where its file sits."""
-
-    @staticmethod
-    def _graph() -> InMemoryVIGraph:
-        graph = InMemoryVIGraph()
-        for key, display in (
-            ("/home/me/lvkit/corpus/a/run.vi", "TestCase.lvclass:run.vi"),
-            ("/home/me/lvkit/corpus/b/Init.vi", "Init.vi"),
-            ("/home/me/lvkit/corpus/c/Init.vi", "Init.vi"),
-        ):
-            graph._vi_nodes[key] = set()
-            graph._vi_display_names[key] = display
-        return graph
-
-    def test_stem_is_the_qualified_vi_name(self):
-        graph = self._graph()
-        assert module_stem("/home/me/lvkit/corpus/a/run.vi", graph) == (
-            "testcaselvclass_run"
-        )
-        assert module_stem("/home/me/lvkit/corpus/b/Init.vi", graph) == "init"
-
-    def test_vis_of_one_name_get_distinct_modules(self):
-        graph = self._graph()
-        keys = list(graph._vi_display_names)
-        stems = unique_module_stems(keys, graph)
-        assert sorted(stems.values()) == ["init", "init_2", "testcaselvclass_run"]
 
 
 class TestSameFunctionName:

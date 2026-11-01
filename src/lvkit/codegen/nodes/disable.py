@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import DisableStructureNode
 from lvkit.models import CaseFrame
 
+from ..ast_utils import build_assign, default_value_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -24,7 +26,7 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
     """
     frames = ctx.frame_children(node)
     if node.active_frame is None or not 0 <= node.active_frame < len(frames):
-        raise CodeGenError(
+        raise ConversionGap(
             "Disable structure has no readable enabled subdiagram "
             f"(active_frame={node.active_frame})",
             node,
@@ -56,5 +58,15 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
             inner_var = ctx.resolve(tunnel.inner_terminal_uid)
             if inner_var:
                 bindings[tunnel.outer_terminal_uid] = inner_var
+            else:
+                # The enabled subdiagram leaves the output tunnel unwired: it
+                # sends the type's default, as an unwired case output tunnel does.
+                default = ctx.make_output_var(
+                    "tunnel_default", tunnel.outer_terminal_uid
+                )
+                statements.append(
+                    build_assign(default, default_value_expr(outer.lv_type))
+                )
+                bindings[tunnel.outer_terminal_uid] = default
 
     return CodeFragment(statements=statements, bindings=bindings)

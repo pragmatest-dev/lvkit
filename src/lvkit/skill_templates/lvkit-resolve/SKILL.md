@@ -20,8 +20,8 @@ lvkit unresolved "<path>"
 
 collects every gap in a VI/library in one report (each unknown primitive's
 full terminal signature; each unmapped vi.lib VI's name and caller
-dataflow) — hand this skill the batch instead of hitting `lvkit generate`'s
-exceptions one at a time.
+dataflow) — hand this skill the batch instead of the warnings of one
+`lvkit generate` run.
 
 ## Setup
 
@@ -39,16 +39,21 @@ reads a project's `.lvkit/` back into its shipment.
 
 Resolve ONE unknown at a time, fully verified. Do not batch-guess entries.
 
-## Branch A: `PrimitiveResolutionNeeded` / `TerminalResolutionNeeded`
+## Branch A: unknown primitive / terminal mapping
 
-`PrimitiveResolutionNeeded` fires for a completely unknown `primResID`.
-`TerminalResolutionNeeded` fires for a KNOWN primitive whose actual wired
+An unknown primitive is a gap reported for a completely unknown `primResID`.
+A terminal-mapping gap is reported for a KNOWN primitive whose actual wired
 terminal index doesn't match the stored mapping — same workflow, smaller
 fix (correct the terminal `index`, don't re-identify the function).
 
+An `unknown_default` gap is a different fact: an input the function's code uses
+is unwired, and the catalog terminal has neither a `default` (the value NI
+documents) nor a `default_behavior` (a documented behavior that is no value).
+The fix is on that catalog terminal, read from NI's public page for the function.
+
 ### 1. Record the diagnostic
 
-The exception reports the primitive's FULL connector pane — every terminal,
+`lvkit unresolved` reports the primitive's FULL connector pane — every terminal,
 wired or not, with its index, direction, and declared type. This is the
 strongest discriminator; use the whole signature, not just the wired
 subset. For a polymorphic/adaptive primitive an unwired terminal may show
@@ -134,7 +139,7 @@ instead of failing:
 }
 ```
 
-## Branch B: `VILibResolutionNeeded`
+## Branch B: unmapped vi.lib VI
 
 A vi.lib VI has a KNOWN name (it's a filename) — look it up directly rather
 than reverse-engineering it.
@@ -189,22 +194,21 @@ Update it if partial; otherwise create a new entry.
 ```
 
 If an index can't be determined from the diagnostic, leave it out — the
-next call site's exception will supply more context.
+next gap will supply more context.
 
 ## Re-verify
 
 ```bash
-lvkit generate "<vi-path>" -o "<output-dir>" --search-path "<library-path>"
+lvkit generate "<vi-path>" -o "<output-dir>"
 ```
 
 Same failure → the mapping is wrong, go back to Step 1 of that branch. New
 failure → a different unknown was uncovered; resolve it the same way.
 
-**Alternative to writing a mapping up front:** `lvkit generate
---placeholder-on-unresolved` emits an inline `raise
-PrimitiveResolutionNeeded(...)`/`raise VILibResolutionNeeded(...)` with the
-same diagnostic instead of failing the build — fix the gap contextually in
-the generated Python, or come back and write the mapping later.
+**Alternative to writing a mapping up front:** a gap that is left alone is
+a `raise NotImplementedError(...)` at that node in the generated Python, with
+a warning from `lvkit generate` — fix it contextually in the generated Python,
+or come back and write the mapping later.
 
 ## NEVER do these things
 

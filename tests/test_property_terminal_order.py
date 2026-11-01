@@ -3,35 +3,28 @@
 from __future__ import annotations
 
 import ast
+import getpass
 import types
 
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.nodes import generate as generate_node
 from lvkit.codegen.nodes import property_node
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import (
-    ClusterField,
     LVType,
     LVTypeKind,
     PropertyDef,
     PropertySegment,
     Terminal,
 )
-from lvkit.runtime import lv
-from tests.helpers import make_graph_with_terminals
+from tests.helpers import error_cluster_type, make_graph_with_terminals
 
 REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
-ERROR = LVType(
-    kind=LVTypeKind.CLUSTER,
-    underlying_type="Cluster",
-    fields=[
-        ClusterField(name="status"),
-        ClusterField(name="code"),
-        ClusterField(name="source"),
-    ],
-)
+ERROR = error_cluster_type()
 
 
 class Reference:
@@ -83,7 +76,7 @@ def fixture(
     ctx = CodeGenContext(graph=graph)
     if ref_value:
         ctx.bind("ref_in", ref_value)
-    namespace = {"ref": Reference(), "_lv": lv}
+    namespace = {"ref": Reference()}
     for i, term in enumerate(values):
         if term.id not in unwired:
             connect(ctx, term.id, term.direction)
@@ -182,6 +175,13 @@ def test_value_type_does_not_reclassify_a_property_as_fixed_port(value_type):
     assert namespace["ref"].events == [("read", "value", sentinel)]
 
 
+def test_a_write_wired_from_a_gap_constant_writes_none():
+    node, ctx, namespace = fixture([("Value", "input")])
+    ctx.bind("peer_row_0", "None")
+    assert execute(node, ctx, namespace) == {}
+    assert namespace["ref"].events == [("write", "value", None)]
+
+
 @pytest.mark.parametrize(
     "failure",
     [
@@ -218,11 +218,11 @@ def test_unresolved_or_unsupported_nodes_fail_without_guessing(failure):
             [("Value", "input"), ("Value", "output")], unwired=("row_0",)
         )
     elif failure == "unresolved_write":
-        ctx.bind("peer_row_0", "None")
+        ctx.graph.set_var_name("peer_row_0", None)  # type: ignore[union-attr,arg-type]
     else:
         node.terminals[1].lv_type = None
         connect(ctx, "ref_out", "output")
-    with pytest.raises(CodeGenError):
+    with pytest.raises((CodeGenError, ConversionGap)):
         property_node.generate(node, ctx)
     assert namespace["ref"].events == []
 
@@ -246,31 +246,37 @@ def test_nested_property_writes_then_reads_its_attribute_chain():
     assert namespace["ref"].label.text == 1000
 
 
-def test_unwired_reference_is_the_defined_default_object_of_its_class():
-    rows = [("Value", "input"), ("Value", "output")]
-    node, ctx, namespace = fixture(rows, ref_value=None, class_name="Application")
-    ctx.qualified_vi_name = "Lib.lvlib:Caller.vi"
+def _generate_unwired_app(rows, ni_name="App.UserName"):
+    node, ctx, namespace = fixture(rows, ref_value=None, class_name="App")
+    node.properties = [PropertyDef(segments=[PropertySegment(name=ni_name, code=1)])]
     fragment = property_node.generate(node, ctx)
-    assert fragment.imports == {"from lvkit.runtime import lv as _lv"}
     code = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
-    exec(compile(code, "property-test", "exec"), namespace)
-    reference = namespace["application"]
-    assert reference is lv.default_reference("Application", "Lib.lvlib:Caller.vi")
-    assert reference.class_name == "Application"
-    assert namespace[fragment.bindings["row_1"]] == 1000
+    return fragment, code, namespace
 
 
-def test_an_unset_property_of_a_default_reference_names_class_and_property():
-    reference = lv.default_reference("VI", "Caller.vi")
-    with pytest.raises(lv.UnavailableReferenceMember, match="VI.*'path'"):
-        reference.path
+def test_unwired_app_user_name_is_the_account_running_the_process():
+    fragment, code, namespace = _generate_unwired_app([("Value", "output")])
+    assert ast.unparse(code) == "appusername = getpass.getuser()"
+    assert fragment.imports == {"import getpass"}
+    exec(compile(code, "property-test", "exec"), {"getpass": getpass}, namespace)
+    assert namespace["appusername"] == getpass.getuser()
+
+
+def test_an_undocumented_default_object_property_stops_generation():
+    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
+        _generate_unwired_app([("Value", "output")], "App.Kind")
+
+
+def test_writing_a_default_object_property_stops_generation():
+    with pytest.raises(ConversionGap, match="'App.UserName' is written on the default"):
+        _generate_unwired_app([("Value", "input")])
 
 
 def test_unwired_reference_without_an_object_class_is_an_error():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None)
-    with pytest.raises(CodeGenError, match="no object class"):
+    with pytest.raises(ConversionGap, match="no object class"):
         property_node.generate(node, ctx)
 
 
@@ -279,5 +285,26 @@ def test_wired_reference_without_a_value_is_an_error():
         [("Value", "output")], ref_value=None, class_name="Application"
     )
     connect(ctx, "ref_in", "input")
-    with pytest.raises(CodeGenError, match="Wired object reference has no value"):
+    with pytest.raises(
+        CodeGenError, match="The wired input 0 of 'Property Node' has no variable"
+    ):
         property_node.generate(node, ctx)
+
+
+def test_an_undocumented_default_object_property_becomes_a_raise():
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
+    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=1)])]
+    fragment = generate_node(node, ctx)
+    module = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    source = ast.unparse(module)
+    assert source.splitlines()[-1] == (
+        "raise NotImplementedError(\"Property 'App.Kind' of the default App "
+        'object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n'
+        'node: Property Node")'
+    )
+    assert fragment.imports == set()
+    assert [g.reason for g in ctx.gaps] == [
+        "Property 'App.Kind' of the default App object has no Python equivalent"
+    ]

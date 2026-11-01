@@ -168,7 +168,7 @@ def audit_vi(
                 if const.type_desc
                 else None
             )
-            if lv_type is None:
+            if lv_type is None or const.value is None:
                 continue
             kinds.append("bd")
             trace(bytes.fromhex(const.value), lv_type)

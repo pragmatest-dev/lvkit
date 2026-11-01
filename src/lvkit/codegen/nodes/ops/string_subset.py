@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.primitive_resolver import ResolvedPrimitive
+from lvkit.terminal_default import DefaultBehavior
 
-from . import register_op
+from . import register_op, register_op_behaviors
 
 
 @register_op("STRING_SUBSET")
@@ -25,3 +26,7 @@ def string_subset(node: PrimitiveNode, resolved: ResolvedPrimitive) -> dict[str,
     # handles an unwired length (in_1 is None -> [:None] = the rest) with no
     # None-comparison, so a wired integer length doesn't emit `<int> is not None`.
     return {"substring": "in_3[in_2:][:in_1]"}
+
+
+# Unwired, ``length`` takes the rest of the string: ``[:None]``.
+register_op_behaviors("STRING_SUBSET", {DefaultBehavior.REST: "None"})

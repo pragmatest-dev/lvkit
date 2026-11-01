@@ -5,7 +5,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "",
           "type": "Void"
         }
@@ -18,7 +18,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "",
           "type": "Void"
         }

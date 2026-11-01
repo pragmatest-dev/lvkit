@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import GlobalVariableNode, VINode
 
 from ..ast_utils import parameter_names, parse_expr, to_module_name
@@ -37,7 +38,7 @@ def generate(node: GlobalVariableNode, ctx: CodeGenContext) -> CodeFragment:
         raise CodeGenError("A global variable needs the VI graph to be resolved", node)
     located = ctx.graph.global_vi_control(node)
     if located is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Global VI '{node.global_vi.qualified_name}' is not loaded, so control "
             f"{node.param_idx} ('{node.control_name}') cannot be resolved",
             node,
@@ -59,11 +60,11 @@ def generate(node: GlobalVariableNode, ctx: CodeGenContext) -> CodeFragment:
     term = node.terminals[0]
     if node.is_write:
         if not ctx.is_wired(term.id):
-            raise CodeGenError(
+            raise ConversionGap(
                 f"Global variable '{node.control_name}' is written with nothing wired",
                 node,
             )
-        value = ctx.resolve(term.id)
+        value = ctx.wired_input(term.id, node)
         if value is None:
             raise CodeGenError(
                 f"Global variable '{node.control_name}' write value is unresolved",

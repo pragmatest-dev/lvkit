@@ -12,7 +12,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import (
@@ -46,11 +45,13 @@ ERROR_WIRE_VI_NAMES = frozenset(
 )
 
 
-def is_error_wire_vi(vi_name: str, vilib_resolver: VILibResolver) -> bool:
-    """Whether ``vi_name`` is one of the vi.lib error VIs a call site handles."""
+def is_error_wire_vi(recorded_path: str | None, vilib_resolver: VILibResolver) -> bool:
+    """Whether the VI a call records ``recorded_path`` for is one of the vi.lib
+    error VIs a call site handles. A project VI that shares one's file name is
+    not."""
     return (
-        Path(vi_name).name in ERROR_WIRE_VI_NAMES
-        and vilib_resolver.resolve_by_name(vi_name) is not None
+        vilib_resolver.catalog_file_name(recorded_path) in ERROR_WIRE_VI_NAMES
+        and vilib_resolver.resolve_recorded(recorded_path) is not None
     )
 
 

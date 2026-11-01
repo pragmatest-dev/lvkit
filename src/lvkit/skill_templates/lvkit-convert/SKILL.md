@@ -11,7 +11,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 the lvkit MCP server is connected; otherwise its CLI twin:
 
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>" --format json
+lvkit describe "<vi-path>" --format json
 ```
 
 Both return the identical structured netlist IR (see "Getting the facts"
@@ -25,13 +25,12 @@ anything, it's re-run a tool. Run it to get a second implementation to diff
 your hand-written port against:
 
 ```bash
-lvkit generate "<vi-path>" -o outputs --search-path "<library-path>"
+lvkit generate "<vi-path>" -o outputs
 ```
 
 ```
   vilib: 3
   ast:   12
-  stub:  0
   error: 0
 ```
 
@@ -56,7 +55,7 @@ wiring is expressed as `port -> source.net` bindings, not source order.
 `components` lists each distinct subVI/primitive's typed port interface
 once. This one call gives you everything — operations, wiring, structures,
 and constants — in one structured tree instead of five separate reads.
-`lvkit describe <vi-path> --search-path <library-path> --format netlist -v`
+`lvkit describe <vi-path> --format netlist -v`
 prints the same facts as prose for a human instead of JSON for a program (`-v`
 adds the typed `## Components` declarations ahead of the netlist body).
 
@@ -174,9 +173,8 @@ field list, inherited fields included).
 
 ## Unknowns are data, not errors
 
-A query-driven port never throws `PrimitiveResolutionNeeded`/
-`VILibResolutionNeeded` — those are `lvkit generate`'s exceptions, raised
-only by the deterministic oracle. In the facts (`read_vi`/`describe`),
+A query-driven port never stops on an unknown — an unknown primitive or vi.lib
+VI is a gap that only `lvkit generate`, the deterministic oracle, reports. In the facts (`read_vi`/`describe`),
 an unresolved primitive shows as `[prim N]` and an unmapped vi.lib VI shows
 as its bare filename. Identify it inline the same way `/lvkit-resolve` does
 — the primitive's full terminal signature (every terminal, wired or not,
@@ -205,11 +203,10 @@ structure, function parameters (front-panel controls — don't change types
 or defaults), return values (front-panel indicators — don't drop outputs),
 held-error handling if present.
 
-## Optional: soft-fail the oracle instead of fixing gaps up front
+## The oracle with gaps
 
-`lvkit generate --placeholder-on-unresolved` emits an inline `raise
-PrimitiveResolutionNeeded(...)`/`raise VILibResolutionNeeded(...)` for each
-gap instead of failing the build — useful for generating an oracle to diff
+`lvkit generate` writes a `raise NotImplementedError("<reason>")` at each node
+it cannot convert and prints a warning for it — so the oracle is there to diff
 against even when it isn't complete yet.
 
 ## Related

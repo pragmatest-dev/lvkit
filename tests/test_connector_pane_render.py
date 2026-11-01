@@ -10,12 +10,11 @@ from lvkit.render.connector_pane import (
     render_connector_pane_help,
 )
 from lvkit.render.style import DEFAULT_THEME
+from tests.helpers import error_cluster_type
 
 
 def _err() -> LVType:
-    return LVType(
-        kind=LVTypeKind.CLUSTER, underlying_type="Cluster", typedef_name="error in.ctl"
-    )
+    return error_cluster_type()
 
 
 def _refs_and_errors() -> list[PaneTerminal]:

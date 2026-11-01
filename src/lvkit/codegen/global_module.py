@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.graph.core import _uid_of
+from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.core import uid_of
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
 
@@ -33,8 +34,8 @@ from .context import (
     _needs_simplenamespace,
     type_namer,
 )
-from .data_files import data_file_expression, holds_array_whole
-from .elementwise import LV_IMPORT
+from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
+from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
 
 
@@ -52,7 +53,7 @@ def _saved_default(
         text = data_file_expression(
             what="control",
             name=control.name,
-            uid=_uid_of(control.id),
+            uid=uid_of(control.id),
             module_stem=module_stem,
             unwritable=control.unwritable,
             lv_type=lv_type,
@@ -85,12 +86,15 @@ def build_global_module(
     vi_node: VINode,
     import_resolver: ImportResolver | None = None,
     data_files: dict[str, bytes] | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Module source for a Global VI: one annotated module-level name per
     front-panel control, in the VI's own control order, bound to the control's
     saved default. The names are the ones a global variable node reads
     (``parameter_names`` over the same control list). A control of a class or
-    typedef type is annotated with that class, imported under ``TYPE_CHECKING``."""
+    typedef type is annotated with that class, imported under ``TYPE_CHECKING``.
+    A control whose saved default cannot be written is a gap: the module raises
+    where the control is defined, and the gap is added to ``gaps``."""
     controls = vi_node.terminals
     spell = type_namer(import_resolver)
     annotation_imports: set[str] = set()
@@ -108,9 +112,16 @@ def build_global_module(
     for control in controls:
         if control.id not in names:
             continue
-        value, namespace = _saved_default(
-            control, to_function_name(vi_node.name or ""), data_files
-        )
+        try:
+            value, namespace = _saved_default(
+                control, to_function_name(vi_node.name or ""), data_files
+            )
+        except ConversionGap as exc:
+            gap = gap_of(exc, vi_node.id, None, label=control.name)
+            if gaps is not None:
+                gaps.append(gap)
+            assignments.append(raise_statement(gap.message))
+            continue
         if control.unwritable is not None:
             needs_runtime = True
         needs_namespace = needs_namespace or namespace
@@ -131,7 +142,7 @@ def build_global_module(
     if needs_namespace:
         body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
     if needs_runtime:
-        body.extend(ast.parse(LV_IMPORT).body)
+        body.extend(ast.parse(DATA_FILE_IMPORTS).body)
     body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])
     ast.fix_missing_locations(module)

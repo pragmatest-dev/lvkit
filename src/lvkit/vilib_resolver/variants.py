@@ -17,12 +17,35 @@ class _VILibVariantMixin:
     # can type-check attribute access within this mixin.
     _types: dict[str, LVType]
     _variants: dict[str, list[VIEntry]]
+    _vis: dict[str, VIEntry]
+    _by_name: dict[str, VIEntry]
+    _by_poly_selector: dict[tuple[str, str], VIEntry]
+    # Set on a fork: it shares its entries with the resolver it was made from.
+    _shares_entries: bool
+    _owned_entries: set[int]
 
     # Implemented by _VILibLookupMixin. Declared here (stub body, never
     # executed) only so pyright can type-check the call below — on the
     # composed VILibResolver, MRO always resolves to the real
     # implementation since _VILibLookupMixin precedes this mixin.
     def resolve_by_name(self, vi_name: str) -> VIEntry | None: ...
+
+    def _own(self, entry: VIEntry) -> VIEntry:
+        """``entry`` for this resolver to change: itself, or on a fork the copy that
+        replaces it in every index of this resolver."""
+        if not self._shares_entries or id(entry) in self._owned_entries:
+            return entry
+        own = entry.model_copy(deep=True)
+        for index in (self._vis, self._by_name, self._by_poly_selector):
+            for key, held in index.items():
+                if held is entry:
+                    index[key] = own  # type: ignore[index]
+        for variants in self._variants.values():
+            for position, held in enumerate(variants):
+                if held is entry:
+                    variants[position] = own
+        self._owned_entries.add(id(own))
+        return own
 
     def _compute_signature(self, terminals: dict[int, dict[str, Any]]) -> str:
         """Compute a signature from terminal observations.
@@ -189,9 +212,10 @@ class _VILibVariantMixin:
         On conflicts, creates a polymorphic variant instead of failing.
         Observations are always trusted - they come from actual wire connections.
         """
-        vi = self.resolve_by_name(vi_name)
-        if not vi:
+        shipped = self.resolve_by_name(vi_name)
+        if not shipped:
             raise ValueError(f"VI not found: {vi_name}")
+        vi = self._own(shipped)
 
         existing_map: dict[int, VITerminal] = {
             t.index: t for t in vi.terminals if t.index is not None
@@ -217,7 +241,7 @@ class _VILibVariantMixin:
 
             observed_map[wired_term.index] = {
                 "name": wired_term.name or "",
-                "direction": "out" if wired_term.direction == "output" else "in",
+                "direction": wired_term.direction,
                 "type": type_str,
             }
 
@@ -247,6 +271,7 @@ class _VILibVariantMixin:
             matching = self.find_matching_variant(vi_name, observed_map)
             if matching and matching.is_variant:
                 # Update existing variant with any new info
+                matching = self._own(matching)
                 self._update_variant_terminals(matching, observed_map)
                 return matching
 
@@ -254,7 +279,6 @@ class _VILibVariantMixin:
             return self._create_variant(vi_name, observed_map, vi, caller_vi)
 
         # No conflict - update base entry
-        unmatched_obs: list[tuple[int, dict[str, Any]]] = []
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 term = existing_map[idx]
@@ -262,62 +286,16 @@ class _VILibVariantMixin:
                     term.direction = obs_data["direction"]
                 if not term.type and obs_data["type"]:
                     term.type = obs_data["type"]
-            else:
-                # Try name-based matching first
-                matched = False
-                if obs_data["name"]:
-                    for term in vi.terminals:
-                        if term.name == obs_data["name"] and term.index is None:
-                            term.index = idx
-                            term.direction = obs_data["direction"]
-                            term.type = obs_data["type"]
-                            matched = True
-                            break
-                if not matched:
-                    unmatched_obs.append((idx, obs_data))
-
-        # Fallback 1: Match by type when exactly one null-index terminal
-        # shares the type AND direction (unambiguous type match).
-        if unmatched_obs:
-            null_terms = [t for t in vi.terminals if t.index is None]
-            still_unmatched = []
-            for idx, obs_data in unmatched_obs:
-                obs_dir = obs_data["direction"]
-                obs_type = obs_data["type"]
-                # Try type + direction match
-                candidates = (
-                    [
-                        t
-                        for t in null_terms
-                        if t.direction == obs_dir and t.type == obs_type
-                    ]
-                    if obs_type
-                    else []
-                )
-                if len(candidates) == 1:
-                    t = candidates[0]
-                    t.index = idx
-                    if obs_data["direction"]:
-                        t.direction = obs_data["direction"]
-                    if obs_data["type"]:
-                        t.type = obs_data["type"]
-                    null_terms.remove(t)
-                else:
-                    still_unmatched.append((idx, obs_data))
-
-            # Fallback 2: Match by direction alone when exactly one
-            # null-index terminal shares the direction.
-            for idx, obs_data in still_unmatched:
-                obs_dir = obs_data["direction"]
-                candidates = [t for t in null_terms if t.direction == obs_dir]
-                if len(candidates) == 1:
-                    t = candidates[0]
-                    t.index = idx
-                    if obs_data["direction"]:
-                        t.direction = obs_data["direction"]
-                    if obs_data["type"]:
-                        t.type = obs_data["type"]
-                    null_terms.remove(t)
+            elif obs_data["name"]:
+                # A catalog terminal with no number takes the number of the wired
+                # terminal that has exactly its name; a number no name gives stays
+                # unknown.
+                for term in vi.terminals:
+                    if term.name == obs_data["name"] and term.index is None:
+                        term.index = idx
+                        term.direction = obs_data["direction"]
+                        term.type = obs_data["type"]
+                        break
 
         return vi
 

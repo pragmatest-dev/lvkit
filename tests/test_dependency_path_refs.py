@@ -16,15 +16,14 @@ import pytest
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import AnyGraphNode
+from tests.corpus_graphs import OPENG_USERLIB
 
-SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DAQMX_CALLER_VI = Path(
     ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
 )  # noqa: E501
 TESTCASE_CLASS = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass"
 )
-TESTCASE_SEARCH = [Path(".lvkit/cache/samples/JKI-VI-Tester/source")]
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -37,7 +36,8 @@ def _skip_if_missing(*paths: Path) -> None:
 def daqmx_graph() -> InMemoryVIGraph:
     _skip_if_missing(DAQMX_CALLER_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(DAQMX_CALLER_VI), mode=LoadMode.NONE, search_paths=SEARCH_PATHS)
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
+    g.load_vi(str(DAQMX_CALLER_VI), mode=LoadMode.NONE)
     return g
 
 
@@ -45,9 +45,7 @@ def daqmx_graph() -> InMemoryVIGraph:
 def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_CLASS)
     g = InMemoryVIGraph()
-    g.load_lvclass(
-        str(TESTCASE_CLASS), mode=LoadMode.FULL, search_paths=TESTCASE_SEARCH
-    )
+    g.load_lvclass(str(TESTCASE_CLASS), mode=LoadMode.FULL)
     return g
 
 
@@ -65,7 +63,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     stubs_with_tokens = [
         n
         for n in g._stubs
-        if g._dep_graph.has_node(n) and g._dep_graph.nodes[n].get("path_tokens")
+        if g._dep_graph.has_node(n) and g._recorded.resolved(n)
     ]
     assert stubs_with_tokens, "expected at least one stub with path_tokens"
     # At least one stub should carry a vendor-library root token. Class-member
@@ -74,7 +72,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     rooted = [
         n
         for n in stubs_with_tokens
-        if g._dep_graph.nodes[n]["path_tokens"][0] in ("<vilib>", "<userlib>")
+        if g._recorded.resolved(n)[0] in ("<vilib>", "<userlib>")
     ]
     assert rooted, "expected at least one stub with a <vilib>/<userlib> path"
 

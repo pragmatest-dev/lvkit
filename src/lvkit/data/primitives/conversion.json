@@ -5,19 +5,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "unit (none)",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -32,13 +32,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "byte_integer",
           "type": "NumInt8"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "numeric"
         }
@@ -52,20 +52,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "int16_value",
           "type": "NumInt16"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "int16_value": "int(in_1) & 0xFFFF"
+        "int16_value": "ctypes.c_int16(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
@@ -77,13 +78,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "long_integer",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "numeric"
         }
@@ -97,20 +98,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "NumUInt8"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "numeric"
         }
       ],
       "python_code": {
-        "result": "int(in_1) & 0xFF"
+        "result": "ctypes.c_uint8(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html"
@@ -120,20 +122,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "uint16_value",
           "type": "NumUInt16"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "uint16_value": "int(in_1) & 0xFFFF"
+        "uint16_value": "ctypes.c_uint16(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html"
@@ -141,16 +144,17 @@
     "1145": {
       "name": "To Unsigned Long Integer",
       "op": "TO_U32",
+      "imports": ["import ctypes"],
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "unsigned 32bit integer",
           "type": "NumUInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumUInt32"
         }
@@ -165,13 +169,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -187,13 +191,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -209,13 +213,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -231,13 +235,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -253,13 +257,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -275,13 +279,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         }
@@ -296,13 +300,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "64bit integer",
           "type": "NumInt64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumInt64"
         }
@@ -317,20 +321,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "NumUInt64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
       ],
       "python_code": {
-        "result": "int(in_1) & 0xFFFFFFFFFFFFFFFF"
+        "result": "ctypes.c_uint64(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "note": "To Unsigned Quad Integer (NI doc) -- completes the To-<T> conversion family (1140-1144), idx0=out/idx1=in. Terminals from 'pco.camera_FloatingMean_Example_IMAQ.vi', 'testNumericU64.vi' (JKI-EasyXML)."
     },
@@ -340,13 +345,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "unsigned byte array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -361,13 +366,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "unsigned byte array",
           "type": "Array"
         }
@@ -381,13 +386,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "",
           "type": "NumFloat64"
         }
@@ -400,19 +405,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloatExt"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "type",
           "type": "NumFloatExt"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "coerced x",
           "type": "NumFloatExt"
         }
@@ -426,19 +431,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "FixedPoint"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "fixed-point type",
           "type": "FixedPoint"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "fixed-point",
           "type": "FixedPoint"
         }

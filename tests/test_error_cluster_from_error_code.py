@@ -92,12 +92,12 @@ def test_resolver_terminal_list() -> None:
     entry = get_resolver().resolve_by_name("Error Cluster From Error Code.vi")
     assert entry is not None
     assert [(t.index, t.name, t.direction, t.type) for t in entry.terminals] == [
-        (4, "is warning? (False)", "in", "Boolean"),
-        (5, "show call chain? (False)", "in", "Boolean"),
-        (6, "error in (no error)", "in", "Cluster"),
-        (8, 'error message ("")', "in", "String"),
-        (9, "error code (0)", "in", "NumInt32"),
-        (0, "error out", "out", "Cluster"),
+        (4, "is warning? (False)", "input", "Boolean"),
+        (5, "show call chain? (False)", "input", "Boolean"),
+        (6, "error in (no error)", "input", "Cluster"),
+        (8, 'error message ("")', "input", "String"),
+        (9, "error code (0)", "input", "NumInt32"),
+        (0, "error out", "output", "Cluster"),
     ]
 
 
@@ -116,9 +116,9 @@ def test_the_call_terminal_list(tmp_path: Path) -> None:
     ]
     assert "Error Cluster From Error Code.vi" in describe_vi(graph, vi_name)
     text = render_lvnet(build_netlist_from_graph(graph, vi_name), verbose=True)
-    assert "in   4 : TF      default False" in text
-    assert "in   5 : TF      default False" in text
-    assert "in   6 : cluster default" in text
-    assert 'in   8 : String  default ""' in text
-    assert "in   9 : I32     default 0" in text
-    assert "out  0 : cluster" in text
+    assert "in   is warning? (False)      : TF      default False" in text
+    assert "in   show call chain? (False) : TF      default False" in text
+    assert "in   error in (no error)      : cluster default" in text
+    assert 'in   error message ("")       : String  default ""' in text
+    assert "in   error code (0)           : I32     default 0" in text
+    assert "out  error out                : cluster" in text

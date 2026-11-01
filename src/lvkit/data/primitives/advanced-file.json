@@ -5,26 +5,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "dup refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
@@ -38,43 +38,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "last mod",
           "type": "Timestamp"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "size",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "dup path",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "directory",
           "type": "Boolean"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -87,31 +87,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "new path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "target path",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "source path",
           "type": "Path"
         }
@@ -124,31 +124,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "new path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "target path",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "source path",
           "type": "Path"
         }
@@ -161,25 +161,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "dup path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -192,49 +192,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "folder names",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "file names",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "dup folder path",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "datalog type",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "pattern",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "folder path",
           "type": "Path"
         }
@@ -248,13 +248,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "type",
           "type": "NumInt16"
         }
@@ -270,13 +270,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
@@ -290,49 +290,51 @@
       "terminals": [
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for copy"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "target_path",
           "type": "Path"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "source_path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "new_path",
           "type": "Path"
         }
@@ -347,40 +349,42 @@
     },
     "8055": {
       "name": "Create Folder",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "created path",
           "type": "Path"
         },
         {
           "index": 7,
-          "direction": "in",
-          "name": "prompt (Create Folder)",
-          "type": "String"
+          "direction": "input",
+          "name": "prompt",
+          "type": "String",
+          "default": "Create Folder"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path (use dialog)",
           "type": "Path"
         }
@@ -394,49 +398,52 @@
       "terminals": [
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Delete"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "entire_hierarchy",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "confirm",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path_out",
           "type": "Path"
         }
@@ -454,32 +461,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "deny mode (0:deny read/write)",
           "type": "Enum16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
@@ -493,26 +500,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
@@ -526,31 +533,31 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "offset",
           "type": "NumInt64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -568,31 +575,31 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "size",
           "type": "NumInt64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -610,43 +617,43 @@
       "terminals": [
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "owner",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "group",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path_out",
           "type": "Path"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "permissions",
           "type": "NumInt16"
         }
@@ -666,37 +673,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "creator",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "type",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path out",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -709,49 +716,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "free (bytes)",
           "type": "NumInt64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "size (bytes)",
           "type": "NumInt64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path out",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "sector size (bytes)",
           "type": "NumUInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "volume path",
           "type": "Path"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -764,49 +771,51 @@
       "terminals": [
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for move"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "target_path",
           "type": "Path"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "source_path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "new_path",
           "type": "Path"
         }
@@ -824,37 +833,38 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "from",
           "type": "enum"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
-          "type": "NumInt64"
+          "type": "NumInt64",
+          "default": 0
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -871,32 +881,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "size (in bytes)",
           "type": "NumInt64"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "file",
           "type": "Path"
         }
@@ -909,43 +919,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path out",
           "type": "Path"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "permissions",
           "type": "NumInt16"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "new group",
           "type": "String"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "new owner",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -959,37 +969,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "path out",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "creator (no change)",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "type (no change)",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         }
@@ -1002,55 +1012,55 @@
       "terminals": [
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "last_mod",
           "type": "MeasureData"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "size",
           "type": "NumInt64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path_out",
           "type": "Path"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "resolved_path",
           "type": "Path"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "is_directory",
           "type": "Boolean"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "is_shortcut",
           "type": "Boolean"
         }
@@ -1072,49 +1082,49 @@
       "terminals": [
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "datalog_type",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "pattern",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "file_names",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "folder_names",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path_out",
           "type": "Path"
         }
@@ -1133,50 +1143,50 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "num elements read",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "byte order (0:big-endian, network order)",
           "type": "Enum16"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "data in",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum in",
           "type": "Refnum",
           "refnum_type": "byte_stream"

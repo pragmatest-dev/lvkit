@@ -14,11 +14,13 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
+    LVTypeKind,
     ScalarValue,
     Terminal,
     TunnelTerminal,
 )
 from ..parser.node_types import get_display_name
+from ..path_value import is_path_text
 from ..vi_files import is_vi_file, strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
@@ -63,6 +65,7 @@ from .op_walk import (
     selector_values_quoted_one_by_one,
 )
 from .queries import collect_class_context
+from .reference_target import is_reference_constant, reference_phrase, reference_target
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -105,7 +108,7 @@ def describe_vi(
     lines: list[str] = []
 
     # Title and signature
-    lines.append(f"# {vi_name}")
+    lines.append(f"# {graph.key_label(vi_name)}")
     lines.append("")
     lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
@@ -196,9 +199,11 @@ def describe_vi(
             lines.append(f"  {assembly.qualified} (.NET assembly)")
         for reason in dotnet.unreadable:
             lines.append(f"  (.NET unreadable: {reason})")
-        for name, callee_key in sorted(subvi_callees.items()):
-            desc = _get_subvi_description(graph, name)
-            ports = _subvi_ports(graph, name, callee_key)
+        for name, call in sorted(subvi_callees.items()):
+            desc = _get_subvi_description(graph.catalog_path(call))
+            ports = _subvi_ports(
+                graph, graph.loaded_callee_key(call), call.qualified_path
+            )
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
             if sig:
@@ -252,7 +257,7 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def default_suffix(default: ScalarValue) -> str:
+def default_suffix(default: ScalarValue, lv_type: LVType | None = None) -> str:
     """`` = <value>`` for a terminal's default, or ``''`` when it has none.
 
     Only a genuinely-set default annotates (``default`` is ``None`` when the
@@ -261,7 +266,21 @@ def default_suffix(default: ScalarValue) -> str:
     """
     if default is None:
         return ""
-    return f' = "{default}"' if isinstance(default, str) else f" = {default}"
+    item = lv_type.item_for(default) if lv_type is not None else None
+    shown = f" ({item})" if item is not None else ""
+    is_item_type = lv_type is not None and lv_type.kind in (
+        LVTypeKind.ENUM,
+        LVTypeKind.RING,
+    )
+    is_path = (
+        lv_type is not None
+        and lv_type.underlying_type == "Path"
+        and isinstance(default, str)
+        and is_path_text(default)
+    )
+    quoted = isinstance(default, str) and not is_item_type and not is_path
+    value = f'"{default}"' if quoted else f"{default}"
+    return f" = {value}{shown}"
 
 
 def _shown_caption(t: Terminal) -> str | None:
@@ -310,7 +329,7 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
         line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
-    line += default_suffix(t.default_value)
+    line += default_suffix(t.default_value, t.lv_type)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"
     return line
@@ -320,25 +339,27 @@ def _collect_subvi_callees(
     graph: InMemoryVIGraph,
     nodes: list[AnyGraphNode],
     vi_name: str,
-) -> dict[str, str | None]:
+) -> dict[str, VINode]:
     """Collect all SubVI callees recursively: each one's QUALIFIED name — the
-    class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
-    dynamic-dispatch call reports its declaring parent class rather than a bare
-    ``addError.vi`` — mapped to the ``vi_key`` of the loaded callee the call
-    records (None when that VI is not loaded). A name several calls share keeps
-    the first call's callee, in diagram order.
+    name the graph gives the VI it calls (``call_qualified_name``, e.g.
+    ``TestResult.lvclass:addError.vi``), so a dynamic-dispatch call reports its
+    declaring parent class rather than a bare ``addError.vi`` — mapped to the
+    call node. A name several calls share keeps
+    the first call, in diagram order.
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
     a structure's frame bodies AND a loop/IPES body alike — in one
     recursion)."""
-    callees: dict[str, str | None] = {}
+    callees: dict[str, VINode] = {}
     for node in nodes:
-        if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
-            callees.setdefault(node.qualified_name, graph.loaded_callee_key(node))
-        for name, key in _collect_subvi_callees(
+        if isinstance(node, VINode) and node.id != node.vi_path:
+            qualified_name = graph.call_qualified_name(node)
+            if qualified_name:
+                callees.setdefault(qualified_name, node)
+        for name, call in _collect_subvi_callees(
             graph, graph.child_nodes(node.id, vi_name), vi_name
         ).items():
-            callees.setdefault(name, key)
+            callees.setdefault(name, call)
     return callees
 
 
@@ -365,13 +386,11 @@ def _collect_variable_dependencies(
     return global_vis, libraries
 
 
-def _get_subvi_description(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str | None:
-    """Get a short description for a SubVI."""
+def _get_subvi_description(recorded_path: str | None) -> str | None:
+    """A short description for a SubVI, from the catalog entry of the path its
+    call records."""
     resolver = _get_vilib_resolver()
-    entry = resolver.resolve_by_name(vi_name)
+    entry = resolver.resolve_recorded(recorded_path)
     if entry and entry.description:
         desc = entry.description
         if len(desc) > 100:
@@ -631,13 +650,21 @@ def _structure_word(node: AnyGraphNode) -> str:
     return f'{type_word} "{author}"' if author else type_word
 
 
-def _node_output_name(node: AnyGraphNode, term: Terminal) -> str:
-    """A node's output as a selector/stop wire's source: a local variable by
-    its control, any other node by its identity plus the terminal's name (the
-    bare node when it has one output and this terminal is unnamed)."""
+def _node_output_name(
+    graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
+) -> str:
+    """A node's output as a selector/stop wire's source: a reference constant
+    by what it references, a local variable by its control, any other node by
+    its identity plus the terminal's name (the bare node when it has one output
+    and this terminal is unnamed)."""
+    if is_reference_constant(node):
+        return reference_phrase(reference_target(graph, node))
     if isinstance(node, LocalVariableNode):
         return f"{node.control_name or node.display_name} (local variable)"
-    identity = node.display_name if node.name else _structure_word(node)
+    if isinstance(node, VINode):
+        identity = graph.call_qualified_name(node) or node.display_name
+    else:
+        identity = node.display_name if node.name else _structure_word(node)
     if label := _terminal_display_name(term):
         return f"{identity}.{label}"
     outputs = [t for t in node.terminals if t.direction == "output"]
@@ -679,12 +706,12 @@ def _name_traced_source(
     if traced.owner is not None and traced.term is not None:
         if isinstance(traced.owner, StructureNode):
             return _border_name(traced.owner, traced.term, traced.border)
-        return _node_output_name(traced.owner, traced.term)
+        return _node_output_name(graph, traced.owner, traced.term)
     if traced.element_net is not None:
         node = graph.get_graph_node(src.node_id)
         term = graph.get_terminal(src.terminal_id)
         if node is not None and term is not None:
-            return _node_output_name(node, term)
+            return _node_output_name(graph, node, term)
         return None
     if traced.boundary is not None:
         return traced.boundary.name
@@ -763,7 +790,10 @@ def _collect_structures(
                     constants,
                     node.stop_condition_terminal,
                 )
-                structures.append(f"{kind} (stops when {gated})" if gated else kind)
+                verb = (
+                    "continues while" if node.stop_condition_inverted else "stops when"
+                )
+                structures.append(f"{kind} ({verb} {gated})" if gated else kind)
             case SequenceNode():
                 structures.append(
                     f"{node.kind_word} sequence ({_frame_count(len(node.frames))})"
@@ -833,7 +863,9 @@ def _const_type_str(c: Constant) -> str:
 def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
     name = c.label or "(unnamed)"
-    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
+    item = c.lv_type.item_for(c.value) if c.lv_type else None
+    shown = f" ({item})" if item is not None else ""
+    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}{shown}"
 
 
 def _describe_label_line(lbl: Label) -> str:
@@ -1024,16 +1056,11 @@ def _describe_single_op(
     name = node.name or "unnamed"
 
     if isinstance(node, VINode):
-        # Class-qualified identity (``node.display_name`` -- owning_libraries
-        # chain + name, so a dispatch call reads its declaring parent class,
-        # e.g. ``TestResult.lvclass:addError.vi``). Unified with
-        # ``diff._elem_label``'s identical use of ``display_name`` for a
-        # SubVI-call node (verified empirically: identical text to the old
-        # ``node.qualified_name or name`` on every describe-exercising test
-        # and corpus VI checked, including a real dynamic-dispatch call --
-        # JKI-VI-Tester's ``loadTestsFromTestCase.vi`` calling
-        # ``TestCase.lvclass:listAllTestMethods.vi``).
-        label = node.display_name
+        # The called VI's qualified name, as the graph names that identity
+        # (``call_qualified_name``: the same text as the ``## Dependencies``
+        # entry), so a dispatch call reads its declaring parent class, e.g.
+        # ``TestResult.lvclass:addError.vi``.
+        label = graph.call_qualified_name(node) or node.display_name
         terms = graph.enriched_terminals(node, vi_name)
         named_inputs = [t.name for t in terms if t.direction == "input" and t.name]
         named_outputs = [t.name for t in terms if t.direction == "output" and t.name]

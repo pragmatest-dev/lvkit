@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 # Document a LabVIEW library
 
 ```bash
-lvkit docs "<library-path>" "<output-dir>" --search-path "<search-path>"
+lvkit docs "<library-path>" "<output-dir>"
 ```
 
 `<library-path>` is a `.vi`, `.lvlib`, `.lvclass`, or a directory.

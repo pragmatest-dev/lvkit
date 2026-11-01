@@ -12,14 +12,16 @@ self-contained **Python** function. The translation is mechanical — no AI
 interprets the algorithm — and the result needs no C compiler, no FFI, and
 no shared library: the generated module is pure Python that runs anywhere.
 LabVIEW numeric semantics (int/int real division, round-to-nearest-even on
-int assignment, fixed-width wrap) are reproduced via small ``lvkit.runtime.lv``
-helpers. See ``formula.emit`` for the mapping.
+int assignment, fixed-width wrap) are written inline as plain Python (``math``,
+``ctypes`` widths). See ``formula.emit`` for the mapping.
 """
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 
-class FormulaTranspileError(Exception):
+
+class FormulaTranspileError(ConversionGap):
     """Raised when a Formula Node script uses a construct we do not support.
 
     Carries 1-based line/column so the diagnostic points at the offending

@@ -13,8 +13,8 @@ import ast
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
-from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes.case import _generate_match_case, generate
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.lvnet_parse import _parse_case_frame_header
 from lvkit.graph.models import CaseStructureNode
 from lvkit.graph.op_walk import _selector_label, selector_frame_values
@@ -352,7 +352,7 @@ def test_a_case_with_no_known_selector_type_and_no_values_is_an_error() -> None:
         selector_terminal="sel",
         frames=[CaseFrame(selector_value="0"), CaseFrame(selector_value="1")],
     )
-    with pytest.raises(CodeGenError, match="selector type is unknown"):
+    with pytest.raises(ConversionGap, match="selector type is unknown"):
         generate(node, make_ctx("sel"))
 
 

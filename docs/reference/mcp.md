@@ -52,7 +52,7 @@ All take a `project` path (any file/dir inside the repo).
 
 | Tool | Description |
 |------|-------------|
-| `index` | Build/refresh the index for a repo (VIs and `.ctl` controls). A full build returns the VI count, `controls`, collisions handled, and ms; `refresh=true` returns `rebuilt`, `deleted`, `total`, `controls` and ms. |
+| `index` | Build/refresh the index for a repo (VIs and `.ctl` controls). A full build returns the VI count, `controls`, `loaded_alone` (VIs loaded on their own because the whole-project load did not produce them), and ms; `refresh=true` returns `rebuilt`, `deleted`, `total`, `controls` and ms. |
 | `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `node`, `type_use`, `type`, `type_field`, `type_item`, `vi_used_type`, `typedef`, `typedef_field`, `typedef_ref`, `typedef_use`, `typedef_type`, `class_fact`, `lvproj`. |
 | `query_schema` | List the views and their columns, so a query uses real column names. |
 
@@ -90,13 +90,13 @@ control — and loads it live (XML already cached) — no `load`/`clear` session
 
 | Tool | Description |
 |------|-------------|
-| `unresolved` | Every unknown primitive / unmapped vi.lib VI under a target (a VI, library, class, or directory), collected in one pass instead of hitting `PrimitiveResolutionNeeded`/`VILibResolutionNeeded` one at a time. Returns a list of `{kind, identifier, name, count, vi_names}` (`kind` is `unknown_primitive` / `unmapped_vilib` / `terminal_mapping`). See [SubVI & vi.lib resolution](subvi-resolution.md). |
+| `unresolved` | Every gap under a target (a VI, library, class, or directory): the same list `lvkit generate` warns about, collected in one pass. Returns `{items, status, problems}`; `items` is a list of `{kind, identifier, name, count, vi_names}` (`kind` is `unknown_primitive` / `placeholder_primitive` / `unsupported_node` / `unmapped_vilib` / `terminal_mapping` / `unknown_default` / `missing_vi` / `unsupported_vi`). See [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example — the project-understanding demo
 
 Against JKI VI Tester (487 VIs):
 
-1. `index(project="…/source")` → `{vis: 487, collisions: 65, ms: …}`.
+1. `index(project="…/source")` → `{vis: 491, loaded_alone: 0, ms: …}`.
 2. `query(project, sql="SELECT name, COUNT(*) AS n FROM terminal WHERE
    type_descriptor='Error' AND direction='output' GROUP BY name ORDER BY n DESC")` →
    *"what does this project call its error indicators?"* as a small histogram, in
@@ -128,3 +128,12 @@ Against JKI VI Tester (487 VIs):
 - [generate](generate.md) — the equivalent one-shot CLI conversion.
 - [setup](setup.md) — install AI-agent skills that pair with this server.
 - [vscode-extension](vscode-extension.md) — the VS Code extension that auto-registers this server with no config file.
+
+
+## Problems in every result
+
+Every tool returns its result plus `status` (`Complete`, `Partial` or `Stopped`)
+and `problems`, the full list of VIs that could not be read or were left out, the
+same list the command line prints (see [problems](problems.md)). A call fails
+only for a bad argument; if the one VI a tool is about cannot be read, the answer
+is `status: "Stopped"` and the problem that says why.

@@ -5,19 +5,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -31,38 +31,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "size (4096)",
           "type": "NumUInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "mask (16)",
           "type": "NumUInt16"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -76,39 +76,41 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "mask (16)",
-          "type": "NumUInt16"
+          "type": "NumUInt16",
+          "default": 16
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-flush-i-o-buffer.html"
     }
   }
 }

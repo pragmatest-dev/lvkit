@@ -100,7 +100,7 @@ def test_load_vi_accepts_every_vi_file_kind(fake_extraction: Path, name: str) ->
     assert graph.vi_display_name(key) == name
     stem = name.split(".")[0].lower()
     assert describe_vi(graph, key).splitlines()[:3] == [
-        f"# {path.resolve()}",
+        f"# {name}",
         "",
         f"  {stem}() -> None",
     ]

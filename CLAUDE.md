@@ -17,6 +17,8 @@ So: **NEVER tell the maintainer to "open it in LabVIEW", "click the node", "chec
 3. **Algorithm knowledge** (LZW, MD5, GIF, …) — reconstruct the VI's math and let it force the answer.
 4. **Deterministic deduction** from 1–3 (e.g. "an output compared against a code *count* must be count-scaled → `2^width` → Power Of 2, not log2").
 
+This rule governs how lvkit is DEVELOPED (by the maintainer and agents). lvkit's USERS own LabVIEW and their VIs, so text lvkit shows a user (a gap message, a hint) may tell them to open a VI in LabVIEW; that is not a clean-room breach.
+
 When stuck: do MORE of 1–4, or write a `"placeholder": true` primitive entry. Ask the maintainer to describe the *algorithm/domain* if needed — **never to inspect LabVIEW.** Also: ship ZERO NI-derived artwork (clean-room glyphs only).
 
 ## ⛔ VERIFY BEFORE CLAIMING — NEVER OFFLOAD THE CHECK TO THE MAINTAINER (READ THIS FIRST)
@@ -47,6 +49,30 @@ This is not "try harder." It is a hard gate: unverified → unsaid; unwritten co
 - **Investigation means:** parse/grep/read to find the real root cause and where the correct data actually lives in the pipeline. Report that. Then STOP and wait.
 - This is a hard gate, same standing as VERIFY BEFORE CLAIMING. Persisted in memory: `feedback_bugs_investigate_then_discuss`.
 - **Inside an APPROVED task, "done" means it ALL works — no trail of follow-on fixes.** A bug you hit while finishing an approved task (a regression it exposes, a failing check, a broken round-trip, a stale test) is part of that task: find the root cause AND fix it generically (the no-hard-coded rule above still applies), then report the finished result ONCE. Never end with "fixed X, found Y, didn't fix it". Ask only for a genuine design fork, once, with a recommendation. The investigate-then-wait gate above is for a standalone bug report. Persisted in memory: `feedback_done_means_no_trail`.
+
+## ⛔ GENERATED PYTHON IS NATIVE PYTHON — NO LABVIEW IN IT (READ THIS FIRST)
+
+The output of `generate` is a Python port, not LabVIEW running in Python. **It is a one-way conversion:** the generated code will never run with LabVIEW or lvkit again, so it is written as idiomatic, standalone Python a Python developer would maintain; LabVIEW's quirks and vocabulary are not preserved for their own sake. **Every connection is made at generation time and the generated code uses Python's own constructs:** a VI is a function; a subVI call or VI reference is an `import` and a direct call with keyword arguments; Open VI Reference resolved at generation time is an `import`; asynchronous calls are `concurrent.futures`; VI properties are reflection (`ref.__name__`, `inspect.getfile(ref)`); a LabVIEW class is a plain class; a queue is `queue.Queue`; array math is comprehensions/indexing/`len`/slices; flatten and Type Cast are `struct` calls with the types written out; a constant pattern is an `re` pattern; errors are ordinary Python exceptions; a call into a DLL is `ctypes` code written out in the module, every parameter packed into the C type the DLL takes the way Python does it (a LabVIEW string/array handle or Adapt to Type cluster is just a C layout: a `ctypes.Structure` and pointers, defined in the generated module); a call to LabVIEW's own functions (`LabVIEW:` FGetInfo …) is the Python equivalent (`os.stat` …).
+
+- **The generated package mirrors the project's folder hierarchy.** A VI's module path is its project-relative file path (each folder a package, the file stem the module, one fixed string transform). Paths are unique, so modules are unique: no flat output, no collision numbering. Generated code that computes a VI path at run time imports it with `importlib` by the same transform.
+- **Generated code imports nothing from `lvkit`.** No `lvkit.runtime`, no `lvkit.labview_error`, no `LabVIEWObject`, no `labview_queue`, no registry or table that re-implements LabVIEW at run time. A count of `lvkit` imports in the generated sample corpus only ever goes down.
+- A VI reference whose path is computed only at run time resolves against the project's VIs, listed at generation time: a plain dict in the generated module of the VIs matching the reference's connector pane, keyed by project-relative path. If the project has the VIs it works; if it has none, that node is a gap (below). What has no Python meaning is never emulated.
+- **ONE rule for every gap, across the whole generation process: warn at generation time, raise at run time.** A gap is anything generation cannot convert (unknown primitive or vi.lib VI, placeholder primitive, a property with no Python meaning, a library file not found, a VI reference with nothing to resolve to, …). Every gap goes through one mechanism: generation prints a warning naming the VI, the node and the reason (`lvkit unresolved` lists the same warnings), and the generated code raises `NotImplementedError("<reason>")` where the node would run, its outputs bound to `None`; a gap outside any node makes the VI's function body that `raise`. A run with gaps is a PARTIAL success and never looks like a full one: `generate` says so in its summary and exits with its own nonzero code (distinct from a stopped run), and every warning and every raise message carries enough detail (VI, node, kind, what was needed) for a person or an AI to finish the conversion. No per-site variant, no lvkit import, and no flag that changes what a gap generates; the one run option is `--fail-fast`, which stops the run at the first gap's warning (exit 1, the output is incomplete) for people who don't want to wait for a long run. Generation stops only for what makes the package itself unwritable (two files mapping to one module, a VI with no file and no recorded path) and for lvkit's own internal checks (a bug in lvkit, not a gap in the VI).
+- **Exit codes (every command):** 0 complete, 1 stopped or an lvkit error, 2 usage error (a bad flag, a missing input path, or an input that is not a VI), 3 partial (output written, with problems or gaps).
+- A brief or plan that adds a runtime helper for generated code must name why Python has no construct for it, and the maintainer approves it first. Any agent report that "differs from the plan" is stopped and brought to the maintainer.
+
+## ⛔ ONE RULE FOR PROBLEMS, IN EVERY COMMAND AND MCP TOOL (READ THIS FIRST)
+
+Every command (`index`, `render`, `docs`, `describe`, `generate`, `unresolved`, `callers`/`callees`/`blast-radius`, `query`, `diff`, …) and every MCP tool reports problems the same way (maintainer's decision, 2026-10-28):
+
+- **A problem with one VI never stops the run.** A VI that can't be extracted, parsed or built, or that fails in the view, is recorded and the command continues; the VI is shown as unreadable wherever it is referenced (for `generate`, a call to it is a gap).
+- **One record type and one reporter** (`lvkit/run_report.py`): each problem prints one warning line to stderr (VI path, stage, reason); pylabview's block warnings are captured into that VI's problem, not dumped raw; `generate`'s gaps go through the same reporter.
+- **One summary:** Complete / Partial / Stopped, with the FULL list, never cut off; `--format json` gives the same list.
+- **One set of exit codes** (above: 0 / 1 / 2 / 3), and `--fail-fast` on every command that processes many VIs.
+- **An empty answer says why:** an unknown VI is an error ("not found in the index", exit 1); a found VI with no results gives an empty result and a note on stderr.
+- **MCP tools** return their result plus the same problem list; a whole call fails only for bad arguments.
+- **An lvkit bug in one VI** is recorded as an lvkit error (with a hint to report it); the run continues and exits 1.
+- **Paths lvkit shows a user** (docs page names, warnings) are project-relative, or the recorded `<vilib>/…` path for a vi.lib VI; never an absolute path, the cache folder or a user name. The one exception is a problem about the cache itself (it can't be written), which names the cache folder as `~/…` so the user can fix it.
 
 ## ⛔ NO JARGON — SAY IT IN LABVIEW'S WORDS (READ THIS FIRST)
 
@@ -105,16 +131,16 @@ The conversion pipeline:
 
 ```bash
 # Single VI
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW class (.lvclass)
-python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyClass.lvclass" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # LabVIEW library (.lvlib)
-python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/MyLib.lvlib" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # Directory of VIs
-python scripts/generate_python.py "path/to/vi_folder/" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/vi_folder/" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 ```
 
 ## Error Handling Strategy
@@ -189,7 +215,7 @@ pylabview *accumulates* memory across VIs.)
 
 ## Adding New Primitives
 
-LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvkit/data/primitives.json`:
+LabVIEW primitives are identified by `primResID`. When `lvkit generate` warns about an unknown primitive (`lvkit unresolved` prints its diagnostic), add an entry to `src/lvkit/data/primitives.json`:
 
 ```json
 {
@@ -211,7 +237,7 @@ Use the caller's dataflow in the exception output to determine correct terminal 
 
 ## Adding New VILib VIs
 
-When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropriate `src/lvkit/data/vilib/<category>.json`. The exception output shows terminal names from XML and actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
+When `lvkit generate` warns about an unmapped vi.lib VI, add the VI to the appropriate `src/lvkit/data/vilib/<category>.json`. `lvkit unresolved` prints the terminal names from XML and the actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
 
 **Workflow:**
 1. Run the code generator; note the exception output
@@ -221,7 +247,7 @@ When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropri
 
 ## VILib Terminal Resolution Workflow
 
-When the code generator encounters a vilib VI with missing terminal indices, it raises a `VILibResolutionNeeded` exception. This is intentional - use the caller's dataflow info to fill in the missing indices.
+When the code generator encounters a vilib VI with missing terminal indices, it records a gap (a `VILibResolutionNeeded`, shown by `lvkit unresolved`) and the generated code raises `NotImplementedError` there. This is intentional - use the caller's dataflow info to fill in the missing indices.
 
 **Workflow:**
 1. Run the code generator (e.g., `scripts/generate_python.py`)
@@ -270,7 +296,7 @@ The "Wire types from dataflow" section shows what terminal indices the caller is
 
 ```bash
 # CORRECT - outputs go to outputs/ folder in the repo
-python scripts/generate_python.py "path/to/file.vi" -o outputs --search-path .lvkit/cache/samples/OpenG/extracted
+python scripts/generate_python.py "path/to/file.vi" -o outputs --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib"
 
 # WRONG - never use /tmp/
 python scripts/generate_python.py "path/to/file.vi" -o /tmp/test

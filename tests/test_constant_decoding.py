@@ -183,7 +183,9 @@ class TestPath:
         # _decode_element's Path branch: displays as an empty path, and its
         # OWN consumed byte count (not just the raw string) is now correct.
         _, v = _decode(data.hex(), _make_type(LVTypeKind.PRIMITIVE, "Path"))
-        assert v == 'Path("")'
+        # The record's path type is 0 (absolute): an absolute path with no
+        # component.
+        assert v == 'Path("/")'
 
     def test_real_path_with_components_unchanged(self):
         """Regression guard: a genuinely populated PTH0 record (ncomp>0,
@@ -202,7 +204,7 @@ class TestPath:
         assert len(data) == 122
         _, v = _decode(data.hex(), _make_type(LVTypeKind.PRIMITIVE, "Path"))
         assert v == (
-            'Path("C/Documents and Settings/Administrator/Desktop/Plugin Development/'
+            'Path("/C/Documents and Settings/Administrator/Desktop/Plugin Development/'
             'VI Tester Plugin/MyTestCase/testExample.vit")'
         )
 

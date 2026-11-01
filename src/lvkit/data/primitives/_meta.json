@@ -15,14 +15,14 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "appended array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "polymorphic",
           "expandable": true
@@ -36,44 +36,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "deleted portion",
           "type": "polymorphic",
           "dco_ref": "delDCO"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO4"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "numeric",
           "dco_ref": "lenDCO",
-          "default_value": "1"
+          "default_behavior": "one element"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
-          "default_value": "-1",
-          "per_dimension_of": 1
+          "per_dimension_of": 1,
+          "default_behavior": "last element"
         }
       ],
-      "op": "DELETE_FROM_ARRAY",
-      "imports": ["from lvkit.runtime import lv as _lv"]
+      "op": "DELETE_FROM_ARRAY"
     },
     "aIndx": {
       "name": "Index Array",
@@ -81,14 +80,14 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "polymorphic",
           "dco_ref": "dcoAgg",
@@ -97,18 +96,17 @@
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "per_dimension_of": 0,
-          "group": "indexed element"
+          "group": "indexed element",
+          "default": 0,
+          "later_set_default_behavior": "previous index + 1",
+          "later_dimension_default_behavior": "entire row or column"
         }
       ],
-      "op": "INDEX_ARRAY",
-      "imports": [
-        "from lvkit.runtime import lv as _lv"
-      ]
+      "op": "INDEX_ARRAY"
     },
     "aInit": {
       "name": "Initialize Array",
@@ -116,21 +114,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "polymorphic",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "initialized array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "numeric",
           "per_dimension_of": 1
@@ -144,28 +142,29 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO3"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
-          "per_dimension_of": 0
+          "per_dimension_of": 0,
+          "default_behavior": "append"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "polymorphic",
           "group": "new elements"
@@ -179,33 +178,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO2"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "polymorphic",
           "group": "replacement"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "per_dimension_of": 0,
-          "group": "replacement"
+          "group": "replacement",
+          "default": 0
         }
       ],
       "python_code": "array[:index] + [new_element_subarray] + array[index + 1:]"
@@ -216,21 +215,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "reshaped array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "numeric",
           "per_dimension_of": 1
@@ -244,42 +243,42 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "inArrDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "subarray",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "dco_ref": "dcoList",
           "expandable": true,
           "per_dimension_of": 0,
-          "group": "span"
+          "group": "span",
+          "default": 0
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "numeric",
-          "default_value": "None",
           "dco_ref": "lengthDCOList",
           "expandable": true,
           "per_dimension_of": 0,
-          "group": "span"
+          "group": "span",
+          "default_behavior": "rest"
         }
       ],
-      "python_code": "_lv.array_subset(array, index, length)"
+      "op": "ARRAY_SUBSET"
     },
     "cpdArith": {
       "name": "Compound Arithmetic",

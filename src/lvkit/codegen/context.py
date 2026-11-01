@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import ast
 import math
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.core import _uid_of
+from lvkit.graph.core import uid_of
 from lvkit.graph.models import (
     AnyGraphNode,
     Constant,
@@ -22,6 +23,7 @@ from lvkit.graph.models import (
     PrimitiveNode,
     SourceInfo,
     VIContext,
+    VINode,
 )
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
@@ -29,19 +31,33 @@ from lvkit.models import (
     Frame,
     LVType,
     LVTypeKind,
+    ScalarValue,
     Terminal,
+    TerminalDirection,
     Tunnel,
     TunnelTerminal,
     TypeNamer,
     unique_names,
 )
+from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.string_literal import quote_string
+from lvkit.vilib_resolver import VILibResolver
 
-from .ast_utils import parameter_names, to_function_name, to_var_name
-from .data_files import data_file_expression, holds_array_whole
-from .elementwise import LV_IMPORT
-from .errors import unwritable_value_error
+from .ast_utils import (
+    field_attribute_names,
+    interface_names,
+    to_function_name,
+    to_var_name,
+)
+from .class_model import member_reference, member_shape
+from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
+from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
-from .import_resolver import ImportResolver
+from .gaps import Gap, catch_entry_gap
+from .import_resolver import ImportResolver, NameImport
+from .local_indicators import LocalIndicators
+from .module_declarations import ModuleDeclarations
+from .references import REFERENCE_KINDS, generated_nodes
 
 
 @dataclass
@@ -68,6 +84,8 @@ class CodeGenContext:
     # Fully qualified name of the VI being generated (library + class +
     # name). Used in resolution diagnostics so an LLM can find the source.
     qualified_vi_name: str | None = None
+    # The name of the Python function this VI generates (what its callers call).
+    function_name: str = ""
     imports: set[str] = field(default_factory=set)
     # Imports of the classes and typedefs the module's annotations name. They are
     # needed only by a type checker, so the module imports them under
@@ -82,22 +100,21 @@ class CodeGenContext:
     # the error cluster there reads the caught error. None outside a handler,
     # where an error cluster is the no-error one.
     error_var: str | None = None
-    # When True, unknown primitives / vi.lib VIs do NOT raise — instead
-    # the codegen emits a `raise PrimitiveResolutionNeeded(...)` /
-    # `raise VILibResolutionNeeded(...)` statement inline in the generated
-    # Python. The same exception class, same fields, just deferred to
-    # runtime. Lets a downstream LLM see the diagnostic with full context
-    # and either write a mapping into .lvkit/ or replace the raise with a
-    # contextual fix.
-    soft_unresolved: bool = False
-    # When set to a list, every resolution gap (unknown primitive / unmapped
-    # vi.lib VI) is APPENDED to it as the constructed exception object, instead
-    # of (or in addition to) raising. `lvkit unresolved` drives a soft build
-    # with a sink to batch-collect every gap in one pass. Shared across child
-    # contexts so a gap nested in a loop/case is still collected.
-    unresolved_sink: list[Exception] | None = field(default=None, repr=False)
+    # Every gap found while generating this module (see ``gaps.py``). Shared
+    # across child contexts, so a gap nested in a loop or case is still listed.
+    gaps: list[Gap] = field(default_factory=list, repr=False)
+    # What generating this module has learned of the terminals of the vi.lib VIs it
+    # calls, kept in a copy of the vi.lib catalog that shares every entry it has
+    # not learned into (empty until a call needs it). The shared catalog is never
+    # changed, so what the views show does not depend on which VIs were generated
+    # before. A module's function contexts share it; two modules do not.
+    learned_vilib: list[VILibResolver] = field(default_factory=list, repr=False)
+    # The raises of what the function evaluates when it is entered and cannot
+    # be written (a constant with no value to write); the body starts with them.
+    entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
     # Files the generated module reads at run time (an array too large to write
-    # into the module), by file name; the caller writes them beside the module.
+    # into the module, a library of a Call Library Function Node), by path from
+    # the module's folder; the caller writes each there.
     # None when the caller has nowhere to put them. ``module_stem`` prefixes
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
@@ -106,10 +123,13 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
-    # Variable names bound to array-typed values. A final codegen pass uses
-    # this to broadcast operators over operands that turned out to be arrays
-    # even after single-use expression inlining.
-    array_vars: set[str] = field(default_factory=set, repr=False)
+    # Output tunnel (outer terminal id) -> the variable that is its merge.
+    _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
+    # Variable names bound to array-typed values, with each array's dimension
+    # count. A final codegen pass uses this to write operators over operands
+    # that turned out to be arrays as comprehensions, even after single-use
+    # expression inlining.
+    array_vars: dict[str, int] = field(default_factory=dict, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
@@ -119,6 +139,13 @@ class CodeGenContext:
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
     formula_helpers: list[ast.stmt] = field(default_factory=list)
+    # The names of the flatten / unflatten / byte-swap functions generated for
+    # this module (keyed by function kind, byte order and type), so a type that
+    # recurs is written once. Shared across child contexts like formula_helpers.
+    flat_functions: dict[tuple, str] = field(default_factory=dict, repr=False)
+    # The module-level ``ctypes`` code of Call Library Function Nodes (libraries,
+    # prototypes, structures); shared across child contexts.
+    module_declarations: ModuleDeclarations = field(default_factory=ModuleDeclarations)
     # Module-level global variables for persistent per-call-site state:
     # uninitialized shift registers (LV2/functional-global idiom — see
     # codegen/nodes/loop.py) and stateful primitives like First Call?
@@ -129,6 +156,14 @@ class CodeGenContext:
     # the VI function, sorted by name — dict/set iteration order is not
     # a name, so insertion order alone would not be byte-reproducible.
     module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # Nodes that lie on a cycle of the wires of one structure level, found by
+    # the dependency sort, with why. One dict per module, shared by child contexts.
+    circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
+    # The indicators a Local Variable reads, as variables of the function. One
+    # per function, shared by child contexts.
+    local_indicators: LocalIndicators = field(
+        default_factory=LocalIndicators, repr=False
+    )
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -170,6 +205,12 @@ class CodeGenContext:
             self.imports.update(fragment.imports)
         return stmts
 
+    def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks the VI ``node`` calls up by."""
+        if self.graph is None:
+            return node.qualified_path
+        return self.graph.catalog_path(node)
+
     def is_wired(self, terminal_id: str) -> bool:
         """Check if a terminal has any edge connected."""
         if self.graph is None:
@@ -181,8 +222,11 @@ class CodeGenContext:
         if self.graph is not None:
             self.graph.set_var_name(terminal_id, var_name)
 
-    def resolve(self, terminal_id: str) -> str | None:
+    def resolve(self, terminal_id: str, *, allow_none: bool = False) -> str | None:
         """Get variable name for a terminal by walking the graph.
+
+        A source bound to ``None`` (a constant that is a gap) counts as no
+        variable, unless ``allow_none`` accepts it.
 
         BFS through incoming edges until a terminal with var_name is found.
         One graph. No separate bindings dict. No scoping issues. The walk stays
@@ -204,7 +248,7 @@ class CodeGenContext:
 
             # Check var_name on this terminal
             var = self.graph.get_var_name(tid)
-            if var and var != "None":
+            if var and (allow_none or var != "None"):
                 return var
 
             # Walk incoming edges
@@ -216,6 +260,42 @@ class CodeGenContext:
                     queue.append(src.terminal_id)
 
         return None
+
+    def wired_input(
+        self, terminal_id: str, node: AnyGraphNode, label: str | int | None = None
+    ) -> str | None:
+        """The expression feeding input terminal ``terminal_id`` of ``node``.
+
+        None when the terminal is unwired, or it or the terminal feeding it
+        carries an error cluster (errors are exceptions, so it has no value).
+        A source that is a gap constant is bound to ``None``, so a wire from it
+        reads ``"None"``: its function raises where it starts. A wired input
+        with no variable at all is a bug in lvkit and raises ``CodeGenError``
+        naming where the wire comes from; ``label`` names the input in the
+        message, else its own name or index does. A wire counts when it comes
+        from the terminal's own VI."""
+        value = self.resolve(terminal_id)
+        if value is not None:
+            return value
+        if self.graph is None:
+            return None
+        terminal = next((t for t in node.terminals if t.id == terminal_id), None)
+        if (
+            not self.graph.terminal_is_fed(terminal_id)
+            or (terminal is not None and terminal.is_error_cluster)
+            or self.graph.terminal_fed_by_error_cluster(terminal_id)
+        ):
+            return None
+        value = self.resolve(terminal_id, allow_none=True)
+        if value is None:
+            if label is None:
+                label = terminal.name or terminal.index if terminal else terminal_id
+            raise CodeGenError(
+                f"The wired input {label!r} of {node.name!r} has no variable "
+                f"(from {self.graph.terminal_sources_description(terminal_id)})",
+                node,
+            )
+        return value
 
     def var_name_in_use(self, name: str) -> bool:
         """Check if a variable name is already bound in this context.
@@ -302,7 +382,6 @@ class CodeGenContext:
                 # This terminal IS a tunnel inner — derive name from outer
                 name = self.output_tunnel_var_name(term.paired_id, dest.node_id)
                 if name:
-                    self._allocated_vars.add(name)
                     return name
 
         return None
@@ -310,10 +389,27 @@ class CodeGenContext:
     def output_tunnel_var_name(
         self, outer_id: str, structure_node_id: str
     ) -> str | None:
-        """Variable name for a structure output tunnel's merge, derived from
-        its outer terminal: the downstream consumer's name, else the outer
-        terminal's own name. ``None`` when neither is named — the caller then
-        picks a fallback.
+        """Variable name for a structure output tunnel's merge: the name derived
+        from its outer terminal (see ``_derived_tunnel_name``), made unique like
+        every other variable the first time the tunnel is named, and the same
+        for every later caller. ``None`` when the tunnel has no name."""
+        claimed = self._tunnel_var_names.get(outer_id)
+        if claimed is not None:
+            return claimed
+        name = self._derived_tunnel_name(outer_id, structure_node_id)
+        if name is None:
+            return None
+        if name in self._allocated_vars:
+            suffix = outer_id.split("::")[-1]
+            name = f"{name}_{suffix}"
+        self._allocated_vars.add(name)
+        self._tunnel_var_names[outer_id] = name
+        return name
+
+    def _derived_tunnel_name(self, outer_id: str, structure_node_id: str) -> str | None:
+        """The name of a structure output tunnel's merge, derived from its outer
+        terminal: the downstream consumer's name, else the outer terminal's own
+        name. ``None`` when neither is named — the caller then picks a fallback.
 
         A case output tunnel is a MERGE: one outer terminal, one inner per
         frame. All of a frame's producers and the case generator resolve the
@@ -393,7 +489,11 @@ class CodeGenContext:
         graph."""
         if self.graph is None:
             return []
-        return self.graph.child_nodes(node.id, self.vi_name or "")
+        return generated_nodes(
+            self.graph.child_nodes(
+                node.id, self.vi_name or "", extra_kinds=REFERENCE_KINDS
+            )
+        )
 
     def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
         """``node``'s terminals with SubVI-call terminals enriched with the
@@ -467,13 +567,22 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
-            soft_unresolved=self.soft_unresolved,
-            unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass
+            gaps=self.gaps,  # Shared — one list per module
+            local_indicators=self.local_indicators,
+            circular_nodes=self.circular_nodes,  # Shared — one dict per module
+            learned_vilib=self.learned_vilib,  # Shared — one per module
+            entry_raises=self.entry_raises,  # Shared — one list per function
+            data_files=self.data_files,  # Shared — one dict per module
+            module_stem=self.module_stem,
+            function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            _tunnel_var_names=self._tunnel_var_names,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
+            flat_functions=self.flat_functions,  # Shared — one dict
+            module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
             _body_generator=self._body_generator,
         )
@@ -498,17 +607,41 @@ class CodeGenContext:
         else:
             self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
 
-    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
-        """Import the function of a VI and return the name this module calls it
-        by. ``callee_key`` is the VI's identity (a call node's ``callee_key``);
-        a VI named without one (a VI reference constant) is found by name."""
+    def function_import(
+        self, vi_name: str, callee_key: str | None = None
+    ) -> NameImport:
+        """The import of the function of a VI and the name a module calls it by.
+        ``callee_key`` is the VI's identity (a call node's ``callee_key``); a VI
+        named without one (a VI reference constant) is found by name."""
         if isinstance(self.import_resolver, ImportResolver):
-            imported = self.import_resolver.function(vi_name, callee_key)
-            self.add_import(imported.statement)
-            return imported.name
+            return self.import_resolver.function(vi_name, callee_key)
         function = to_function_name(vi_name)
-        self.add_import(f"from .{function} import {function}")
-        return function
+        return NameImport(f"from .{function} import {function}", function)
+
+    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
+        """Import the function of a VI at the top of the module and return the
+        name this module calls it by."""
+        imported = self.function_import(vi_name, callee_key)
+        self.add_import(imported.statement)
+        return imported.name
+
+    def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
+        """The expression a reference to a VI is: its function, imported, or, for
+        a VI of a class, ``Class.method`` (the class imported; for an accessor VI
+        the getter or setter of its property)."""
+        shape = (
+            member_shape(self.graph, key)
+            if self.graph is not None and key is not None
+            else None
+        )
+        if shape is None or not isinstance(self.import_resolver, ImportResolver):
+            return self.import_function(vi_name, key)
+        assert self.graph is not None
+        expression, statement = member_reference(
+            self.graph, shape, self.import_resolver, self.vi_name
+        )
+        self.add_import(statement)
+        return expression
 
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
@@ -525,13 +658,14 @@ class CodeGenContext:
             and lv_type.underlying_type == "VIRefnum"
             and isinstance(const.value, str)
         ):
-            return self.import_function(const.value, const.referenced_vi_key)
+            return self.vi_reference_expression(const.value, const.referenced_vi_key)
         if const.unwritable is not None:
-            self.add_import(LV_IMPORT)
+            for statement in DATA_FILE_IMPORTS.splitlines():
+                self.add_import(statement)
             return data_file_expression(
                 what="constant",
                 name=const.label,
-                uid=_uid_of(const.id),
+                uid=uid_of(const.id),
                 module_stem=self.module_stem,
                 unwritable=const.unwritable,
                 lv_type=lv_type,
@@ -569,6 +703,15 @@ class CodeGenContext:
                 targets=[ast.Name(id=name, ctx=ast.Store())],
                 value=value,
             )
+
+    def add_module_function(self, func_def: ast.FunctionDef) -> None:
+        """Register a module-level helper function, emitted above the VI function.
+        Idempotent by name."""
+        if not any(
+            isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name
+            for stmt in self.formula_helpers
+        ):
+            self.formula_helpers.append(func_def)
 
     @classmethod
     def from_graph(
@@ -614,7 +757,7 @@ class CodeGenContext:
                 vi_path="test.vi",
                 name=nid,
                 terminals=[
-                    Terminal(id=tid, index=i, direction="output")
+                    Terminal(id=tid, index=i, direction=TerminalDirection.OUTPUT)
                     for i, tid in enumerate(sorted(tids))
                 ],
             )
@@ -639,7 +782,11 @@ class CodeGenContext:
                         id=nid,
                         vi_path="test.vi",
                         name=nid,
-                        terminals=[Terminal(id=tid, index=0, direction="output")],
+                        terminals=[
+                            Terminal(
+                                id=tid, index=0, direction=TerminalDirection.OUTPUT
+                            )
+                        ],
                     )
                     graph._graph.add_node(nid, node=node)
                     graph._term_to_node[tid] = nid
@@ -658,6 +805,8 @@ class CodeGenContext:
         import_resolver: ImportResolver | None = None,
         data_files: dict[str, bytes] | None = None,
         module_stem: str = "",
+        vi_name: str | None = None,
+        gaps: list[Gap] | None = None,
     ) -> CodeGenContext:
         """Create context from VIContext.
 
@@ -676,6 +825,8 @@ class CodeGenContext:
             import_resolver=import_resolver,
             data_files=data_files,
             module_stem=module_stem,
+            vi_name=vi_name,
+            gaps=gaps if gaps is not None else [],
         )
 
         _bind_inputs_and_constants(ctx, parameters, vi_context.constants)
@@ -714,7 +865,7 @@ class CodeGenContext:
                 vi_path="test.vi",
                 name=nid,
                 terminals=[
-                    Terminal(id=tid, index=0, direction="output"),
+                    Terminal(id=tid, index=0, direction=TerminalDirection.OUTPUT),
                 ],
             )
             graph._graph.add_node(nid, node=node)
@@ -733,7 +884,7 @@ def _bind_inputs_and_constants(
     Shared by from_graph() and from_vi_context(). Skips error cluster
     inputs (Python uses exceptions instead).
     """
-    names = parameter_names([i for i in inputs if i.id])
+    names = interface_names([i for i in inputs if i.id], [], [], []).parameters
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
             var = names[inp.id]
@@ -743,10 +894,13 @@ def _bind_inputs_and_constants(
             # primitive outputs) — an array parameter is just as array-valued.
             lv_type = getattr(inp, "lv_type", None)
             if lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
-                ctx.array_vars.add(var)
+                ctx.array_vars[var] = lv_type.dimensions or 1
     for const in constants:
         if const.id:
-            bound = ctx.constant_expression(const)
+            with catch_entry_gap(ctx, const.label) as entry:
+                bound = ctx.constant_expression(const)
+            if entry.failed:
+                bound = "None"
             ctx.bind(const.id, bound)
             if _needs_simplenamespace(bound):
                 ctx.add_import(_SIMPLENAMESPACE_IMPORT)
@@ -761,25 +915,46 @@ def _python_float_constant(value: float) -> str:
     return repr(value)
 
 
-class _NonFiniteNames(ast.NodeTransformer):
-    """The parser renders aggregate float elements with ``str(float)``, so NaN
-    and infinity arrive as bare ``nan``/``inf`` names inside the literal."""
+class _PathText(str):
+    """A path inside an aggregate constant's literal, held as its path text."""
+
+
+class _AggregateNames(ast.NodeTransformer):
+    """The parser renders aggregate elements as text: NaN and infinity arrive as
+    bare ``nan``/``inf`` names, and a path as its path text (``Path("/a")``,
+    ``NotAPath``), inside the literal."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
 
     def visit_Name(self, node: ast.Name) -> ast.AST:
         if node.id in ("nan", "inf"):
             return ast.Constant(value=float(node.id))
+        if node.id == NOT_A_PATH:
+            return ast.Constant(value=_PathText(NOT_A_PATH))
         return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        segment = ast.get_source_segment(self.text, node)
+        if segment is not None and parse_path(segment) is not None:
+            return ast.Constant(value=_PathText(segment))
+        return self.generic_visit(node)
 
 
 def _literal_eval(text: str) -> object:
-    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf``."""
-    tree = _NonFiniteNames().visit(ast.parse(text, mode="eval"))
-    return ast.literal_eval(tree)
+    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf`` and
+    path texts."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        tree = ast.parse(text, mode="eval")
+    return ast.literal_eval(_AggregateNames(text).visit(tree))
 
 
 def _python_literal(value: object) -> str:
     """``repr`` for constant values, recursing into lists/tuples/dicts so nested
     NaN and infinity stay executable."""
+    if isinstance(value, _PathText):
+        return python_path(value) or "None"
     if isinstance(value, float):
         return _python_float_constant(value)
     if isinstance(value, list):
@@ -874,7 +1049,12 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         elts = ", ".join(v for _name, v in ordered)
         trailing = "," if len(ordered) == 1 else ""
         return f"({elts}{trailing})"
-    kwargs = ", ".join(f"{to_var_name(name)}={v}" for name, v in ordered)
+    kwargs = ", ".join(
+        f"{attribute}={v}"
+        for attribute, (_name, v) in zip(
+            field_attribute_names(f.name for f in fields), ordered, strict=True
+        )
+    )
     return f"SimpleNamespace({kwargs})"
 
 
@@ -909,6 +1089,29 @@ def enum_member_constant(
         return None
 
 
+def terminal_default_expression(default: ScalarValue, type_name: str | None) -> str:
+    """The Python expression for the default a catalog terminal documents, through
+    the same conversion a constant of its type goes through. ``type_name`` is the
+    catalog's type word; it only tells a path (written as path text) from a
+    string, the value's own Python type gives the rest."""
+    if (type_name or "").lower() == "path":
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+        text: ScalarValue = default
+    elif isinstance(default, bool):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+        text = str(default)
+    elif isinstance(default, int):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        text = str(default)
+    elif isinstance(default, float):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+        text = str(default)
+    else:
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+        text = quote_string(str(default))
+    return _format_constant(Constant(id="default", value=text, lv_type=lv_type))
+
+
 def _format_constant(
     const: Constant | ConstantNode, names: TypeNamer | None = None
 ) -> str:
@@ -931,9 +1134,10 @@ def _format_constant(
 
     # Cluster constant: emit a mutable attribute object so Bundle/Unbundle By
     # Name (which read and write ``.field``) operate on it. A named/typedef
-    # cluster uses attribute access with field names matched to nmux's
-    # ``to_var_name(field.name)``; an anonymous cluster (no field names) is a
-    # positional tuple, the representation nmux uses for anonymous clusters.
+    # cluster uses attribute access with the names ``field_attribute_names``
+    # gives its fields, the ones Bundle/Unbundle By Name use; an anonymous cluster
+    # (no field names) is a positional tuple, the representation nmux uses for
+    # anonymous clusters.
     if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
         cluster_expr = _format_cluster_constant(const)
         if cluster_expr is not None:
@@ -963,10 +1167,11 @@ def _format_constant(
     if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
-        # The parser already hands path constants back as a ``Path("…")``
-        # expression (parser/vi.py); don't double-wrap it into Path('Path("…")').
-        if isinstance(value, str) and value.startswith("Path("):
-            return value
+        # The parser hands a path constant back as its path text.
+        if isinstance(value, str):
+            expression = python_path(value)
+            if expression is not None:
+                return expression
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)

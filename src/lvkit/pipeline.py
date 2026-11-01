@@ -7,39 +7,52 @@ Scripts and CLI commands delegate to :func:`generate_python`.
 from __future__ import annotations
 
 import ast
+import os
 import re
 import shutil
 import sys
-import textwrap
 import traceback
-from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvkit.codegen import ClassBuilder, ClassConfig, build_module
+from lvkit.cache_paths import project_root
+from lvkit.codegen import build_module
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
     to_function_name,
-    to_module_name,
     unique_names,
 )
 from lvkit.codegen.error_path import is_error_wire_vi
+from lvkit.codegen.errors import MissingVIError
 from lvkit.codegen.errors_module import (
     ERRORS_MODULE_NAME,
     ERRORS_MODULE_SOURCE,
     LABVIEW_ERROR_NAME,
 )
+from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
+from lvkit.library_folders import Folders, SearchEntries
+from lvkit.long_paths import display_path, extended_length, too_long_to_import
+from lvkit.module_layout import ModuleLayout
+from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
-from lvkit.structure import parse_lvclass
-from lvkit.type_names import ROOT_CLASS, derive_python_name
-from lvkit.vi_files import strip_vi_extension
+from lvkit.run_report import (
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunProblems,
+    RunSettings,
+    RunStopped,
+    problem_for_exception,
+)
+from lvkit.type_names import derive_python_name
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -53,7 +66,6 @@ class GenerationResult:
 
     vilib: int = 0
     ast: int = 0
-    stub: int = 0
     error: int = 0
     generated: list[tuple[str, Path | None, str]] = field(default_factory=list)
 
@@ -64,132 +76,44 @@ class GenerationResult:
 
 
 def _write_syntax_error(
-    module_name: str,
+    module_path: Path,
     code: str,
     error: SyntaxError,
-    output_dir: Path,
     vi_name: str,
     generated: list[tuple[str, Path | None, str]],
+    graph: InMemoryVIGraph,
 ) -> None:
-    """Write a .error.py file for a SyntaxError during generation."""
-    error_path = output_dir / f"{module_name}.error.py"
+    """Write a .error.py file beside the module for a SyntaxError during
+    generation."""
+    error_path = module_path.with_suffix(".error.py")
     error_path.write_text(f"# SYNTAX ERROR: {error}\n\n{code}", encoding="utf-8")
     print(f"         -> SYNTAX ERROR: {error_path.name}")
+    _record_failure(graph, vi_name, error)
     generated.append((vi_name, error_path, "error"))
-
-
-def _sanitize_lib_name(name: str) -> str:
-    """Sanitize a library/class name to a valid Python package name."""
-    result = name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    return result
-
-
-def to_library_name(
-    vi_name: str,
-    graph: InMemoryVIGraph | None = None,
-    vilib_resolver: VILibResolver | None = None,
-) -> str | None:
-    """Determine output subdirectory from VI library membership.
-
-    Uses the graph's metadata (library, qualified_name) when available,
-    falls back to parsing the VI name string.
-
-    Returns None for top-level VIs with no library membership — these
-    go in the output root directory.
-
-    Examples:
-        "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "graphicaltestrunner"
-        "MyClass.lvclass:Init.vi" -> "myclass"
-        "Build Path__ogtk.vi" -> "openg"
-        "DAQmx Start Task.vi" (vilib impl) -> "vilib"
-        "In.vi" (no library) -> None  (output root)
-    """
-    # 1. Check graph metadata for library membership
-    if graph is not None:
-        meta = graph._vi_metadata.get(vi_name)
-        library = meta.library if meta else None
-        if library:
-            return _sanitize_lib_name(library) or None
-
-    # 2. Check qualified name in VI name string (lvlib or lvclass prefix)
-    if ".lvlib:" in vi_name:
-        library = vi_name.split(":")[0].replace(".lvlib", "")
-        return _sanitize_lib_name(library) or None
-    elif ".lvclass:" in vi_name:
-        library = vi_name.split(":")[0].replace(".lvclass", "")
-        return _sanitize_lib_name(library) or None
-
-    # 3. OpenG naming convention
-    if "__ogtk" in vi_name:
-        return "openg"
-
-    # 4. Known vilib implementation — goes under vilib/
-    if vilib_resolver is not None and hasattr(vilib_resolver, "has_implementation"):
-        if vilib_resolver.has_implementation(vi_name):
-            return "vilib"
-
-    # 5. No library membership — top-level output root
-    return None
 
 
 # The dependency nodes that have a generated module.
 _MODULE_NODE_TYPES = (NodeType.VI, NodeType.CLASS, NodeType.TYPEDEF)
 
 
-def module_stem(vi_name: str, graph: InMemoryVIGraph | None = None) -> str:
-    """The module name of a VI from its own name, qualified by its class or
-    library when it has one (``TestCase.lvclass:run.vi`` -> ``testcaselvclass_run``)
-    -- never from the file's location. ``vi_name`` may be a graph key (a path)."""
-    display = graph.vi_display_name(vi_name) if graph is not None else vi_name
-    return to_module_name(display.replace(":", "_"))
+def _as_given(path: Path, written_dir: Path, given_dir: Path) -> Path:
+    """``path``, a file under ``written_dir`` (the output folder in the form the
+    files are written through), in the form the caller gave the output folder:
+    ``given_dir`` joined with the part below it."""
+    return given_dir / display_path(path).relative_to(display_path(written_dir))
 
 
-def unique_module_stems(
-    keys: list[str],
-    graph: InMemoryVIGraph | None = None,
-    reserved: Collection[str] = (),
-) -> dict[str, str]:
-    """A module name for each key, distinct across ``keys`` and from every
-    ``reserved`` name (the package folders): two VIs that share a name get
-    ``_2``, ``_3``... in the order of ``keys``."""
-    held = sorted(reserved)
-    stems = unique_names([*held, *(module_stem(k, graph) for k in keys)])
-    return dict(zip(keys, stems[len(held) :], strict=True))
-
-
-def get_output_path(
-    output_dir: Path,
-    vi_name: str,
-    create_dirs: bool = True,
-    graph: InMemoryVIGraph | None = None,
-    vilib_resolver: VILibResolver | None = None,
-    module_name: str | None = None,
-) -> tuple[Path, str | None]:
-    """Get output path and library name for a VI.
-
-    Returns (path, library_name) where path includes library subdirectory
-    if the VI belongs to a library, or the output root if it doesn't. The
-    module is named ``module_name``, else from the VI's own name
-    (:func:`module_stem`).
-    """
-    if module_name is None:
-        module_name = module_stem(vi_name, graph)
-    library_name = to_library_name(vi_name, graph=graph, vilib_resolver=vilib_resolver)
-
-    if library_name:
-        lib_dir = output_dir / library_name
-        if create_dirs:
-            lib_dir.mkdir(parents=True, exist_ok=True)
-            # Ensure library __init__.py exists
-            init_path = lib_dir / "__init__.py"
-            if not init_path.exists():
-                init_path.write_text(
-                    f'"""Package for {library_name} library."""\n', encoding="utf-8"
-                )
-        return (lib_dir / f"{module_name}.py", library_name)
-    else:
-        return (output_dir / f"{module_name}.py", None)
+def _ensure_packages(path: Path, output_dir: Path) -> None:
+    """Create the package folders above ``path`` (each with an ``__init__.py``)."""
+    folder = path.parent
+    while folder != output_dir and output_dir in folder.parents:
+        folder.mkdir(parents=True, exist_ok=True)
+        init_path = folder / "__init__.py"
+        if not init_path.exists():
+            init_path.write_text(
+                f'"""Package for {folder.name}."""\n', encoding="utf-8"
+            )
+        folder = folder.parent
 
 
 def create_import_resolver(
@@ -201,6 +125,8 @@ def create_import_resolver(
     graph: InMemoryVIGraph | None = None,
     vilib_resolver: VILibResolver | None = None,
     defined_names: Collection[str] = (),
+    package_modules: PackageModules | None = None,
+    layout: ModuleLayout | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -217,6 +143,12 @@ def create_import_resolver(
         vilib_resolver: VILib resolver for vilib membership check
         defined_names: Class names the module defines itself; an import of the
             same derived name gets an alias.
+        package_modules: The package's shared state; with it, a VI that obtains a
+            queue by a constant name, or uses a Shared Variable, imports it from
+            the module that defines it at the output root.
+        layout: Where every module lives; gives the package of an owner (a
+            library or class) for generated code that imports a VI by a name it
+            computes.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -226,36 +158,50 @@ def create_import_resolver(
 
     caller_dir = caller_path.parent
 
+    def shown(key: str) -> str | None:
+        """The path a message names the VI at ``key`` by: the one that places its
+        module (project-relative, or the installation path its caller recorded)."""
+        if layout is not None:
+            return layout.display_path(key)
+        return graph.recorded_path(key) if graph is not None else None
+
     def locate_by_name(vi_name: str) -> Path:
         """The output file of a VI known only by name: a vi.lib VI, or a VI
         reference constant (which names its VI by name). A call of a project VI
         is never found this way -- it is found by its key, and a call that has
         none stops code generation first."""
-        names_graph: InMemoryVIGraph | None = graph
         qualified = vi_name
         if graph is not None:
             try:
                 qualified = graph.resolve_vi_name(vi_name) or vi_name
             except AmbiguousVIReferenceError:
-                names_graph = None
-        if qualified in vi_paths:
-            return vi_paths[qualified]
-        if vi_name in vi_paths:
-            return vi_paths[vi_name]
-        dep_path, _ = get_output_path(
-            output_dir,
-            qualified,
-            create_dirs=False,
-            graph=names_graph,
-            vilib_resolver=vilib_resolver,
+                pass
+        for key in (qualified, vi_name):
+            if key in vi_paths:
+                return found(key, vi_name)
+        raise MissingVIError(
+            vi_name,
+            shown(qualified),
+            graph.stub_reason(qualified) if graph is not None else None,
         )
-        return dep_path
+
+    def found(key: str, name: str) -> Path:
+        """The output file of the VI at ``key``; a VI the graph holds only as a
+        stub, with no implementation of its own, was not found."""
+        implemented = (
+            vilib_resolver is not None
+            and graph is not None
+            and vilib_resolver.has_python(graph.recorded_path(key))
+        )
+        if graph is not None and graph.is_stub(key) and not implemented:
+            raise MissingVIError(name, shown(key), graph.stub_reason(key))
+        return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
         """The output file of the VI a call names: the one generated for
         ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
         if callee_key is not None and callee_key in vi_paths:
-            return vi_paths[callee_key]
+            return found(callee_key, subvi_name)
         return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
@@ -267,9 +213,9 @@ def create_import_resolver(
         return "." * (depth + 1), ".".join(below_root[:-1]), below_root[-1]
 
     # The name each imported class, typedef or function is spelled as in this
-    # module, by the identity of its node (its file path; the root class has no
-    # file). Two with the same derived name, or one with the name of what the
-    # module defines, are told apart by an alias.
+    # module, by the identity of its node (its file path). Two with the same
+    # derived name, or one with the name of what the module defines, are told
+    # apart by an alias.
     spelled: dict[str, str] = {}
     taken = set(defined_names)
     if caller_key is not None:
@@ -298,34 +244,71 @@ def create_import_resolver(
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 
     def node_import(key: str) -> NameImport:
+        derived = derive_python_name(Path(key).name)
+        if vi_paths[key] == caller_path:
+            return NameImport("", derived)
         dots, package, module = relative(vi_paths[key])
         dotted = f"{package}.{module}" if package else module
-        derived = derive_python_name(Path(key).name)
         name = spell(key, derived)
         alias = "" if name == derived else f" as {name}"
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
-    def type_import(type_ref: str) -> NameImport | None:
-        if type_ref == ROOT_CLASS:
-            derived = derive_python_name(ROOT_CLASS)
-            name = spell(ROOT_CLASS, derived)
-            alias = "" if name == derived else f" as {name}"
-            return NameImport(
-                f"from lvkit.runtime.labview_object import {derived}{alias}", name
-            )
-        if graph is None or caller_key is None:
+    def names_import(key: str, names: Collection[str]) -> str:
+        """The statement importing ``names`` from the module generated for the
+        class or VI at ``key``; empty for the module being generated."""
+        if vi_paths[key] == caller_path:
+            return ""
+        dots, package, module = relative(vi_paths[key])
+        dotted = f"{package}.{module}" if package else module
+        return f"from {dots}{dotted} import {', '.join(sorted(names))}"
+
+    def type_import(type_ref: str, scope: str | None) -> NameImport | None:
+        lookup_key = scope or caller_key
+        if graph is None or lookup_key is None:
             return None
-        key = graph.type_key(type_ref, caller_key)
+        key = graph.type_key(type_ref, lookup_key)
         if key is None or key not in vi_paths:
             return None
         return node_import(key)
+
+    def package_spec(key: str) -> str:
+        """The start of the relative import spec of a module in the package that
+        holds the file ``key``: the dots, then each package and a dot."""
+        folder = output_dir.joinpath(*(layout.packages_of(key) if layout else ()))
+        depth = len(caller_dir.relative_to(output_dir).parts)
+        below_root = folder.relative_to(output_dir).parts
+        return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
+
+    def project_file(folder: Path, source: Path) -> str | None:
+        """Where ``source``, a file at or below the project ``folder``, sits from
+        the calling module's folder once copied into the package: below the
+        package ``folder`` is generated as, under its own names."""
+        placed = layout.placed_folder(folder) if layout else None
+        if placed is None:
+            return None
+        target = output_dir.joinpath(*placed, *source.relative_to(folder).parts)
+        return Path(os.path.relpath(target, caller_dir)).as_posix()
 
     def error_import() -> str:
         dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
         return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
 
+    def root_module_import(stem: str, alias: str) -> ModuleImport:
+        depth = len(caller_dir.relative_to(output_dir).parts)
+        return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
+
     return ImportResolver(
-        function_import, module_import, type_import, node_import, error_import
+        function_import,
+        module_import,
+        type_import,
+        node_import,
+        error_import,
+        package_spec,
+        package_modules,
+        root_module_import,
+        project_file,
+        shown,
+        names_import,
     )
 
 
@@ -356,10 +339,51 @@ def _write_errors_module(package_root: Path) -> None:
         )
 
 
+def _warn_unimportable_paths(package_root: Path) -> None:
+    """Warn once when a written module is at a path Python cannot import on this
+    machine (a path over 260 characters while Windows long paths are off)."""
+    longest = too_long_to_import(sorted(package_root.rglob("*.py")))
+    if longest:
+        path = display_path(longest[0])
+        print(
+            f"warning: {len(longest)} generated modules are at paths over "
+            f"Windows' 260-character limit (the longest is {len(str(path))} "
+            f"characters: {path}). Python cannot import them from a normal "
+            "path: enable Windows long paths, or generate into a shorter "
+            "output folder.",
+            file=sys.stderr,
+        )
+
+
 def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
-    """Write the files a generated module reads at run time beside the module."""
+    """Write the files a generated module reads at run time, each at its path from
+    the module's folder."""
     for name, content in data_files.items():
-        (folder / name).write_bytes(content)
+        target = Path(os.path.normpath(folder / name))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+
+def _report_gaps(
+    vi_gaps: list[Gap], all_gaps: list[Gap], graph: InMemoryVIGraph
+) -> None:
+    """Put every gap of a VI that was written on the VI's node (which announces
+    its warning), and keep them."""
+    if graph.run_settings.gaps_are_problems:
+        for gap in vi_gaps:
+            graph.record_problem(gap.vi, gap_problem(gap, graph))
+    all_gaps.extend(vi_gaps)
+
+
+def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> None:
+    """Record that generating ``vi_name`` failed with ``exc``; an lvkit error also
+    prints its traceback, the same in every command."""
+    problem = problem_for_exception(
+        graph.key_label(vi_name), ProblemStage.GENERATE, exc
+    )
+    graph.record_problem(vi_name, problem)
+    if problem.kind is ProblemKind.LVKIT_ERROR:
+        traceback.print_exception(exc)
 
 
 def _generate_polymorphic_module(
@@ -370,11 +394,14 @@ def _generate_polymorphic_module(
     package_name: str,
     output_dir: Path,
     vi_paths: dict[str, Path],
-    soft_unresolved: bool = False,
+    layout: ModuleLayout,
     data_files: dict[str, bytes] | None = None,
+    package_modules: PackageModules | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
-    variants read at run time are added to ``data_files``."""
+    variants read at run time are added to ``data_files``, and the gaps found in
+    the variants to ``gaps``."""
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
@@ -403,62 +430,58 @@ def _generate_polymorphic_module(
         func_name = to_function_name(Path(variant_name).name)
         variant_funcs.append(func_name)
 
-        try:
-            import_resolver = create_import_resolver(
-                package_name,
-                output_dir,
-                vi_paths,
-                vi_paths[wrapper_name],
-                caller_key=graph.resolve_vi_name(variant_name),
-                graph=graph,
-                vilib_resolver=vilib_resolver,
-            )
-            code = build_module(
-                vi_context,
-                vi_name=variant_name,
-                import_resolver=import_resolver,
-                graph=graph,
-                soft_unresolved=soft_unresolved,
-                data_files=data_files,
-            )
-            # Take the function and result class; collect imports the body needs
-            # into the shared header rather than dropping them.
-            tree = ast.parse(code)
-            for node in tree.body:
-                if isinstance(node, ast.ClassDef):
-                    lines.append("")
-                    lines.append(ast.unparse(node))
-                    variant_result_classes.append(node.name)
-                elif isinstance(node, ast.FunctionDef):
-                    lines.append("")
-                    lines.append(ast.unparse(node))
-                elif isinstance(node, (ast.Import, ast.ImportFrom)):
-                    imp = ast.unparse(node)
-                    if imp not in _header:
-                        variant_imports.add(imp)
-                elif isinstance(node, ast.If):
-                    variant_annotation_imports.update(
-                        ast.unparse(stmt) for stmt in node.body
-                    )
-
-            # Collect inputs/outputs for union signature
-            for inp in vi_context.inputs:
-                idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
-                if idx not in all_inputs:
-                    all_inputs[idx] = inp
-            for out in vi_context.outputs:
-                idx = getattr(
-                    out,
-                    "slot_index",
-                    getattr(out, "index", len(all_outputs)),
+        import_resolver = create_import_resolver(
+            package_name,
+            output_dir,
+            vi_paths,
+            vi_paths[wrapper_name],
+            caller_key=variant_name,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
+            package_modules=package_modules,
+            layout=layout,
+        )
+        code = build_module(
+            vi_context,
+            vi_name=variant_name,
+            import_resolver=import_resolver,
+            graph=graph,
+            data_files=data_files,
+            gaps=gaps,
+        )
+        # Take the function and result class; collect imports the body needs
+        # into the shared header rather than dropping them.
+        tree = ast.parse(code)
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                lines.append("")
+                lines.append(ast.unparse(node))
+                variant_result_classes.append(node.name)
+            elif isinstance(node, ast.FunctionDef):
+                lines.append("")
+                lines.append(ast.unparse(node))
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                imp = ast.unparse(node)
+                if imp not in _header:
+                    variant_imports.add(imp)
+            elif isinstance(node, ast.If):
+                variant_annotation_imports.update(
+                    ast.unparse(stmt) for stmt in node.body
                 )
-                if idx not in all_outputs:
-                    all_outputs[idx] = out
 
-        except Exception as e:  # noqa: BLE001 — per-variant; continue to next variant on failure
-            # Comment out all lines of the error message
-            error_msg = textwrap.indent(str(e), "# ")
-            lines.append(f"# ERROR generating {variant_name}:\n{error_msg}")
+        # Collect inputs/outputs for union signature
+        for inp in vi_context.inputs:
+            idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
+            if idx not in all_inputs:
+                all_inputs[idx] = inp
+        for out in vi_context.outputs:
+            idx = getattr(
+                out,
+                "slot_index",
+                getattr(out, "index", len(all_outputs)),
+            )
+            if idx not in all_outputs:
+                all_outputs[idx] = out
 
     # A variant that calls a SIBLING variant emits an import for it as a
     # separate module — but siblings are DEFINED inline in this same module, and
@@ -564,38 +587,45 @@ def _generate_polymorphic_module(
 def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
-    soft_unresolved: bool = False,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
+    run: RunProblems | None = None,
 ) -> dict:
     """Generate Python from VI files.
 
     Args:
         input_path: Path to .vi, .lvlib, .lvclass, or directory
         output_dir: Output directory for generated Python
-        search_paths: Additional paths for SubVI resolution
         mode: dependency depth (``LoadMode``). Codegen defaults to ``FULL`` (the
             whole SubVI/class-method tree); ``NONE`` generates this VI only.
-        soft_unresolved: When True, unknown primitives / vi.lib VIs are
-            emitted as inline `raise` statements instead of failing the
-            build. See build_module() docstring for details.
         vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
         userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
+        instrlib_root: Path to LabVIEW instr.lib on disk for <instrlib> resolution
+        run: The run's problems (``run_report.py``). Each gap and each VI
+            that cannot be written is recorded on its VI's node and collected in
+            it; with ``fail_fast`` on, the run ends at the first problem.
 
     Returns:
-        Summary dict with keys: vilib, ast, stub, error counts
+        Summary dict with keys: vilib, ast, error, failed counts and
+        ``gaps``, the list of ``Gap`` records.
+        ``output_dir``, ``vi_paths`` and ``generated`` are in the form the
+        caller gave ``output_dir``. On Windows with long paths off, open a file
+        deeper than 260 characters through ``lvkit.long_paths.extended_length``.
     """
     input_path = Path(input_path)
     output_dir_root = Path(output_dir)
+    run = run or RunProblems(RunSettings(echo=True, root=project_root(input_path)))
 
     # Create VI-named subfolder within output directory
     vi_folder_name = input_path.stem
     vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
     vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
 
-    output_dir_resolved = output_dir_root / vi_folder_name
+    output_dir_given = output_dir_root / vi_folder_name
+    output_dir_resolved = extended_length(output_dir_given)
 
     # Clean output directory
     if output_dir_resolved.exists():
@@ -604,43 +634,43 @@ def generate_python(
 
     print(f"Loading: {input_path}")
 
-    graph = InMemoryVIGraph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    search_path_list = list(search_paths) if search_paths else []
+    graph = run.new_graph()
+    if vilib_root or userlib_root or instrlib_root or search_path:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+            search_path=search_path,
+        )
+    graph.set_catalog_stop(True)
 
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
         graph.load_lvclass(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".lvlib":
         graph.load_lvlib(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".ctl":
-        graph.load_typedef(input_path, search_paths=search_path_list or None)
+        graph.load_typedef(input_path)
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.is_dir():
         graph.load_directory(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     else:
         graph.load_vi(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
 
     # Every command that parses a VI warms the index — generate parses the whole
@@ -649,63 +679,89 @@ def generate_python(
 
     warm_all_loaded(graph)
 
+    vilib_resolver = get_vilib_resolver()
+
+    def catalog_gives_python(key: str) -> bool:
+        return vilib_resolver.has_python(graph.recorded_path(key))
+
     # A library only scopes its members: it has no module, and nothing imports it.
+    # Where the catalog gives Python for a VI, what only it calls is no part of
+    # the output, except a VI the user asked for by naming its folder or file.
+    reached = graph.keys_reached_without_entering(
+        catalog_gives_python, graph.keys_loaded_from(input_path)
+    )
     order = [
         key
         for key in graph.get_conversion_order()
-        if graph.node_type(key) in _MODULE_NODE_TYPES
+        if graph.node_type(key) in _MODULE_NODE_TYPES and key in reached
     ]
     print(f"\nConversion order ({len(order)} VIs):")
 
-    vilib_resolver = get_vilib_resolver()
-    library_folders = {
-        folder
-        for key in order
-        if (folder := to_library_name(key, graph=graph, vilib_resolver=vilib_resolver))
+    # The VIs a class lists are methods of its one Python class, in the module of
+    # the class file: they have no module of their own.
+    class_of_member: dict[str, str] = {
+        member: class_key
+        for class_key in order
+        if graph.node_type(class_key) is NodeType.CLASS and not graph.is_stub(class_key)
+        for member in graph.class_member_keys(class_key)
     }
-    module_names = unique_module_stems(
-        order, graph, reserved={*library_folders, ERRORS_MODULE_NAME}
+
+    # Identify polymorphic groups (from VI metadata, not heuristics). A group
+    # whose polymorphic VI a class lists has no wrapper module: its variants are
+    # members, or modules of their own.
+    poly_groups = {
+        wrapper: variants
+        for wrapper, variants in graph.get_polymorphic_groups().items()
+        if wrapper not in class_of_member
+    }
+
+    # A variant the catalog gives a module for (a full implementation) is that
+    # module; every other variant (its own diagram, or a catalog inline template)
+    # has no module of its own: a diagram is written in its wrapper's module, if
+    # at all, and a template at its call sites.
+    poly_variants: set[str] = {
+        v
+        for variants in poly_groups.values()
+        for v in variants
+        if not vilib_resolver.has_implementation(graph.recorded_path(v))
+    }
+    # The variants that get code are the ones the VIs written from their diagrams
+    # use, which includes the variants those variants use.
+    poly_groups = variants_to_generate(
+        graph,
+        vilib_resolver,
+        poly_groups,
+        written={
+            key
+            for key in order
+            if graph.node_type(key) is NodeType.VI
+            and not graph.is_stub(key)
+            and not catalog_gives_python(key)
+            and key not in poly_variants
+            and key not in poly_groups
+        },
     )
 
-    # Identify polymorphic groups (from VI metadata, not heuristics)
-    poly_groups = graph.get_polymorphic_groups()
+    # Every module lives at the project-relative path of its file.
+    layout = ModuleLayout(
+        graph,
+        order,
+        project_root(input_path),
+        shared=frozenset(poly_variants) | frozenset(class_of_member),
+        reserved=[ERRORS_MODULE_NAME],
+    )
+    package_modules = PackageModules.from_graph(
+        graph, order, reserved={*layout.root_names, ERRORS_MODULE_NAME}
+    )
+    vi_paths: dict[str, Path] = {
+        key: output_dir_resolved.joinpath(*place.packages) / f"{place.module}.py"
+        for key, place in layout.places.items()
+    }
 
-    # Structural fallback: detect polymorphic groups by finding VIs whose
-    # names follow the pattern "Base (Variant)". Group them under the base
-    # name even if the wrapper VI isn't in the conversion order.
-    _variant_candidates: dict[str, list[str]] = defaultdict(list)
-    for vi_name in order:
-        if vi_name in poly_groups:
-            continue
-        name_no_ext = strip_vi_extension(vi_name)
-        if "(" in name_no_ext and ")" in name_no_ext:
-            # Extract base: "Filter (Array)__sfx" -> "Filter__sfx"
-            paren_start = name_no_ext.index("(")
-            paren_end = name_no_ext.rindex(")")
-            base_part = name_no_ext[:paren_start].rstrip()
-            suffix_part = name_no_ext[paren_end + 1 :]
-            wrapper_name = base_part + suffix_part + ".vi"
-            _variant_candidates[wrapper_name].append(vi_name)
-    for wrapper_name, variants in _variant_candidates.items():
-        if len(variants) >= 2 and wrapper_name not in poly_groups:
-            poly_groups[wrapper_name] = variants
-
-    poly_variants: set[str] = set()
-    for variants in poly_groups.values():
-        poly_variants.update(variants)
-
-    # Pre-compute all output paths for import resolution
-    vi_paths: dict[str, Path] = {}
-    for vi_name in order:
-        path, _ = get_output_path(
-            output_dir_resolved,
-            vi_name,
-            create_dirs=False,
-            graph=graph,
-            vilib_resolver=vilib_resolver,
-            module_name=module_names[vi_name],
-        )
-        vi_paths[vi_name] = path
+    # A method's module is its class's
+    for member, class_key in class_of_member.items():
+        if class_key in vi_paths:
+            vi_paths[member] = vi_paths[class_key]
 
     # Redirect polymorphic variant paths to their wrapper's path
     for wrapper_name, variants in poly_groups.items():
@@ -715,271 +771,265 @@ def generate_python(
                 vi_paths[variant_name] = wrapper_path
 
     generated: list[tuple[str, Path | None, str]] = []
+    all_gaps: list[Gap] = []
 
-    for i, vi_name in enumerate(order, 1):
-        # Skip variants - they'll be generated with their wrapper
-        if vi_name in poly_variants:
-            print(f"  [{i}/{len(order)}] {vi_name}")
-            print("         -> (included in polymorphic wrapper)")
-            continue
-
-        is_stub = graph.is_stub(vi_name)
-        has_vilib = vilib_resolver.has_implementation(vi_name)
-        has_inline = vilib_resolver.has_inline(vi_name)
-
-        print(f"  [{i}/{len(order)}] {vi_name}")
-
-        if has_inline or is_error_wire_vi(vi_name, vilib_resolver):
-            # Skip - inlined at call sites by AST builder
-            print("         -> (inlined at call sites)")
-            continue
-
-        # Check polymorphic wrappers early - skip if all variants are inlined
-        if vi_name in poly_groups:
-            variants = poly_groups[vi_name]
-            all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
-            if all_inlined:
-                print("         -> (polymorphic, all variants inlined)")
+    try:
+        for i, vi_name in enumerate(order, 1):
+            if vi_name in class_of_member:
+                print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
+                print("         -> (method of its class)")
                 continue
 
-        # Only create directory structure when we're actually going to write a file
-        output_path, library_name = get_output_path(
-            output_dir_resolved,
-            vi_name,
-            graph=graph,
-            vilib_resolver=vilib_resolver,
-            module_name=module_names[vi_name],
-        )
-        module_name = module_names[vi_name]
+            # Skip variants - they'll be generated with their wrapper
+            if vi_name in poly_variants:
+                print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
+                print("         -> (included in polymorphic wrapper)")
+                continue
 
-        if has_vilib:
-            # Generate vilib/openg implementation
-            code = vilib_resolver.get_implementation(vi_name) or ""
-            output_path.write_text(code, encoding="utf-8")
-            print(f"         -> vilib: {output_path.name}")
-            generated.append((vi_name, output_path, "vilib"))
+            is_stub = graph.is_stub(vi_name)
+            # The catalog decides from the path the callers record, whether or
+            # not the VI's file is loaded: a VI it gives Python for is generated
+            # from that, never from its diagram.
+            recorded = graph.recorded_path(vi_name)
+            has_vilib = vilib_resolver.has_python(recorded)
+            has_inline = has_vilib and vilib_resolver.has_inline(recorded)
 
-        elif is_stub:
-            # Generate stub
-            func_name = to_function_name(vi_name)
-            code = f'''"""Stub: {vi_name}."""
-from __future__ import annotations
-from typing import Any
+            print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
 
-def {func_name}(*args, **kwargs) -> Any:
-    raise NotImplementedError("{vi_name}")
-'''
-            output_path.write_text(code, encoding="utf-8")
-            print(f"         -> stub: {output_path.name}")
-            generated.append((vi_name, output_path, "stub"))
+            if has_inline or is_error_wire_vi(recorded, vilib_resolver):
+                # Skip - inlined at call sites by AST builder
+                print("         -> (inlined at call sites)")
+                continue
 
-        elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
-            try:
-                code = build_type_module(
-                    graph,
+            # A polymorphic wrapper with no variant to generate has no module
+            if vi_name in poly_groups and not poly_groups[vi_name]:
+                print("         -> (polymorphic, every called variant is catalog)")
+                continue
+
+            if vi_name in layout.unplaced:
+                graph.record_problem(
                     vi_name,
-                    create_import_resolver(
+                    Problem(
+                        vi=graph.key_label(vi_name),
+                        stage=ProblemStage.GENERATE,
+                        kind=ProblemKind.UNWRITABLE,
+                        reason=str(layout.unplaced[vi_name]),
+                    ),
+                )
+                print(f"         -> FAILED: {layout.unplaced[vi_name]}")
+                generated.append((vi_name, None, "failed"))
+                continue
+
+            # Only create directory structure when we're actually going to write a file
+            output_path = vi_paths[vi_name]
+            vi_gaps = GapLog(graph)
+            _ensure_packages(output_path, output_dir_resolved)
+
+            if has_vilib:
+                # Generate vilib/openg implementation
+                code = vilib_resolver.get_implementation(recorded) or ""
+                output_path.write_text(code, encoding="utf-8")
+                print(f"         -> vilib: {output_path.name}")
+                generated.append((vi_name, output_path, "vilib"))
+
+            elif is_stub:
+                # Not found: nothing to write. Each call of it is a gap.
+                print("         -> (not found: no module)")
+                continue
+
+            elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
+                try:
+                    data_files: dict[str, bytes] = {}
+                    code = build_type_module(
+                        graph,
+                        vi_name,
+                        create_import_resolver(
+                            vi_folder_name,
+                            output_dir_resolved,
+                            vi_paths,
+                            output_path,
+                            caller_key=_type_definition_scope(graph, vi_name),
+                            graph=graph,
+                            vilib_resolver=vilib_resolver,
+                            defined_names=[derive_python_name(Path(vi_name).name)],
+                            package_modules=package_modules,
+                            layout=layout,
+                        ),
+                        gaps=vi_gaps,
+                        data_files=data_files,
+                    )
+                    ast.parse(code)
+                    output_path.write_text(code, encoding="utf-8")
+                    _write_data_files(output_path.parent, data_files)
+                    _report_gaps(vi_gaps, all_gaps, graph)
+                    print(f"         -> type: {output_path.name}")
+                    generated.append((vi_name, output_path, "ast"))
+                except Exception as e:  # noqa: BLE001 — per-type; keep generating remaining modules
+                    _record_failure(graph, vi_name, e)
+                    error_path = output_path.with_suffix(".error.py")
+                    error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
+                    print(f"         -> FAILED: {e}")
+                    generated.append((vi_name, error_path, "error"))
+
+            elif vi_name in poly_groups:
+                # Generate polymorphic module with all variants
+                # (all_inlined was checked above; only reach here if not all inlined)
+                variants = poly_groups[vi_name]
+                code = ""
+                try:
+                    data_files: dict[str, bytes] = {}
+                    code = _generate_polymorphic_module(
+                        vi_name,
+                        variants,
+                        graph,
+                        vilib_resolver,
+                        vi_folder_name,
+                        output_dir_resolved,
+                        vi_paths,
+                        layout,
+                        data_files=data_files,
+                        package_modules=package_modules,
+                        gaps=vi_gaps,
+                    )
+                    ast.parse(code)  # Validate syntax
+                    output_path.write_text(code, encoding="utf-8")
+                    _write_data_files(output_path.parent, data_files)
+                    _report_gaps(vi_gaps, all_gaps, graph)
+                    print(
+                        f"         -> polymorphic: {output_path.name}"
+                        f" ({len(variants)} variants)"
+                    )
+                    generated.append((vi_name, output_path, "ast"))
+                except SyntaxError as e:
+                    _write_syntax_error(output_path, code, e, vi_name, generated, graph)
+                except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
+                    _record_failure(graph, vi_name, e)
+                    print(f"         -> FAILED: {e}")
+                    generated.append((vi_name, None, "failed"))
+
+            else:
+                # Use AST builder for regular VIs
+                vi_context = graph.get_vi_context(vi_name)
+                code = ""
+
+                try:
+                    import_resolver = create_import_resolver(
                         vi_folder_name,
                         output_dir_resolved,
                         vi_paths,
                         output_path,
-                        caller_key=_type_definition_scope(graph, vi_name),
+                        caller_key=vi_name,
                         graph=graph,
                         vilib_resolver=vilib_resolver,
-                        defined_names=[derive_python_name(Path(vi_name).name)],
-                    ),
+                        package_modules=package_modules,
+                        layout=layout,
+                    )
+                    data_files: dict[str, bytes] = {}
+                    code = build_module(
+                        vi_context,
+                        vi_name,
+                        import_resolver=import_resolver,
+                        graph=graph,
+                        data_files=data_files,
+                        gaps=vi_gaps,
+                    )
+
+                    # Validate syntax
+                    ast.parse(code)
+                    output_path.write_text(code, encoding="utf-8")
+                    _write_data_files(output_path.parent, data_files)
+                    _report_gaps(vi_gaps, all_gaps, graph)
+                    print(f"         -> AST: {output_path.name}")
+                    generated.append((vi_name, output_path, "ast"))
+
+                except SyntaxError as e:
+                    _write_syntax_error(output_path, code, e, vi_name, generated, graph)
+
+                except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
+                    _record_failure(graph, vi_name, e)
+                    error_path = output_path.with_suffix(".error.py")
+                    error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
+                    print(f"         -> FAILED: {e}")
+                    generated.append((vi_name, error_path, "error"))
+
+        # Generate polymorphic wrappers for structurally-detected groups
+        # whose wrapper VI wasn't in the conversion order
+        for wrapper_name, variants in poly_groups.items():
+            if not variants:
+                continue
+            wrapper_path = vi_paths.get(wrapper_name)
+            if not wrapper_path:
+                place = layout.place_beside(wrapper_name, variants)
+                wrapper_path = output_dir_resolved.joinpath(*place.packages) / (
+                    f"{place.module}.py"
                 )
-                ast.parse(code)
-                output_path.write_text(code, encoding="utf-8")
-                print(f"         -> type: {output_path.name}")
-                generated.append((vi_name, output_path, "ast"))
-            except Exception as e:  # noqa: BLE001 — per-type; keep generating remaining modules
-                error_path = output_dir_resolved / f"{module_name}.error.py"
-                error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
-                print(f"         -> FAILED: {e}")
-                generated.append((vi_name, error_path, "error"))
+                vi_paths[wrapper_name] = wrapper_path
+            if not wrapper_path.exists():
+                try:
+                    _ensure_packages(wrapper_path, output_dir_resolved)
+                    data_files: dict[str, bytes] = {}
+                    wrapper_gaps = GapLog(graph)
+                    code = _generate_polymorphic_module(
+                        wrapper_name,
+                        variants,
+                        graph,
+                        vilib_resolver,
+                        vi_folder_name,
+                        output_dir_resolved,
+                        vi_paths,
+                        layout,
+                        data_files=data_files,
+                        package_modules=package_modules,
+                        gaps=wrapper_gaps,
+                    )
+                    ast.parse(code)
+                    wrapper_path.write_text(code, encoding="utf-8")
+                    _write_data_files(wrapper_path.parent, data_files)
+                    _report_gaps(wrapper_gaps, all_gaps, graph)
+                    generated.append((wrapper_name, wrapper_path, "ast"))
+                except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
+                    _record_failure(graph, wrapper_name, e)
+                    print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
 
-        elif vi_name in poly_groups:
-            # Generate polymorphic module with all variants
-            # (already checked all_inlined above - only reach here if not all inlined)
-            variants = poly_groups[vi_name]
-            code = ""
-            try:
-                data_files: dict[str, bytes] = {}
-                code = _generate_polymorphic_module(
-                    vi_name,
-                    variants,
-                    graph,
-                    vilib_resolver,
-                    vi_folder_name,
-                    output_dir_resolved,
-                    vi_paths,
-                    soft_unresolved=soft_unresolved,
-                    data_files=data_files,
-                )
-                ast.parse(code)  # Validate syntax
-                output_path.write_text(code, encoding="utf-8")
-                _write_data_files(output_path.parent, data_files)
-                print(
-                    f"         -> polymorphic: {output_path.name}"
-                    f" ({len(variants)} variants)"
-                )
-                generated.append((vi_name, output_path, "ast"))
-            except SyntaxError as e:
-                _write_syntax_error(
-                    module_name,
-                    code,
-                    e,
-                    output_dir_resolved,
-                    vi_name,
-                    generated,
-                )
-            except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
-                print(f"         -> FAILED: {e}")
-                traceback.print_exc()
-                generated.append((vi_name, None, "failed"))
+        # Generate minimal __init__.py (just makes it a package)
+        init_path = output_dir_resolved / "__init__.py"
+        if not init_path.exists():
+            init_path.write_text('"""Generated package."""\n', encoding="utf-8")
 
-        else:
-            # Use AST builder for regular VIs
-            vi_context = graph.get_vi_context(vi_name)
-            code = ""
-
-            try:
-                import_resolver = create_import_resolver(
-                    vi_folder_name,
-                    output_dir_resolved,
-                    vi_paths,
-                    output_path,
-                    caller_key=vi_name,
-                    graph=graph,
-                    vilib_resolver=vilib_resolver,
-                )
-                data_files: dict[str, bytes] = {}
-                code = build_module(
-                    vi_context,
-                    vi_name,
-                    import_resolver=import_resolver,
-                    graph=graph,
-                    soft_unresolved=soft_unresolved,
-                    data_files=data_files,
-                )
-
-                # Validate syntax
-                ast.parse(code)
-                output_path.write_text(code, encoding="utf-8")
-                _write_data_files(output_path.parent, data_files)
-                print(f"         -> AST: {output_path.name}")
-                generated.append((vi_name, output_path, "ast"))
-
-            except SyntaxError as e:
-                _write_syntax_error(
-                    module_name,
-                    code,
-                    e,
-                    output_dir_resolved,
-                    vi_name,
-                    generated,
-                )
-
-            except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
-                error_path = output_dir_resolved / f"{module_name}.error.py"
-                error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
-                print(f"         -> FAILED: {e}")
-                generated.append((vi_name, error_path, "error"))
-
-    # Generate polymorphic wrappers for structurally-detected groups
-    # whose wrapper VI wasn't in the conversion order
-    for wrapper_name, variants in poly_groups.items():
-        wrapper_path = vi_paths.get(wrapper_name)
-        if not wrapper_path:
-            module_names[wrapper_name] = unique_names(
-                [*module_names.values(), module_stem(wrapper_name, graph)]
-            )[-1]
-            wrapper_path, _ = get_output_path(
-                output_dir_resolved,
-                wrapper_name,
-                graph=graph,
-                vilib_resolver=vilib_resolver,
-                module_name=module_names[wrapper_name],
-            )
-            vi_paths[wrapper_name] = wrapper_path
-        if not wrapper_path.exists():
-            try:
-                wrapper_path.parent.mkdir(parents=True, exist_ok=True)
-                data_files: dict[str, bytes] = {}
-                code = _generate_polymorphic_module(
-                    wrapper_name,
-                    variants,
-                    graph,
-                    vilib_resolver,
-                    vi_folder_name,
-                    output_dir_resolved,
-                    vi_paths,
-                    soft_unresolved=soft_unresolved,
-                    data_files=data_files,
-                )
-                ast.parse(code)
-                wrapper_path.write_text(code, encoding="utf-8")
-                _write_data_files(wrapper_path.parent, data_files)
-                generated.append((wrapper_name, wrapper_path, "ast"))
-            except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
-                print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
-                traceback.print_exc()
-
-    # Generate minimal __init__.py (just makes it a package)
-    init_path = output_dir_resolved / "__init__.py"
-    if not init_path.exists():
-        init_path.write_text('"""Generated package."""\n', encoding="utf-8")
-
-    # Generate class wrapper if input was an lvclass
-    if input_path.suffix.lower() == ".lvclass":
-        lvclass = parse_lvclass(input_path)
-
-        # Get method contexts from graph
-        method_contexts = {}
-        for method in lvclass.methods:
-            qualified_name = f"{lvclass.name}.lvclass:{method.name}.vi"
-            ctx = graph.get_vi_context(qualified_name)
-            if ctx.inputs or ctx.outputs or graph.top_level_nodes(qualified_name):
-                method_contexts[method.name] = ctx
-
-        # Build class wrapper with context lookup for SubVI resolution
-        class_path = output_dir_resolved / (to_module_name(lvclass.name) + ".py")
-        import_resolver = create_import_resolver(
-            vi_folder_name,
-            output_dir_resolved,
-            vi_paths,
-            class_path,
-            graph=graph,
-            vilib_resolver=vilib_resolver,
-        )
-        builder = ClassBuilder(config=ClassConfig())
-        module = builder.build_class_module(
-            lvclass,
-            method_contexts,
-            import_resolver=import_resolver,
-            graph=graph,
-        )
-        ast.fix_missing_locations(module)
-        class_code = ast.unparse(module)
-
-        # Write class file
-        class_path.write_text(class_code, encoding="utf-8")
-        print(f"\nGenerated class wrapper: {class_path.name}")
+    except RunStopped as stop:
+        print("Stopped at the first problem (--fail-fast): the output is incomplete.")
+        generated.append((stop.problem.vi, None, "failed"))
 
     _write_errors_module(output_dir_resolved)
+    for written in package_modules.write(output_dir_resolved):
+        print(f"\nGenerated shared module: {written.name}")
 
-    print(f"\nOutput: {output_dir_resolved}")
+    _warn_unimportable_paths(output_dir_resolved)
+    print(f"\nOutput: {display_path(output_dir_resolved)}")
 
     vilib_count = sum(1 for _, _, s in generated if s == "vilib")
     ast_count = sum(1 for _, _, s in generated if s == "ast")
-    stub_count = sum(1 for _, _, s in generated if s == "stub")
     error_count = sum(1 for _, _, s in generated if s == "error")
+    failed_count = sum(1 for _, _, s in generated if s == "failed")
 
     print(f"  vilib: {vilib_count}")
     print(f"  ast:   {ast_count}")
-    print(f"  stub:  {stub_count}")
     print(f"  error: {error_count}")
+    print(f"  failed: {failed_count}")
+    print(f"  gaps:  {len(all_gaps)}")
+    gap_vis = len({gap.vi for gap in all_gaps})
+    if error_count or failed_count:
+        print(
+            f"Stopped: {error_count + failed_count} VI(s) could not be written"
+            f" ({ast_count} generated, {gap_vis} with gaps)"
+        )
+    elif all_gaps:
+        print(
+            f"Partial: {ast_count} VIs generated, {gap_vis} with gaps"
+            f" ({len(all_gaps)} gaps) — see warnings"
+        )
+    else:
+        print(f"Complete: {ast_count} VIs generated, no gaps")
 
     if error_count > 0:
         store = find_project_store()
@@ -1004,12 +1054,26 @@ def {func_name}(*args, **kwargs) -> Any:
     return {
         "vilib": vilib_count,
         "ast": ast_count,
-        "stub": stub_count,
         "error": error_count,
-        "generated": generated,
-        "output_dir": output_dir_resolved,
+        "failed": failed_count,
+        "gaps": all_gaps,
+        "generated": [
+            (
+                name,
+                None
+                if path is None
+                else _as_given(path, output_dir_resolved, output_dir_given),
+                status,
+            )
+            for name, path, status in generated
+        ],
+        "output_dir": output_dir_given,
         "graph": graph,
         "vilib_resolver": vilib_resolver,
-        "vi_paths": vi_paths,
+        "vi_paths": {
+            key: _as_given(path, output_dir_resolved, output_dir_given)
+            for key, path in vi_paths.items()
+        },
+        "layout": layout,
         "vi_folder_name": vi_folder_name,
     }

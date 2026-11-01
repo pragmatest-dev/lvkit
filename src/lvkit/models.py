@@ -16,7 +16,6 @@ subclasses are the single source of truth for node structure.
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
@@ -25,8 +24,16 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
-from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
+from .lv_type_codes import (
+    BOOLEAN_TYPE_NAMES,
+    STRING_TYPE_NAMES,
+    is_boolean_type_name,
+    is_int32_type_name,
+    is_string_type_name,
+)
+from .string_literal import quote_string
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -92,13 +99,53 @@ class UnreadPrivateData:
         return f"an object of {self.class_name} whose private data is not read"
 
 
-UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData
+@dataclass(frozen=True)
+class ValueNotStored:
+    """A constant whose value is not in the block diagram: the VI keeps it in its
+    default data (DFDS), which this does not decode yet."""
+
+    def __str__(self) -> str:
+        return "<value stored in the VI's default data, not decoded>"
+
+    def reason(self) -> str:
+        return (
+            "a value the VI stores in its default data (DFDS), which lvkit does "
+            "not decode yet"
+        )
+
+
+@dataclass(frozen=True)
+class UnreadPath:
+    """A saved path whose recorded path type is none of absolute, relative or Not
+    a Path, so its components cannot be told apart from a path's."""
+
+    path_type: int
+
+    def __str__(self) -> str:
+        return f"<Path of unknown type {self.path_type}>"
+
+    def reason(self) -> str:
+        return f"a path of unknown type {self.path_type}"
+
+
+UnwritableValue = (
+    ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored | UnreadPath
+)
+
+
+_UNWRITABLE_TYPES = (
+    ValuesNotKept,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValueNotStored,
+    UnreadPath,
+)
 
 
 def find_unwritable(value: object) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
     recursively) that holds no value code generation could write, else None."""
-    if isinstance(value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData)):
+    if isinstance(value, _UNWRITABLE_TYPES):
         return value
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
@@ -205,6 +252,28 @@ _SHARED_VARIABLE_KIND_LABELS: dict[SharedVariableKind, str] = {
 TypeNamer = Callable[["LVType"], str | None]
 
 
+@dataclass(frozen=True)
+class PaneSlot:
+    """One used terminal of a connector pane: its slot ``index``, whether it is an
+    output, the type of the value it carries and, when its descriptor is labelled,
+    the terminal's ``name``; ``dynamic_dispatch`` for a Dynamic Dispatch terminal
+    (the pane is a dynamic-dispatch member VI's)."""
+
+    index: int
+    is_output: bool
+    type: LVType
+    name: str | None = None
+    dynamic_dispatch: bool = False
+
+
+class ServerClass(str, Enum):
+    """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
+    says (``CtlFlags``, ``labview-binary-format.md``)."""
+
+    VI = "VI"
+    APPLICATION = "Application"
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
@@ -213,6 +282,9 @@ class LVType:
     underlying_type: str | None = None
     ref_type: str | None = None
     classname: str | None = None
+    # The VI Server class a generic reference (``LVObjCtl``) is of, when its type
+    # says. None for any other reference.
+    server_class: ServerClass | None = None
     # A User Event refnum's event name: the label of the data type wired to
     # Create User Event (for a type-definition data type, the label on the
     # constant's own instance of it, not the .ctl file name). None for every
@@ -226,6 +298,11 @@ class LVType:
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
     element_type: LVType | None = None
+    # A Function type (a VI's connector pane): its used terminals in slot order.
+    # A strictly typed VI refnum holds one as its ``element_type``. None for every
+    # other type.
+    # ``compare=False`` -- what a VI of this type must have, not type identity.
+    pane: tuple[PaneSlot, ...] | None = field(default=None, compare=False)
     # A Map's value type (``element_type`` is its key type); None for every
     # other type.
     value_type: LVType | None = None
@@ -355,6 +432,17 @@ class LVType:
         except ValueError:
             return None
 
+    def item_labels(self, spell: Callable[[str], str] = str) -> list[str]:
+        """The items of this enum or ring in value order, each ``name`` when the
+        values are 0, 1, 2, ... and ``name = value`` when they are not (a ring
+        numbered by its own values). ``spell`` writes each name."""
+        if not self.values:
+            return []
+        items = sorted(self.values.items(), key=lambda kv: kv[1].value)
+        if [ev.value for _, ev in items] == list(range(len(items))):
+            return [spell(name) for name, _ in items]
+        return [f"{spell(name)} = {ev.value}" for name, ev in items]
+
     def member_name(self, ordinal: int) -> str | None:
         """The enum/ring item whose value is ``ordinal``, or None when this type
         has no such item (or no items loaded)."""
@@ -412,7 +500,7 @@ class LVType:
             readable = replace(self, unreadable=None)
             return (
                 f"{readable.type_descriptor(expand_named=expand_named)} "
-                f"(unreadable: {self.unreadable})"
+                f"(unreadable {quote_string(self.unreadable)})"
             )
         if self.dotnet_type is not None:
             if self._refnum_leaf():
@@ -431,28 +519,8 @@ class LVType:
                 name = _strip_typedef_stem(self.typedef_name)
                 if not expand_named:
                     return name
-                members = (
-                    [
-                        n
-                        for n, _ev in sorted(
-                            self.values.items(), key=lambda kv: kv[1].value
-                        )
-                    ]
-                    if self.values
-                    else []
-                )
-                return f"{name}{{{', '.join(members)}}}"
-            members = (
-                [
-                    n
-                    for n, _ev in sorted(
-                        self.values.items(), key=lambda kv: kv[1].value
-                    )
-                ]
-                if self.values
-                else []
-            )
-            body = "{" + ", ".join(members) + "}"
+                return f"{name}{{{', '.join(self.item_labels())}}}"
+            body = "{" + ", ".join(self.item_labels()) + "}"
             return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
         if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):
@@ -571,29 +639,31 @@ class ClusterField:
     type: LVType | None = None
 
 
-def _is_error_cluster(lv_type: LVType) -> bool:
-    """Check if a type is an error cluster.
+# LabVIEW's error cluster: these three fields, in this order. The typedef a
+# cluster comes from never decides; only its fields do.
+_ERROR_CLUSTER_FIELDS: tuple[tuple[str, Callable[[str | None], bool]], ...] = (
+    ("status", is_boolean_type_name),
+    ("code", is_int32_type_name),
+    ("source", is_string_type_name),
+)
 
-    Detects error clusters by:
-    1. TypeDef name contains "error" (case-insensitive)
-    2. Cluster with status/code/source fields
-    """
+
+def _is_error_cluster(lv_type: LVType) -> bool:
+    """Whether a type is LabVIEW's error cluster: exactly the fields ``status``
+    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A cluster
+    whose fields are unknown is not one."""
     if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return False
-
-    # Check typedef name
-    typedef_name = lv_type.typedef_name or ""
-    if "error" in typedef_name.lower():
-        return True
-
-    # Check field names for error cluster pattern
-    if lv_type.fields:
-        field_names = {f.name.lower() for f in lv_type.fields}
-        error_fields = {"status", "code", "source"}
-        if error_fields <= field_names:
-            return True
-
-    return False
+    fields = lv_type.fields
+    if not fields or len(fields) != len(_ERROR_CLUSTER_FIELDS):
+        return False
+    return all(
+        candidate.name.lower() == name
+        and candidate.type is not None
+        and candidate.type.kind == LVTypeKind.PRIMITIVE
+        and has_type(candidate.type.underlying_type)
+        for candidate, (name, has_type) in zip(fields, _ERROR_CLUSTER_FIELDS)
+    )
 
 
 # control_type (FP control class) -> LVTypeKind, for a terminal whose LVType
@@ -626,7 +696,7 @@ def _control_kind(control_type: str | None) -> LVTypeKind | None:
     return _CONTROL_FAMILY_KIND.get(control_type)
 
 
-class TypeResolutionNeeded(Exception):
+class TypeResolutionNeeded(ConversionGap):
     """Raised when a named type dependency cannot be resolved.
 
     Same pattern as VILibResolutionNeeded / TerminalResolutionNeeded.
@@ -642,6 +712,24 @@ class TypeResolutionNeeded(Exception):
         super().__init__(msg)
 
 
+class TerminalDirection(str, Enum):
+    """Which way data flows through a terminal: into its node or out of it.
+    One value set for a graph terminal and a catalog (primitive, vi.lib)
+    terminal; a ``str`` mix-in because the raw value is compared at many
+    sites, and it prints as that value."""
+
+    INPUT = "input"
+    OUTPUT = "output"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def of(cls, is_output: bool) -> TerminalDirection:
+        """The direction of a terminal that is, or is not, an output."""
+        return cls.OUTPUT if is_output else cls.INPUT
+
+
 class Terminal(BaseModel):
     """A connection point on a node. Edges connect to them."""
 
@@ -649,7 +737,7 @@ class Terminal(BaseModel):
 
     id: str
     index: int
-    direction: str  # "input" or "output"
+    direction: TerminalDirection
     name: str | None = None
     # Display-only label (resolved def's terminal name, e.g. "x"/"difference").
     # Separate from ``name`` because ``name`` drives codegen variable naming;
@@ -671,6 +759,8 @@ class Terminal(BaseModel):
     # Picture's drawing) that code generation has no value to write for.
     unwritable: UnwritableValue | None = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
+    # An Index Array index with indexing disabled: its dimension is taken whole.
+    indexing_disabled: bool = False
     # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
     # same DCO are one value: an In Place Element structure's In/Out Element
     # port and its border node's cluster/array/index terminal have no wire
@@ -705,28 +795,10 @@ class Terminal(BaseModel):
 
     @property
     def is_error_cluster(self) -> bool:
-        """Check if this terminal carries a LabVIEW error cluster.
-
-        Primary check: type-based (_is_error_cluster on lv_type).
-        Fallback: name-based, but ONLY when the type is unknown or is a
-        cluster without field metadata.  If the type is known to be
-        non-cluster (array, primitive, etc.), the name is irrelevant —
-        "error" in a terminal name does not make an Array an error cluster.
-
-        Name matching uses word boundaries: "error in" / "error out" as
-        phrases, not substring "in" inside arbitrary words like "pass*in*g".
-        """
-        if self.lv_type:
-            if _is_error_cluster(self.lv_type):
-                return True
-            # Type is known and is NOT an error cluster — trust the type.
-            # Only fall through to name heuristic when type is missing.
-            return False
-        # No type info — fall back to name heuristic (word-boundary match).
-        name = (self.name or "").lower()
-        if "no error" in name:
-            return True
-        return bool(re.search(r"\berror\s+(in|out)\b", name))
+        """Whether this terminal carries LabVIEW's error cluster: its type has
+        exactly the fields ``status``, ``code`` and ``source``. A terminal whose
+        type is unknown is not one; its name never decides."""
+        return self.lv_type is not None and _is_error_cluster(self.lv_type)
 
 
 def bundle_unbundle_name(
@@ -947,6 +1019,9 @@ class TunnelTerminal(Terminal):
     condition_terminal: str | None = None
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
+    # Position of the frame an inner tunnel terminal sits in (see
+    # ``Tunnel.frame_position``); ``frame`` above keeps the case selector value.
+    frame_position: int | None = None
 
 
 class Tunnel(BaseModel):
@@ -980,6 +1055,10 @@ class Tunnel(BaseModel):
     #   1 for a normal (unstacked) shift register, N for an N-deep stacked
     #   one. Set on tunnel_type == "rSR" tunnels only.
     sr_stack_depth: int | None = None
+    # Position, in its structure's frame list, of the frame this tunnel's inner
+    # face sits in. Set for the structures whose inner faces are per frame
+    # (Event, Sequence); None elsewhere.
+    frame_position: int | None = None
 
 
 class PropertySegment(BaseModel):
@@ -1163,7 +1242,7 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumFloat64": "float",
     **{name: "str" for name in STRING_TYPE_NAMES},
     **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
-    "Path": "Path",
+    "Path": "Path | None",
     "Variant": "Any",
     "LVVariant": "Any",
     "Refnum": "Any",

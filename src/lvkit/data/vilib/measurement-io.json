@@ -15,31 +15,28 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "scans since last call",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scans_since_last_call",
-          "default_value": null,
           "description": "scans since last call returns the number of times the scan engine has completed a scan since the last call of this VI. You can use this information to identify missed scan iterations and determine whether the synchronized code consistently finishes executing on time."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -57,41 +54,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "scan period (uSec)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scan_period",
-          "default_value": null,
           "description": "scan period (uSec) returns the period of the scan engine running on the target."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -109,41 +102,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "scan period (uSec)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scan_period",
-          "default_value": null,
           "description": "scan period (uSec) specifies the period for the scan engine running on the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -161,41 +150,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "mode",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
-          "default_value": null,
           "description": "mode returns the operating mode of the NI Scan Engine."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -213,41 +198,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "mode (Active Mode)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
-          "default_value": null,
           "description": "mode specifies the operating mode of the scan engine running on the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -265,31 +246,28 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -307,31 +285,28 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -349,31 +324,28 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -391,31 +363,28 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -433,41 +402,37 @@
         {
           "name": "variable path (URL)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variable_path",
-          "default_value": null,
           "description": "variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName> . You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram."
         },
         {
           "name": "forced value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "forced_value",
-          "default_value": null,
           "description": "forced value is the value for the I/O variable or I/O alias to assume while forcing is enabled on the target and the enable forcing input of this VI is TRUE."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -485,31 +450,28 @@
         {
           "name": "variable path (URL)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variable_path",
-          "default_value": null,
           "description": "variable path (URL) specifies the path to the I/O variable or I/O alias. The path can be absolute or relative. The format of the variable path is \\\\<TargetName>\\<ModuleName>\\<VariableName> . You can view the variable path for an I/O variable in the Context Help window when you hover over the I/O variable node on the block diagram."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -527,61 +489,55 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "fault list",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fault_list",
-          "default_value": null,
           "description": "fault list contains the list of active faults."
         },
         {
           "name": "level",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "level",
-          "default_value": null,
           "description": "level is the severity level of the fault."
         },
         {
           "name": "first reported time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_reported_time",
-          "default_value": null,
           "description": "first reported time returns the time the fault first occurred since it was last cleared."
         },
         {
           "name": "number reported",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_reported",
-          "default_value": null,
           "description": "number reported is the number of times the fault has occurred since it was last cleared."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -599,41 +555,37 @@
         {
           "name": "major fault (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "major_fault",
-          "default_value": null,
           "description": "major fault specifies whether the fault is major (TRUE) or minor (FALSE)."
         },
         {
           "name": "error in (user fault)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in (user fault) specifies the fault code."
         },
         {
           "name": "error adding fault",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_adding_fault",
-          "default_value": null,
           "description": "error adding fault contains error information related to the creation of the fault. Fault creation can fail if the NI Scan Engine is not installed on the target or if the target has already reached the maximum number of active faults (100). Right-click the error out front panel indicator and select Explain Error from the shortcut menu for more information about the error."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out returns error in (user fault) ."
         }
       ]
@@ -651,41 +603,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "fault code",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fault_code",
-          "default_value": null,
           "description": "fault code is the code associated with the fault. The VI ignores this input if clear all? is TRUE."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -703,31 +651,28 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -745,28 +690,24 @@
         {
           "name": "target address (localhost)",
           "description": "target address specifies the IP address or DNS name of the target.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "target_address_localhost"
         },
         {
           "name": "fault configuration",
           "description": "fault configuration specifies the custom fault configuration to apply.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "fault_configuration"
         },
         {
           "name": "code",
           "description": "code is the fault code of the configurable fault.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "code"
         },
         {
           "name": "level or level before threshold",
           "description": "level or level before threshold specifies the level of the specified fault before the occurrence threshold is met. 0 Ignore—Each occurrence adds to the occurrence counter used to determine whether the occurrence threshold is met but does not trigger the fault. 1 Minor—Each occurrence triggers the fault as a Minor fault. 2 Major—Each occurrence triggers the fault as a Major fault.",
-          "default_value": null,
           "enum_values": [
             [
               0,
@@ -786,21 +727,19 @@
         {
           "name": "occurrence threshold",
           "description": "occurrence threshold specifies the number of times the selected fault can occur before the level of the fault changes.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "occurrence_threshold"
         },
         {
           "name": "time window in seconds",
           "description": "time window specifies a time limit for the occurrence threshold. When the time window expires, LabVIEW resets the internal occurrence counter for the specified fault and restarts the time window. The default is 0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts.",
-          "default_value": "0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts",
           "enum_values": null,
-          "python_param": "time_window_in_seconds"
+          "python_param": "time_window_in_seconds",
+          "default": 0
         },
         {
           "name": "level after threshold",
           "description": "Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "level_after_threshold"
         }
@@ -819,81 +758,73 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "fault configuration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fault_configuration",
-          "default_value": null,
           "description": "fault configuration specifies the custom fault configuration to apply."
         },
         {
           "name": "level or level before threshold",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "level_or_level_before_threshold",
-          "default_value": null,
           "description": "level or level before threshold specifies the level of the specified fault before the occurrence threshold is met."
         },
         {
           "name": "occurrence threshold",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "occurrence_threshold",
-          "default_value": null,
           "description": "occurrence threshold specifies the number of times the selected fault can occur before the level of the fault changes."
         },
         {
           "name": "time window in seconds",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_window_in_seconds",
-          "default_value": null,
           "description": "time window specifies a time limit for the occurrence threshold. When the time window expires, LabVIEW resets the internal occurrence counter for the specified fault and restarts the time window. The default is 0, which specifies not to use the time window and not to reset the occurrence counter until the NI Scan Engine restarts."
         },
         {
           "name": "level after threshold",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "level_after_threshold",
-          "default_value": null,
           "description": "level after threshold specifies the level of the specified fault after the occurrence threshold is met."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -911,41 +842,37 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "code to clear",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "code_to_clear",
-          "default_value": null,
           "description": "code to clear is the error code that corresponds to the configurable fault."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -963,81 +890,73 @@
         {
           "name": "target address (localhost)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_address",
-          "default_value": null,
           "description": "target address specifies the IP address or DNS name of the target."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "configured faults",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "configured_faults",
-          "default_value": null,
           "description": "configured faults returns information about custom fault configurations on the target."
         },
         {
           "name": "level or level before threshold",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "level_or_level_before_threshold",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "occurrence threshold",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "occurrence_threshold",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "time window in seconds",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_window_in_seconds",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "level after threshold",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "level_after_threshold",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]

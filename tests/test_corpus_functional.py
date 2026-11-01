@@ -32,11 +32,11 @@ from lvkit.codegen.ast_utils import to_function_name
 from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
+from tests.corpus_graphs import OPENG_USERLIB
 
 pytestmark = [pytest.mark.functional, pytest.mark.needs_samples]
 
 CORPUS = Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
-SEARCH = Path(".lvkit/cache/samples/OpenG/extracted")
 _GEN = Path("scripts/generate_python.py")
 
 
@@ -79,7 +79,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     outdir = Path(tempfile.mkdtemp(prefix=f"lvkit_pkg_{_slug(vi.name)}_"))
     proc = subprocess.run(
         [sys.executable, str(_GEN), str(vi), "-o", str(outdir),
-         "--search-path", str(SEARCH)],
+         "--userlib", str(OPENG_USERLIB)],
         capture_output=True, text=True, timeout=180, check=False,
     )
     assert "error: 0" in proc.stdout, (
@@ -89,7 +89,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     assert pkgs, f"no package emitted in {outdir}"
     pkg = pkgs[0]
     tgt = _slug(vi.name)
-    mods = list((pkg / "openg").glob("*.py")) if (pkg / "openg").exists() else []
+    mods = sorted(m for m in pkg.rglob("*.py") if not m.name.endswith(".error.py"))
     best = next(
         (m for m in mods if m.stem != "__init__" and tgt in _slug(m.stem)), None
     )
@@ -104,7 +104,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     try:
         fn = None
         for m in candidate_mods:
-            mn = f"{pkg.name}.openg.{m.stem}"
+            mn = ".".join([pkg.name, *m.relative_to(pkg).with_suffix("").parts])
             mod = importlib.import_module(mn)
             fn = next(
                 (o for n, o in inspect.getmembers(mod, inspect.isfunction)
@@ -508,7 +508,7 @@ def test_compare_two_paths_common_and_relative() -> None:
         Path("/a/b/d"),
     )
     assert _posix(r.common_path) == "/a/b"
-    assert _posix(r.relative_path_from_1_to_2) == "d"
+    assert _posix(r.relative_path_from_1_to_2) == "../d"
     assert r.different_types is False
 
 

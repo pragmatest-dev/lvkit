@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import math
 
-from lvkit.codegen.context import CodeGenContext, _format_constant
-from lvkit.codegen.nodes import primitive
+from lvkit.codegen.context import _format_constant
 from lvkit.graph.models import Constant
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import _collect_imports
+from tests.helpers import error_cluster_type
 
 # ── Fix A: Type-driven constant decoding ────────────────────────────
 
@@ -88,109 +88,6 @@ class TestTypeDrivenConstantDecoding:
         assert result == "''"
 
 
-# ── Fix B: Type-driven terminal defaults ────────────────────────────
-
-
-class TestTypeDrivenTerminalDefaults:
-    """Unwired terminals should get defaults from lv_type, not from
-    name substring matching."""
-
-    def test_numeric_terminal_gets_zero_not_empty_string(self):
-        """Bug 1: Unwired numeric terminal (e.g., 'length') must default
-        to 0, not '' (which happened when 'string' was in the name)."""
-        term = Terminal(
-            id="t1",
-            index=0,
-            direction="input",
-            name="string length",  # name contains "string" but type is numeric
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "0"
-
-    def test_string_terminal_gets_empty_string(self):
-        """Unwired string terminal should default to ''."""
-        term = Terminal(
-            id="t2",
-            index=1,
-            direction="input",
-            name="input",
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "''"
-
-    def test_boolean_terminal_gets_false(self):
-        """Unwired boolean terminal should default to False."""
-        term = Terminal(
-            id="t3",
-            index=2,
-            direction="input",
-            name="enable",
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "False"
-
-    def test_path_terminal_gets_path_default(self):
-        """Unwired path terminal should default to Path('.')."""
-        term = Terminal(
-            id="t4",
-            index=3,
-            direction="input",
-            name="file path",
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "Path('.')"
-        assert "from pathlib import Path" in ctx.imports
-
-    def test_array_terminal_gets_empty_list(self):
-        """Unwired array terminal should default to []."""
-        term = Terminal(
-            id="t5",
-            index=4,
-            direction="input",
-            name="data",
-            lv_type=LVType(kind=LVTypeKind.ARRAY, underlying_type=None),
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "[]"
-
-    def test_no_type_gets_none(self):
-        """Unwired terminal with no type info should default to None."""
-        term = Terminal(
-            id="t6",
-            index=5,
-            direction="input",
-            name="unknown",
-            lv_type=None,
-        )
-        ctx = CodeGenContext()
-        result = primitive._default_for_type(term, ctx)
-        assert result == "None"
-
-    def test_refnum_terminal_uses_type_not_name(self):
-        """Fix F: Unwired refnum terminal should be detected by lv_type,
-        not by 'refnum' in terminal name."""
-        term = Terminal(
-            id="t7",
-            index=0,
-            direction="input",
-            name="some_input",  # no "refnum" in name
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum"),
-        )
-        ctx = CodeGenContext()
-        # With no primResID match for file I/O, should fall through to default
-        result = primitive._default_for_type(term, ctx)
-        assert result == "None"
-
-
 # ── Fix C: _import field reading ────────────────────────────────────
 
 
@@ -233,15 +130,7 @@ class TestErrorClusterByType:
     never string matching on terminal/parameter names."""
 
     def _error_cluster_type(self) -> LVType:
-        return LVType(
-            kind=LVTypeKind.CLUSTER,
-            underlying_type="Cluster",
-            fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
-            ],
-        )
+        return error_cluster_type()
 
     def test_error_named_terminal_without_error_type_is_not_skipped(self):
         """A terminal named 'error_out' but without error cluster type

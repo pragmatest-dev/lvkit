@@ -38,9 +38,9 @@ lvkit diff <vi_a> <vi_b> [options]
 | `-v`, `--verbose` | Show the change summary in full depth: the VI's own connector-pane changes (a connector-pane terminal added/removed/retyped — verbose-only, unlike Properties, which always show), old→new detail on modified values, and a trailing unchanged-node tally. Both tiers already show the full recursive containment tree — `--verbose` adds depth, never a different shape. Only affects `--format text` — a detail level, not a format. |
 | `--long` | Back-compat alias for `--verbose`. |
 | `-o FILE`, `--output FILE` | Output file path. Used by `--format html` (default `outputs/vi-diff/<stemA>__<stemB>.html` when omitted) and `--format json` (prints to stdout instead when omitted). Has no effect on `--format text`, which always goes to stdout. |
-| `--open` | Render `--format html` and open it in a browser. With no explicit `--format`, `--open` resolves the format to `html`; combined with `--format text` or `--format json` it's an error (`Error: --open requires --format html`, exit `1`). |
+| `--open` | Render `--format html` and open it in a browser. With no explicit `--format`, `--open` resolves the format to `html`; combined with `--format text` or `--format json` it's an error (`Error: --open requires --format html`, exit `2`, a usage error). |
 | `--load-mode {none,minimal,full}` | How deep to load dependencies when resolving SubVI signatures. Default `minimal` — enough to compare the diagram accurately without walking the full SubVI tree. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 `--format` is becoming lvkit's house convention for output selection across
 subcommands (a single flag for mutually exclusive output projections, rather
@@ -71,7 +71,7 @@ falls.
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
-  --search-path samples/OpenG/extracted
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib"
 ```
 
 ```text
@@ -107,7 +107,7 @@ plus more depth:
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
-  --search-path samples/OpenG/extracted --verbose
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" --verbose
 ```
 
 ```text
@@ -187,7 +187,7 @@ change list to select.
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
-  --search-path samples/OpenG/extracted --format json
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" --format json
 ```
 
 Prints the diff engine's `ChangeMap` as JSON: `{"changes": [...], "common_nodes":
@@ -214,7 +214,7 @@ should parse instead of scraping `text` output.
 
 ```bash
 lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (Path)__ogtk.vi" \
-  --search-path samples/OpenG/extracted --open
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" --open
 ```
 
 This writes `outputs/vi-diff/Convert File Extension (String)__ogtk__Convert File Extension (Path)__ogtk.html`
@@ -265,13 +265,11 @@ printed output (`No changes detected.` vs. a diff/report), or parse the
 `json`/`html` output, rather than the exit code.
 
 `diff` exits `1` when `vi_a` or `vi_b` doesn't exist, when `--open` is
-combined with `--format text`/`--format json`, or when loading either VI
-raises a `ValueError`, `FileNotFoundError`, or `KeyError` (for example, a path
-that isn't a `.vi` file) — each of these prints a one-line `Error: ...`
-message to stderr. A `.vi` that pylabview itself can't parse (corrupt or
-truncated data) raises `RuntimeError`, which isn't one of the caught types:
-`diff` still exits `1`, but stderr gets a full Python traceback instead of a
-clean `Error:` line.
+combined with `--format text`/`--format json`, or when either VI cannot be read
+(for example, a corrupt or truncated file, or a path that isn't a `.vi` file).
+An unreadable VI is reported as a warning naming it plus a `Stopped` summary on
+stderr, with no traceback. A SubVI that cannot be read does not stop the diff: it
+is reported and `diff` exits `3`. See [problems](problems.md).
 
 ## Notes
 
@@ -280,7 +278,7 @@ clean `Error:` line.
 - `diff` runs without a `.lvkit/` resolution store — pass `--project-root` if
   one exists, but `diff` doesn't require [`setup`](setup.md) to have been run
   first.
-- If a SubVI referenced by either VI isn't found on `--search-path`, `diff`
+- If a SubVI referenced by either VI isn't at the path its caller records, `diff`
   doesn't fail: that SubVI is recorded as an unresolved dependency and the
   comparison proceeds with what could be loaded.
 - Because `vi.lib` auto-detection uses whatever LabVIEW is installed on the

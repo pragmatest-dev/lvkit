@@ -18,15 +18,12 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
-
-SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
-DCAF_SEARCH_PATHS = [
-    Path(".lvkit/cache/samples/DCAF-DAQModule/source"),
-    Path(".lvkit/cache/samples/OpenG/extracted"),
-]
+from lvkit.pipeline import create_import_resolver
+from tests.corpus_graphs import OPENG_USERLIB
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -97,7 +94,8 @@ def _generate(graph: InMemoryVIGraph, vi_name: str) -> str:
 def get_settings_path_graph() -> InMemoryVIGraph:
     _skip_if_missing(GET_SETTINGS_PATH_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(GET_SETTINGS_PATH_VI), search_paths=SEARCH_PATHS)
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
+    g.load_vi(str(GET_SETTINGS_PATH_VI))
     return g
 
 
@@ -105,8 +103,9 @@ def get_settings_path_graph() -> InMemoryVIGraph:
 def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_DIR)
     g = InMemoryVIGraph()
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
     for vi_path in sorted(TESTCASE_DIR.glob("*.vi")):
-        g.load_vi(str(vi_path), search_paths=SEARCH_PATHS)
+        g.load_vi(str(vi_path))
     return g
 
 
@@ -185,21 +184,22 @@ SET_FP_CONTROL_VI = Path(
 
 def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
-    subprocess.run(
+    proc = subprocess.run(
         [
             sys.executable,
             "scripts/generate_python.py",
             str(vi_path),
             "-o",
             str(out_dir),
-            "--search-path",
-            ".lvkit/cache/samples/OpenG/extracted",
+            "--userlib",
+            str(OPENG_USERLIB),
         ],
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    assert proc.returncode in (0, 3), proc.stderr  # 3: partial, a gap warned
 
 
 def _tree_bytes(root: Path) -> dict[str, bytes]:
@@ -236,60 +236,37 @@ def test_codegen_is_hashseed_deterministic(tmp_path):
 
 
 class TestTestCaseLvclass:
-    """E2E: TestCase.lvclass — 74 methods, all must produce valid Python."""
+    """E2E: TestCase.lvclass -- the class module has every method as valid
+    Python."""
 
-    def _testcase_vis(self, testcase_graph):
-        """Get TestCase method VIs (not dependencies).
-
-        VIs are keyed by path (identity) now, so select them via the qname
-        reverse index — every loaded VI whose qualified name is a TestCase
-        method — and return their vi_keys for get_vi_context/build_module.
-        """
-        return [
-            key
-            for qname, keys in testcase_graph._qname_to_keys.items()
-            if qname.startswith("TestCase.lvclass:")
-            for key in keys
-        ]
+    def _class_module(self, graph: InMemoryVIGraph) -> str:
+        keys = graph.list_class_keys()
+        (class_key,) = [k for k in keys if Path(k).name == "TestCase.lvclass"]
+        out = Path("/pkg")
+        paths = {k: out / f"{Path(k).stem.lower()}.py" for k in keys}
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            paths[class_key],
+            caller_key=class_key,
+            graph=graph,
+        )
+        return build_type_module(graph, class_key, resolver)
 
     def test_all_methods_generate_valid_python(self, testcase_graph):
         """Every TestCase method must produce syntactically valid Python."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        successes = 0
-        failures = []
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                ast.parse(code)
-                successes += 1
-            except Exception as e:
-                failures.append((vi_name, str(e)))
-
-        if failures:
-            msg = f"{len(failures)} VIs failed:\n"
-            for vi_name, err in failures[:10]:
-                msg += f"  {vi_name}: {err}\n"
-            pytest.fail(msg)
-
-        assert successes >= 20, f"Expected 20+ AST successes, got {successes}"
+        code = self._class_module(testcase_graph)
+        tree = ast.parse(code)
+        (testcase,) = [
+            n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TestCase"
+        ]
+        methods = [n for n in testcase.body if isinstance(n, ast.FunctionDef)]
+        assert len(methods) >= 20, f"Expected 20+ methods, got {len(methods)}"
 
     def test_no_garbage_in_any_method(self, testcase_graph):
         """No method should contain unresolved placeholders."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                assert_no_garbage(code, vi_name)
-            except Exception:
-                pass  # Generation failures caught by other test
+        assert_no_garbage(self._class_module(testcase_graph), "TestCase.lvclass")
 
 
 # ── IPES (In Place Element Structure) ──────────────────────
@@ -299,10 +276,10 @@ class TestTestCaseLvclass:
 def delete_line_graph() -> InMemoryVIGraph:
     _skip_if_missing(DELETE_LINE_VI)
     g = InMemoryVIGraph()
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
     g.load_vi(
         str(DELETE_LINE_VI),
         mode=LoadMode.FULL,
-        search_paths=DCAF_SEARCH_PATHS,
     )
     return g
 
@@ -381,7 +358,7 @@ class TestIPESDeleteLine:
         code = _generate(delete_line_graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         # IPES writes modified field back to the input variable
-        assert ".lines" in code, "Expected field write-back"
+        assert ".__lines" in code, "Expected field write-back"
 
     def test_same_variable_in_and_out(self, delete_line_graph):
         """Return value must reference the same variable as input."""
@@ -416,17 +393,19 @@ class TestClassPrivateDataNmux:
         """
         _skip_if_missing(GET_TESTS_RUN_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(GET_TESTS_RUN_VI), search_paths=[TESTRESULT_DIR.parent])
+        graph.load_vi(str(GET_TESTS_RUN_VI))
 
         vi_name = "TestResult.lvclass:GetTestsRun.vi"
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
-        assert ".testsrun" in code, "Expected attribute access on the class field"
+        assert ".__testsrun" in code, "Expected attribute access on the class field"
 
         ns: dict = {}
         exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
-        this = types.SimpleNamespace(testsrun=42)
+        # Generated alone, outside its class body, the field keeps the name it
+        # is written with (the class module stores it as `_TestResult__testsrun`).
+        this = types.SimpleNamespace(**{"__testsrun": 42})
         result = ns["gettestsrun"](this)
         assert result.testsrun == 42
         assert result.testresult_out is this
@@ -440,7 +419,7 @@ class TestClassPrivateDataNmux:
         """
         _skip_if_missing(TESTRESULT_INIT_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(TESTRESULT_INIT_VI), search_paths=[TESTRESULT_DIR.parent])
+        graph.load_vi(str(TESTRESULT_INIT_VI))
 
         vi_name = "TestResult.lvclass:TestResult_Init.vi"
         ctx = graph.get_vi_context(vi_name)
@@ -453,13 +432,14 @@ class TestClassPrivateDataNmux:
         result = ns["testresult_init"](this, "event_ref")
         out = result.testresult_out
         assert out is this
-        assert out.testsrun == 0
-        assert out.shouldstop is False
+        fields = vars(out)
+        assert fields["__testsrun"] == 0
+        assert fields["__shouldstop"] is False
         # errors/failures are arrays: an empty array constant is a real empty
         # list, not the string "[]" (that was the array-constant-as-string bug).
-        assert out.errors == []
-        assert out.failures == []
-        assert out.resultstatuschangedeventref == "event_ref"
+        assert fields["__errors"] == []
+        assert fields["__failures"] == []
+        assert fields["__resultstatuschangedeventref"] == "event_ref"
 
 
 # ── Uninitialized shift register + First Call? (functional-global idiom) ──
@@ -576,7 +556,8 @@ class TestShiftRegisterAccumulation:
     def _func(self):
         _skip_if_missing(SEARCH_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SEARCH_1D_I32_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         assert_no_garbage(code, self.VI_NAME)
@@ -601,7 +582,8 @@ class TestShiftRegisterAccumulation:
         through the prior run's stale bindings (the flakiness this guards)."""
         _skip_if_missing(SEARCH_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SEARCH_1D_I32_VI))
         c1 = _generate(graph, self.VI_NAME)
         c2 = _generate(graph, self.VI_NAME)
         assert c1 == c2
@@ -619,7 +601,8 @@ class TestClusterBundleUnbundle:
     def _func(self):
         _skip_if_missing(SORT_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SORT_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SORT_1D_I32_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         assert_no_garbage(code, self.VI_NAME)
@@ -653,7 +636,8 @@ class TestTrimWhitespace:
     def _func(self):
         _skip_if_missing(TRIM_WHITESPACE_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(TRIM_WHITESPACE_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(TRIM_WHITESPACE_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         ns: dict = {"__name__": "m"}

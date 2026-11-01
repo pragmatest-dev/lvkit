@@ -115,7 +115,7 @@ def test_in_element_port_value_drives_the_border_node_input() -> None:
     port names the same DCO as the Unbundle By Name border terminal, with no
     wire between them -- it must appear as the drive of that border input."""
     vi_path = _DCAF_ROOT / "source" / "module" / "execution" / "init.vi"
-    loaded = _load(vi_path, _DCAF_ROOT)
+    loaded = _load(vi_path)
     if loaded is None:
         pytest.skip(f"sample corpus VI not present: {vi_path}")
     graph, vi_name = loaded

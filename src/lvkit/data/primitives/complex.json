@@ -6,19 +6,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumComplex"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "re",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "im",
           "type": "NumFloat64"
         }
@@ -35,19 +35,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "r * e^(i*theta)",
           "type": "NumComplex128"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "r",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "theta",
           "type": "NumFloat64"
         }
@@ -60,19 +60,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x + iy",
           "type": "NumComplex128"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -85,19 +85,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "r * e^(i*theta)",
           "type": "NumComplex128"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "theta",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "r",
           "type": "NumFloat64"
         }
@@ -110,13 +110,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x - iy",
           "type": "NumComplex128"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x + iy",
           "type": "NumComplex128"
         }
@@ -129,25 +129,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "theta",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "r",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -160,25 +160,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "theta",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "r",
           "type": "NumFloat64"
         }

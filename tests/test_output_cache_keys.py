@@ -26,10 +26,9 @@ def _project_vi(tmp_path: Path) -> Path:
 def test_every_build_option_changes_the_render_key(tmp_path: Path) -> None:
     base = BuildOptions()
     variants = [
-        BuildOptions(search_paths=(tmp_path / "a",)),
-        BuildOptions(search_paths=(tmp_path / "a", tmp_path / "b")),
         BuildOptions(vilib_root=tmp_path / "vi.lib"),
         BuildOptions(userlib_root=tmp_path / "user.lib"),
+        BuildOptions(instrlib_root=tmp_path / "instr.lib"),
         BuildOptions(mode=LoadMode.NONE),
         BuildOptions(mode=LoadMode.FULL),
         BuildOptions(project_store=tmp_path / ".lvkit"),

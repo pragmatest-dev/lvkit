@@ -61,7 +61,7 @@ def _globals(graph, key) -> list[GlobalVariableNode]:
 
 
 def test_lv_icon_global_variables_name_the_global_vi_and_control() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     nodes = _globals(graph, key)
     assert len(nodes) == 4
     assert {(n.global_vi.qualified_name, n.control_name) for n in nodes} == {
@@ -84,10 +84,10 @@ def test_lv_icon_global_variables_name_the_global_vi_and_control() -> None:
 
 
 def test_lv_icon_lvnet_lists_the_global_and_keeps_its_real_locals() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     text = render_lvnet(build_netlist_from_graph(graph, key), verbose=True)
     assert "global-variable Debug_18698 : read Data.vi::Debug" in text
-    assert 'global-variable Debug_19484 : write Data.vi::Debug = "False"' in text
+    assert 'global-variable Debug_19484 : write Data.vi::Debug = False' in text
     assert "    global  Data.vi" in text
     assert not any(
         isinstance(n, LocalVariableNode) and n.control_name == "Debug"
@@ -104,14 +104,14 @@ def test_lv_icon_lvnet_lists_the_global_and_keeps_its_real_locals() -> None:
 
 
 def test_global_vi_is_a_dependency() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     (global_key, _) = graph.global_vi_control(_globals(graph, key)[0])
     assert global_key in graph.get_vi_dependencies(key)
     assert isinstance(graph.get_graph_node(global_key), VINode)
 
 
 def test_decoded_link_table_caller_resolves_control_by_index() -> None:
-    graph, key = load_corpus_vi(VALIDATE_ENUM, SAMPLES / "measurement-plugin-labview")
+    graph, key = load_corpus_vi(VALIDATE_ENUM)
     (node,) = _globals(graph, key)
     assert node.global_vi.qualified_name == "Error Strings Global Internal.vi"
     assert (node.param_idx, node.control_name) == (20, "5070")
@@ -119,7 +119,7 @@ def test_decoded_link_table_caller_resolves_control_by_index() -> None:
 
 
 def test_actor_framework_caller_resolves_control_by_index() -> None:
-    graph, key = load_corpus_vi(TRACE, SAMPLES / "actor-framework")
+    graph, key = load_corpus_vi(TRACE)
     by_idx = {n.param_idx: n.control_name for n in _globals(graph, key)}
     assert by_idx[7] == "to"
     assert {n.global_vi.qualified_name for n in _globals(graph, key)} == {
@@ -128,7 +128,7 @@ def test_actor_framework_caller_resolves_control_by_index() -> None:
 
 
 def test_global_vi_interface_is_its_controls_in_front_panel_order() -> None:
-    graph, key = load_corpus_vi(DATA_VI, ICON)
+    graph, key = load_corpus_vi(DATA_VI)
     vi_node = graph.get_graph_node(key)
     assert isinstance(vi_node, VINode)
     assert [t.name for t in vi_node.terminals] == [
@@ -197,10 +197,8 @@ def _import_generated(name: str, source: str, package: types.ModuleType):
 
 
 def test_generated_caller_and_global_module_share_state() -> None:
-    graph, key = load_corpus_vi(LOAD_TEMPLATES, ICON)
-    caller_src = build_module(
-        graph.get_vi_context(key), key, graph=graph, soft_unresolved=True
-    )
+    graph, key = load_corpus_vi(LOAD_TEMPLATES)
+    caller_src = build_module(graph.get_vi_context(key), key, graph=graph)
     (global_key, _) = graph.global_vi_control(_globals(graph, key)[0])
     global_src = build_module(graph.get_vi_context(global_key), global_key, graph=graph)
     assert "from . import data as data_global" in caller_src
@@ -248,7 +246,7 @@ def test_generated_caller_and_global_module_share_state() -> None:
 
 
 def test_generated_write_assigns_the_global_module_attribute() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     write = next(n for n in _globals(graph, key) if n.is_write)
     ctx = CodeGenContext.from_vi_context(graph.get_vi_context(key), graph=graph)
     ctx.vi_name = key
@@ -267,7 +265,7 @@ def test_generated_write_assigns_the_global_module_attribute() -> None:
 
 
 def test_global_module_keeps_cluster_saved_defaults() -> None:
-    graph, key = load_corpus_vi(DATA_VI, ICON)
+    graph, key = load_corpus_vi(DATA_VI)
     source = build_module(graph.get_vi_context(key), key, graph=graph)
     namespace: dict[str, object] = {}
     exec(compile(source, "data", "exec"), namespace)
@@ -470,7 +468,7 @@ def _flatten(items: list[dict]) -> list[dict]:
 
 
 def test_describe_lists_the_global_vi_as_a_dependency() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     text = describe_vi(graph, key)
     section = text.split("## Dependencies")[1].split("\n## ")[0]
     assert "  Data.vi (Global VI)" in section.splitlines()
@@ -478,7 +476,7 @@ def test_describe_lists_the_global_vi_as_a_dependency() -> None:
 
 
 def test_describe_json_shows_the_global_vi_verbose_and_not() -> None:
-    graph, key = load_corpus_vi(LV_ICON, ICON)
+    graph, key = load_corpus_vi(LV_ICON)
     module = build_netlist_from_graph(graph, key)
     plain = netlist_to_dict(module)
     verbose = netlist_to_dict(module, verbose=True)

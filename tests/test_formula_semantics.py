@@ -23,13 +23,12 @@ import math
 import pytest
 
 from lvkit.formula.emit import VarSpec, transpile
-from lvkit.runtime import lv as _lv
 
 
 def _run(script: str, variables: list[VarSpec], **inputs):
     res = transpile(script, variables)
-    ns: dict = {"_lv": _lv, "math": math}
-    exec(res.source, ns)
+    ns: dict = {}
+    exec("\n".join(sorted(res.imports)) + "\n" + res.source, ns)
     return ns["formula"](**inputs)
 
 
@@ -145,8 +144,8 @@ def test_float_semantics(script, expected):
 
 
 # A Formula Node has no error terminal, so domain/zero errors coerce to IEEE
-# inf/nan rather than raising (oracle Script 2). The pure-Python backend
-# routes these through non-raising _lv.* helpers.
+# inf/nan rather than raising (oracle Script 2). The generated Python
+# writes these as inline conditionals (NaN / inf outside the domain).
 _EDGE_CASES = [
     ("RF[0] = 1 / 0;", math.inf),
     ("RF[0] = 1.0 / 0.0;", math.inf),
@@ -178,9 +177,9 @@ def test_no_error_terminal_coercion(script, expected):
         assert got == expected, script
 
 
-def test_division_wraps_only_ambiguous_divisors():
-    # A nonzero literal divisor can't trap -> keep the plain operator; a
-    # variable (or expression) divisor routes through the inf/nan helper.
+def test_division_guards_only_ambiguous_divisors():
+    # A nonzero literal divisor can't be zero -> the plain operator; a variable
+    # (or expression) divisor gets the infinity / NaN result at zero.
     src = transpile(
         "y = a / 2; z = a / b;",
         [
@@ -191,12 +190,12 @@ def test_division_wraps_only_ambiguous_divisors():
         ],
     ).source
     assert "a / 2" in src
-    assert "_lv.div(a, b)" in src
+    assert "(a / b if b else math.nan" in src
 
 
-def test_power_wraps_only_non_literal_base():
+def test_power_is_plain_only_for_a_non_negative_literal_base():
     # ``2 ** n`` can't produce a complex result -> plain operator; a base that
-    # might be negative routes through _lv.powf.
+    # might be negative is NaN for a fractional exponent.
     src = transpile(
         "y = 2 ** n; z = b ** 0.5;",
         [
@@ -207,7 +206,7 @@ def test_power_wraps_only_non_literal_base():
         ],
     ).source
     assert "2 ** n" in src
-    assert "_lv.powf(b, 0.5)" in src
+    assert "math.nan if" in src and "lvkit" not in src
 
 
 def test_rand_is_uniform_unit_interval():

@@ -1,65 +1,48 @@
-"""Rewrite a scalar numeric expression into element-wise helper calls.
+"""Element-wise arithmetic over arrays, written as list comprehensions.
 
-Used for primitives flagged ``elementwise`` in primitives.json when at least
-one operand is an array. The scalar template (e.g. ``a - b``) is parsed to an
-AST and its arithmetic/comparison/unary operators are replaced with calls to
-``lvkit.runtime.lv`` helpers, which broadcast over lists. Scalar uses are left
-untouched (the helpers are scalar-safe, but we only apply this when an array
-operand is actually present, keeping scalar codegen clean).
+LabVIEW's numeric functions are polymorphic: an operator applied to an array
+(or to a scalar and an array) works on every element. Python's operators do not,
+so when an operand of an operator, comparison or conversion is an array, the
+expression is rewritten into a comprehension over the arrays, one nesting level
+per array dimension::
+
+    a - b            ->  [_e0 - _e1 for _e0, _e1 in zip(a, b)]
+    a - 1            ->  [_e0 - 1 for _e0 in a]
+    int(round(m))    ->  [[int(round(_e1)) for _e1 in _e0] for _e0 in m]
+
+An operand is an array when the graph types its wire as one; the rank (the
+dimension count) of each operand comes from that type. A connected chain of
+operators becomes one comprehension, not one per operator. A scalar operand stays
+as it is inside the comprehension.
 """
 
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 
-LV_IMPORT = "from lvkit.runtime import lv as _lv"
-
-_BINOP = {
-    ast.Add: "add",
-    ast.Sub: "sub",
-    ast.Mult: "mul",
-    ast.Div: "truediv",
-    ast.FloorDiv: "floordiv",
-    ast.Mod: "mod",
-    ast.Pow: "pow_",
-    ast.BitAnd: "bitand",
-    ast.BitOr: "bitor",
-    ast.BitXor: "bitxor",
-    ast.LShift: "lshift",
-    ast.RShift: "rshift",
-}
-_CMP = {
-    ast.Gt: "gt",
-    ast.Lt: "lt",
-    ast.GtE: "ge",
-    ast.LtE: "le",
-    ast.Eq: "eq",
-    ast.NotEq: "ne",
-}
-# Unary conversion builtins whose templates (int(bool(x)), int(round(x)), …) must
-# broadcast when their argument is an array (LabVIEW's conversions are
-# polymorphic). Mapped to the scalar-safe, recursively-broadcasting _lv helpers.
-_UNARY_FN = {
-    "int": "int_",
-    "float": "float_",
-    "bool": "bool_",
-    "round": "round_",
-    "abs": "abs_",
-}
-
-
-def _call(fn: str, args: list[ast.expr]) -> ast.Call:
-    return ast.Call(
-        func=ast.Attribute(
-            value=ast.Name(id="_lv", ctx=ast.Load()), attr=fn, ctx=ast.Load()
-        ),
-        args=args,
-        keywords=[],
-    )
+# Operators and conversion calls that apply to every element of an array.
+_UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs"})
+_UNARY_OPS = (ast.USub, ast.UAdd, ast.Not, ast.Invert)
+_COMPARE_OPS = (ast.Gt, ast.Lt, ast.GtE, ast.LtE, ast.Eq, ast.NotEq)
+_BINARY_OPS = (
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.BitAnd,
+    ast.BitOr,
+    ast.BitXor,
+    ast.LShift,
+    ast.RShift,
+)
 
 
 def _is_list_shaped(node: ast.expr) -> bool:
-    """True for an expression that is a LIST by construction — a sliced subscript
+    """True for an expression that is a LIST by construction: a sliced subscript
     (``x[a:b]``), a list literal (``[x]``), or a ``+`` of such. Build Array and
     Replace Array Subset join these with ``+`` to CONCATENATE; a scalar operand
     is never list-shaped, so ``5.0 + arr[:3]`` (a broadcast) is not mistaken for a
@@ -70,134 +53,282 @@ def _is_list_shaped(node: ast.expr) -> bool:
         return True
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         return _is_list_shaped(node.left) and _is_list_shaped(node.right)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+        return isinstance(node.left, ast.List) or isinstance(node.right, ast.List)
     return False
 
 
-def _is_array_valued(node: ast.expr, array_vars: frozenset[str]) -> bool:
-    """An operator's operand carries an array if it names a known array
-    variable or is already an ``_lv.*`` broadcast call (which returns an array
-    when its input was one). A subscript is array-valued only when it's a
-    *slice* of an array (``a[i:j]`` stays an array); a single integer index
-    (``a[i]``) is a scalar element."""
-    if isinstance(node, ast.Name):
-        return node.id in array_vars
-    if (
+def _unary_call(node: ast.AST) -> bool:
+    """A conversion of one value (``int(x)``, ``round(x)``, …) or a ``math``
+    function of its arguments (``math.log10(x)``, ``math.copysign(a, b)``)."""
+    if not (
         isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "_lv"
+        and node.args
+        and not node.keywords
+        and not any(isinstance(a, ast.Starred) for a in node.args)
     ):
-        return True
-    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
-        return _is_array_valued(node.value, array_vars)
-    return False
-
-
-class _ArrayifyBase(ast.NodeTransformer):
-    """Rewrite numeric operators into ``_lv.*`` broadcast calls. Subclasses
-    decide *which* operators to rewrite via ``_should`` — the dispatch over
-    BinOp/UnaryOp/Compare is shared so it lives in exactly one place."""
-
-    used: bool = False
-    preserve_list_concat: bool = True
-
-    def _should(self, *operands: ast.expr) -> bool:
-        raise NotImplementedError
-
-    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
-        self.generic_visit(node)
-        fn = _BINOP.get(type(node.op))
-        if fn and self._should(node.left, node.right):
-            # The module pass also sees Build Array and Replace Array Subset
-            # expressions, whose list-shaped additions concatenate elements.
-            # A typed numeric template instead uses Add element-wise, including
-            # when either operand is a literal array.
-            if (
-                self.preserve_list_concat
-                and isinstance(node.op, ast.Add)
-                and (
-                    isinstance(node.left, ast.List)
-                    or isinstance(node.right, ast.List)
-                    or (_is_list_shaped(node.left) and _is_list_shaped(node.right))
-                )
-            ):
-                return node
-            self.used = True
-            return _call(fn, [node.left, node.right])
-        return node
-
-    def visit_UnaryOp(self, node: ast.UnaryOp) -> ast.AST:
-        self.generic_visit(node)
-        if isinstance(node.op, ast.USub) and self._should(node.operand):
-            self.used = True
-            return _call("neg", [node.operand])
-        return node
-
-    def visit_Compare(self, node: ast.Compare) -> ast.AST:
-        self.generic_visit(node)
-        if len(node.ops) == 1:
-            fn = _CMP.get(type(node.ops[0]))
-            if fn and self._should(node.left, node.comparators[0]):
-                self.used = True
-                return _call(fn, [node.left, node.comparators[0]])
-        return node
-
-    def visit_Call(self, node: ast.Call) -> ast.AST:
-        # Broadcast a unary conversion builtin (int/bool/round/float/abs) over an
-        # array-valued argument. Visited bottom-up, so nested conversions like
-        # int(bool(arr)) rewrite to _lv.int_(_lv.bool_(arr)).
-        self.generic_visit(node)
-        if (
-            isinstance(node.func, ast.Name)
-            and node.func.id in _UNARY_FN
-            and len(node.args) == 1
-            and not node.keywords
-            and not any(isinstance(a, ast.Starred) for a in node.args)
-            and self._should(node.args[0])
-        ):
-            self.used = True
-            return _call(_UNARY_FN[node.func.id], [node.args[0]])
-        return node
-
-
-class _Arrayify(_ArrayifyBase):
-    """Rewrite every numeric operator — used per-node when the whole template
-    expression is already known to be array-valued."""
-
-    preserve_list_concat = False
-
-    def _should(self, *operands: ast.expr) -> bool:
-        return True
-
-
-class _ModuleArrayify(_ArrayifyBase):
-    """Rewrite only operators with an array-valued operand, anywhere in the
-    tree. Catches expressions that were inlined past the per-node hook."""
-
-    def __init__(self, array_vars: frozenset[str]):
-        self.array_vars = array_vars
-
-    def _should(self, *operands: ast.expr) -> bool:
-        return any(_is_array_valued(o, self.array_vars) for o in operands)
-
-
-def arrayify(expr: ast.expr) -> tuple[ast.expr, bool]:
-    """Return (rewritten_expr, used_helper). ``used_helper`` is True when any
-    operator was rewritten (so the caller adds the import)."""
-    t = _Arrayify()
-    new = t.visit(expr)
-    ast.fix_missing_locations(new)
-    return new, t.used
-
-
-def arrayify_module(body: list[ast.stmt], array_vars: frozenset[str]) -> bool:
-    """Rewrite operators over array-valued operands across a whole function
-    body (post-codegen, so inlined single-use expressions are covered).
-    Returns True if anything was rewritten."""
-    if not array_vars:
         return False
-    t = _ModuleArrayify(array_vars)
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id in _UNARY_CALLS and len(node.args) == 1
+    return (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "math"
+    )
+
+
+def _fixed_width_value(node: ast.AST) -> ast.Call | None:
+    """The ``ctypes.c_int32(x)`` call of a ``ctypes.c_int32(x).value`` fixed-width
+    integer conversion, else None."""
+    if not (
+        isinstance(node, ast.Attribute)
+        and node.attr == "value"
+        and isinstance(node.value, ast.Call)
+        and len(node.value.args) == 1
+    ):
+        return None
+    func = node.value.func
+    if (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "ctypes"
+    ):
+        return node.value
+    return None
+
+
+class _Ranks:
+    """The dimension count of an expression: from the wire types of the operands
+    (``known``, keyed by the operand's source text), from the array variables of
+    the function (``variables``), and from the shape of the expression itself."""
+
+    def __init__(self, known: Mapping[str, int], variables: Mapping[str, int]) -> None:
+        self.known = known
+        self.variables = variables
+        self.loop_variables: dict[str, int] = {}
+        # Whether ``a if c else b`` applies per element (a Select over arrays
+        # would not, so only an expression written for it turns this on).
+        self.conditionals = False
+
+    def __call__(self, node: ast.expr) -> int:
+        text = ast.unparse(node)
+        if text in self.known:
+            return self.known[text]
+        if isinstance(node, ast.Name):
+            if node.id in self.loop_variables:
+                return self.loop_variables[node.id]
+            return self.variables.get(node.id, 0)
+        if isinstance(node, ast.Subscript):
+            inner = self(node.value)
+            if isinstance(node.slice, ast.Slice):
+                return inner
+            return max(inner - 1, 0)
+        if isinstance(node, ast.ListComp):
+            return 1 + self(node.elt)
+        if isinstance(node, ast.BinOp):
+            return max(self(node.left), self(node.right))
+        if isinstance(node, ast.UnaryOp):
+            return self(node.operand)
+        if isinstance(node, ast.Compare):
+            return max(self(node.left), *(self(c) for c in node.comparators))
+        if isinstance(node, ast.IfExp):
+            return max(self(node.test), self(node.body), self(node.orelse))
+        if _unary_call(node):
+            assert isinstance(node, ast.Call)
+            return max(self(a) for a in node.args)
+        conversion = _fixed_width_value(node)
+        if conversion is not None:
+            return self(conversion.args[0])
+        return 0
+
+
+def _applies_per_element(
+    node: ast.expr, ranks: _Ranks, keep_list_concat: bool
+) -> bool:
+    if isinstance(node, ast.BinOp):
+        if not isinstance(node.op, _BINARY_OPS):
+            return False
+        if (
+            keep_list_concat
+            and isinstance(node.op, ast.Add)
+            and (
+                isinstance(node.left, ast.List)
+                or isinstance(node.right, ast.List)
+                or (_is_list_shaped(node.left) and _is_list_shaped(node.right))
+            )
+        ):
+            return False
+        return True
+    if isinstance(node, ast.UnaryOp):
+        return isinstance(node.op, _UNARY_OPS)
+    if isinstance(node, ast.Compare):
+        return len(node.ops) == 1 and isinstance(node.ops[0], _COMPARE_OPS)
+    if isinstance(node, ast.IfExp):
+        return ranks.conditionals
+    return _unary_call(node) or _fixed_width_value(node) is not None
+
+
+def _operands(node: ast.expr) -> list[ast.expr]:
+    if isinstance(node, ast.BinOp):
+        return [node.left, node.right]
+    if isinstance(node, ast.UnaryOp):
+        return [node.operand]
+    if isinstance(node, ast.Compare):
+        return [node.left, node.comparators[0]]
+    if isinstance(node, ast.IfExp):
+        return [node.test, node.body, node.orelse]
+    conversion = _fixed_width_value(node)
+    if conversion is not None:
+        return list(conversion.args)
+    assert isinstance(node, ast.Call)
+    return list(node.args)
+
+
+def _array_leaves(
+    node: ast.expr, ranks: _Ranks, keep_list_concat: bool, out: list[ast.expr]
+) -> None:
+    """The array-valued operands at the edge of a connected chain of
+    per-element operators, in evaluation order."""
+    for operand in _operands(node):
+        if ranks(operand) == 0:
+            continue
+        if _applies_per_element(operand, ranks, keep_list_concat):
+            _array_leaves(operand, ranks, keep_list_concat, out)
+        else:
+            out.append(operand)
+
+
+class _ReplaceLeaves(ast.NodeTransformer):
+    def __init__(self, names: dict[str, str]) -> None:
+        self.names = names
+
+    def visit(self, node: ast.AST) -> ast.AST:
+        if isinstance(node, ast.expr):
+            name = self.names.get(ast.unparse(node))
+            if name is not None:
+                return ast.Name(id=name, ctx=ast.Load())
+        return super().visit(node)
+
+
+def _fresh_names(count: int, taken: set[str]) -> list[str]:
+    names: list[str] = []
+    serial = 0
+    while len(names) < count:
+        candidate = f"_e{serial}"
+        serial += 1
+        if candidate not in taken:
+            names.append(candidate)
+            taken.add(candidate)
+    return names
+
+
+def _lift_children(
+    node: ast.AST, ranks: _Ranks, keep_list_concat: bool, taken: set[str]
+) -> bool:
+    changed = False
+    for field_name, value in ast.iter_fields(node):
+        if isinstance(value, ast.expr):
+            new, did = _lift(value, ranks, keep_list_concat, taken)
+            if did:
+                setattr(node, field_name, new)
+                changed = True
+        elif isinstance(value, list):
+            for i, item in enumerate(value):
+                if isinstance(item, ast.expr):
+                    new, did = _lift(item, ranks, keep_list_concat, taken)
+                    if did:
+                        value[i] = new
+                        changed = True
+                elif isinstance(item, (ast.comprehension, ast.keyword)):
+                    changed = (
+                        _lift_children(item, ranks, keep_list_concat, taken) or changed
+                    )
+    return changed
+
+
+def _lift(
+    node: ast.expr, ranks: _Ranks, keep_list_concat: bool, taken: set[str]
+) -> tuple[ast.expr, bool]:
+    """``node`` with every per-element operator chain over arrays turned into a
+    comprehension; whether anything changed."""
+    if _applies_per_element(node, ranks, keep_list_concat) and ranks(node) > 0:
+        leaves: list[ast.expr] = []
+        _array_leaves(node, ranks, keep_list_concat, leaves)
+        unique: dict[str, ast.expr] = {}
+        for leaf in leaves:
+            lifted, _ = _lift(leaf, ranks, keep_list_concat, taken)
+            unique.setdefault(ast.unparse(leaf), lifted)
+        if unique:
+            names = dict(zip(unique, _fresh_names(len(unique), taken)))
+            inner_node = _ReplaceLeaves(names).visit(node)
+            assert isinstance(inner_node, ast.expr)
+            for text, leaf in unique.items():
+                ranks.loop_variables[names[text]] = max(ranks(leaf) - 1, 0)
+            inner, _ = _lift(inner_node, ranks, keep_list_concat, taken)
+            targets: list[ast.expr] = [
+                ast.Name(id=n, ctx=ast.Store()) for n in names.values()
+            ]
+            sources = list(unique.values())
+            target: ast.expr
+            iterable: ast.expr
+            if len(sources) == 1:
+                target, iterable = targets[0], sources[0]
+            else:
+                target = ast.Tuple(elts=targets, ctx=ast.Store())
+                iterable = ast.Call(
+                    func=ast.Name(id="zip", ctx=ast.Load()),
+                    args=sources,
+                    keywords=[],
+                )
+            comprehension = ast.comprehension(
+                target=target, iter=iterable, ifs=[], is_async=0
+            )
+            return ast.ListComp(elt=inner, generators=[comprehension]), True
+    return node, _lift_children(node, ranks, keep_list_concat, taken)
+
+
+def _names_in(node: ast.AST) -> set[str]:
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+
+def arrayify(
+    expr: ast.expr, operand_ranks: Mapping[str, int], conditionals: bool = False
+) -> tuple[ast.expr, bool]:
+    """Rewrite one primitive's expression so its operators apply per element.
+    ``operand_ranks`` maps the source text of each array operand to its
+    dimension count. ``conditionals`` also applies ``a if c else b`` per element.
+    Returns (expression, whether anything was rewritten)."""
+    ranks = _Ranks(operand_ranks, {})
+    ranks.conditionals = conditionals
+    new, changed = _lift(expr, ranks, False, _names_in(expr))
+    ast.fix_missing_locations(new)
+    return new, changed
+
+
+class _ModuleLift(ast.NodeTransformer):
+    def __init__(self, array_variables: Mapping[str, int]) -> None:
+        self.ranks = _Ranks({}, array_variables)
+        self.taken = set(array_variables)
+        self.changed = False
+
+    def visit(self, node: ast.AST) -> ast.AST:
+        if isinstance(node, ast.expr):
+            self.ranks.loop_variables.clear()
+            new, did = _lift(node, self.ranks, True, self.taken | _names_in(node))
+            self.changed = self.changed or did
+            return new
+        return self.generic_visit(node)
+
+
+def arrayify_module(body: list[ast.stmt], array_variables: Mapping[str, int]) -> bool:
+    """Rewrite operators over array variables across a whole function body
+    (after generation, so expressions inlined from other nodes are covered).
+    Returns True if anything was rewritten."""
+    if not array_variables:
+        return False
+    lifter = _ModuleLift(array_variables)
     for stmt in body:
-        t.visit(stmt)
+        lifter.visit(stmt)
     ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
-    return t.used
+    return lifter.changed

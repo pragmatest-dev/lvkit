@@ -139,10 +139,9 @@ class TestCompoundArithGenerate:
         assert " and " not in code
 
     def test_generate_integer_invert_is_width_masked(self):
-        """A per-input Not on a U32 -> ~ masked to 32 bits (not a signed ~)."""
+        """A per-input Not on a U32 wraps ~ to 32 bits (not a signed ~)."""
         code = self._int_cpd("or", inverted_in=True)
-        assert "4294967295" in code  # 0xFFFFFFFF mask
-        assert "~a" in code
+        assert "ctypes.c_uint32(~a).value" in code
 
     def test_generate_add_multiple_inputs(self):
         """Test generating addition of multiple inputs."""
@@ -562,7 +561,7 @@ class TestCompoundArithInvert:
         raises at codegen rather than silently defaulting to OR."""
         import pytest
 
-        from lvkit.codegen.nodes.base import CodeGenError
+        from lvkit.conversion_gap import ConversionGap
 
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
@@ -579,7 +578,7 @@ class TestCompoundArithInvert:
                 Terminal(id="term_out", index=0, direction="output"),
             ],
         )
-        with pytest.raises(CodeGenError, match="not supported"):
+        with pytest.raises(ConversionGap, match="not supported"):
             compound.generate_compound_arith(op, ctx)
 
     def test_multiply_boolean_translates_to_and(self):

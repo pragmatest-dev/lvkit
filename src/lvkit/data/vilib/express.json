@@ -26,121 +26,109 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
-          "default_value": null,
           "description": "Specifies the DC offset of the signal. The default is 0. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Phase",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": "Specifies the initial phase in degrees of the signal. The default is 0. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "amplitude",
-          "default_value": null,
           "description": "Specifies the amplitude of the signal. The default is 1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Duty Cycle (%)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duty_cycle",
-          "default_value": null,
           "description": "Specifies the percentage of time a square wave remains high versus low over one period. The default is 50. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Noise Amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "noise_amplitude",
-          "default_value": null,
           "description": "Specifies the maximum absolute value the signal can have. The default is 0.6. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Trials",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "trials",
-          "default_value": null,
           "description": "Specifies the number of trials performed for each element of the simulated signal. The default is 1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Reset Signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset_signal",
-          "default_value": null,
           "description": "Specifies when to reset the signal. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Seed Number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "seed_number",
-          "default_value": null,
           "description": "Reseeds the noise sample generator when this value is > 0. The default is –1. If seed is 0, the noise generator does not reseed and resumes producing noise samples as a continuation of the previous noise sequence. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Frequency",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "frequency",
-          "default_value": null,
           "description": "Specifies the frequency in hertz of the waveform. The default is 10.1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
-          "default_value": null,
           "description": "Returns the output signal formatted as dynamic data ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -158,61 +146,55 @@
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Next Value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "next_value",
-          "default_value": null,
           "description": "Specifies the next value of the signal. The default is TRUE. If FALSE, the Express VI outputs the same value for each iteration."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
-          "default_value": null,
           "description": "Returns the output signal formatted as dynamic data ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Data Valid",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_valid",
-          "default_value": null,
           "description": "Indicates whether the data is valid."
         }
       ]
@@ -230,81 +212,73 @@
         {
           "name": "Device",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "device",
-          "default_value": null,
           "description": "Lists the sound devices you have connected."
         },
         {
           "name": "Sample rate (Hz)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sample_rate",
-          "default_value": null,
           "description": "Specifies the sample rate in hertz."
         },
         {
           "name": "Resolution (bits)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
-          "default_value": null,
           "description": "Specifies the quality of each sample in bits. The default is 16 bits."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Duration (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
-          "default_value": null,
           "description": "Sets the number of seconds for which you want to acquire sound."
         },
         {
           "name": "#Channels",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channels",
-          "default_value": null,
           "description": "Specifies the number of channels. 1 is Mono, and 2 is Stereo."
         },
         {
           "name": "Data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "Returns the data this Express VI acquires from the selected device using the settings you specify in the configuration dialog box."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -322,101 +296,91 @@
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Filename",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename",
-          "default_value": null,
           "description": "Specifies the name of the file from which you want to read data."
         },
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Resets the file position such that the next read starts at the beginning of the file."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the output signal or signals."
         },
         {
           "name": "Filename Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_out",
-          "default_value": null,
           "description": "Returns the name of the file."
         },
         {
           "name": "Comment",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "comment",
-          "default_value": null,
           "description": "Returns the appended comment of each data set in the .lvm or .tdm file."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Description",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "description",
-          "default_value": null,
           "description": "Returns the description in the header of the .lvm or .tdm file."
         },
         {
           "name": "EOF?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "eof",
-          "default_value": null,
           "description": "Returns TRUE when the Express VI reaches the end of the file."
         }
       ]
@@ -434,41 +398,37 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "OK",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "ok",
-          "default_value": null,
           "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -486,121 +446,109 @@
         {
           "name": "button label",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "button_label",
-          "default_value": null,
           "description": "Label to display on the OK or Current Directory button in the file dialog box. If you configure the Express VI to allow the user to select directories, use this input to specify a label for the Current Directory button. If the configuration does not allow the user to select directories, use this input to specify a label for the OK button."
         },
         {
           "name": "pattern (all files)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern",
-          "default_value": null,
           "description": "Restricts the files displayed in the dialog box to those whose name matches pattern (all files) . pattern (all files) does not restrict the directories displayed."
         },
         {
           "name": "start path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_path",
-          "default_value": null,
           "description": "Path of the directory whose contents LabVIEW initially displays in the dialog box."
         },
         {
           "name": "default name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_name",
-          "default_value": null,
           "description": "Name you want to appear as the initial file or directory name in the dialog box."
         },
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
-          "default_value": null,
           "description": "Custom message that appears as the title of the file dialog box. (Windows and Linux) The default dialog box title is Choose or Enter Path of File . (macOS) The default dialog box title is Select File or Create New File ."
         },
         {
           "name": "pattern label",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern_label",
-          "default_value": null,
           "description": "Label to display in the file dialog box next to the custom pattern ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "selected path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "selected_path",
-          "default_value": null,
           "description": "Full path to the file or directory selected using this dialog box."
         },
         {
           "name": "exists",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "exists",
-          "default_value": null,
           "description": "Is TRUE if selected path specifies an existing file or directory."
         },
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
-          "default_value": null,
           "description": "Is TRUE if you cancel the dialog box."
         },
         {
           "name": "selected paths",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "selected_paths",
-          "default_value": null,
           "description": "Contains the full path names to the files or directories selected using this dialog box. This output is available if you do not place a checkmark in the Limit selection to single item in the Configure File Dialog dialog box."
         }
       ]
@@ -618,61 +566,55 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Phase",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": "Returns the FFT phase spectrum and displays the results in degrees or radians."
         },
         {
           "name": "df",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "df",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "phase",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": ""
         }
       ]
@@ -690,61 +632,55 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "SINAD (dB)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sinad",
-          "default_value": null,
           "description": "Returns the measured signal in noise and distortion (SINAD). SINAD is defined as the dB of the ratio of the RMS energy of Signals to the RMS energy of Signals less the energy in the fundamental. To compute the THD Plus Noise in dB, negate the SINAD."
         },
         {
           "name": "Specific Harmonic",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "specific_harmonic",
-          "default_value": null,
           "description": "Returns the harmonic you specify in Specific harmonic level ."
         },
         {
           "name": "THD",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "thd",
-          "default_value": null,
           "description": "Returns the measured total harmonic distortion up to and including the highest harmonic. To compute THD as a percentage, you must multiply it by 100."
         }
       ]
@@ -762,61 +698,55 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Phase",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": "Returns the phase of the detected single tone in degrees."
         },
         {
           "name": "Frequency",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "frequency",
-          "default_value": null,
           "description": "Returns the frequency of the detected single tone in Hertz."
         },
         {
           "name": "Amplitude",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "amplitude",
-          "default_value": null,
           "description": "Returns the amplitude of the detected single tone in volts peak (Vp)."
         }
       ]
@@ -834,111 +764,100 @@
         {
           "name": "Input Signal A",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal_a",
-          "default_value": null,
           "description": "Contains the first input signal or signals. This is assumed to be the excitation. The input signals must have the same number of data points, t0, and dt. If they do not, an error is returned."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Restart Averaging (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "restart_averaging",
-          "default_value": null,
           "description": "Specifies whether to restart the selected averaging process. The default is FALSE. When you call this Express VI for the first time, the averaging process starts automatically."
         },
         {
           "name": "Input Signal B",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal_b",
-          "default_value": null,
           "description": "Contains the second input signal or signals. This is assumed to be the response. The input signals must have the same number of data points, t0, and dt. If they do not, an error is returned."
         },
         {
           "name": "Magnitude",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "magnitude",
-          "default_value": null,
           "description": "The magnitude from the frequency response calculations."
         },
         {
           "name": "Imaginary",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "imaginary",
-          "default_value": null,
           "description": "The imaginary part from the frequency response calculations."
         },
         {
           "name": "Real",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "real",
-          "default_value": null,
           "description": "The real part from the frequency response calculations."
         },
         {
           "name": "Averaging Done",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "averaging_done",
-          "default_value": null,
           "description": "Returns TRUE when the number of averages completed equals or exceeds Number of Averages ."
         },
         {
           "name": "Coherence",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "coherence",
-          "default_value": null,
           "description": "The coherence from the frequency response calculations."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Phase",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": "The phase from the frequency response calculations."
         }
       ]
@@ -956,111 +875,100 @@
         {
           "name": "Restart Averaging",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "restart_averaging",
-          "default_value": null,
           "description": "Specifies whether to restart the selected averaging process. The default is FALSE. When you call this Express VI for the first time, the averaging process starts automatically."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Mean (DC)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mean",
-          "default_value": null,
           "description": "Returns the measured DC value of Signals ."
         },
         {
           "name": "Negative Peak",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "negative_peak",
-          "default_value": null,
           "description": "Returns a measurement of the most negative peak in Signals ."
         },
         {
           "name": "Cycle Average",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cycle_average",
-          "default_value": null,
           "description": "Returns the mean level of one complete period of a periodic input signal."
         },
         {
           "name": "Positive Peak",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "positive_peak",
-          "default_value": null,
           "description": "Returns a measurement of the most positive peak in Signals ."
         },
         {
           "name": "RMS",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rms",
-          "default_value": null,
           "description": "Returns the calculated RMS of the values in Signals ."
         },
         {
           "name": "Cycle RMS",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cycle_rms",
-          "default_value": null,
           "description": "Returns the root mean square value of one complete period of a periodic input signal."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Peak to Peak",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "peak_to_peak",
-          "default_value": null,
           "description": "Returns a measurement from the most positive peak to the most negative peak in Signals ."
         }
       ]
@@ -1078,101 +986,91 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
-          "default_value": null,
           "description": "Returns the time difference in seconds between the first two middle reference level crossings."
         },
         {
           "name": "Preshoot",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "preshoot",
-          "default_value": null,
           "description": "Returns the height of the local minimum that precedes a rising transition or the local maximum that precedes a falling transition as a percentage of the histogram-based amplitude of the signal."
         },
         {
           "name": "Slew Rate",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "slew_rate",
-          "default_value": null,
           "description": "Returns the ratio between (90% amplitude – 10% amplitude) and the rise time."
         },
         {
           "name": "Frequency",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "frequency",
-          "default_value": null,
           "description": "Returns the frequency of Signals in Hertz."
         },
         {
           "name": "Overshoot",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "overshoot",
-          "default_value": null,
           "description": "Returns the height of the local maximum that follows a rising transition or the local minimum that follows a falling transition as a percentage of the histogram-based amplitude of the signal."
         },
         {
           "name": "Period",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "period",
-          "default_value": null,
           "description": "Returns the time in seconds between adjacent middle reference level crossings in the same direction. The reciprocal of this value is the signal frequency."
         },
         {
           "name": "Duty Cycle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duty_cycle",
-          "default_value": null,
           "description": "Calculates the Pulse duration as a fraction of the Period ."
         }
       ]
@@ -1190,161 +1088,145 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Specifies the observed values of the dependent variable."
         },
         {
           "name": "Locations",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "locations",
-          "default_value": null,
           "description": "Specifies the values of the independent variables."
         },
         {
           "name": "best fit",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "best_fit",
-          "default_value": null,
           "description": "Returns the fitted data."
         },
         {
           "name": "slope",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "slope",
-          "default_value": null,
           "description": "Returns the slope of the calculated best linear fit."
         },
         {
           "name": "a0",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "a0",
-          "default_value": null,
           "description": "Returns the constant term of the calculated best quadratic fit."
         },
         {
           "name": "a2",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "a2",
-          "default_value": null,
           "description": "Returns the coefficient of the second-order term."
         },
         {
           "name": "spline interpolant",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "spline_interpolant",
-          "default_value": null,
           "description": "Returns the second derivative of interpolating function g(x)."
         },
         {
           "name": "non-linear coefficients",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "non_linear_coefficients",
-          "default_value": null,
           "description": "Returns the set of coefficients of the nonlinear model that best represents the input data set in the least-squares sense."
         },
         {
           "name": "mean squared error",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mean_squared_error",
-          "default_value": null,
           "description": "Returns the mean square error of the best fit."
         },
         {
           "name": "intercept",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "intercept",
-          "default_value": null,
           "description": "Returns the intercept of the calculated best linear fit."
         },
         {
           "name": "polynomial coefficients",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "polynomial_coefficients",
-          "default_value": null,
           "description": "Returns the coefficients that describe the best polynomial fit. The total number of elements in polynomial coefficients is m + 1, where m is Polynomial order ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "a1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "a1",
-          "default_value": null,
           "description": "Returns the coefficient of the first-order term."
         },
         {
           "name": "general LS coefficients",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "general_ls_coefficients",
-          "default_value": null,
           "description": "Returns the set of coefficients that best represent the input data set in the least-squares sense."
         },
         {
           "name": "residual",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "residual",
-          "default_value": null,
           "description": "Returns the difference between the original data and the best fit."
         }
       ]
@@ -1362,51 +1244,46 @@
         {
           "name": "Input1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input1",
-          "default_value": null,
           "description": "Contains the input signal X."
         },
         {
           "name": "Y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "Contains the input signal Y."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "output signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_signals",
-          "default_value": null,
           "description": "Returns the convolution of X and Y ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1424,121 +1301,109 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
-          "default_value": null,
           "description": "Specifies the DC offset of the signal. The default is 0. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Phase",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
-          "default_value": null,
           "description": "Specifies the initial phase in degrees of the signal. The default is 0. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "amplitude",
-          "default_value": null,
           "description": "Specifies the amplitude of the signal. The default is 1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Duty Cycle (%)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duty_cycle",
-          "default_value": null,
           "description": "Specifies the percentage of time a square wave remains high versus low over one period. The default is 50. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Noise Amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "noise_amplitude",
-          "default_value": null,
           "description": "Specifies the maximum absolute value the signal can have. The default is 0.6. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Trials",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "trials",
-          "default_value": null,
           "description": "Specifies the number of trials performed for each element of the simulated signal. The default is 1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Reset Signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset_signal",
-          "default_value": null,
           "description": "Specifies when to reset the signal. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Seed Number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "seed_number",
-          "default_value": null,
           "description": "Reseeds the noise sample generator when this value is > 0. The default is –1. If seed is 0, the noise generator does not reseed and resumes producing noise samples as a continuation of the previous noise sequence. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Frequency",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "frequency",
-          "default_value": null,
           "description": "Specifies the frequency in hertz of the waveform. The default is 10.1. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
-          "default_value": null,
           "description": "Returns the output signal formatted as dynamic data ."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1556,101 +1421,91 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Lower Limit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lower_limit",
-          "default_value": null,
           "description": "Specifies the lower limit for mask and limit testing. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Upper Constant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "upper_constant",
-          "default_value": null,
           "description": "Compares Signals to the value in Upper Constant . The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Lower Constant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lower_constant",
-          "default_value": null,
           "description": "Compares Signals to the value in Lower Constant . The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Upper Limit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "upper_limit",
-          "default_value": null,
           "description": "Specifies the upper limit for mask and limit testing. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Point Evaluation",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "point_evaluation",
-          "default_value": null,
           "description": "Returns the results of the limit testing at each data point. If Point Evaluation is TRUE, the data point is less than or equal to the upper limit and greater than or equal to the lower limit."
         },
         {
           "name": "Tested Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tested_signals",
-          "default_value": null,
           "description": "Returns the upper and lower limits, the input signal, and the failures."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Passed",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "passed",
-          "default_value": null,
           "description": "Indicates the result of limit testing. If Passed is TRUE, the signal is less than or equal to the upper limit and greater than or equal to the lower limit."
         }
       ]
@@ -1668,61 +1523,55 @@
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
-          "default_value": null,
           "description": "Specifies the input signal. The signal can be a waveform, a real array, or a complex array."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "Histogram",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "histogram",
-          "default_value": null,
           "description": "Returns the resulting histogram."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1751,41 +1600,37 @@
         {
           "name": "Beginning Text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "beginning_text",
-          "default_value": null,
           "description": "Prepends the text you wire to this input to the text the Express VI generates."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Result",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result",
-          "default_value": null,
           "description": "Returns the resulting data based on the configuration of the Express VI."
         }
       ]
@@ -1803,51 +1648,46 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message",
-          "default_value": null,
           "description": "Contains the text to display in the dialog box."
         },
         {
           "name": "OK?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "ok",
-          "default_value": null,
           "description": "Returns TRUE when you click the first button in the dialog box and FALSE when you click the second button."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1865,41 +1705,37 @@
         {
           "name": "Device",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "device",
-          "default_value": null,
           "description": "Lists the sound devices you have connected."
         },
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "The error in cluster can accept error information wired from VIs previously called. Use this information to decide if any functionality should be bypassed in the event of errors from other VIs. The pop-up option Explain Error (or Explain Warning) gives more information about the error displayed."
         },
         {
           "name": "Data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "Specifies the data this Express VI plays."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "The error out cluster passes error or warning information out of a VI to be used by other VIs. The pop-up option Explain Error (or Explain Warning) gives more information about the error displayed."
         }
       ]
@@ -1917,101 +1753,91 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Comment",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "comment",
-          "default_value": null,
           "description": "Appends a comment to each data set written to the measurement file. This input is unavailable when you select the Microsoft Excel (.xlsx) option from the File Format section."
         },
         {
           "name": "new_file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_file",
-          "default_value": null,
           "description": "If TRUE, stops writing to the current file, creates the next file in the series, and writes to that file instead. This input is available only when you select the Save to series of files (multiple files) option."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Filename",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename",
-          "default_value": null,
           "description": "Specifies the name of the file to which you want to write data. If Filename is not wired, the VI uses the Filename specified in the configuration dialog box."
         },
         {
           "name": "DAQmx Task",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "daqmx_task",
-          "default_value": null,
           "description": "Specifies the DAQmx task to use to populate data on the DAQmx Properties page of the Configure User Defined Properties dialog box."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Saving Data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "saving_data",
-          "default_value": null,
           "description": "Indicates if the Express VI is saving the data."
         },
         {
           "name": "Filename Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_out",
-          "default_value": null,
           "description": "Returns the name of the file."
         }
       ]
@@ -2029,31 +1855,28 @@
         {
           "name": "input signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal",
-          "default_value": null,
           "description": "input signal specifies the signal you want to combine with another signal."
         },
         {
           "name": "input signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "combined signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "combined_signal",
-          "default_value": null,
           "description": "combined signal returns the combined signals. You can wire the dynamic data type to a graph or numeric indicator. For example, if you wire the combined signal to a graph indicator, LabVIEW represents each signal as an individual plot."
         }
       ]
@@ -2071,21 +1894,19 @@
         {
           "name": "combined signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "combined_signal",
-          "default_value": null,
           "description": "combined signal contains a signal you want to split into component signals."
         },
         {
           "name": "output signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_signal",
-          "default_value": null,
           "description": "output signal returns the component signals."
         }
       ]
@@ -2103,51 +1924,46 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Selector Input",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "selector_input",
-          "default_value": null,
           "description": "Selects which signals to include from the Signals input."
         },
         {
           "name": "Signal Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal_out",
-          "default_value": null,
           "description": "Returns the output signal."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2165,91 +1981,82 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Signals 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals_2",
-          "default_value": null,
           "description": "Contains the input signal(s)."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Reference Signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reference_signal",
-          "default_value": null,
           "description": "Contains a reference signal whose sampling interval is used as the rate at which this Express VI resamples the input signals. If you wire a value to this input, the wired value overrides the value you set in the configuration dialog box."
         },
         {
           "name": "dt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
-          "default_value": null,
           "description": "Specifies a sampling interval you define. If you wire a value to this input, the wired value overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Resampled Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resampled_signals",
-          "default_value": null,
           "description": "Returns the resampled signals."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Resampled Signals 2",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resampled_signals_2",
-          "default_value": null,
           "description": "Returns the resampled signals."
         }
       ]
@@ -2267,111 +2074,100 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Data Valid",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_valid",
-          "default_value": null,
           "description": "Indicates whether the data is valid."
         },
         {
           "name": "Median",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "median",
-          "default_value": null,
           "description": "Returns the median value of the points in each bin as the resulting signal output."
         },
         {
           "name": "Minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "Returns the lowest value in each bin as the resulting signal output."
         },
         {
           "name": "Last",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "last",
-          "default_value": null,
           "description": "Returns the last point in each bin as the resulting signal output."
         },
         {
           "name": "Mean",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mean",
-          "default_value": null,
           "description": "Returns the mean value of the points in each bin as the resulting signal output."
         },
         {
           "name": "Maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "Returns the highest value in each bin as the resulting signal output."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2389,91 +2185,82 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Data Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_index",
-          "default_value": null,
           "description": "Contains the index of the detected trigger. If this Express VI is in a loop, wire Data Index to the iteration terminal of the loop."
         },
         {
           "name": "Manual Trigger",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manual_trigger",
-          "default_value": null,
           "description": "Starts the trigger immediately and overrides the Start Trigger settings you configure. The default is FALSE."
         },
         {
           "name": "Data Available",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_available",
-          "default_value": null,
           "description": "Indicates if data is available that meets the requirements of the trigger."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Previous Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "previous_signals",
-          "default_value": null,
           "description": "Contains the last triggered output data. If no data meets the requirements of the trigger, this output contains the most recent segment that meet the requirements of the trigger."
         },
         {
           "name": "Triggered Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "triggered_signals",
-          "default_value": null,
           "description": "Returns the resulting segment between Start Trigger and Stop Trigger . If no data meets the requirements of the trigger, this output returns an empty signal."
         }
       ]
@@ -2491,51 +2278,46 @@
         {
           "name": "Input Signal A",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal_a",
-          "default_value": null,
           "description": "Contains a single or combined signal."
         },
         {
           "name": "Input Signal B",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_signal_b",
-          "default_value": null,
           "description": "Contains a single or combined signal."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Appended Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "appended_signals",
-          "default_value": null,
           "description": "Returns the appended signal(s)."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2553,61 +2335,55 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Data Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_index",
-          "default_value": null,
           "description": "Contains the index of the repacked values. When the Express VI is in a While Loop, wire Data Index to the iteration terminal to take a larger array and iteratively generate packets of smaller size. If you do not wire Data Index to the iteration terminal, smaller data segments are collected into one larger packet."
         },
         {
           "name": "Data Available",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_available",
-          "default_value": null,
           "description": "Indicates if data is available to make a packet."
         },
         {
           "name": "Result",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result",
-          "default_value": null,
           "description": "Returns the resulting data based on the configuration of the Express VI."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2625,81 +2401,73 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Begin Sample",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "begin_sample",
-          "default_value": null,
           "description": "Specifies the value that Begin at sample number uses. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Length",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "length",
-          "default_value": null,
           "description": "Specifies the value that Length (x-axis units) uses. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Samples",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "samples",
-          "default_value": null,
           "description": "Specifies the value that Number of Samples uses. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Begin Offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "begin_offset",
-          "default_value": null,
           "description": "Specifies the value that Begin at Offset (x-axis units) uses. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Section",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "section",
-          "default_value": null,
           "description": "Returns the extracted portion of the input signal."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2717,51 +2485,46 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
-          "default_value": null,
           "description": "Enables or disables the Express VI. The default is ON or TRUE."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Delayed Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "delayed_signals",
-          "default_value": null,
           "description": "Returns the delayed signal(s)."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2779,21 +2542,19 @@
         {
           "name": "Dynamic Data Type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dynamic_data_type",
-          "default_value": null,
           "description": "Contains the input signal formatted as dynamic data."
         },
         {
           "name": "Array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "Returns the output signal converted into an array of numeric values. You also can configure the Convert from Dynamic Data Express VI to return the following outputs:"
         }
       ]
@@ -2811,21 +2572,19 @@
         {
           "name": "Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "Contains the input waveform or array of numbers or Boolean values. You also can configure the Convert to Dynamic Data Express VI to accept the following outputs:"
         },
         {
           "name": "Dynamic Data Type",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dynamic_data_type",
-          "default_value": null,
           "description": "Returns a dynamic data type with the values you entered in the Array input."
         }
       ]
@@ -2843,41 +2602,37 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Digital Data In",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_in",
-          "default_value": null,
           "description": "Specifies the input signals you want to organize into groups."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Digital Data Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_out",
-          "default_value": null,
           "description": "Returns a digital data array or a digital waveform array, depending on the data type of Digital Data In ."
         }
       ]
@@ -2895,51 +2650,46 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals In",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals_in",
-          "default_value": null,
           "description": "Specifies the dynamic data that contains the input signal or signals."
         },
         {
           "name": "Signal Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signal_index",
-          "default_value": null,
           "description": "Specifies the index of the signal whose attributes you want to configure. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Signals Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signals_out",
-          "default_value": null,
           "description": "Returns the dynamic data that contains the signal you set with this Express VI and any unchanged signals from Signals In ."
         }
       ]
@@ -2957,51 +2707,46 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Signals In",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals_in",
-          "default_value": null,
           "description": "Specifies the dynamic data that contains the input signal or signals."
         },
         {
           "name": "Signal Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signal_index",
-          "default_value": null,
           "description": "Specifies the index of the signal whose attributes you want to retrieve. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "Signals Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signals_out",
-          "default_value": null,
           "description": "Returns Signals In unchanged."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3041,21 +2786,18 @@
         {
           "name": "Delay Time (s)",
           "description": "Specifies how many seconds to wait. The value you wire to this input overrides the value you set in the configuration dialog box.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "delay_time_s"
         },
         {
           "name": "error in (no error)",
           "description": "Describes error conditions that occur before this node runs.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "error out",
           "description": "Contains error information. This output provides standard error out functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -3074,131 +2816,118 @@
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
-          "default_value": null,
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
         },
         {
           "name": "Time Target (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_target",
-          "default_value": null,
           "description": "Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1."
         },
         {
           "name": "Auto Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_reset",
-          "default_value": null,
           "description": "Resets the start time to the value in Present (s) when the Express VI reaches the Time Target (s) ."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "Set Start Time (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_start_time",
-          "default_value": null,
           "description": "Uses the current time or a time offset from 12:00 a.m., Friday, January 1, 1904 [01-01-1904 00:00:00] as the start time instead of the time this VI first ran."
         },
         {
           "name": "Present (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "present",
-          "default_value": null,
           "description": "Displays the present time in seconds since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]."
         },
         {
           "name": "Start Time Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_time_text",
-          "default_value": null,
           "description": "If Automatically reset after time target is FALSE, displays (in text format) the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset."
         },
         {
           "name": "Present Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "present_text",
-          "default_value": null,
           "description": "Displays the present date and time in text format."
         },
         {
           "name": "Time has Elapsed",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_has_elapsed",
-          "default_value": null,
           "description": "Indicates if the Elapsed Time (s) is greater than the start time plus Time Target (s) ."
         },
         {
           "name": "Get Start Time (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "get_start_time",
-          "default_value": null,
           "description": "If Automatically reset after time target is FALSE, displays the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Elapsed Time (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "elapsed_time",
-          "default_value": null,
           "description": "Displays the amount of time in seconds that has elapsed since the start time and the Present (s) time."
         },
         {
           "name": "Elapsed Time Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "elapsed_time_text",
-          "default_value": null,
           "description": "Displays the amount of time in seconds that has elapsed since the start time."
         }
       ]
@@ -3216,31 +2945,28 @@
         {
           "name": "Delay Time (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delay_time",
-          "default_value": null,
           "description": "Specifies how many seconds to wait. The value you wire to this input overrides the value you set in the configuration dialog box."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3258,41 +2984,37 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Scaled Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scaled_signals",
-          "default_value": null,
           "description": "Returns the scaled signals."
         }
       ]
@@ -3310,41 +3032,37 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
-          "default_value": null,
           "description": "Contains the input signal or signals."
         },
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "Describes error conditions that occur before this node runs."
         },
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "Contains error information. This output provides standard error out functionality."
         },
         {
           "name": "Result",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result",
-          "default_value": null,
           "description": "Returns the resulting data based on the configuration of the Express VI."
         }
       ]
@@ -3372,31 +3090,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "x+y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "xy",
-          "default_value": null,
           "description": "x+y is the sum of x and y . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3414,31 +3129,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, a time stamp, and so on."
         },
         {
           "name": "x-y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_y",
-          "default_value": null,
           "description": "x-y is the difference between x and y . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3456,31 +3168,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "x*y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "xy",
-          "default_value": null,
           "description": "x*y is the product of x multiplied by y ."
         }
       ]
@@ -3498,31 +3207,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "x/y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "xy",
-          "default_value": null,
           "description": "x/y is a double-precision, floating-point number if both x and y are integers. In general, the output type is the widest representation of the inputs if the inputs are not integers or if their representations differ. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3540,21 +3246,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "x+1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x1",
-          "default_value": null,
           "description": "x+1 is the result of x +1. If the input is a time stamp value, this function increments the time by one second. If the input is an enumerated type value, this function increments the last enumerated value to the first. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3572,21 +3276,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "x-1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_1",
-          "default_value": null,
           "description": "x-1 is the result of x -1. If the input is a time stamp value, this function decrements the time by one second. If the input is an enumerated type value, this function decrements the first enumerated value to the last. Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3604,31 +3306,28 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value 0..n-1 can be a number or Boolean value, an array of numbers or Boolean values, a cluster, array of clusters, and so on. You can wire a waveform to only one value input. If an input is a waveform, you can have an unlimited number of scalar inputs of varying sizes. If value is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": ""
         },
         {
           "name": "result",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result",
-          "default_value": null,
           "description": "result returns the result of the selected operation applied to the value 0..n-1 . For AND, OR, or XOR, result returns the bitwise operations on numeric inputs and logical operations on Boolean inputs."
         }
       ]
@@ -3646,21 +3345,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, and so on. x cannot be an unsigned integer, because unsigned integers represent only non-negative integers."
         },
         {
           "name": "abs(x)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "abs_",
-          "default_value": null,
           "description": "abs(x) is the absolute value of x . When x is of the form x = a + b i , that is, when x is complex, the following equation defines abs(x) :"
         }
       ]
@@ -3678,21 +3375,19 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
-          "default_value": null,
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "nearest integer value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "nearest_integer_value",
-          "default_value": null,
           "description": "nearest integer value is the resulting nearest integer to number . If the input is a time stamp value, the function rounds to the nearest second. When number is in the form of a + b i , that is, when number is complex, the function returns a complex number defined by the nearest integer to the real and imaginary parts of number . The following equation defines nearest integer value : nearest integer value(x) = nearest integer value(a) + i * nearest integer value(b)"
         }
       ]
@@ -3709,7 +3404,6 @@
         {
           "name": "ceil(x): smallest int >= x",
           "description": "ceil(x): smallest int >= x is the resulting highest integer, closest to x. If the input is a time stamp value, the function rounds to the next second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next highest integers to the real and imaginary parts of x. The following equation defines ceil(x): smallest int >= x: ceil(x) = ceil(a) + i ceil(b)",
-          "default_value": null,
           "enum_values": null,
           "python_param": "ceilx_smallest_int_x"
         }
@@ -3727,14 +3421,12 @@
         {
           "name": "floor(x): largest int <= x",
           "description": "floor(x): largest int ≤ x is the resulting lowest integer, closest to x. If the input is a time stamp value, the function rounds to the previous second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next lowest integers to the real and imaginary parts of x. The following equation defines floor(x): largest int ≤ x: floor(x) = floor(a) + i floor(b) Round Toward +Infinity Function Round Toward +Infinity Function Rounds the input t",
-          "default_value": "data types for this polymorphic function",
           "enum_values": null,
           "python_param": "floorx_largest_int_x"
         },
         {
           "name": "ceil(x): smallest int >= x",
           "description": "ceil(x): smallest int >= x is the resulting highest integer, closest to x. If the input is a time stamp value, the function rounds to the next second. When x is of the form x = a + bi, that is, when x is complex, the function returns a complex number defined by the next highest integers to the real and imaginary parts of x. The following equation defines ceil(x): smallest int >= x: ceil(x) = ceil(a) + i ceil(b)",
-          "default_value": null,
           "enum_values": null,
           "python_param": "ceilx_smallest_int_x"
         }
@@ -3753,31 +3445,28 @@
         {
           "name": "n",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "n",
-          "default_value": null,
           "description": "n can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on. If n is a floating-point number, this function rounds n before it scales x (0.5 rounds to 0; 0.51 rounds to 1). If n is a 64-bit integer, LabVIEW coerces n to a 32-bit integer."
         },
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "x*2^n",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x2n",
-          "default_value": null,
           "description": "x*2^n is the result of multiplying x by 2, raised to the power of n ."
         }
       ]
@@ -3795,21 +3484,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "sqrt(x)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sqrt",
-          "default_value": null,
           "description": "sqrt(x) is a double-precision, floating-point number if x is an integer. If x is less than 0, sqrt(x) is not a number ( NaN ), unless x is complex. When x is of the form x = a + b i , that is, when x is complex, the function defines the magnitude and phase with the following equations: where | x | is the magnitude of x and arg( x ) is the phase of x : arg( x ) = arctan2(b,a) Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3827,21 +3514,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "x^2",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x2",
-          "default_value": null,
           "description": "x^2 is of the same numeric representation as x . Note You can manually configure this function to output data of a type you want. To specify the output data type, right-click the function and select Properties to display the Object Properties dialog box. On the Output Configuration page, click the Representation icon and select the data type you want. A blue coercion dot appears on the output terminal of the function to indicate that you have configured the output data type."
         }
       ]
@@ -3859,21 +3544,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, a fixed-point number, an array or cluster of numbers, an array of clusters of numbers, and so on. x cannot be an unsigned integer, because unsigned integers represent only non-negative integers."
         },
         {
           "name": "-x",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "_x",
-          "default_value": null,
           "description": "-x is the negative value of x ."
         }
       ]
@@ -3891,21 +3574,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "1/x",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_1x",
-          "default_value": null,
           "description": "1/x is infinity if x is 0. If x is an integer, 1/x is a double-precision, floating-point number."
         }
       ]
@@ -3923,21 +3604,19 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
-          "default_value": null,
           "description": "number can be a scalar number, array or cluster of numbers, array of clusters of numbers, and so on."
         },
         {
           "name": "-1, 0, 1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "_1_0_1",
-          "default_value": null,
           "description": "–1, 0, 1 returns 1 if the input value is greater than 0, returns 0 if the input value is equal to 0, and returns –1 if the input value is less than 0. When number is in the form of a + b i , that is, when number is complex, the following defines -1, 0, 1 :"
         }
       ]
@@ -3977,11 +3656,10 @@
         {
           "name": "number (0 to 1)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
-          "default_value": null,
           "description": "number (0 to 1) is a double-precision, floating-point number between 0 and 1."
         }
       ]
@@ -4009,7 +3687,6 @@
         {
           "name": "sin(x)",
           "description": "Functions © National Instruments 6097",
-          "default_value": null,
           "enum_values": null,
           "python_param": "sinx"
         }
@@ -4027,14 +3704,12 @@
         {
           "name": "sin(x)",
           "description": "Functions © National Instruments 6097 sin(x) is of the same numeric representation as x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines sin(x): sin(x) = sin(a) * cosh(b) + i(cos(a) * sinh(b)) Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "sinx"
         },
         {
           "name": "labview\\examples\\Mathematics\\Elementary & Special",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_elementary_special"
         }
@@ -4052,21 +3727,18 @@
         {
           "name": "exp(x)",
           "description": "exp(x) is of the same numeric representation as x. The following equation defines the exponential exp(x): exp(a+bi) = exp(a)(cos(b)+i sin(b)) when x is of the form x = a + bi, that is, when x is complex. If x is a matrix, this function computes the exponential of x. When you wire matrix data Note For very small values of x, the Exponential (Arg) -1 function is more accurate than using this function then subtracting 1 from the output. Functions 6110 ni.com as an input to this function, a VI that ",
-          "default_value": null,
           "enum_values": null,
           "python_param": "expx"
         },
         {
           "name": "labview\\examples\\Mathematics\\Elementary & Special",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_elementary_special"
         },
         {
           "name": "exp(x) -1",
           "description": "exp(x)-1 is of the same numeric representation as x. When x is of the form x = a + bi, that is, when x is complex, the following equation defines exp(x)-1:exp(x)-1 = (exp(a) * (cos(b)+i sin(b))) – 1 Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "expx_1"
         }
@@ -4084,14 +3756,12 @@
         {
           "name": "sinh(x)",
           "description": "sinh(x) is of the same numeric representation as x. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "sinhx"
         },
         {
           "name": "labview\\examples\\Mathematics\\Elementary & Special",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_mathematics_elementary_special"
         }
@@ -4109,7 +3779,6 @@
         {
           "name": "x .and. y?",
           "description": "x .and. y? is the logical AND of x and y. And Truth Table x y x .and. y?",
-          "default_value": null,
           "enum_values": null,
           "python_param": "x_and_y"
         }
@@ -4128,31 +3797,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .and. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_and_y",
-          "default_value": null,
           "description": "x .and. y? is the logical AND of x and y ."
         }
       ]
@@ -4170,31 +3836,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .or. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_or_y",
-          "default_value": null,
           "description": "x .or. y? is the logical Or of x and y ."
         }
       ]
@@ -4212,31 +3875,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .xor. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_xor_y",
-          "default_value": null,
           "description": "x .xor. y? is the logical exclusive or (XOR) of x and y ."
         }
       ]
@@ -4254,21 +3914,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a scalar Boolean value or number, array or cluster of Boolean values or numbers, array of clusters of Boolean values or numbers, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. x?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x",
-          "default_value": null,
           "description": ".not. x? is the logical negation of x ."
         }
       ]
@@ -4286,31 +3944,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .and. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_and_y",
-          "default_value": null,
           "description": ".not. (x .and. y)? is the logical NAND of x and y ."
         }
       ]
@@ -4328,31 +3983,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .or. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_or_y",
-          "default_value": null,
           "description": ".not. (x .or. y)? is the logical NOR of x and y ."
         }
       ]
@@ -4370,31 +4022,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": ".not. (x .xor. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_xor_y",
-          "default_value": null,
           "description": ".not. (x .xor. y)? is the logical negation of the logical exclusive or (XOR) of x and y ."
         }
       ]
@@ -4412,31 +4061,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x must be a Boolean value or a number. x can be a scalar, array or cluster of numbers or Boolean values, array of clusters of numbers or Boolean values, and so on. If x is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be a Boolean value or a number. y can be a scalar, array or cluster of numbers or Boolean values, arrays of clusters of numbers or Boolean values, and so on. If y is an error cluster, only the status parameter of the error cluster passes to the input terminal."
         },
         {
           "name": "x .implies. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_implies_y",
-          "default_value": null,
           "description": "x .implies. y? is the logical OR of y and of the logical negation of x ."
         }
       ]
@@ -4453,7 +4099,6 @@
         {
           "name": "x = y?",
           "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default). When comparing VI Server references, this function returns TRUE when the two references refer to the same object, regardless of whether the references have the same capability or the same value. For example, one might be a strict reference to a digital numeric control and the other might be a generic reference but if they refer to the same object, they are equal. To comp",
-          "default_value": null,
           "enum_values": null,
           "python_param": "x_y"
         }
@@ -4472,31 +4117,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x ."
         },
         {
           "name": "x = y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4514,31 +4156,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
           "name": "x != y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4556,31 +4195,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
           "name": "x > y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4598,31 +4234,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
           "name": "x < y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4640,31 +4273,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
           "name": "x >= y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4682,31 +4312,28 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
           "name": "x <= y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -4724,21 +4351,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x = 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x = 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4756,21 +4381,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x != 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x!= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4788,21 +4411,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x > 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x > 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4820,21 +4441,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x < 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x < 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4852,21 +4471,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x >= 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x >= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4884,21 +4501,19 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
           "name": "x <= 0?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x ≤ 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -4916,41 +4531,37 @@
         {
           "name": "t",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "t",
-          "default_value": null,
           "description": "t is the value that this function returns if s passes a TRUE value. t and f must be of the same type, but they can have different numeric representations."
         },
         {
           "name": "s",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "s",
-          "default_value": null,
           "description": "s determines whether the function returns the value of t or f in s? t:f . If you wire an error cluster to s and an error occurs, the error cluster passes a TRUE value to the function. Otherwise, the error cluster passes a FALSE value to the function."
         },
         {
           "name": "f",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "f",
-          "default_value": null,
           "description": "f is the value that this function returns if s passes a FALSE value. t and f must be of the same type, but they can have different numeric representations."
         },
         {
           "name": "s? t:f",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "s_tf",
-          "default_value": null,
           "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE."
         }
       ]
@@ -4967,56 +4578,49 @@
         {
           "name": "X Input",
           "description": "Specifies the X input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "x_input"
         },
         {
           "name": "Y Input",
           "description": "Specifies the Y input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "y_input"
         },
         {
           "name": "Enable",
           "description": "Note This Express VI appears on the block diagram when you add an Express XY graph to the front panel. You can find the Express XY graph on the Graph palette. Functions 6158 ni.com Enables or disables the Express VI. The default is ON or TRUE.",
-          "default_value": "ON or TRUE",
           "enum_values": null,
           "python_param": "enable"
         },
         {
           "name": "error in (no error)",
           "description": "Describes error conditions that occur before this node runs.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "Reset",
           "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
-          "default_value": "FALSE",
           "enum_values": null,
-          "python_param": "reset"
+          "python_param": "reset",
+          "default": false
         },
         {
           "name": "XY Graph",
           "description": "Returns the XY graph as the output of the Express VI.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "xy_graph"
         },
         {
           "name": "error out",
           "description": "Contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "labview\\examples\\Express VIs\\Lissajous with Express",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_express_vis_lissajous_with_express"
         }
@@ -5034,51 +4638,46 @@
         {
           "name": "error in (no error)",
           "description": "Describes error conditions that occur before this node runs.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "Reset",
           "description": "Functions 6160 ni.com Controls the initialization of the internal state of the VI. The default is FALSE.",
-          "default_value": "FALSE",
           "enum_values": null,
-          "python_param": "reset"
+          "python_param": "reset",
+          "default": false
         },
         {
           "name": "Include time data",
           "description": "Includes the time data for the signal in the table. The value you wire to this input overrides the value you set in the configuration dialog box.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "include_time_data"
         },
         {
           "name": "Signals",
           "description": "Contains the input signal or signals.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "signals"
         },
         {
           "name": "Enable",
           "description": "Enables or disables the Express VI. The default is ON or TRUE.",
-          "default_value": "ON or TRUE",
           "enum_values": null,
           "python_param": "enable"
         },
         {
           "name": "Table",
           "description": "Displays a table formatted according to the specifications you set.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "table"
         },
         {
           "name": "error out",
           "description": "Contains error information. This output provides standard error out functionality. Components Changes the digits of precision of the numbers in the table. The default is 2. Formats the numbers with the precision you specify in Precision. This option is available only when you select Fractional/Scientific (12.345), Fractional (12.345), or Scientific (1.234E1) from the Format the numbers pull-down menu. Empties the table cells after each iteration. Changes the displayed format of the numbers in th",
-          "default_value": "2",
           "enum_values": null,
-          "python_param": "error_out"
+          "python_param": "error_out",
+          "default": 2
         }
       ]
     }

@@ -8,8 +8,8 @@ from lvkit.codegen.builder import build_module, build_result_class
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.subvi import _build_output_bindings
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
-from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph
+from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
+from tests.helpers import build_graph, error_cluster_type
 
 
 @pytest.mark.parametrize("label", ["_status", "status", "class", "2nd result"])
@@ -88,32 +88,33 @@ def test_result_field_and_return_agree(label: str, field: str):
 
 
 @pytest.mark.parametrize(
-    "labels",
+    "labels,fields",
     [
-        ("_status", "output_status"),
-        ("-status", "_status"),
-        ("A B", "A-B"),
-        ("", "output"),
-        ("!", "?"),
+        (("_status", "output_status"), ("output_status", "output_status_2")),
+        (("-status", "_status"), ("output_status", "output_status_2")),
+        (("A B", "A-B"), ("a_b", "a_b_2")),
+        (("", "output"), ("output", "output_2")),
+        (("!", "?"), ("var", "var_2")),
     ],
 )
-def test_colliding_fields_fail_during_generation(labels: tuple[str, str]):
+def test_colliding_labels_get_distinct_fields(
+    labels: tuple[str, str], fields: tuple[str, str]
+):
     context = VIContext(
         name="Collision.vi",
         outputs=[output(label, index) for index, label in enumerate(labels)],
     )
-    with pytest.raises(ValueError, match="Output labels collide"):
-        build_module(context, context.name)
+    source = build_module(context, context.name)
+    namespace: dict = {}
+    exec(compile(source, context.name, "exec"), namespace)
+    assert namespace["collision"]()._fields == fields
 
 
 def test_error_cluster_is_excluded_before_collision_check():
     regular = output("error out")
     regular.lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     error = output("error out", 1)
-    error.lv_type = LVType(
-        kind=LVTypeKind.CLUSTER,
-        fields=[ClusterField(name=name) for name in ("status", "code", "source")],
-    )
+    error.lv_type = error_cluster_type()
     context = VIContext(name="Error Output.vi", outputs=[regular, error])
     result_class = build_result_class(context)
     assert result_class is not None

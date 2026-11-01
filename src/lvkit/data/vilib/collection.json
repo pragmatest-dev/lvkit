@@ -15,31 +15,28 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the key of the entry. This input accepts any data type. All the keys must be unique and of the same data type."
         },
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value specifies the value of the entry. This input accepts any data type. All the values must be of the same data type."
         },
         {
           "name": "map",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
-          "default_value": null,
           "description": "map returns the resulting map."
         }
       ]
@@ -57,61 +54,55 @@
         {
           "name": "map in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_in",
-          "default_value": null,
           "description": "map in specifies the map in which you want to insert a key-value entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the key of the entry to insert into the map. The key must be of the same data type as the existing keys in the map."
         },
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value specifies the value of the entry. This input must be of the same data type as the existing values in the map."
         },
         {
           "name": "map out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_out",
-          "default_value": null,
           "description": "map out returns the map with the inserted entry."
         },
         {
           "name": "key already included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_already_included",
-          "default_value": null,
           "description": "key already included? returns whether map in already includes key . If key already included? is TRUE, this function replaces the associated value of key in map in with value and returns the resulting map in map out ."
         },
         {
           "name": "value unchanged?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value_unchanged",
-          "default_value": null,
           "description": "value unchanged? returns whether any values in the input map are updated after the insertion."
         }
       ]
@@ -129,51 +120,46 @@
         {
           "name": "map in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_in",
-          "default_value": null,
           "description": "map in specifies the map from which you want to remove an entry. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the key of the entry to remove. This input must be of the same data type as the existing keys in the map."
         },
         {
           "name": "map out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_out",
-          "default_value": null,
           "description": "map out returns the map with the entry of the specified key removed."
         },
         {
           "name": "key not found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
-          "default_value": null,
           "description": "key not found? returns whether map in includes an entry with the specified key."
         },
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the value of the entry associated with key ."
         }
       ]
@@ -191,51 +177,46 @@
         {
           "name": "map",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
-          "default_value": null,
           "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map."
         },
         {
           "name": "default value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
-          "default_value": null,
           "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map."
         },
         {
           "name": "key not found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
-          "default_value": null,
           "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE."
         },
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value ."
         }
       ]
@@ -253,31 +234,28 @@
         {
           "name": "map",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
-          "default_value": null,
           "description": "map specifies the map in which you want to look for the maximum and minimum keys. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
           "name": "maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum returns the maximum key in map ."
         },
         {
           "name": "minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum returns the minimum key in map ."
         }
       ]
@@ -295,21 +273,19 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
-          "default_value": null,
           "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size returns the number of elements or entries in collection ."
         }
       ]
@@ -327,42 +303,36 @@
         {
           "name": "map in",
           "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
-          "default_value": "data type is a map of sets of 32-bit signed integers",
           "enum_values": null,
           "python_param": "map_in"
         },
         {
           "name": "key",
           "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "key"
         },
         {
           "name": "set element",
           "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "set_element"
         },
         {
           "name": "map out",
           "description": "map out returns the registration map with the inserted entry.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "map_out"
         },
         {
           "name": "element already registered?",
           "description": "element already registered? returns whether map in already includes set element.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element_already_registered"
         },
         {
           "name": "first registration for this key?",
           "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "first_registration_for_this_key"
         }
@@ -381,21 +351,19 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
-          "default_value": null,
           "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "empty?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "empty",
-          "default_value": null,
           "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE."
         }
       ]
@@ -413,42 +381,36 @@
         {
           "name": "map in",
           "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
-          "default_value": "data type is a map of sets of 32-bit signed integers",
           "enum_values": null,
           "python_param": "map_in"
         },
         {
           "name": "key",
           "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "key"
         },
         {
           "name": "set element",
           "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "set_element"
         },
         {
           "name": "map out",
           "description": "map out returns the registration map with the inserted entry.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "map_out"
         },
         {
           "name": "element already registered?",
           "description": "element already registered? returns whether map in already includes set element.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element_already_registered"
         },
         {
           "name": "first registration for this key?",
           "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "first_registration_for_this_key"
         }
@@ -466,42 +428,36 @@
         {
           "name": "map in",
           "description": "map in specifies the registration map in which you want to insert an entry. This input accepts a map of sets of any data type. The default data type is a map of sets of 32-bit signed integers.",
-          "default_value": "data type is a map of sets of 32-bit signed integers",
           "enum_values": null,
           "python_param": "map_in"
         },
         {
           "name": "key",
           "description": "key specifies the key. This input must be of the same data type as the existing keys in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "key"
         },
         {
           "name": "set element",
           "description": "set element specifies the set element that may be registered for the specified key. This input must be of the same data type as the elements of the sets in the map.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "set_element"
         },
         {
           "name": "map out",
           "description": "map out returns the registration map with the inserted entry.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "map_out"
         },
         {
           "name": "element already registered?",
           "description": "element already registered? returns whether map in already includes set element.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element_already_registered"
         },
         {
           "name": "first registration for this key?",
           "description": "first registration for this key? returns whether this is the first time that the key is registered. Examples Refer to the following example files included with LabVIEW. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "first_registration_for_this_key"
         }
@@ -520,21 +476,19 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element specifies the data you want to include in the set. This input accepts any data type. The default data type is string. All the element inputs must be of the same data type."
         },
         {
           "name": "set",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
-          "default_value": null,
           "description": "set returns the resulting set."
         }
       ]
@@ -552,41 +506,37 @@
         {
           "name": "set in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_in",
-          "default_value": null,
           "description": "set in specifies the set in which you want to insert an element. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element specifies the data you want to insert into the set. This input must be of the same data type as the existing elements in the set."
         },
         {
           "name": "set out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_out",
-          "default_value": null,
           "description": "set out returns the set with the inserted element."
         },
         {
           "name": "already included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "already_included",
-          "default_value": null,
           "description": "already included? returns whether set in already includes the inserted element. If already included? is TRUE, set out returns the same set as set in ."
         }
       ]
@@ -604,41 +554,37 @@
         {
           "name": "set in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_in",
-          "default_value": null,
           "description": "set in specifies the set in which you want to remove an element. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element specifies the data you want to remove from the set. This input must be of the same data type as the elements in the set."
         },
         {
           "name": "set out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_out",
-          "default_value": null,
           "description": "set out returns the set with the specified element removed."
         },
         {
           "name": "not included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_included",
-          "default_value": null,
           "description": "not included? returns whether set in includes element . If not included? is TRUE, set out returns the same set as set in ."
         }
       ]
@@ -656,31 +602,28 @@
         {
           "name": "set",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
-          "default_value": null,
           "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element specifies the data to look for in the set. This input must be of the same data type as the elements in set ."
         },
         {
           "name": "found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "found",
-          "default_value": null,
           "description": "found? returns TRUE if element is included in set . Otherwise, found? returns FALSE."
         }
       ]
@@ -698,31 +641,28 @@
         {
           "name": "set",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
-          "default_value": null,
           "description": "set specifies the set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
-          "default_value": null,
           "description": "maximum returns the maximum element in set ."
         },
         {
           "name": "minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
-          "default_value": null,
           "description": "minimum returns the minimum element in set ."
         }
       ]
@@ -740,21 +680,19 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
-          "default_value": null,
           "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size returns the number of elements or entries in collection ."
         }
       ]
@@ -772,21 +710,19 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
-          "default_value": null,
           "description": "collection specifies the collection. This input accepts any collection data type."
         },
         {
           "name": "empty?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "empty",
-          "default_value": null,
           "description": "empty? returns TRUE if collection is empty. Otherwise, this output returns FALSE."
         }
       ]
@@ -804,28 +740,24 @@
         {
           "name": "set 1",
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
           "enum_values": null,
           "python_param": "set_1"
         },
         {
           "name": "set 2",
           "description": "set 2 specifies the second set. This input must be the same data type as set 1. The default data type is a set of strings.",
-          "default_value": "data type is a set of strings",
           "enum_values": null,
           "python_param": "set_2"
         },
         {
           "name": "union",
           "description": "union returns the combined set. The following figure illustrates how this VI computes the union of two sets. The two circles represent the two sets. The green section is the union. Functions © National Instruments 1431 Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "union"
         },
         {
           "name": "labview\\examples\\Collections\\Set Collection - Word",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_collections_set_collection_word"
         }
@@ -844,31 +776,28 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
-          "default_value": null,
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
-          "default_value": null,
           "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "union",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "union",
-          "default_value": null,
           "description": "union returns the combined set."
         }
       ]
@@ -886,31 +815,28 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
-          "default_value": null,
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
-          "default_value": null,
           "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "intersection",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "intersection",
-          "default_value": null,
           "description": "intersection returns a set with the duplicate elements from the two input sets."
         }
       ]
@@ -928,31 +854,28 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
-          "default_value": null,
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
-          "default_value": null,
           "description": "set 2 specifies the second set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "Cartesian product",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_product",
-          "default_value": null,
           "description": "Cartesian product returns a set of 2-element clusters which covers all possible combinations of elements in set 1 and set 2 . For each cluster, the first element is from set 1 and the second element is from set 2 ."
         }
       ]
@@ -970,31 +893,28 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
-          "default_value": null,
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
-          "default_value": null,
           "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "difference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "difference",
-          "default_value": null,
           "description": "difference returns a set of elements from set 1 that are not included in set 2 ."
         }
       ]
@@ -1012,31 +932,28 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
-          "default_value": null,
           "description": "set 1 specifies the first set. This input accepts a set of any data type. The default data type is a set of strings."
         },
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
-          "default_value": null,
           "description": "set 2 specifies the second set. This input must be the same data type as set 1 . The default data type is a set of strings."
         },
         {
           "name": "symmetric difference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "symmetric_difference",
-          "default_value": null,
           "description": "symmetric difference returns a set of elements that are included in either set 1 or set 2 but not both."
         }
       ]

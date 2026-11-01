@@ -5,19 +5,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "FXP with overflow cleared",
           "type": "FixedPoint"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "FXP",
           "type": "FixedPoint"
         }
@@ -30,19 +30,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "FXP with overflow removed",
           "type": "FixedPoint"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "FXP",
           "type": "FixedPoint"
         }
@@ -55,19 +55,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "FXP with overflow included",
           "type": "FixedPoint"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "overflow",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "FXP",
           "type": "FixedPoint"
         }
@@ -80,13 +80,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "integer",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "fixed-point",
           "type": "FixedPoint"
         }
@@ -99,19 +99,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "integer",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "fixed-point type",
           "type": "FixedPoint"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "fixed-point",
           "type": "FixedPoint"
         }

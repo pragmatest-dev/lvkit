@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from ..models import DisableStructureKind, TunnelMode
-from .netlist_models import NetlistInstanceKind
+from .netlist_models import NetlistInstanceKind, ReferenceTargetKind
 
 # ------------------------------------------------------------------
 # Grammar delimiters -- the exact punctuation/keyword literals §2-§10 is
@@ -60,14 +60,27 @@ _LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
 # (``render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
 # as a literal, so it is a genuine cross-file drift risk.
 _LVNET_DEP_PATH_SEP = "; "
-_LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
-_LVNET_RING_OPEN = "Ring{"
+_LVNET_ENUM_OPEN = "enum{"  # §10 lossless enum/ring/cluster open tokens
+_LVNET_RING_OPEN = "ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"
 # A ``shared-variable`` header's trailing attribute (§7): ``(network-published
 # "<path>")`` for a variable published to the network, ``(library unreadable
 # "<reason>")`` for a node whose library link could not be read.
 _LVNET_NETWORK_PUBLISHED = "network-published"
 _LVNET_LIBRARY_UNREADABLE = "library unreadable"
+
+# The attribute word of a shift register or Feedback Node whose initializer is
+# unwired: ``shift-register loop_146::shift0 (uninitialized) :`` /
+# ``feedback-node fb0 (1 iteration, uninitialized) :``. Such a register has no
+# ``init`` line (it keeps the value it held when the VI last ran).
+_LVNET_UNINITIALIZED = "uninitialized"
+# The terminal names of a loop's drive lines: ``loop_<uid>::N`` (a For Loop's
+# count wire) and ``loop_<uid>::condition`` (the wire on its conditional
+# terminal).
+_LVNET_LOOP_COUNT_TERMINAL = "N"
+_LVNET_LOOP_CONDITION_TERMINAL = "condition"
+# The unwired mark in a drive position that has no value to show.
+_LVNET_UNWIRED = "?"
 
 # A sequence local's drive position holds ``(sequence local unreadable
 # "<reason>")`` instead of a source when its wiring is not one LabVIEW allows.
@@ -76,6 +89,27 @@ _LVNET_SEQUENCE_LOCAL_UNREADABLE = "sequence local unreadable"
 # be read: ``assembly (unreadable "<reason>")``.
 _LVNET_ASSEMBLY_UNREADABLE = "unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
+# The words a front-panel control name must not spell BARE (§4): each reads as
+# a literal or reserved form wherever a net name is read -- a Boolean literal,
+# the Not-a-Path literal, the unwired-driver mark, the unwired-default
+# keyword.
+_LVNET_RESERVED_CONTROL_NAMES = frozenset(
+    {"True", "False", "NotAPath", "default", "?"}
+)
+# A control whose terminal sits inside a structure is read there: ``read <Control>``.
+_LVNET_READ_KEYWORD = "read"
+_LVNET_REFERENCE_KEYWORD = "vi-server-reference"
+# A control name that opens with one of these reads as the construct the
+# prefix introduces: a ``Path(...)`` literal, a ``(default <Type>)`` or other
+# parenthesised form, the ``read <control>`` line, and the border constructs a
+# loop body hands back to its own parser.
+_LVNET_RESERVED_CONTROL_PREFIXES = (
+    "Path(",
+    "(",
+    f"{_LVNET_READ_KEYWORD} ",
+    "shift-register ",
+    "tunnel ",
+)
 # The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
 # ``caption hidden "<text>"`` when the caption is set but not shown.
 _LVNET_CAPTION_KEYWORD = "caption"
@@ -126,7 +160,7 @@ _LVNET_TYPE_CAP = 40
 # carries it, byte-identical to before this constant existed). Every
 # ``NetlistScope`` -- case/for-loop/while-loop/flat-sequence/stacked-
 # sequence/diagram-disable/conditional-disable/type-specialization/
-# event-structure -- carries a real BD ``uid`` (``netlist_build._uid_of``),
+# event-structure -- carries a real BD ``uid`` (``netlist_build.uid_of``),
 # but only a structure that also happens to drive an output tunnel (case/
 # loop's shift-register/output-tunnel merges, or a sequence/disabled/event
 # structure's own output tunnel -- see ``_frame_net_name_gn``) ever spells
@@ -143,6 +177,23 @@ _LVNET_TYPE_CAP = 40
 # (``render_lvnet._lvnet_scope_id_suffix``) and parse
 # (``lvnet_parse._split_scope_header_id``) spell it out as a literal.
 _LVNET_SCOPE_ID_PREFIX = " (id "
+# The same suffix names a front-panel terminal on its ``front-panel :`` row and on
+# its drive / ``read`` line, when its label is shared: ``Rate (id 5020) = 3``.
+# A number followed by the enum or ring item it names: `2 (verify)`.
+_LVNET_NUMBER_ITEM_RE = re.compile(r"^(-?\d+) \((.+)\)$")
+_LVNET_ID_SUFFIX_RE = re.compile(r" \(id (\d+)\)$")
+
+
+def lvnet_id_suffix(uid: str | None) -> str:
+    """`` (id <uid>)``, or nothing for a terminal without an identity."""
+    return f"{_LVNET_SCOPE_ID_PREFIX}{uid})" if uid is not None else ""
+
+
+def split_id_suffix(token: str) -> tuple[str, str | None]:
+    """A name token and the uid of its trailing `` (id <uid>)``, if it has one."""
+    m = _LVNET_ID_SUFFIX_RE.search(token)
+    return (token[: m.start()], m.group(1)) if m is not None else (token, None)
+
 
 # A structure-scoped net name (``case_UID.outK``/``loop_UID.shiftK``/
 # ``loop_UID.outK``/``sequence_UID.outK``/``disabled_UID.outK``/
@@ -156,6 +207,13 @@ _LVNET_STRUCTURE_NET_RE = re.compile(
     r"^((?:case|loop|sequence|disabled|event|inplace)_\d+)\.(.+)$"
 )
 
+# A front-panel control name that spells a RENDERED structure net
+# (``case_UID::outK``, ``loop_UID::i``, ...) or a Feedback Node net (``fbK``)
+# would be read back as that net, so it renders quoted.
+_LVNET_STRUCTURE_NET_TEXT_RE = re.compile(
+    r"^(?:(?:case|loop|sequence|disabled|event|inplace)_\d+::|fb\d+$)"
+)
+
 # ``LOCAL_VARIABLE`` (now designed, §7 revised again): a read/write TAP on a
 # control's own net, not a generic `<keyword> <handle> : <component>` +
 # terminal-block declaration -- it carries no component identity of its own
@@ -166,6 +224,17 @@ _LVNET_STRUCTURE_NET_RE = re.compile(
 # ``_render_lvnet_instance`` -- kept OUT of ``_LVNET_INSTANCE_KEYWORDS`` below
 # for the same reason ``feedback-node`` is: its shape doesn't fit the generic
 # dict-lookup + terminal-block path.
+
+# ``VI_SERVER_REFERENCE``: a Control Reference constant, one line
+# ``vi-server-reference <handle> : <target>`` with no terminal block. The target is
+# ``This VI`` / ``This Application`` (the class its type records), ``?`` (neither
+# is decoded) or the control it references as a §4 control-name token (a control
+# named like one of the three is quoted).
+_LVNET_REFERENCE_TARGET_WORDS: dict[ReferenceTargetKind, str] = {
+    ReferenceTargetKind.THIS_VI: "This VI",
+    ReferenceTargetKind.THIS_APPLICATION: "This Application",
+    ReferenceTargetKind.UNKNOWN: "?",
+}
 
 # The §7 header keyword for every instance kind that DOES declare itself via
 # the generic ``<keyword> <handle> : <component>`` + terminal-block form
@@ -235,13 +304,6 @@ _LVNET_DISABLE_KEYWORD: dict[DisableStructureKind, str] = {
 # corpus but not excludable -- falls through to a `\xHH` escape below rather
 # than being guessed at. This is the ONE lvnet literal-value escape table;
 # ``lvnet_parse._LVNET_STRING_UNESCAPES`` is its exact reverse.
-_LVNET_STRING_ESCAPES: dict[str, str] = {
-    "\\": "\\\\",
-    '"': '\\"',
-    "\n": "\\n",
-    "\r": "\\r",
-    "\t": "\\t",
-}
 
 # §14-style column-alignment caps for the ``uses :`` manifest (mirrors
 # ``_LVNET_NAME_CAP``/``_LVNET_TYPE_CAP`` above) -- a long qualified identity
@@ -256,3 +318,21 @@ _LVNET_DEP_QUALIFIED_CAP = 60
 # own in/out block nests at ``indent + _LVNET_INDENT`` under its declaration --
 # see ``_render_lvnet_instance``).
 _LVNET_DEP_INTERFACE_INDENT = _LVNET_INDENT * 3
+
+
+def lvnet_net_separator(bare: str) -> str:
+    """Reformat a structure-scoped net name's separator from the model's
+    stored ``.`` to lvnet's ``::`` (§9) -- a RENDER-TIME-ONLY transform of a
+    string this same module deterministically constructs in exactly this
+    shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``/``_frame_net_name_gn``);
+    the model's own
+    stored string is never mutated, so ``netlist_to_dict`` (which must keep
+    ``.``) is untouched. A boundary control's bare name or
+    an ``fbK`` feedback net (neither ever contains this shape) pass through
+    unchanged.
+    """
+    m = _LVNET_STRUCTURE_NET_RE.match(bare)
+    if m is None:
+        return bare
+    prefix, rest = m.groups()
+    return f"{prefix}{_LVNET_TERMINAL_SEP}{rest}"

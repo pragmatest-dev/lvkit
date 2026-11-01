@@ -8,13 +8,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sign",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -31,19 +31,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sum",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -62,19 +62,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "difference",
           "type": "numeric"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "numeric"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "numeric"
         }
@@ -93,19 +93,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "product",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -124,24 +124,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "quotient",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
       ],
       "op": "DIVIDE",
+      "imports": ["import math"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
@@ -152,13 +153,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "abs_x",
           "type": "numeric"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "numeric"
         }
@@ -175,13 +176,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "nearest integer value",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumFloat64"
         }
@@ -194,13 +195,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x+1",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -218,13 +219,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x-1",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -242,13 +243,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "1/x",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -261,13 +262,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sqrt(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -281,13 +282,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "neg_x",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -304,7 +305,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "NumFloat64"
         }
@@ -322,19 +323,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x*2^n",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "n",
           "type": "NumInt16"
         }
@@ -351,13 +352,13 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "floor_x",
           "type": "polymorphic"
         }
@@ -374,13 +375,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "ceiling",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -400,13 +401,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sum",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -424,13 +425,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "product",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -447,19 +448,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "value",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "value",
           "type": "NumFloat64"
         }
@@ -472,13 +473,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "",
           "type": "NumFloat64"
         }
@@ -491,31 +492,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x+y",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         }
@@ -528,31 +529,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x-y",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         }
@@ -565,31 +566,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x*y",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         }
@@ -602,31 +603,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x/y",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         }
@@ -639,13 +640,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x^2",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }

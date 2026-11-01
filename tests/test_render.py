@@ -48,6 +48,8 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
+from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import error_cluster_type
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -1056,7 +1058,6 @@ CONST_LABEL_VI = Path(
     ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/appcontrol/"
     "appcontrol.llb/Current VIs Reference__ogtk.vi"
 )
-OPENG_SEARCH = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 # Small, pre-verified samples covering: plain leaf VI, SubVI calls, a Case
 # structure, and a Case structure NESTED inside another structure.
@@ -1714,7 +1715,6 @@ def test_project_local_subvi_hover_shows_real_terminal_names():
         svg = render_vi_file(
             caller,
             mode=LoadMode.MINIMAL,
-            search_paths=[root],
         )
         assert svg is not None
         # The fail.vi SubVI hover <title> block. The title line is the callee's
@@ -1744,7 +1744,8 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
     if not CONST_LABEL_VI.exists():
         pytest.skip(f"sample VI not available: {CONST_LABEL_VI}")
     graph = InMemoryVIGraph()
-    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE, search_paths=OPENG_SEARCH)
+    graph.set_library_roots(userlib_root=OPENG_USERLIB)
+    graph.load_vi(CONST_LABEL_VI, mode=LoadMode.NONE)
     name = graph.resolve_vi_name(CONST_LABEL_VI.name)
     scene = build_scene(graph, name)
 
@@ -1765,8 +1766,8 @@ def test_constant_value_box_shrinks_past_caption_and_renders_owned_label():
 
     svg = render_vi_file(
         CONST_LABEL_VI,
+        userlib_root=OPENG_USERLIB,
         mode=LoadMode.NONE,
-        search_paths=OPENG_SEARCH,
     )
     assert svg is not None
     assert ">x2<" in svg  # #59 hex radix value survives re-extraction
@@ -2726,9 +2727,7 @@ def test_wire_style_covers_full_type_table():
     string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     path = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
     cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[])
-    error_cluster = LVType(
-        kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster", fields=[]
-    )
+    error_cluster = error_cluster_type()
 
     assert wire_style(dbl).color == DEFAULT_THEME.wire_float
     assert wire_style(i32).color == DEFAULT_THEME.wire_int
@@ -3254,7 +3253,7 @@ def test_scanf_nodes_parsed_and_wired():
 # --------------------------------------------------------------------------- #
 
 
-def _prim(node_type, name=None, dirs=(), roles=()):
+def _prim(node_type, name=None, dirs=(), roles=(), prim_id=None):
     """A synthetic PrimitiveNode with one terminal per direction in ``dirs``.
     ``roles``, if given, is a parallel sequence of ``nmux_role`` values
     ("agg"/"list"/None) for a Bundle/Unbundle-family node."""
@@ -3274,6 +3273,7 @@ def _prim(node_type, name=None, dirs=(), roles=()):
         vi_path="V",
         name=name,
         node_type=node_type,
+        prim_id=prim_id,
         terminals=terms,
     )
 
@@ -4344,15 +4344,17 @@ def test_comparison_primitives_use_the_arith_triangle():
     from lvkit.render.nodes import resolve_glyph
 
     expected = {
-        "Equal?": "=",
-        "Not Equal?": "≠",
-        "Greater?": ">",
-        "Less?": "<",
-        "Greater Or Equal?": "≥",
-        "Less Or Equal?": "≤",
+        "Equal?": (1102, "="),
+        "Not Equal?": (1105, "≠"),
+        "Greater?": (1110, ">"),
+        "Less?": (1111, "<"),
+        "Greater Or Equal?": (1103, "≥"),
+        "Less Or Equal?": (1104, "≤"),
     }
-    for name, symbol in expected.items():
-        node = _prim("prim", name, dirs=("input", "input", "output"))
+    for name, (prim_id, symbol) in expected.items():
+        node = _prim(
+            "prim", name, dirs=("input", "input", "output"), prim_id=prim_id
+        )
         glyph = resolve_glyph(node, _ctx())
         assert isinstance(glyph, ArithGlyph), name
         assert glyph.symbol == symbol, name
@@ -4563,7 +4565,7 @@ def test_nmux_on_class_private_data_draws_field_name():
         pytest.skip("sample VI not available")
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[testresult_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = "TestResult.lvclass:GetTestsRun.vi"
 
     nmux = [
@@ -4635,7 +4637,7 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
     if not lvclass_path.exists():
         pytest.skip("sample .lvclass not available")
 
-    fields = _parse_private_data_fields(lvclass_path)
+    fields = _parse_private_data_fields(lvclass_path, "DAQmx Module Runtime.ctl")
     names = [f.name for f in fields]
     assert names == ["DAQ Tasks", "Channel Indeces"]
     assert names != ["instance ID", "key-value pairs"]  # the wrong-class bug
@@ -4782,7 +4784,7 @@ def test_bundle_by_name_resolves_nested_class_private_data_field_names():
     vi_path, module_dir = paths
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [
@@ -4905,7 +4907,7 @@ def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
     vi_path, module_dir = paths
 
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[module_dir.parent])
+    graph.load_vi(str(vi_path))
     vi_name = graph.resolve_vi_name(vi_path.name)
 
     decompose_nodes = [

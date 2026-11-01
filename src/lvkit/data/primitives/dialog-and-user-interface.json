@@ -5,19 +5,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "millisecond timer value",
           "type": "NumUInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (-1 never timeout)",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "front panel (this VI's panel)",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -26,7 +26,7 @@
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "do not wait! (False)",
           "type": "Boolean"
         }
@@ -39,7 +39,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "front panel (this VI's panel)",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -56,19 +56,20 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "button_name",
-          "type": "String"
+          "type": "String",
+          "default": "OK"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "message",
           "type": "String"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "true",
           "type": "Boolean"
         }
@@ -87,25 +88,27 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "t_button_pressed",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "f_button_name",
-          "type": "String"
+          "type": "String",
+          "default": "Cancel"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "t_button_name",
-          "type": "String"
+          "type": "String",
+          "default": "OK"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "message",
           "type": "String"
         }
@@ -119,19 +122,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster",
           "expandable": true

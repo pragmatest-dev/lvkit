@@ -8,11 +8,11 @@ from functools import cache
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import primitive
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire, WireEnd
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from lvkit.runtime import lv
 from tests.helpers import build_graph, make_ctx
 
 DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
@@ -221,7 +221,7 @@ def test_array_expression_evaluated_once():
         calls.append(1)
         return [10.0, 20.0, 30.0]
 
-    namespace = {"_lv": lv, "get_values": get_values}
+    namespace = {"get_values": get_values}
     exec(compile(module, "<expanded-index>", "exec"), namespace)
     assert [namespace[fragment.bindings[f"out{row}"]] for row in range(3)] == [
         10.0,
@@ -253,7 +253,7 @@ def test_other_ranks_keep_the_single_output_template(rank, values, expected, def
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     for start, target in ((0, expected), (99, default)):
-        namespace = {"_lv": lv, "values": values, "start": start}
+        namespace = {"values": values, "start": start}
         exec(compile(module, "<index-rank-boundary>", "exec"), namespace)
         assert namespace[fragment.bindings["out0"]] == target
 
@@ -272,7 +272,7 @@ def test_invalid_saved_rows_fail_explicitly(invalid):
         node.terminals[1].lv_type = None
     else:
         node.terminals[1].lv_type = node.terminals[0].lv_type
-    with pytest.raises(CodeGenError, match="1D Index Array"):
+    with pytest.raises(ConversionGap, match="1D Index Array"):
         primitive.generate(node, wire_context(node))
 
 
@@ -287,5 +287,7 @@ def test_unresolved_wired_inputs_fail_explicitly(terminal):
         source=WireEnd(node_id=graph._term_to_node["sink"], terminal_id="sink"),
         dest=WireEnd(node_id=graph._term_to_node[terminal], terminal_id=terminal),
     )
-    with pytest.raises(CodeGenError, match="Unresolved wired 1D Index Array"):
+    with pytest.raises(
+        CodeGenError, match="The wired input .* of .Index Array. has no variable"
+    ):
         primitive.generate(node, context)

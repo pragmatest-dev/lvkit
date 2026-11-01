@@ -1,7 +1,8 @@
-"""Fix A: resolve a class's unbundle-by-name field names when the owning
-`.lvclass` isn't on a search path (e.g. a member VI in a `protected/` subfolder,
-class one dir up). Walk up to find it and INTERFACE-load its fields only — no
-method VIs — so `get_type_fields` resolves without the expensive method tree.
+"""Fix A: resolve a class's unbundle-by-name field names for a member VI in a
+`protected/` subfolder (class one dir up). The VI records its class's path
+(``VILB``), the class is found there and a MINIMAL load INTERFACE-loads its
+fields only — no method VIs — so `get_type_fields` resolves without the
+expensive method tree.
 """
 
 from __future__ import annotations
@@ -23,32 +24,15 @@ SUBFOLDER_VI = Path(
 )
 
 
-def test_walk_up_find_locates_ancestor(tmp_path: Path) -> None:
-    """_walk_up_find climbs to an ancestor directory, is bounded, and misses
-    cleanly — pure filesystem, no parsing."""
-    g = InMemoryVIGraph()
-    target = tmp_path / "Owner.lvclass"
-    target.write_text("stub")
-    deep = tmp_path / "sub" / "protected"
-    deep.mkdir(parents=True)
-
-    found = g._walk_up_find(deep, "Owner.lvclass")
-    assert found is not None and found.resolve() == target.resolve()
-
-    assert g._walk_up_find(deep, "Nope.lvclass") is None
-    # Bounded: with too few levels it can't reach the ancestor.
-    assert g._walk_up_find(deep, "Owner.lvclass", max_levels=1) is None
-
-
 def test_subfolder_class_fields_resolve_without_methods() -> None:
-    """Auto-load (search path defaults to vi.parent) of a subfolder member VI
-    still resolves its class field names via walk-up, and pulls in NO method
-    VIs (the field-only load is free)."""
+    """A MINIMAL load of a subfolder member VI resolves its class field names
+    through the class path the VI records, and pulls in NO method VIs (the
+    field-only load is free)."""
     if not SUBFOLDER_VI.exists():
         pytest.skip(f"Sample VI not available: {SUBFOLDER_VI}")
 
     g = InMemoryVIGraph()
-    g.load_vi(SUBFOLDER_VI, mode=LoadMode.FULL, search_paths=None)
+    g.load_vi(SUBFOLDER_VI, mode=LoadMode.MINIMAL)
 
     # The owning class resolves its private-data fields...
     fields = g.get_class_fields("TextTestRunner.JUnitXML.lvclass")
@@ -192,7 +176,7 @@ def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
     ("measurement context data") rather than "class private data" still names
     its unbundle-by-name fields from its OWN VCTP — the wrapping TypeDef is
     identified by its owner Labels (the class + its .ctl), so no .lvclass is
-    needed on the search path. Guards the Pass-2 owner-based fallback in
+    needed on the search path. Guards the owner-class + named-control identification in
     `_fields_from_xml`: without it these fields render as raw `[index]`.
     """
     if not (Path(_MC_REPO) / ".git").exists():

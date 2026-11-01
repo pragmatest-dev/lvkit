@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, extractor
+from lvkit.text_encoding import vers_language_of
 
 _SAMPLE_VI = Path(
     ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi"
@@ -616,14 +617,14 @@ def test_vers_language_from_root_reads_the_real_element():
         '<RSRC><vers><Section><Version Major="25" Minor="3" Language="33"/>'
         "</Section></vers></RSRC>"
     )
-    assert extractor._vers_language_from_root(root) == 33
+    assert vers_language_of(root) == 33
 
 
 def test_vers_language_from_root_absent_or_non_numeric_is_none():
     import xml.etree.ElementTree as ET
 
-    assert extractor._vers_language_from_root(ET.fromstring("<RSRC/>")) is None
+    assert vers_language_of(ET.fromstring("<RSRC/>")) is None
     root = ET.fromstring(
         '<RSRC><vers><Section><Version Language="bogus"/></Section></vers></RSRC>'
     )
-    assert extractor._vers_language_from_root(root) is None
+    assert vers_language_of(root) is None

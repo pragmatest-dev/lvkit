@@ -163,8 +163,8 @@ def _build_comparison(
         return None
 
     # Resolve input values
-    left_val = ctx.resolve(inputs[0].id)
-    right_val = ctx.resolve(inputs[1].id)
+    left_val = ctx.wired_input(inputs[0].id, op)
+    right_val = ctx.wired_input(inputs[1].id, op)
 
     if not left_val or not right_val:
         return None
@@ -216,7 +216,7 @@ def _build_boolean_op(
                 continue
 
         # Fall back to resolved variable
-        resolved = ctx.resolve(inp.id)
+        resolved = ctx.wired_input(inp.id, op)
         if resolved:
             values.append(parse_expr(resolved))
 
@@ -255,7 +255,7 @@ def _build_not(
             return ast.UnaryOp(op=ast.Not(), operand=nested_expr)
 
     # Fall back to resolved variable
-    resolved = ctx.resolve(inp.id)
+    resolved = ctx.wired_input(inp.id, op)
     if resolved:
         return ast.UnaryOp(op=ast.Not(), operand=parse_expr(resolved))
 
@@ -314,7 +314,7 @@ def _build_cpd_arith(
                 continue
 
         # Fall back to resolved variable
-        resolved = ctx.resolve(inp.id)
+        resolved = ctx.wired_input(inp.id, op)
         if resolved:
             values.append(parse_expr(resolved))
 

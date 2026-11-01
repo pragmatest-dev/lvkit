@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.lvnet_parse import netlist_signature, parse_lvnet
@@ -219,5 +219,8 @@ def test_codegen_names_the_variable_whose_library_is_unknown(
     tmp_path: Path,
 ) -> None:
     graph, vi = _load(tmp_path, _node(100, "TC-32_Out", write=False))
-    with pytest.raises(CodeGenError, match="Shared Variable 'TC-32_Out' cannot be"):
-        build_module(graph.get_vi_context(vi), vi, graph=graph)
+    gaps: list[Gap] = []
+    source = build_module(graph.get_vi_context(vi), vi, graph=graph, gaps=gaps)
+    assert "raise NotImplementedError(\"Shared Variable 'TC-32_Out' cannot be" in source
+    (gap,) = gaps
+    assert gap.reason.startswith("Shared Variable 'TC-32_Out' cannot be")

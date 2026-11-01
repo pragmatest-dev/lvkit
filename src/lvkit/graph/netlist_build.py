@@ -28,6 +28,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lvkit.cache_paths import project_root
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.vi_files import is_vi_file
 
@@ -39,12 +40,14 @@ from ..models import (
     LVTypeKind,
     SequenceFrame,
     Terminal,
+    TerminalDirection,
     Tunnel,
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
-from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, _uid_of
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
 from .models import (
     AnyGraphNode,
@@ -68,6 +71,11 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+from .netlist_fp_placement import (
+    FrontPanelPlacements,
+    PlacedTerminals,
+    PlacementKey,
+)
 from .netlist_models import (
     BoundaryOutput,
     ConnectorPane,
@@ -78,13 +86,16 @@ from .netlist_models import (
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
+    LoopCondition,
     MuMerge,
     NetlistBoundaryInput,
     NetlistComponent,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -99,6 +110,15 @@ from .netlist_models import (
     SequenceLocalDrive,
     SequenceLocalUnreadable,
 )
+from .netlist_structure_io import (
+    FRAME_ONLY_NET_PREFIX,
+    StructureWires,
+    build_event_outputs,
+    build_frame_output_drives,
+    build_gamma_outputs,
+    build_structure_inputs,
+    frame_output_tunnel_outers,
+)
 from .node_kinds import NodeType
 from .op_walk import (
     ComponentPort,
@@ -111,11 +131,13 @@ from .op_walk import (
 )
 from .operations import frame_key
 from .queries import ClassContext, collect_class_context
+from .reference_target import is_reference_constant, reference_target
 from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
     project_relative_display,
 )
+from .unwired_default import instance_default, pane_default
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -260,6 +282,12 @@ def _build_class_context(
     return collect_class_context(graph, ctx)
 
 
+def _fp_terminal_uid(t: Terminal) -> str | None:
+    """A front-panel terminal's uid on the block diagram; a terminal that is not a
+    front-panel control has none."""
+    return uid_of(t.id) if isinstance(t, FPTerminal) else None
+
+
 def _fp_caption(t: Terminal) -> tuple[str | None, bool]:
     """A front-panel terminal's ``(caption, caption_visible)``; a terminal that is
     not a front-panel control has none."""
@@ -286,10 +314,11 @@ def _pane_terminal(
         direction=direction,
         index=None if off_pane else t.index,
         wiring_requirement=requirement_state(t, direction),
-        default=t.default_value,
+        default=pane_default(t),
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -348,7 +377,7 @@ class _GraphBuildCtx:
     (see ``_owning_node_gn``) -- no precomputed node-tree index needed.
 
     No ``case_id_by_uid``/``loop_id_by_uid`` here -- a case/loop's own stable
-    BD uid (``_uid_of(node.id)``, the SAME id ``NetlistScope.uid`` already
+    BD uid (``uid_of(node.id)``, the SAME id ``NetlistScope.uid`` already
     carries) names its merge nets directly (see
     ``_tunnel_net_name_gn``/``_mu_net_name_gn``), so no separate per-structure
     sequential counter is needed.
@@ -365,6 +394,9 @@ class _GraphBuildCtx:
     const_by_id: dict[str, Constant]
     feedback_id_by_uid: dict[str, int]
     constant_occurrence_by_uid: dict[str, int]
+    # The front-panel terminals that sit inside a structure; filled once the
+    # boundary terminals are built (see ``FrontPanelPlacements``).
+    placements: FrontPanelPlacements
 
 
 def _display_name_gn(node: AnyGraphNode) -> str:
@@ -537,9 +569,9 @@ def _tunnel_net_name_gn(
     prefix: str,
 ) -> str:
     """A tunnel merge's net name (``<prefix>_<uid>.out<k>``) -- the
-    structure's own stable BD uid (``_uid_of``, the SAME id
+    structure's own stable BD uid (``uid_of``, the SAME id
     ``NetlistScope.uid`` already uses) names the net directly."""
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     outers = outers_fn(node)
     k = next(i for i, t in enumerate(outers) if t.id == term.id)
     return f"{prefix}_{uid}.out{k}"
@@ -555,7 +587,7 @@ def _eta_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
 
 def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     """Phase 3: ``loop_<uid>.shift<k>`` -- see ``_tunnel_net_name_gn``."""
-    loop_uid = _uid_of(node.id)
+    loop_uid = uid_of(node.id)
     pairs = _loop_shift_register_pairs_gn(node)
     k = next(
         i
@@ -579,7 +611,7 @@ def _is_loop_iteration_terminal_gn(node: AnyGraphNode, term: Terminal) -> bool:
 
 def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
     """``loop_<uid>.i`` -- a loop's iteration count, read inside its body."""
-    return f"loop_{_uid_of(node.id)}.i"
+    return f"loop_{uid_of(node.id)}.i"
 
 
 # Frame-only structures (sequence/disabled/event, ``_FRAME_STRUCTURE_TYPES``
@@ -593,25 +625,17 @@ def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
 # (``for``/``while``) to one net-vocabulary word (``loop``), each of these
 # three kinds already IS its own net-vocabulary word, so no such mapping is
 # needed beyond the node-type -> kind-string lookup below.
-_FRAME_ONLY_NET_PREFIX: dict[type, str] = {
-    SequenceNode: "sequence",
-    DisableStructureNode: "disabled",
-    EventStructureNode: "event",
-}
-
-
-def _frame_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
-    """Output-tunnel outer terminals for a frame-only structure (sequence/
-    disabled/event) -- the analogue of ``_case_output_tunnel_outers_gn``/
-    ``_loop_output_tunnel_outers_gn`` for the structure kinds with no
-    dedicated merge model of their own."""
-    return [
-        t
-        for t in node.terminals
-        if isinstance(t, TunnelTerminal)
-        and t.boundary == "outer"
-        and t.direction == "output"
-    ]
+def _is_event_dynamic_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True for a terminal that reads the Event Structure's dynamic-event value:
+    the inside left terminal (read in a frame) or the outside right terminal. Both
+    are the one net ``event_<uid>.dynamic`` -- a frame that does not wire the right
+    terminal passes the left value through."""
+    return (
+        isinstance(node, EventStructureNode)
+        and isinstance(term, TunnelTerminal)
+        and term.tunnel_type == TUNNEL_CLASS_EVENT_DYNAMIC
+        and term.direction == "output"
+    )
 
 
 def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
@@ -627,21 +651,22 @@ def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
     already apply uniformly to their own output tunnels (§ ``_tunnel_net_
     name_gn``), extended to the frame-only kinds that never got a merge
     model to carry it."""
-    if type(node) not in _FRAME_ONLY_NET_PREFIX:
+    if type(node) not in FRAME_ONLY_NET_PREFIX:
         return False
     return (
         isinstance(term, TunnelTerminal)
         and term.boundary == "outer"
         and term.direction == "output"
+        and term.tunnel_type != TUNNEL_CLASS_EVENT_DYNAMIC
     )
 
 
 def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     """``<prefix>_<uid>.out<k>`` for a frame-only structure's output tunnel
-    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``_FRAME_ONLY_NET_PREFIX``'s
+    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``FRAME_ONLY_NET_PREFIX``'s
     lookup for ``node``'s own type."""
-    prefix = _FRAME_ONLY_NET_PREFIX[type(node)]
-    return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
+    prefix = FRAME_ONLY_NET_PREFIX[type(node)]
+    return _tunnel_net_name_gn(node, term, frame_output_tunnel_outers, prefix)
 
 
 def sequence_local_read_gn(
@@ -665,7 +690,7 @@ def _sequence_local_net_name_gn(node: AnyGraphNode, terminal_id: str) -> str | N
     hit = sequence_local_read_gn(node, terminal_id)
     if hit is None:
         return None
-    return f"sequence_{_uid_of(node.id)}.local{hit[0]}"
+    return f"sequence_{uid_of(node.id)}.local{hit[0]}"
 
 
 def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
@@ -676,7 +701,7 @@ def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
     a border ``decomposeRecomposeTunnel``'s outer-output terminal AND a plain
     In-Place-In/Out-Element output port (e.g. the Error passed through a DVR
     element), which -- unlike a loop/case/sequence output tunnel -- is NOT a
-    ``TunnelTerminal`` at all, so the frame-only ``_frame_output_tunnel_outers_gn``
+    ``TunnelTerminal`` at all, so the frame-only ``frame_output_tunnel_outers``
     (TunnelTerminal-only) can't name it. Ordered by ``.index`` so the ``outK``
     numbering is stable/byte-reproducible."""
     outers = [
@@ -766,7 +791,7 @@ def _inplace_border_read_net_gn(
     k = next((i for i, t in enumerate(outputs) if t.id == terminal_id), None)
     if k is None:
         return None
-    return f"inplace_{_uid_of(ipes.id)}.get{k}"
+    return f"inplace_{uid_of(ipes.id)}.get{k}"
 
 
 def _is_feedback_output_read_gn(
@@ -861,6 +886,7 @@ class StructureBorder(Enum):
     SEQUENCE_LOCAL = "sequence local"
     IN_PLACE_OUTPUT = "In Place Element output"
     FEEDBACK_NODE = "Feedback Node"
+    EVENT_DYNAMIC = "Event Structure dynamic terminal"
 
 
 @dataclass(frozen=True)
@@ -894,6 +920,8 @@ def _border_of_gn(
         return StructureBorder.SHIFT_REGISTER
     if _is_loop_iteration_terminal_gn(owner, term):
         return StructureBorder.ITERATION_TERMINAL
+    if _is_event_dynamic_gn(owner, term):
+        return StructureBorder.EVENT_DYNAMIC
     if _is_frame_output_tunnel_gn(owner, term):
         return StructureBorder.FRAME_OUTPUT_TUNNEL
     if sequence_local_read_gn(owner, term.id) is not None:
@@ -923,6 +951,8 @@ def _border_net_name_gn(
             return _loop_iteration_net_name_gn(owner)
         case StructureBorder.FRAME_OUTPUT_TUNNEL:
             return _frame_net_name_gn(owner, term)
+        case StructureBorder.EVENT_DYNAMIC:
+            return f"event_{uid_of(owner.id)}.dynamic"
         case StructureBorder.SEQUENCE_LOCAL:
             local_net = _sequence_local_net_name_gn(owner, term.id)
             assert local_net is not None
@@ -930,7 +960,7 @@ def _border_net_name_gn(
         case StructureBorder.IN_PLACE_OUTPUT:
             return _inplace_net_name_gn(owner, term)
         case StructureBorder.FEEDBACK_NODE:
-            return f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
+            return f"fb{build_ctx.feedback_id_by_uid[uid_of(owner.id)]}"
 
 
 def trace_source_gn(
@@ -1009,7 +1039,7 @@ def _resolve_source_gn(
             )
             return NetRef(node=None, terminal=name, occurrence=None, bare=name)
         node_name = _display_name_gn(traced.owner)
-        occurrence = build_ctx.occurrence_by_uid.get(_uid_of(traced.owner.id))
+        occurrence = build_ctx.occurrence_by_uid.get(uid_of(traced.owner.id))
         # Tag this reference with its producer's own uid
         # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
         # straight to the producer's ``<base>_<uid>`` handle via
@@ -1019,7 +1049,7 @@ def _resolve_source_gn(
         # ``producer_uid``.
         return replace(
             _term_ref(node_name, occurrence, traced.term),
-            producer_uid=_uid_of(traced.owner.id),
+            producer_uid=uid_of(traced.owner.id),
         )
 
     if traced.element_net is not None:
@@ -1027,9 +1057,15 @@ def _resolve_source_gn(
         return NetRef(node=None, terminal=net, occurrence=None, bare=net)
 
     if traced.boundary is not None:
-        bare = traced.boundary.name or str(traced.boundary.index)
+        # An unnamed control reads under the name its front-panel row gives it.
+        bare = traced.boundary.name or traced.boundary.direction
         return NetRef(
-            node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
+            node=None,
+            terminal=bare,
+            occurrence=None,
+            bare=bare,
+            boundary=True,
+            boundary_uid=uid_of(traced.boundary.id),
         )
 
     const = build_ctx.const_by_id.get(src.node_id)
@@ -1052,12 +1088,12 @@ def _resolve_source_gn(
             terminal=value_str,
             occurrence=None,
             bare=value_str,
-            constant_uid=_uid_of(const.id),
+            constant_uid=uid_of(const.id),
             lvnet_value=_lvnet_const_value_str(const),
         )
 
-    node_name = src.name or _uid_of(src.node_id)
-    terminal = str(src.index) if src.index is not None else src.terminal_id
+    node_name = src.name or uid_of(src.node_id)
+    terminal = str(src.index) if src.index is not None else uid_of(src.terminal_id)
     return NetRef(
         node=node_name,
         terminal=terminal,
@@ -1156,7 +1192,9 @@ def _build_property_accesses_gn(
 
 
 def _is_real_terminal(t: Terminal) -> bool:
-    """Excludes a dead connector-pane pattern slot -- LabVIEW's own
+    """Excludes a dead connector-pane pattern slot (the Function type a caller
+    records gives an unused position the ``Void`` type,
+    ``labview-binary-format.md``) -- LabVIEW's own
     ``Void`` type marking a physical pane cell with no real callee
     parameter (never wired, never named -- e.g. a big class-method VI's
     spare/reserved pane slots). The SAME signal ``render/draw.py``'s
@@ -1227,6 +1265,8 @@ def _instance_kind_gn(
     plain primitive)."""
     if isinstance(node, VINode):
         return NetlistInstanceKind.SUBVI
+    if is_reference_constant(node):
+        return NetlistInstanceKind.VI_SERVER_REFERENCE
     if is_property:
         return NetlistInstanceKind.PROPERTY_NODE
     if is_invoke:
@@ -1260,7 +1300,7 @@ def _build_instance_gn(
     that drops a Void binding (by its own ``type`` field, at render
     time -- see ``_is_void_type``) and shows an unwired one.
     """
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     name = _display_name_gn(node)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
     terminals = graph.enriched_terminals(node, vi_name)
@@ -1272,7 +1312,7 @@ def _build_instance_gn(
             terminal=_component_terminal_name(t),
             type=t.type_descriptor() or "?",
             net=(net := _input_ref_gn(graph, ctx, vi_name, build_ctx, t)),
-            default=None if net is not None else _type_default(t.lv_type),
+            default=None if net is not None else instance_default(graph, node, t, name),
             inverted=t.inverted,
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,
@@ -1286,6 +1326,7 @@ def _build_instance_gn(
             type=t.type_descriptor() or "?",
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,
+            read=bool(graph.outgoing_edges(t.id)),
         )
         for t in terminals
         if t.direction == "output"
@@ -1314,7 +1355,11 @@ def _build_instance_gn(
         assert isinstance(node, GraphPrimitiveNode)
         object_name = (node.object_name or "").strip() or None
         method_name = (node.method_name or "").strip() or None
-    qualified_name = getattr(node, "qualified_name", None) or node.name
+    qualified_name = (
+        graph.call_qualified_name(node)
+        if isinstance(node, VINode)
+        else getattr(node, "qualified_name", None)
+    ) or node.name
     kind = _instance_kind_gn(node, is_property=is_property, is_invoke=is_invoke)
     return NetlistInstance(
         uid=uid,
@@ -1351,6 +1396,9 @@ def _build_instance_gn(
         library_unreadable=(
             node.library_unreadable if isinstance(node, SharedVariableNode) else None
         ),
+        reference=(
+            reference_target(graph, node) if is_reference_constant(node) else None
+        ),
     )
 
 
@@ -1367,7 +1415,7 @@ def _build_feedback_gn(
     fb = graph.get_feedback_info(node.id)
     assert fb is not None
     _, partner_uid, delay = fb
-    k = build_ctx.feedback_id_by_uid[_uid_of(node.id)]
+    k = build_ctx.feedback_id_by_uid[uid_of(node.id)]
 
     init_term = next((t for t in node.terminals if t.direction == "input"), None)
     out_term = next((t for t in node.terminals if t.direction == "output"), None)
@@ -1389,7 +1437,7 @@ def _build_feedback_gn(
             recur = _resolve_source_gn(graph, ctx, vi_name, recur_term.id, build_ctx)
 
     return NetlistFeedback(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         net=f"fb{k}",
         init=init,
         recur=recur,
@@ -1549,7 +1597,7 @@ def _assign_occurrences_gn(
     for node, name in zip(insts, names, strict=True):
         if counts[name] > 1:
             running[name] = running.get(name, 0) + 1
-            occurrence_by_uid[_uid_of(node.id)] = running[name]
+            occurrence_by_uid[uid_of(node.id)] = running[name]
     return occurrence_by_uid
 
 
@@ -1563,7 +1611,7 @@ def _assign_sequential_ids_gn(
     next_id = 0
     for node in flat:
         if predicate(node):
-            ids[_uid_of(node.id)] = next_id
+            ids[uid_of(node.id)] = next_id
             next_id += 1
     return ids
 
@@ -1616,7 +1664,7 @@ def _build_constant_gn(
     )
     occurrence = build_ctx.constant_occurrence_by_uid.get(node.id)
     return NetlistConstant(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         name=label,
         occurrence=occurrence,
         type=type_desc,
@@ -1740,23 +1788,45 @@ def _build_case_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
         for i, frame in enumerate(node.frames)
     ]
-    case_uid = _uid_of(node.id)
+    case_uid = uid_of(node.id)
     outputs: list[ScopeOutput] = [
         *_build_case_outputs_gn(
             graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
     ]
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="case",
         selector=selector,
         frames=frames,
         outputs=outputs,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+    )
+
+
+def _wires_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+) -> StructureWires:
+    """The wire lookups a structure's border builders (``netlist_structure_io``)
+    use."""
+    return StructureWires(
+        wire=lambda tid: _resolve_source_gn(graph, ctx, vi_name, tid, build_ctx),
+        wire_or_default=lambda tid, inner, outer: _resolve_or_default_gn(
+            graph, ctx, vi_name, build_ctx, tid, inner, outer
+        ),
+        has_reader=lambda tid: bool(graph.outgoing_edges(tid)),
+        source_node=lambda tid: next(
+            (e.node_id for e in graph.incoming_edges(tid)), None
+        ),
     )
 
 
@@ -1782,17 +1852,21 @@ def _build_disabled_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="disabled",
         selector=None,
         frames=frames,
         disable_kind=node.kind,
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_gamma_outputs(wires, node, frames),
     )
 
 
@@ -1818,13 +1892,20 @@ def _build_event_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
-        uid=_uid_of(node.id), kind="event", selector=None, frames=frames
+        uid=uid_of(node.id),
+        kind="event",
+        selector=None,
+        frames=frames,
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_event_outputs(wires, node, frames),
     )
 
 
@@ -1849,12 +1930,13 @@ def _build_sequence_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=False,
         )
         for i, frame in enumerate(node.frames)
     ]
-    seq_uid = _uid_of(node.id)
+    seq_uid = uid_of(node.id)
     drives: list[ScopeOutput] = []
     for k, link in enumerate(node.sequence_locals):
         if link.unreadable is not None and link.unreadable_frame is not None:
@@ -1877,13 +1959,15 @@ def _build_sequence_scope_gn(
                     value=value,
                 )
             )
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
         uid=seq_uid,
         kind="sequence",
         selector=None,
         frames=frames,
-        outputs=drives,
+        outputs=[*drives, *build_frame_output_drives(wires, node, frames)],
         sequence_is_flat=node.is_flat,
+        inputs=build_structure_inputs(wires, node),
     )
 
 
@@ -1956,6 +2040,45 @@ def _build_loop_outputs_gn(
     return merges
 
 
+def _loop_condition_mode_gn(node: LoopNode) -> LoopCondition | None:
+    """How the loop's conditional terminal reads its Boolean: every While Loop
+    has one; a For Loop has one only when it shows a conditional terminal (the
+    heap's ``loopTestDCO``, whose terminal is ``stop_condition_terminal``)."""
+    if node.loop_type != "whileLoop" and node.stop_condition_terminal is None:
+        return None
+    if node.stop_condition_inverted:
+        return LoopCondition.CONTINUE_IF_TRUE
+    return LoopCondition.STOP_IF_TRUE
+
+
+def _loop_count_ref_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetRef | None:
+    """The wire into a For Loop's count terminal (N), or ``None`` when nothing is
+    wired to it."""
+    count_outer = next(
+        (
+            t
+            for t in node.terminals
+            if isinstance(t, TunnelTerminal)
+            and t.tunnel_type == TUNNEL_CLASS_LMAX
+            and t.boundary == "outer"
+        ),
+        None,
+    )
+    return _selector_ref_gn(
+        graph,
+        ctx,
+        vi_name,
+        build_ctx,
+        count_outer.id if count_outer is not None else None,
+    )
+
+
 def _build_loop_scope_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -1977,6 +2100,7 @@ def _build_loop_scope_gn(
         _body_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -1998,7 +2122,7 @@ def _build_loop_scope_gn(
         )
         for t in tunnels
     ]
-    loop_uid = _uid_of(node.id)
+    loop_uid = uid_of(node.id)
     outputs: list[ScopeOutput] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
@@ -2008,12 +2132,15 @@ def _build_loop_scope_gn(
         ),
     ]
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind=kind,
         selector=selector,
         frames=[frame],
         parallel=node.parallel,
         parallel_static_workers=node.parallel_static_workers,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+        condition_mode=_loop_condition_mode_gn(node),
+        count=_loop_count_ref_gn(graph, ctx, vi_name, node, build_ctx),
         tunnels=tunnel_info,
         outputs=outputs,
     )
@@ -2033,7 +2160,7 @@ def _build_inplace_border_drives_gn(
     its own that names the same DCO as one of the structure's input ports (the
     In Element port carrying the outer cluster/array in, the array index
     port) is driven by what feeds that port."""
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     drives: list[InPlaceBorderDrive] = []
     for k, term in enumerate(_ipes_border_terminals_gn(graph, node, "input")):
         value = _resolve_source_gn(graph, ctx, vi_name, term.id, build_ctx)
@@ -2090,6 +2217,7 @@ def _build_inplace_scope_gn(
         _ipes_regular_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -2100,7 +2228,7 @@ def _build_inplace_scope_gn(
     )
     drives = _build_inplace_border_drives_gn(graph, ctx, vi_name, node, build_ctx)
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="inplace",
         selector=None,
         frames=[frame],
@@ -2115,6 +2243,7 @@ def _build_items_gn(
     nodes: list[AnyGraphNode],
     build_ctx: _GraphBuildCtx,
     owner_children: list[str] | tuple[str, ...] = (),
+    placement: PlacementKey | None = None,
 ) -> list[NetlistItem]:
     """Build the body items (instances, scopes, feedback nodes, promoted
     labeled constants) for one container -- a VI's top level or a
@@ -2128,9 +2257,19 @@ def _build_items_gn(
     list. Every labeled constant among ``owner_children`` is placed FIRST
     (see ``_labeled_constant_items_gn``); callers with no meaningful raw
     child list (there are none left after Phase A -- every caller now passes
-    one) default to ``()``, meaning "no constants to promote here"."""
+    one) default to ``()``, meaning "no constants to promote here".
+
+    ``placement`` names the structure body being built: the controls read in
+    it come first and the drive lines of the indicators it holds come last. The
+    VI's own diagram passes none."""
+    placed = (
+        build_ctx.placements.take(placement)
+        if placement is not None
+        else PlacedTerminals()
+    )
     items: list[NetlistItem] = [
-        *_labeled_constant_items_gn(graph, owner_children, build_ctx)
+        *placed.reads,
+        *_labeled_constant_items_gn(graph, owner_children, build_ctx),
     ]
     for node in nodes:
         if isinstance(node, CaseStructureNode):
@@ -2161,6 +2300,7 @@ def _build_items_gn(
                 items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
         else:
             items.append(_build_instance_gn(graph, ctx, vi_name, node, build_ctx))
+    items.extend(placed.drives)
     return items
 
 
@@ -2279,13 +2419,19 @@ def _build_components_gn(
     for identity in subvi_order:
         rep = subvi_reps[identity]
         assert isinstance(rep, VINode)
-        key = rep.qualified_name or rep.name
+        key = graph.call_qualified_name(rep) or rep.name
         assert key is not None
-        ports = _subvi_ports(graph, key, graph.loaded_callee_key(rep))
+        ports = _subvi_ports(graph, graph.loaded_callee_key(rep), rep.qualified_path)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
-            ins, outs = _synthesize_ports_gn(graph.enriched_terminals(rep, vi_name))
+            ins, outs = _synthesize_ports_gn(
+                [
+                    t
+                    for t in graph.enriched_terminals(rep, vi_name)
+                    if _is_real_terminal(t)
+                ]
+            )
         components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group_gn(instances))
@@ -2299,26 +2445,23 @@ def _dependency_interface(
     graph: InMemoryVIGraph, kind: DependencyKind, dep_key: str
 ) -> list[ConnectorPaneTerminal]:
     """The §7a verbose-only inline interface for one ``uses :`` entry: a
-    ``subVI`` dependency's OWN connector-pane terminals (inputs then
-    outputs), pulled from the SAME already-leaf-loaded graph a
-    ``LoadMode.MINIMAL`` load populates for every direct SubVI (its own
-    connector pane, per ``graph/loading.py``'s leaf-load comment) -- never a
-    second, re-parsed VI. Reuses the exact primitives this VI's OWN boundary
-    is built from: ``InMemoryVIGraph.get_inputs``/``get_outputs`` (already
-    canonically ordered by ``interface_order.ordered_interface``) projected
-    through ``_pane_terminal``, the SAME helper ``build_netlist_from_graph``
-    calls for ``module.connector_pane``.
+    ``subVI`` dependency's OWN connector-pane terminals (inputs then outputs),
+    read from the VI loaded under exactly ``dep_key``
+    (``InMemoryVIGraph.pane_terminals``: no name resolution, so a stub never
+    matches another VI of the same file name) and projected through
+    ``_pane_terminal``, the helper ``build_netlist_from_graph`` uses for
+    ``module.connector_pane``.
 
-    ``class``/``typedef`` dependencies get no interface (a connector pane is
-    a VI-only concept) -- ``[]``. A ``subVI`` dependency that isn't
-    loaded in the graph (``dep_key`` is a stub) also yields ``[]``: ``get_inputs``/
-    ``get_outputs`` already return ``[]`` for a ``vi_name`` absent from the
-    graph, so this is never fabricated, only genuinely absent.
+    ``class``/``typedef`` dependencies get no interface (a connector pane is a
+    VI-only concept), and neither does a ``subVI`` dependency not loaded under
+    its key (a stub): ``[]``, never fabricated.
     """
     if kind != DependencyKind.SUBVI:
         return []
-    return [_pane_terminal(t, "input") for t in graph.get_inputs(dep_key)] + [
-        _pane_terminal(t, "output") for t in graph.get_outputs(dep_key)
+    inputs = graph.pane_terminals(dep_key, TerminalDirection.INPUT)
+    outputs = graph.pane_terminals(dep_key, TerminalDirection.OUTPUT)
+    return [_pane_terminal(t, "input") for t in inputs] + [
+        _pane_terminal(t, "output") for t in outputs
     ]
 
 
@@ -2355,11 +2498,10 @@ def _build_dependency_manifest(
     come from ``graph.get_vi_dependencies`` (the path-keyed ``_dep_graph``
     successors the loader already resolved, #26); each dep's on-disk path from
     ``graph._dependency_file_path`` (loaded / absent-stub / pseudo-root cases
-    all handled); its display qname from the dep node's own ``qname`` or, for a
-    minimal-load bare stub, from the caller's own subVI node
-    (``iter_nodes`` -> ``owning_libraries``/``name`` -- the SAME identity the
-    block-diagram prints); its interface from the graph. Empty only when the VI
-    has no dependencies -- never a guess, never a filesystem re-resolution.
+    all handled); its qualified name from its own dep node's ``qname`` (the
+    name the loaded file gives itself, or a stub's recorded name); its
+    interface from the graph. Empty only when the VI has no dependencies --
+    never a guess, never a filesystem re-resolution.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     assemblies = [
@@ -2377,39 +2519,11 @@ def _build_dependency_manifest(
     if not dep_keys:
         return assemblies
 
-    # Caller-scoped subVI identities straight off the graph's own nodes -- the
-    # SAME qualified-name + owning-library chain the block-diagram prints. Keyed
-    # by the on-disk subpath they imply (``Lib1/Class/Do.vi``), so each resolved
-    # dependency path can be given its display qname even when a minimal-load
-    # dep node is a bare path-keyed stub with no qname attribute of its own.
-    def _subpath(ol: list[str], name: str) -> str:
-        return "/".join([*(Path(p).stem for p in ol), name])
+    # Shown relative to the project of the VI's own path (its identity: the
+    # original a copy stands for).
+    own = Path(graph.resolve_vi_name(vi_name))
+    rel_base = project_root(own) if own.is_absolute() else Path.cwd()
 
-    subvi_qname_by_subpath: dict[str, str] = {}
-    for n in graph.iter_nodes(vi_name):
-        if getattr(n, "node_type", None) != "iUse":
-            continue
-        ol = list(getattr(n, "owning_libraries", None) or [])
-        name = getattr(n, "name", None) or ""
-        if not name:
-            continue
-        # Full qualified name from the owning chain (the bare ``qualified_name``
-        # field is only partially qualified for some intra-project callees).
-        qname = (
-            ":".join([*ol, name])
-            if ol
-            else (getattr(n, "qualified_name", None) or name)
-        )
-        subvi_qname_by_subpath[_subpath(ol, name)] = qname
-
-    own = graph.get_vi_source_path(vi_name)
-    search = graph._search_paths or ([own.parent] if own is not None else [])
-    rel_base = search[0] if search else Path.cwd()
-
-    # A class/library member .vi lives in the SAME directory as its owning
-    # .lvclass/.lvlib -- so a member whose own node came out unqualified is
-    # qualified by the class dependency sitting beside it (both are already in
-    # this manifest's dep set). Graph-native: no path re-resolution.
     # The files this VI's variable nodes refer to -- a Global VI through its global
     # variable nodes, a project library through its Shared Variable nodes -- by
     # dependency key, with the kind and the qualified name those nodes spell (the
@@ -2432,16 +2546,6 @@ def _build_dependency_manifest(
                     n.library.qualified_name,
                 )
 
-    class_qname_by_dir: dict[str, str] = {}
-    for key in dep_keys:
-        if key in variable_dep_by_key:
-            continue
-        n = graph._dep_graph.nodes.get(key, {})
-        if n.get("node_type") in (NodeType.LIBRARY, NodeType.CLASS):
-            p = graph._dependency_file_path(key)
-            if p is not None and n.get("qname"):
-                class_qname_by_dir[str(p.parent)] = n["qname"]
-
     manifest: list[NetlistDependency] = []
     seen: set[str] = set()
     for key in dep_keys:
@@ -2459,26 +2563,12 @@ def _build_dependency_manifest(
                     )
                 )
             continue
-        # qname: the dep node's own (typedefs/classes/loaded VIs carry it);
-        # else the caller's subVI node matched by on-disk subpath; else the leaf.
-        qname = node.get("qname")
-        if not qname:
-            kpath = str(resolved or key)
-            qname = next(
-                (q for sp, q in subvi_qname_by_subpath.items() if kpath.endswith(sp)),
-                None,
-            ) or (resolved.name if resolved else Path(key).name)
-        # A bare subVI-member name is qualified by the class beside it on disk
-        # (only .vi members -- never the .lvclass/.lvlib node itself, nor a
-        # typedef, which stay on their own bare name).
-        if (
-            ":" not in qname
-            and resolved is not None
-            and is_vi_file(resolved)
-        ):
-            owner = class_qname_by_dir.get(str(resolved.parent))
-            if owner:
-                qname = f"{owner}:{resolved.name}"
+        # The dependency's own record names it: a loaded file by its own name
+        # (a VI by its LIBN chain and file name, a class or library by its
+        # file), a stub by the name its caller records for it.
+        qname = node.get("qname") or (
+            resolved.name if resolved is not None else Path(key).name
+        )
         if qname in seen:
             continue
         seen.add(qname)
@@ -2489,9 +2579,7 @@ def _build_dependency_manifest(
             hint = DependencyKind.TYPEDEF
         elif nt in (NodeType.LIBRARY, NodeType.CLASS):
             hint = DependencyKind.CLASS
-        elif qname in subvi_qname_by_subpath.values() or (
-            resolved is not None and is_vi_file(resolved)
-        ):
+        elif nt == NodeType.VI or (resolved is not None and is_vi_file(resolved)):
             hint = DependencyKind.SUBVI
         kind = _dependency_kind_for(qname, hint)
         manifest.append(
@@ -2523,6 +2611,7 @@ def _boundary_output(
         source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
         caption=_fp_caption(t)[0],
         caption_visible=_fp_caption(t)[1],
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -2551,6 +2640,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             ),
         ),
         constant_occurrence_by_uid=_assign_constant_occurrences(ctx.constants),
+        placements=FrontPanelPlacements(),
     )
 
     inputs = [
@@ -2560,6 +2650,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             lv_type=t.lv_type,
             caption=_fp_caption(t)[0],
             caption_visible=_fp_caption(t)[1],
+            terminal_uid=_fp_terminal_uid(t),
         )
         for t in ctx.inputs
     ]
@@ -2569,13 +2660,21 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
     # holder of the label is listed, in row order, so a drive line maps to
     # exactly one row).
     label_counts = Counter(t.name or "output" for t in ctx.off_pane_outputs)
-    off_pane_outputs = [
-        out
+    off_pane_pairs = [
+        (t, out)
         for t in ctx.off_pane_outputs
         if (out := _boundary_output(graph, ctx, vi_name, t, build_ctx)).source
         is not None
         or label_counts[out.name] > 1
     ]
+    off_pane_outputs = [out for _, out in off_pane_pairs]
+
+    # A control or indicator whose terminal sits inside a structure is a line
+    # of that structure's body, not of the diagram (see ``FrontPanelPlacements``).
+    for t in (*ctx.inputs, *ctx.off_pane_inputs):
+        build_ctx.placements.add_control(t)
+    for t, out in (*zip(ctx.outputs, outputs, strict=True), *off_pane_pairs):
+        build_ctx.placements.add_indicator(t, out)
 
     # On-pane terminals first (unchanged order/identity -- `@<index>` rows),
     # THEN every off-pane front-panel control/indicator (`is_public=False`,
@@ -2602,6 +2701,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         build_ctx,
         owner_children=top_level_children,
     )
+    build_ctx.placements.check_all_claimed()
     components = _build_components_gn(graph, vi_name, flat)
     dependencies = _build_dependency_manifest(graph, vi_name)
 
@@ -2654,6 +2754,8 @@ def index_module(
                 case NetlistConstant():
                     # Not indexed here either -- diff.py's use of this index
                     # predates Phase A's constant promotion.
+                    pass
+                case NetlistIndicatorDrive() | NetlistControlRead():
                     pass
 
     walk(module.body)

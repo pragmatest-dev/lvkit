@@ -21,22 +21,19 @@ from lvkit.models import (
     PropertySegment,
     Terminal,
 )
-from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
+from tests.helpers import (
+    error_cluster_type,
+    make_graph_with_edge,
+    make_graph_with_terminals,
+    make_node,
+)
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
 
 def _error_cluster_type() -> LVType:
     """LVType representing a LabVIEW error cluster."""
-    return LVType(
-        kind=LVTypeKind.CLUSTER,
-        underlying_type="Cluster",
-        fields=[
-            ClusterField(name="status"),
-            ClusterField(name="code"),
-            ClusterField(name="source"),
-        ],
-    )
+    return error_cluster_type()
 
 
 def _make_case_op(

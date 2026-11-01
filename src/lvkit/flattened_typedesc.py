@@ -107,6 +107,8 @@ import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]  # n
 install_pylabview_patches()
 
 from lvkit.extractor import _make_read_po  # noqa: E402
+from lvkit.run_report import UnreadableVIError  # noqa: E402
+from lvkit.stderr_capture import capture_stderr  # noqa: E402
 from lvkit.structure import LVPrivateDataField  # noqa: E402
 
 TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
@@ -377,7 +379,27 @@ def parse_flattened_private_data(raw: bytes) -> list[LVPrivateDataField]:
     inner = _find_embedded_rsrc(raw)
     if inner is None:
         return []
+    error: Exception | None = None
+    fields: list[LVPrivateDataField] = []
+    with capture_stderr() as captured:
+        try:
+            fields = _parse_embedded_control(inner)
+        except Exception as exc:
+            error = exc
+    if error is not None:
+        warnings = tuple(
+            line.strip() for line in captured.getvalue().splitlines() if line.strip()
+        )
+        raise UnreadableVIError(
+            f"the class's private data control could not be read: {error}", warnings
+        ) from error
+    return fields
 
+
+def _parse_embedded_control(inner: bytes) -> list[LVPrivateDataField]:
+    """The current-generation top-level fields of the private-data control
+    ``inner`` (an RSRC container), read with pylabview; what pylabview prints
+    while reading it is the caller's to capture."""
     po = _make_read_po()
     fh = _NamedBytesIO(inner, name="private_data.ctl")
     vi = _lv_rsrc.VI(po, rsrc_fh=fh, text_encoding="mac_roman")

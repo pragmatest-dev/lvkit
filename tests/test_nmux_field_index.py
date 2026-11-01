@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from lvkit.codegen.nodes.nmux import _field_expr, _field_name
+from lvkit.codegen.nodes.nmux import _field_expr, _field_path
 from lvkit.graph.op_walk import _resolve_nmux_field_name
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 
@@ -49,7 +49,7 @@ def test_fields_after_a_subcluster_resolve_to_their_own_slot():
 def test_codegen_reads_the_same_slot_as_the_display():
     # Index 3 is below the top-level field count (4), so it must still be read
     # as a flattened slot, not as top-level field 3 ("T").
-    assert _field_name(_drawer(3), FIELDS) == "s1"
+    assert _field_path(_drawer(3), FIELDS) == ["s", "s1"]
     # Python identifiers are lowercased by to_var_name.
     assert _field_expr(_drawer(3), "obj", FIELDS) == "obj.s.s1"
     assert _field_expr(_drawer(2), "obj", FIELDS) == "obj.s"

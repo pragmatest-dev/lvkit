@@ -6,31 +6,28 @@ All generated code is guaranteed to be syntactically valid Python.
 
 # New node-based builder
 from .builder import build_module
-from .class_builder import ClassBuilder, ClassConfig, build_class
+from .class_builder import ClassBuilder, ClassConfig, build_class_module
 from .context import CodeGenContext
 from .dataflow import DataFlowTracer
 from .expressions import ExpressionBuilder
 from .fragment import CodeFragment
 from .function import FunctionBuilder
 from .imports import ImportBuilder
-from .nodes import CodeGenError, MissingDependencyError, UnknownNodeError
-from .stubs import StubGenerator
+from .nodes import CodeGenError, UnknownNodeError
 
 __all__ = [
     "DataFlowTracer",
     "ImportBuilder",
     "ExpressionBuilder",
     "FunctionBuilder",
-    "StubGenerator",
     # New API
     "build_module",
-    "build_class",
+    "build_class_module",
     "CodeGenContext",
     "CodeFragment",
     "ClassBuilder",
     "ClassConfig",
     # Exceptions
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
 ]

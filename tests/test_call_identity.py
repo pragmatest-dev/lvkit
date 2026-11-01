@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape
 import pytest
 
 from lvkit.extract_pool import ExtractionPool
-from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import ConstantNode, VINode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
@@ -27,6 +27,7 @@ from lvkit.index.store import load as load_index
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.render import render_vi_with_subvis
+from lvkit.run_report import ProblemKind
 
 _FIRST_CALL_UID = 10
 
@@ -165,6 +166,7 @@ class _Tree:
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
+    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     built.vi("TestCase/skip.vi", "TestCase.lvclass:skip.vi", ["TestCase.lvclass"])
     built.vi("TestSuite/skip.vi", "TestSuite.lvclass:skip.vi", ["TestSuite.lvclass"])
@@ -193,8 +195,8 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [],
         [_static(["Gone.lvclass", "gone.vi"], ["", "Gone", "gone.vi"])],
     )
-    # Callers whose recorded path no longer holds the file: found by file name,
-    # accepted only when the file's own owning libraries match the record.
+    # Callers whose recorded path no longer holds the file, while files of its
+    # name (and of its owning libraries) exist elsewhere.
     built.vi(
         "caller_moved.vi",
         "caller_moved.vi",
@@ -258,6 +260,31 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
             )
         ],
     )
+    # A static VI reference recorded only by its BDHP link (a bare label), and a
+    # Call By Reference whose VI is chosen in the node's setup (an SCVI record).
+    built.vi(
+        "Lib/bare_ref_holder.vi",
+        "Lib.lvlib:bare_ref_holder.vi",
+        ["Lib.lvlib"],
+        [
+            _Call(
+                node_class="statVIRef",
+                label="target.vi",
+                records=[("SVVI", ["target.vi"], ["", "target.vi"], 2)],
+            )
+        ],
+    )
+    built.vi(
+        "Lib/setup_caller.vi",
+        "Lib.lvlib:setup_caller.vi",
+        ["Lib.lvlib"],
+        [
+            _Call(
+                node_class="callByRefNode",
+                records=[("SCVI", ["target.vi"], ["", "target.vi"], 2)],
+            )
+        ],
+    )
     # A recursive call: a record that names no VI and has no path.
     built.vi("recur.vi", "recur.vi", [], [_Call(records=[("IUVI", [], [], 1)])])
     # A polymorphic call: the polymorphic VI and the variant it resolves to.
@@ -284,6 +311,13 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built.vi(
         "Classes/TestSuite/id.vi", "TestSuite.lvclass:id.vi", ["TestSuite.lvclass"]
     )
+    for cls in ("TestCase", "TestSuite"):
+        (built.root / "Classes" / cls / f"{cls}.lvclass").write_text(
+            "<?xml version='1.0' encoding='UTF-8'?>"
+            f'<LVClass Name="{cls}.lvclass" LVVersion="25008000">'
+            '<Item Name="id.vi" Type="VI" URL="../id.vi"/></LVClass>',
+            encoding="utf-8",
+        )
     built.vi(
         "caller_dispatch.vi",
         "caller_dispatch.vi",
@@ -325,7 +359,7 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 
 def _load(tree: _Tree, name: str, mode: LoadMode = LoadMode.MINIMAL):
     graph = InMemoryVIGraph()
-    key = graph.load_vi(tree.root / name, mode, search_paths=[tree.root])
+    key = graph.load_vi(tree.root / name, mode)
     assert key is not None
     return graph, key
 
@@ -395,19 +429,49 @@ def test_an_absent_callee_gets_the_path_its_caller_recorded(tree: _Tree) -> None
     assert graph.loaded_callee_key(call) is None
 
 
-def test_a_moved_callee_is_the_file_whose_owning_library_matches(tree: _Tree) -> None:
+def test_a_moved_callee_is_found_on_the_search_path_by_its_qualified_name(
+    tree: _Tree,
+) -> None:
+    """The record names ``Moved/skip.vi`` (gone) for ``TestSuite.lvclass:skip.vi``:
+    the search path (the top VI's folder) has ``TestCase/skip.vi`` and
+    ``TestSuite/skip.vi``, and only the second is the class the caller records.
+    The find is a warning on the caller."""
     graph, key = _load(tree, "caller_moved.vi")
-    assert _call(graph, key).callee_key == _key(tree, "TestSuite/skip.vi")
+    call = _call(graph, key)
+    assert graph.loaded_callee_key(call) == _key(tree, "TestSuite/skip.vi")
+    (problem,) = graph.problems([key])
+    assert problem.kind is ProblemKind.FOUND_ELSEWHERE
+    assert problem.reason == (
+        "skip.vi is not at its recorded path '/Moved/skip.vi'; loaded "
+        "skip.vi from the VI search path"
+    )
 
 
-def test_a_moved_callee_with_two_matching_files_is_ambiguous(tree: _Tree) -> None:
-    with pytest.raises(AmbiguousVIReferenceError, match="dup.vi"):
-        _load(tree, "caller_dup.vi")
-
-
-def test_copies_of_one_file_are_still_two_matching_files(tree: _Tree) -> None:
-    with pytest.raises(AmbiguousVIReferenceError, match="same.vi"):
-        _load(tree, "caller_same.vi")
+@pytest.mark.parametrize(
+    ("caller", "recorded", "found"),
+    [
+        # two different files of its name elsewhere
+        ("caller_dup.vi", "Gone/dup.vi", ("Dup1/dup.vi", "Dup2/dup.vi")),
+        # two copies of one file elsewhere
+        ("caller_same.vi", "Gone/same.vi", ("Same1/same.vi", "Same2/same.vi")),
+    ],
+)
+def test_a_callee_two_search_path_files_match_equally_is_missing_and_ambiguous(
+    tree: _Tree, caller: str, recorded: str, found: tuple[str, str]
+) -> None:
+    """Two files on the search path with the qualified name and the same longest
+    tail: neither is guessed; the call is missing, keyed by its recorded path,
+    and the reason names both."""
+    graph, key = _load(tree, caller)
+    call = _call(graph, key)
+    assert call.callee_key == _key(tree, recorded)
+    assert graph.loaded_callee_key(call) is None
+    assert graph.is_stub(_key(tree, recorded))
+    reason = graph.stub_reason(_key(tree, recorded))
+    assert reason is not None and reason.startswith(
+        "Ambiguous reference -- several files on the VI search path end in"
+    )
+    assert all(f"./{f}" in reason for f in found)
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(
@@ -424,6 +488,23 @@ def test_a_static_vi_reference_names_the_vi_its_caller_records(tree: _Tree) -> N
     (ref,) = [n for n in graph.iter_nodes(key) if isinstance(n, ConstantNode)]
     assert ref.value == "Lib.lvlib:target.vi"
     assert ref.referenced_vi_key == _key(tree, "Lib/target.vi")
+
+
+def test_a_static_vi_reference_recorded_by_its_diagram_link_names_its_vi(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "Lib/bare_ref_holder.vi")
+    (ref,) = [n for n in graph.iter_nodes(key) if isinstance(n, ConstantNode)]
+    assert ref.referenced_vi_key == _key(tree, "Lib/target.vi")
+
+
+def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_names_that_vi(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "Lib/setup_caller.vi")
+    call = _call(graph, key)
+    assert call.callee_key == _key(tree, "Lib/target.vi")
+    assert call.qualified_name == "Lib.lvlib:target.vi"
 
 
 def test_a_recursive_call_names_its_own_vi(tree: _Tree) -> None:
@@ -474,7 +555,7 @@ def test_lvnet_and_describe_list_each_callee_with_its_own_path(tree: _Tree) -> N
         assert text.splitlines()[:5] == [
             f"vi {caller} :",
             "  uses :",
-            f"    subVI skip.vi ; ./{owner}/skip.vi",
+            f"    subVI {owner}.lvclass:skip.vi ; ./{owner}/skip.vi",
             "  block-diagram :",
             f"    subVI {owner}.lvclass:skip_10 : {owner}.lvclass:skip.vi",
         ]
@@ -499,8 +580,31 @@ def test_the_unique_name_call_reads_the_same_in_every_view(tree: _Tree) -> None:
 
 def _generate(tree: _Tree, tmp_path: Path, caller: str) -> Path:
     out = tmp_path / "gen" / caller
-    generate_python(tree.root / f"{caller}.vi", out, search_paths=[tree.root])
+    generate_python(tree.root / f"{caller}.vi", out)
     return out / caller
+
+
+def test_the_layout_does_not_depend_on_the_library_roots(
+    tree: _Tree, tmp_path: Path
+) -> None:
+    """A VI and the project VIs it calls land in the same modules whatever
+    library roots are given."""
+    layouts = []
+    for index, userlib_root in enumerate((None, tree.root / "Util")):
+        result = generate_python(
+            tree.root / "caller_case.vi",
+            tmp_path / f"gen{index}",
+            userlib_root=userlib_root,
+        )
+        layouts.append(
+            {
+                Path(key).name: path.relative_to(result["output_dir"])
+                for key, path in result["vi_paths"].items()
+            }
+        )
+    assert layouts[0] == layouts[1]
+    assert layouts[0]["skip.vi"] == Path("testcase/skip.py")
+    assert layouts[0]["caller_case.vi"] == Path("caller_case.py")
 
 
 def _run(package_dir: Path, module: str) -> types.ModuleType:
@@ -523,7 +627,7 @@ def test_each_generated_caller_imports_its_own_callee_and_runs(
         package = _generate(tree, tmp_path, caller)
         source = (package / f"{caller}.py").read_text()
         assert source.splitlines()[2:] == [
-            f"from .{owner}lvclass.{owner}lvclass_skip import skip",
+            f"from .{owner}.skip import skip",
             "",
             f"def {caller}():",
             "    skip()",
@@ -537,7 +641,7 @@ def test_callers_of_two_files_with_one_name_import_two_modules(
     tree: _Tree, tmp_path: Path
 ) -> None:
     out = tmp_path / "gen" / "twins"
-    generate_python(tree.root / "twins", out, search_paths=[tree.root])
+    generate_python(tree.root / "twins", out)
     imports = {}
     for caller in ("caller_one", "caller_two"):
         source = next(out.rglob(f"{caller}.py")).read_text()
@@ -564,9 +668,7 @@ def test_the_docs_diagram_links_each_call_to_its_own_vi_page() -> None:
     root = Path(".lvkit/cache/samples/measurement-plugin-labview")
     vi = root / "Source/Runtime/Clients/Session Management V1/Session Reservation"
     graph = InMemoryVIGraph()
-    key = graph.load_vi(
-        vi / "Unreserve Sessions.vi", LoadMode.MINIMAL, search_paths=[root]
-    )
+    key = graph.load_vi(vi / "Unreserve Sessions.vi", LoadMode.MINIMAL)
     assert key is not None
     svg, targets = render_vi_with_subvis(graph, key)
     assert svg is not None and targets

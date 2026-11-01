@@ -317,6 +317,8 @@ class ClassFact:
     owning_class: str
     parent: str | None = None
     scope: str | None = None
+    # True for a VI the class lists in a property folder; ``accessor_field`` is
+    # that property's name.
     is_accessor: bool = False
     accessor_field: str | None = None
     # The owning class's private-data fields (incl. inherited), each rendered

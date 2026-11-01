@@ -13,8 +13,8 @@ def test_is_path_and_not_empty_resolves_by_its_file_name() -> None:
     # Indices from the caller's wiring (Get User Interface Details.vi): the path
     # input sits on connector slot 4 and the Boolean output on slot 1.
     assert [(t.name, t.direction, t.index) for t in entry.terminals] == [
-        ("path", "in", 4),
-        ("Is Path and Not Empty?", "out", 1),
+        ("path", "input", 4),
+        ("Is Path and Not Empty?", "output", 1),
     ]
 
 

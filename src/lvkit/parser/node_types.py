@@ -42,6 +42,8 @@ class PrimitiveNode(ParsedNode):
 
     prim_index: int | None = None
     prim_res_id: int | None = None
+    # The node's own ``objFlags`` (0 when the element has none).
+    obj_flags: int = 0
 
 
 @dataclass
@@ -228,10 +230,12 @@ class CallByRefNode(ParsedNode):
 
     Calls a VI determined at runtime via a VI reference wire.
     frame_terminal_uids: UIDs of the 4 hGrowCItem terminals
-    (error in/out, VI ref in/out) from permDCOList.
+    (error in/out, VI ref in/out) from permDCOList. save_style: the node's
+    saved ``CBRSaveStyle`` byte, which records how the node calls the VI.
     """
 
     frame_terminal_uids: list[str] = field(default_factory=list)
+    save_style: int | None = None
 
 
 @dataclass
@@ -328,6 +332,7 @@ class PrimitiveHandler(NodeTypeHandler):
             **common,
             prim_index=prim_index,
             prim_res_id=prim_res_id,
+            obj_flags=safe_int(elem.find("objFlags")),
         )
 
 
@@ -459,7 +464,12 @@ class CallByRefHandler(NodeTypeHandler):
                     t_uid = te.get("uid")
                     if t_uid:
                         frame_terminal_uids.append(t_uid)
-        return CallByRefNode(**common, frame_terminal_uids=frame_terminal_uids)
+        style_text = elem.findtext("CBRSaveStyle")
+        return CallByRefNode(
+            **common,
+            frame_terminal_uids=frame_terminal_uids,
+            save_style=int(style_text, 16) if style_text else None,
+        )
 
 
 class FeedbackMasterHandler(NodeTypeHandler):
@@ -907,6 +917,23 @@ class XNodeNode(ParsedNode):
     terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
 
 
+def _property_rows(elem: ET.Element) -> list[ET.Element]:
+    """The ``propItem`` rows of a Property Node, one per row, in ``dcoList``
+    order. A row is written out once, where it first appears (in the ``dcoList``
+    or inline in the ``<dco>`` of its terminal), and every other place names it
+    by uid; a reference that carries the row's class is not a second row."""
+    defined: dict[str, ET.Element] = {}
+    for item in elem.iter():
+        uid = item.get("uid")
+        if item.get("class") != "propItem" or uid is None:
+            continue
+        if uid not in defined or item.find("propList") is not None:
+            defined[uid] = item
+    dco_list = elem.find("dcoList")
+    order = [row.get("uid") for row in dco_list] if dco_list is not None else []
+    return [defined[uid] for uid in order if uid in defined]
+
+
 class PropertyNodeHandler(NodeTypeHandler):
     """Handler for Property Node (class="propNode")."""
 
@@ -918,12 +945,11 @@ class PropertyNodeHandler(NodeTypeHandler):
         object_name = clean_labview_string(elem.findtext("nodeName"))
         omid = elem.findtext("oMId") or ""
 
-        # One ``propItem`` element is one row, in ``dcoList`` order. Its
+        # One ``propItem`` element of the ``dcoList`` is one row, in order (a terminal's
+        # ``<dco>`` reference to a row names the same row, not another). Its
         # ``propList`` holds one ``propItemInfo`` per path segment.
         properties: list[PropertyDef] = []
-        for row in elem.iter():
-            if row.get("class") != "propItem":
-                continue
+        for row in _property_rows(elem):
             segments: list[PropertySegment] = []
             prop_list = row.find("propList")
             if prop_list is not None:

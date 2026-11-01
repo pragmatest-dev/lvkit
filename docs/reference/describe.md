@@ -21,12 +21,12 @@ lvkit describe <input_path> [options]
 
 | Option | Description |
 |--------|-------------|
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
-lvkit describe "Convert File Extension (String).vi" --search-path libraries/extracted
+lvkit describe "Convert File Extension (String).vi" --userlib libraries/extracted/user.lib
 ```
 
 ```text
@@ -79,16 +79,18 @@ Case Structure (2 frames)
   carries in parentheses. A Conditional tunnel also names what drives its
   condition, e.g. `out conditional indexing tunnel (BusType), condition ← True`.
 - An unresolved [SubVI](subvi-resolution.md) is not an error. If a call's
-  target isn't found on `--search-path`, `describe` still lists it under
+  target isn't at the path its caller records, `describe` still lists it under
   `## Dependencies` — just without a signature or description, since those
   come from the target VI.
 
 ## Errors
 
-If `input_path` doesn't exist, `describe` prints `Error: Path not found` and
-exits non-zero. If `input_path` isn't a `.vi` (a `.lvlib`, `.lvclass`, or
-directory), it prints `Error: Expected .vi or *_BDHb.xml file: <path>` and
-exits non-zero — use [`structure`](structure.md) for those instead.
+If `input_path` doesn't exist, `describe` prints `Error: Path not found: <path>`
+and exits `2` (a usage error). If it isn't a `.vi`, `.vim`, `.vit` or `.ctl` (a
+`.lvlib`, `.lvclass`, or directory), it prints `Error: expected a VI file (...)
+or a .ctl: <name>` and exits `2` — use [`structure`](structure.md) for those
+instead. A VI that exists but cannot be read is a problem, not a usage error: see
+[problems](problems.md) (`Stopped`, exit `1`).
 
 ## See also
 

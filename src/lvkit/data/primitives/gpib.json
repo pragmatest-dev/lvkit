@@ -5,43 +5,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "data",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "mode (0)",
           "type": "NumInt16"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (488.2 global)",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -54,49 +54,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "byte count",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "mode (0)",
           "type": "NumInt16"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (488.2 global)",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -109,31 +109,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "poll response byte",
           "type": "NumInt16"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (488.2 global)",
           "type": "NumInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         }
@@ -146,25 +146,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         }
@@ -177,25 +177,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         }
@@ -208,31 +208,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "serial poll byte",
           "type": "NumInt16"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -245,31 +245,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "command string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -282,49 +282,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "require re-addressing (T)",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "disallow DMA (F)",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "assert REN with IFC (T)",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "IST bit sense (T)",
           "type": "Boolean"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "system controller (T)",
           "type": "Boolean"
         }
@@ -337,37 +337,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (488.2 global)",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "wait state vector",
           "type": "Array"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         }
@@ -380,37 +380,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "address string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "status",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "GPIB error",
           "type": "NumInt16"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "byte count",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

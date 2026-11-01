@@ -55,21 +55,26 @@ _VIT_SIGNATURE = (
 
 
 def _describe(path: Path) -> str:
-    graph, key = load_corpus_vi(path.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(path.resolve())
     return describe_vi(graph, key)
 
 
 @pytest.mark.parametrize(
     ("path", "signature", "lvnet_header"),
     [
-        (_VIM, _VIM_SIGNATURE, "vi Create Annotations.vim :"),
-        (_VIT, _VIT_SIGNATURE, "vi testExample.vit :"),
+        (
+            _VIM,
+            _VIM_SIGNATURE,
+            "vi NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+            "Create Annotations.vim :",
+        ),
+        (_VIT, _VIT_SIGNATURE, "vi TemplateTestCase.lvclass:testExample.vit :"),
     ],
 )
 def test_vim_and_vit_read_in_every_view(
     path: Path, signature: str, lvnet_header: str
 ) -> None:
-    graph, key = load_corpus_vi(path.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(path.resolve())
 
     assert describe_vi(graph, key).splitlines()[2] == signature
 
@@ -79,7 +84,7 @@ def test_vim_and_vit_read_in_every_view(
     )
     assert Path(netlist_to_dict(module)["vi"]).name == path.name
 
-    svg = render_vi_file(path, search_paths=[_SAMPLES])
+    svg = render_vi_file(path)
     assert svg is not None
     assert "<svg" in svg
 
@@ -94,7 +99,7 @@ def test_vim_and_vit_read_in_every_view(
 def test_vim_and_vit_generate_python(
     path: Path, mode: LoadMode, module_file: str, tmp_path: Path
 ) -> None:
-    summary = generate_python(path, tmp_path, search_paths=[_SAMPLES], mode=mode)
+    summary = generate_python(path, tmp_path, mode=mode)
 
     assert summary["error"] == 0
     [written] = tmp_path.rglob(module_file)
@@ -105,15 +110,17 @@ def test_vim_and_vit_generate_python(
 def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     tmp_path: Path,
 ) -> None:
-    generate_python(_CALLER, tmp_path, search_paths=[_SAMPLES])
+    generate_python(_CALLER, tmp_path)
 
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
     [callee] = tmp_path.rglob("create_annotations.py")
     lines = caller.read_text(encoding="utf-8").splitlines()
-    assert (
-        "from ..ni_session_management_v1_clientlvlib.create_annotations "
-        "import create_annotations"
-    ) in lines
+    [call_import] = [ln for ln in lines if " import create_annotations" in ln]
+    assert call_import.startswith("from .")
+    assert call_import.endswith(
+        ".clients.session_management_v1.session_reservation.create_annotations"
+        " import create_annotations"
+    )
     assert (
         "    create_annotations_result = create_annotations("
         "annotation_typedef=SimpleNamespace(key='', value=''), "
@@ -126,9 +133,11 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
 def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None:
     text = _describe(_CALLER)
 
-    # The call is to Create Annotations.vim, with the terminal names of that VI.
+    # The call is to Create Annotations.vim, named by its own LIBN chain, with
+    # the terminal names of that VI.
     assert (
-        "  Create Annotations.vim: (annotation keys: [String], annotation "
+        "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Create Annotations.vim: (annotation keys: [String], annotation "
         "typedef: cluster{key, value}, error in: Error) -> (annotations array: "
         "[cluster{key, value}], error out: Error)"
     ) in text.splitlines()
@@ -142,7 +151,8 @@ def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None
 
     # A neighbouring ordinary subVI call is unchanged.
     assert (
-        "  Session Reservation Keys.vi: () -> (session reservation keys: [String])"
+        "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Session Reservation Keys.vi: () -> (session reservation keys: [String])"
     ) in text.splitlines()
     assert (
         "    NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
@@ -151,12 +161,16 @@ def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None
 
 
 def test_caller_of_a_malleable_vi_lists_the_vi_in_lvnet_and_json() -> None:
-    graph, key = load_corpus_vi(_CALLER.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(_CALLER.resolve())
     module = build_netlist_from_graph(graph, key)
 
     lvnet = render_lvnet(module, display_name=graph.vi_display_name(key))
-    assert "    subVI   Create Annotations.vim        ; ./" in lvnet
-    assert "subVI Create_Annotations_43 : Create Annotations.vim" in lvnet
+    qualified = (
+        "NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Create Annotations.vim"
+    )
+    assert f"    subVI   {qualified} ; ./" in lvnet
+    assert f"subVI Create_Annotations_43 : {qualified}" in lvnet
     assert "Instance" not in lvnet
     assert "Instance" not in str(netlist_to_dict(module))
 
@@ -165,17 +179,18 @@ def test_instances_of_one_malleable_vi_in_a_caller_share_its_file() -> None:
     text = _describe(_MANY_INSTANCES_CALLER)
     dependencies = text.split("## Dependencies\n")[1].split("\n\n")[0].splitlines()
 
-    assert [line.split(":")[0].strip() for line in dependencies] == [
-        "Assert Connections.vim",
-        "Create Connection Cluster.vim",
-        "NI Session Management niDigital.lvlib",
+    assert [line.strip().split(": (")[0] for line in dependencies] == [
+        "MeasurementServerTests.lvlib:Assert Connections.vim",
+        "MeasurementServerTests.lvlib:Create Connection Cluster.vim",
+        "MeasurementServerTests.lvlib:"
         "One Session Two Pins One Instrument Two Sites - Digital.vi",
+        "NI Session Management niDigital.lvlib:Get Connections.vi",
     ]
     assert "Instance:" not in text
 
 
 def test_caller_loads_the_malleable_vi_as_one_graph_node() -> None:
-    graph, key = load_corpus_vi(_MANY_INSTANCES_CALLER.resolve(), _SAMPLES.resolve())
+    graph, key = load_corpus_vi(_MANY_INSTANCES_CALLER.resolve())
     callee_names = sorted(Path(k).name for k in graph.get_vi_dependencies(key))
 
     # Three instances of Create Connection Cluster.vim are one dependency.
@@ -185,7 +200,7 @@ def test_caller_loads_the_malleable_vi_as_one_graph_node() -> None:
 
 
 def test_generate_python_from_an_enum_control(tmp_path: Path) -> None:
-    summary = generate_python(_ENUM_CTL, tmp_path, search_paths=[_SAMPLES])
+    summary = generate_python(_ENUM_CTL, tmp_path)
 
     assert summary["error"] == 0
     [module] = tmp_path.rglob("actionctl.py")
@@ -204,7 +219,7 @@ def test_generate_python_from_an_enum_control(tmp_path: Path) -> None:
 
 
 def test_generate_python_from_a_cluster_control(tmp_path: Path) -> None:
-    summary = generate_python(_CLUSTER_CTL, tmp_path, search_paths=[_SAMPLES])
+    summary = generate_python(_CLUSTER_CTL, tmp_path)
 
     assert summary["error"] == 0
     [module] = tmp_path.rglob("paramsctl.py")
@@ -230,7 +245,7 @@ def test_library_loads_its_vim_members_as_real_vis() -> None:
     )
     graph = InMemoryVIGraph()
 
-    key = graph.load_lvlib(library, LoadMode.NONE, search_paths=[_SAMPLES])
+    key = graph.load_lvlib(library, LoadMode.NONE)
 
     members = {
         Path(target).name: target in graph._stubs

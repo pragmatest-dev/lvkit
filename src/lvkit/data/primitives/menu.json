@@ -5,57 +5,57 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "menu reference",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ms timeout (200)",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "block menu (F)",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out",
           "type": "Boolean"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "menu reference out",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "item tag",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "item path",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -68,32 +68,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "menu reference out",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "enable (T)",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "menu reference",
           "type": "Refnum",
           "refnum_type": "menu"
@@ -110,55 +110,55 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "after_item",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "menu_tag",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "item_tags",
           "type": "Array"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "item_names",
           "type": "Array"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "menu_reference",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "item_tags_out",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "menu_reference_out",
           "type": "Refnum"
         }
@@ -174,37 +174,37 @@
       "terminals": [
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "items",
           "type": "Array"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "menu_tag",
           "type": "String"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "menu_reference",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "menu_reference_out",
           "type": "Refnum"
         }
@@ -220,61 +220,61 @@
       "terminals": [
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "item_tag",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "menu_reference",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "enabled",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "item_name",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "menu_reference_out",
           "type": "Refnum"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "checked",
           "type": "Boolean"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "submenu_tags",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "shortcut_info",
           "type": "Cluster"
         }
@@ -287,107 +287,112 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "menu reference out",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "short cut",
-          "type": "Cluster"
+          "type": "Cluster",
+          "default_behavior": "unchanged"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "checked",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default_behavior": "unchanged"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "item tag",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "enabled",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default_behavior": "unchanged"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "item name",
-          "type": "String"
+          "type": "String",
+          "default_behavior": "unchanged"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "menu reference",
           "type": "Refnum",
           "refnum_type": "menu"
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-menu-item-info.html"
     },
     "9007": {
       "name": "Get Menu Short Cut Info",
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "item path",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "item tag",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "menu reference out",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "short cut",
           "type": "Cluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "menu reference",
           "type": "Refnum",
           "refnum_type": "menu"

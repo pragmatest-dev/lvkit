@@ -17,15 +17,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .exceptions import ResolutionContext, VILibConflict, VILibResolutionNeeded
+from .exceptions import CatalogPaneMismatch, ResolutionContext, VILibResolutionNeeded
 from .models import VIEntry, VITerminal
 from .naming import derive_python_location, derive_python_name
 from .resolver import VILibResolver
 
 __all__ = [
+    "CatalogPaneMismatch",
     "ResolutionContext",
     "VIEntry",
-    "VILibConflict",
     "VILibResolutionNeeded",
     "VILibResolver",
     "VITerminal",

@@ -31,7 +31,7 @@ _ALL_VIS = sorted(_CORPUS.rglob("*.vi"))
 
 def _load(vi: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    graph.load_vi(vi, mode=LoadMode.MINIMAL, search_paths=[vi.parent], layout=True)
+    graph.load_vi(vi, mode=LoadMode.MINIMAL, layout=True)
     return graph, graph.resolve_vi_name(vi.name)
 
 

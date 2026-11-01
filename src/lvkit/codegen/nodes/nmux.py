@@ -10,9 +10,11 @@ import ast
 from dataclasses import dataclass
 from enum import Enum
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import _flatten_fields
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.measure_data import measure_data_field_name, measure_data_value_type
 from lvkit.models import (
     ClusterField,
     LVType,
@@ -26,12 +28,16 @@ from ..ast_utils import (
     build_assign,
     build_assign_attr,
     default_value_expr,
+    field_attribute_paths,
     parse_expr,
     to_var_name,
 )
+from ..class_attributes import ClassAttributes, class_field_paths
+from ..class_model import type_attributes
 from ..context import CodeGenContext
-from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
+from ..native_array import replaced_field
+from ..value_copy import owned_input
 
 
 def _is_anonymous_cluster(lv_type: LVType | None) -> bool:
@@ -68,13 +74,30 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     list_in = _by_role("input", "list")
     list_out = _by_role("output", "list")
 
+    for t in [*list_in, *list_out]:
+        if t.nmux_field_index is not None and t.nmux_field_index < 0:
+            broken = ctx.graph is not None and ctx.graph.vi_is_broken(ctx.vi_name or "")
+            if broken:
+                reason = (
+                    f"An element of {node.name!r} selects no field of its cluster "
+                    f"(the VI is saved broken and stores its field index as "
+                    f"{t.nmux_field_index}), so there is no value to read or write"
+                )
+            else:
+                reason = (
+                    f"An element of {node.name!r} stores its field index as "
+                    f"{t.nmux_field_index}, which lvkit does not decode yet"
+                )
+            raise ConversionGap(reason, node)
+
     bindings: dict[str, str] = {}
     statements: list[ast.stmt] = []
+    imports: set[str] = set()
 
     # Resolve AGG input variable
     agg_var = None
     if agg_in:
-        agg_var = ctx.resolve(agg_in[0].id)
+        agg_var = ctx.wired_input(agg_in[0].id, node)
 
     # AGG passthrough: bind agg outputs to agg input value
     for t in agg_out:
@@ -86,11 +109,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     agg_terminals = agg_in or agg_out
     agg_lv_type = agg_terminals[0].lv_type if agg_terminals else None
     anon = _is_anonymous_cluster(agg_lv_type)
+    measure_flavor = agg_lv_type.measure_flavor if agg_lv_type else None
+    class_attrs: ClassAttributes | None = None
     if agg_terminals and agg_terminals[0].lv_type:
         if ctx.graph is not None:
             class_fields = ctx.graph.get_type_fields(
                 agg_terminals[0].lv_type,
                 caller_vi_key=ctx.vi_name,
+            )
+            class_attrs = type_attributes(
+                ctx.graph, agg_terminals[0].lv_type, ctx.vi_name
             )
 
     if list_in and list_out:
@@ -99,7 +127,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         sorted_out = sorted(list_out, key=lambda t: t.index)
         for i, t_out in enumerate(sorted_out):
             if i < len(sorted_in):
-                val = ctx.resolve(sorted_in[i].id)
+                val = ctx.wired_input(sorted_in[i].id, node)
                 if val:
                     bindings[t_out.id] = val
 
@@ -120,8 +148,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     bindings[t.id] = f"({agg_var})" + "".join(
                         f"[{index}]" for index in path
                     )
+                elif measure_flavor:
+                    bindings[t.id] = (
+                        f"{agg_var}.{_measure_component(t, measure_flavor, node)}"
+                    )
                 else:
-                    bindings[t.id] = _field_expr(t, agg_var, class_fields)
+                    bindings[t.id] = _field_expr(t, agg_var, class_fields, class_attrs)
 
     elif list_in and not list_out:
         # LIST in only = bundle
@@ -130,51 +162,39 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             and agg_terminals[0].lv_type
             and _is_error_cluster(agg_terminals[0].lv_type)
         ):
-            return _generate_error_bundle(list_in, class_fields, ctx)
+            return _generate_error_bundle(node, list_in, class_fields, ctx)
 
         if agg_var:
             if anon:
-                updates: list[ast.expr] = []
+                updates: list[tuple[tuple[int, ...], str]] = []
                 for t in sorted(list_in, key=lambda t: t.index):
-                    value = ctx.resolve(t.id)
+                    value = ctx.wired_input(t.id, node)
                     if value is None:
                         raise TypeResolutionNeeded(
                             type_name="bundle value", context=t.id
                         )
-                    path = _position_path(t, class_fields)
-                    updates.append(
-                        ast.Tuple(
-                            elts=[parse_expr(repr(path)), parse_expr(value)],
-                            ctx=ast.Load(),
-                        )
-                    )
+                    updates.append((_position_path(t, class_fields), value))
                 cluster_var = ctx.make_output_var(
                     "cluster", node.id, agg_out[0].id if agg_out else None
                 )
-                statements.append(
-                    build_assign(
-                        cluster_var,
-                        ast.Call(
-                            func=ast.Attribute(
-                                value=ast.Name(id="_lv", ctx=ast.Load()),
-                                attr="replace_fields",
-                                ctx=ast.Load(),
-                            ),
-                            args=[
-                                parse_expr(agg_var),
-                                ast.Tuple(elts=updates, ctx=ast.Load()),
-                            ],
-                            keywords=[],
-                        ),
+                statements.append(build_assign(cluster_var, parse_expr(agg_var)))
+                for path, value in updates:
+                    statements.append(
+                        build_assign(
+                            cluster_var,
+                            parse_expr(replaced_field(cluster_var, path, value)),
+                        )
                     )
-                )
                 for t in agg_out:
                     bindings[t.id] = cluster_var
-                return CodeFragment(
-                    statements=statements,
-                    bindings=bindings,
-                    imports={LV_IMPORT},
-                )
+                return CodeFragment(statements=statements, bindings=bindings)
+            # Bundle By Name changes the object in place: work on a copy when
+            # something else can still read the incoming value.
+            owned = owned_input(ctx, agg_in[0], node, statements)
+            if owned is not None and owned != agg_var:
+                agg_var = owned
+                for t in agg_out:
+                    bindings[t.id] = owned
             # Assign fields on the aggregate cluster. Bundle By Name mutates the
             # object in place, so the aggregate must be a single materialized
             # VARIABLE — when it resolves to an EXPRESSION (a cluster constant
@@ -196,22 +216,21 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     bindings[t.id] = cluster_var
             # Assign fields on an EXISTING cluster (incoming agg wire).
             for t in sorted(list_in, key=lambda t: t.index):
-                val = ctx.resolve(t.id)
+                val = ctx.wired_input(t.id, node)
                 if not val:
                     continue
-                fname = _field_name(t, class_fields)
-                if fname:
-                    stmt = ast.Assign(
-                        targets=[
-                            ast.Attribute(
-                                value=parse_expr(agg_var),
-                                attr=fname,
-                                ctx=ast.Store(),
-                            )
-                        ],
-                        value=parse_expr(val),
+                path = (
+                    [_measure_component(t, measure_flavor, node)]
+                    if measure_flavor
+                    else _field_path(t, class_fields, class_attrs)
+                )
+                if path:
+                    statements.append(
+                        ast.Assign(
+                            targets=[_attribute_target(agg_var, path)],
+                            value=parse_expr(val),
+                        )
                     )
-                    statements.append(stmt)
                 else:
                     raise TypeResolutionNeeded(
                         type_name=f"field[{t.nmux_field_index}]",
@@ -227,12 +246,24 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     t.nmux_field_index if t.nmux_field_index is not None else t.index
                 ),
             )
-            elts = [parse_expr(ctx.resolve(t.id) or "None") for t in ordered]
+            elts = [parse_expr(ctx.wired_input(t.id, node) or "None") for t in ordered]
             tup = ast.Tuple(elts=elts, ctx=ast.Load())
             for t in agg_out:
                 bindings[t.id] = ast.unparse(tup)
+        elif agg_out and measure_flavor:
+            built = _build_measure_data(node, list_in, agg_out[0], measure_flavor, ctx)
+            statements.extend(built.statements)
+            bindings.update(built.bindings)
+            imports = built.imports
+        elif agg_out:
+            raise ConversionGap(
+                f"A Bundle into {agg_out[0].type_label()} with no cluster wired in "
+                "is not converted: only a waveform or digital data type has a "
+                "built-in layout to build a new value from",
+                node,
+            )
 
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(statements=statements, bindings=bindings, imports=imports)
 
 
 class ErrorFieldRole(Enum):
@@ -279,7 +310,7 @@ def _error_read(
     if term.nmux_field_index is None or not class_fields:
         return None
     flat = _flatten_fields(class_fields)
-    if term.nmux_field_index >= len(flat):
+    if not 0 <= term.nmux_field_index < len(flat):
         return None
     _path, field = flat[term.nmux_field_index]
     return ErrorFieldRead(
@@ -321,7 +352,69 @@ def _position_path(
     raise TypeResolutionNeeded(type_name=f"positional field[{index}]", context=term.id)
 
 
+def _measure_component(term: Terminal, flavor: str, node: PrimitiveNode) -> str:
+    """The Python attribute of the waveform or digital data component a
+    Bundle/Unbundle By Name terminal selects, from the type's built-in layout."""
+    name = measure_data_field_name(flavor, term.nmux_field_index)
+    if name is None:
+        raise ConversionGap(
+            f"The element {term.nmux_field_index} of {node.name!r} is not a "
+            f"component of a {flavor} that lvkit knows the name of",
+            node,
+        )
+    return to_var_name(name)
+
+
+def _build_measure_data(
+    node: PrimitiveNode,
+    list_in: list[Terminal],
+    agg_out: Terminal,
+    flavor: str,
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """A Bundle with no cluster wired in, into a waveform or digital data type:
+    a new value holding the wired components, as the ``SimpleNamespace`` a
+    cluster constant is. The components and their order are the type's built-in
+    layout. NI's Build Waveform page says only that an unwired waveform input
+    makes a new waveform "based on the components you wire", so an unwired array
+    component (``Y``) is an empty array, the default of an array, and any other
+    unwired one takes the default of its type."""
+    layout = measure_data_value_type(flavor)
+    if layout is None or not layout.fields:
+        raise ConversionGap(
+            f"A Bundle into {agg_out.type_label()} with no cluster wired in has no "
+            "Python equivalent: lvkit does not know the type's components",
+            node,
+        )
+    wired: dict[str, str] = {}
+    for t in list_in:
+        value = ctx.wired_input(t.id, node)
+        if value is not None:
+            wired[_measure_component(t, flavor, node)] = value
+    fields = []
+    for f in layout.fields:
+        if f.type is not None and _is_error_cluster(f.type):
+            continue
+        name = to_var_name(f.name)
+        if name in wired:
+            value = wired[name]
+        elif f.type is not None and f.type.kind == LVTypeKind.ARRAY:
+            value = "[]"
+        else:
+            value = ast.unparse(default_value_expr(f.type))
+        fields.append(f"{name}={value}")
+    var = ctx.make_output_var("cluster", node.id, agg_out.id)
+    return CodeFragment(
+        statements=[
+            build_assign(var, parse_expr(f"SimpleNamespace({', '.join(fields)})"))
+        ],
+        bindings={agg_out.id: var},
+        imports={"from types import SimpleNamespace"},
+    )
+
+
 def _generate_error_bundle(
+    node: PrimitiveNode,
     list_in: list[Terminal],
     class_fields: list[ClusterField] | None,
     ctx: CodeGenContext,
@@ -335,7 +428,7 @@ def _generate_error_bundle(
     """
     values: dict[ErrorFieldRole, str] = {}
     for t in sorted(list_in, key=lambda t: t.index):
-        val = ctx.resolve(t.id)
+        val = ctx.wired_input(t.id, node)
         read = _error_read(t, class_fields)
         if val and read is not None:
             values[read.role] = val
@@ -371,33 +464,50 @@ def _generate_error_bundle(
     )
 
 
-def _field_name(
+def _attribute_paths(
+    class_fields: list[ClusterField], class_attrs: ClassAttributes | None
+) -> list[list[str]]:
+    """The attribute path of every field of the aggregate: the attributes the
+    class names its private data fields, the field names of any other cluster."""
+    if class_attrs is not None:
+        return class_field_paths(class_attrs, class_fields)
+    return field_attribute_paths(class_fields)
+
+
+def _field_path(
     term: Terminal,
     class_fields: list[ClusterField] | None,
-) -> str | None:
-    """Get Python field name for a LIST terminal using nmux_field_index, which
-    counts the depth-first ``_flatten_fields`` slots."""
+    class_attrs: ClassAttributes | None = None,
+) -> list[str] | None:
+    """The attribute path from the cluster to a LIST terminal's field, using
+    nmux_field_index, which counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
-    flat = _flatten_fields(class_fields)
-    if term.nmux_field_index < len(flat):
-        path, _field = flat[term.nmux_field_index]
-        return to_var_name(path[-1])
+    paths = _attribute_paths(class_fields, class_attrs)
+    if 0 <= term.nmux_field_index < len(paths):
+        return paths[term.nmux_field_index]
     return None
+
+
+def _attribute_target(agg_var: str, path: list[str]) -> ast.Attribute:
+    """The assignment target ``agg_var.<path>``."""
+    target = parse_expr(f"{agg_var}.{'.'.join(path)}")
+    assert isinstance(target, ast.Attribute)
+    target.ctx = ast.Store()
+    return target
 
 
 def _field_expr(
     term: Terminal,
     agg_var: str,
     class_fields: list[ClusterField] | None,
+    class_attrs: ClassAttributes | None = None,
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""
     if term.nmux_field_index is not None and class_fields:
-        flat = _flatten_fields(class_fields)
-        if term.nmux_field_index < len(flat):
-            path, _field = flat[term.nmux_field_index]
-            dotted = ".".join(to_var_name(p) for p in path)
-            return f"{agg_var}.{dotted}"
+        paths = _attribute_paths(class_fields, class_attrs)
+        if 0 <= term.nmux_field_index < len(paths):
+            return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
 
     raise TypeResolutionNeeded(
         type_name=f"field[{term.nmux_field_index}]",

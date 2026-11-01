@@ -5,31 +5,19 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
-import logging
+from collections.abc import Iterable
+from dataclasses import dataclass
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.lv_type_codes import (
+    INTEGER_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
+from lvkit.models import ClusterField, LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.path_value import python_path
 from lvkit.vi_files import strip_vi_extension
 
-logger = logging.getLogger(__name__)
-
-
-def uint_mask(lv_type: LVType | None) -> int | None:
-    """The bit-mask for a LabVIEW UNSIGNED integer type, else ``None``.
-
-    A bitwise complement (LabVIEW ``Not``, or a Compound Arithmetic per-terminal
-    "Not") on an unsigned int must be masked to the type width: Python's ``~x``
-    yields a signed value (``~5 == -6``), whereas U32 ``Not(5)`` is
-    ``0xFFFFFFFA``. Signed ints need no mask — Python's ``~`` is already
-    two's-complement-correct for them, so this returns ``None`` for them.
-    """
-    ut = (lv_type.underlying_type or "") if lv_type else ""
-    return {
-        "NumUInt8": 0xFF,
-        "NumUInt16": 0xFFFF,
-        "NumUInt32": 0xFFFFFFFF,
-        "NumUInt64": 0xFFFFFFFFFFFFFFFF,
-    }.get(ut)
+from .errors import CodeGenError
 
 
 def default_value_expr(lv_type: LVType | None) -> ast.expr:
@@ -52,16 +40,7 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
             return ast.Constant(value="")
         if is_boolean_type_name(underlying):
             return ast.Constant(value=False)
-        if underlying in (
-            "NumInt8",
-            "NumInt16",
-            "NumInt32",
-            "NumInt64",
-            "NumUInt8",
-            "NumUInt16",
-            "NumUInt32",
-            "NumUInt64",
-        ):
+        if underlying in INTEGER_TYPE_NAMES:
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)
@@ -83,8 +62,7 @@ def parse_expr(template: str) -> ast.expr:
         tree = ast.parse(template, mode="eval")
         return tree.body
     except SyntaxError as e:
-        logger.warning("Invalid expression template: %r — %s", template, e)
-        return ast.Constant(value=None)
+        raise CodeGenError(f"Invalid expression template: {template!r} — {e}") from e
 
 
 def parse_stmt(template: str) -> ast.stmt:
@@ -102,8 +80,7 @@ def parse_stmt(template: str) -> ast.stmt:
             return tree.body[0]
         return ast.Pass()
     except SyntaxError as e:
-        logger.warning("Invalid statement template: %r — %s", template, e)
-        return ast.Expr(value=ast.Constant(value=None))
+        raise CodeGenError(f"Invalid statement template: {template!r} — {e}") from e
 
 
 def build_assign(target: str, value: ast.expr) -> ast.Assign:
@@ -282,9 +259,10 @@ def to_var_name(name: str) -> str:
         result = "var_" + result
     if not result:
         result = "var"
-    # Avoid shadowing Python keywords and builtins (e.g. an output named
-    # "sum" must not become a `sum` variable that then breaks `sum(...)`).
-    if keyword.iskeyword(result) or result in _PY_BUILTINS:
+    # Avoid shadowing Python keywords, builtins and the modules the generated
+    # code imports (e.g. an output named "sum" must not become a `sum` variable
+    # that then breaks `sum(...)`, nor one named "os" hide `os.name`).
+    if keyword.iskeyword(result) or result in RESERVED_NAMES:
         result = result + "_"
     return result
 
@@ -312,6 +290,28 @@ def unique_names(names: list[str]) -> list[str]:
     return result
 
 
+def field_attribute_names(field_names: Iterable[str]) -> list[str]:
+    """The Python attribute name of each field of one cluster, given the fields'
+    labels: the fields whose labels become one name ("Count" and "count") each
+    get their own."""
+    return unique_names([to_var_name(name) for name in field_names])
+
+
+def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
+    """The attribute path of every field of a cluster hierarchy, depth first in
+    the order of ``_flatten_fields`` (a sub-cluster is its own slot, followed by
+    its fields): the names ``field_attribute_names`` gives at each level."""
+    paths: list[list[str]] = []
+    names = field_attribute_names(f.name for f in fields)
+    for field, name in zip(fields, names, strict=True):
+        paths.append([name])
+        if field.type and field.type.fields:
+            paths.extend(
+                [name, *sub] for sub in field_attribute_paths(field.type.fields)
+            )
+    return paths
+
+
 def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
     """Terminal id -> the Python parameter name of each non-error-cluster VI
     control, unique across ``terminals`` (connector-pane controls first, then
@@ -326,10 +326,12 @@ def result_field_names(
     outputs: list[Terminal], off_pane_outputs: list[Terminal]
 ) -> dict[str, str]:
     """Terminal id -> result field name of each non-error-cluster indicator.
-    Connector-pane fields keep ``result_field_name`` (callers read them by it);
-    an off-pane indicator's field is made distinct from every earlier one."""
+    Connector-pane fields are ``result_field_name`` of the label (callers read
+    them by it), made distinct when two labels give the same name; an off-pane
+    indicator's field is made distinct from every earlier one."""
     pane = [t for t in outputs if not t.is_error_cluster]
-    names = {t.id: result_field_name(t.name or "output") for t in pane}
+    pane_names = unique_names([result_field_name(t.name or "output") for t in pane])
+    names = {t.id: name for t, name in zip(pane, pane_names, strict=True)}
     taken = list(names.values())
     for t in off_pane_outputs:
         if t.is_error_cluster:
@@ -340,8 +342,50 @@ def result_field_names(
     return names
 
 
+@dataclass(frozen=True)
+class InterfaceNames:
+    """The Python names of a VI's interface: its parameters and result fields, by
+    terminal id."""
+
+    parameters: dict[str, str]
+    fields: dict[str, str]
+
+
+def interface_names(
+    inputs: list[Terminal],
+    off_pane_inputs: list[Terminal],
+    outputs: list[Terminal],
+    off_pane_outputs: list[Terminal],
+) -> InterfaceNames:
+    """The one place a VI's parameter names and result field names are made from
+    its terminals, in interface order, each set distinct. The VI's own function
+    and result class use them, and so does every caller that passes it keyword
+    arguments and reads its result fields."""
+    return InterfaceNames(
+        parameters=parameter_names([*inputs, *off_pane_inputs]),
+        fields=result_field_names(outputs, off_pane_outputs),
+    )
+
+
 # Builtin names a generated variable must not shadow.
 _PY_BUILTINS = frozenset(dir(builtins))
+
+# Modules the generated code imports by a bare name (``import os``), which a
+# generated variable or function must not shadow. Each name must match an
+# ``import <name>`` some generated module can contain: the codegen's own imports
+# and the ``imports`` of the primitive and vi.lib catalogs
+# (``tests/test_reserved_module_names.py`` checks this).
+GENERATED_MODULE_NAMES = frozenset(
+    {
+        "builtins", "concurrent", "copy", "ctypes", "filecmp", "getpass",
+        "importlib", "inspect", "ipaddress", "keyword", "math", "nidaqmx",
+        "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
+        "os", "pathlib", "pyvisa", "re", "serial", "shutil", "socket", "stat",
+        "struct", "sys", "tempfile", "time",
+    }
+)  # fmt: skip
+
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
 
 
 def sanitize_state_var_suffix(uid: str) -> str:
@@ -383,6 +427,35 @@ def to_function_name(vi_name: str) -> str:
     return to_var_name(name)
 
 
+def build_result_class_name(vi_name: str) -> str:
+    """Build result class name from VI name."""
+    base = to_function_name(vi_name)
+    # Convert to CamelCase
+    parts = base.split("_")
+    camel = "".join(p.capitalize() for p in parts if p)
+    return f"{camel}Result"
+
+
+def module_part(name: str) -> str:
+    """One path part (a folder or a file stem) as the Python module or package
+    name it is generated as: lower case, spaces and hyphens to ``_``, every other
+    character that is not a letter, digit or ``_`` dropped, and ``var_`` in front
+    of a part that does not start with a letter or ``_`` (a name that starts with
+    a digit is a SyntaxError in ``from <name> import ...``), and ``_`` after a
+    Python keyword (a folder named ``Class`` is the package ``class_``).
+
+    Generated code that opens a VI by a path computed when it runs applies this
+    same transform to each part, so the two always agree
+    (``codegen/nodes/vi_reference.py`` ``MODULE_PART_SOURCE``)."""
+    result = name.lower().replace(" ", "_").replace("-", "_")
+    result = "".join(c for c in result if c.isalnum() or c == "_")
+    if result and not result[0].isalpha() and result[0] != "_":
+        result = "var_" + result
+    if keyword.iskeyword(result):
+        result += "_"
+    return result or "module"
+
+
 def to_module_name(vi_name: str) -> str:
     """Convert VI name to Python module name (strips library prefix).
 
@@ -390,23 +463,10 @@ def to_module_name(vi_name: str) -> str:
         "Get Settings Path.vi" -> "get_settings_path"
         "GraphicalTestRunner.lvlib:Run.vi" -> "run"
         "1D Boolean Array Changed.vi" -> "var_1d_boolean_array_changed"
-
-    A LEADING DIGIT (e.g. a VI named "1D ...") is a valid Python FILENAME
-    stem but not a valid MODULE NAME for ``from <name> import ...`` -- that's
-    a SyntaxError ("invalid decimal literal"), since the parser tries to read
-    it as a number. Guard it the same way to_var_name() already does, so a
-    module's own filename and every ``from <module> import`` referencing it
-    agree and are both syntactically valid.
     """
-    # Strip library prefix
     if ":" in vi_name:
         vi_name = vi_name.split(":")[-1]
-    vi_name = strip_vi_extension(vi_name)
-    result = vi_name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha() and result[0] != "_":
-        result = "var_" + result
-    return result or "module"
+    return module_part(strip_vi_extension(vi_name))
 
 
 def param_default_expr(inp: Terminal) -> ast.expr:
@@ -425,6 +485,10 @@ def param_default_expr(inp: Terminal) -> ast.expr:
             return ast.Constant(value=float(dv))
         if underlying == "Boolean":
             return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))
+        if underlying == "Path":
+            expression = python_path(str(dv))
+            if expression is not None:
+                return parse_expr(expression)
         if underlying == "String":
             # A saved string default is stored as a Python string literal
             # (``'abc'``), so its value is what that literal evaluates to.

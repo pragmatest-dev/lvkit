@@ -6,13 +6,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "all_upper_case_string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -30,13 +30,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "all lower case string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -50,13 +50,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "length",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "polymorphic"
         }
@@ -74,26 +74,27 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "substring",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "length (rest)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "rest"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "offset (0)",
           "type": "NumInt32",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -104,59 +105,52 @@
     },
     "1535": {
       "name": "Match Pattern",
+      "op": "MATCH_PATTERN",
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "regular expression",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "before substring",
           "type": "polymorphic"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "match substring",
           "type": "polymorphic"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "after substring",
           "type": "polymorphic"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past match",
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "_import": "from lvkit.runtime.match_pattern import match_pattern as _match_pattern",
-        "_body": "_m = _match_pattern(in_0, in_1, in_2)",
-        "before_substring": "_m[0]",
-        "match_substring": "_m[1]",
-        "after_substring": "_m[2]",
-        "offset_past_match": "_m[3]"
-      },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"
     },
@@ -166,37 +160,38 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "delimiter",
-          "type": "String"
+          "type": "String",
+          "default": "\t"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "array_type",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "spreadsheet_string",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "format_string",
           "type": "String"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "array",
           "type": "Array"
         }
       ],
       "op": "SPREADSHEET_STRING_TO_ARRAY",
-      "imports": ["from lvkit.runtime import lv as _lv"],
+      "imports": ["import re"],
       "verified": false,
       "note": "Spreadsheet String To Array. Op handler splits by output dimensionality (1-D: delimiter or EOL; 2-D: rows by EOL, columns by delimiter) and converts fields to the element type."
     },
@@ -205,26 +200,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "spreadsheet_string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "delimiter",
           "type": "String",
-          "default_value": "'\\t'"
+          "default": "\t"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "format_string",
           "type": "String"
         }
@@ -242,19 +237,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "concatenated string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -267,55 +262,55 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "input string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "remaining string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "initial scan location",
           "type": "NumUInt32"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past scan",
           "type": "NumUInt32"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "default value 14",
           "type": "NumFloat64"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "output 7",
           "type": "NumFloat64"
         }
@@ -328,37 +323,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "initial string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "resulting string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "input 6",
           "type": "NumFloat64"
         }
@@ -371,37 +366,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "replaced substring",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "result string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "substring",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -411,85 +406,87 @@
     },
     "3914": {
       "name": "Search and Replace String",
+      "op": "SEARCH_AND_REPLACE_STRING",
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "input string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "replace all?",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore case?",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "multiline?",
           "type": "Boolean",
-          "hidden": true
+          "hidden": true,
+          "default": false
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "result string",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "search string",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "replace string",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "number of replacements",
           "type": "NumInt32"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past replacement",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 15,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
       ],
-      "python_code": {
-        "result string": "in_0.replace(in_5, in_7) if in_1 else in_0.replace(in_5, in_7, 1)"
-      },
-      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",
@@ -500,25 +497,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "datetime_string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "utc_format",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timestamp",
           "type": "MeasureData"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "time_format_string",
           "type": "String"
         }

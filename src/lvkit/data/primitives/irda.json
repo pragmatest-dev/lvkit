@@ -5,26 +5,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "listener ID",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "service name",
           "type": "String"
         }
@@ -37,25 +37,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "device list",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "number of devices",
           "type": "NumUInt16"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         }
@@ -68,38 +68,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (60000)",
           "type": "NumInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "remote device id",
           "type": "NumUInt32"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "service name",
           "type": "String"
         }
@@ -112,58 +112,58 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "remote device ID",
           "type": "NumUInt32"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "remote LSAP-SEL",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "listener ID out",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (wait forever: -1)",
           "type": "NumInt32"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "resolve remote address (T)",
           "type": "Boolean",
           "hidden": true
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "listener ID in",
           "type": "Refnum",
           "refnum_type": "irda"
@@ -177,32 +177,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "abort (F)",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "irda"
@@ -216,50 +216,50 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "mode (standard)",
           "type": "Enum16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (25000)",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "bytes to read",
           "type": "NumInt32"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "irda"
@@ -273,44 +273,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "bytes written",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "irda"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (25000)",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "data in",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "irda"

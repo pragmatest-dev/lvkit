@@ -73,14 +73,14 @@ def test_callers(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     _seed(tmp_path)
     rc = cmd_graph_op(_args("callers", tmp_path / "b.vi", tmp_path, fmt="json"))
     assert rc == 0
-    assert json.loads(capsys.readouterr().out) == [str(tmp_path / "a.vi")]
+    assert json.loads(capsys.readouterr().out) == ["a.vi"]
 
 
 def test_callees(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     _seed(tmp_path)
     rc = cmd_graph_op(_args("callees", tmp_path / "a.vi", tmp_path, fmt="json"))
     assert rc == 0
-    assert json.loads(capsys.readouterr().out) == [str(tmp_path / "b.vi")]
+    assert json.loads(capsys.readouterr().out) == ["b.vi"]
 
 
 def test_blast_radius_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -89,7 +89,7 @@ def test_blast_radius_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["impact_score"] == 1
-    assert str(tmp_path / "a.vi") in payload["dependents"]
+    assert "a.vi" in payload["dependents"]
 
 
 def test_blast_radius_table(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
@@ -103,5 +103,15 @@ def test_blast_radius_table(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
 
 def test_no_index_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     rc = cmd_graph_op(_args("callers", tmp_path / "x.vi", tmp_path / "empty"))
-    assert rc == 2
+    assert rc == 1
     assert "no index" in capsys.readouterr().err
+
+
+def test_a_project_relative_path_is_accepted_as_the_vi(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    _seed(tmp_path)
+    for vi in ("b.vi", str(tmp_path / "b.vi"), "Lib:b.vi"):
+        rc = cmd_graph_op(_args("callers", Path(vi), tmp_path, fmt="json"))
+        assert rc == 0
+        assert json.loads(capsys.readouterr().out) == ["a.vi"]

@@ -12,21 +12,21 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "millisecond timer value",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdNum",
           "python_param": "millisecond_timer_value"
         }
@@ -47,42 +47,42 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "milliseconds to wait",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "milliseconds_to_wait"
         },
         {
           "name": "Wait on Error (FALSE)",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "wait_on_error_false"
         },
         {
           "name": "Abort wait on occurence",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRefNum",
           "python_param": "abort_wait_on_occurence"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "millisecond timer value",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdNum",
           "python_param": "millisecond_timer_value"
         }

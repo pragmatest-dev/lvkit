@@ -79,7 +79,7 @@ class PrimTerminalEntry:
     """One ``terminals[]`` entry declared in a primitives.json prim."""
 
     index: int
-    direction: str  # "in" | "out", as declared
+    direction: str  # "input" | "output", as declared
     name: str | None
     type: str | None  # declared LabVIEW type name, or a generic ("numeric", ...)
 

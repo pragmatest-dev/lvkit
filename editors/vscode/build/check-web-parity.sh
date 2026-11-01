@@ -2,9 +2,9 @@
 # CI parity guard: the web (Pyodide / wasm) render MUST be byte-identical to the
 # native render for every fixture. Determinism holds across interpreters, so any
 # divergence means the web target silently drifts from desktop — a release
-# blocker. Renders each fixture BOTH ways and diffs, after normalizing the
-# path-derived DOM id (the id encodes the input file path, which legitimately
-# differs between the native path and the wasm /vi/… path; nothing else may).
+# blocker. Renders each fixture BOTH ways and diffs, after normalizing the DOM id
+# (it holds the VI's display name and a digest of what is drawn, never a file
+# path; only the name part is rewritten, so the digest must still match).
 #
 # Prereq: media/pyodide + media/wheels exist (run `npm run build:web` first).
 set -euo pipefail

@@ -8,7 +8,7 @@ get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,15 +16,13 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, FPTerminal, Terminal
+from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
-from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
-from .loading import _redirect_member_beside_container
 from .models import (
     AnyGraphNode,
     ClassFieldEntry,
@@ -56,10 +54,16 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
+from .recorded_paths import RecordedPaths, resolve_against
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
     from .core import InMemoryVIGraph
+
+
+def _off_pane(terminal: Terminal) -> bool:
+    """A front-panel control or indicator not wired to the connector pane."""
+    return isinstance(terminal, FPTerminal) and not terminal.is_public
 
 
 def _real_member_path(path: Path) -> Path | None:
@@ -95,6 +99,7 @@ class QueryMixin:
     _term_to_node: dict[str, str]
     _dep_graph: nx.DiGraph
     _stubs: set[str]
+    _recorded: RecordedPaths
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _name_to_keys: dict[str, list[str]]
@@ -108,11 +113,9 @@ class QueryMixin:
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _layouts: dict[str, Layout]
-    _search_paths: list[Path]
-    _vilib_root: Path | None
-    _userlib_root: Path | None
-    _instrlib_root: Path | None
-    _vi_file_index: dict[str, Path] | None
+    _vilib_roots: tuple[Path, ...]
+    _userlib_roots: tuple[Path, ...]
+    _instrlib_roots: tuple[Path, ...]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -125,9 +128,13 @@ class QueryMixin:
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
-        def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None: ...
+        def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
+        def class_type_key(
+            self, lv_type: LVType, caller_vi_key: str | None = None
+        ) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
         def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None: ...
+        def key_label(self, key: str) -> str: ...
 
     # === Dependency Graph Queries ===
 
@@ -176,6 +183,46 @@ class QueryMixin:
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
 
+    def call_qualified_name(self, node: VINode) -> str | None:
+        """The qualified name a SubVI call node shows: the name the graph gives
+        the VI it calls (``VINode.callee_key``: a loaded file's own name, a
+        stub's recorded one), so a call and the ``uses :`` entry of its callee
+        spell one identity one way; the caller's record when the call has no
+        callee in the graph."""
+        key = node.callee_key
+        if key is not None and key in self._dep_graph:
+            qname = self._dep_graph.nodes[key].get("qname")
+            if qname:
+                return str(qname)
+        return node.qualified_name
+
+    def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks a call up by (see
+        ``catalog_path_of``)."""
+        return self.catalog_path_of(
+            node.interface_key, node.qualified_path, node.vi_path
+        )
+
+    def catalog_path_of(
+        self, interface_key: str | None, qualified_path: str | None, caller: str
+    ) -> str | None:
+        """The path the vi.lib catalog looks a call up by: the path recorded for
+        the VI whose connector pane the call shows (``interface_key``: the variant
+        a polymorphic call resolves to, else the VI it names), the one placement
+        gives that VI's module, so a call and its callee's module agree on who
+        writes the Python. A call that names no VI in the graph (a ``<vilib>`` call
+        with no configured root) has the path ``qualified_path`` its caller
+        ``caller`` recorded, resolved against the caller's own."""
+        if interface_key is not None:
+            recorded = self.recorded_path(interface_key)
+            if recorded is not None:
+                return recorded
+        if not qualified_path:
+            return None
+        return "/".join(
+            resolve_against(qualified_path.split("/"), self._recorded.resolved(caller))
+        )
+
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
         bare filename) for titles/headers. DISPLAY ONLY — never a lookup key. The
@@ -219,7 +266,8 @@ class QueryMixin:
             by_qname.setdefault(self._vi_display_names.get(key, key), []).append(key)
         if len(by_qname) > 1:
             groups = "; ".join(
-                f"{qname!r}: {sorted(group_keys)}"
+                f"{self.key_label(qname)!r}: "
+                f"{sorted(self.key_label(k) for k in group_keys)}"
                 for qname, group_keys in sorted(by_qname.items())
             )
             raise AmbiguousVIReferenceError(
@@ -254,57 +302,65 @@ class QueryMixin:
         """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
         return self._source_paths.get(self.resolve_vi_name(vi_name))
 
-    def locate_vi_file(
-        self, vi_name: str, qualified_path: str | None = None
-    ) -> Path | None:
-        """Best-effort on-disk ``.vi`` for a SubVI. Decoration-only (SubVI icons /
-        click-nav) — never forces a load.
+    def library_folders(self) -> dict[str, tuple[Path, ...]]:
+        """The folders each pseudo path names, in the order they are tried."""
+        return {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
+        }
 
-        ``qualified_path`` (the caller's project-relative token, e.g.
-        ``/Lib1/Do.vi``) resolves to the EXACT file by PATH: joined to each search
-        root, the file AT that path IS the SubVI. This is what disambiguates two
-        SubVIs that share a bare filename across libraries (``Lib1/Do.vi`` vs
-        ``Lib2/Do.vi``) — a bare-name lookup collides, the path does not. A
-        ``<vilib>``/``<userlib>`` token is skipped here (resolved separately).
+    def library_roots(self) -> list[tuple[str, Path]]:
+        """The configured library folders, each with the symbolic root token a
+        recorded path names it by (``("<userlib>", Path(".../user.lib"))``), in
+        the order they are tried."""
+        return [
+            (token, root)
+            for token, roots in self.library_folders().items()
+            for root in roots
+        ]
 
-        Falls back to an already-loaded source, then a bare-filename search of the
-        retained search paths (the last-resort path, which CAN collide on
-        duplicate names — callers with a ``qualified_path`` never reach it). Under
-        a MINIMAL load the SubVIs aren't in ``_source_paths``, so the filename
-        search is what lets a project-local SubVI's own ``_ICON.png`` resolve; its
-        index is built once, lazily, and cached."""
-        if qualified_path:
-            rel = qualified_path.replace("\\", "/").lstrip("/")
-            if rel and not rel.startswith("<"):
-                for root in self._search_paths:
-                    candidate = root / rel
-                    if candidate.is_file():
-                        return candidate
-        try:
-            loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
-        except AmbiguousVIReferenceError:
-            # Several VIs share the name: no icon rather than a wrong one.
-            return None
-        if loaded is not None:
-            return loaded
-        if self._vi_file_index is None:
-            index: dict[str, Path] = {}
-            for root in self._search_paths:
-                try:
-                    for found in rglob_vi_files(root):
-                        index.setdefault(found.name, found)
-                except OSError:
-                    continue
-            self._vi_file_index = index
-        return self._vi_file_index.get(vi_name)
+    def recorded_candidates(
+        self, ref: ParsedDependencyRef, caller_file: Path
+    ) -> list[Path]:
+        """Where a record names its file on this machine, in the order they are
+        tried: an absolute path as it is, a relative path joined onto the
+        caller's folder, a pseudo path joined onto each folder it names. Empty
+        for a pseudo path with no folder, or an absolute path with no file here
+        (another machine's folder, never shown or staged)."""
+        absolute = ref.absolute_path()
+        if absolute is not None:
+            return [absolute] if absolute.exists() else []
+        head = ref.path_tokens[0] if ref.path_tokens else ""
+        folders = self.library_folders().get(head)
+        if folders is None:
+            only = ref.resolve_against(caller_file)
+            return [only] if only is not None else []
+        keyword = {
+            "<vilib>": "vilib_root",
+            "<userlib>": "userlib_root",
+            "<instrlib>": "instrlib_root",
+        }[head]
+        found: list[Path] = []
+        for folder in folders:
+            candidate = ref.resolve_against(caller_file, **{keyword: folder})
+            if candidate is not None:
+                found.append(candidate)
+        return found
+
+    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
+        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
+        the file at ``path`` is in, with that folder, else None."""
+        resolved = path.resolve()
+        for token, root in self.library_roots():
+            if resolved.is_relative_to(root.resolve()):
+                return token, root
+        return None
 
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
         root (the user's own library install, not their project)."""
-        return any(
-            root is not None and path.is_relative_to(root)
-            for root in (self._vilib_root, self._userlib_root, self._instrlib_root)
-        )
+        return any(path.is_relative_to(root) for _, root in self.library_roots())
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
@@ -319,17 +375,14 @@ class QueryMixin:
         ``path_tokens`` (``["<vilib>", "Utility", ...]``)."""
         if not qualified_path:
             return None
-        for token, root in (
-            ("<vilib>", self._vilib_root),
-            ("<userlib>", self._userlib_root),
-            ("<instrlib>", self._instrlib_root),
-        ):
-            if qualified_path.startswith(token) and root is not None:
+        for token, root in self.library_roots():
+            if qualified_path.startswith(token):
                 rel = qualified_path[len(token) :].lstrip("/\\")
                 if ".llb/" in rel.replace("\\", "/").lower():
                     return None  # packed member — needs archive extraction
                 candidate = root / rel
-                return candidate if candidate.is_file() else None
+                if candidate.is_file():
+                    return candidate
         return None
 
     def get_layout(self, vi_name: str) -> Layout | None:
@@ -343,6 +396,26 @@ class QueryMixin:
         (a missing dependency)."""
         return key in self._stubs
 
+    def recorded_path(self, key: str) -> str | None:
+        """The installation-folder path the callers recorded for the VI, class or
+        control ``key`` (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined
+        tokens: a path recorded relative to a caller is resolved against the
+        caller's own (``RecordedPaths``). None when no caller recorded one that
+        starts at a LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...),
+        which names the file the same for every caller; a path relative to a caller
+        names a place only beside that caller."""
+        if key not in self._dep_graph:
+            return None
+        return self._recorded.path(key)
+
+    def stub_reason(self, key: str) -> str | None:
+        """Why the absent dependency ``key`` is missing, when more than its
+        absence (several files of its name, a candidate that cannot be read);
+        None otherwise."""
+        if key not in self._stubs or key not in self._dep_graph:
+            return None
+        return self._dep_graph.nodes[key].get("stub_reason")
+
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
         if vi_name not in self._stubs:
@@ -350,13 +423,13 @@ class QueryMixin:
 
         # First, check vilib resolver for known VIs
         resolver = get_vilib_resolver()
-        vilib_info = resolver.get_context(vi_name)
+        vilib_info = resolver.get_context(self.recorded_path(vi_name))
         if vilib_info:
             inputs: list[StubTerminalInfo] = []
             outputs: list[StubTerminalInfo] = []
             for t in vilib_info.get("terminals", []):
                 term_type = t.get("type") or "Any"
-                if t.get("direction") == "in":
+                if t.get("direction") == TerminalDirection.INPUT:
                     inputs.append(StubTerminalInfo(name=t["name"], type=term_type))
                 else:
                     outputs.append(StubTerminalInfo(name=t["name"], type=term_type))
@@ -461,10 +534,70 @@ class QueryMixin:
             and self._dep_graph.nodes[key].get("node_type") == NodeType.CLASS
         )
 
+    def is_class_wire(
+        self, lv_type: LVType | None, vi_key: str, class_key: str
+    ) -> bool:
+        """Whether a wire of type ``lv_type`` in the VI ``vi_key`` carries an
+        object of the class at ``class_key``: the class the type names, found
+        among the VI's own links, is that class (never compared by name)."""
+        if lv_type is None or lv_type.ref_type != "UDClassInst":
+            return False
+        return self.class_type_key(lv_type, vi_key) == class_key
+
+    def class_child_keys(self, key: str) -> list[str]:
+        """The keys of the loaded classes whose parent is the class at ``key``,
+        sorted."""
+        return sorted(
+            node
+            for node, data in self._dep_graph.nodes(data=True)
+            if data.get("node_type") == NodeType.CLASS
+            and node not in self._stubs
+            and self._parent_class_key(node) == key
+        )
+
+    def class_declares(self, class_key: str, file_name: str) -> bool:
+        """Whether the class at ``class_key`` lists a VI file named ``file_name``
+        itself (not an ancestor)."""
+        return file_name in (self._dep_graph.nodes[class_key].get("method_paths") or {})
+
+    def call_edges(self) -> list[tuple[str, str]]:
+        """``(importer, imported)`` for every plain reference of a VI to another VI
+        or to a class (a call, or a class constant): the edges along which one
+        generated module imports another, not the ownership of members or private
+        data."""
+        return sorted(
+            (source, target)
+            for source, target, data in self._dep_graph.edges(data=True)
+            if data.get("rel") not in OWNERSHIP_RELS
+            and self._dep_graph.nodes[target].get("node_type", NodeType.VI)
+            in (NodeType.VI, NodeType.CLASS)
+        )
+
+    def list_class_keys(self) -> list[str]:
+        """The keys of the loaded (non-stub) classes, sorted."""
+        return sorted(
+            key
+            for key, data in self._dep_graph.nodes(data=True)
+            if data.get("node_type") == NodeType.CLASS and key not in self._stubs
+        )
+
     def class_own_fields(self, key: str) -> list[ClusterField]:
         """The private-data fields the class at ``key`` declares itself, in
         declaration order: not those it inherits."""
         return list(self._dep_graph.nodes[key].get("fields") or [])
+
+    def class_member_keys(self, key: str) -> list[str]:
+        """The keys of the VIs the class at ``key`` owns, in the order its file
+        lists them."""
+        members = []
+        for member in self._dep_graph.successors(key):
+            edge = self._dep_graph.get_edge_data(key, member) or {}
+            if (
+                edge.get("rel") == EdgeRel.OWNS
+                and self.node_type(member) is NodeType.VI
+            ):
+                members.append(member)
+        return members
 
     def class_private_data_key(self, key: str) -> str | None:
         """The dependency key of the control that is the private data of the
@@ -539,28 +672,25 @@ class QueryMixin:
         # Path-keyed stub: the key already IS the intended local path.
         if Path(node_key).is_absolute():
             return _real_member_path(Path(node_key))
-        # Qname-keyed pseudo-root stub: resolve its path_tokens against a caller.
-        tokens = self._dep_graph.nodes[node_key].get("path_tokens")
-        if not tokens:
-            return None
+        # Qname-keyed pseudo-root stub: an installation path resolves by the
+        # configured roots; a path relative to a caller, against that caller.
+        installed = self._recorded.resolved(node_key)
         leaf = node_key.rsplit(":", 1)[-1]
-        ref = ParsedDependencyRef(name=leaf, path_tokens=list(tokens))
-        for caller in self._dep_graph.predecessors(node_key):
+        for caller in sorted(self._dep_graph.predecessors(node_key)):
             caller_file = self._source_paths.get(caller)
-            if caller_file is None:
-                continue
-            cand = ref.resolve_against(
-                caller_file,
-                vilib_root=self._vilib_root,
-                userlib_root=self._userlib_root,
-                instrlib_root=self._instrlib_root,
+            ref = (
+                ParsedDependencyRef(name=leaf, path_tokens=list(installed))
+                if installed
+                else self._recorded.recorded_by(node_key, caller)
             )
-            if cand is None:
+            if caller_file is None or ref is None:
                 continue
-            # A class/library MEMBER (.vi OR .ctl) names its OWNING container;
-            # the member's own file sits beside it (see
-            # _redirect_member_beside_container).
-            cand = _redirect_member_beside_container(cand, leaf)
+            # The recorded tokens already end at a class or library member's own
+            # file (``recorded_paths.member_tokens``).
+            candidates = self.recorded_candidates(ref, caller_file)
+            if not candidates:
+                continue
+            cand = next((c for c in candidates if c.exists()), candidates[0])
             return _real_member_path(cand)
         return None
 
@@ -590,6 +720,40 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.predecessors(vi_name))
+
+    def keys_loaded_from(self, root: Path) -> set[str]:
+        """The keys of the loaded VIs whose file is ``root`` or lies inside it."""
+        root = root.resolve()
+        return {
+            key
+            for key, path in self._source_paths.items()
+            if path.resolve() == root or root in path.resolve().parents
+        }
+
+    def keys_reached_without_entering(
+        self, stop: Callable[[str], bool], requested: Iterable[str] = ()
+    ) -> set[str]:
+        """The keys reachable from the ones nothing references (every member of a
+        cycle that nothing outside it references) and from the ``requested`` ones,
+        without going through a key for which ``stop`` is true: such a key is
+        reached, but what only it references is not."""
+        components = nx.condensation(self._dep_graph)
+        reached: set[str] = set()
+        pending = [
+            key
+            for node, data in components.nodes(data=True)
+            if components.in_degree(node) == 0
+            for key in data["members"]
+        ]
+        pending.extend(key for key in requested if key in self._dep_graph)
+        while pending:
+            key = pending.pop()
+            if key in reached:
+                continue
+            reached.add(key)
+            if not stop(key):
+                pending.extend(self._dep_graph.successors(key))
+        return reached
 
     def get_leaf_vis(self) -> list[str]:
         """Get VIs that don't call any SubVIs (leaves of dependency tree)."""
@@ -633,7 +797,8 @@ class QueryMixin:
             convertible_vis = {
                 m
                 for m in members
-                if m not in self._stubs or vilib_resolver.has_implementation(m)
+                if m not in self._stubs
+                or vilib_resolver.has_implementation(self.recorded_path(m))
             }
             if convertible_vis:
                 yield convertible_vis
@@ -757,56 +922,72 @@ class QueryMixin:
                 d["typedef_name"] = t.lv_type.typedef_name
         return d
 
-    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """Get VI input terminals.
+    def pane_terminals(
+        self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
+    ) -> list[Terminal]:
+        """The terminals of the VI loaded under exactly ``vi_key`` in
+        ``direction`` (``"input"`` / ``"output"``), in connector-pane order.
 
-        Reads from the VINode's terminal list (FPTerminal controls).
-        """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._graph:
+        ``vi_key`` is an identity, never a name: nothing is resolved, so a key
+        that is not a loaded VI (a stub, a class method no class lists) has no
+        terminals instead of matching another VI of the same file name."""
+        if vi_key not in self._graph:
             return []
-
-        gnode = self._graph.nodes[vi_name].get("node")
+        gnode = self._graph.nodes[vi_key].get("node")
         if not isinstance(gnode, VINode):
             return []
+        results = [
+            t
+            for t in gnode.terminals
+            if t.direction == direction
+            and not (public_only and isinstance(t, FPTerminal) and not t.is_public)
+        ]
+        return ordered_interface(results, direction, gnode.connector_pattern_id)
 
-        results = []
-        for t in gnode.terminals:
-            if t.direction != "input":
-                continue
-            if public_only and isinstance(t, FPTerminal) and not t.is_public:
-                continue
-            results.append(t)
-        return ordered_interface(results, "input", gnode.connector_pattern_id)
+    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
+        """The input terminals of the VI ``vi_name`` names (see
+        ``resolve_vi_name``); a caller holding a key uses ``pane_terminals``."""
+        return self.pane_terminals(
+            self.resolve_vi_name(vi_name),
+            TerminalDirection.INPUT,
+            public_only=public_only,
+        )
 
     def get_outputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """Get VI output terminals, in canonical connector-pane order.
+        """The output terminals of the VI ``vi_name`` names, in canonical
+        connector-pane order; a caller holding a key uses ``pane_terminals``."""
+        return self.pane_terminals(
+            self.resolve_vi_name(vi_name),
+            TerminalDirection.OUTPUT,
+            public_only=public_only,
+        )
 
-        Reads from the VINode's terminal list (FPTerminal indicators).
-        """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._graph:
-            return []
-
-        gnode = self._graph.nodes[vi_name].get("node")
-        if not isinstance(gnode, VINode):
-            return []
-
-        results = []
-        for t in gnode.terminals:
-            if t.direction != "output":
-                continue
-            if public_only and isinstance(t, FPTerminal) and not t.is_public:
-                continue
-            results.append(t)
-        return ordered_interface(results, "output", gnode.connector_pattern_id)
+    def vi_interface(
+        self, vi_key: str
+    ) -> tuple[list[Terminal], list[Terminal], list[Terminal], list[Terminal]]:
+        """The inputs, off-pane inputs, outputs and off-pane outputs of the VI
+        loaded under exactly ``vi_key``, each in interface order: what its
+        function's parameters and result fields are named from. Nothing is
+        resolved by name (``pane_terminals``)."""
+        inputs = self.pane_terminals(
+            vi_key, TerminalDirection.INPUT, public_only=False
+        )
+        outputs = self.pane_terminals(
+            vi_key, TerminalDirection.OUTPUT, public_only=False
+        )
+        return (
+            [t for t in inputs if not _off_pane(t)],
+            [t for t in inputs if _off_pane(t)],
+            [t for t in outputs if not _off_pane(t)],
+            [t for t in outputs if _off_pane(t)],
+        )
 
     def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]:
         """Front-panel controls not wired to the connector pane."""
         return [
             t
             for t in self.get_inputs(vi_name, public_only=False)
-            if isinstance(t, FPTerminal) and not t.is_public
+            if _off_pane(t)
         ]
 
     def get_off_pane_outputs(self, vi_name: str) -> list[Terminal]:
@@ -814,7 +995,7 @@ class QueryMixin:
         return [
             t
             for t in self.get_outputs(vi_name, public_only=False)
-            if isinstance(t, FPTerminal) and not t.is_public
+            if _off_pane(t)
         ]
 
     def get_constants(self, vi_name: str) -> list[Constant]:
@@ -1160,6 +1341,11 @@ class QueryMixin:
         node = self._graph.nodes[key].get("node")
         return node.front_panel if isinstance(node, VINode) else None
 
+    def vi_is_broken(self, vi_name: str) -> bool:
+        """Whether the VI was saved broken (its compile-health flags)."""
+        health = self._vi_health.get(self.resolve_vi_name(vi_name))
+        return health is not None and health.is_broken
+
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
 
@@ -1206,10 +1392,7 @@ class QueryMixin:
                     )
                 )
 
-        inputs = list(self.get_inputs(vi_name))
-        outputs = list(self.get_outputs(vi_name))
-        off_pane_inputs = self.get_off_pane_inputs(vi_name)
-        off_pane_outputs = self.get_off_pane_outputs(vi_name)
+        inputs, off_pane_inputs, outputs, off_pane_outputs = self.vi_interface(vi_name)
         constants = list(self.get_constants(vi_name))
         labels = list(self.get_labels(vi_name))
         data_flow = list(self.get_wires(vi_name))
@@ -1259,23 +1442,38 @@ class QueryMixin:
         return vi_name in self._poly_info
 
     def get_poly_variants(self, vi_name: str) -> list[str]:
-        """Get variants for a polymorphic VI."""
+        """The keys of the variants of a polymorphic VI that are its loaded or
+        absent dependencies, in the order the wrapper records them."""
         info = self._poly_info.get(vi_name)
-        return info.variants if info else []
+        return list(info.variant_keys) if info else []
 
     def get_polymorphic_groups(self) -> dict[str, list[str]]:
-        """Get all polymorphic VIs and their variants."""
+        """Every polymorphic VI's key with the keys of its variants."""
         return {
-            vi_name: info.variants
+            vi_name: list(info.variant_keys)
             for vi_name, info in self._poly_info.items()
-            if info.variants
+            if info.variant_keys
         }
 
+    def poly_call_choices(self) -> dict[str, dict[str, set[str | None]]]:
+        """For each polymorphic VI some node calls: the VIs that call it, each with
+        the variants its calls resolve to (``None`` for a call that leaves the
+        choice to the wrapper). One pass over every node of every VI."""
+        calls: dict[str, dict[str, set[str | None]]] = {}
+        for caller, uids in self._vi_nodes.items():
+            for uid in uids:
+                node = self._get_typed_node(uid)
+                if isinstance(node, VINode) and node.callee_key in self._poly_info:
+                    calls.setdefault(node.callee_key, {}).setdefault(caller, set()).add(
+                        node.variant_key
+                    )
+        return calls
+
     def get_poly_variant_wrappers(self) -> dict[str, str]:
-        """Get mapping of variant VI names to their wrapper VI."""
+        """The key of each variant mapped to the key of its wrapper VI."""
         result: dict[str, str] = {}
         for wrapper, info in self._poly_info.items():
-            for variant in info.variants:
+            for variant in info.variant_keys:
                 result[variant] = wrapper
         return result
 
@@ -1308,6 +1506,13 @@ class QueryMixin:
         if key is None:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
+
+    def owning_class_key(self, vi_name: str) -> str | None:
+        """PATH key of the class that owns this method VI (its "owns" edge), or
+        None — the class's identity, for class queries that must not be
+        resolved by the class's name (another file of that name may be in the
+        graph)."""
+        return self._owning_class_key(self.resolve_vi_name(vi_name))
 
     def _owner_key(self, key: str, owner_type: NodeType) -> str | None:
         """PATH key of the ``owner_type`` node that owns ``key`` via an "owns"
@@ -1386,21 +1591,16 @@ class QueryMixin:
             and ndata.get("parent_class") == own_bare
         )
 
-        # Methods: VI nodes owned by this class that are actually documented
-        # (present in list_vis() — excludes stub/unresolved method VIs). Report
-        # each method's display qname.
-        vis = set(self.list_vis())
+        # Methods: the loaded VIs this class owns (a stub or unresolved method
+        # VI is not documented), by key, in display-name order.
         methods = sorted(
-            self.vi_display_name(succ)
-            for succ in self._dep_graph.successors(node_key)
-            if self.vi_display_name(succ) in vis
-            and (self._dep_graph.get_edge_data(node_key, succ) or {}).get("rel")
-            == EdgeRel.OWNS
+            self._class_member_keys(node_key),
+            key=lambda key: (self.vi_display_name(key), key),
         )
 
         own_fields: list[ClusterField] = data.get("fields") or []
         inherited_fields: list[ClusterField] = (
-            self._class_fields_by_key(parent_key) or []
+            self.class_fields_with_inherited(parent_key)
             if parent_class and parent_key is not None
             else []
         )
@@ -1415,6 +1615,16 @@ class QueryMixin:
             methods=methods,
             fields=fields,
         )
+
+    def _class_member_keys(self, class_key: str) -> list[str]:
+        """The keys of the loaded VIs the class node ``class_key`` owns."""
+        return [
+            succ
+            for succ in self._dep_graph.successors(class_key)
+            if succ in self._vi_nodes
+            and (self._dep_graph.get_edge_data(class_key, succ) or {}).get("rel")
+            == EdgeRel.OWNS
+        ]
 
     def _class_node_key(self, classname: str) -> str | None:
         """Resolve a class reference to its LOADED class-node PATH key, or None
@@ -1520,35 +1730,36 @@ class QueryMixin:
         if hierarchy is None:
             return None
 
-        # Bare method name from the VI's own display name (path-key-safe;
-        # rsplit(":") would mangle a filesystem path key).
-        key = self.resolve_vi_name(vi_name)
-        node = self._graph.nodes[key].get("node") if key in self._graph else None
-        bare_method = (
-            node.name
-            if isinstance(node, VINode) and node.name
-            else vi_name.rsplit(":", 1)[-1]
+        # An override is the same-named method owned by the parent class or by
+        # a child class; each class's methods are the VIs it owns.
+        def _bare_name(key: str) -> str:
+            node = self._graph.nodes[key].get("node") if key in self._graph else None
+            if isinstance(node, VINode) and node.name:
+                return node.name
+            return self.vi_display_name(key).rsplit(":", 1)[-1]
+
+        bare_method = _bare_name(self.resolve_vi_name(vi_name))
+
+        def _method_of(class_qname: str) -> str | None:
+            class_key = self._dep_key_for_ref(class_qname)
+            if class_key is None:
+                return None
+            for member in self._class_member_keys(class_key):
+                if _bare_name(member) == bare_method:
+                    return member
+            return None
+
+        overrides = (
+            _method_of(hierarchy.parent_class) if hierarchy.parent_class else None
         )
-
-        # A parent/child class's version of this method is "documented" when its
-        # class-qualified name resolves to a loaded VI. VIs are path-keyed now,
-        # so resolve the qname to its vi_key and test membership (works whether
-        # the VI was loaded from disk or registered by qname in a test).
-        def _loaded(qname: str) -> bool:
-            return self.resolve_vi_name(qname) in self._vi_nodes
-
-        overrides: str | None = None
-        if hierarchy.parent_class:
-            candidate = f"{hierarchy.parent_class}:{bare_method}"
-            if _loaded(candidate):
-                overrides = candidate
-
-        overridden_by: list[str] = []
-        for child in hierarchy.child_classes:
-            candidate = f"{child}:{bare_method}"
-            if _loaded(candidate):
-                overridden_by.append(candidate)
-        overridden_by.sort()
+        overridden_by = sorted(
+            (
+                found
+                for found in (_method_of(child) for child in hierarchy.child_classes)
+                if found is not None
+            ),
+            key=lambda key: (self.vi_display_name(key), key),
+        )
 
         if overrides is None and not overridden_by:
             return None

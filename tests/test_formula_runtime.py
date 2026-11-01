@@ -1,60 +1,12 @@
-"""Tests for the Formula Node runtime helpers and emitted-function execution.
+"""Emitted Formula Node functions execute (scalar + array in/out).
 
-The Formula Node backend emits pure Python (no C compiler / FFI). LabVIEW
-numeric semantics that Python doesn't reproduce natively — fixed-width
-integer wrap, round-to-nearest-even on int assignment, C-style fmod/rem —
-live as helpers in lvkit.runtime.lv. These tests pin those helpers and run a
-representative emitted function end to end (scalar + array in/out).
+The Formula Node backend emits pure Python (no C compiler / FFI) that imports
+nothing from lvkit.
 """
 
 from __future__ import annotations
 
 from lvkit.formula.emit import VarSpec, transpile
-from lvkit.runtime import lv
-
-# --- fixed-width integer coercion (round-to-nearest-even + wrap) -----------
-
-
-def test_signed_width_wrap():
-    assert lv.i16(40000) == -25536  # 40000 - 65536
-    assert lv.i16(-1) == -1
-    assert lv.i8(127) == 127
-    assert lv.i8(128) == -128  # wraps past the signed max
-
-
-def test_unsigned_width_wrap():
-    assert lv.u8(300) == 44  # 300 % 256
-    assert lv.u8(-1) == 255
-    assert lv.u16(65536) == 0
-
-
-def test_round_ties_to_even_on_store():
-    # LabVIEW rounds a real into an integer terminal, ties to even.
-    assert lv.i32(2.5) == 2
-    assert lv.i32(3.5) == 4
-    assert lv.i32(-2.5) == -2
-
-
-def test_sign_rem_mod_logical():
-    assert lv.sign(-3.2) == -1
-    assert lv.sign(0) == 0
-    assert lv.sign(5) == 1
-    # `%` / rem(): truncated remainder, sign of the dividend (oracle-confirmed).
-    assert lv.rem(-7, 3) == -1
-    assert lv.rem(7, -3) == 1
-    assert lv.rem(3, 2) == 1
-    assert lv.rem(7.5, 2.0) == 1.5
-    # mod(): floored, sign of the divisor.
-    assert lv.lvmod(-7, 3) == 2
-    assert lv.lvmod(7.5, 2.0) == 1.5
-    # &&/||/! yield 1/0, not the Python operand.
-    assert lv.land(5, 3) == 1
-    assert lv.land(5, 0) == 0
-    assert lv.lor(0, 5) == 1
-    assert lv.lor(0, 0) == 0
-    assert lv.lnot(5) == 0
-    assert lv.lnot(0) == 1
-
 
 # --- emitted function executes (scalar + array marshaling) -----------------
 
@@ -70,7 +22,8 @@ def test_scalar_and_array_round_trip():
     ]
     res = transpile(script, variables, func_name="formula_t")
     ns: dict = {}
-    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    exec("\n".join(sorted(res.imports)) + "\n" + res.source, ns)
+    assert "lvkit" not in res.source
     result = ns["formula_t"](a=5.0, n=3, data=[1.0, 2.0, 3.0], out=[0.0, 0.0, 0.0])
 
     assert result["y"] == 13.0  # 5 + 2**3
@@ -87,17 +40,6 @@ def test_empty_array_input():
     ]
     res = transpile(script, variables, func_name="formula_e")
     ns: dict = {}
-    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    exec("\n".join(sorted(res.imports)) + "\n" + res.source, ns)
+    assert "lvkit" not in res.source
     assert ns["formula_e"](n=0, data=[], out=[])["out"] == []
-
-
-def test_index_array_out_of_range_returns_default():
-    """Index Array (aIndx) returns the element DEFAULT for an out-of-range
-    index, never IndexError — codegen passes the element's real default."""
-    assert lv.index_array([10, 20, 30], 1, 0) == 20
-    assert lv.index_array([10, 20, 30], 9, 0) == 0  # OOB -> default
-    assert lv.index_array([10, 20, 30], -1, 0) == 0  # negative -> default
-    assert lv.index_array([], 0, 0) == 0  # empty -> default
-    assert lv.index_array([True, False], 5, False) is False
-    assert lv.index_array(["a"], 3, "") == ""
-    assert lv.index_array([10, 20], 1.0, 0) == 20  # index coerced to int

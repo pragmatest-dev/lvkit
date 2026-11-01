@@ -24,7 +24,8 @@ from lvkit.models import (
     Terminal,
     Tunnel,
 )
-from tests.helpers import build_graph, tunnel_terminals
+from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import build_graph, error_cluster_type, tunnel_terminals
 
 
 def test_build_module_minimal():
@@ -473,7 +474,8 @@ def test_build_module_real_vi():
         pytest.skip("Sample VI not available")
 
     graph = InMemoryVIGraph()
-    graph.load_vi(vi_path, search_paths=[Path(".lvkit/cache/samples/OpenG/extracted")])
+    graph.set_library_roots(userlib_root=OPENG_USERLIB)
+    graph.load_vi(vi_path)
 
     vi_name = vi_path.name
     ctx = graph.get_vi_context(vi_name)
@@ -494,9 +496,8 @@ def test_build_module_real_vi():
 
 
 def test_unknown_primitive_raises_at_runtime():
-    """Test that unknown primitives raise PrimitiveResolutionNeeded."""
+    """An unknown primitive is a gap: the function raises where it would run."""
     from lvkit.codegen import build_module
-    from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 
     vi_context = VIContext(
         name="Unknown Prim.vi",
@@ -509,15 +510,22 @@ def test_unknown_primitive_raises_at_runtime():
         prim_id=99999,
     )
 
-    with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
-        _g = build_graph(vi_context, "Unknown Prim.vi", [prim_node])
-        build_module(vi_context, "Unknown Prim.vi", graph=_g)
+    _g = build_graph(vi_context, "Unknown Prim.vi", [prim_node])
+    gaps = []
+    source = build_module(vi_context, "Unknown Prim.vi", graph=_g, gaps=gaps)
 
-    assert "99999" in str(exc_info.value)
+    assert (
+        "raise NotImplementedError('primitive 99999 (Mystery Primitive) is not known\\n"
+        "gap kind: unknown_primitive\\nVI: Unknown Prim.vi\\nnode: Mystery Primitive\\n"
+    ) in source
+    assert "Fix: add primitive 99999 to .lvkit/primitives.json" in source
+    assert [(g.kind, g.identifier, g.name) for g in gaps] == [
+        ("unknown_primitive", "99999", "Mystery Primitive")
+    ]
 
 
-def test_unknown_node_type_emits_warning():
-    """Test that unknown node types emit a warning comment."""
+def test_unknown_node_type_raises_where_it_would_run():
+    """An unknown node type is a gap."""
     from lvkit.codegen import build_module
 
     vi_context = VIContext(
@@ -536,8 +544,8 @@ def test_unknown_node_type_emits_warning():
     # Should be valid Python
     ast.parse(result)
 
-    # Should have warning comment
-    assert "WARNING" in result or "Unknown node type" in result
+    # An unknown node type is a gap: the function raises where it would run
+    assert "raise NotImplementedError('Unknown node type" in result
 
 
 # === CodeFragment Tests ===
@@ -1188,7 +1196,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
-        assert lv_type.to_python() == "Path"
+        assert lv_type.to_python() == "Path | None"
 
     def test_primitive_variant(self):
         """Test Variant maps to Any."""
@@ -1348,9 +1356,18 @@ class TestLVTypeLvLabel:
             kind=LVTypeKind.CLUSTER,
             typedef_name="lib:Error Cluster.ctl",
             fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
+                ClusterField(
+                    name="status",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+                ),
+                ClusterField(
+                    name="code",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+                ),
+                ClusterField(
+                    name="source",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+                ),
             ],
         )
         assert err.type_descriptor() == "Error"
@@ -1599,6 +1616,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="input",
                     name="error in (no error)",
+                    lv_type=error_cluster_type(),
                     is_indicator=False,
                     is_public=True,
                 ),
@@ -1615,6 +1633,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="input",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=False,
                     is_public=True,
                 ),
@@ -1640,6 +1659,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="output",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=True,
                     is_public=True,
                 ),
@@ -1679,6 +1699,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="output",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=True,
                     is_public=True,
                 ),

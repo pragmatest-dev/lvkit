@@ -7,49 +7,52 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "max_queue_size",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element_data_type",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "create_if_not_found",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "created",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -57,7 +60,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Obtain Queue (9108) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.obtain_queue()."
+      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9109": {
       "name": "Release Queue",
@@ -66,37 +69,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "force_destroy",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_name",
           "type": "String"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "remaining_elements",
           "type": "Array"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -112,67 +116,68 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "return_elements",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "max_queue_size",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "elements",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_name",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "elements_in_queue",
           "type": "NumInt32"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "pending_remove",
           "type": "NumInt32"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "pending_insert",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -188,43 +193,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -232,58 +238,60 @@
       "python_code": {
         "_body": "raise RuntimeError('Enqueue Element (9111) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element()."
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9112": {
       "name": "Preview Queue Element",
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout in ms (-1)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue out",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "String"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preview-queue-element.html"
     },
     "9113": {
       "name": "Dequeue Element",
@@ -292,43 +300,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -336,7 +345,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Dequeue Element (9113) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.dequeue_element()."
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9114": {
       "name": "Flush Queue",
@@ -345,31 +354,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "remaining_elements",
           "type": "Array"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -386,43 +395,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -430,52 +440,52 @@
       "python_code": {
         "_body": "raise RuntimeError('Enqueue Element At Opposite End (9129) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py -> lvkit.labview_queue.enqueue_element_at_opposite_end()."
+      "note": "Queue op (puts the element on the front of the queue). Handled by codegen/nodes/queue_ops.py."
     },
     "9130": {
       "name": "Lossy Enqueue Element",
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "queue out",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow element",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow?",
           "type": "Boolean"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

@@ -14,12 +14,12 @@
       "terminals": [
         {
           "name": "resource name",
-          "direction": "in",
+          "direction": "input",
           "python_param": "resource_name"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ]
@@ -36,7 +36,7 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         }
       ]
@@ -53,12 +53,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -78,17 +78,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "result",
-          "direction": "out",
+          "direction": "output",
           "python_param": "result"
         }
       ],
@@ -108,12 +108,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -133,12 +133,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -158,12 +158,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -183,12 +183,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -208,12 +208,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -233,17 +233,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "pin map file path",
-          "direction": "in",
+          "direction": "input",
           "python_param": "file_path"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -263,17 +263,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "pattern file path",
-          "direction": "in",
+          "direction": "input",
           "python_param": "file_path"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -293,27 +293,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "specifications file paths",
-          "direction": "in",
+          "direction": "input",
           "python_param": "specifications_file_paths"
         },
         {
           "name": "levels file paths",
-          "direction": "in",
+          "direction": "input",
           "python_param": "levels_file_paths"
         },
         {
           "name": "timing file paths",
-          "direction": "in",
+          "direction": "input",
           "python_param": "timing_file_paths"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -333,22 +333,22 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "levels sheet",
-          "direction": "in",
+          "direction": "input",
           "python_param": "levels_sheet"
         },
         {
           "name": "timing sheet",
-          "direction": "in",
+          "direction": "input",
           "python_param": "timing_sheet"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -368,42 +368,42 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "pin list",
-          "direction": "in",
+          "direction": "input",
           "python_param": "pin_list"
         },
         {
           "name": "VIL",
-          "direction": "in",
+          "direction": "input",
           "python_param": "vil"
         },
         {
           "name": "VIH",
-          "direction": "in",
+          "direction": "input",
           "python_param": "vih"
         },
         {
           "name": "VOL",
-          "direction": "in",
+          "direction": "input",
           "python_param": "vol"
         },
         {
           "name": "VOH",
-          "direction": "in",
+          "direction": "input",
           "python_param": "voh"
         },
         {
           "name": "VTERM",
-          "direction": "in",
+          "direction": "input",
           "python_param": "vterm"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -423,22 +423,22 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "start label",
-          "direction": "in",
+          "direction": "input",
           "python_param": "start_label"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "site pass/fail",
-          "direction": "out",
+          "direction": "output",
           "python_param": "site_pass_fail"
         }
       ],
@@ -458,17 +458,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "site pass/fail",
-          "direction": "out",
+          "direction": "output",
           "python_param": "site_pass_fail"
         }
       ],
@@ -488,17 +488,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "fail count",
-          "direction": "out",
+          "direction": "output",
           "python_param": "fail_count"
         }
       ],
@@ -518,17 +518,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "timeout",
-          "direction": "in",
+          "direction": "input",
           "python_param": "timeout"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -548,17 +548,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "done",
-          "direction": "out",
+          "direction": "output",
           "python_param": "is_done"
         }
       ],
@@ -578,27 +578,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "pin list",
-          "direction": "in",
+          "direction": "input",
           "python_param": "pin_list"
         },
         {
           "name": "measurement type",
-          "direction": "in",
+          "direction": "input",
           "python_param": "measurement_type"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "measurements",
-          "direction": "out",
+          "direction": "output",
           "python_param": "measurements"
         }
       ],
@@ -618,22 +618,22 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "pin list",
-          "direction": "in",
+          "direction": "input",
           "python_param": "pin_list"
         },
         {
           "name": "output function",
-          "direction": "in",
+          "direction": "input",
           "python_param": "output_function"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -653,27 +653,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "waveform name",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform_name"
         },
         {
           "name": "samples to read",
-          "direction": "in",
+          "direction": "input",
           "python_param": "samples_to_read"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "waveform data",
-          "direction": "out",
+          "direction": "output",
           "python_param": "waveform_data"
         }
       ],
@@ -693,17 +693,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "frequency",
-          "direction": "in",
+          "direction": "input",
           "python_param": "frequency"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -723,12 +723,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -748,17 +748,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "pin states",
-          "direction": "out",
+          "direction": "output",
           "python_param": "pin_states"
         }
       ],
@@ -778,17 +778,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "state",
-          "direction": "in",
+          "direction": "input",
           "python_param": "state"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -808,17 +808,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "offsets",
-          "direction": "out",
+          "direction": "output",
           "python_param": "offsets"
         }
       ],

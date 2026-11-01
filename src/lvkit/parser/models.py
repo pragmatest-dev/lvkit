@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from pathlib import Path
@@ -13,6 +14,8 @@ from ..models import (
     DisableStructureKind,
     EventFrame,
     LVType,
+    PaneSlot,
+    ServerClass,
     Tunnel,
     UnwritableValue,
 )
@@ -45,6 +48,7 @@ class ParsedType:
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
     typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
+    server_class: ServerClass | None = None  # a generic reference's VI Server class
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
     class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
@@ -55,6 +59,7 @@ class ParsedType:
     user_event_name: str | None = None  # User Event refnum: its data type label
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
+    pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
 
 
 @dataclass
@@ -77,7 +82,9 @@ class ParsedConstant:
 
     uid: str
     type_desc: str
-    value: str
+    # The value as hex; None when the block diagram holds none (the VI keeps it in
+    # its default data, which is not decoded).
+    value: str | None
     label: str | None = None
     caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
     # Raw printf-style display-format string from the constant's own numeric
@@ -132,6 +139,8 @@ class ParsedTerminalInfo:
     parsed_type: ParsedType | None = None  # Type info from same VI's XML
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
     inverted: bool = False  # DCO objFlags bit 16: "Not" applied to this terminal
+    # Index Array: DCO objFlags bit 16 on an index terminal, indexing disabled.
+    indexing_disabled: bool = False
     # The uid of the DCO this terminal's ``<dco>`` element names. Terminals
     # that name the same DCO are one value (an In Place Element structure's
     # In/Out Element port and its border node's cluster/array/index terminal).
@@ -430,6 +439,9 @@ class ParsedDefaultValue:
     structure: str  # "Cluster", "Array", "scalar", etc.
 
 
+ABSOLUTE_PATH_TYPE = 0
+
+
 def is_symbolic_root(token: str) -> bool:
     """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
     LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
@@ -447,6 +459,9 @@ class ParsedDependencyRef:
     name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
     path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
     qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
+    # The recorded path's type: 0 absolute (a machine path, outside any project),
+    # 1 relative to the calling file; None when the record does not say.
+    path_type: int | None = None
 
     def get_relative_path(self) -> str:
         """Get a display string for the path tokens (display only).
@@ -460,6 +475,28 @@ class ParsedDependencyRef:
         if self.path_tokens and is_symbolic_root(self.path_tokens[0]):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
+
+    def absolute_path(self) -> Path | None:
+        """The file an ABSOLUTE recorded path names on this machine: a
+        drive-letter first token (``C``) is that drive on Windows, an empty
+        first token the root of the current drive (``Path.cwd().anchor``).
+        None for a relative or symbolic-root path, and for a drive letter on a
+        machine without drives (it names no file here)."""
+        tokens = self.path_tokens
+        if (
+            self.path_type != ABSOLUTE_PATH_TYPE
+            or len(tokens) < 2
+            or is_symbolic_root(tokens[0])
+        ):
+            return None
+        head = tokens[0]
+        if head == "":
+            base = Path(Path.cwd().anchor)
+        elif len(head) == 1 and head.isalpha() and os.name == "nt":
+            base = Path(f"{head}:\\")
+        else:
+            return None
+        return base.joinpath(*tokens[1:])
 
     def resolve_against(
         self,
@@ -498,7 +535,7 @@ class ParsedDependencyRef:
                 return None
             base = instrlib_root
             rest = tokens[1:]
-        elif is_symbolic_root(tokens[0]):
+        elif is_symbolic_root(tokens[0]) or self.path_type == ABSOLUTE_PATH_TYPE:
             return None
         else:
             # Each leading empty = one '..' starting from the caller file
@@ -696,6 +733,9 @@ class ParsedFrontPanel:
     # and differs once controls were added, moved forward/back or nested.
     # Empty when the heap carried no ``<ddoList>``.
     dco_order: list[str] = field(default_factory=list)
+    # The fPDCO uids of the controls that record no label anywhere the VI
+    # keeps one: each is named ``control_<uid>``. Sorted.
+    unlabeled_controls: list[str] = field(default_factory=list)
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None
@@ -719,8 +759,8 @@ class ParsedVIMetadata:
     # The VI's OWNERSHIP CHAIN from its own ``<LIBN>`` block (owning .lvlib /
     # .lvclass, outermost first) — e.g. ``["NI …SDK.lvlib", "Foo.lvclass"]``. The
     # VI is self-describing, so this is present even for an isolated ``.vi`` (no
-    # class load, no filesystem). Used ONLY to build a DISPLAY-qualified name
-    # (``chain:leaf``); ``qualified_name`` above stays the bare resolution key.
+    # class load, no filesystem). The VI's qualified name is this chain plus its
+    # file name (``graph.loading.file_qualified_name``).
     owning_libraries: list[str] = field(default_factory=list)
     source_path: str | None = None  # Path to original .vi file
     type_map: dict[int, LVType] = field(default_factory=dict)  # TypeID → LVType mapping
@@ -760,14 +800,6 @@ class ParsedVIMetadata:
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)
-    # SubVI callee METHOD NAMES recovered from the ``_LIvi.bin`` VIPI table —
-    # the ONLY record of the dynamic-dispatch (``dynIUse``) methods the diagram
-    # calls (they leave no IUVI in ``_LIbd.bin``). Each entry is a method leaf
-    # (e.g. ``"GET_LayerData.vi"``); its concrete file is resolved against the
-    # owning class's member list at load time (the VIPI's own PTH0 class hint
-    # is unreliable for a cross-class dynamic dispatch, so it is never used).
-    # See ``parse_vipi_from_livi``.
-    subvi_method_names: list[str] = field(default_factory=list)
     # A leaf-filename -> recorded-path INDEX for every file the VI's link tables
     # (_LIvi/_LIbd/_LIfp PTH0 records) reference — classes, typedefs, VIs. The
     # loader consults it to give a type-derived class/typedef dep a recorded path

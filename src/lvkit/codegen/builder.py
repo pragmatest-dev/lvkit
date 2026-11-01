@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ast
-import warnings
 from collections import deque
+from collections.abc import Callable
+
+import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
@@ -13,15 +15,15 @@ from lvkit.models import LVTypeKind, Terminal, TypeNamer
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
+    build_result_class_name,
     build_type_checking_block,
+    interface_names,
     param_default_expr,
-    parameter_names,
     parse_expr,
-    result_field_names,
     to_function_name,
 )
 from .context import CodeGenContext
-from .elementwise import LV_IMPORT, arrayify_module
+from .elementwise import arrayify_module
 from .error_handler import (
     build_held_error_check,
     build_held_error_init,
@@ -30,9 +32,13 @@ from .error_handler import (
 )
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
+from .errors import CodeGenError
+from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
+from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .references import REFERENCE_KINDS, generated_nodes
 
 
 def build_module(
@@ -40,9 +46,8 @@ def build_module(
     vi_name: str,
     import_resolver: ImportResolver | None = None,
     graph: InMemoryVIGraph | None = None,
-    soft_unresolved: bool = False,
-    unresolved_sink: list[Exception] | None = None,
     data_files: dict[str, bytes] | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -51,19 +56,13 @@ def build_module(
         vi_name: Name of the VI (used for function name)
         import_resolver: Optional callable (subvi_name) -> import statement string
         graph: The nx.MultiDiGraph. resolve() walks this directly.
-        soft_unresolved: When True, unknown primitives / vi.lib VIs are
-            emitted as inline `raise PrimitiveResolutionNeeded(...)` /
-            `raise VILibResolutionNeeded(...)` statements instead of
-            failing the build. Generated Python is syntactically valid;
-            running it raises the same exception that hard mode would
-            raise at codegen time.
-        unresolved_sink: When a list, each resolution gap (unknown primitive /
-            unmapped vi.lib VI) is appended to it as the constructed exception.
-            `lvkit unresolved` uses this to batch-collect every gap in one pass.
         data_files: When a dict, every data file the module reads at run time (an
-            array too large to write into the module) is added to it by file name;
-            the caller writes each beside the module. Without it, a VI that needs
+            array too large to write into the module, a library of a Call Library
+            Function Node) is added to it by its path from the module's folder; the
+            caller writes each there. Without it, a VI that needs
             one fails with an error saying so.
+        gaps: When a list, every gap found in the VI (see ``gaps.py``) is added
+            to it; the caller prints them as warnings.
 
     Returns:
         Python source code as string
@@ -84,7 +83,7 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node, import_resolver, data_files)
+        return build_global_module(vi_node, import_resolver, data_files, gaps)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(
@@ -93,56 +92,13 @@ def build_module(
         import_resolver=import_resolver,
         data_files=data_files,
         module_stem=to_function_name(vi_context.name),
+        vi_name=vi_name,
+        gaps=gaps,
     )
-    ctx.vi_name = vi_name
+    ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
-    ctx.soft_unresolved = soft_unresolved
-    ctx.unresolved_sink = unresolved_sink
-    for term in annotated_terminals(vi_context):
-        ctx.import_types(term.lv_type, at_run_time=False)
 
-    # Top-level diagram nodes in dataflow order. Emitters walk structure
-    # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
-    top_nodes: list[AnyGraphNode] = (
-        ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
-    )
-
-    # The held error model is on when Merge Errors is anywhere in the VI.
-    use_error_handling = needs_error_handling(top_nodes, ctx)
-    ctx.use_held_error_model = use_error_handling
-
-    # Generate function body
-    body: list[ast.stmt] = []
-
-    # Normalize unwired array inputs: they default to None (a mutable [] default
-    # would be shared across calls), so map None -> [] up front, matching
-    # LabVIEW's "unwired array input == empty array". `x or []` also folds an
-    # already-empty list to [] harmlessly.
-    parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
-    body.extend(
-        build_array_input_normalization(parameters, parameter_names(parameters))
-    )
-
-    if use_error_handling:
-        ctx.import_labview_error()
-        body.append(build_held_error_init())
-
-    # Generate operation code
-    body.extend(generate_body(top_nodes, ctx))
-
-    # Final pass: broadcast numeric operators over array-valued operands that
-    # were inlined (single-use) past the per-node element-wise hook.
-    if arrayify_module(body, frozenset(ctx.array_vars)):
-        ctx.imports.add(LV_IMPORT)
-
-    # Raise the first held error where the branches have merged
-    if use_error_handling:
-        body.append(build_held_error_check())
-
-    # Add return statement
-    return_stmt = build_return_stmt(vi_context, ctx)
-    if return_stmt:
-        body.append(return_stmt)
+    body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
 
     # Build module structure
     module = build_module_ast(vi_context, vi_name, body, ctx)
@@ -153,6 +109,78 @@ def build_module(
     # Fix locations and unparse
     ast.fix_missing_locations(module)
     return ast.unparse(module)
+
+
+def function_body(
+    vi_context: VIContext,
+    vi_name: str,
+    ctx: CodeGenContext,
+    parameter_names: dict[str, str] | None = None,
+    return_stmt: Callable[[], ast.stmt | None] | None = None,
+) -> list[ast.stmt]:
+    """The statements of the VI's function. ``parameter_names`` (terminal id to
+    name) and ``return_stmt`` are given by a caller that names the parameters or
+    returns the results itself (a method of a class)."""
+    for term in annotated_terminals(vi_context):
+        ctx.import_types(term.lv_type, at_run_time=False)
+
+    # Top-level diagram nodes in dataflow order. Emitters walk structure
+    # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
+    top_nodes: list[AnyGraphNode] = (
+        generated_nodes(ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS))
+        if ctx.graph is not None
+        else []
+    )
+
+    # The held error model is on when Merge Errors is anywhere in the VI.
+    use_error_handling = needs_error_handling(top_nodes, ctx)
+    ctx.use_held_error_model = use_error_handling
+
+    # What the function evaluates when it is entered and cannot be written
+    # raises first.
+    body: list[ast.stmt] = list(ctx.entry_raises)
+
+    # Normalize unwired array inputs: they default to None (a mutable [] default
+    # would be shared across calls), so map None -> [] up front, matching
+    # LabVIEW's "unwired array input == empty array". `x or []` also folds an
+    # already-empty list to [] harmlessly.
+    parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
+    body.extend(
+        build_array_input_normalization(
+            parameters,
+            parameter_names
+            or interface_names(
+                vi_context.inputs, vi_context.off_pane_inputs, [], []
+            ).parameters,
+        )
+    )
+
+    if use_error_handling:
+        ctx.import_labview_error()
+        body.append(build_held_error_init())
+
+    # An indicator a Local Variable reads is a variable set to its default here.
+    ctx.local_indicators, indicator_defaults = LocalIndicators.declare(ctx, vi_name)
+    body.extend(indicator_defaults)
+
+    # Generate operation code
+    body.extend(generate_body(top_nodes, ctx))
+
+    # Raise the first held error where the branches have merged
+    if use_error_handling:
+        body.append(build_held_error_check())
+
+    # Add return statement
+    final = (
+        return_stmt() if return_stmt is not None else build_return_stmt(vi_context, ctx)
+    )
+    if final:
+        body.append(final)
+
+    # Final pass: write numeric operators over array-valued operands that were
+    # inlined (single-use) into a consumer as comprehensions.
+    arrayify_module(body, ctx.array_vars)
+    return body
 
 
 def generate_body(
@@ -205,6 +233,9 @@ def generate_body(
             tier_ids = {op.id for op in remaining}
             for stmt in _generate_parallel_tier(remaining, ctx):
                 tagged.append((tier_ids, stmt))
+            for op in remaining:
+                for stmt in ctx.local_indicators.assignments_after(op, ctx):
+                    tagged.append((tier_ids, stmt))
         else:
             for node in remaining:
                 fragment = generate_node(node, ctx)
@@ -212,16 +243,28 @@ def generate_body(
                     tagged.append(({node.id}, s))
                 ctx.merge(fragment.bindings)
                 ctx.imports.update(fragment.imports)
+                for s in ctx.local_indicators.assignments_after(node, ctx):
+                    tagged.append(({node.id}, s))
 
         # A handler wraps the statements that produce the error it handles,
         # which are all in earlier tiers or earlier in this one.
         for op in handlers:
-            if not generate_error_handler(op, roles[op.id], operations, ctx, tagged):
+            with catch_gap(op, ctx) as guard:
+                handled = generate_error_handler(
+                    op, roles[op.id], operations, ctx, tagged
+                )
+            if guard.fragment is not None:
+                fragment = guard.fragment
+            elif handled:
+                continue
+            else:
                 fragment = generate_node(op, ctx)
-                for s in fragment.statements:
-                    tagged.append(({op.id}, s))
-                ctx.merge(fragment.bindings)
-                ctx.imports.update(fragment.imports)
+            for s in fragment.statements:
+                tagged.append(({op.id}, s))
+            ctx.merge(fragment.bindings)
+            ctx.imports.update(fragment.imports)
+            for s in ctx.local_indicators.assignments_after(op, ctx):
+                tagged.append(({op.id}, s))
 
     return [stmt for _, stmt in tagged]
 
@@ -281,6 +324,13 @@ def _generate_parallel_tier(
         bound_vars = list(dict.fromkeys(raw_vars))
 
         body = list(stmts)
+
+        # An indicator variable the branch assigns belongs to the function, not
+        # to the branch.
+        indicator_vars = set(ctx.local_indicators.variables.values())
+        shared = sorted(assigned_in_branch & indicator_vars)
+        if shared:
+            body.insert(0, ast.Nonlocal(names=shared))
 
         # Add return statement if branch produces bindings
         if bound_vars:
@@ -505,6 +555,11 @@ def topological_sort_tiered(
                 if not source:
                     break
                 src_term = source.src_terminal
+                # The VI's own control is where a value starts: a wire that
+                # also reaches the control (a local variable write) is not a
+                # dependency of the nodes reading it.
+                if source.src_parent_id == ctx.vi_name:
+                    break
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
                     if dep_op_id != op.id and dep_op_id in dependencies:
@@ -548,8 +603,37 @@ def topological_sort_tiered(
     circular = [op_by_id[oid] for oid in remaining if oid in op_by_id]
     if circular:
         tiers.append(circular)
+        _record_cycles(circular, remaining, op_by_id, ctx)
 
     return tiers
+
+
+def _record_cycles(
+    circular: list[AnyGraphNode],
+    remaining: dict[str, set[str]],
+    op_by_id: dict[str, AnyGraphNode],
+    ctx: CodeGenContext,
+) -> None:
+    """Record, for each node on a cycle of the wires at this structure level, why
+    it cannot be ordered. A node that only waits on a cycle is not on one."""
+    wires = nx.DiGraph()
+    for op_id, deps in remaining.items():
+        for dep in deps:
+            wires.add_edge(dep, op_id)
+    for component in nx.strongly_connected_components(wires):
+        if len(component) < 2:
+            continue
+        names = sorted(
+            op_by_id[op_id].display_name for op_id in component if op_id in op_by_id
+        )
+        reason = (
+            "The wires between "
+            + ", ".join(repr(name) for name in names)
+            + " read as a cycle, which a saved, runnable VI cannot have; lvkit is "
+            "likely misreading a terminal's direction here"
+        )
+        for op_id in component:
+            ctx.circular_nodes[op_id] = reason
 
 
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
@@ -563,9 +647,17 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         return None
 
     result_class = build_result_class_name(vi_context.name)
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Resolve output values, skipping error clusters
+    vi_node = (
+        ctx.graph.get_graph_node(vi_context.name) if ctx.graph is not None else None
+    )
     keywords = []
     for out in outputs:
         if out.is_error_cluster:
@@ -579,7 +671,11 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         # parse it into a real AST — a bare ast.Name(id=expr) is malformed and
         # hides the variable loads from later passes (dead-code elimination then
         # deletes the assignments the return depends on).
-        value = ctx.resolve(out_id)
+        value = (
+            ctx.wired_input(out_id, vi_node)
+            if vi_node is not None
+            else ctx.resolve(out_id)
+        )
         if value:
             value_ast: ast.expr = parse_expr(value)
         else:
@@ -609,9 +705,6 @@ def build_module_ast(
     """Build complete module AST."""
     module_body: list[ast.stmt] = []
 
-    # Imports
-    module_body.extend(build_imports(vi_context, ctx))
-
     # Result class
     spell = ctx.type_namer()
     result_class = build_result_class(vi_context, spell)
@@ -620,6 +713,10 @@ def build_module_ast(
 
     # Module-level helper functions generated for Formula Nodes.
     module_body.extend(ctx.formula_helpers)
+
+    # Module-level declarations of nodes: ctypes libraries, prototypes,
+    # structures and helper functions.
+    module_body.extend(ctx.module_declarations.statements)
 
     # Module-level globals for persistent per-call-site state
     # (uninitialized shift registers, First Call?). Sorted by name for
@@ -632,7 +729,18 @@ def build_module_ast(
     func_def = build_function_def(vi_context, vi_name, body, spell)
     module_body.append(func_def)
 
-    return ast.Module(body=module_body, type_ignores=[])
+    # ``os`` is imported when a path expression in the module spells its volume
+    # for the running OS. A bare ``os`` name can only be that module: generated
+    # variable and function names never take a module's name (``to_var_name``).
+    if any(
+        isinstance(node, ast.Name) and node.id == "os"
+        for stmt in module_body
+        for node in ast.walk(stmt)
+    ):
+        ctx.add_import("import os")
+
+    imports = build_imports(vi_context, ctx)
+    return ast.Module(body=[*imports, *module_body], type_ignores=[])
 
 
 def build_imports(
@@ -662,8 +770,8 @@ def build_imports(
         try:
             tree = ast.parse(imp)
             imports.extend(tree.body)
-        except SyntaxError:
-            warnings.warn(f"Skipping unparseable import: {imp!r}", stacklevel=2)
+        except SyntaxError as e:
+            raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
     imports.extend(build_type_checking_block(ctx.annotation_imports))
     return imports
@@ -706,7 +814,12 @@ def build_result_class(
 
     class_name = build_result_class_name(vi_context.name)
 
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Build fields, skipping error clusters
     fields = []
@@ -796,7 +909,7 @@ def build_args(
     defaulting to the control's saved default -- the value such a control holds
     when LabVIEW calls the VI as a subVI.
 
-    ``names`` maps terminal id -> parameter name (``parameter_names`` over every
+    ``names`` maps terminal id -> parameter name (``interface_names`` over every
     control of the VI); when omitted it is computed over ``inputs`` and
     ``off_pane_inputs``.
 
@@ -806,15 +919,14 @@ def build_args(
     terminal may be left unwired and then takes its own default value, so every
     generated parameter is optional-with-default — which also sidesteps Python's
     "non-default argument follows default argument" rule without reordering the
-    parameters (reordering would desync positional callers, e.g. class-method
-    dynamic dispatch, which pass arguments in connector-pane order). The default
+    parameters (callers pass arguments by keyword). The default
     is the terminal's real connector-pane default when known, else the type
     default (e.g. 0 / '' / None).
     """
     args = []
     defaults = []
     if names is None:
-        names = parameter_names([*inputs, *(off_pane_inputs or [])])
+        names = interface_names(inputs, off_pane_inputs or [], [], []).parameters
 
     for inp in inputs:
         if inp.is_error_cluster:
@@ -890,12 +1002,3 @@ def _is_anonymous_cluster(term: Terminal) -> bool:
         and not lv_type.typedef_name
         and not lv_type.classname
     )
-
-
-def build_result_class_name(vi_name: str) -> str:
-    """Build result class name from VI name."""
-    base = to_function_name(vi_name)
-    # Convert to CamelCase
-    parts = base.split("_")
-    camel = "".join(p.capitalize() for p in parts if p)
-    return f"{camel}Result"

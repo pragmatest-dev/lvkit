@@ -95,19 +95,19 @@ def project_with_prim_override(tmp_path: Path) -> Path:
                         "terminals": [
                             {
                                 "index": 0,
-                                "direction": "in",
+                                "direction": "input",
                                 "name": "base",
                                 "type": "Path",
                             },
                             {
                                 "index": 1,
-                                "direction": "in",
+                                "direction": "input",
                                 "name": "name",
                                 "type": "String",
                             },
                             {
                                 "index": 2,
-                                "direction": "out",
+                                "direction": "output",
                                 "name": "result",
                                 "type": "Path",
                             },
@@ -179,13 +179,13 @@ def project_with_vilib_override(tmp_path: Path) -> Path:
                             {
                                 "name": "string",
                                 "index": 0,
-                                "direction": "in",
+                                "direction": "input",
                                 "type": "string",
                             },
                             {
                                 "name": "trimmed string",
                                 "index": 1,
-                                "direction": "out",
+                                "direction": "output",
                                 "type": "string",
                             },
                         ],

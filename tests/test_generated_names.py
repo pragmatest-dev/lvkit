@@ -11,12 +11,15 @@ from __future__ import annotations
 import ast
 import builtins
 import importlib
+import re
 import sys
 from pathlib import Path
 
 import pytest
 
+from lvkit.long_paths import extended_length
 from lvkit.pipeline import generate_python
+from tests.corpus_graphs import OPENG_USERLIB
 
 pytestmark = pytest.mark.needs_samples
 
@@ -52,25 +55,31 @@ def _generate(vi: Path, tmp_path: Path) -> Path:
     """The package generated for ``vi`` and everything it depends on."""
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi}")
-    result = generate_python(
-        vi, tmp_path / "out", search_paths=[OPENG], soft_unresolved=True
-    )
-    return result["output_dir"]
+    result = generate_python(vi, tmp_path / "out", userlib_root=OPENG_USERLIB)
+    # The package nests deeper than 260 characters; Windows with long paths off
+    # opens it only in the extended-length form.
+    return extended_length(result["output_dir"])
 
 
 def _modules(package: Path) -> list[Path]:
     return sorted(p for p in package.rglob("*.py") if not p.name.endswith(".error.py"))
 
 
+def _key(package: Path, module: Path) -> str:
+    return module.relative_to(package).as_posix()
+
+
 def _module_named(package: Path, suffix: str) -> Path:
-    (module,) = (p for p in _modules(package) if p.name.endswith(suffix))
+    (module,) = (p for p in _modules(package) if p.as_posix().endswith(suffix))
     return module
 
 
 def _module_defining(package: Path, class_name: str) -> Path:
     """The module that defines ``class_name``."""
     (module,) = (
-        p for p in _modules(package) if f"\nclass {class_name}(" in p.read_text()
+        p
+        for p in _modules(package)
+        if re.search(rf"^class {class_name}[(:]", p.read_text(), re.MULTILINE)
     )
     return module
 
@@ -80,7 +89,7 @@ def _discovery_module(package: Path, stem: str) -> Path:
     (module,) = (
         p
         for p in _modules(package)
-        if p.parent.name == "ni_discovery_v1_clientlvlib" and p.stem.startswith(stem)
+        if p.parent.name == "discovery_v1" and p.stem.startswith(stem)
     )
     return module
 
@@ -89,7 +98,7 @@ def _undefined_names(source: str) -> set[str]:
     """Names the module reads that no assignment, import, def, class or parameter
     binds anywhere in it, and that are not builtins."""
     tree = ast.parse(source)
-    bound = set(dir(builtins))
+    bound = set(dir(builtins)) | {"__file__", "__package__"}  # module attributes
     loaded: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Name):
@@ -128,12 +137,12 @@ def _unresolved_relative_imports(package: Path) -> list[str]:
             for _ in range(node.level - 1):
                 base = base.parent
             parts = (node.module or "").split(".") if node.module else []
-            if parts:
-                target = base.joinpath(*parts)
+            target = base.joinpath(*parts)
+            if parts and not target.is_dir():
                 found = target.with_suffix(".py").exists() or target.name in failed
             else:
                 found = all(
-                    (base / f"{a.name}.py").exists() or a.name in failed
+                    (target / f"{a.name}.py").exists() or a.name in failed
                     for a in node.names
                 )
             if not found:
@@ -142,12 +151,14 @@ def _unresolved_relative_imports(package: Path) -> list[str]:
 
 
 def _import_all(package: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
-    """Import every module of the package; return them by file name."""
+    """Import every module of the package; return them by path in the package."""
     monkeypatch.syspath_prepend(str(package.parent))
     imported = {}
     for module in _modules(package):
         parts = module.relative_to(package.parent).with_suffix("").parts
-        imported[module.name] = importlib.import_module(".".join(parts))
+        imported[module.relative_to(package).as_posix()] = importlib.import_module(
+            ".".join(parts)
+        )
     return imported
 
 
@@ -164,29 +175,43 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
 
-    call = _module_named(package, "testcaselvclass_calltestmethod.py").read_text()
+    # CallTestMethod is a method of the class module, annotated with the enum.
+    call = _module_named(package, "classes/testcase/testcase.py").read_text()
     guarded = next(n for n in ast.parse(call).body if isinstance(n, ast.If))
     imported = {a.name for n in guarded.body for a in n.names}
-    assert {"TestCase", "MethodEnum"} <= imported
+    assert "MethodEnum" in imported
+    assert "def __calltestmethod(self, method: MethodEnum" in call
 
     modules = _import_all(package, monkeypatch)
-    enum = modules[_module_named(package, "testcaselvclass_method__enumctl.py").name]
+    enum = modules[
+        _key(package, _module_named(package, "testcase/private/method__enumctl.py"))
+    ]
     assert [(m.name, m.value) for m in enum.MethodEnum] == [
         ("setUp", 0),
         ("testMethod", 1),
         ("tearDown", 2),
     ]
-    testcase = modules[_module_defining(package, "TestCase").name]
-    root = importlib.import_module("lvkit.runtime.labview_object")
-    assert issubclass(testcase.TestCase, root.LabVIEWObject)
+    testcase = modules[_key(package, _module_defining(package, "TestCase"))]
+    assert testcase.TestCase.__bases__ == (object,)
 
 
 def test_enum_constant_is_imported_at_run_time(tmp_path):
     package = _generate(TESTCASE_RUN, tmp_path)
     assert _all_undefined(package) == {}
-    run = ast.parse(_module_named(package, "testcaselvclass_run.py").read_text())
+    # `run` is a method of the class module; the class is in an import cycle with
+    # the modules it calls, so the enum is imported where `run` uses it.
+    testcase = ast.parse(
+        _module_named(package, "classes/testcase/testcase.py").read_text()
+    )
+    (run,) = (
+        n
+        for c in testcase.body
+        if isinstance(c, ast.ClassDef) and c.name == "TestCase"
+        for n in c.body
+        if isinstance(n, ast.FunctionDef) and n.name == "run"
+    )
     runtime = [
-        a.name for n in run.body if isinstance(n, ast.ImportFrom) for a in n.names
+        a.name for n in ast.walk(run) if isinstance(n, ast.ImportFrom) for a in n.names
     ]
     assert "MethodEnum" in runtime
     assert "MethodEnum.setUp" in ast.unparse(run)
@@ -244,7 +269,7 @@ def test_in_place_element_on_an_array_edits_the_array(tmp_path, monkeypatch):
     assert list(package.rglob("*.error.py")) == []
     assert _all_undefined(package) == {}
     modules = _import_all(package, monkeypatch)
-    registry = modules[_module_named(package, "tdm_registry.py").name]
+    registry = modules[_key(package, _module_named(package, "/tdm_registry.py"))]
 
     # Registering a notifier twice replaces its entry in place; each run ends in
     # the Type Cast of a refnum to a U32, which flattens as a 32-bit integer.
@@ -260,24 +285,25 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     package = _generate(UNRESERVE_SESSIONS, tmp_path)
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
-    source = _module_named(package, "unreserve_sessions.py")
+    source = _module_named(package, "session_reservation/session_reservation.py")
     assert (
-        "is_dvr_valid(dvr_valid_in=session_reservation_in"
-        ".session_and_driver_infos[0].dvr_valid)"
+        "is_dvr_valid(dvr_valid_in=self.__session_and_driver_infos[0].dvr_valid)"
     ) in source.read_text()
 
 
 WAVEGEN_LIB = SAMPLES / "lv-flex-channel-examples/WaveGen/WaveGen.lvlib"
 
 
-def test_module_names_come_from_the_vi_not_its_folder(tmp_path):
+def test_modules_mirror_the_project_folders(tmp_path):
     package = _generate(CALL_TEST_METHOD, tmp_path)
-    stems = {m.stem for m in _modules(package)}
-    assert "calltestmethod" in {s.rsplit("_", 1)[-1] for s in stems} or any(
-        s.endswith("calltestmethod") for s in stems
+    paths = {m.relative_to(package).as_posix() for m in _modules(package)}
+    assert any(p.endswith("classes/testcase/testcase.py") for p in paths)
+    assert any(p.endswith("classes/testsuite/testsuite.py") for p in paths)
+    assert not any(
+        p.endswith("classes/testcase/private/calltestmethod.py") for p in paths
     )
-    for stem in stems:
-        assert "home" not in stem and "lvkit" not in stem and "samples" not in stem
+    for path in paths:
+        assert not {"home", "lvkit", "samples"} & set(path.split("/"))
 
 
 def test_a_library_has_no_module_and_nothing_imports_one(tmp_path, monkeypatch):

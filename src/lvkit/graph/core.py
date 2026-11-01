@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
     ClusterField,
@@ -22,7 +23,9 @@ from ..models import (
     contains_class_instance,
 )
 from ..parser.models import ParsedType, ParsedVI
+from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
+from .search_path import SearchPath
 
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
@@ -53,6 +56,7 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import NodeType
+from .recorded_paths import RecordedPaths
 
 # Map operation kind (the coarse op-kind string from _graph_node_to_op_kind)
 # to its human-readable display label. Distinct key space from
@@ -112,7 +116,7 @@ def _node_order_key(uid: str) -> tuple[str, int, str]:
     return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
 
 
-def _uid_of(op_id: str) -> str:
+def uid_of(op_id: str) -> str:
     """Trailing UID from an op.id ('...run.vi::1065' -> '1065') — the stable,
     path-prefix-independent node identity shared by the netlist + diff layers."""
     return op_id.rsplit("::", 1)[-1]
@@ -156,19 +160,27 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
 # Import mixins - these define methods that InMemoryVIGraph inherits
 from .analysis import AnalysisMixin  # noqa: E402
 from .construction import ConstructionMixin  # noqa: E402
+from .load_problems import LoadProblemsMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
+from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
+from .vi_reference import VIReferenceMixin  # noqa: E402
+from .wire_queries import WireQueriesMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
+    LoadProblemsMixin,
     LoadingMixin,
     ConstructionMixin,
     QueryMixin,
     OperationsMixin,
+    PackageQueriesMixin,
+    WireQueriesMixin,
     AnalysisMixin,
     TypedefMixin,
+    VIReferenceMixin,
 ):
     """In-memory VI graph using a single unified NetworkX MultiDiGraph.
 
@@ -184,7 +196,9 @@ class InMemoryVIGraph(
                     # ... generate code ...
     """
 
-    def __init__(self) -> None:
+    def __init__(self, run_settings: RunSettings | None = None) -> None:
+        # How a problem recorded on a VI's node is announced (echo, fail-fast).
+        self.run_settings: RunSettings = run_settings or RunSettings()
         # Unified graph: all VIs, all nodes, all edges
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         # Per-VI node index: vi_name -> set of node UIDs in that VI
@@ -196,6 +210,11 @@ class InMemoryVIGraph(
         self._dep_graph: nx.DiGraph = nx.DiGraph()
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
+        # The path each dependency's callers recorded for it, resolved.
+        self._recorded = RecordedPaths(self._dep_graph)
+        # Whether a load stops at a VI the catalog gives Python for (see
+        # ``set_catalog_stop``).
+        self._catalog_stop = False
         # Polymorphic VI info
         self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -222,11 +241,6 @@ class InMemoryVIGraph(
         # vi_key -> qualified DISPLAY name (qname/basename). Display only, never a
         # lookup key — resolve_vi_name still returns the vi_key (path) identity.
         self._vi_display_names: dict[str, str] = {}
-        # Search paths the graph was loaded with, retained so decoration-only
-        # lookups (a SubVI's own _ICON.png) can locate a project-local .vi by
-        # name even under a MINIMAL load that never walks the SubVI tree.
-        self._search_paths: list[Path] = []
-        self._vi_file_index: dict[str, Path] | None = None  # lazy name -> path
         # VI metadata (identity only -- library/qualified_name/owning_libraries/
         # description). Sibling name-keyed facet dicts below carry the rest.
         self._vi_metadata: dict[str, VIMetadata] = {}
@@ -239,10 +253,12 @@ class InMemoryVIGraph(
         self._vi_health: dict[str, VIHealth] = {}
         # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
         self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
-        # Optional disk roots for <vilib> / <userlib> / <instrlib> path tokens
-        self._vilib_root: Path | None = None
-        self._userlib_root: Path | None = None
-        self._instrlib_root: Path | None = None
+        # The folders <vilib> / <userlib> / <instrlib> path tokens name, in order,
+        # and the VI Search Path for files not at their recorded path.
+        self._vilib_roots: tuple[Path, ...] = ()
+        self._userlib_roots: tuple[Path, ...] = ()
+        self._instrlib_roots: tuple[Path, ...] = ()
+        self._search_path = SearchPath(search_path_entries(None), {})
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
         # same parse (see parse_vi layout=), never a second heap read.
@@ -261,11 +277,14 @@ class InMemoryVIGraph(
 
     def set_library_roots(
         self,
-        vilib_root: Path | None = None,
-        userlib_root: Path | None = None,
-        instrlib_root: Path | None = None,
+        vilib_root: Folders = None,
+        userlib_root: Folders = None,
+        instrlib_root: Folders = None,
+        search_path: SearchEntries = None,
     ) -> None:
-        """Set disk roots for <vilib>, <userlib> and <instrlib> path tokens.
+        """Set the folders <vilib>, <userlib> and <instrlib> path tokens name
+        (each one or several, tried in order) and the VI Search Path
+        (``search_path``, LabVIEW's default when None; ``graph/search_path.py``).
 
         Call before loading any VIs. When set, dependency refs with
         <vilib>, <userlib> or <instrlib> tokens resolve to real .vi files on
@@ -277,16 +296,32 @@ class InMemoryVIGraph(
         This is the single wiring point for all entry points (CLI, MCP,
         pipeline, render, docs), which each call this before ``load_vi``.
         """
-        self._vilib_root = vilib_root
-        self._userlib_root = userlib_root
-        self._instrlib_root = instrlib_root
+        self._vilib_roots = folder_list(vilib_root)
+        self._userlib_roots = folder_list(userlib_root)
+        self._instrlib_roots = folder_list(instrlib_root)
+        pseudo = {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
+        }
+        self._search_path = SearchPath(search_path_entries(search_path), pseudo)
+        self.run_settings.library_roots = dict(pseudo)
         # The run's library roots feed the cache classifier; set them on the
         # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
         from lvkit import cache_paths
 
         cache_paths.set_extraction_roots(
-            vilib_root=vilib_root, userlib_root=userlib_root
+            vilib_root=self._vilib_roots,
+            userlib_root=self._userlib_roots,
+            instrlib_root=self._instrlib_roots,
         )
+
+    def set_catalog_stop(self, stop: bool) -> None:
+        """Make the next loads stop at a VI the vi.lib catalog gives Python for:
+        only its own connector pane is loaded, never the VIs it calls. Code
+        generation sets it, because those VIs are never generated; every other
+        view loads the whole tree."""
+        self._catalog_stop = stop
 
     def clear(self) -> None:
         """Clear all loaded data."""
@@ -295,6 +330,7 @@ class InMemoryVIGraph(
         self._term_to_node.clear()
         self._dep_graph.clear()
         self._stubs.clear()
+        self._recorded.clear()
         self._poly_info.clear()
         self._qualified_aliases.clear()
         self._name_to_keys.clear()
@@ -302,8 +338,6 @@ class InMemoryVIGraph(
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()
-        self._search_paths = []
-        self._vi_file_index = None
         self._vi_metadata.clear()
         self._vi_properties.clear()
         self._vi_health.clear()
@@ -331,6 +365,7 @@ class InMemoryVIGraph(
             kind=LVTypeKind(parsed_type.kind),
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
+            server_class=parsed_type.server_class,
             classname=parsed_type.classname,
             class_file=parsed_type.class_file,
             typedef_path=parsed_type.typedef_path,
@@ -343,6 +378,7 @@ class InMemoryVIGraph(
             user_event_name=parsed_type.user_event_name,
             dotnet_type=parsed_type.dotnet_type,
             unreadable=parsed_type.unreadable,
+            pane=parsed_type.pane,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external
@@ -471,7 +507,45 @@ class InMemoryVIGraph(
             return by_qname[0]
         leaf = ref.rsplit(":", 1)[-1]
         by_name = [s for s in succs if nodes[s].get("name") == leaf]
-        return by_name[0] if len(by_name) == 1 else None
+        if len(by_name) == 1:
+            return by_name[0]
+        return self._owner_chain_key(ref, caller_vi_key)
+
+    def _owner_chain_key(self, ref: str, caller_vi_key: str) -> str | None:
+        """PATH key of the class that owns the VI ``caller_vi_key`` (or one of that
+        class's ancestors) when ``ref`` names it: a class's own VIs do not
+        reference their class, they are listed by it, so the ownership edge is the
+        caller's recorded link to it. A library-qualified ``ref``
+        (``Lib.lvlib:C.lvclass``) names the class the file records by its own
+        name."""
+        key = self._owning_class_key(caller_vi_key)
+        seen: set[str] = set()
+        leaf = ref.rsplit(":", 1)[-1]
+        while key is not None and key not in seen:
+            seen.add(key)
+            data = self._dep_graph.nodes[key]
+            qname = data.get("qname") or ""
+            # A name qualified by a library names the class that library owns: a
+            # class recorded with its own library matches only that library's.
+            if qname == ref or (
+                data.get("name") == leaf and not (":" in ref and ":" in qname)
+            ):
+                return key
+            key = self._parent_class_key(key)
+        return None
+
+    def class_type_key(
+        self, lv_type: LVType, caller_vi_key: str | None = None
+    ) -> str | None:
+        """PATH key of the class node a class-typed ``lv_type`` is, found among
+        the calling VI's own links; ``None`` for a type that is not a loaded
+        class."""
+        if not lv_type.classname:
+            return None
+        key = self._dep_key_for_ref(lv_type.classname, caller_vi_key)
+        if key is None or not self._dep_graph.has_node(key):
+            return None
+        return key if self.is_class(key) else None
 
     def _dep_key_for_ref(
         self,
@@ -517,15 +591,14 @@ class InMemoryVIGraph(
         classname: str,
         caller_vi_key: str | None = None,
     ) -> list[ClusterField] | None:
-        """Complete field list for a class INCLUDING inherited parent fields.
-
-        LabVIEW nMux field indices are into the combined (parent + own) field
-        list, parent first — so the inheritance chain is walked. ``classname``
-        is resolved to its PATH-key node via :meth:`_dep_key_for_ref` (pass the
-        CALLER VI key so a duplicated class name resolves by the caller's edge);
-        the parent chain is then followed by ``parent_key`` (the parent's PATH,
-        recorded on the node) — never by name. Returns None if unresolved.
-        """
+        """The private-data fields the class declares itself, in declaration
+        order, not those it inherits: a Bundle/Unbundle By Name on a class wire
+        counts the wire's own class's fields only (private data is private to
+        its class). ``classname`` is resolved to its PATH-key node via
+        :meth:`_dep_key_for_ref` (pass the CALLER VI key so a duplicated class
+        name resolves by the caller's edge). Returns None if unresolved. The
+        fields of every level of the hierarchy are
+        :meth:`get_class_private_levels`."""
         node_key = self._dep_key_for_ref(classname, caller_vi_key)
         if node_key is None or not self._dep_graph.has_node(node_key):
             return None
@@ -554,17 +627,21 @@ class InMemoryVIGraph(
         return None
 
     def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None:
-        """Own + inherited fields for the class/typedef node at PATH ``node_key``.
-        Inheritance follows the parent's PATH key (:meth:`_parent_class_key`) by
-        IDENTITY."""
-        data = self._dep_graph.nodes[node_key]
-        own_fields: list[ClusterField] = data.get("fields") or []
+        """The fields the class/typedef node at PATH ``node_key`` declares."""
+        return list(self._dep_graph.nodes[node_key].get("fields") or [])
+
+    def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]:
+        """The fields of the class at PATH ``node_key`` and of every ancestor,
+        the oldest ancestor's first: what a class and its parents hold together,
+        for a view that lists them (a Bundle/Unbundle By Name counts only the
+        wire's own class, :meth:`get_class_fields`)."""
         parent_key = self._parent_class_key(node_key)
-        if parent_key is not None:
-            parent_fields = self._class_fields_by_key(parent_key)
-            if parent_fields:
-                return parent_fields + own_fields
-        return own_fields
+        inherited = (
+            self.class_fields_with_inherited(parent_key)
+            if parent_key is not None
+            else []
+        )
+        return [*inherited, *(self._class_fields_by_key(node_key) or [])]
 
     def get_class_wire_style(
         self,
@@ -588,7 +665,7 @@ class InMemoryVIGraph(
     def _class_wire_style_by_key(self, node_key: str) -> WireStyle | None:
         """This class's own wire style, else the nearest ancestor's — the
         inherited case. Follows the parent's PATH key by IDENTITY
-        (:meth:`_parent_class_key`), same as :meth:`_class_fields_by_key`."""
+        (:meth:`_parent_class_key`)."""
         style: WireStyle | None = self._dep_graph.nodes[node_key].get("wire_style")
         if style is not None:
             return style
@@ -604,7 +681,7 @@ class InMemoryVIGraph(
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
-        Class types use dep_graph (authoritative, includes inheritance chain) —
+        Class types use dep_graph (authoritative; the fields the class declares) —
         resolved by the CALLER's edge (``caller_vi_key``) so a duplicated class
         name maps to the right path. Typedef/cluster types prefer inline fields
         from the VI's own type_map (ground truth for that VI's dataflow, possibly

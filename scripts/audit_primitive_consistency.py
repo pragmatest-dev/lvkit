@@ -80,7 +80,7 @@ def _worker(paths: list[str]) -> int:
             terms = [
                 [
                     ti.index,
-                    "out" if ti.is_output else "in",
+                    "output" if ti.is_output else "input",
                     ti.parsed_type.type_name if ti.parsed_type else None,
                 ]
                 for ti in by_parent.get(node.uid, [])

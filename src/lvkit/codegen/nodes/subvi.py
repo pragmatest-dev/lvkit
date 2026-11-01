@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import ast
 import re
+from dataclasses import dataclass, field
 from typing import NoReturn
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
+    CatalogPaneMismatch,
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
+    VILibResolver,
     derive_python_location,
     get_resolver,
 )
@@ -23,43 +27,62 @@ from ..ast_utils import (
     to_function_name,
     to_var_name,
 )
-from ..context import CodeGenContext
-from ..error_path import ERROR_WIRE_VI_NAMES
+from ..callee_names import callee_names
+from ..class_model import accessor_of, member_shape
+from ..context import CodeGenContext, terminal_default_expression
+from ..error_path import is_error_wire_vi
+from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..unresolved import emit_soft_unresolved
-from . import error_vi
+from ..value_copy import is_by_value_object, owned_input
+from ..vilib_pane import check_against_pane
+from . import accessor_call, error_vi, method_call, vilib_op
+from .template_inputs import template_reads
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a SubVI call."""
     subvi_name = node.name or ""
     if not subvi_name:
-        return CodeFragment.empty()
+        raise ConversionGap(
+            "A VI node has no name, so the VI it calls is unknown", node
+        )
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
-    if subvi_name in ERROR_WIRE_VI_NAMES:
+    catalog_path = ctx.catalog_path(node)
+    if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)
 
-    # Dynamic dispatch → obj.method(args) / super().method(args)
-    if node.node_type in ("dynIUse", "callParentDynIUse"):
-        return _generate_dynamic_dispatch(node, ctx)
+    # A VI of a class is a method of its Python class; a property accessor is
+    # the attribute or property.
+    member = _class_member(node, ctx)
+    if member is not None:
+        found = accessor_of(ctx.graph, member) if ctx.graph is not None else None
+        if found is not None:
+            return accessor_call.generate(node, ctx, *found)
+        assert ctx.graph is not None
+        shape = member_shape(ctx.graph, member)
+        assert shape is not None
+        return method_call.generate(node, ctx, shape)
 
-    # Call By Reference → vi_ref(args...)
-    if node.node_type == "callByRefNode":
-        return _generate_call_by_ref(node, ctx)
-
-    # Look up VI — polymorphic variant if selected, otherwise base name
+    # Look up VI — polymorphic variant if selected, otherwise the recorded path
     vilib_vi = None
     if node.poly_variant_name:
-        vilib_vi = _resolve_poly_variant(subvi_name, node)
+        vilib_vi = _vilib_resolver(ctx).resolve_call(
+            catalog_path, node.poly_variant_name, wrapper_fallback=False
+        )
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
-            return _emit_vilib_resolution(node, ctx, vilib_vi=None)
+            _raise_vilib_resolution(node, ctx, vilib_vi=None)
+        vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
 
     else:
-        vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
+        vilib_vi = _get_vilib_vi(node, ctx)
+
+    # A catalog VI the generator writes from the graph.
+    if vilib_vi and vilib_vi.op:
+        return vilib_op.generate(node, ctx, vilib_vi)
 
     # Check for inline replacement first
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
@@ -71,15 +94,65 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if callee_key is None and node.variant_key is not None:
         callee_key = node.variant_key
         callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    elif (
+        node.variant_key is not None
+        and vilib_vi is not None
+        and vilib_vi.python_code is not None
+    ):
+        # The catalog gives the selected variant its own module.
+        callee_key = node.variant_key
+        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    elif callee_key is None and node.qualified_path and node.qualified_name:
+        # The caller records a path (a `<vilib>` or `<extravilib>` VI with no
+        # configured root): the absent VI is named by its qualified name, the
+        # identity its stub is keyed by.
+        callee_name = node.qualified_name
+    parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
+    stmt = ast.Assign(
+        targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
+        value=parts.call,
+    )
+    return CodeFragment(statements=[*parts.prelude, stmt], bindings=parts.bindings)
+
+
+def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
+    """The key of the VI a call names when it is a member of a loaded class: the
+    callee, or the variant of a polymorphic VI the call selects."""
+    if ctx.graph is None:
+        return None
+    key = node.variant_key or node.callee_key
+    if key is not None and ctx.graph.owning_class_key(key) is not None:
+        return key
+    return None
+
+
+@dataclass(frozen=True)
+class CallParts:
+    """One call of a generated VI: the call, the variable its result is
+    assigned to, and the node's output terminals bound to that result."""
+
+    func_name: str
+    call: ast.Call
+    result_var: str
+    bindings: dict[str, str]
+    prelude: list[ast.stmt] = field(default_factory=list)
+
+
+def build_call(
+    node: VINode,
+    ctx: CodeGenContext,
+    callee_name: str,
+    callee_key: str | None,
+    vilib_vi: VIEntry | None,
+) -> CallParts:
+    """The call of the VI ``callee_key`` from ``node``: its function imported,
+    each wired input passed by the callee's parameter name, each output read from
+    the result by the callee's output name."""
     func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
-
-    # Gather input arguments with proper names
-    args, keywords = _build_arguments(node, ctx, vilib_vi)
-
-    # Build function call AST
+    prelude: list[ast.stmt] = []
+    args, keywords = _build_arguments(node, ctx, vilib_vi, prelude)
     if keywords:
-        # Use keyword arguments for clarity
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
             args=[],
@@ -88,25 +161,17 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             ],
         )
     else:
-        # Positional arguments
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
             args=[_to_ast_value(a) for a in args],
             keywords=[],
         )
-
-    # Assignment: result = func(...)
-    stmt = ast.Assign(
-        targets=[ast.Name(id=result_var, ctx=ast.Store())],
-        value=call,
-    )
-
-    # Build output bindings using vilib terminal names
-    bindings = _build_output_bindings(node, result_var, vilib_vi, ctx)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings=bindings,
+    return CallParts(
+        func_name=func_name,
+        call=call,
+        result_var=result_var,
+        bindings=_build_output_bindings(node, result_var, vilib_vi, ctx),
+        prelude=prelude,
     )
 
 
@@ -134,19 +199,17 @@ def _generate_inline(
         if vt.index is None:
             continue
         param_key = vt.python_param or to_var_name(vt.name)
-        if vt.direction == "in":
+        if vt.direction == TerminalDirection.INPUT:
             vilib_inputs[vt.index] = param_key
-        elif vt.direction == "out":
+        elif vt.direction == TerminalDirection.OUTPUT:
             vilib_outputs[vt.index] = param_key
 
-    # Build default values from vilib terminal definitions
+    # Build default values from the catalog's documented terminal defaults
     vilib_defaults: dict[str, str] = {}
     for vt in vilib_vi.terminals:
-        if vt.direction == "in":
+        if vt.direction == TerminalDirection.INPUT and vt.default is not None:
             param_key = vt.python_param or to_var_name(vt.name)
-            default = getattr(vt, "default_value", None)
-            if default is not None:
-                vilib_defaults[param_key] = default
+            vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
     # Substitute input placeholders with wired values
     for term in ctx.enriched_terminals(node):
@@ -155,13 +218,19 @@ def _generate_inline(
 
         term_index = term.index
         term_id = term.id
-        value = ctx.resolve(term_id)
+        value = ctx.wired_input(term_id, node)
 
         if term_index in vilib_inputs:
             param_key = vilib_inputs[term_index]
             placeholder = "{" + param_key + "}"
-            fallback = vilib_defaults.get(param_key, "None")
-            template = template.replace(placeholder, value or fallback)
+            if not value and template_reads(template, placeholder):
+                if term.is_error_cluster:
+                    value = "None"
+                elif param_key in vilib_defaults:
+                    value = vilib_defaults[param_key]
+                else:
+                    raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
+            template = template.replace(placeholder, value or "None")
 
     # Substitute any remaining unresolved input placeholders with defaults
     for param_key, default in vilib_defaults.items():
@@ -176,7 +245,7 @@ def _generate_inline(
         if m not in set(vilib_outputs.values())
     }
     if unresolved_inputs:
-        return _emit_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
+        _raise_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
     ref_passthrough: dict[str, str] = {}
@@ -190,7 +259,7 @@ def _generate_inline(
                         continue
                     if term.index in vilib_inputs:
                         if vilib_inputs[term.index] == in_param:
-                            resolved = ctx.resolve(term.id)
+                            resolved = ctx.wired_input(term.id, node)
                             if resolved:
                                 ref_passthrough[out_param] = resolved
                             break
@@ -254,41 +323,41 @@ def _generate_inline(
     )
 
 
-def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
-    """Resolve a polymorphic VI to its specific variant.
-
-    Uses poly_variant_name (edit-time selection extracted from the VI's
-    polySelector XML element) to look up the correct variant entry
-    via poly_selector_names in the driver/vilib data.
-    """
-    variant = node.poly_variant_name
-    if not variant:
-        return None
-    return get_resolver().resolve_poly_variant(base_name, variant)
+def _vilib_resolver(ctx: CodeGenContext | None) -> VILibResolver:
+    """The vi.lib resolver this run reads: its own copy once it has learned, else
+    the shared catalog."""
+    return ctx.learned_vilib[0] if ctx and ctx.learned_vilib else get_resolver()
 
 
-def _get_vilib_vi(
-    subvi_name: str, node: VINode | None = None, ctx: CodeGenContext | None = None
-) -> VIEntry | None:
-    """Look up SubVI in vilib resolver.
+def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
+    """``entry`` completed from the connector pane of the VI the call names when
+    that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
+    key = ctx.graph.loaded_callee_key(node) if ctx.graph is not None else None
+    if ctx.graph is None or key is None:
+        return entry
+    inputs, _, outputs, _ = ctx.graph.vi_interface(key)
+    check = check_against_pane(entry, [*inputs, *outputs])
+    if check.mismatches:
+        raise CatalogPaneMismatch(node.name or entry.name, check.mismatches)
+    return check.entry
+
+
+def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
+    """The catalog entry of the VI a call records a path for, checked against the
+    VI's own connector pane when it is loaded.
 
     If the VI is found but has no terminal indices, raises VILibResolutionNeeded
     with context to help resolve the indices.
     """
     try:
-        resolver = get_resolver()
+        resolver = _vilib_resolver(ctx)
+        recorded_path = ctx.catalog_path(node)
 
-        # For polymorphic calls, resolve to the actual variant.
-        # If variant not found, fail — don't silently use the wrapper.
-        vi = None
-        if node and node.poly_variant_name:
-            vi = resolver.resolve_poly_variant(subvi_name, node.poly_variant_name)
-
-        if vi is None:
-            vi = resolver.resolve_by_name(subvi_name)
-
-        if vi is None:
+        vi = resolver.resolve_recorded(recorded_path)
+        catalog_name = resolver.catalog_file_name(recorded_path)
+        if vi is None or catalog_name is None:
             return None
+        vi = _checked_against_pane(vi, node, ctx)
 
         # Check if caller's WIRED terminals are missing indices
         # Only require indices for terminals that have actual wires
@@ -319,17 +388,28 @@ def _get_vilib_vi(
             )
 
             if wired_node_terminals:
-                # Auto-update terminals (raises VILibConflict on conflict)
-                vi = resolver.auto_update_terminals(
-                    vi_name=subvi_name,
+                # Learn the observed terminals into this run's own copy of the
+                # catalog.
+                if not ctx.learned_vilib:
+                    ctx.learned_vilib.append(get_resolver().fork())
+                vi = ctx.learned_vilib[0].auto_update_terminals(
+                    vi_name=catalog_name,
                     wired_terminals=wired_node_terminals,
-                    caller_vi=ctx.vi_name if ctx else None,
+                    caller_vi=ctx.vi_name,
                 )
                 # Successfully updated - continue with updated VI
 
         return vi
     except ImportError:
         return None
+
+
+def is_call_frame_terminal(node: VINode, term: Terminal) -> bool:
+    """True for a terminal of a Call By Reference node that is not a terminal of
+    the VI it calls: the VI reference and error terminals, numbered below zero."""
+    return (
+        node.node_type == "callByRefNode" and term.index is not None and term.index < 0
+    )
 
 
 def _raise_terminal_resolution(
@@ -351,37 +431,67 @@ def _raise_terminal_resolution(
     )
 
 
+def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int, str]:
+    """The Python expression of the default each input terminal of the catalog
+    entry documents (``terminal_default_expression``), by index. Only a call that
+    runs the entry's Python takes them: a call of a generated module already
+    carries the control's own default."""
+    if vilib_vi is None or vilib_vi.python_code is None:
+        return {}
+    return {
+        t.index: terminal_default_expression(t.default, t.type)
+        for t in vilib_vi.terminals
+        if t.direction == TerminalDirection.INPUT
+        and t.index is not None
+        and t.default is not None
+    }
+
+
 def _build_arguments(
     node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
+    prelude: list[ast.stmt],
 ) -> tuple[list[str], dict[str, str]]:
-    """Build input arguments, using vilib names if available."""
+    """Build input arguments, using vilib names if available. An argument that is
+    a class object or named cluster the callee may change is copied first (into
+    ``prelude``) when something else can still read it."""
     subvi_name = node.name or ""
 
     vilib_inputs = _build_vilib_terminal_map(
         vilib_vi,
-        "in",
+        TerminalDirection.INPUT,
     )
+    catalog_defaults = _catalog_defaults(vilib_vi)
 
     args = []
     keywords: dict[str, str] = {}
+    names = callee_names(ctx, node)
 
     for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
+        if term.direction != "input" or is_call_frame_terminal(node, term):
             continue
 
         term_id = term.id
         term_index = term.index
         term_name = term.name or ""
-        value = ctx.resolve(term_id)
-
-        # Skip unwired terminals - they'll use default values
-        if value is None:
-            continue
+        value = (
+            owned_input(ctx, term, node, prelude)
+            if is_by_value_object(term.lv_type)
+            else ctx.wired_input(term_id, node)
+        )
+        wired = value is not None
 
         # Skip error cluster terminals — Python uses exceptions
         if term.is_error_cluster:
+            continue
+
+        # An unwired input of a catalog VI runs with the default the catalog (or
+        # the loaded VI's control) gives it; any other unwired input uses the
+        # called function's own default.
+        if value is None:
+            value = catalog_defaults.get(term_index)
+        if value is None:
             continue
 
         # Determine parameter name with priority:
@@ -390,6 +500,8 @@ def _build_arguments(
         if vilib_inputs and term_index in vilib_inputs:
             # vilib knows the correct parameter name
             param_name = to_var_name(vilib_inputs[term_index])
+        elif names is not None and term_index in names.parameters:
+            param_name = names.parameters[term_index]
         elif term_name:
             # Use terminal name from node
             param_name = to_var_name(term_name)
@@ -399,7 +511,7 @@ def _build_arguments(
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = (
             _resolve_enum_value(value, term, vilib_vi, subvi_name, node.callee_key, ctx)
-            if vilib_vi
+            if vilib_vi and wired
             else value
         )
 
@@ -439,7 +551,7 @@ def _resolve_enum_value(
     # Find this terminal in vilib
     vilib_term = None
     for vt in vilib_vi.terminals:
-        if vt.index == term_index and vt.direction == "in":
+        if vt.index == term_index and vt.direction == TerminalDirection.INPUT:
             vilib_term = vt
             break
 
@@ -451,7 +563,7 @@ def _resolve_enum_value(
         return value
 
     # Get the LVType from vilib resolver
-    resolver = get_resolver()
+    resolver = _vilib_resolver(ctx)
     lv_type = resolver.resolve_type(vilib_term.type)
 
     if not lv_type or lv_type.kind != LVTypeKind.ENUM or not lv_type.values:
@@ -485,7 +597,7 @@ def _resolve_enum_value(
 
 def _build_vilib_terminal_map(
     vilib_vi: VIEntry | None,
-    direction: str,
+    direction: TerminalDirection,
 ) -> dict[int, str]:
     """Build index → terminal name mapping from vilib VI.
 
@@ -510,12 +622,13 @@ def _build_output_bindings(
 
     vilib_outputs = _build_vilib_terminal_map(
         vilib_vi,
-        "out",
+        TerminalDirection.OUTPUT,
     )
 
     bindings = {}
+    names = callee_names(ctx, node)
     for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
+        if term.direction != "output" or is_call_frame_terminal(node, term):
             continue
 
         term_id = term.id
@@ -529,6 +642,8 @@ def _build_output_bindings(
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:
             field = result_field_name(vilib_outputs[term_index])
+        elif names is not None and term_index in names.fields:
+            field = names.fields[term_index]
         elif term_name:
             field = result_field_name(term_name)
         else:
@@ -552,271 +667,14 @@ def _to_ast_value(value: str) -> ast.expr:
     return parse_expr(value)
 
 
-def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate obj.method(args) for dynamic dispatch calls."""
-    subvi_name = node.name or ""
-    method_name = to_function_name(subvi_name)
-
-    # Find receiver: input with lv_type.ref_type == "UDClassInst"
-    receiver_term = None
-    other_inputs: list[tuple[int, str]] = []  # (index, value)
-
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
-            continue
-        # Skip error cluster inputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-        value = ctx.resolve(term.id)
-        if value is None:
-            continue
-        if _is_class_terminal(term):
-            receiver_term = term
-        else:
-            other_inputs.append((term.index, value))
-
-    # Fallback: use lowest-indexed wired input as receiver
-    if receiver_term is None:
-        all_wired_inputs = []
-        for term in ctx.enriched_terminals(node):
-            if term.direction == "input" and ctx.resolve(term.id) is not None:
-                all_wired_inputs.append(term)
-        if all_wired_inputs:
-            all_wired_inputs.sort(key=lambda t: t.index)
-            receiver_term = all_wired_inputs[0]
-            # Rebuild other_inputs excluding receiver
-            other_inputs = [
-                (t.index, ctx.resolve(t.id))  # type: ignore[arg-type]
-                for t in all_wired_inputs[1:]
-            ]
-
-    if receiver_term is None:
-        # No inputs at all — fall back to regular function call
-        return _generate_static_fallback(node, ctx, method_name)
-
-    receiver_var = ctx.resolve(receiver_term.id) or "self"
-    # Call Parent: method is dispatched via super(), but the class-output
-    # passthrough still references the original receiver object.
-    call_receiver = "super()" if node.node_type == "callParentDynIUse" else receiver_var
-
-    # Sort other inputs by index for positional args
-    other_inputs.sort(key=lambda x: x[0])
-    args = [v for _, v in other_inputs]
-
-    # Build AST: receiver.method(args...)  or  super().method(args...)
-    call = ast.Call(
-        func=ast.Attribute(
-            value=parse_expr(call_receiver),
-            attr=method_name,
-            ctx=ast.Load(),
-        ),
-        args=[_to_ast_value(a) for a in args],
-        keywords=[],
-    )
-
-    # Build output bindings
-    bindings: dict[str, str] = {}
-    result_var = f"{method_name}_result"
-    has_non_class_output = False
-
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
-            continue
-        # Skip error cluster outputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-        if _is_class_terminal(term):
-            # Class-typed output → passthrough to receiver variable
-            bindings[term.id] = receiver_var
-        else:
-            field = result_field_name(term.name or f"out_{term.index}")
-            has_non_class_output = True
-            bindings[term.id] = f"{result_var}.{field}"
-
-    # Assignment
-    if has_non_class_output:
-        stmt = ast.Assign(
-            targets=[ast.Name(id=result_var, ctx=ast.Store())],
-            value=call,
-        )
-    else:
-        stmt = ast.Expr(value=call)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings=bindings,
-        imports=set(),
-    )
-
-
-def _generate_call_by_ref(
-    node: VINode,
-    ctx: CodeGenContext,
-) -> CodeFragment:
-    """Generate vi_ref(args...) for Call By Reference nodes.
-
-    Frame terminals (index < 0) carry error in/out and VI ref in/out.
-    Callee terminals (index >= 0) mirror the called VI's connector pane.
-    The VI ref input is the callable; callee inputs become positional args.
-    """
-    subvi_name = node.name or "call_by_ref"
-    func_name = to_function_name(subvi_name)
-
-    # Find VI reference input terminal: frame (index < 0), input, not error
-    vi_ref_var: str | None = None
-    for term in ctx.enriched_terminals(node):
-        if (
-            term.direction == "input"
-            and term.index is not None
-            and term.index < 0
-            and not term.is_error_cluster
-        ):
-            vi_ref_var = ctx.resolve(term.id)
-            if vi_ref_var:
-                break
-
-    if not vi_ref_var:
-        raise TerminalResolutionNeeded(
-            prim_id=subvi_name,
-            prim_name=subvi_name,
-            terminal_direction="input",
-            terminal_type="VI Refnum",
-            available=[],
-            vi_name=ctx.vi_name if ctx else None,
-            kind="subvi",
-        )
-
-    # Collect callee input arguments (index >= 0, not error)
-    call_args: list[tuple[int, str]] = []
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
-            continue
-        if term.index is None or term.index < 0:
-            continue
-        if term.is_error_cluster:
-            continue
-        value = ctx.resolve(term.id)
-        if value is not None:
-            call_args.append((term.index, value))
-    call_args.sort(key=lambda x: x[0])
-
-    # Build AST: result = vi_ref(arg0, arg1, ...)
-    result_var = f"{func_name}_result"
-    call = ast.Call(
-        func=ast.Name(id=vi_ref_var, ctx=ast.Load()),
-        args=[_to_ast_value(v) for _, v in call_args],
-        keywords=[],
-    )
-
-    # Output bindings: callee outputs (index >= 0, not error)
-    bindings: dict[str, str] = {}
-    has_output = False
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
-            continue
-        if term.index is None or term.index < 0:
-            continue
-        if term.is_error_cluster:
-            continue
-        has_output = True
-        field = result_field_name(term.name or f"out_{term.index}")
-        bindings[term.id] = f"{result_var}.{field}"
-
-    stmt: ast.stmt
-    if has_output:
-        stmt = ast.Assign(
-            targets=[ast.Name(id=result_var, ctx=ast.Store())],
-            value=call,
-        )
-    else:
-        stmt = ast.Expr(value=call)
-
-    return CodeFragment(statements=[stmt], bindings=bindings, imports=set())
-
-
-def _generate_static_fallback(
-    node: VINode, ctx: CodeGenContext, func_name: str
-) -> CodeFragment:
-    """Fallback for dynIUse with no inputs — generate as static function call."""
-    func_name = ctx.import_function(node.name or func_name, node.callee_key)
-    result_var = f"{func_name}_result"
-    call = ast.Call(
-        func=ast.Name(id=func_name, ctx=ast.Load()),
-        args=[],
-        keywords=[],
-    )
-    stmt = ast.Assign(
-        targets=[ast.Name(id=result_var, ctx=ast.Store())],
-        value=call,
-    )
-    bindings: dict[str, str] = {}
-    for term in ctx.enriched_terminals(node):
-        if term.direction == "output":
-            if term.is_error_cluster:
-                continue
-            field = result_field_name(term.name or f"out_{term.index}")
-            bindings[term.id] = f"{result_var}.{field}"
-
-    return CodeFragment(statements=[stmt], bindings=bindings)
-
-
-def _is_class_terminal(term: Terminal) -> bool:
-    """Check if a terminal carries a class instance (UDClassInst)."""
-    return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
-
-
-def _emit_vilib_resolution(
+def _raise_vilib_resolution(
     node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
-) -> CodeFragment:
-    """Handle an unknown / unresolvable vi.lib SubVI call.
-
-    Default mode: raise VILibResolutionNeeded immediately so the
-    conversion loop catches it.
-
-    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
-    VILibResolutionNeeded(...)` AST statement with the same context.
-    Pre-binds output terminals to None so downstream codegen still has
-    a value to read.
-    """
+) -> NoReturn:
+    """An unknown or unresolvable vi.lib SubVI call is a gap."""
     context = _build_resolution_context(node, ctx, vilib_vi)
-    vi_name = node.name or ""
-
-    if ctx.unresolved_sink is not None:
-        # Batch-collection mode (`lvkit unresolved`): record and keep going.
-        ctx.unresolved_sink.append(VILibResolutionNeeded(vi_name, context=context))
-
-    if not ctx.soft_unresolved:
-        raise VILibResolutionNeeded(vi_name, context=context)
-
-    # Soft mode: emit
-    #   raise VILibResolutionNeeded(<vi_name>,
-    #       context=ResolutionContext(...))
-    # vi_name is a literal positional. The ResolutionContext is a
-    # dataclass call — not a literal — so it goes through source_kwargs
-    # as a pre-formatted Python expression.
-    ctx_kwarg_src = ", ".join(
-        f"{k}={v!r}"
-        for k, v in {
-            "caller_vi": context.caller_vi,
-            "caller_qualified_name": context.caller_qualified_name,
-            "poly_selector": context.poly_selector,
-            "wire_types": context.wire_types,
-            "terminal_names": context.terminal_names,
-            "qualified_path": context.qualified_path,
-        }.items()
-    )
-
-    return emit_soft_unresolved(
-        node=node,
-        ctx=ctx,
-        exception_module="lvkit.vilib_resolver",
-        exception_class="VILibResolutionNeeded",
-        positional_args=[vi_name],
-        source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
-        extra_imports={"from lvkit.vilib_resolver import ResolutionContext"},
-    )
+    raise VILibResolutionNeeded(node.name or "", context=context)
 
 
 def _build_resolution_context(

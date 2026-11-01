@@ -21,8 +21,6 @@ from lvkit.primitive_resolver import get_resolver
 
 pytestmark = pytest.mark.needs_samples
 
-VARIANT_TO_DATA = "8003"
-
 _OUTPUT_FLAG = 1
 
 
@@ -63,7 +61,7 @@ def _prim_nodes(xml_path: Path) -> Iterator[tuple[str, list[tuple[int, str]]]]:
             if dco is None:
                 continue
             flags = int(dco.findtext("objFlags") or 0)
-            direction = "out" if flags & _OUTPUT_FLAG else "in"
+            direction = "output" if flags & _OUTPUT_FLAG else "input"
             slots.append((int(dco.findtext("parmIndex") or 0), direction))
         yield prim_id, slots
         element.clear()
@@ -81,19 +79,21 @@ def conflicts() -> dict[str, int]:
         pytest.skip("no extracted sample-corpus XML in the extraction cache")
 
     resolver = get_resolver()
-    catalog: dict[str, set[tuple[int, str]] | None] = {}
+    catalog: dict[tuple[str, frozenset[tuple[int, str]]], bool | None] = {}
     found: dict[str, int] = {}
     for _source, xml_path in xml_files:
         for prim_id, slots in _prim_nodes(xml_path):
-            if prim_id not in catalog:
-                resolved = resolver.resolve(prim_id=int(prim_id))
-                catalog[prim_id] = (
-                    {(t.index, t.direction) for t in resolved.terminals}
-                    if resolved is not None and resolved.terminals
-                    else None
-                )
-            entry = catalog[prim_id]
-            if entry is not None and any(slot not in entry for slot in slots):
+            key = (prim_id, frozenset(slots))
+            if key not in catalog:
+                resolved = resolver.resolve(prim_id=int(prim_id), node_slots=slots)
+                if resolved is None or (
+                    not resolved.terminals and not resolved.terminal_set_gap
+                ):
+                    catalog[key] = None
+                else:
+                    have = {(t.index, t.direction) for t in resolved.terminals}
+                    catalog[key] = all(slot in have for slot in slots)
+            if catalog[key] is False:
                 found[prim_id] = found.get(prim_id, 0) + 1
     return found
 
@@ -101,28 +101,11 @@ def conflicts() -> dict[str, int]:
 def test_every_prim_terminal_is_in_its_catalog_entry(
     conflicts: dict[str, int],
 ) -> None:
-    others = {k: v for k, v in conflicts.items() if k != VARIANT_TO_DATA}
-    assert not others, (
+    assert not conflicts, (
         "primitive nodes whose parmIndex/direction is missing from the catalog "
         "entry (primResID: node count): "
-        + ", ".join(f"{k}: {v}" for k, v in sorted(others.items(), key=_by_id))
+        + ", ".join(f"{k}: {v}" for k, v in sorted(conflicts.items(), key=_by_id))
     )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "open item: Variant To Data (8003) is numbered 0, 3, 8, 9, 11 in VIs "
-        "saved by LabVIEW 11 and later but 0-4 in VIs saved by 8.2 and 9.0 "
-        "(48 corpus nodes). The catalog holds one numbering, so on the older "
-        "nodes names are withheld and generated Python takes the wrong "
-        "terminal. Needs a catalog format that holds both layouts."
-    ),
-)
-def test_variant_to_data_numbering_does_not_depend_on_saved_version(
-    conflicts: dict[str, int],
-) -> None:
-    assert VARIANT_TO_DATA not in conflicts
 
 
 def _by_id(item: tuple[str, int]) -> int:

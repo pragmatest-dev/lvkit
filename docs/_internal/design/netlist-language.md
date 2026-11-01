@@ -124,13 +124,16 @@ vi <VIName.vi> :
   contains `"` or `\`, stays on one physical line. The label (`<name>`)
   remains the control's identity; the caption is display text only.
 - **`block-diagram :`** (always present) — the body, in graph order
-  (`_node_order_key`), followed by the boundary-output-drive lines at its
-  own end: `<out name> = <source-net>` (`error out = case_139::out0`). So a
-  boundary output is declared once (in `front-panel :`) and driven once (at
-  the end of `block-diagram :`) — follow its net name to connect the two.
-  An off-pane indicator that something drives gets a drive line too (after the
-  on-pane outputs'); an off-pane indicator nothing drives has none. An
-  off-pane control's net is named by its label, like an on-pane one.
+  (`_node_order_key`), followed by the indicator-drive lines of the terminals on
+  the VI's own diagram at its end: `<out name> = <source-net>`
+  (`error out = case_139::out0`). So an indicator is declared once (in
+  `front-panel :`) and driven once — follow its net name to connect the two. An
+  indicator whose terminal sits inside a loop or a case, event, sequence or
+  disable frame has its drive line in that body instead (see "Front-panel
+  terminals inside a structure", §8). An off-pane indicator that something drives
+  gets a drive line too (after the on-pane outputs'); an off-pane indicator
+  nothing drives has none. An off-pane control's net is named by its label, like
+  an on-pane one.
 - **`types :`** (§10.1, verbose-only) — the bottom lossless-types footnote,
   omitted entirely when the VI has no named types.
 - **Indentation is structural** — 2 spaces per scope level; blocks open with a
@@ -235,7 +238,10 @@ in   GUID        : String           default ""                            # UNWI
   would just echo the same column twice. A **drive-position** default (no
   type column of its own — a case-output tunnel left unwired in one frame,
   `case0::out2 = (default TestSuite.lvclass)`) keeps naming the type, since
-  there's nothing else on that line to read it from.
+  there's nothing else on that line to read it from. EVERY drive-position
+  default renders `(default <Type>)`, a scalar's zero included
+  (`case_951::out1 = (default TF)`): a bare `False` there would read as a wired
+  constant. Reconstruction restores "unwired, use default" from it.
 
 **Net vs. constant is told apart lexically (the Verilog convention):** a literal
 (quoted string / number / boolean) is a constant; an identifier is a net.
@@ -270,6 +276,86 @@ row (on-pane and off-pane), the sink side of its boundary-output drive line
 a quoted front-panel name declared in `front-panel :`, in which case it is that
 control's net.
 
+**Quoting a front-panel control name.** A control or indicator name is also a net
+reference (`= Running`, `Running = case_139::out0`), so it is double-quoted, in its
+`front-panel :` row, as a source and as a drive-line sink, when its bare spelling
+would read as something else there: a Boolean literal (`True`, `False`), the
+Not-a-Path literal (`NotAPath`), a number (`5`, `-1.5`), `default`, `?`, a name that
+opens with `Path(`, `(`, `read `, `shift-register ` or `tunnel `, a name that spells
+a structure net (`case_951::out1`, `loop_146::i`) or a Feedback Node net (`fb0`), or
+a name holding `::`. A control named `True` is written `"True"`, so it is never the
+Boolean constant. A node terminal's name (`in   0 : DBL`) follows the name-safety rule
+above only.
+
+**A Boolean or numeric value is read back by its type.** The text a VI stores for a
+`TF` control's default or a `TF` constant (`True`) is written as the literal `True`,
+not the string `"True"`; an integer, enum or ring ordinal and a float are written as
+numbers. A string value stays a quoted string. This holds for a constant, a
+front-panel default and a `uses :` interface default alike.
+
+**A path value.** A Path constant or default is written by the type the file saves
+for it, bare (not quoted): an absolute path `Path("/C/Users")` (with no component,
+`Path("/")`), a relative path `Path("test.xml")` (with no component, `Path("")`), and
+Not a Path `NotAPath`. The components are joined by `/`; an empty component, which
+goes up a level, is `..` (`Path("../image.tif")`); a `/`, `\` or `"` inside a
+component has a backslash in front of it (`Path("a\/b")`). A saved path of a type
+that is none of these is unreadable and keeps its type (`<Path of unknown type 3>`),
+like any value the file stores that lvkit cannot read. A control named `NotAPath`
+or starting `Path(` is quoted (above). In generated Python a path is `Path('...')`
+and Not a Path is `None`, so a path is typed `Path | None`; an absolute path with
+no component generates the empty `Path('')`, as Python has no such absolute path.
+
+**What an unwired input of a call shows.** The `default` of an unwired input is read
+from the callee, never from the input's type. A function in the catalog (a primitive or a
+vi.lib VI) gives the value NI's public page documents, written as any value of the type
+is (`default "OK"`, `default False`, `default 2 (verify)`), or a documented behavior that
+is no value, in parentheses (`default (rest)`, `default (append)`,
+`default (one element)`, `default (last element)`, `default (no padding)`,
+`default (empty variant)`, `default (unchanged)`,
+`default (application of the calling VI)`, `default (generic VI reference)`). An Index
+Array input that repeats shows what the code does for it: `default (previous index + 1)`
+in a later set, `default (entire row or column)` in a later dimension. A call of a
+project VI shows the callee's saved value, the same value its `uses :` entry shows. The
+bare `default` stands when nothing records one, as for an error cluster (its default is
+no error). A value is shown only when it is a value of the input's type at that call: a
+Boolean on a Boolean input, a number on a numeric, enum or ring input, a string on a
+String input, path text on a Path input. One that is not is reported (a warning naming
+the function and the input) and the input shows the bare `default`. In generated Python
+the same value goes through the conversion a constant of its type goes through, and a
+documented behavior is written by the function's own generator. An input the function's
+code reads whose default is unknown, or whose behavior has no generator, is an
+`unknown_default` gap, one per input; an input the code never reads needs none. An input
+the code reads that the call does not have is a `terminal_mapping` gap (the catalog numbers
+the function's terminals differently from the call).
+
+**Parse order.** A line with a top-level ` = ` and no top-level ` : ` before it is a
+drive line, whatever its first word; a node, constant or variable line carries its
+` : ` first.
+
+**A `Void` terminal.** A `Void` terminal nothing is wired to is a dead
+connector-pane slot and is not written. One with a wire is a real terminal whose type
+the file does not record (a DAQmx Task property's value, say): it keeps its line
+(`out  NumChans : Void`) so every net a reader names is declared. A type the file
+records but lvnet cannot read is not `Void` either: it keeps its own descriptor
+followed by `(unreadable "<reason>")` -- the reason a §4 quoted literal, like
+`(library unreadable "<reason>")` -- in lvnet, describe and JSON alike (the `type`
+string, and `lv_type.unreadable` in verbose JSON). That differs from `?`, which is
+written where a type is *not loaded* (a VI or type definition that was not read at
+all): `(unreadable "…")` says the file was read and this one descriptor could not be.
+
+**An enum or ring value names its item.** A constant of an enum or ring type is a number
+followed by the item it selects, `2 (verify)`, the item a §4 name token (`2 ("a, b")`);
+a value that is no item is the bare number. The same text is a net on the right of `=`
+and in a `constant` line, and describe prints it after `= `. A front-panel control's
+`default` takes the same form (`default 2 (verify)`). A control whose label would
+read as that form (`2 (verify)`) is quoted. A ring whose values are not 0, 1, 2, ...
+lists them in its type, in value order: `ring{verify = 2, commit = 3, reserve = 4}`
+(`ring{a, b, c}` otherwise).
+
+**A terminal name in a net reference** follows the same name-safety rule as its
+declaration: `Property_Node_1845::"Image Parameters : Image Type"` where the
+declaration is `out "Image Parameters : Image Type" : U32`.
+
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most
 universal target-left pattern in text languages. **Not `<=`** (reads as ≤, HDL
@@ -293,7 +379,7 @@ the wired/unwired part:
 ```
 in   TestLoader in       : TestLoader.lvclass   required
 in   TestCase            : TestCase.lvclass     recommended
-in   error in (no error) : Error                optional   default (no error)
+in   error in (no error) : Error                optional   default
 ```
 
 The two axes are independent: a terminal can be `required` **and** unwired
@@ -339,7 +425,7 @@ wiring; the handle just gives its copies distinct, variable-like names.
 
 **The handle** is *our* label: the node's display name with its **file extension
 stripped** and **spaces replaced by `_`**, suffixed **`_<uid>`** — the node's own
-stable BD `uid` (`netlist_build._uid_of`), not a positional occurrence counter —
+stable BD `uid` (`netlist_build.uid_of`), not a positional occurrence counter —
 for every instance, including the first (schematics don't leave `U1` blank).
 Because a `uid` is globally unique on its own, every instance carries its
 handle regardless of whether its base name repeats elsewhere in the VI, with
@@ -377,16 +463,17 @@ field plumbed). It emits its handle + typed terminals with a
 | Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its own `fbK` net — a small sequential id, one per feedback node in the VI, unlike every other node's `_<uid>` handle suffix (a feedback node has no separate "declared name" for a base to attach a uid to; the net name doubles as the handle); `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
 | Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_<uid>`, e.g. `constant GUID_142 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_142`). |
 | Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. |
+| VI Server Reference | `vi-server-reference` | a Control Reference constant (`ctlRefConst`): `vi-server-reference <handle> : <target>`, one line, no terminal block. It is a SOURCE whose single output is the reference itself (a refnum), not the value of a control; a reader references it as `<handle>::<port>` like any node's output, and the consumer's terminal line spells the refnum type. `<target>` is read from decoded fields, never from the constant's label: `This VI` / `This Application` when the reference's type records that VI Server class (`CtlFlags` 0x0002 / 0x0001, `labview-binary-format.md`) and the constant names no control; the referenced control as a §4 control-name token when the constant's `ddo` resolves to a front-panel control (`Tree`; a control named `This VI`, `This Application` or `?` is quoted); `?` when neither is decoded (a VI saved before the type records its class). A reference constant is never a `local-variable`, which taps a control's value. |
 | Global Variable | `global-variable` | a TAP on one control of a Global VI, shaped like a local variable but naming its target: a **read** is a SOURCE, `global-variable <handle> : read <Global VI>::<control>`; a **write** is a SINK, `global-variable <handle> : write <Global VI>::<control> = <source>`. The handle base is the control name (`Debug_18698`). `<Global VI>` is the qualified name the calling VI's block-diagram link table records for the VI, `<control>` the control of it that the node's connector cluster names at the node's control index; both halves follow the §4 name-safety rule, and the Global VI half is also quoted when it contains `::`. The Global VI additionally appears under `uses :` as a `global` entry. The node has no wire to any control of the calling VI. |
 | Shared Variable | `shared-variable` | a node reading or writing a variable of a project library: `shared-variable <handle> : <library>::<variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`, and on a read node that shows it `timestamp`; a terminal whose ID is not a confirmed one shows its number). `<library>` is the qualified name the calling VI's block-diagram link table records for the variable's library (found by the node's uid, never from the node's label text); both halves are §4 name tokens, and a half that contains `::` or opens with a quote is quoted. When the link table holds no record for the node, the `<library>::` half is absent: `shared-variable <handle> : <variable name> : read|write`. The library additionally appears under `uses :` as a `library` entry. A trailing parenthetical **attribute** after `read`/`write` (like a Feedback Node's `(N iterations)`) carries the rest: `(network-published "<path>")` for a variable published to the network (the path the link table records, a §4 quoted literal; a single-process variable carries none), and `(library unreadable "<reason>")` for a node whose link-table record could not be decoded (the library is then absent and the reason is the decoder's, a quoted literal) -- at most one. The first ` : ` outside a quoted name ends the target; `read`/`write` and the attribute follow it. |
-| Control / Indicator (internal) | `control` / `indicator` | a front-panel control/indicator **not** on the connector pane → a body node. `control` = source, `indicator` = sink. |
 | Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
 | Free label / comment | `comment` | non-executing text. |
 
-**Boundary vs. internal front panel:** an FP control/indicator **on** the
-connector pane is the `vi` block's `in`/`out`. One **off** the connector pane is
-an internal `control`/`indicator` **node** in the body. Local/global variables
-are extra taps on that net. **Multiple writes to one control = one net, several
+**Boundary vs. off-pane front panel:** an FP control/indicator **on** the
+connector pane is a `front-panel :` row with a pane slot (`@<index>`); one
+**off** the connector pane is a row without one. Neither is a body node: a
+control is the net of its label and an indicator is driven by a line (§2, §8).
+Local/global variables are extra taps on that net. **Multiple writes to one control = one net, several
 drivers** (LabVIEW's race/ordering) — surface it plainly, don't hide it.
 
 ## 7a. The `uses :` dependency manifest
@@ -468,14 +555,14 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` | single implicit body (index `i`, count `N`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
-| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
-| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
-| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
-| Event Structure | `event-structure :` | `frame "<event>" :` per event case |
-| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
-| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
-| Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
+| For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the block opens with the wires into the loop that nothing in the body reads (`loop_<uid>::inK = <src>`), then the wire into the count terminal, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| While Loop | `while-loop (stop if true) :` / `while-loop (continue if true) :` | single implicit body; the header always says how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
+| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, …; the frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>` (no line in a frame that does not: data leaves each frame as it finishes). A tunnel that hands a value from one frame to the next is the same net: the producing frame ends with `sequence_<uid>::outK = <source>` and a reader in a later frame references `sequence_<uid>::outK`; there is no `sequence_<uid>::inK` line, since the value does not come from outside |
+| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>`, as a Flat Sequence does (none in a frame that does not). A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
+| Event Structure | `event-structure :` | `frame "<event>" :` per event case; the label is a §4 string literal (`frame "[1] \"stop\": Value Change" :`). Each frame ends with the values it drives onto the structure's output tunnels, `event_<uid>::outK = <source>` (an unwired frame: `(default <Type>)`), like a case frame. The dynamic terminal pair is one net, `event_<uid>::dynamic`: readers use it, a block line `event_<uid>::dynamic = <src>` is the wire into the left terminal, and a frame that wires the inside right terminal drives it (`event_<uid>::dynamic = <src>`); a frame that does not passes the left value through, so it is never `(default …)`. |
+| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`); every frame ends with the value it drives onto each output tunnel, `disabled_<uid>::outK = <source>`, or `(default <Type>)` when it leaves the tunnel unwired (exactly one frame runs, like a case) |
+| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (the label a §4 string literal; matched frame carries `, default`); every frame ends with `disabled_<uid>::outK = <source>` or `(default <Type>)`, as a Diagram Disable's |
+| Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`); every frame ends with `disabled_<uid>::outK = <source>` or `(default <Type>)`, as a Diagram Disable's |
 | In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value wired into a border node's input — a Bundle Elements element the body supplies, or the cluster/array/index the outside feeds through the structure's In Element port (the port and the border terminal name the same heap DCO) — is a drive line at the end of the body, `inplace_<uid>::putK = <source>`, the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 
@@ -529,7 +616,56 @@ case/select structure only — sequence/disabled/event frames keep their plain
 `frame <label> :` header; none of them encode a comparable "default" concept
 in their own header text.
 
+**Structure inputs no frame reads.** Lines first in a structure's block (before its
+first frame, or before the body of a loop): `event_70::timeout = -1`,
+`event_1444::dynamic = <src>`, and for every structure kind an input tunnel nothing
+inside reads, `sequence_3252::in0 = case_910::out2`. `K` in `inK` counts ALL of the
+structure's plain input tunnels, read or not (like `localK`), so adding a reader never
+renames another input.
+
+### Front-panel terminals inside a structure
+
+A control or indicator has one terminal on the block diagram. When it sits inside a
+loop, or inside a case, event, sequence or disable frame, it belongs to that body,
+not to the VI's own diagram: an indicator is written (once per iteration of a loop,
+only when its frame runs) and a control is read there.
+
+- An **indicator**'s drive line is a line of the body that holds its terminal,
+  after the body's nodes and before the structure's own output lines:
+  `Rate = Subtract_3734::difference` in a While Loop body, `Timer =
+  High_Resolution_Relative_Seconds_1114::relative seconds` in `frame "No Error"`.
+  It is the same `<name> = <source>` line as at the end of the diagram (§2), so
+  `Running = True` inside a frame is a wired constant and `Running = ?` an unwired
+  indicator. A VI that calls this VI and runs another frame does not get that output
+  written -- the line says which frame writes it.
+- A **control**'s terminal inside a body is `read <Control>`, a line of that body
+  before its nodes (name per §4: `read "read x"`). It reads the value once per run
+  of the frame, or on every iteration of a loop. Readers of the control keep
+  referencing its net, `Control`. A control on the VI's own diagram has no line.
+- A line of either kind is valid only inside a structure: the same text on the VI's
+  own diagram is a parse error. An indicator's drive line is told from a structure
+  net's drive (`case_951::out1 = …`) by its sink: a structure net is never quoted and
+  holds `::`, a control name holding `::` is quoted (§4).
+- **Two terminals with one label.** A label does not identify a terminal: two
+  indicators (or two controls) may share it. In verbose text each of them carries
+  ` (id <uid>)`, the terminal's uid on the block diagram, after its name on its
+  `front-panel :` row and on its drive or `read` line (`Rate (id 5020) = 3`,
+  `read c (id 5001)`) and wherever a wire reads a control (`in x : I32 = x (id 5020)`), the same suffix a structure header carries. A name that
+  itself ends in ` (id <digits>)` is quoted. Reconstruction claims a row by that
+  uid. Terse text has no uid, so a label shared by several indicators, one of them
+  driven inside a structure, or by several controls, one of them read inside one,
+  cannot be read back and is an error that asks for verbose text (a wire reading one of several same-labelled controls is the same error). A `read` names a
+  control of the `front-panel :` block and appears once; reads come before a body's
+  other lines and indicator drives after them.
+- JSON: an `inputs[]` / `outputs[]` entry (and the `connector_pane.terminals` entry
+  of a control or an indicator) of a placed terminal carries `"scope": {"uid":
+  <structure uid>, "frame": <frame value, null for a loop or In Place Element body>}`;
+  an entry on the VI's own diagram has no `scope` key. The body items of JSON do not
+  repeat them.
+
 ### Border constructs
+
+An unwired shift-register initializer is written `shift-register loop_146::shift0 (uninitialized) :` with no `init` line (the register keeps the value it held when the VI last ran); a Feedback Node is `feedback-node fb0 (1 iteration, uninitialized) :`. `init` is absent exactly when the attribute is present; a mismatch is a parse error. Header settings share one parenthesis, comma-separated; `(id <uid>)` stays separate.
 
 ```
 shift-register loop_879::shift0 :
@@ -587,7 +723,7 @@ in different places.
   MODEL's own internal storage keeps a `.` separator here instead of `::` —
   `_lvnet_net_separator` reformats it for this render only).
 - **Instance suffix `_<uid>`:** every node/constant instance carries
-  `_<uid>` — the node's own stable BD `uid` (`netlist_build._uid_of`), not a
+  `_<uid>` — the node's own stable BD `uid` (`netlist_build.uid_of`), not a
   positional occurrence counter — the first copy included: the handle's
   uniquifier and the stable diff/round-trip identity. (Replaces the old
   `#n`; `#` is now the comment marker, §6.)
@@ -616,7 +752,10 @@ Faithful LVType on every terminal, **never a Python type**:
   word. `Cluster{…}` (capitalized) is reserved for the verbose `types :`
   footnote's own FULL lossless definition (§10.1), which does show every
   field's type.
-- Enum: `Enum{a,b,c}`.
+- Enum: `enum{a, b, c}`; a ring is `ring{a, b, c}`. One spelling everywhere a type is
+  printed, inline or in a `types :` entry; items are written in value order, and an
+  item carries its value (`ring{verify = 2, commit = 3}`) only when the values are not
+  0, 1, 2, … A name needing quotes is quoted (§4). With no items loaded: `enum{?}`.
 - Class: `MyClass.lvclass` (qualified).
 - Refnum: `refnum{…}` — `Queue refnum{Error}`. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `UserEvent refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
 - Typedefs referenced by qualified name, never expanded inline (full field
@@ -661,8 +800,8 @@ full structure lives.
 
 The lossless def grammar, keyed to the same closed set of `LVType` kinds:
 
-- **enum/ring**: `Enum{ m0 = 0, m1 = 1, … }` / `Ring{ … }` — ordinals
-  **explicit**, in ordinal order (never omitted the way the inline form does).
+- **enum/ring**: `enum{m0, m1, …}` / `ring{m0 = 2, m1 = 3, …}` — the same text as the
+  inline form (§10 above), items in value order.
 - **cluster**: `Cluster{ f0 : <type-ref>, f1 : <type-ref>, … }` — every
   field's own faithful type, not just its name. `<type-ref>` is: a NAMED
   sub-type BY NAME (its own footnote entry, never re-inlined — footnotes stay
@@ -681,7 +820,7 @@ The lossless def grammar, keyed to the same closed set of `LVType` kinds:
   entry just shows whatever that type's real structure is.
 - Never fabricated: a cluster/typedef with no field list loaded, or an
   enum/ring with no member list loaded (an unresolved reference), renders the
-  honest `Cluster{ ? }` / `Enum{ ? }` rather than guessing.
+  honest `Cluster{ ? }` / `enum{?}` rather than guessing.
 
 **Known lossy corner case — ambiguous same-name types.** A `.ctl` typedef name
 is not a global identity: the SAME nominal name can genuinely resolve to
@@ -707,8 +846,7 @@ a).** An anonymous cluster renders its field TYPES inline in the capital
 lossless grammar — `Cluster{ Source : U32, Type : lveventtype, Time : U32 }`
 (each field a `<type-ref>`: a named field by name, an anonymous field
 structurally, a nested error cluster as `Error`) — not the old names-only
-`cluster{Source, Type, Time}`; an anonymous enum/ring likewise spells its
-ordinals inline (`Enum{ m0 = 0, m1 = 1 }`). So a named type reachable ONLY
+`cluster{Source, Type, Time}`; an anonymous enum/ring is `enum{m0, m1}` inline. So a named type reachable ONLY
 through an anonymous cluster's field (e.g. that `Type` field's `lveventtype`)
 IS now recoverable from the text and is correctly collected into the footnote
 (`iter_named_subtypes` descends every non-error cluster's fields — named or
@@ -721,7 +859,7 @@ Because an inline `<Type>` can now carry bare ` : ` / ` = ` tokens inside its
 braces, the inline terminal-line parser is **brace-aware**: it finds the
 line's own `= <driver>` / `default` / `@index` operators only at brace/bracket
 DEPTH ZERO (`_top_level_word_index` / `_find_top_level_sep` in `lvnet_parse`),
-so an `Enum{ m0 = 0 }` type's own `=` is never mistaken for a driver. Named
+so a `ring{m0 = 2}` type's own `=` is never mistaken for a driver. Named
 types still render by their bare name (their structure lives once in the
 footnote); an error cluster still renders `Error`; a refnum/array wrapper is
 byte-unchanged (`Queue refnum{Error}`, `[NamedThing]`). An **ambiguous** named

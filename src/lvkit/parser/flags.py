@@ -9,6 +9,11 @@ TERMINAL_IS_OUTPUT = 0x1  # Bit 0: terminal is output (vs input)
 # Compound Arithmetic (and similar) nodes: bit 16 set on a terminal's DCO
 # means "invert this terminal" (Not before an input, Not after the output).
 TERMINAL_DCO_INVERTED = 0x00010000  # Bit 16: terminal value is inverted
+# Index Array: bit 16 on an index terminal's DCO means indexing is disabled for
+# its dimension, so the dimension is taken whole. Set on every unwired index of a
+# multi-dimensional array whose dimension is taken whole, never on a wired index or
+# on an enabled one (read over the sample corpus).
+TERMINAL_DCO_INDEXING_DISABLED = 0x00010000
 # Invoke Nodes: bit 16 on an ``invokeItem`` DCO marks the method row (its
 # return value). LabVIEW stores that row as an output DCO and an input DCO; only
 # the output is a terminal on the node.
@@ -44,14 +49,22 @@ FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)
 # one child per connector slot). Bit 8 marks an output; bits 11 and 12 are the
 # wiring rule and never both set: bit 12 = Required, bit 11 = Recommended,
 # neither = Optional. Bit 15 marks a Dynamic Dispatch terminal (always
-# alongside bit 12 on an input / bit 11 on an output), so it adds no state.
+# alongside bit 12 on an input / bit 11 on an output), so it adds no wiring-rule
+# state; it says the VI is a dynamic-dispatch member of a class.
+CONPANE_FLAG_OUTPUT = 0x0100  # Bit 8
 CONPANE_FLAG_RECOMMENDED = 0x0800  # Bit 11
 CONPANE_FLAG_REQUIRED = 0x1000  # Bit 12
+CONPANE_FLAG_DYNAMIC_DISPATCH = 0x8000  # Bit 15
 
 
 def is_output_terminal(flags: int) -> bool:
     """Check if terminal flags indicate an output terminal."""
     return bool(flags & TERMINAL_IS_OUTPUT)
+
+
+def is_indexing_disabled(flags: int) -> bool:
+    """Check if an Index Array index terminal's DCO objFlags disable indexing."""
+    return bool(flags & TERMINAL_DCO_INDEXING_DISABLED)
 
 
 def is_inverted_terminal(flags: int) -> bool:

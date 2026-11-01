@@ -51,17 +51,12 @@ def _require_pair() -> None:
 
 
 def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
-    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default) and the
-    search paths a bare ``lvkit diff a b --search-path <copy>`` resolves, so CLI
+    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default), so CLI
     output matches this in-process reference."""
-    from lvkit.cli import _auto_search_paths
-
     graph = InMemoryVIGraph()
-    search_paths = _auto_search_paths([str(PAIR.root)], vi_path, vi_path)
     key = graph.load_vi(
         str(vi_path),
         LoadMode.MINIMAL,
-        search_paths=search_paths,
         layout=layout,
     )
     assert key is not None
@@ -86,12 +81,12 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
             "diff",
             str(PAIR.base),
             str(PAIR.head),
-            "--search-path",
-            str(PAIR.root),
+            "--no-auto-vilib",
             *args,
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         env=env,
     )
 
@@ -110,9 +105,7 @@ class TestDiffVIFilesNames:
         expected_after = gb.vi_display_name(nb)
 
         for fmt in ("text", "json", "html"):
-            result = diff_vi_files(
-                PAIR.base, PAIR.head, fmt=fmt, search_paths=[PAIR.root]
-            )
+            result = diff_vi_files(PAIR.base, PAIR.head, fmt=fmt)
             assert isinstance(result, DiffBody)
             assert result.before_name == expected_before
             assert result.after_name == expected_after
@@ -147,7 +140,7 @@ class TestFormatJson:
         assert result.returncode == 0, result.stderr
         assert result.stdout == ""  # went to the file, not stdout
 
-        written = json.loads(out.read_text())
+        written = json.loads(out.read_text(encoding="utf-8"))
 
         ga, na = _load(PAIR.base, layout=True)
         gb, nb = _load(PAIR.head, layout=True)
@@ -168,7 +161,7 @@ class TestFormatHtml:
         assert f"Wrote {out}" in result.stdout
         assert out.is_file()
 
-        html = out.read_text()
+        html = out.read_text(encoding="utf-8")
         assert html.startswith("<!doctype html>")
 
         ga, na = _load(PAIR.base, layout=True)
@@ -189,18 +182,18 @@ class TestFormatHtml:
         result = _run_diff("--open", "-o", str(out))
         assert result.returncode == 0, result.stderr
         assert out.is_file()
-        assert out.read_text().startswith("<!doctype html>")
+        assert out.read_text(encoding="utf-8").startswith("<!doctype html>")
 
     def test_open_with_format_json_errors(self) -> None:
         _require_pair()
         result = _run_diff("--open", "--format", "json")
-        assert result.returncode == 1
+        assert result.returncode == 2
         assert "--open requires --format html" in result.stderr
 
     def test_open_with_format_text_errors(self) -> None:
         _require_pair()
         result = _run_diff("--open", "--format", "text")
-        assert result.returncode == 1
+        assert result.returncode == 2
         assert "--open requires --format html" in result.stderr
 
 
@@ -253,60 +246,42 @@ class TestFormatText:
         assert default_result.stdout != verbose_result.stdout
 
 
-# ── #36: auto-detect project root for SubVI resolution ──────────────────────
+# ── --search-path: LabVIEW's VI Search Path, an ordered list ───────────────
 
 
-class TestAutoDiffSearchPaths:
-    """`lvkit diff a b` should resolve SubVIs from each VI's project root
-    (nearest enclosing .lvkit/) without the user repeating --search-path."""
-
-    def test_detects_shared_root_for_both_sides(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        (tmp_path / ".lvkit").mkdir()
-        (tmp_path / "sub").mkdir()
-        a = tmp_path / "sub" / "a.vi"
-        b = tmp_path / "sub" / "b.vi"
-
-        paths = _auto_search_paths([], a, b)
-
-        # One shared root, added once (both VIs are in the same project).
-        assert [p.resolve() for p in paths] == [tmp_path.resolve()]
-
-    def test_detects_both_roots_across_two_projects(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        proj_a = tmp_path / "old"
-        proj_b = tmp_path / "new"
-        for proj in (proj_a, proj_b):
-            (proj / ".lvkit").mkdir(parents=True)
-        a = proj_a / "a.vi"
-        b = proj_b / "b.vi"
-
-        paths = {p.resolve() for p in _auto_search_paths([], a, b)}
-
-        assert paths == {proj_a.resolve(), proj_b.resolve()}
-
-    def test_explicit_paths_preserved_and_deduped(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        (tmp_path / ".lvkit").mkdir()
-        a = tmp_path / "a.vi"
-        b = tmp_path / "b.vi"
-        # Explicitly passing the root must not duplicate the auto-detected one.
-        explicit = [str(tmp_path)]
-
-        paths = [p.resolve() for p in _auto_search_paths(explicit, a, b)]
-
-        assert paths == [tmp_path.resolve()]
-
-    def test_no_project_store_yields_no_paths(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        # A .git marker without .lvkit stops the walk (no store) -> nothing to
-        # add; load_vi still searches each VI's own dir via source_dir.
-        (tmp_path / ".git").mkdir()
-        a = tmp_path / "a.vi"
-        b = tmp_path / "b.vi"
-
-        assert _auto_search_paths([], a, b) == []
+@pytest.mark.parametrize(
+    "command",
+    ["describe", "generate", "document", "visualize", "unresolved", "render", "diff"],
+)
+def test_search_path_is_taken_several_times_by_every_command(
+    command: str, tmp_path: Path
+) -> None:
+    """Every command that resolves dependencies takes ``--search-path`` more than
+    once (and ``--userlib`` too): no usage error (exit 2); the unreadable input
+    is the run's only problem."""
+    vi = tmp_path / "a.vi"
+    vi.write_bytes(b"")
+    extra = {"document": [str(tmp_path / "out")], "diff": [str(vi)]}.get(command, [])
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            command,
+            str(vi),
+            *extra,
+            "--search-path",
+            str(tmp_path),
+            "--search-path",
+            "<userlib>",
+            "--userlib",
+            str(tmp_path),
+            "--userlib",
+            str(tmp_path / "other"),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode != 2, result.stderr
+    assert "usage:" not in result.stderr

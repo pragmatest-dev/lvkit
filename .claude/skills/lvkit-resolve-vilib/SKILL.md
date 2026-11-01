@@ -1,12 +1,12 @@
 ---
 name: lvkit-resolve-vilib
-description: Resolve a single unknown vilib VI by looking up its terminal layout in the LabVIEW documentation. Called when VILibResolutionNeeded fires during lvkit generate.
+description: Resolve a single unknown vilib VI by looking up its terminal layout in the LabVIEW documentation. Called when lvkit generate warns about an unmapped vi.lib VI.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
 # Resolve Unknown vilib VI
 
-When `VILibResolutionNeeded` fires during `lvkit generate`, this skill resolves it. vilib VIs have KNOWN names (they're filenames), so we can look them up directly. Follow ALL steps IN ORDER.
+When `lvkit generate` warns about an unmapped vi.lib VI (`lvkit unresolved` lists its full diagnostic), this skill resolves it. vilib VIs have KNOWN names (they're filenames), so we can look them up directly. Follow ALL steps IN ORDER.
 
 ## Step 0: Detect mode
 
@@ -141,7 +141,7 @@ lvkit generate "<vi-path>" -o "<output-dir>" --search-path "<library-path>"
 If the same VI fails again, the terminal matching is wrong — go back to Step 1.
 If a NEW VI fails, start this process again for that one.
 
-**Alternative: soft codegen mode.** Instead of authoring a mapping up front, you can re-run `lvkit generate --placeholder-on-unresolved`. The generated Python contains an inline `raise VILibResolutionNeeded(...)` statement with the same diagnostic context. You can fix the gap contextually in the Python (or come back and write a real mapping later).
+**Alternative:** leave the gap. The generated Python already raises `NotImplementedError` at the unresolved call, so you can fix it contextually in the Python (or come back and write a real mapping later).
 
 ## NEVER do these things
 

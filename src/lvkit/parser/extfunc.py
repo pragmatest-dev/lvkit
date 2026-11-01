@@ -31,17 +31,23 @@ RETURN_VALUE_NAME = "return value"
 OUTPUT_SUFFIX = " output"
 
 
+def extfunc_display_name(library_file: str | None, function: str) -> str:
+    """``<library file>:<function>``; just the function name when the node's
+    library path is empty (the library is wired in at run time)."""
+    return f"{library_file}:{function}" if library_file else function
+
+
 def extfunc_function_name(elem: ET.Element) -> str | None:
     """``<library file>:<function>`` of a Call Library Function Node, from its
-    ``<libPath>`` (a ``PTH0`` path) and ``<nodeName>``. A node whose library
-    path is empty (the library is wired in at run time) is just the function
-    name; ``None`` when the node records no function name."""
+    ``<libPath>`` (a ``PTH0`` path) and ``<nodeName>``, which LabVIEW cuts to 31
+    characters (the whole name is in the VI's link record, see
+    ``extfunc_links``). ``None`` when the node records no function name."""
     function = clean_labview_string(elem.findtext("nodeName"))
     if not function:
         return None
     lib_path = bytes.fromhex(elem.findtext("libPath") or "")
     components, _ = _decode_pth0_components(lib_path, 0, len(lib_path))
-    return f"{components[-1]}:{function}" if components else function
+    return extfunc_display_name(components[-1] if components else None, function)
 
 
 @dataclass(frozen=True)
@@ -106,6 +112,10 @@ def _thread(elem: ET.Element) -> ExtFuncThread | None:
 
 def extfunc_call(elem: ET.Element) -> ExtFuncCall:
     """The node's call, without its parameter types (see ``extfunc_params``).
+
+    The function is the node's ``<nodeName>``, which LabVIEW cuts to 31
+    characters; ``extfunc_links.complete_library`` replaces it with the whole name
+    from the VI's link record.
 
     The calling convention is the node's ``<callType>``: absent is stdcall (every
     kernel32 node in the corpus), ``01`` is C."""

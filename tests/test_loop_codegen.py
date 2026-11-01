@@ -9,7 +9,6 @@ import pytest
 from lvkit.codegen.ast_utils import parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
-from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.codegen.nodes.loop import (
     _build_while_loop,
     _get_dest_terminal_name,
@@ -18,6 +17,7 @@ from lvkit.codegen.nodes.loop import (
     _negate_condition,
     _singularize,
 )
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import LoopNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
@@ -1167,7 +1167,7 @@ class TestConditionalOutputTunnel:
                 Terminal(id="cond", index=11, direction="input"),
             ],
         )
-        with pytest.raises(CodeGenError, match="condition terminal is not wired"):
+        with pytest.raises(ConversionGap, match="condition terminal is not wired"):
             loop.generate(loop_op, ctx)
 
 
@@ -1256,3 +1256,24 @@ class TestWhileLoopOutputTunnel:
 
     def test_last_value_is_the_final_iteration_value(self):
         assert self._while_loop(TunnelMode.LAST_VALUE, conditional=False) == 3
+
+
+def test_a_constant_stop_condition_is_not_assigned_to():
+    """A While loop whose stop terminal is wired to the constant True must not
+    initialise "True = False" before the loop."""
+    ctx = CodeGenContext.from_wires(
+        [Wire.from_terminals(from_terminal_id="src", to_terminal_id="cond")]
+    )
+    loop_op = _mk_loop(
+        ctx,
+        loop_type="whileLoop",
+        stop_condition_terminal="cond",
+        terminals=[Terminal(id="cond", index=3, direction="input")],
+    )
+    ctx.bind("src", "True")
+    fragment = loop.generate(loop_op, ctx)
+    source = ast.unparse(
+        ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
+    )
+    assert "True = False" not in source
+    compile(source, "loop", "exec")

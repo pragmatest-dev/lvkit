@@ -28,7 +28,7 @@ never counted as a caller.
 | Option | Applies to | Description |
 |--------|-----------|-------------|
 | `--depth N` | `blast-radius` | Bound the transitive search to N hops (default: unbounded). |
-| `--format {table,json}` | all | `table` (default) or JSON. `callers`/`callees` JSON is a list of paths; `blast-radius` JSON is `{vi_key, dependents, impact_score}`. |
+| `--format {table,json}` | all | `table` (default) or JSON. `callers`/`callees` JSON is a list of paths (relative to the project, the form `<vi>` accepts back); `blast-radius` JSON is `{vi_key, dependents, impact_score}`. |
 | `--no-refresh` | all | Use the stored index as-is without refreshing first (faster, may be stale). |
 
 Like `query`, these build/refresh the index before reading (see
@@ -53,7 +53,7 @@ DESC LIMIT 10"`) is a precomputed transitive-dependent count.
 
 ## Notes
 
-- An unindexed project prints an error to stderr and exits `2`.
+- An unindexed project (`--no-refresh` on a project never indexed) prints an error to stderr and exits `1`.
 - These CLI commands have **no MCP tool twin** — the MCP server answers the
   same questions as SQL over the `node` view's `callee_path` column: direct
   callers are `SELECT DISTINCT vi_path FROM node WHERE callee_path='<path>'`,
@@ -68,3 +68,11 @@ DESC LIMIT 10"`) is a precomputed transitive-dependent count.
   constants, symbols, types).
 - [visualize](visualize.md) — the call graph as a diagram.
 - [mcp](mcp.md) — the same operations for an AI agent.
+
+## Unknown VIs and empty answers
+
+A `<vi>` the index does not have is an error: `'X.vi' was not found in the index`,
+exit `1` (a bare name matching several VIs lists them; pass a path or qualified
+name). A VI with no callers or callees prints nothing on stdout and a `note:` on
+stderr. A VI the index could not read is reported as a problem and left out; the
+other commands' [`--fail-fast`](problems.md) is available here too.

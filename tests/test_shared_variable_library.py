@@ -10,13 +10,16 @@ published to the network; its record differs after the second GUID.
 
 from __future__ import annotations
 
+import importlib
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.codegen.gaps import Gap
+from lvkit.codegen.package_modules import PackageModules
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -45,7 +48,7 @@ from lvkit.parser.link_table import (
     decode_shared_variable_links,
 )
 from lvkit.parser.node_types import SharedVariableTerminal
-from lvkit.runtime import shared_variable
+from lvkit.pipeline import create_import_resolver
 
 from .test_link_table import build_hpvl_record
 from .test_lvnet_identity import _assert_graph_identity
@@ -62,8 +65,41 @@ BOTH_FIXTURES = pytest.mark.parametrize(
 
 def _load(vi: Path = SV_SAMPLE) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    graph.load_vi(vi, LoadMode.MINIMAL, search_paths=[vi.parent])
+    graph.load_vi(vi, LoadMode.MINIMAL)
     return graph, graph.list_vis()[0]
+
+
+def _generated_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, graph: InMemoryVIGraph, vi: str
+):
+    """Generate ``vi`` into a package with its ``shared_variables`` module and
+    import both: ``(sv_sample module, shared_variables module)``."""
+    root = tmp_path / "svpkg"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    modules = PackageModules.from_graph(graph, [vi])
+    resolver = create_import_resolver(
+        "svpkg",
+        root,
+        {vi: root / "sv_sample.py"},
+        root / "sv_sample.py",
+        package_modules=modules,
+    )
+    source = build_module(
+        graph.get_vi_context(vi), vi, graph=graph, import_resolver=resolver
+    )
+    assert "lvkit" not in source
+    (root / "sv_sample.py").write_text(source)
+    modules.write(root)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        yield (
+            importlib.import_module("svpkg.sv_sample"),
+            importlib.import_module("svpkg.shared_variables"),
+        )
+    finally:
+        for name in [m for m in sys.modules if m.split(".")[0] == "svpkg"]:
+            del sys.modules[name]
 
 
 def _nodes(graph: InMemoryVIGraph, vi: str) -> dict[str, SharedVariableNode]:
@@ -139,9 +175,12 @@ def test_library_is_listed_without_its_file(tmp_path: Path) -> None:
 
 
 def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
+    """The VI records no path for the library its Shared Variables belong to
+    (the ``HpVL`` record's path is empty), so it is listed without a file even
+    beside it: nothing is looked up by name."""
     graph, vi = _load()
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib ; " in text
+    assert "    library SV Sample.lvlib\n" in text
     assert "shared-variable Value_1033 : SV Sample.lvlib::Value : write" in text
     assert "shared-variable Value_1112 : SV Sample.lvlib::Value : read" in text
     assert "shared-variable Value_977 : SV Sample.lvlib::Value : read" in text
@@ -220,32 +259,17 @@ def test_lvnet_target_without_access_is_an_error() -> None:
 
 
 def test_generated_python_writes_then_reads_the_shared_value(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(shared_variable, "_cells", {})
     graph, vi = _load()
-    source = build_module(graph.get_vi_context(vi), vi, graph=graph)
-    namespace: dict[str, object] = {}
-    exec(compile(source, "sv_sample.py", "exec"), namespace)
-    sv_sample = namespace["sv_sample"]
-    assert callable(sv_sample)
-
-    assert shared_variable.timestamp("SV Sample.lvlib", "Value") == 0.0
-    result = sv_sample()
-    assert result.value == 1.5
-    assert isinstance(result.timestamp, float) and result.timestamp > 0
-    assert shared_variable.read("SV Sample.lvlib", "Value", 0.0) == 1.5
-    assert result.timestamp == shared_variable.timestamp("SV Sample.lvlib", "Value")
-
-
-def test_a_variable_nothing_wrote_reads_its_type_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(shared_variable, "_cells", {})
-    assert shared_variable.read("Unwritten.lvlib", "X", 0.0) == 0.0
-    assert shared_variable.timestamp("Unwritten.lvlib", "X") == 0.0
-    shared_variable.write("Unwritten.lvlib", "X", 2.0)
-    assert shared_variable.read("Unwritten.lvlib", "X", 0.0) == 2.0
+    for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
+        assert shared.sv_samplelvlib_value == 0.0
+        assert shared.sv_samplelvlib_value_timestamp == 0.0
+        result = sv_sample.sv_sample()
+        assert result.value == 1.5
+        assert isinstance(result.timestamp, float) and result.timestamp > 0
+        assert shared.sv_samplelvlib_value == 1.5
+        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
 
 
 @pytest.mark.parametrize(
@@ -340,22 +364,15 @@ def test_single_process_fixture_has_no_network_path() -> None:
 
 
 def test_generated_python_for_a_network_published_variable_runs(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(shared_variable, "_cells", {})
     graph, vi = _load(SV_NETWORK_SAMPLE)
-    source = build_module(graph.get_vi_context(vi), vi, graph=graph)
-    namespace: dict[str, object] = {}
-    exec(compile(source, "sv_sample_network.py", "exec"), namespace)
-    sv_sample = namespace["sv_sample"]
-    assert callable(sv_sample)
-
-    assert shared_variable.timestamp("SV Sample.lvlib", "Value") == 0.0
-    result = sv_sample()
-    assert result.value == 1.5
-    assert isinstance(result.timestamp, float) and result.timestamp > 0
-    assert shared_variable.read("SV Sample.lvlib", "Value", 0.0) == 1.5
-    assert result.timestamp == shared_variable.timestamp("SV Sample.lvlib", "Value")
+    for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
+        result = sv_sample.sv_sample()
+        assert result.value == 1.5
+        assert isinstance(result.timestamp, float) and result.timestamp > 0
+        assert shared.sv_samplelvlib_value == 1.5
+        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
 
 
 def _fail_shared_variable_records(
@@ -415,13 +432,19 @@ def test_an_unreadable_record_reads_back_strictly_from_lvnet(
     assert item["library_unreadable"].startswith("HpVL record at offset 12")
 
 
-def test_an_unreadable_record_raises_a_clear_error_for_generated_python(
+def test_an_unreadable_record_is_a_gap_in_generated_python(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fail_shared_variable_records(monkeypatch, (1033, 1112, 977))
     graph, vi = _load(SV_NETWORK_SAMPLE)
-    with pytest.raises(CodeGenError, match="library link is unreadable.*layout flag"):
-        build_module(graph.get_vi_context(vi), vi, graph=graph)
+    gaps: list[Gap] = []
+    source = build_module(graph.get_vi_context(vi), vi, graph=graph, gaps=gaps)
+    assert "raise NotImplementedError(" in source
+    assert gaps
+    assert all(
+        "library link is unreadable" in g.reason and "layout flag" in g.reason
+        for g in gaps
+    )
 
 
 def _use_hpvr_record(monkeypatch: pytest.MonkeyPatch) -> str:
@@ -464,22 +487,19 @@ def test_an_hpvr_record_links_its_nodes_and_describe_shows_it(
 
 
 def test_an_hpvr_record_reads_back_strictly_and_runs(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _use_hpvr_record(monkeypatch)
-    monkeypatch.setattr(shared_variable, "_cells", {})
     graph, vi = _load(SV_NETWORK_SAMPLE)
     module = build_netlist_from_graph(graph, vi)
     text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
     assert "(network-published " in text
     _assert_strict_round_trip(text, module)
 
-    source = build_module(graph.get_vi_context(vi), vi, graph=graph)
-    namespace: dict[str, object] = {}
-    exec(compile(source, "sv_sample_hpvr.py", "exec"), namespace)
-    result = namespace["sv_sample"]()  # type: ignore[operator]
-    assert result.value == 1.5
-    assert result.timestamp == shared_variable.timestamp("SV Sample.lvlib", "Value")
+    for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
+        result = sv_sample.sv_sample()
+        assert result.value == 1.5
+        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
 
 
 def test_an_hpvr_mismatch_leaves_the_vi_loading_with_the_reason(

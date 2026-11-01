@@ -18,7 +18,7 @@ from ..models import (
 )
 from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
-from .core import _uid_of
+from .core import uid_of
 from .describe import _body_child_nodes, _frame_child_nodes
 from .models import (
     CURATED_KIND_FLAGS,
@@ -39,6 +39,8 @@ from .models import (
     bool_str,
 )
 from .netlist import (
+    NetlistControlRead,
+    NetlistIndicatorDrive,
     NetlistItem,
     NetlistScope,
     ambiguous_bares,
@@ -396,10 +398,10 @@ def _collect_elements(
     """
     for op in nodes:
         kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
-        out[_uid_of(op.id)] = _ElemInfo(op, kind, container_uid, frame_path)
+        out[uid_of(op.id)] = _ElemInfo(op, kind, container_uid, frame_path)
         frames = _frames_of(op)
         if frames is not None:
-            struct_uid = _uid_of(op.id)
+            struct_uid = uid_of(op.id)
             interactive = _is_interactive_struct(op)
             frame_children = _frame_child_nodes(graph, op, vi_name)
             for i, frame in enumerate(frames):
@@ -438,13 +440,13 @@ def _incident(wires: list[Wire], vi_self: str) -> dict[str, list[tuple[str, str,
     versions, breaking cross-version dataflow matching."""
 
     def nid(node_id: str) -> str:
-        return "__self__" if node_id == vi_self else _uid_of(node_id)
+        return "__self__" if node_id == vi_self else uid_of(node_id)
 
     inc: dict[str, list[tuple[str, str, str]]] = {}
     for w in wires:
         su, du = nid(w.source.node_id), nid(w.dest.node_id)
-        inc.setdefault(su, []).append(("out", du, _uid_of(w.dest.terminal_id)))
-        inc.setdefault(du, []).append(("in", su, _uid_of(w.source.terminal_id)))
+        inc.setdefault(su, []).append(("out", du, uid_of(w.dest.terminal_id)))
+        inc.setdefault(du, []).append(("in", su, uid_of(w.source.terminal_id)))
     return inc
 
 
@@ -581,12 +583,12 @@ def _effective_sinks(
         node_id = owner.get(term_id)
         if node_id is None:
             return None
-        uid = _uid_of(node_id)
+        uid = uid_of(node_id)
         return uid if uid in structs else None
 
     sinks: dict[str, tuple[WireEnd, WireEnd, frozenset[str]]] = {}
     for w in wires:
-        if _uid_of(w.source.node_id) in structs:
+        if uid_of(w.source.node_id) in structs:
             continue  # start only from real (non-tunnel-bridge) producers
         # DFS forward through struct-owned terminals to real sinks, carrying
         # the set of structure uids each path has threaded through so far.
@@ -640,12 +642,12 @@ def _wire_path(
     if layout is None:
         return None
     for w in wires:
-        if _uid_of(w.dest.terminal_id) != sink_uid:
+        if uid_of(w.dest.terminal_id) != sink_uid:
             continue
         full = layout.wire_by_uid.get(sink_uid)
         if full is not None:
             return list(full)
-        src_center = layout.terminal_centers.get(_uid_of(w.source.terminal_id))
+        src_center = layout.terminal_centers.get(uid_of(w.source.terminal_id))
         sink_center = layout.terminal_centers.get(sink_uid)
         if src_center is None or sink_center is None:
             return None
@@ -667,7 +669,7 @@ _WireMatch = Callable[[Wire], bool]
 
 def _node_incident(node_uid: str) -> _WireMatch:
     """Match a wire incident to ``node_uid`` (as source OR sink node)."""
-    return lambda w: node_uid in (_uid_of(w.source.node_id), _uid_of(w.dest.node_id))
+    return lambda w: node_uid in (uid_of(w.source.node_id), uid_of(w.dest.node_id))
 
 
 def _term_incident(term_uid: str) -> _WireMatch:
@@ -675,7 +677,7 @@ def _term_incident(term_uid: str) -> _WireMatch:
     terminal) — the key an FP terminal needs, since its endpoint node is the
     shared ``__self__`` VI node rather than the terminal itself."""
     return lambda w: (
-        term_uid in (_uid_of(w.source.terminal_id), _uid_of(w.dest.terminal_id))
+        term_uid in (uid_of(w.source.terminal_id), uid_of(w.dest.terminal_id))
     )
 
 
@@ -697,7 +699,7 @@ def _chain_paths(
         return None
     paths: list[list[Point]] = []
     for w in _incident_wires(wires, match):
-        path = _wire_path(layout, wires, _uid_of(w.dest.terminal_id))
+        path = _wire_path(layout, wires, uid_of(w.dest.terminal_id))
         if path is not None:
             paths.append(path)
     return paths or None
@@ -796,14 +798,14 @@ def _unstable_endpoint(
     src, sink = entry[2], entry[3]
     # Use the CANON'd node keys (base-space; the VI self-node folded to the
     # ``__self__`` sentinel) — ``entry[0]`` is the canon'd source key and
-    # ``dest_node_key`` the canon'd sink key. Raw ``_uid_of(node_id)`` would read
+    # ``dest_node_key`` the canon'd sink key. Raw ``uid_of(node_id)`` would read
     # the self-node as its (now path-based, version-varying) vi_key and never
     # match ``stable_nodes``'s ``__self__``, suppressing every connector-pane wire.
     return (
         entry[0] not in stable_nodes
         or dest_node_key not in stable_nodes
-        or _uid_of(src.terminal_id) in changed_terms
-        or _uid_of(sink.terminal_id) in changed_terms
+        or uid_of(src.terminal_id) in changed_terms
+        or uid_of(sink.terminal_id) in changed_terms
     )
 
 
@@ -886,7 +888,7 @@ def _wire_changes(
         # requalification yields identical identity on both sides.
         if node_id == vi_self:
             return "__self__"
-        uid = _uid_of(node_id)
+        uid = uid_of(node_id)
         return uid if base_side else b_of_h.get(uid, uid)
 
     def _other_pane_endpoints(
@@ -919,7 +921,7 @@ def _wire_changes(
         def other(node_id: str) -> str | None:
             if node_id == vi_self:
                 return None
-            uid = _uid_of(node_id)
+            uid = uid_of(node_id)
             if from_base:
                 return uid if uid in b else h2b.get(uid)
             return uid if uid in a else b_of_h.get(uid)
@@ -960,7 +962,7 @@ def _wire_changes(
         if end.node_id == vi_self:
             terminals = self_terms
         else:
-            entry = elems.get(_uid_of(end.node_id))
+            entry = elems.get(uid_of(end.node_id))
             if entry is not None:
                 terminals = entry.op.terminals
                 node_word = (
@@ -1094,15 +1096,15 @@ def _wire_changes(
             dest_end = entry_a[3]
             sink_label = label_of(dest_end, va, a, self_terms_a, consts_a)
             old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
-            bounds = _point_rect(layout_a, _uid_of(dest_end.terminal_id))
-            bounds_before = _point_rect(layout_a, _uid_of(entry_a[2].terminal_id))
+            bounds = _point_rect(layout_a, uid_of(dest_end.terminal_id))
+            bounds_before = _point_rect(layout_a, uid_of(entry_a[2].terminal_id))
             # The gutter (-) already says "removed" -- so render the connection
             # exactly like an added wire (sink <- source), not "(was ...)". In the
             # ASCII netlist this becomes "- sink = source" (the same port=net form
             # every node input uses), instead of the nonsensical "(was = source)"
             # the old "was ←" wording produced once ← was ASCII-mapped to =.
             detail = f"← {old_label}"
-            path = _wire_path(layout_a, wires_a, _uid_of(dest_end.terminal_id))
+            path = _wire_path(layout_a, wires_a, uid_of(dest_end.terminal_id))
             # Own pane is base (removed) -- reveal the OTHER (head) pane's
             # frame around this wire's surviving endpoint(s).
             endpoints = _other_pane_endpoints(
@@ -1116,8 +1118,8 @@ def _wire_changes(
             dest_end = entry_b[3]
             sink_label = label_of(dest_end, vb, b, self_terms_b, consts_b)
             new_label = label_of(entry_b[2], vb, b, self_terms_b, consts_b)
-            bounds = _point_rect(layout_b, _uid_of(dest_end.terminal_id))
-            path = _wire_path(layout_b, wires_b, _uid_of(dest_end.terminal_id))
+            bounds = _point_rect(layout_b, uid_of(dest_end.terminal_id))
+            path = _wire_path(layout_b, wires_b, uid_of(dest_end.terminal_id))
             # Own pane is head (added & modified alike) -- reveal the OTHER
             # (base) pane's frame around this wire's surviving endpoint(s).
             endpoints = _other_pane_endpoints(
@@ -1134,13 +1136,13 @@ def _wire_changes(
                 old_label = label_of(entry_a[2], va, a, self_terms_a, consts_a)
                 bounds_before = _point_rect(
                     layout_a,
-                    _uid_of(entry_a[2].terminal_id),
+                    uid_of(entry_a[2].terminal_id),
                 )
                 detail = f"← {new_label} (was {old_label})"
                 path_before = _wire_path(
                     layout_a,
                     wires_a,
-                    _uid_of(entry_a[3].terminal_id),
+                    uid_of(entry_a[3].terminal_id),
                 )
 
         # Locality: the SINK node's own already-stamped context (see
@@ -1149,13 +1151,13 @@ def _wire_changes(
         # convention in this module. None for the VI's own connector-pane
         # boundary terminal (it's not in either map — correctly top-level).
         loc_map = a if change == "removed" else b
-        loc_entry = loc_map.get(_uid_of(dest_end.node_id))
+        loc_entry = loc_map.get(uid_of(dest_end.node_id))
         container_uid = loc_entry.container_uid if loc_entry is not None else None
         frame_path = loc_entry.frame_path if loc_entry is not None else None
 
         changes.append(
             ElementChange(
-                _uid_of(dest_end.terminal_id),
+                uid_of(dest_end.terminal_id),
                 dest_end.terminal_id,
                 "wire",
                 change,
@@ -1188,7 +1190,7 @@ def _constant_locality(
     unchanged (identical scoping to ``_collect_elements``'s own recursion)."""
     if c.parent is None:
         return None, None
-    struct_uid = _uid_of(c.parent)
+    struct_uid = uid_of(c.parent)
     entry = elements.get(struct_uid)
     if entry is None:
         return None, None
@@ -1437,7 +1439,7 @@ def _struct_frame_changes(
     if frames_a is None or frames_b is None:
         return []
 
-    base_uid, head_uid = _uid_of(op_a.id), _uid_of(op_b.id)
+    base_uid, head_uid = uid_of(op_a.id), uid_of(op_b.id)
     map_a: dict[str, Frame] = {_frame_key(f): f for f in frames_a}
     map_b: dict[str, Frame] = {_frame_key(f): f for f in frames_b}
     # Frame -> its graph-child-lookup key (case/disable selector_value,
@@ -1559,15 +1561,15 @@ def _terminal_wiring(
     so the same wiring yields the same tuples in both versions."""
 
     def nid(node_id: str) -> str:
-        uid = "__self__" if node_id == vi_self else _uid_of(node_id)
+        uid = "__self__" if node_id == vi_self else uid_of(node_id)
         return to_head.get(uid, uid)
 
     out: list[tuple[str, str, str]] = []
     for w in wires:
         if w.source.terminal_id == term_id:
-            out.append(("out", nid(w.dest.node_id), _uid_of(w.dest.terminal_id)))
+            out.append(("out", nid(w.dest.node_id), uid_of(w.dest.terminal_id)))
         if w.dest.terminal_id == term_id:
-            out.append(("in", nid(w.source.node_id), _uid_of(w.source.terminal_id)))
+            out.append(("in", nid(w.source.node_id), uid_of(w.source.terminal_id)))
     return sorted(out)
 
 
@@ -1657,9 +1659,9 @@ def _struct_tunnel_changes(
     pairs, removed, added = _correlate_by_keys(
         tunnels_a,
         tunnels_b,
-        [lambda t: _uid_of(t.id), by_wiring, by_neighbour],
+        [lambda t: uid_of(t.id), by_wiring, by_neighbour],
     )
-    struct_a, struct_b = _uid_of(entry_a.op.id), _uid_of(entry_b.op.id)
+    struct_a, struct_b = uid_of(entry_a.op.id), uid_of(entry_b.op.id)
     consts_a, consts_b = constant_names(graph_a, va), constant_names(graph_b, vb)
     changes: list[ElementChange] = []
 
@@ -1671,7 +1673,7 @@ def _struct_tunnel_changes(
         layout: Layout | None,
         **extra: Any,
     ) -> ElementChange:
-        uid = _uid_of(t.id)
+        uid = uid_of(t.id)
         graph, wires = (graph_a, wires_a) if kind == "removed" else (graph_b, wires_b)
         return ElementChange(
             uid,
@@ -1704,7 +1706,7 @@ def _struct_tunnel_changes(
                     entry_b,
                     struct_b,
                     layout_b,
-                    bounds_before=_node_bounds(layout_a, _uid_of(ta.id)),
+                    bounds_before=_node_bounds(layout_a, uid_of(ta.id)),
                     detail=", ".join(parts),
                 )
             )
@@ -1772,12 +1774,12 @@ def _const_consumers(
         if dest_node == vi_self:
             cnode = "__self__"
         else:
-            cuid = _uid_of(dest_node)
+            cuid = uid_of(dest_node)
             cnode = cuid if base_side else b_of_h.get(cuid, cuid)
         term: object = (
-            w.dest.index if w.dest.index is not None else _uid_of(w.dest.terminal_id)
+            w.dest.index if w.dest.index is not None else uid_of(w.dest.terminal_id)
         )
-        out.setdefault(_uid_of(w.source.node_id), set()).add((cnode, term))
+        out.setdefault(uid_of(w.source.node_id), set()).add((cnode, term))
     return out
 
 
@@ -1797,8 +1799,8 @@ def _constant_changes(
 ) -> list[ElementChange]:
     """All constant changes as ``kind="constant"`` ``ElementChange``s. See the
     section header above for the identity model."""
-    consts_a = {_uid_of(c.id): c for c in graph_a.get_constants(va)}
-    consts_b = {_uid_of(c.id): c for c in graph_b.get_constants(vb)}
+    consts_a = {uid_of(c.id): c for c in graph_a.get_constants(va)}
+    consts_b = {uid_of(c.id): c for c in graph_b.get_constants(vb)}
 
     b_of_h = {h: base for base, h in {**exact, **fuzzy}.items()}
     anchored: set[str] = (a.keys() & b.keys()) | set(exact) | set(fuzzy) | {"__self__"}
@@ -1815,7 +1817,7 @@ def _constant_changes(
     # long); the concise row is just the type label, the diagram panes show the
     # actual values.
     def added(cb: Constant) -> ElementChange:
-        uid = _uid_of(cb.id)
+        uid = uid_of(cb.id)
         cu, fp = _constant_locality(cb, b)
         return ElementChange(
             uid,
@@ -1831,7 +1833,7 @@ def _constant_changes(
         )
 
     def removed(ca: Constant) -> ElementChange:
-        uid = _uid_of(ca.id)
+        uid = uid_of(ca.id)
         cu, fp = _constant_locality(ca, a)
         return ElementChange(
             uid,
@@ -1847,7 +1849,7 @@ def _constant_changes(
         )
 
     def modified(ca: Constant, cb: Constant) -> ElementChange:
-        uid = _uid_of(cb.id)
+        uid = uid_of(cb.id)
         cu, fp = _constant_locality(cb, b)
         return ElementChange(
             uid,
@@ -1887,7 +1889,7 @@ def _constant_changes(
         cons: dict[str, set[tuple[str, object]]],
         elems: dict[str, _ElemInfo],
     ) -> tuple[tuple, bool]:
-        ccons = frozenset(cons.get(_uid_of(c.id), set()))
+        ccons = frozenset(cons.get(uid_of(c.id), set()))
         _, fp = _constant_locality(c, elems)
         anchored_here = c.label is not None or any(n in anchored for n, _ in ccons)
         return (c.label, fp, ccons), anchored_here
@@ -1904,14 +1906,14 @@ def _constant_changes(
         if not anch or not b_by_key.get(key):
             continue
         cb = b_by_key[key].pop(0)
-        paired_a.add(_uid_of(ca.id))
-        paired_b.add(_uid_of(cb.id))
+        paired_a.add(uid_of(ca.id))
+        paired_b.add(uid_of(cb.id))
         if _const_type(ca) != _const_type(cb) or repr(ca.value) != repr(cb.value):
             changes.append(modified(ca, cb))
         # else: identical re-key → unchanged (collapse, emit nothing).
 
-    rem_a = [c for c in left_a if _uid_of(c.id) not in paired_a]
-    rem_b = [c for c in left_b if _uid_of(c.id) not in paired_b]
+    rem_a = [c for c in left_a if uid_of(c.id) not in paired_a]
+    rem_b = [c for c in left_b if uid_of(c.id) not in paired_b]
 
     # ── Tier 2: value+type multiset collapse, scoped per frame_path — the old
     # unnamed-constant behaviour, now locality-aware (identical constants in the
@@ -1931,7 +1933,7 @@ def _constant_changes(
             changes.append(removed(ca))
     for cb in sorted(
         (c for lst in b_by_vkey.values() for c in lst),
-        key=lambda c: _uid_sort(_uid_of(c.id)),
+        key=lambda c: _uid_sort(uid_of(c.id)),
     ):
         changes.append(added(cb))
 
@@ -2034,26 +2036,26 @@ def _terminal_changes(
 
     def added(tb: FPTerminal) -> ElementChange:
         return ElementChange(
-            _uid_of(tb.id),
+            uid_of(tb.id),
             tb.id,
             "terminal",
             "added",
             tb.name or "(unnamed)",
-            _node_bounds(layout_b, _uid_of(tb.id)),
+            _node_bounds(layout_b, uid_of(tb.id)),
             element=word(tb),
-            chain_paths=_chain_paths(layout_b, wires_b, _term_incident(_uid_of(tb.id))),
+            chain_paths=_chain_paths(layout_b, wires_b, _term_incident(uid_of(tb.id))),
         )
 
     def removed(ta: FPTerminal) -> ElementChange:
         return ElementChange(
-            _uid_of(ta.id),
+            uid_of(ta.id),
             ta.id,
             "terminal",
             "removed",
             ta.name or "(unnamed)",
-            _node_bounds(layout_a, _uid_of(ta.id)),
+            _node_bounds(layout_a, uid_of(ta.id)),
             element=word(ta),
-            chain_paths=_chain_paths(layout_a, wires_a, _term_incident(_uid_of(ta.id))),
+            chain_paths=_chain_paths(layout_a, wires_a, _term_incident(uid_of(ta.id))),
         )
 
     def modified(ta: FPTerminal, tb: FPTerminal) -> ElementChange | None:
@@ -2075,13 +2077,13 @@ def _terminal_changes(
             return None
         detail = "; ".join(parts)
         return ElementChange(
-            _uid_of(tb.id),
+            uid_of(tb.id),
             tb.id,
             "terminal",
             "modified",
             tb.name or "(unnamed)",
-            _node_bounds(layout_b, _uid_of(tb.id)),
-            bounds_before=_node_bounds(layout_a, _uid_of(ta.id)),
+            _node_bounds(layout_b, uid_of(tb.id)),
+            bounds_before=_node_bounds(layout_a, uid_of(ta.id)),
             detail=detail,
             element=word(tb),
         )
@@ -2179,7 +2181,7 @@ def _node_terminal_changes(
         )
         if not (added or removed):
             continue
-        uid_h, uid_b = _uid_of(eb.op.id), _uid_of(ea.op.id)
+        uid_h, uid_b = uid_of(eb.op.id), uid_of(ea.op.id)
         changes.append(
             ElementChange(
                 uid_h,
@@ -2194,8 +2196,8 @@ def _node_terminal_changes(
                 frame_path=eb.frame_path,
             )
         )
-        changed_terms |= {_uid_of(t.id) for t in added}
-        changed_terms |= {_uid_of(t.id) for t in removed}
+        changed_terms |= {uid_of(t.id) for t in added}
+        changed_terms |= {uid_of(t.id) for t in removed}
     return changes, changed_terms
 
 
@@ -2227,7 +2229,7 @@ def _variable_node_changes(
             continue
         if before == after:
             continue
-        uid_h, uid_b = _uid_of(eb.op.id), _uid_of(ea.op.id)
+        uid_h, uid_b = uid_of(eb.op.id), uid_of(ea.op.id)
         changes.append(
             ElementChange(
                 uid_h,
@@ -2744,6 +2746,8 @@ def _walk_netlist_order(items: list[NetlistItem]) -> list[str]:
     order instead of structures-first/leaves-second."""
     order: list[str] = []
     for item in items:
+        if isinstance(item, NetlistIndicatorDrive | NetlistControlRead):
+            continue
         order.append(item.uid)
         if isinstance(item, NetlistScope):
             for frame in item.frames:

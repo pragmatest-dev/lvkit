@@ -193,7 +193,7 @@ def convert_terminal(
     # where the two differ.
     out: dict[str, Any] = {
         "index": term["index"],
-        "direction": "out" if term["is_source"] else "in",
+        "direction": "output" if term["is_source"] else "input",
         "name": term["name"],
         "type": ctype,
     }

@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from lvkit.cli_run import add_fail_fast_arg, command_run, finish, run_command
 from lvkit.graph.loading import LoadMode
 from lvkit.pipeline import generate_python
 
@@ -28,22 +29,7 @@ def main():
         required=True,
         help="Output directory",
     )
-    parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Additional search paths",
-    )
-    parser.add_argument(
-        "--placeholder-on-unresolved",
-        action="store_true",
-        help=(
-            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
-            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
-            "VILibResolutionNeeded(...)` in the generated Python."
-        ),
-    )
+    add_fail_fast_arg(parser)
     parser.add_argument(
         "--vilib",
         default=None,
@@ -56,18 +42,30 @@ def main():
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
     args = parser.parse_args()
+    return run_command(_generate, args)
 
-    generate_python(
-        args.input,
+
+def _generate(args: argparse.Namespace) -> int:
+    input_path = Path(args.input)
+    run = command_run(args, input_path)
+    result = generate_python(
+        input_path,
         args.output,
-        search_paths=[Path(p) for p in args.search_paths],
         mode=LoadMode.FULL,
-        soft_unresolved=args.placeholder_on_unresolved,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        instrlib_root=Path(args.instrlib) if args.instrlib else None,
+        run=run,
     )
+    return finish(run, bool(result["error"] or result["failed"]))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

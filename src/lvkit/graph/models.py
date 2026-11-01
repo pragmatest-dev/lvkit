@@ -119,8 +119,7 @@ class VINode(GraphNode):
     connector_pattern_id: int | None = None
     # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,
     # outermost first). On a SubVI-CALL node it's the CALLEE's chain (copied when
-    # the callee resolves). DISPLAY only — a ``chain:name`` label that
-    # disambiguates two classes' same-named methods; never a resolution key.
+    # the callee resolves). With the file name it is the VI's qualified name.
     owning_libraries: list[str] = []
     poly_variant_name: str | None = None
     # Fully qualified on-disk path components joined with /, e.g.
@@ -136,6 +135,9 @@ class VINode(GraphNode):
     # On a polymorphic call node, the identity of the variant the call resolves
     # to (same form as ``callee_key``); None on every other node.
     variant_key: str | None = None
+    # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
+    # the node calls the VI its reference holds. None on every other node.
+    call_save_style: int | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the
@@ -162,6 +164,8 @@ class PrimitiveNode(GraphNode):
     kind: Literal["primitive"] = "primitive"
     prim_id: int | None = None
     prim_index: int | None = None
+    # The node's own ``objFlags``; a primitive reads the modes it records here.
+    obj_flags: int = 0
     operation: str | None = None  # cpdArith: "or", "and", "add"
     object_name: str | None = None  # property/invoke
     object_method_id: str | None = None
@@ -1114,7 +1118,11 @@ class PolyInfo:
     """Polymorphic VI metadata."""
 
     is_polymorphic: bool = True
+    # The variants' qualified names as the wrapper's own link table records them.
     variants: list[str] = field(default_factory=list)
+    # The dep-graph key (the identity) of each variant that is a dependency of the
+    # wrapper, in the recorded order; empty until the wrapper's dependencies load.
+    variant_keys: list[str] = field(default_factory=list)
     selectors: list[str] = field(default_factory=list)
 
 
@@ -1247,9 +1255,11 @@ class ClassFieldEntry:
 class ClassHierarchyInfo:
     """Hierarchy info for one loaded LabVIEW class.
 
-    All names are fully-qualified (``"X.lvclass"``, or ``"Lib.lvlib:X.lvclass"``
-    for library-nested classes). ``methods`` and ``child_classes`` only include
-    entries that are themselves loaded/documented (no dangling links).
+    The class names are fully-qualified (``"X.lvclass"``, or
+    ``"Lib.lvlib:X.lvclass"`` for library-nested classes). ``methods`` holds the
+    keys (the identity) of the loaded VIs the class owns, ordered by display name;
+    ``methods`` and ``child_classes`` only include entries that are themselves
+    loaded/documented (no dangling links).
     """
 
     classname: str
@@ -1275,6 +1285,9 @@ class MethodAccessInfo:
 
     vi_name: str
     scope: str
+    # ``is_accessor``: the class lists the VI in a property folder (named
+    # ``accessor_field``); ``accessor_type`` is "getter" or "setter" from the
+    # VI's own connector pane, None when the pane is neither.
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None
@@ -1287,9 +1300,10 @@ class MethodAccessInfo:
 class MethodOverrideInfo:
     """Bidirectional override links for a class method VI.
 
-    ``overrides`` is the immediate parent class's same-named method (if it is
-    itself a documented VI). ``overridden_by`` is every immediate child
-    class's same-named method that is documented.
+    ``overrides`` is the key of the immediate parent class's same-named method
+    (if it is itself a documented VI). ``overridden_by`` is the keys of every
+    immediate child class's same-named method that is documented, ordered by
+    display name.
     """
 
     vi_name: str

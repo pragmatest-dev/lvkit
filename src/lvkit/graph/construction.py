@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import networkx as nx
 
+from lvkit.models import TerminalDirection
+
 from ..models import (
     CaseFrame,
     FPTerminal,
@@ -23,6 +25,7 @@ from ..models import (
     TunnelMode,
     TunnelTerminal,
     UnwritableValue,
+    ValueNotStored,
     bundle_unbundle_name,
     control_type_to_lvtype,
     enum_values_from_labels,
@@ -34,6 +37,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -64,6 +68,7 @@ from .builders import (
     SUBVI_CALL_NODE_TYPES,
     GraphBuildContext,
 )
+from .builders.operations import callee_keys
 from .core import _graph_node_to_op_kind, _node_order_key
 from .models import (
     AnyGraphNode,
@@ -84,6 +89,7 @@ def _array_rank_lookup(
 ) -> Callable[[int], int | None]:
     """Dimension count of the array on a node terminal, by terminal index."""
     return lambda index: array_rank(types_by_index.get(index))
+
 
 # All node types that represent a SubVI call (dynamic or static). Single source
 # of truth lives with the SubVI build handler; callByRefNode is included for node
@@ -215,6 +221,10 @@ def decode_constant(
         lv_type: LVType from the graph (authoritative type info)
     """
     value = const.value
+    if value is None:
+        py_type = lv_type.to_python() if lv_type is not None else "raw"
+        marker = ValueNotStored()
+        return DecodedConstant(py_type, str(marker), None, marker)
 
     if lv_type is not None:
         raw_bytes = bytes.fromhex(value)
@@ -334,6 +344,12 @@ class ConstructionMixin:
             _parsed_type: ParsedType | None,
         ) -> LVType | None: ...
         def resolve_vi_name(self, _vi_name: str) -> str: ...
+        def catalog_path_of(
+            self,
+            _interface_key: str | None,
+            _qualified_path: str | None,
+            _caller: str,
+        ) -> str | None: ...
         def with_class_levels(
             self, _lv_type: LVType | None, _caller_vi_key: str | None = None
         ) -> LVType | None: ...
@@ -480,7 +496,7 @@ class ConstructionMixin:
             # A parsed connector pane decides which controls are on it; with
             # no pane record at all, every front-panel terminal is public.
             is_public = slot_index is not None or conpane is None
-            direction = "output" if fp_term.is_indicator else "input"
+            direction = TerminalDirection.of(fp_term.is_indicator)
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
             wiring_rule = (
                 wiring_rules.get(slot_index, 0) if slot_index is not None else 0
@@ -600,7 +616,7 @@ class ConstructionMixin:
             const_terminal = Terminal(
                 id=q_const_uid,
                 index=0,
-                direction="output",
+                direction=TerminalDirection.OUTPUT,
                 lv_type=lv_type,
             )
 
@@ -704,6 +720,15 @@ class ConstructionMixin:
             ):
                 continue
 
+            # Collect terminals, then resolve unknown indices by elimination
+            raw_terms: list[tuple[str, Any, LVType | None]] = []
+            for term_uid, t_info in bd.terminal_info.items():
+                if t_info.parent_uid == node.uid:
+                    lv_type = None
+                    if t_info.parsed_type:
+                        lv_type = self._enrich_type(t_info.parsed_type)
+                    raw_terms.append((term_uid, t_info, lv_type))
+
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.
             known_terminals = None
@@ -712,7 +737,13 @@ class ConstructionMixin:
             # using.
             terminals_are_complete = True
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
-                prim_resolved = resolve_primitive(prim_id=node.prim_res_id)
+                prim_resolved = resolve_primitive(
+                    prim_id=node.prim_res_id,
+                    node_slots={
+                        (t_info.index, TerminalDirection.of(t_info.is_output))
+                        for _, t_info, _ in raw_terms
+                    },
+                )
                 if prim_resolved and prim_resolved.terminals:
                     known_terminals = prim_resolved.terminals
             if not known_terminals and node.node_type:
@@ -722,28 +753,21 @@ class ConstructionMixin:
             if not known_terminals and isinstance(node, SubVINode):
                 # SubVI calls: look up vilib terminal layout
                 vilib_r = get_vilib_resolver()
-                subvi_name = node.name or ""
-                # Polymorphic: resolve to variant
-                if node.poly_variant_name:
-                    vilib_vi = vilib_r.resolve_poly_variant(
-                        subvi_name, node.poly_variant_name
-                    )
-                else:
-                    vilib_vi = None
-                if not vilib_vi:
-                    vilib_vi = vilib_r.resolve_by_name(subvi_name)
+                callee, variant = callee_keys(
+                    node.node_type,
+                    node.uid,
+                    iuse_to_callee_key or {},
+                    poly_to_callee_key or {},
+                )
+                vilib_vi = vilib_r.resolve_call(
+                    self.catalog_path_of(
+                        variant or callee, iuse_to_qpath.get(node.uid), vi_key
+                    ),
+                    node.poly_variant_name,
+                )
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals
                     terminals_are_complete = False
-
-            # Collect terminals, then resolve unknown indices by elimination
-            raw_terms: list[tuple[str, Any, LVType | None]] = []
-            for term_uid, t_info in bd.terminal_info.items():
-                if t_info.parent_uid == node.uid:
-                    lv_type = None
-                    if t_info.parsed_type:
-                        lv_type = self._enrich_type(t_info.parsed_type)
-                    raw_terms.append((term_uid, t_info, lv_type))
 
             # Resolve -1 indices by type+direction matching
             if known_terminals:
@@ -765,7 +789,7 @@ class ConstructionMixin:
             # keeps its bare index.
             known_names = catalog_terminal_names(
                 [
-                    NodeSlot(t_info.index, "out" if t_info.is_output else "in")
+                    NodeSlot(t_info.index, TerminalDirection.of(t_info.is_output))
                     for _, t_info, _ in raw_terms
                 ],
                 known_terminals or [],
@@ -789,14 +813,15 @@ class ConstructionMixin:
                 terminal = Terminal(
                     id=q_term_uid,
                     index=t_info.index,
-                    direction="output" if t_info.is_output else "input",
+                    direction=TerminalDirection.of(t_info.is_output),
                     name=t_info.name,
                     display_name=t_info.name
                     or known_names.get(
-                        (t_info.index, "out" if t_info.is_output else "in")
+                        (t_info.index, TerminalDirection.of(t_info.is_output))
                     ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
+                    indexing_disabled=t_info.indexing_disabled,
                     dco_uid=t_info.dco_uid,
                 )
                 node_terminals.append(terminal)
@@ -833,20 +858,29 @@ class ConstructionMixin:
                 if resolved_nt:
                     node_name = resolved_nt.name
 
-            # For older VIs, node_name may be a generic placeholder ("SubVI",
-            # "VI Refnum", etc.) because pylabview cannot decode binary textRec
-            # indices. Fall back to the iUse UID → qualified name map from LIbd.
+            # For older VIs the node has no label (pylabview cannot decode
+            # binary textRec indices), so its name is the node type's generic one.
+            # Fall back to the iUse UID → qualified name map from LIbd.
             if node.node_type in _SUBVI_CALL_NODE_TYPES:
                 iuse_resolved = (iuse_to_qname or {}).get(node.uid)
-                _is_placeholder = not node_name or node_name == "SubVI"
-                if iuse_resolved and _is_placeholder:
+                if iuse_resolved and not node.label:
                     node_name = iuse_resolved
 
             # Get description for SubVIs from vilib
             description = None
             if node.node_type in _SUBVI_CALL_NODE_TYPES and node_name:
                 vilib_r = get_vilib_resolver()
-                vi_entry = vilib_r.resolve_by_name(node_name)
+                callee, variant = callee_keys(
+                    node.node_type,
+                    node.uid,
+                    iuse_to_callee_key or {},
+                    poly_to_callee_key or {},
+                )
+                vi_entry = vilib_r.resolve_recorded(
+                    self.catalog_path_of(
+                        variant or callee, iuse_to_qpath.get(node.uid), vi_key
+                    )
+                )
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 
@@ -1232,7 +1266,7 @@ class ConstructionMixin:
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
-            direction="output" if ctrl.is_indicator else "input",
+            direction=TerminalDirection.of(ctrl.is_indicator),
             name=ctrl.name,
             lv_type=lv_type,
             is_indicator=ctrl.is_indicator,
@@ -1368,7 +1402,6 @@ class ConstructionMixin:
             else:
                 g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
 
-
     @staticmethod
     def _resolve_terminal_indices(
         raw_terms: list[tuple[Any, LVType | None]],
@@ -1391,7 +1424,7 @@ class ConstructionMixin:
             if not lv_type or not lv_type.underlying_type:
                 continue
 
-            prim_dir = "out" if t_info.is_output else "in"
+            prim_dir = TerminalDirection.of(t_info.is_output)
             cat = _lv_type_category(lv_type.underlying_type, lv_type.kind)
             if cat in ("unknown", "void"):
                 continue
@@ -1505,7 +1538,13 @@ class ConstructionMixin:
 
             prim_terminals = None
             if hasattr(gnode, "prim_id") and gnode.prim_id:
-                prim_resolved = resolve_primitive(prim_id=gnode.prim_id)
+                prim_resolved = resolve_primitive(
+                    prim_id=gnode.prim_id,
+                    node_slots={
+                        (t.index, t.direction)
+                        for t in gnode.terminals
+                    },
+                )
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
 
@@ -1533,7 +1572,7 @@ class ConstructionMixin:
             "lSR",
             "lMax",
             "lpTun",
-            "caseSel",
+            TUNNEL_CLASS_CASE_SEL,
             "seqTun",
             "flatSeqTun",
         }
@@ -1632,7 +1671,7 @@ class ConstructionMixin:
             outer_terminal = TunnelTerminal(
                 id=q_outer_uid,
                 index=outer_ti.index if outer_ti else 0,
-                direction="input" if is_input_tunnel else "output",
+                direction=TerminalDirection.of(not is_input_tunnel),
                 name=outer_ti.name if outer_ti else None,
                 lv_type=outer_lv_type,
                 tunnel_type=ttype,
@@ -1667,13 +1706,14 @@ class ConstructionMixin:
             inner_terminal = TunnelTerminal(
                 id=q_inner_uid,
                 index=inner_ti.index if inner_ti else 0,
-                direction="output" if is_input_tunnel else "input",
+                direction=TerminalDirection.of(is_input_tunnel),
                 name=inner_ti.name if inner_ti else None,
                 lv_type=inner_lv_type,
                 tunnel_type=ttype,
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
+                frame_position=tunnel.frame_position,
                 mode=tun_mode,
                 conditional=tun_conditional,
                 condition_terminal=q_condition,
@@ -1773,7 +1813,7 @@ class ConstructionMixin:
                     Terminal(
                         id=q_uid,
                         index=ti.index,
-                        direction="output" if ti.is_output else "input",
+                        direction=TerminalDirection.of(ti.is_output),
                         name=ti.name,
                         lv_type=lv_type,
                     )

@@ -27,6 +27,7 @@ from lvkit.models import (
     WireStyle,
 )
 from lvkit.parser.metadata import _decode_pth0_components
+from lvkit.parser.models import ParsedDependencyRef
 
 from .type_names import ROOT_CLASS
 from .vi_files import (
@@ -46,9 +47,9 @@ class LVMethod:
     vi_path: str
     scope: str  # "public", "private", "protected", "community"
     is_static: bool = False
-    is_accessor: bool = False
-    accessor_type: str | None = None  # "getter" or "setter"
-    accessor_field: str | None = None  # field name being accessed
+    # The name of the property (``NI.ClassItem.Property.LongName``) whose
+    # ``Property Definition`` folder lists this VI; None for an ordinary method.
+    property_name: str | None = None
     # NI.ClassItem.MustOverride -- a child class MUST provide its own
     # implementation of this dynamic-dispatch method. Default False when the
     # property is absent (the overwhelming common case).
@@ -67,6 +68,7 @@ class LVPrivateDataField:
     default_value: str | None = None  # Default value expression
     lv_type_name: str = ""  # Raw LV type from VCTP (e.g. "String", "Boolean")
     sub_fields: list[LVPrivateDataField] = field(default_factory=list)
+    ref_type: str = ""  # Refnum kind from VCTP (e.g. "DataValueRef"), else ""
 
 
 @dataclass
@@ -78,7 +80,7 @@ class LVClass:
     parent_class: str | None = None
     # The parent's recorded relative URL from the class's ``Parent`` Item
     # (e.g. ``"../../Layer/Layer.lvclass"``) when declared that way — a DIRECT
-    # path to the parent file, so the loader follows it without any name-search
+    # path to the parent file, so the loader follows it directly
     # (the parent often sits in a sibling subtree, not up-tree). None when the
     # parent came only from the binary ``ParentClassLinkInfo`` (no URL there).
     parent_url: str | None = None
@@ -94,8 +96,13 @@ class LVClass:
     # plain-XML ``Parent`` Item, still preferred — see ``parent_url``); this
     # is the fallback for a class that has ONLY the binary property.
     parent_link_path: list[str] | None = None
+    # The PTH0 path type of ``parent_link_path`` (0 absolute, 1 relative).
+    parent_link_path_type: int | None = None
     is_vilib_parent: bool = False
     private_data_ctl: str | None = None
+    # The URL the class records for its private-data control (relative to the
+    # class file, which LabVIEW treats as a folder for its members).
+    private_data_url: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
     private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
     # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
@@ -190,58 +197,6 @@ SCOPE_MAP = {
     4: "community",
 }
 
-# Accessor pattern detection
-# Note: Patterns require either:
-#   - Space after keyword (Read/Get/Write/Set X.vi) - case-insensitive
-#   - Uppercase letter after keyword (getX.vi) - camelCase
-# This avoids false positives like setUp -> "setter for Up"
-GETTER_PATTERNS = [
-    re.compile(r"^Read\s+(.+)\.vi$", re.IGNORECASE),  # "Read FieldName.vi"
-    re.compile(r"^Get\s+(.+)\.vi$", re.IGNORECASE),  # "Get FieldName.vi"
-    re.compile(r"^get([A-Z].+)\.vi$"),  # "getFieldName.vi" (camelCase)
-]
-
-SETTER_PATTERNS = [
-    re.compile(r"^Write\s+(.+)\.vi$", re.IGNORECASE),  # "Write FieldName.vi"
-    re.compile(r"^Set\s+(.+)\.vi$", re.IGNORECASE),  # "Set FieldName.vi"
-    re.compile(r"^set([A-Z].+)\.vi$"),  # "setFieldName.vi" (camelCase)
-]
-
-# Method names that look like accessors but aren't (e.g., test framework methods)
-NON_ACCESSOR_METHODS = {
-    "setUp",
-    "tearDown",
-    "setUpClass",
-    "tearDownClass",
-    "globalSetUp",
-    "globalTearDown",
-}
-
-
-def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
-    """Detect if a method is a getter or setter and extract the field name.
-
-    Returns:
-        Tuple of (accessor_type, field_name) or (None, None) if not an accessor.
-    """
-    # Check if this is a known non-accessor method (e.g., setUp, tearDown)
-    base_name = strip_vi_extension(method_name)
-    if base_name in NON_ACCESSOR_METHODS:
-        return (None, None)
-
-    for pattern in GETTER_PATTERNS:
-        match = pattern.match(method_name)
-        if match:
-            return ("getter", match.group(1))
-
-    for pattern in SETTER_PATTERNS:
-        match = pattern.match(method_name)
-        if match:
-            return ("setter", match.group(1))
-
-    return (None, None)
-
-
 def _same_class(label_text: str, classname: str) -> bool:
     """Case-insensitive class-name match for a private-data owner Label vs.
     a target ``<Name>.lvclass``.
@@ -254,53 +209,49 @@ def _same_class(label_text: str, classname: str) -> bool:
     reference may be library-prefixed).
     """
 
+    return _same_name(label_text, classname)
+
+
+def _same_name(label_text: str, name: str) -> bool:
+    """Case-insensitive match of the last ``:``-qualified component."""
+
     def norm(s: str) -> str:
         return s.rsplit(":", 1)[-1].strip().lower()
 
-    return bool(label_text) and norm(label_text) == norm(classname)
+    return bool(label_text) and norm(label_text) == norm(name)
 
 
-def _is_refnum_field(f: LVPrivateDataField) -> bool:
-    """True if a private-data field is itself a reference (a refnum / Data Value
-    Reference) rather than inline data — i.e. the class stores its real fields
-    behind that reference (by-reference private data)."""
-    return (f.lv_type_name or "").strip().lower() == "refnum"
+def _is_data_value_ref(f: LVPrivateDataField) -> bool:
+    """True if a private-data field is a Data Value Reference: the class stores
+    its real fields behind that reference (by-reference private data)."""
+    return f.ref_type == "DataValueRef"
 
 
 def _fields_from_xml(
     xml_path: Path,
-    expected_classname: str | None = None,
-    allow_display_label_fallback: bool = False,
+    expected_classname: str,
+    private_data_ctl: str,
 ) -> list[LVPrivateDataField] | None:
-    """Find THIS class's private-data cluster TypeDesc in one main XML
-    (canonical ``"class private data"`` label, or — opt-in — its control's
-    display-name label).
+    """Find THIS class's private-data cluster in one main XML.
 
     A class's private-data cluster is wrapped in a ``TypeDef`` TypeDesc whose
     sibling ``<Label Text="...">`` children name the owning class
-    (``"<Class>.lvclass"``) and its control (``"<Class>.ctl"``). Two forms
-    occur, matched in two passes:
+    (``"<Class>.lvclass"``) and the control that holds the cluster
+    (``"<Class>.ctl"``), after the owning library's label when the class is in
+    a library. The wrapping TypeDef is the one whose label chain has
+    ``expected_classname`` immediately followed by ``private_data_ctl`` (both
+    compared case-insensitively on the last ``:``-qualified component, see
+    ``_same_class``). A different class merely
+    referenced as a parameter, and the class's member controls (e.g.
+    ``"DAQ Tasks.ctl"``), are never returned.
 
-    * **Pass 1 (canonical, authoritative).** The wrapped cluster's own Label is
-      ``"...class private data"``. When ``expected_classname`` is given, the
-      TypeDef's FIRST ``<Label>`` (its direct owner) must match it
-      (case-insensitively, see ``_same_class``) — so a different class merely
-      referenced as a parameter is never returned. ``None`` accepts the first
-      canonical match unconditionally (legacy behavior).
-    * **Pass 2 (opt-in fallback, ``allow_display_label_fallback``).** The
-      cluster is labeled with its control's DISPLAY name (e.g.
-      ``"measurement context data"``) rather than ``"class private data"``.
-      Identified by the TypeDef's owner Labels — the expected class AND its
-      ``"<Class>.ctl"`` control (excluding member sub-controls like
-      ``"DAQ Tasks.ctl"``); by-reference data (a lone DataValueRef) is deferred
-      to the authoritative ``.ctl``/dep path. This lets a SINGLE uploaded VI
-      name its own class fields with no ``.lvclass`` attached (better than raw
-      ``[index]``). Off by default; only the single-VI resolver
-      (``op_walk._own_class_private_data_fields``) enables it.
+    A cluster holding only Data Value References (a lone one standing in
+    for the real fields) is skipped so the class's control file, which
+    dereferences it, supplies the fields.
 
     Returns the resolved fields, or ``None`` if this XML carries no matching
     private-data TypeDesc. ``None`` means "not found here, keep scanning other
-    XMLs" — distinct from ``[]`` ("no fields") — which
+    XMLs" - distinct from ``[]`` ("no fields") - which
     ``_parse_private_data_fields`` relies on.
     """
     try:
@@ -309,97 +260,40 @@ def _fields_from_xml(
         return None
     root = tree.getroot()
 
-    typedefs = [td for td in root.iter("TypeDesc") if td.get("Type") == "TypeDef"]
-
-    def _owner_labels(typedef: ET.Element) -> list[str]:
-        return [lbl.get("Text", "") or "" for lbl in typedef.findall("Label")]
-
-    def _owned_by_expected(typedef: ET.Element) -> bool:
-        if expected_classname is None:
-            return True
-        return any(_same_class(t, expected_classname) for t in _owner_labels(typedef))
-
-    def _stem(name: str) -> str:
-        # last ":"-qualified component, minus its extension, normalized
-        return name.rsplit(":", 1)[-1].rsplit(".", 1)[0].strip().lower()
-
-    def _is_class_private_ctl(typedef: ET.Element) -> bool:
-        # A class's OWN private-data control is conventionally named
-        # "<Class>.ctl" -- its stem matches the class's. This distinguishes it
-        # from member sub-controls (e.g. "DAQ Tasks.ctl") that are ALSO
-        # class-owned .ctl typedefs but are fields, not the private data.
-        # Only reached from Pass 2, which is guarded by expected_classname.
-        assert expected_classname is not None
-        cls_stem = _stem(expected_classname)
-        return any(
-            t.lower().endswith(".ctl") and _stem(t) == cls_stem
-            for t in _owner_labels(typedef)
-        )
-
-    def _members(typedef: ET.Element) -> list[LVPrivateDataField] | None:
+    for typedef in root.iter("TypeDesc"):
+        if typedef.get("Type") != "TypeDef":
+            continue
+        labels = [lbl.get("Text", "") or "" for lbl in typedef.findall("Label")]
+        if not any(
+            _same_class(cls, expected_classname) and _same_name(ctl, private_data_ctl)
+            for cls, ctl in zip(labels, labels[1:])
+        ):
+            continue
         nested = typedef.find("TypeDesc[@Nested='True']")
         if nested is None:
-            return None
+            continue
         type_ids = [td.get("TypeID") for td in nested.findall("TypeDesc")]
-        return _resolve_type_ids(root, type_ids)
-
-    # Pass 1 (canonical, UNCHANGED): the wrapped cluster's Label says "class
-    # private data", owned by the expected class. Authority comes from the
-    # FIRST <Label> (the direct owner) — scanning all labels here would let a
-    # different class that merely appears deeper in the label list win, so this
-    # match stays first-label-only exactly as before.
-    for typedef in typedefs:
-        nested = typedef.find("TypeDesc[@Nested='True']")
-        if nested is None:
+        fields = _resolve_type_ids(root, type_ids)
+        if not fields:
             continue
-        if "class private data" not in (nested.get("Label", "") or "").lower():
+        if all(_is_data_value_ref(f) for f in fields):
             continue
-        if expected_classname is not None:
-            owner = typedef.find("Label")
-            owner_text = owner.get("Text", "") if owner is not None else ""
-            if not _same_class(owner_text, expected_classname):
-                continue
-        fields = _members(typedef)
-        if fields:
-            return fields
-
-    # Pass 2 (fallback — better than a raw [index]): the cluster is labeled with
-    # its control's DISPLAY name, not "class private data". Accept the TypeDef
-    # that IS this class's private-data control — its owner Labels name the
-    # expected class AND a ".ctl". Owner-authoritative, so it never grabs a
-    # different class's cluster; requires ``expected_classname`` to disambiguate.
-    if allow_display_label_fallback and expected_classname is not None:
-        for typedef in typedefs:
-            if not _owned_by_expected(typedef):
-                continue
-            if not _is_class_private_ctl(typedef):
-                continue
-            fields = _members(typedef)
-            if not fields:
-                continue
-            # A lone-refnum cluster is a by-reference wrapper (a single Data
-            # Value Reference / refnum standing in for the real fields). Pass 2
-            # cannot tell a DVR wrapper from a genuine by-value refnum field, so
-            # it defers ANY such cluster to the authoritative .ctl/dep path
-            # (which dereferences it) rather than surface the bare wrapper name.
-            if all(_is_refnum_field(f) for f in fields):
-                continue
-            return fields
+        return fields
     return None
 
 
-def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
+def _parse_private_data_fields(
+    lvclass_path: Path, private_data_ctl: str | None
+) -> list[LVPrivateDataField]:
     """Parse THIS class's own private data fields from a method VI's XML in
     the class directory.
 
-    Any method VI that uses the class object will have the
-    "Cluster of class private data" type definition in its VCTP section —
-    but a VI can also reference OTHER classes' private data (e.g. a
-    generic class taken as a parameter), so every candidate match is
-    verified against ``lvclass_path``'s own class name (case-insensitively
-    — see ``_fields_from_xml``/``_same_class``) before being accepted.
-    Without this check the first "class private data" match found in
-    directory-glob order could belong to a different class entirely.
+    Any method VI that uses the class object has the class's private-data
+    type definition in its VCTP section - but a VI can also reference OTHER
+    classes' private data (e.g. a generic class taken as a parameter), so a
+    match must be owned by ``lvclass_path``'s own class AND carry the control
+    the class file records (``private_data_ctl``); see ``_fields_from_xml``.
+    A class file that records no private-data control has no private data.
 
     Field names and LV type names are extracted from the same XML's VCTP.
 
@@ -414,13 +308,15 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
     e.g. a class pulled fresh via ``scripts/pull_samples.sh`` with nothing
     pre-extracted.
     """
+    if private_data_ctl is None:
+        return []
     class_dir = lvclass_path.parent
     expected_classname = f"{lvclass_path.stem}.lvclass"
 
     for xml_path in sorted(class_dir.glob("*.xml")):
         if "_BDHb" in xml_path.name or "_FPHb" in xml_path.name:
             continue
-        fields = _fields_from_xml(xml_path, expected_classname)
+        fields = _fields_from_xml(xml_path, expected_classname, private_data_ctl)
         if fields:
             return fields
 
@@ -431,7 +327,7 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
             continue
         if main_xml is None:
             continue
-        fields = _fields_from_xml(main_xml, expected_classname)
+        fields = _fields_from_xml(main_xml, expected_classname, private_data_ctl)
         if fields:
             return fields
 
@@ -506,7 +402,8 @@ def _resolve_type_ids(
     if _visited is None:
         _visited = frozenset()
 
-    for tid in type_ids:
+    unlabelled: list[tuple[LVPrivateDataField, int]] = []
+    for position, tid in enumerate(type_ids):
         if tid is None:
             continue
         try:
@@ -535,13 +432,9 @@ def _resolve_type_ids(
                 resolved_elem = nested
                 lv_type = nested.get("Type", "")
 
-        # Get label: try the resolved element first, then the outer TypeDef wrapper.
-        # Every named cluster field must have a label (the field name). If neither
-        # element carries one, this is an anonymous structural TypeDesc (e.g. an
-        # inline type used for wiring only) and cannot be mapped to a Python field.
+        # Get label: try the resolved element first, then the outer TypeDef
+        # wrapper. A field with neither is named by its position below.
         label = resolved_elem.get("Label", "") or type_elem.get("Label", "")
-        if not label:
-            continue
 
         # For class refnums, extract qualified classname from <Item> chain
         ref_type = resolved_elem.get("RefType", "")
@@ -563,14 +456,29 @@ def _resolve_type_ids(
                 )
 
         python_type = _lv_type_to_python(lv_type)
-        fields.append(
-            LVPrivateDataField(
-                name=label,
-                python_type=python_type,
-                lv_type_name=lv_type,
-                sub_fields=sub_fields,
-            )
+        field_ = LVPrivateDataField(
+            name=label,
+            python_type=python_type,
+            lv_type_name=lv_type,
+            sub_fields=sub_fields,
+            ref_type=ref_type,
         )
+        fields.append(field_)
+        if not label:
+            unlabelled.append((field_, position))
+
+    # A field with no label is named by its position in the cluster, as every
+    # other cluster field without a label is; a position name another field
+    # already has gets a number after it.
+    taken = {f.name for f in fields if f.name}
+    for field_, position in unlabelled:
+        name = f"field_{position}"
+        copy = 2
+        while name in taken:
+            name = f"field_{position}_{copy}"
+            copy += 1
+        taken.add(name)
+        field_.name = name
 
     return fields
 
@@ -621,6 +529,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # (no ``Parent`` Item at all) -- cheap, the same already-parsed tree.
     link_info = _parent_from_link_info(root)
     parent_link_path = link_info[2] if link_info is not None else None
+    parent_link_path_type = link_info[3] if link_info is not None else None
     item_parent = _parent_from_item(root)
     if item_parent is not None:
         parent_class, parent_url = item_parent
@@ -632,7 +541,9 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # Full ancestor chain, nearest-first -- best-effort on-disk resolution of
     # each ancestor's own .lvclass file (see _build_ancestor_chain). Never
     # decodes NI.LVClass.Geneology (opaque, leaks siblings).
-    ancestors = _build_ancestor_chain(lvclass_path, parent_class, parent_url)
+    ancestors = _build_ancestor_chain(
+        lvclass_path, parent_class, parent_url, parent_link_path, parent_link_path_type
+    )
 
     # NI.Lib.Version -- verbatim dotted-quad string, same convention as
     # parse_lvlib's version property below.
@@ -641,17 +552,18 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         if prop.get("Name") == "NI.Lib.Version":
             version = prop.text
 
-    # Parse items recursively (methods and private data can be in folders)
-    _parse_items(root, methods, private_data_ctl)
-
-    # Find private data control
+    # The class's own record of its private-data control
+    private_data_url = None
     for item in root.findall(".//Item"):
         if item.get("Type") == "Class Private Data":
             private_data_ctl = item.get("Name")
+            private_data_url = item.get("URL")
             break
 
-    # Parse private data fields from _Init.xml
-    private_data_fields = _parse_private_data_fields(lvclass_path)
+    # Parse items recursively (methods and private data can be in folders)
+    _parse_items(root, methods, private_data_ctl)
+
+    private_data_fields = _parse_private_data_fields(lvclass_path, private_data_ctl)
 
     return LVClass(
         name=class_name,
@@ -659,8 +571,10 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         parent_class=parent_class,
         parent_url=parent_url,
         parent_link_path=parent_link_path,
+        parent_link_path_type=parent_link_path_type,
         is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
+        private_data_url=private_data_url,
         methods=methods,
         private_data_fields=private_data_fields,
         version=version,
@@ -673,6 +587,7 @@ def _parse_items(
     parent_elem: ET.Element,
     methods: list[LVMethod],
     private_data_ctl: str | None,
+    property_name: str | None = None,
 ) -> None:
     """Recursively parse Item elements to find methods.
 
@@ -680,62 +595,58 @@ def _parse_items(
         parent_elem: Parent XML element to search
         methods: List to append methods to
         private_data_ctl: Name of private data control (if found)
+        property_name: The property whose folder ``parent_elem`` is, if it is one
     """
     for item in parent_elem.findall("Item"):
         item_name = item.get("Name", "")
         item_type = item.get("Type", "")
-        item_url = item.get("URL", "")
 
         if item_type == "Folder":
             # Recurse into folders (private, protected, etc.)
-            _parse_items(item, methods, private_data_ctl)
+            _parse_items(item, methods, private_data_ctl, property_name)
+        elif item_type == "Property Definition":
+            # The VIs listed in a property's folder are its accessors; the
+            # property is named by its long name.
+            long_name = item.find("Property[@Name='NI.ClassItem.Property.LongName']")
+            name = (
+                long_name.text
+                if long_name is not None and long_name.text
+                else item_name
+            )
+            _parse_items(item, methods, private_data_ctl, name)
         elif item_type == "VI" and is_vi_file(item_name):
-            # Get method properties
-            scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
-            static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
-            must_override_prop = item.find(
-                "Property[@Name='NI.ClassItem.MustOverride']"
-            )
-            must_call_parent_prop = item.find(
-                "Property[@Name='NI.ClassItem.MustCallParent']"
-            )
+            methods.append(_parse_method(item, property_name))
 
-            scope_val = 1  # default public
-            if scope_prop is not None and scope_prop.text:
-                try:
-                    scope_val = int(scope_prop.text)
-                except ValueError:
-                    pass
 
-            is_static = False
-            if static_prop is not None and static_prop.text:
-                is_static = static_prop.text.lower() == "true"
+def _parse_method(item: ET.Element, property_name: str | None) -> LVMethod:
+    """The method a class ``Item`` of type VI records."""
+    item_name = item.get("Name", "")
+    scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
+    static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
+    must_override_prop = item.find("Property[@Name='NI.ClassItem.MustOverride']")
+    must_call_parent_prop = item.find("Property[@Name='NI.ClassItem.MustCallParent']")
 
-            must_override = False
-            if must_override_prop is not None and must_override_prop.text:
-                must_override = must_override_prop.text.lower() == "true"
+    scope_val = 1  # default public
+    if scope_prop is not None and scope_prop.text:
+        try:
+            scope_val = int(scope_prop.text)
+        except ValueError:
+            pass
 
-            must_call_parent = False
-            if must_call_parent_prop is not None and must_call_parent_prop.text:
-                must_call_parent = must_call_parent_prop.text.lower() == "true"
+    return LVMethod(
+        name=strip_vi_extension(item_name),
+        vi_path=item.get("URL", ""),
+        scope=SCOPE_MAP.get(scope_val, "public"),
+        is_static=_bool_property(static_prop),
+        property_name=property_name,
+        must_override=_bool_property(must_override_prop),
+        must_call_parent=_bool_property(must_call_parent_prop),
+    )
 
-            # Detect accessor methods
-            accessor_type, accessor_field = _detect_accessor(item_name)
-            is_accessor = accessor_type is not None
 
-            methods.append(
-                LVMethod(
-                    name=strip_vi_extension(item_name),
-                    vi_path=item_url,
-                    scope=SCOPE_MAP.get(scope_val, "public"),
-                    is_static=is_static,
-                    is_accessor=is_accessor,
-                    accessor_type=accessor_type,
-                    accessor_field=accessor_field,
-                    must_override=must_override,
-                    must_call_parent=must_call_parent,
-                )
-            )
+def _bool_property(prop: ET.Element | None) -> bool:
+    """Whether a ``Bool`` class-item property is recorded as true."""
+    return prop is not None and bool(prop.text) and (prop.text or "").lower() == "true"
 
 
 def _lv_base64_decode(text: str) -> bytes:
@@ -880,7 +791,7 @@ def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
     ``<Item Name="X.lvclass" Type="Parent" URL="../../X/X.lvclass"/>`` (inside a
     ``Parent Libraries`` group). This is the richest source — it carries the
     parent's name AND a relative URL straight to the parent file — so the loader
-    follows the URL with no name-search (the parent commonly lives in a sibling
+    follows the URL (the parent commonly lives in a sibling
     subtree, unreachable by an up-tree walk). Returns
     ``(parent_name_without_suffix, url_or_None)`` or ``None`` when absent.
     """
@@ -895,7 +806,7 @@ def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
 
 def _parent_from_link_info(
     root: ET.Element,
-) -> tuple[str, bool, list[str] | None] | None:
+) -> tuple[str, bool, list[str] | None, int | None] | None:
     """Decode the authoritative parent class from
     ``NI.LVClass.ParentClassLinkInfo``.
 
@@ -953,80 +864,20 @@ def _parent_from_link_info(
     # corrupt the record's binary length/count fields) via the same
     # ``_decode_pth0_components`` a Path CONSTANT already uses.
     path_tokens: list[str] | None = None
+    path_type: int | None = None
     pth0_idx = decoded.find(b"PTH0")
     if pth0_idx != -1:
         parts, _ = _decode_pth0_components(decoded, pth0_idx, len(decoded))
         path_tokens = parts or None
+        # The PTH0 header: tag, total length, path type, component count.
+        path_type = int.from_bytes(decoded[pth0_idx + 8 : pth0_idx + 10], "big")
 
     for run in printable:
         match = _LVCLASS_TOKEN_RE.search(run)
         token = match.group(1) if match else (run if run.endswith(".lvclass") else None)
         if token:
-            return (token[: -len(".lvclass")], is_vilib, path_tokens)
+            return (token[: -len(".lvclass")], is_vilib, path_tokens, path_type)
 
-    return None
-
-
-# Memoized stem -> path index of every ``*.lvclass`` under a given root
-# directory (see ``_lvclass_stem_index``) -- keyed by the resolved root
-# ``_resolve_ancestor_lvclass`` climbs to, so a full-tree ``rglob`` only ever
-# runs ONCE per root, however many ancestor levels ``_build_ancestor_chain``
-# resolves through it.
-_LVCLASS_INDEX_CACHE: dict[Path, dict[str, Path]] = {}
-
-
-def _lvclass_stem_index(root: Path) -> dict[str, Path]:
-    """Stem -> path index of every ``*.lvclass`` under ``root``, built once
-    and memoized per root. Ties (two files sharing a stem) resolve to the
-    alphabetically-first path -- matching ``sorted(...)[0]``, the previous
-    per-level lookup's own tie-break."""
-    cached = _LVCLASS_INDEX_CACHE.get(root)
-    if cached is not None:
-        return cached
-    index: dict[str, Path] = {}
-    for p in sorted(root.rglob("*.lvclass")):
-        index.setdefault(p.stem, p)
-    _LVCLASS_INDEX_CACHE[root] = index
-    return index
-
-
-def _resolve_ancestor_lvclass(
-    start_dir: Path,
-    bare_name: str,
-    max_levels: int = 6,
-) -> Path | None:
-    """Best-effort on-disk resolution of an ancestor class's ``.lvclass`` file.
-
-    An ancestor is rarely a direct sibling of its child (e.g.
-    ``_TextTestResult.JUnitXML.lvclass`` lives under ``Ant Plugin/Source/...``
-    while its parent ``_TextTestResult.lvclass`` lives under
-    ``Classes/_TextTestResult/`` -- a different branch of the same repo tree).
-    So this climbs UP from ``start_dir`` (bounded by ``max_levels``, so a
-    genuinely-missing ancestor -- common: many corpora don't vendor every
-    ancestor's file -- can't runaway-scan the filesystem) to a single ROOT
-    directory, then looks ``bare_name`` up in that root's memoized stem index
-    (``_lvclass_stem_index``) -- one ``rglob`` per root rather than one per
-    level, since each level's search scope is a subset of the next (cross-
-    directory, cycle-safe: a symlink cycle under the root can make the
-    ``rglob`` itself slow, same as before, but never infinite-loop this
-    function). Falls back to a case-insensitive stem match (LabVIEW class
-    names are effectively case-insensitive -- see ``_same_class``).
-    """
-    d = start_dir.resolve()
-    for _ in range(max_levels):
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-    index = _lvclass_stem_index(d)
-
-    exact = index.get(bare_name)
-    if exact is not None:
-        return exact
-    bare_lower = bare_name.lower()
-    for stem, path in index.items():
-        if stem.lower() == bare_lower:
-            return path
     return None
 
 
@@ -1034,18 +885,17 @@ def _build_ancestor_chain(
     lvclass_path: Path,
     parent_class: str | None,
     parent_url: str | None = None,
+    parent_link_path: list[str] | None = None,
+    parent_link_path_type: int | None = None,
 ) -> list[str]:
     """The FULL ancestor chain, nearest-first, by following each class's own
-    recorded parent up from ``lvclass_path``.
-
-    Prefers the parent's DIRECT recorded URL (relative to the class file, which
-    LabVIEW treats as a directory): a hit parses that ancestor and continues via
-    ITS url; a URL whose file is absent stops the chain at the bare name and does
-    NOT fall back to a filesystem search — the URL is authoritative, so a
-    missing file just means the ancestor isn't vendored here. Only a class with
-    NO url (older binary-only ``ParentClassLinkInfo`` saves) uses the climb-and-
-    ``rglob`` ``_resolve_ancestor_lvclass`` fallback — which must never run for a
-    class in a throwaway/tmp tree (it would rglob a giant unrelated root).
+    recorded parent path up from ``lvclass_path``: its ``Parent`` Item URL
+    (relative to the class file, which LabVIEW treats as a directory), else the
+    path its ``ParentClassLinkInfo`` record carries (``resolve_against`` the
+    class file; a ``<vilib>`` path has no folder here). The chain stops at the
+    bare name of the first ancestor whose recorded path holds no file — the
+    path is authoritative, so a missing file just means the ancestor isn't
+    vendored here.
 
     Deliberately does NOT decode ``NI.LVClass.Geneology`` (an opaque base64
     type-descriptor that also leaks sibling classes).
@@ -1055,6 +905,8 @@ def _build_ancestor_chain(
     current_path = lvclass_path
     current_parent = parent_class
     current_url = parent_url
+    current_link = parent_link_path
+    current_link_type = parent_link_path_type
     while (
         current_parent
         and current_parent != ROOT_CLASS
@@ -1063,25 +915,31 @@ def _build_ancestor_chain(
         ancestors.append(current_parent)
         seen.add(current_parent)
         if current_url:
-            cand = (current_path / current_url).resolve()
-            if not cand.exists():
-                break  # URL authoritative; ancestor simply not vendored here
-            parent_file: Path | None = cand
+            parent_file: Path | None = (current_path / current_url).resolve()
+        elif current_link:
+            ref = ParsedDependencyRef(
+                name=current_parent + ".lvclass",
+                path_tokens=current_link,
+                path_type=current_link_type,
+            )
+            parent_file = ref.absolute_path() or ref.resolve_against(current_path)
         else:
-            parent_file = _resolve_ancestor_lvclass(current_path.parent, current_parent)
-        if parent_file is None:
+            parent_file = None
+        if parent_file is None or not parent_file.exists():
             break
         try:
             parent_root = ET.parse(parent_file).getroot()
         except ET.ParseError:
             break
         item = _parent_from_item(parent_root)
+        link = _parent_from_link_info(parent_root)
         if item is not None:
             current_parent, current_url = item
         else:
-            link = _parent_from_link_info(parent_root)
             current_parent = link[0] if link is not None else None
             current_url = None
+        current_link = link[2] if link is not None else None
+        current_link_type = link[3] if link is not None else None
         current_path = parent_file
     return ancestors
 
@@ -1150,6 +1008,21 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         version=version,
         members=members,
     )
+
+
+def member_url_paths(container: Path, url: str) -> tuple[Path, Path]:
+    """The two paths a ``.lvlib`` or ``.lvclass`` member's recorded URL can
+    name, the member's recorded path first. LabVIEW 2010 and later write the
+    URL relative to the container FILE treated as a folder (``../X.vi`` is X.vi
+    beside it — every library and class in the sample corpus saved by LabVIEW
+    2010 to 2021); a LabVIEW 8.x save writes it relative to the container's
+    folder (``X.vi``). A URL that does not climb out of the container would
+    name a file inside it, which no member is, so it is read the 8.x way
+    first."""
+    in_file = (container / url).resolve()
+    in_folder = (container.parent / url).resolve()
+    climbs = url.replace("\\", "/").startswith("../")
+    return (in_file, in_folder) if climbs else (in_folder, in_file)
 
 
 def parse_lvproj(lvproj_path: Path | str) -> LVProject:

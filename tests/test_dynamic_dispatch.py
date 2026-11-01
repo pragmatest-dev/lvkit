@@ -1,28 +1,15 @@
 """Tests for dynamic dispatch (dynIUse) support.
 
-Part 1: VIPI/DyOM extraction from XML
-Part 2: Dynamic dispatch code generation (obj.method pattern)
+VIPI/DyOM extraction from XML. How a dispatch call is generated (``obj.method``,
+``super().method``, ``Class.method``) is tested with real classes in
+``test_class_codegen.py``.
 """
 
 from __future__ import annotations
 
-import ast
 import xml.etree.ElementTree as ET
 
-from lvkit.codegen.nodes import subvi
-from lvkit.graph.models import VINode
-from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.vi import _extract_subvi_info, _resolve_qualified_name
-from tests.helpers import make_ctx
-
-
-def _unparse(stmt: ast.stmt) -> str:
-    """Unparse an AST statement, fixing missing locations first."""
-    ast.fix_missing_locations(stmt)
-    return ast.unparse(stmt)
-
-
-# === Part 1: VIPI/DyOM extraction ===
 
 
 class TestVIPIExtraction:
@@ -90,7 +77,7 @@ class TestVIPIExtraction:
         s2 = ET.SubElement(lsqn, "String")
         s2.text = "\x01\x0daddSuccess.vi"
 
-        qname = _resolve_qualified_name(vipi, caller_library=None)
+        qname = _resolve_qualified_name(vipi, caller_library=None, encoding="cp1252")
         assert qname == "TestResult.lvclass:addSuccess.vi"
 
     def test_vipi_with_same_library_flag(self):
@@ -111,197 +98,3 @@ class TestVIPIExtraction:
         qnames, _, _ = _extract_subvi_info(root, None)
         # Should not crash, just returns empty
         assert all("VIPI" not in q for q in qnames)
-
-
-# === Part 2: Dynamic dispatch code generation ===
-
-
-def _make_ctx_with_bindings(
-    bindings: dict[str, str],
-    extra_terminals: list[str] | None = None,
-):
-    """Create a CodeGenContext with bindings and a graph that has the terminals."""
-    all_tids = list(bindings.keys()) + (extra_terminals or [])
-    ctx = make_ctx(*all_tids)
-    for tid, val in bindings.items():
-        ctx.bind(tid, val)
-    return ctx
-
-
-def _make_dynIUse_node(
-    name: str = "addSuccess.vi",
-    inputs: list[Terminal] | None = None,
-    outputs: list[Terminal] | None = None,
-) -> VINode:
-    """Create a dynIUse SubVI-call graph node."""
-    terminals = list(inputs or []) + list(outputs or [])
-    return VINode(
-        id="node_1",
-        vi_path="test.vi",
-        name=name,
-        node_type="dynIUse",
-        terminals=terminals,
-    )
-
-
-class TestDynamicDispatchCodegen:
-    """Test dynamic dispatch code generation."""
-
-    def test_method_call_shape(self):
-        """dynIUse generates obj.method(args) not func(obj, args)."""
-        node = _make_dynIUse_node(
-            name="addSuccess.vi",
-            inputs=[
-                Terminal(
-                    id="t_in_0",
-                    index=0,
-                    direction="input",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-                ),
-                Terminal(id="t_in_1", index=1, direction="input"),
-            ],
-            outputs=[
-                Terminal(
-                    id="t_out_0",
-                    index=2,
-                    direction="output",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-                ),
-            ],
-        )
-        ctx = _make_ctx_with_bindings(
-            {"t_in_0": "test_result", "t_in_1": "test_name"}, ["t_out_0"]
-        )
-
-        frag = subvi.generate(node, ctx)
-
-        assert len(frag.statements) >= 1
-        code = _unparse(frag.statements[0])
-        # to_function_name("addSuccess.vi") → "addsuccess"
-        assert "test_result.addsuccess" in code
-        assert "test_name" in code
-
-    def test_receiver_by_lv_type(self):
-        """UDClassInst terminal is used as receiver."""
-        node = _make_dynIUse_node(
-            name="doWork.vi",
-            inputs=[
-                Terminal(id="t_str", index=0, direction="input"),
-                Terminal(
-                    id="t_obj",
-                    index=1,
-                    direction="input",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-                ),
-            ],
-        )
-        ctx = _make_ctx_with_bindings({"t_str": "my_string", "t_obj": "my_object"})
-
-        frag = subvi.generate(node, ctx)
-
-        code = _unparse(frag.statements[0])
-        # Object should be receiver, string should be arg
-        assert "my_object.dowork" in code
-        assert "my_string" in code
-
-    def test_receiver_fallback_first_input(self):
-        """When no UDClassInst lv_type, first input is used as receiver."""
-        node = _make_dynIUse_node(
-            name="doWork.vi",
-            inputs=[
-                Terminal(id="t_0", index=0, direction="input"),
-                Terminal(id="t_1", index=1, direction="input"),
-            ],
-        )
-        ctx = _make_ctx_with_bindings({"t_0": "first_input", "t_1": "second_input"})
-
-        frag = subvi.generate(node, ctx)
-
-        code = _unparse(frag.statements[0])
-        assert "first_input.dowork" in code
-        assert "second_input" in code
-
-    def test_class_output_passthrough(self):
-        """Class-typed output binds to receiver variable (passthrough)."""
-        node = _make_dynIUse_node(
-            name="addSuccess.vi",
-            inputs=[
-                Terminal(
-                    id="t_in",
-                    index=0,
-                    direction="input",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-                ),
-            ],
-            outputs=[
-                Terminal(
-                    id="t_out",
-                    index=1,
-                    direction="output",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-                ),
-                Terminal(id="t_out2", index=2, direction="output", name="count"),
-            ],
-        )
-        ctx = _make_ctx_with_bindings({"t_in": "test_result"}, ["t_out", "t_out2"])
-
-        frag = subvi.generate(node, ctx)
-
-        # Class output should pass through to receiver
-        assert frag.bindings["t_out"] == "test_result"
-        # Non-class output should use result_var.field
-        assert "addsuccess_result" in frag.bindings["t_out2"]
-
-    def test_no_vilib_resolution_needed(self):
-        """dynIUse never raises VILibResolutionNeeded."""
-        node = _make_dynIUse_node(
-            name="unknownMethod.vi",
-            inputs=[
-                Terminal(id="t_in", index=0, direction="input"),
-            ],
-            outputs=[
-                Terminal(id="t_out", index=1, direction="output"),
-            ],
-        )
-        ctx = _make_ctx_with_bindings({"t_in": "obj"}, ["t_out"])
-
-        # Should NOT raise VILibResolutionNeeded
-        frag = subvi.generate(node, ctx)
-        assert frag.statements
-
-    def test_no_inputs_static_fallback(self):
-        """dynIUse with no wired inputs falls back to static function call."""
-        node = _make_dynIUse_node(
-            name="getVersion.vi",
-            outputs=[
-                Terminal(id="t_out", index=0, direction="output", name="version"),
-            ],
-        )
-        ctx = _make_ctx_with_bindings({}, ["t_out"])
-
-        frag = subvi.generate(node, ctx)
-
-        code = _unparse(frag.statements[0])
-        # Should be static call, not method call
-        assert "getversion()" in code
-
-    def test_is_class_terminal(self):
-        """_is_class_terminal correctly identifies UDClassInst."""
-
-        class_term = Terminal(
-            id="t1",
-            index=0,
-            direction="input",
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, ref_type="UDClassInst"),
-        )
-        non_class_term = Terminal(
-            id="t2",
-            index=1,
-            direction="input",
-            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
-        )
-        no_type_term = Terminal(id="t3", index=2, direction="input")
-
-        assert subvi._is_class_terminal(class_term) is True
-        assert subvi._is_class_terminal(non_class_term) is False
-        assert subvi._is_class_terminal(no_type_term) is False

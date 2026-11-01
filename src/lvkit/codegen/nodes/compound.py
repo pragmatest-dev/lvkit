@@ -5,16 +5,18 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
-from ..ast_utils import build_assign, parse_expr, to_var_name, uint_mask
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
-from ..elementwise import LV_IMPORT
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..native_array import replace_subarray_statements
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -57,7 +59,8 @@ def _invert_expr(
     expr: ast.expr,
     boolean: bool,
     operation: str,
-    lv_type: LVType | None = None,
+    lv_type: LVType | None,
+    ctx: CodeGenContext,
 ) -> ast.expr:
     """Wrap an expression with a Compound-Arithmetic terminal's "Invert".
 
@@ -65,8 +68,8 @@ def _invert_expr(
     - Boolean operand -> logical ``not`` (any mode);
     - Add mode -> arithmetic negation (``-x``), i.e. subtraction;
     - Multiply mode -> reciprocal (``1 / x``);
-    - AND/OR/XOR mode -> bitwise ``~``, masked to the type width for unsigned
-      ints (Python's ``~`` would otherwise yield a negative).
+    - AND/OR/XOR mode -> bitwise ``~``, wrapped to the type width with ``ctypes``
+      for unsigned ints (Python's ``~`` would otherwise yield a negative).
     """
     if boolean:
         return ast.UnaryOp(op=ast.Not(), operand=expr)
@@ -75,9 +78,10 @@ def _invert_expr(
     if operation == "multiply":
         return ast.BinOp(left=ast.Constant(value=1), op=ast.Div(), right=expr)
     inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
-    mask = uint_mask(lv_type)
-    if mask is not None:
-        inv = ast.BinOp(left=inv, op=ast.BitAnd(), right=ast.Constant(value=mask))
+    underlying = (lv_type.underlying_type or "") if lv_type else ""
+    if underlying in UNSIGNED_INTEGERS:
+        ctx.add_import("import ctypes")
+        return parse_expr(fixed_width(ast.unparse(inv), underlying))
     return inv
 
 
@@ -95,7 +99,7 @@ def generate_compound_arith(
     terminals = node.terminals
     operation = node.operation or "add"
     if operation not in _CPD_OPERATIONS:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Compound Arithmetic: operation {operation!r} is not supported. "
             "Its objFlags mode enum (bits 16-18) was outside the known set "
             "add/multiply/and/or/xor. Add the code to "
@@ -129,11 +133,11 @@ def generate_compound_arith(
     sorted_inputs = sorted(inputs, key=lambda t: t.index)
     input_exprs = []
     for inp in sorted_inputs:
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if val:
             expr = parse_expr(val)
             if inp.inverted:
-                expr = _invert_expr(expr, boolean, operation, inp.lv_type)
+                expr = _invert_expr(expr, boolean, operation, inp.lv_type, ctx)
                 val = ast.unparse(expr)
             input_exprs.append(val)
 
@@ -152,7 +156,9 @@ def generate_compound_arith(
     if len(input_exprs) == 1:
         combined = parse_expr(input_exprs[0])
         if output_term.inverted:
-            combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
+            combined = _invert_expr(
+                combined, boolean, operation, output_term.lv_type, ctx
+            )
             stmt = build_assign(var_name, combined)
             return CodeFragment(
                 statements=[stmt],
@@ -213,7 +219,7 @@ def generate_compound_arith(
         )
 
     if output_term.inverted:
-        combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
+        combined = _invert_expr(combined, boolean, operation, output_term.lv_type, ctx)
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(
@@ -262,7 +268,7 @@ def generate_array_build(
     parts: list[ast.expr] = []
     input_names: list[str] = []
     for inp in sorted(inputs, key=lambda t: t.index):
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if val:
             input_names.append(val)
             is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
@@ -310,7 +316,7 @@ def generate_concat_strings(
 
     parts: list[ast.expr] = []
     for inp in sorted(inputs, key=lambda t: t.index):
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if not val:
             continue
         is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
@@ -393,7 +399,9 @@ def generate_array_init(
 
     imports: set[str] = set()
 
-    elem_val = ctx.resolve(element_term.id) if element_term is not None else None
+    elem_val = (
+        ctx.wired_input(element_term.id, node) if element_term is not None else None
+    )
     elem_expr: ast.expr
     if elem_val:
         elem_expr = parse_expr(elem_val)
@@ -413,7 +421,7 @@ def generate_array_init(
 
     dim_exprs: list[ast.expr] = []
     for dt in dim_terms:
-        val = ctx.resolve(dt.id)
+        val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
     if not dim_exprs:
@@ -469,7 +477,7 @@ def generate_array_replace(
     you specify" -- so each unwired index is 0. The function "crops any
     subarray that is too large to fit" and "If any index is negative or larger
     than the corresponding dimension ... the function has no effect". The rule
-    is the same at every rank and is carried out by ``_lv.replace_array_subset``.
+    is the same at every rank and is written out as indexing on a copy.
 
     A new element with fewer dimensions than the array lands along the array's
     last dimensions, the leading indices picking the cell (a row into a 2-D
@@ -482,14 +490,14 @@ def generate_array_replace(
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
     if rank is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Replace Array Subset's array input has no known array type", node
         )
     elements = roles.get(2, [])
     if not elements:
         return CodeFragment()
 
-    array_val = ctx.resolve(array_term.id) or "[]"
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
     statements: list[ast.stmt] = []
     for position, (placed, element_term) in enumerate(elements):
         indices = [
@@ -499,43 +507,39 @@ def generate_array_replace(
         ]
         new_rank = _array_rank(element_term) or 0
         if new_rank > rank:
-            raise CodeGenError(
+            raise ConversionGap(
                 "Replace Array Subset's new element has more dimensions than "
                 "the array.",
                 node,
             )
-        index_vals = [ctx.resolve(t.id) for t in indices]
+        index_vals = [ctx.wired_input(t.id, node) for t in indices]
         leading = rank - new_rank
         if new_rank and not all(index_vals[:leading]):
-            raise CodeGenError(
+            raise ConversionGap(
                 "Replace Array Subset with a subarray needs the leading "
                 f"{leading} index input(s) wired: NI's page does not say along "
                 "which axis the subarray runs otherwise.",
                 node,
             )
-        element_val = ctx.resolve(element_term.id)
+        element_val = ctx.wired_input(element_term.id, node)
         if element_val is None:
             element_val = "[]" if new_rank else "None"
-        offsets = ", ".join(value or "0" for value in index_vals)
         target = (
             ctx.make_output_var("output_array", node.id, terminal_id=output_term.id)
             if position == len(elements) - 1
             else ctx.make_output_var(f"array_after_{position}", node.id)
         )
-        statements.append(
-            build_assign(
-                target,
-                parse_expr(
-                    f"_lv.replace_array_subset({array_val}, {element_val}, "
-                    f"[{offsets}], {new_rank})"
-                ),
+        offsets = [value or "0" for value in index_vals]
+        statements.extend(
+            replace_subarray_statements(
+                array_val, element_val, offsets, new_rank, target
             )
         )
         array_val = target
     return CodeFragment(
         statements=statements,
         bindings={output_term.id: array_val},
-        imports={LV_IMPORT},
+        imports={"import copy"},
     )
 
 
@@ -575,7 +579,7 @@ def generate_array_insert(
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
     if rank is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Insert Into Array's array input has no known array type, so the "
             "number of index inputs is unknown.",
             node,
@@ -585,21 +589,18 @@ def generate_array_insert(
     if not element_terms:
         return CodeFragment()
 
-    array_val = ctx.resolve(array_term.id) or "[]"
-    wired = [
-        (axis, ctx.resolve(t.id))
-        for axis, t in enumerate(index_terms)
-        if ctx.resolve(t.id)
-    ]
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
+    index_vals = [ctx.wired_input(t.id, node) for t in index_terms]
+    wired = [(axis, value) for axis, value in enumerate(index_vals) if value]
     if len(wired) > 1:
-        raise CodeGenError(
+        raise ConversionGap(
             "Insert Into Array with more than one index wired; LabVIEW allows "
             "only one.",
             node,
         )
     axis, index_val = wired[0] if wired else (0, None)
     if axis > 0:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Insert Into Array along dimension {axis} (inserting columns or "
             "pages) is not supported: NI's page says only \"LabVIEW pads the "
             'resulting array as necessary" without saying which cells are '
@@ -612,7 +613,7 @@ def generate_array_insert(
     for element_term in element_terms:
         element_rank = _array_rank(element_term)
         is_subset = element_rank == rank
-        elem_val = ctx.resolve(element_term.id)
+        elem_val = ctx.wired_input(element_term.id, node)
         if elem_val is None:
             elem_val = "[]" if is_subset else "None"
         items.append(elem_val if is_subset else f"[{elem_val}]")
@@ -674,13 +675,13 @@ def generate_array_reshape(
     dim_terms = [t for t in inputs if t.index >= 2]
     target_ndim = len(dim_terms)
     if target_ndim == 0:
-        raise CodeGenError(
+        raise ConversionGap(
             "Reshape Array has no dimension-size terminal to reshape "
             f"into (node {node.id}).",
             node,
         )
     if target_ndim > 2:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Reshape Array with {target_ndim} target dimensions is not "
             "supported -- only 1-D and 2-D target shapes are implemented "
             "(no 3-D+ sample exists to verify the reshape-nesting code "
@@ -690,7 +691,7 @@ def generate_array_reshape(
 
     lv_type = array_term.lv_type
     if lv_type is None or lv_type.kind != LVTypeKind.ARRAY or not lv_type.dimensions:
-        raise CodeGenError(
+        raise ConversionGap(
             "Reshape Array requires the source array's resolved LabVIEW "
             f"type (to know its dimensionality) for node {node.id}, but "
             "type info is unavailable for this terminal.",
@@ -698,12 +699,12 @@ def generate_array_reshape(
         )
     source_ndim = lv_type.dimensions
 
-    array_val = ctx.resolve(array_term.id) or "[]"
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
     flat_expr = _build_flatten_expr(array_val, source_ndim)
 
     dim_exprs: list[ast.expr] = []
     for dt in dim_terms:
-        val = ctx.resolve(dt.id)
+        val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
     default_expr = _reshape_default_element(lv_type.element_type)

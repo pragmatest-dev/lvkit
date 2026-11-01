@@ -7,6 +7,7 @@ import keyword
 import logging
 from dataclasses import dataclass, field
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
 from lvkit.lv_type_codes import is_boolean_type_name
@@ -25,7 +26,6 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..error_path import is_error_selector
-from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
 
     selector_var = None
     if node.selector_terminal:
-        selector_var = ctx.resolve(node.selector_terminal)
+        selector_var = ctx.wired_input(node.selector_terminal, node)
 
     if not selector_var:
         selector_var = _fallback_selector(node, ctx)
@@ -162,7 +162,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
     if is_boolean_type_name(selector_type):
         return _generate_if_else(node, selector_var, ctx, ops_by_frame)
     if selector_type is None and _has_placeholder_frame(node):
-        raise CodeGenError(
+        raise ConversionGap(
             "The case structure's selector type is unknown, so the values its "
             "frames match are unknown",
             node,
@@ -216,7 +216,7 @@ def _generate_if_else(
         elif frame.boolean_value is False:
             false_frame = frame
         else:
-            raise CodeGenError(
+            raise ConversionGap(
                 "A frame of a Boolean case structure records neither True nor "
                 "False as its value",
                 node,

@@ -63,7 +63,7 @@ def test_a_cluster_control_renders_type_and_fields_with_defaults() -> None:
 def test_an_enum_control_has_a_type_and_a_default_but_no_fields() -> None:
     enum = LVType(LVTypeKind.ENUM, values={"Read": EnumValue(0), "Write": EnumValue(1)})
     text = render_lvnet_typedef(_info(root_type=enum, default="Write"))
-    assert "  type : Enum{ Read = 0, Write = 1 }" in text
+    assert "  type : enum{Read, Write}" in text
     assert "  default Write" in text and "fields :" not in text
 
 
@@ -145,7 +145,7 @@ def test_a_real_control_through_describe_and_mcp():
     assert isinstance(text, str) and text.startswith("typedef API_Test Settings.ctl :")
     assert "    Font : String default" in text and "Text color" in text
     result = asyncio.run(srv.read_ctl(str(_CLUSTER_CTL), format="lvnet"))
-    assert result == {"lvnet": text}
+    assert result == {"lvnet": text, "status": "Complete", "problems": []}
     verbose = describe_ctl_file(_CLUSTER_CTL, fmt="lvnet", verbose=True)
     assert isinstance(verbose, str) and "  types :" in verbose
     assert "    API_Text Colors = Cluster{" in verbose  # the named type, lossless
@@ -159,8 +159,8 @@ def test_enum_items_and_numbers_are_spelled_like_lvnet_words() -> None:
         TypedefField("Gain", _DBL, "-1.5e-06", ()),  # a number: bare
     )
     lines = render_lvnet_typedef(_info(fields=fields)).splitlines()
-    assert '    Mode : Enum{ "Read, Write" = 0 } default "Read, Write"' in lines
-    assert "    Plain : Enum{ \"Read, Write\" = 0 } default Stop" in lines
+    assert '    Mode : enum{"Read, Write"} default "Read, Write"' in lines
+    assert '    Plain : enum{"Read, Write"} default Stop' in lines
     assert "    Gain : DBL default -1.5e-06" in lines
 
 

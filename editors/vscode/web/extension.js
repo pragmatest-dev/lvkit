@@ -422,6 +422,7 @@ async function diffVI(arg) {
             afterB64: toBase64(afterBytes),
             beforeRef: sides.before.ref || "",
             afterRef: sides.after.ref || "",
+            originalRel: resolveEntry(target).renderRel,
           });
           // Empty body = lvkit declined (missing diagram geometry). Surface the
           // error card rather than a blank page, matching the desktop viewer.
@@ -665,18 +666,27 @@ def _probe(vi_path):
         __version__,
     ) or ""
 
-def _diff(before, after, before_ref, after_ref, ext):
+# Both sides are copies (in /tmp) of the opened VI's /proj path: their recorded
+# relative paths are read from that path's folder.
+def _diff(before, after, before_ref, after_ref, ext, original_rel):
     b = Path("/tmp/before" + ext)
     a = Path("/tmp/after" + ext)
     b.write_bytes(bytes(before.to_py()))
     a.write_bytes(bytes(after.to_py()))
+    original = Path("/proj/" + original_rel)
+    original.parent.mkdir(parents=True, exist_ok=True)
     return cached_diff(
         b, a,
         fmt="html",
-        options=diff_options_tag("html", False, before_ref or None, after_ref or None),
+        options=diff_options_tag(
+            "html", False, before_ref or None, after_ref or None,
+            before_original=original, after_original=original,
+        ),
         version=__version__,
         before_ref=(before_ref or None),
         after_ref=(after_ref or None),
+        before_original=original,
+        after_original=original,
     ) or ""
 
 # Progressive dependency staging (stageDependencyClosure below calls this each
@@ -731,7 +741,7 @@ window.addEventListener("message", ev => {
       api.postMessage({ type: "result", id: m.id, html });
     } else if (m.type === "diff") {
       const t0 = performance.now();
-      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "", m.ext || ".vi");
+      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "", m.ext || ".vi", m.originalRel || "");
       log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
       api.postMessage({ type: "result", id: m.id, html });
     } else if (m.type === "probe") {

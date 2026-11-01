@@ -33,14 +33,14 @@ _CATALOG_ENTRY = {
         {
             "name": "Path",
             "index": None,
-            "direction": "in",
+            "direction": "input",
             "python_param": "file_path",
             "description": "Path is the file to open.",
         },
         {
             "name": "Mode",
             "index": 1,
-            "direction": "in",
+            "direction": "input",
             "python_param": "mode",
         },
     ],
@@ -92,6 +92,7 @@ def _caller(
         id="op:1",
         vi_path="Caller.vi",
         name=vi,
+        qualified_path=f"<vilib>/Test/{vi}",
         terminals=[wired],
     )
     context = VIContext(
@@ -131,6 +132,8 @@ def _restore_resolver() -> Iterator[None]:
 def test_learned_terminal_is_used_and_nothing_is_written(
     read_only_catalog: Path,
 ) -> None:
+    """The generated code uses the terminal learned from the call; the shared
+    catalog keeps its entry and nothing is written to disk."""
     before = _tree_digest(read_only_catalog)
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
     resolver = VILibResolver(data_dir=read_only_catalog)
@@ -138,10 +141,9 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     source = _generate(resolver, wired, "a.txt")
 
     assert "file_path='a.txt'" in source
-    learned = resolver.resolve_by_name("Learn Me.vi")
-    assert learned is not None
-    assert [t.index for t in learned.terminals] == [4, 1]
-    assert learned.terminals[0].direction == "in"
+    kept = resolver.resolve_by_name("Learn Me.vi")
+    assert kept is not None
+    assert [t.index for t in kept.terminals] == [None, 1]
     assert _tree_digest(read_only_catalog) == before
 
 
@@ -155,7 +157,7 @@ def test_catalog_on_disk_keeps_docs_and_encoding(read_only_catalog: Path) -> Non
     assert category.read_bytes() == before
     entry = json.loads(before.decode("utf-8"))["entries"][0]
     assert entry["doc_url"] == _CATALOG_ENTRY["doc_url"]
-    assert entry["terminals"][0]["direction"] == "in"
+    assert entry["terminals"][0]["direction"] == "input"
     assert entry["terminals"][0]["description"] == "Path is the file to open."
     assert "©" in before.decode("utf-8")
 
@@ -170,7 +172,7 @@ def test_conflicting_observation_becomes_a_variant_in_memory(
     resolver.auto_update_terminals("Learn Me.vi", [other_name], caller_vi="Caller.vi")
 
     match = resolver.find_matching_variant(
-        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "in", "type": None}}
+        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "input", "type": None}}
     )
     assert match is not None
     assert match.is_variant
@@ -217,3 +219,43 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before
+
+
+def test_a_fork_learns_privately(read_only_catalog: Path) -> None:
+    """Generating code learns terminals into the run's own copy: the catalog every
+    view reads keeps its entry."""
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    learned = fork.resolve_by_name("Learn Me.vi")
+    kept = shared.resolve_by_name("Learn Me.vi")
+    assert learned is not None and kept is not None
+    assert learned.terminals[0].index == 4
+    assert kept.terminals[0].index is None
+
+
+def test_a_fork_copies_only_the_entry_it_learns_into(
+    read_only_catalog: Path,
+) -> None:
+    """Every entry the fork has not learned into is the very object the shared
+    catalog holds."""
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+
+    assert fork.resolve_by_name("Learn Me.vi") is shared.resolve_by_name("Learn Me.vi")
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    assert fork.resolve_by_name("Learn Me.vi") is not shared.resolve_by_name(
+        "Learn Me.vi"
+    )
+
+
+def test_an_unnamed_terminal_number_is_not_guessed(read_only_catalog: Path) -> None:
+    resolver = VILibResolver(data_dir=read_only_catalog)
+    wired = Terminal(id="t:x", index=9, direction="input", name="Other Name")
+    entry = resolver.auto_update_terminals("Learn Me.vi", [wired])
+    assert 9 not in [t.index for t in entry.terminals]

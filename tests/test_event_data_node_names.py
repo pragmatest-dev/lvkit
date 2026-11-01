@@ -87,7 +87,7 @@ def _graph(root: Path, relative: str) -> tuple[InMemoryVIGraph, str]:
     if not vi.exists():
         pytest.skip(f"{vi} not present")
     graph = InMemoryVIGraph()
-    graph.load_vi(str(vi), LoadMode.MINIMAL, search_paths=[root], layout=False)
+    graph.load_vi(str(vi), LoadMode.MINIMAL, layout=False)
     return graph, graph.resolve_vi_name(vi.name)
 
 

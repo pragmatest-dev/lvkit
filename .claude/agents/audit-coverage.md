@@ -107,7 +107,7 @@ Use these as the "recommended home" column for ❌ UNDOCUMENTED items. Source: `
 | MCP tool | `docs/reference/mcp.md` |
 | Shared dataclass/model (`LVType`, `Operation`, `Frame`, `Terminal`, `Tunnel`, etc.) | No public reference page exists yet for these — recommend a new `docs/reference/models.md`, or note the gap explicitly rather than inventing a path |
 | Graph/codegen type (`VIContext`, `GraphNode`, `Wire`, `BranchPoint`, etc.) | Currently only documented in `docs/_internal/graph-reference.md` (contributor-only) — flag as a coverage gap: no public-facing home exists |
-| Resolution exception (`PrimitiveResolutionNeeded`, `VILibResolutionNeeded`, etc.) | `docs/reference/generate.md` (already partially covers `PrimitiveResolutionNeeded`/`VILibResolutionNeeded` — check the others) |
+| Gap (`ConversionGap` and its subclasses: `PrimitiveResolutionNeeded`, `VILibResolutionNeeded`, etc.) | `docs/reference/generate.md#gaps` |
 | Primitive / vi.lib mapping format (how to add an entry) | `docs/reference/generate.md`, or the `.lvkit/` store README installed by `lvkit setup --no-skills` (check whether that README is mirrored into public docs) |
 | `.lvkit/` resolution store layout | `docs/reference/setup.md` |
 | AI agent skill | `docs/reference/setup.md` (skills section) |
