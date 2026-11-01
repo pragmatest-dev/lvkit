@@ -324,10 +324,13 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
     """Index the ``.ctl`` controls the graph has loaded that lie under one of the
     project ``roots`` just warmed, so a VI's ``typedef_use`` rows have their
     ``typedef`` rows. A control outside every root belongs to another project's
-    index and is left to it. Best-effort like the VI warming."""
+    index and is left to it, and one the index does not track
+    (:func:`_tracked_control`) is skipped. Best-effort like the VI warming."""
     roots = list(roots)
     by_root: dict[Path, list[Path]] = defaultdict(list)
     for key in graph.list_typedefs():
+        if not _tracked_control(graph, key):
+            continue
         p = Path(key).resolve()
         for root in roots:
             if p.is_relative_to(root):
@@ -337,6 +340,14 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
             warm_typedefs(root, paths)
         except Exception as exc:
             _warming_failed(graph, root, paths[0], exc, NodeType.TYPEDEF)
+
+
+def _tracked_control(graph: InMemoryVIGraph, key: str) -> bool:
+    """Whether the index tracks the control at ``key``: a file of its own, keyed
+    by its content, or a placeholder whose file is missing (tracked once the
+    file appears). The private-data control a class keeps inside its
+    ``.lvclass`` has no file of its own: it changes with the class file."""
+    return graph.is_stub(key) or Path(key).is_file()
 
 
 def warm_all_loaded(graph: InMemoryVIGraph) -> None:
@@ -762,7 +773,9 @@ def project_vi_facts(
     typedef_deps = sorted(
         dep
         for dep in graph.get_vi_dependencies(vi_name)
-        if graph.is_typedef(dep) and Path(dep).resolve().is_relative_to(real_root)
+        if graph.is_typedef(dep)
+        and _tracked_control(graph, dep)
+        and Path(dep).resolve().is_relative_to(real_root)
     )
     typedef_paths = [dep for dep in typedef_deps if not graph.is_stub(dep)]
     # A dependency's own type_id is recorded for invalidation ONLY (compared

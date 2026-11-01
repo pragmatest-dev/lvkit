@@ -175,7 +175,7 @@ def _publish(stage: Path, output_dir: Path, meta_name: str) -> None:
         staging.replace(stage / meta_name, output_dir / meta_name)
 
 
-def _atomic_write_bytes(path: Path, data: bytes) -> None:
+def atomic_write_bytes(path: Path, data: bytes) -> None:
     """Write ``data`` to ``path`` atomically — a unique file in this run's staging
     directory then ``os.replace`` — so concurrent extractors of the same archive
     can't interleave into a half-written member file."""
@@ -197,8 +197,7 @@ def _make_read_po(**overrides: object) -> argparse.Namespace:
 
     Centralizes the read-path defaults (``verbose``/``print_map`` + the
     typedesc/array/data limits) shared by every in-process
-    ``LVrsrcontainer.VI`` construction — here and in
-    :mod:`lvkit.flattened_typedesc`. Callers pass the site-specific fields
+    ``LVrsrcontainer.VI`` construction. Callers pass the site-specific fields
     (``rsrc``/``xml``/``filebase``/…) as ``overrides``.
     """
     opts: dict[str, object] = {
@@ -592,7 +591,7 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
                 continue
             try:
                 bldata: io.BytesIO = block.getData(section_num=snum)
-                _atomic_write_bytes(cache_dir / member_name, bldata.read())
+                atomic_write_bytes(cache_dir / member_name, bldata.read())
                 extracted_any = True
             except Exception as exc:
                 failures.append(LlbFailure(member_name, str(exc)))
@@ -608,9 +607,7 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
                     for member in zf.namelist():
                         if is_vi_file(member):
                             member_name = _UNSAFE_CHARS.sub("-", Path(member).name)
-                            _atomic_write_bytes(
-                                cache_dir / member_name, zf.read(member)
-                            )
+                            atomic_write_bytes(cache_dir / member_name, zf.read(member))
                             extracted_any = True
             except Exception as exc:
                 failures.append(LlbFailure(None, f"LVzp block: {exc}"))

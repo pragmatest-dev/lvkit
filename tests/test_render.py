@@ -4844,17 +4844,13 @@ def test_bundle_by_name_resolves_class_private_data_with_no_class_on_disk():
             assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
 
 
-def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
+def test_bundle_by_name_class_fields_are_the_class_controls_current_ones():
     """Sibling method VIs of the same class can carry slightly different
-    private-data snapshots (LabVIEW inlines a copy per method, saved
-    whenever that method was last edited). The dep_graph's
-    ``get_class_fields`` reflects whichever sibling method matched first in
-    ``_parse_private_data_fields``'s directory scan — which, for this
-    corpus class, is a STALE snapshot missing "PWM DC Index" and calling
-    the other field "PWM Index" instead of "PWM Freq Index".
-    ``input.vi``'s OWN copy must be tried FIRST, not merely as a last resort
-    when dep_graph is unavailable: slot 11 (that PWM field) resolves to the
-    own copy's name through the node's field sources."""
+    private-data copies (LabVIEW saves a copy per method, as it was when that
+    method was last edited): the corpus class's older copies lack "PWM DC
+    Index" and call "PWM Freq Index" "PWM Index". The class's fields are its
+    private-data control's, the current ones, so they agree with ``input.vi``'s
+    own copy: slot 11 (that PWM field) is "PWM Freq Index" through either."""
     from lvkit.graph.op_walk import _nmux_field_sources, _resolve_nmux_field_name
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import _bundle_by_name_glyph
@@ -4873,10 +4869,14 @@ def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
     )
     assert dep_fields is not None, "the class DOES resolve (case-insensitive)"
     channel_indeces = next(f for f in dep_fields if f.name == "Channel Indeces")
-    dep_subnames = [sf.name for sf in channel_indeces.type.fields]
-    assert "PWM Freq Index" not in dep_subnames, (
-        "this test's premise is a stale sibling-method snapshot in dep_graph"
-    )
+    assert [sf.name for sf in channel_indeces.type.fields] == [
+        "AI Index",
+        "AO Index",
+        "DI Index",
+        "DO Index",
+        "PWM Freq Index",
+        "PWM DC Index",
+    ]
 
     decompose_nodes = [
         n
@@ -4888,10 +4888,9 @@ def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
         glyph = _bundle_by_name_glyph(node, graph)
         assert isinstance(glyph, BundleByNameGlyph)
         assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
-        # input.vi's OWN copy wins over the stale dep_graph snapshot.
         agg = next(t for t in node.terminals if t.nmux_role == "agg")
         own, dep = _nmux_field_sources(vi_name, agg, graph)
-        assert _resolve_nmux_field_name(11, dep) == "PWM Index"
+        assert _resolve_nmux_field_name(11, dep) == "PWM Freq Index"
         assert _resolve_nmux_field_name(11, own, dep) == "PWM Freq Index"
 
 

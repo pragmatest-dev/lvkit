@@ -699,10 +699,20 @@ def generate_python(
     reached = graph.keys_reached_without_entering(
         catalog_gives_python, graph.keys_loaded_from(input_path)
     )
+    # A class's private-data control is written as the class itself (its
+    # fields are the class's): it has no module of its own.
+    conversion_order = graph.get_conversion_order()
+    private_data = {
+        control
+        for key in conversion_order
+        if graph.is_class(key) and (control := graph.class_private_data_key(key))
+    }
     order = [
         key
-        for key in graph.get_conversion_order()
-        if graph.node_type(key) in _MODULE_NODE_TYPES and key in reached
+        for key in conversion_order
+        if graph.node_type(key) in _MODULE_NODE_TYPES
+        and key in reached
+        and key not in private_data
     ]
     print(f"\nConversion order ({len(order)} VIs):")
 

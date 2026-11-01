@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A class's fields carry their full types** — its private-data control, kept inside the `.lvclass`, is read like any `.ctl`: JKI `TestResult` `Errors: [error{test, error}]`, not `[?]`; a class whose private data is a Data Value Reference shows that one field (`Data DVR`), as its Bundle/Unbundle By Name does.
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.

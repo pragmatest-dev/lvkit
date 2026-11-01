@@ -254,14 +254,13 @@ def test_an_unreadable_control_dependency_is_a_problem_with_pylabview_s_reason(
 
 
 def test_an_unreadable_private_data_control_is_one_problem_on_the_control(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     graph = InMemoryVIGraph()
     cls_key = str((tmp_path / "C.lvclass").resolve())
     graph._add_stub(cls_key, NodeType.CLASS, "C.lvclass", None, None, None)
     ctl = tmp_path / "C.ctl"
     ctl.write_bytes(b"not a labview file")
-    monkeypatch.setattr(graph, "_find_private_data_ctl", lambda *a: ctl)
     cls = SimpleNamespace(name="C", private_data_url="C.ctl")
     graph._load_private_data_ctl(cls_key, cls, tmp_path / "C.lvclass")  # type: ignore[arg-type]
     assert graph.problems([cls_key]) == []

@@ -35,7 +35,7 @@ from ..class_property import property_role
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
-from ..flattened_typedesc import private_data_from_lvclass_xml
+from ..flattened_typedesc import embedded_private_data_copy
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType, Terminal
 from ..parser import (
@@ -966,11 +966,6 @@ class LoadingMixin:
         cls_name = cls.name + ".lvclass"
         cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
-        # Add class node to dep_graph with field info. The private data is an
-        # inline cluster when the class carries one; otherwise it is recovered
-        # below, once the node exists (a separate .ctl, then the flattened
-        # property).
-        fields = self._inline_private_data_fields(cls)
         # PATH is the class's identity (finishes #26): key the node by the
         # resolved .lvclass path and index its qname/bare-name so a type
         # reference resolves to this key. The qname stays the DISPLAY name.
@@ -1008,7 +1003,7 @@ class LoadingMixin:
         self._dep_graph.add_node(
             cls_key,
             node_type=NodeType.CLASS,
-            fields=fields,
+            fields=[],
             parent_class=cls.parent_class,
             parent_key=parent_key,
             fields_only=fields_only,
@@ -1021,11 +1016,11 @@ class LoadingMixin:
         self._stubs.discard(cls_key)
         # The class node must exist before its private-data control loads, so a
         # private-data type that references this class dedups on it.
-        if not fields:
-            fields = self._load_private_data_ctl(
-                cls_key, cls, lvclass_path
-            ) or self._flattened_private_data_fields(lvclass_path)
-            self._dep_graph.nodes[cls_key]["fields"] = fields
+        # The class's fields: its private-data control's, read once the node
+        # exists; else the copy of its private data a method VI carries.
+        self._dep_graph.nodes[cls_key]["fields"] = self._load_private_data_ctl(
+            cls_key, cls, lvclass_path
+        ) or self._inline_private_data_fields(cls)
         # The names its private data records are the private-data control's.
         private_data = self.class_private_data_key(cls_key)
         self._dep_graph.nodes[cls_key]["type_records"] = TypeRecords(
@@ -1123,43 +1118,43 @@ class LoadingMixin:
         cls: LVClass,
         lvclass_path: Path,
     ) -> list[ClusterField]:
-        """A class whose private data is a separate control (.ctl) at the URL
-        the class records for it: load it as a typedef node, edge the class to
-        it (``EdgeRel.PRIVATE_DATA``), and return its
-        cluster fields. Runs AFTER the class node is registered, so a private
-        data type that references its own class dedups on that node instead of
-        recursing. Empty when no control is at that URL, or when the file
-        is readable but has no cluster root: a control that isn't a cluster is
-        not a class's private data, so it is not edged (it stays a typedef
-        node). An unreadable control stays edged as a stub, so staging can
-        still name it; the problem is on the control."""
-        ctl = self._find_private_data_ctl(lvclass_path, cls.private_data_url)
-        if ctl is None:
+        """The class's private-data control: load it as a typedef node, edge
+        the class to it (``EdgeRel.PRIVATE_DATA``), and return its cluster
+        fields. The control is its file at the URL the class records, else the
+        copy a source-only class keeps inside itself
+        (``embedded_private_data_copy``), at its path INSIDE the ``.lvclass``
+        treated as a folder (``<X.lvclass>/<url>``; the paths it records for
+        the files it references are relative to that path;
+        ``docs/_internal/design/labview-binary-format.md``, member URLs). Runs
+        AFTER the class node is registered, so a private data type that
+        references its own class dedups on that node instead of recursing.
+        Empty when the class records no control or neither file nor copy is
+        there, or when the control is readable but has no cluster root: a
+        control that isn't a cluster is not a class's private data, so it is
+        not edged (it stays a typedef node). An unreadable control stays edged
+        as a stub, so staging can still name it; the problem is on the
+        control."""
+        url = cls.private_data_url
+        if not url:
             return []
-        ctl_key = self.load_typedef(ctl)
+        # The classes its fields name are needed for their types only.
+        _, found = self._member_file(lvclass_path, url)
+        if found is not None:
+            ctl_key = self.load_typedef(found, mode=LoadMode.MINIMAL)
+        else:
+            inside = (lvclass_path / url).resolve()
+            copy = embedded_private_data_copy(lvclass_path, inside.name)
+            if copy is None:
+                return []
+            ctl_key = self.load_typedef(
+                inside, source=copy, mode=LoadMode.MINIMAL
+            )
         if ctl_key in self._stubs:
             pass  # the control's own node says why it could not be read
         elif not self._dep_graph.nodes[ctl_key].get("fields"):
             return []
         self._dep_graph.add_edge(cls_key, ctl_key, rel=EdgeRel.PRIVATE_DATA)
         return list(self._dep_graph.nodes[ctl_key].get("fields") or [])
-
-    def _flattened_private_data_fields(self, lvclass_path: Path) -> list[ClusterField]:
-        """A source-only .lvclass: neither an inline cluster nor a .ctl carries
-        the private data (e.g. the pre-refactor layout where it is embedded
-        ONLY as the flattened NI.LVClass.FlattenedPrivateDataCTL property in the
-        class XML) — recovered straight from that property. Best-effort: a
-        malformed/older embedded control must never break class loading."""
-        try:
-            pd_fields = private_data_from_lvclass_xml(lvclass_path)
-        except Exception as exc:
-            # A malformed or older embedded control must never break class
-            # loading (pylabview's exception surface on such data is not a
-            # closed set): no fields are recovered, and why -- with what
-            # pylabview printed while reading it -- is the class file's problem.
-            self.record_load_failure(lvclass_path, exc, node_type=NodeType.CLASS)
-            return []
-        return [private_data_field_to_cluster_field(f) for f in pd_fields]
 
     def _resolve_recorded_class_ref(
         self,
@@ -1898,6 +1893,7 @@ class LoadingMixin:
     def _ctl_root(
         self,
         ctl_path: Path,
+        source: Path,
     ) -> tuple[
         LVType | None,
         dict[int, LVType],
@@ -1911,8 +1907,10 @@ class LoadingMixin:
         control's own type -- a cluster (``.fields``), an enum
         (``.values``), a ring, a scalar, ... -- so a non-cluster control keeps
         its type. ``metadata`` carries the paths the control records for the
-        files it references. Returns ``(None, {}, None, None)`` when the
-        control's XML can't be produced.
+        files it references. ``source`` is the file read for the control at
+        ``ctl_path`` (``load_typedef``); a failure is recorded on ``ctl_path``.
+        Returns ``(None, {}, None, None)`` when the control's XML can't be
+        produced.
 
         ``front_panel`` is the control's OWN front-panel layout (real
         per-control bounds + nested cluster field geometry, see
@@ -1930,7 +1928,7 @@ class LoadingMixin:
         # ValueError. Honor this method's documented "(None, {}, None, None)
         # on failure" contract for those too (load_typedef relies on it).
         try:
-            bd_xml, fp_xml, main_xml = self._extract(ctl_path)
+            bd_xml, fp_xml, main_xml = self._extract(source)
             if not (main_xml and main_xml.exists()):
                 self.record_load_failure(
                     ctl_path,
@@ -1958,23 +1956,13 @@ class LoadingMixin:
             parsed.metadata,
         )
 
-    def _find_private_data_ctl(
-        self,
-        lvclass_path: Path,
-        recorded_url: str | None,
-    ) -> Path | None:
-        """The class's private-data control FILE, at the URL the class records
-        for it (``_member_file``). None when no file is there — LabVIEW keeps
-        the control inside the ``.lvclass`` (``_flattened_private_data_fields``)."""
-        if not recorded_url:
-            return None
-        return self._member_file(lvclass_path, recorded_url)[1]
-
     @_with_extraction_pool
     def load_typedef(
         self,
         ctl_path: Path | str,
         typedef_qname: str | None = None,
+        source: Path | None = None,
+        mode: LoadMode = LoadMode.FULL,
     ) -> str:
         """Load a .ctl typedef and add it to the dep_graph as a ``typedef`` node
         carrying its ``root_type``, cluster ``fields`` and ``front_panel``.
@@ -1984,8 +1972,14 @@ class LoadingMixin:
         As for load_vi / load_lvclass / load_lvlib, the path is the typedef's
         identity: a control already loaded at that path is returned as it is, so
         each control is one node. Its name and qualified name are display text.
+        ``source`` is the file to read when it is not ``ctl_path`` itself (the
+        copy of a private-data control a class keeps inside itself); the
+        control's identity, and the paths its records resolve against, stay
+        ``ctl_path``. ``mode`` is how the files the control's records name are
+        loaded.
         """
         ctl_path = Path(ctl_path)
+        source = ctl_path if source is None else source
 
         qname = typedef_qname or ctl_path.name
         # PATH-keyed even when absent: the intended resolved path is computable
@@ -1995,7 +1989,7 @@ class LoadingMixin:
         if self._dep_graph.has_node(ctl_key) and ctl_key not in self._stubs:
             return ctl_key
 
-        if not ctl_path.exists():
+        if not source.exists():
             # Not routed through _add_stub: load_typedef returns the key and
             # is edged by its CALLER, not internally (unlike a caller-edging
             # stub site).
@@ -2004,7 +1998,7 @@ class LoadingMixin:
             self._register_dep_name(ctl_key, ctl_path.name, qname)
             return ctl_key
 
-        root, type_map, front_panel, metadata = self._ctl_root(ctl_path)
+        root, type_map, front_panel, metadata = self._ctl_root(ctl_path, source)
         if type_map and root is not None:
             # A loaded control is named as a VI is: its own owner chain (its
             # ``LIBN`` block, its own class named by its file) and its file name.
@@ -2040,7 +2034,7 @@ class LoadingMixin:
                     loaded[name] = ctl_key  # the control's own type
                     continue
                 dep_key = self._load_dependency(
-                    name, ref, ctl_path, caller_qname=ctl_key
+                    name, ref, ctl_path, caller_qname=ctl_key, mode=mode
                 )
                 if dep_key is not None:
                     loaded[name] = dep_key
