@@ -4,7 +4,6 @@ passthrough elimination, expression inlining, enum sanitization."""
 from __future__ import annotations
 
 import ast
-import logging
 
 from lvkit.codegen.builder import topological_sort_tiered
 from lvkit.codegen.context import CodeGenContext
@@ -122,7 +121,7 @@ class TestErrorCaseUnwrap:
         # No statements for empty frames
         assert fragment.statements == []
 
-    def test_nonempty_error_frame_logs(self, caplog):
+    def test_nonempty_error_frame_is_not_generated(self):
         from lvkit.graph.models import VINode
         from tests.helpers import register_nodes
 
@@ -145,9 +144,7 @@ class TestErrorCaseUnwrap:
         )
         ctx = _make_ctx_with_binding("sel_1", "err")
         register_nodes(ctx.graph, [op, inner_op])
-        with caplog.at_level(logging.INFO):
-            case.generate(op, ctx)
-        assert any("error frame omitted" in r.message for r in caplog.records)
+        assert case.generate(op, ctx).statements == []
 
 
 # ── Error input not bound ──────────────────────────────────────────

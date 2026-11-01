@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import importlib
 import shutil
 import subprocess
+import sys
+import textwrap
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 
 from .clfn_generated import generated_vi  # noqa: F401  (a fixture)
 from .fake_kernel32 import kernel32  # noqa: F401  (a fixture)
@@ -149,3 +155,30 @@ def vi_diff_pair(tmp_path_factory: pytest.TempPathFactory) -> ViDiffPair:
     head = root / "run_head.vi"
     shutil.copyfile(head_src, head)
     return ViDiffPair(base=base, head=head, root=root)
+
+
+@pytest.fixture
+def package(tmp_path: Path) -> Iterator[Callable[..., ModuleType]]:
+    """Write a generated module beside stub subVI modules and the package's
+    ``errors`` module, and import it."""
+    loaded: list[str] = []
+
+    def load(source: str, stubs: dict[str, str]) -> ModuleType:
+        name = f"errpkg_{abs(hash(tmp_path))}_{len(loaded)}"
+        root = tmp_path / name
+        root.mkdir()
+        (root / "__init__.py").write_text("")
+        (root / "errors.py").write_text(ERRORS_MODULE_SOURCE)
+        (root / "caller.py").write_text(source)
+        for module, body in stubs.items():
+            (root / f"{module}.py").write_text(textwrap.dedent(body))
+        sys.path.insert(0, str(tmp_path))
+        importlib.invalidate_caches()
+        loaded.append(name)
+        return importlib.import_module(f"{name}.caller")
+
+    yield load
+    while str(tmp_path) in sys.path:
+        sys.path.remove(str(tmp_path))
+    for key in [k for k in sys.modules if k.split(".")[0] in loaded]:
+        del sys.modules[key]

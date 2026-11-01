@@ -9,7 +9,7 @@ handles, which are the nodes upstream of it on its error wire.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING
@@ -110,13 +110,14 @@ def trace_error_path(
     starts: Iterable[str],
     operations: list[AnyGraphNode],
     ctx: CodeGenContext,
+    stops: Callable[[AnyGraphNode], bool] | None = None,
 ) -> ErrorPath:
     """Trace the error wires arriving at the terminals ``starts`` back through
     ``operations``.
 
     The trace follows each node's error inputs, so a Merge Errors passes it on
     through every input; a Clear Errors ends it, since nothing past it carries
-    the error.
+    the error, and so does a node for which ``stops`` is true.
     """
     output_to_op: dict[str, AnyGraphNode] = {}
     for op in operations:
@@ -140,8 +141,24 @@ def trace_error_path(
         if producer is None:
             roots.add(source.src_terminal)
             continue
-        if classify_error_node(producer) is ErrorRole.CLEAR:
+        if classify_error_node(producer) is ErrorRole.CLEAR or (
+            stops and stops(producer)
+        ):
             continue
         op_ids.add(producer.id)
         pending.extend(error_inputs(producer))
     return ErrorPath(frozenset(op_ids), frozenset(roots))
+
+
+def error_reaches(
+    starts: Iterable[str],
+    sources: set[str],
+    operations: list[AnyGraphNode],
+    ctx: CodeGenContext,
+) -> bool:
+    """Whether the error wires arriving at the terminals ``starts`` carry the
+    error that comes in at one of the terminals ``sources``, directly or through
+    ``operations``. Every node in between is taken as passing its error in to its
+    error out (see :func:`trace_error_path`: a Clear Errors, or a node whose
+    error in is unwired, does not)."""
+    return bool(trace_error_path(starts, operations, ctx).roots & sources)

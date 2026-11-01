@@ -404,7 +404,11 @@ try/except wrapping goes at the point where the graph HANDLES the error, wrappin
 
 1. **Clear Errors** → `try: <upstream code> except LabVIEWError: pass` (swallow)
 2. **Merge Errors** → `try: <upstream code> except LabVIEWError as e: _held_error = _held_error or e` (hold first error, reraise merged)
-3. **Error case structure with non-empty handling** → `try: <upstream code> except LabVIEWError as e: <do the work>; raise` (lowest priority pattern)
+3. **Error case structure with non-empty handling** → `try: <upstream code> except LabVIEWError as e: <error frames>` / `else: <No Error frame>` (lowest priority pattern)
+
+An error frame is an `if e.code == …` for the codes it lists and the `else` when it covers the remaining errors (`codegen/error_wires.py:130`); with no such frame the remaining errors are raised again. A frame ends with `raise` (`codegen/error_wires.py:121`) only when the error that selects the case REACHES an error output tunnel of the frame and that tunnel is wired outside the case (`codegen/nodes/case.py:521`). "Reaches" is directly, or along error wires through the frame's nodes' error-cluster inputs to error-cluster outputs, loops and structures included; a Clear Errors, or a node whose error in is unwired (a retry), ends the chain (`error_reaches`, `codegen/error_path.py:150`, built on `trace_error_path`). Every subVI or method in the chain is TAKEN as passing its incoming error through: its diagram is not read and it is not a gap. Errors are never Python parameters: a VI called with an error from its caller generates only its No Error frame.
+
+Under the held error model a parallel branch holds its error until the node that consumes it: a Merge Errors raises it at the merge, while a branch whose error a Clear Errors or an error case structure handles (`handled_producer_ids`, `codegen/error_wires.py`) raises it where the branch is awaited, inside the handler's `try`, after the branches that hold theirs (`_generate_parallel_tier`, `codegen/builder.py`); a branch wired to both holds it too. A failed branch's outputs hold the default of their type.
 
 `LabVIEWError` is the class of the package's generated `errors.py` (`codegen/errors_module.py`), imported from there; generated code imports nothing from lvkit.
 
