@@ -145,3 +145,17 @@ def trace_error_path(
         op_ids.add(producer.id)
         pending.extend(error_inputs(producer))
     return ErrorPath(frozenset(op_ids), frozenset(roots))
+
+
+def error_reaches(
+    starts: Iterable[str],
+    sources: set[str],
+    operations: list[AnyGraphNode],
+    ctx: CodeGenContext,
+) -> bool:
+    """Whether the error wires arriving at the terminals ``starts`` carry the
+    error that comes in at one of the terminals ``sources``, directly or through
+    ``operations``. Every node in between is taken as passing its error in to its
+    error out (see :func:`trace_error_path`: a Clear Errors, or a node whose
+    error in is unwired, does not)."""
+    return bool(trace_error_path(starts, operations, ctx).roots & sources)

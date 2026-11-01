@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.graph.models import CaseStructureNode, VIContext, Wire
+from lvkit.graph.models import CaseStructureNode, LoopNode, VIContext, Wire
 from lvkit.models import CaseFrame, SelectorRange
 from tests.helpers import build_graph
 from tests.test_error_codegen import (  # noqa: F401
@@ -26,6 +26,7 @@ from tests.test_error_codegen import (  # noqa: F401
     NO_ERROR,
     RESULT_OUT,
     X_IN,
+    call,
     errors_of,
     step,
     stub,
@@ -47,6 +48,10 @@ class ErrFrame:
     default: bool = False
     calls: str | None = None
     keeps: bool = False
+    # Nodes the error passes through on its way to the error output tunnel, each
+    # "log" (a subVI), "clear" (Clear Errors), "loop" (a For Loop) or "retry" (a
+    # subVI whose error in is not wired).
+    via: tuple[str, ...] = ()
 
 
 def code(start: int, end: int | None = None) -> tuple[SelectorRange, ...]:
@@ -88,6 +93,42 @@ def _source(
         ]
         if f.keeps:
             wires.append((f"t_in_{i}", f"t_out_{i}"))
+        prev = f"t_in_{i}"
+        for k, kind in enumerate(f.via):
+            node_id = f"V{i}_{k}"
+            where = {"parent": "CS", "frame": f.name}
+            if kind == "loop":
+                nodes.append(
+                    LoopNode(
+                        id=node_id,
+                        vi_path="caller.vi",
+                        name="For Loop",
+                        node_type="forLoop",
+                        loop_type="forLoop",
+                        terminals=[
+                            term(f"{node_id}_ein", "input", 0, "error in", ERR),
+                            term(f"{node_id}_eout", "output", 1, "error out", ERR),
+                        ],
+                        **where,
+                    )
+                )
+            elif kind == "clear":
+                nodes.append(
+                    call(
+                        node_id,
+                        "Clear Errors.vi",
+                        [term(f"{node_id}_ein", "input", 4, "error in", ERR)],
+                        [term(f"{node_id}_eout", "output", 0, "error out", ERR)],
+                        **where,
+                    )
+                )
+            else:
+                nodes.append(step(node_id, "Log.vi", **where))
+            if kind != "retry":
+                wires.append((prev, f"{node_id}_ein"))
+            prev = f"{node_id}_eout"
+        if f.via:
+            wires.append((prev, f"t_out_{i}"))
         if f.calls:
             nodes.append(step(f"R{i}", f.calls, parent="CS", frame=f.name))
             wires += [("x", f"R{i}_x"), (f"R{i}_r", f"d_{i}")]
@@ -278,3 +319,32 @@ def test_an_error_case_on_an_error_from_the_caller_runs_only_no_error() -> None:
     assert "except" not in source
     assert "retry" not in source
     assert "use_result = use(" in source
+
+
+def _passes(via: tuple[str, ...]) -> list[ErrFrame]:
+    return [ErrFrame("Error", PLAIN_ERROR, calls="Report.vi", via=via)]
+
+
+@pytest.mark.parametrize(
+    "via", [("log",), ("log", "log"), ("loop",), ("log", "loop", "log")]
+)
+def test_an_error_passed_through_nodes_to_a_wired_error_out_is_raised_again(
+    package, via
+) -> None:
+    source = _source(_passes(via))
+    assert "        raise\n    else:" in source
+    stubs = _stubs(4, report=stub("report", 300), log=stub("log"))
+    module = package(source, stubs)
+    with pytest.raises(errors_of(module)) as raised:
+        module.caller(x=1)
+    assert raised.value.code == 4
+
+
+@pytest.mark.parametrize(
+    "via", [("log", "clear"), ("clear",), ("retry",), ("log", "retry", "log")]
+)
+def test_a_broken_error_chain_is_not_raised_again(package, via) -> None:
+    source = _source(_passes(via))
+    assert "raise" not in source.replace("except", "")
+    stubs = _stubs(4, report=stub("report", 300), log=stub("log"))
+    assert package(source, stubs).caller(x=1).result == 301

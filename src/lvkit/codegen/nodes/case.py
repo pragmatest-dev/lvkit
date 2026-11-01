@@ -24,7 +24,7 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..error_path import is_error_selector
+from ..error_path import error_reaches, is_error_selector
 from ..fragment import CodeFragment
 
 # A per-frame view: the frame metadata paired with the graph nodes it contains.
@@ -519,34 +519,41 @@ def _error_frame_condition(frame: CaseFrame, code: str) -> str | None:
 
 
 def _frame_keeps_error(
-    node: CaseStructureNode, frame: CaseFrame, ctx: CodeGenContext
+    node: CaseStructureNode,
+    frame: CaseFrame,
+    ops: list[AnyGraphNode],
+    ctx: CodeGenContext,
 ) -> bool:
-    """Whether an error frame sends the error it caught out of the case
-    unchanged: it wires the error that selects the case straight to an error
-    output tunnel that is wired outside the case."""
+    """Whether an error frame sends the error it caught out of the case: the
+    error that selects the case reaches an error output tunnel of the frame,
+    directly or along error wires through the frame's nodes, and that tunnel is
+    wired outside the case."""
     selector_source = ctx.get_source(node.selector_terminal or "")
     if selector_source is None:
         return False
-    by_id = {t.id: t for t in node.terminals}
-    for inner in node.terminals:
-        if not (
-            isinstance(inner, TunnelTerminal)
-            and inner.boundary == "inner"
-            and inner.direction == "input"
-            and inner.is_error_cluster
-            and inner.frame == frame.selector_value
-            and inner.paired_id
-            and ctx.get_destinations(inner.paired_id)
-        ):
-            continue
-        source = ctx.get_source(inner.id)
-        entry = by_id.get(source.src_terminal) if source else None
-        if not (isinstance(entry, TunnelTerminal) and entry.paired_id):
-            continue
-        entry_source = ctx.get_source(entry.paired_id)
-        if entry_source and entry_source.src_terminal == selector_source.src_terminal:
-            return True
-    return False
+    entries = {
+        t.id
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "inner"
+        and t.direction == "output"
+        and t.is_error_cluster
+        and t.paired_id
+        and (source := ctx.get_source(t.paired_id)) is not None
+        and source.src_terminal == selector_source.src_terminal
+    }
+    exits = [
+        t.id
+        for t in node.terminals
+        if isinstance(t, TunnelTerminal)
+        and t.boundary == "inner"
+        and t.direction == "input"
+        and t.is_error_cluster
+        and t.frame == frame.selector_value
+        and t.paired_id
+        and ctx.get_destinations(t.paired_id)
+    ]
+    return error_reaches(exits, entries, ops, ctx)
 
 
 def generate_error_case_parts(
@@ -594,7 +601,9 @@ def generate_error_case_parts(
                 ErrorFrameParts(
                     fragment.statements,
                     _error_frame_condition(frame, f"{error_var}.code"),
-                    _frame_keeps_error(node, frame, ctx),
+                    _frame_keeps_error(
+                        node, frame, ops_by_frame.get(id(frame), []), ctx
+                    ),
                 )
             )
         if sum(1 for f in on_error if f.condition is None) > 1:
