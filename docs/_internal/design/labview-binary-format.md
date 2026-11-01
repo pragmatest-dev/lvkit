@@ -1312,7 +1312,7 @@ the two types are the same in all but 6:
   DO.vi` has the same property, is saved working (every `Bad*` is `0`), and its
   terminal `typeDesc` is `NumUInt32`. So a `Void` terminal type on a row is not
   the property's type; `dataTypeDesc` is.
-- 4 rows have a terminal `UnitUInt8` (a U8 with a unit) and a plain `NumUInt8`
+- 4 rows have a terminal `UnitUInt8` (the U8 an enum or ring is stored as) and a plain `NumUInt8`
   `dataTypeDesc`. The terminal is the more exact type there.
 
 lvkit types a row's terminal from its own `typeDesc`, and only when that is

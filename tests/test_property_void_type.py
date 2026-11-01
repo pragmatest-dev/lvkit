@@ -21,7 +21,7 @@ from tests.structure_diagrams import (
 )
 
 # Type ids after ``TYPES``.
-VOID, U32, UNIT_U8, U8 = 3, 4, 5, 6
+VOID, U32, ENUM_U8, U8 = 3, 4, 5, 6
 _TYPES = TYPES + [
     '<TypeDesc Type="Void" />',
     '<TypeDesc Type="NumUInt32" />',
@@ -102,10 +102,10 @@ def test_a_terminal_with_a_type_keeps_it(tmp_path: Path) -> None:
     assert _generated(views) == _GENERATED
 
 
-def test_a_unit_u8_terminal_keeps_its_unit_type_over_the_declared_u8(
+def test_an_enum_u8_terminal_keeps_its_enum_type_over_the_declared_u8(
     tmp_path: Path,
 ) -> None:
-    views = _views(tmp_path, UNIT_U8, U8)
+    views = _views(tmp_path, ENUM_U8, U8)
     assert views.diagram.splitlines()[:2] == [
         "    property-node Property_Node_60 : Task",
         "      out  NumChans : enum{}",
