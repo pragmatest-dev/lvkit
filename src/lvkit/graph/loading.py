@@ -1981,9 +1981,9 @@ class LoadingMixin:
         Returns the dep-graph KEY (the resolved .ctl path) it registered under;
         the node is a STUB when the file is absent or can't be read as a control.
 
-        Mirrors load_vi / load_lvclass / load_lvlib for consistency: PATH is the
-        typedef's identity (finishes #26), and the qname/bare-name index to that
-        key so a type reference resolves here.
+        As for load_vi / load_lvclass / load_lvlib, the path is the typedef's
+        identity: a control already loaded at that path is returned as it is, so
+        each control is one node. Its name and qualified name are display text.
         """
         ctl_path = Path(ctl_path)
 
