@@ -435,4 +435,21 @@ def install_pylabview_patches() -> None:
     _escape_cdata.__wrapped__ = _lv_escape_cdata  # type: ignore[attr-defined]
     _et._escape_cdata = _escape_cdata
 
+    # (11) ImageBlock.parseRSRCSectionData — read a VI's icon with Pillow's
+    # ``Image.load()``. pylabview calls ``Image.getdata()`` only to make Pillow
+    # read the image now instead of lazily; Pillow deprecates ``getdata`` (to be
+    # removed in Pillow 14), and ``load()`` is its documented way to read the
+    # pixel data. The icon PNGs are byte-identical.
+    _orig_parse_image = _lv_block.ImageBlock.parseRSRCSectionData
+
+    def _parse_image(self, section_num, bldata):  # type: ignore[no-untyped-def]
+        section = self.sections[section_num]
+        section.image = None
+        image = _lv_block.Image.open(bldata)
+        section.image = image
+        image.load()
+
+    _parse_image.__wrapped__ = _orig_parse_image  # type: ignore[attr-defined]
+    _lv_block.ImageBlock.parseRSRCSectionData = _parse_image
+
     _installed = True
