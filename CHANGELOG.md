@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A generated module imports on a machine without the DLL a Call Library Function Node names** — the library is loaded the first time the node runs (`OSError` naming it, `AttributeError` for a missing function), by `functools.cache` loaders in the module.
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.

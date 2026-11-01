@@ -116,8 +116,11 @@ one.
 `nodes/ext_func_library.py` decides how a generated module loads the library a node
 names. The loader is `ctypes.CDLL`, or `getattr(ctypes, "WinDLL", ctypes.CDLL)` for
 a `stdcall` node (`WinDLL` exists only on Windows). As in LabVIEW, a library typed in
-the node's setup is loaded when the module is imported and a library wired to
-`path in` when the node runs.
+the node's setup is loaded the first time a node that uses it runs (a cached
+`@functools.cache` function per library, and one per function that looks it up and sets
+its `argtypes`/`restype`), so a module imports on a machine without the library and the
+node raises `OSError` when it runs; a library wired to `path in` is loaded each time the
+node runs.
 
 - **Wildcards** in the typed name (`.*` the platform's extension, `*` 32 or 64, `**`
   nothing or `_64`, per NI's "Configuring the Call Library Function Node") are
