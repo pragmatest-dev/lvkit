@@ -348,3 +348,95 @@ def test_a_broken_error_chain_is_not_raised_again(package, via) -> None:
     assert "raise" not in source.replace("except", "")
     stubs = _stubs(4, report=stub("report", 300), log=stub("log"))
     assert package(source, stubs).caller(x=1).result == 301
+
+
+def _retry_shape() -> str:
+    """The Enumerate Compute Nodes shape: ``First`` and ``Second`` are producers
+    on one error wire; the Default frame calls ``Retry`` with ``First``'s output
+    and the case keeps the retry's result."""
+    nodes: list = [
+        step("P1", "First.vi"),
+        step("P2", "Second.vi"),
+        step("Q", "Use.vi", parent="CS", frame=NO_ERROR),
+        step("R", "Retry.vi", parent="CS", frame="Default"),
+    ]
+    case = CaseStructureNode(
+        id="CS",
+        vi_path="caller.vi",
+        name="Case",
+        node_type="caseStruct",
+        selector_terminal="sel",
+        frames=[
+            CaseFrame(selector_value=NO_ERROR, is_no_error=True),
+            CaseFrame(selector_value="Default", is_default=True),
+        ],
+        terminals=[
+            term("sel", "input", 0, "sel", ERR),
+            tunnel("v_in", "input", "outer", "v_in_d", INT, name="first result"),
+            tunnel("v_in_d", "output", "inner", "v_in", INT, "Default", "first result"),
+            tunnel("d_out", "output", "outer", "d_n", INT, name="data"),
+            tunnel("d_n", "input", "inner", "d_out", INT, NO_ERROR, name="data"),
+            tunnel("d_d", "input", "inner", "d_out", INT, "Default", name="data"),
+        ],
+    )
+    wires = [
+        ("x", "P1_x"),
+        ("P1_r", "P2_x"),
+        ("P1_eout", "P2_ein"),
+        ("P2_eout", "sel"),
+        ("P2_r", "Q_x"),
+        ("Q_r", "d_n"),
+        ("P1_r", "v_in"),
+        ("v_in_d", "R_x"),
+        ("R_r", "d_d"),
+        ("d_out", "result"),
+    ]
+    vi_context = VIContext(
+        name="Caller",
+        inputs=[X_IN],
+        outputs=[RESULT_OUT],
+        data_flow=[
+            Wire.from_terminals(from_terminal_id=a, to_terminal_id=b) for a, b in wires
+        ],
+    )
+    graph = build_graph(vi_context, "caller.vi", [*nodes, case])
+    return build_module(vi_context, "caller.vi", graph=graph)
+
+
+def _producer(name: str, fails: bool) -> str:
+    body = "raise LabVIEWError(code=7)" if fails else "pass"
+    return f"""
+        from types import SimpleNamespace
+        from .errors import LabVIEWError
+        def {name}(x=0):
+            {body}
+            return SimpleNamespace(r=x + 10)
+    """
+
+
+def test_a_variable_an_error_frame_reads_is_declared_before_the_try() -> None:
+    source = _retry_shape()
+    assert "    first_result = SimpleNamespace(r=0)\n    try:\n" in source
+    assert "second_result =" not in source.split("try:")[0]
+
+
+def test_a_failing_first_producer_runs_the_retry_on_the_type_default(package) -> None:
+    stubs = {
+        "first": _producer("first", True),
+        "second": _producer("second", False),
+        "use": stub("use", 100),
+        "retry": stub("retry", 1000),
+    }
+    assert package(_retry_shape(), stubs).caller(x=1).result == 1000
+
+
+def test_a_failing_second_producer_runs_the_retry_on_the_first_output(
+    package,
+) -> None:
+    stubs = {
+        "first": _producer("first", False),
+        "second": _producer("second", True),
+        "use": stub("use", 100),
+        "retry": stub("retry", 1000),
+    }
+    assert package(_retry_shape(), stubs).caller(x=1).result == 1011

@@ -48,7 +48,9 @@ import ast
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode
+from lvkit.models import LVType
 
+from .ast_utils import default_value_expr
 from .error_path import ErrorRole, classify_error_node
 from .errors_module import LABVIEW_ERROR_NAME
 
@@ -163,3 +165,100 @@ def build_merge_try_except(
         orelse=[],
         finalbody=[],
     )
+
+
+def failed_output_defaults(
+    bindings: dict[str, str], bound_vars: list[str], ctx: CodeGenContext
+) -> dict[str, ast.expr]:
+    """What each variable of ``bound_vars`` holds when the nodes that assign it
+    fail: the default of its output terminal's type, as a failed node outputs.
+    ``bindings`` maps each output terminal to the variable that holds it. A
+    variable that holds one terminal's value takes that type's default; one that
+    holds a call's several outputs (``result.field`` bindings) is a namespace of
+    each field's default; any other has no type and is None."""
+    whole: dict[str, LVType | None] = {}
+    fields: dict[str, dict[str, LVType | None]] = {}
+    if ctx.graph is not None:
+        for terminal_id, name in bindings.items():
+            terminal = ctx.graph.get_terminal(terminal_id)
+            if terminal is None:
+                continue
+            root, _, field = name.partition(".")
+            if root not in bound_vars:
+                continue
+            if not field:
+                whole.setdefault(root, terminal.lv_type)
+            elif field.isidentifier():
+                fields.setdefault(root, {}).setdefault(field, terminal.lv_type)
+    defaults: dict[str, ast.expr] = {}
+    for name in bound_vars:
+        if name not in whole and name in fields:
+            ctx.add_import("from types import SimpleNamespace")
+            defaults[name] = ast.Call(
+                func=ast.Name(id="SimpleNamespace", ctx=ast.Load()),
+                args=[],
+                keywords=[
+                    ast.keyword(
+                        arg=field,
+                        value=default_value_expr(lv_type, fresh_array=True),
+                    )
+                    for field, lv_type in fields[name].items()
+                ],
+            )
+        else:
+            defaults[name] = default_value_expr(whole.get(name), fresh_array=True)
+    return defaults
+
+
+class _AssignedNameVisitor(ast.NodeVisitor):
+    """Collects Name targets of Assign/AnnAssign (each name of an unpacking
+    target too) anywhere in a statement tree, including inside nested blocks
+    (while/for/if/with/try) -- e.g. a shift-register update assigned inside a
+    while loop's body. Does NOT
+    descend into nested function/lambda defs, which introduce their own
+    scope (a name assigned there is not a name of the enclosing branch)."""
+
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def _add_target(self, target: ast.expr) -> None:
+        if isinstance(target, ast.Name):
+            self.names.add(target.id)
+        elif isinstance(target, ast.Tuple | ast.List):
+            for element in target.elts:
+                self._add_target(element)
+        elif isinstance(target, ast.Starred):
+            self._add_target(target.value)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            self._add_target(target)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.names.add(node.target.id)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        pass  # New scope -- do not descend.
+
+
+def assigned_names(stmts: list[ast.stmt]) -> set[str]:
+    """Extract variable names assigned anywhere in a list of statements.
+
+    Walks into nested blocks (while/for/if/with/try) since a value bound
+    by a node's CodeFragment may be assigned inside a loop body it
+    generated (e.g. a shift-register update) rather than as a top-level
+    statement of the fragment.
+    """
+    visitor = _AssignedNameVisitor()
+    for stmt in stmts:
+        visitor.visit(stmt)
+    return visitor.names

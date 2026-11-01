@@ -28,6 +28,7 @@ from lvkit.graph.models import AnyGraphNode, CaseStructureNode
 
 from .ast_utils import parse_expr
 from .context import CodeGenContext
+from .error_handler import assigned_names, failed_output_defaults
 from .error_path import ErrorRole, classify_error_node, error_inputs, trace_error_path
 from .errors_module import LABVIEW_ERROR_NAME
 from .nodes import case
@@ -194,6 +195,46 @@ def _error_frames(frames: list[case.ErrorFrameParts]) -> list[ast.stmt]:
     return chain
 
 
+def _producer_outputs_read_by_error_frames(
+    producer_ops: list[AnyGraphNode],
+    producers: list[ast.stmt],
+    parts: case.ErrorCaseParts,
+    ctx: CodeGenContext,
+) -> list[ast.stmt]:
+    """A declaration, before the ``try``, of each variable the producers assign
+    and an error frame reads: the producer that failed never assigned it. It
+    holds the default of its type, as the output of a failed node does."""
+    bindings = {
+        term.id: value
+        for op in producer_ops
+        for term in op.terminals
+        if term.direction == "output"
+        and not term.is_error_cluster
+        and (value := ctx.resolve(term.id))
+    }
+    read = {
+        node.id
+        for frame in parts.on_error
+        for stmt in frame.body
+        for node in ast.walk(stmt)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    names = sorted(
+        {
+            root
+            for value in bindings.values()
+            if (root := value.split(".")[0]).isidentifier()
+        }
+        & assigned_names(producers)
+        & read
+    )
+    defaults = failed_output_defaults(bindings, names, ctx)
+    return [
+        ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=default)
+        for name, default in defaults.items()
+    ]
+
+
 def _error_case(
     op: AnyGraphNode,
     operations: list[AnyGraphNode],
@@ -221,6 +262,13 @@ def _error_case(
     ctx.imports.update(parts.imports)
     producers = [s for _, s in tagged[first : last + 1]]
     handler = _handler(error_var, _error_frames(parts.on_error))
-    statements = [*parts.pre_decls, _try(producers, handler, parts.no_error)]
+    declared = _producer_outputs_read_by_error_frames(
+        [o for o in operations if o.id in path.op_ids], producers, parts, ctx
+    )
+    statements = [
+        *parts.pre_decls,
+        *declared,
+        _try(producers, handler, parts.no_error),
+    ]
     tagged[first : last + 1] = [(ids, s) for s in statements]
     return True

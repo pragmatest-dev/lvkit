@@ -11,14 +11,13 @@ import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
-from lvkit.models import LVType, LVTypeKind, Terminal, TypeNamer
+from lvkit.models import LVTypeKind, Terminal, TypeNamer
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
     build_result_class_name,
     build_type_checking_block,
-    default_value_expr,
     interface_names,
     param_default_expr,
     parse_expr,
@@ -27,9 +26,11 @@ from .ast_utils import (
 from .context import CodeGenContext
 from .elementwise import arrayify_module
 from .error_handler import (
+    assigned_names,
     build_held_error_check,
     build_held_error_init,
     build_merge_try_except,
+    failed_output_defaults,
     needs_error_handling,
 )
 from .error_path import ErrorRole, classify_error_node
@@ -39,7 +40,6 @@ from .error_wires import (
     merged_producer_ids,
 )
 from .errors import CodeGenError
-from .fragment import CodeFragment
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
@@ -337,7 +337,7 @@ def _generate_parallel_tier(
         # Include both direct identifiers (e.g., "result") and root
         # variables from dotted bindings (e.g., "result" from
         # "result.field") when the root was assigned in this branch.
-        assigned_in_branch = _extract_assigned_names(stmts)
+        assigned_in_branch = assigned_names(stmts)
         raw_vars: list[str] = []
         for v in fragment.bindings.values():
             if not v or v in ("None", "True", "False"):
@@ -397,7 +397,7 @@ def _generate_parallel_tier(
             _Branch(
                 future_var,
                 bound_vars,
-                _failed_branch_defaults(fragment, bound_vars, ctx),
+                failed_output_defaults(fragment.bindings, bound_vars, ctx),
                 raises=raises,
                 holds=not raises or node.id in merged_ids,
             )
@@ -496,102 +496,6 @@ class _Branch:
     failed_defaults: dict[str, ast.expr]
     raises: bool
     holds: bool
-
-
-def _failed_branch_defaults(
-    fragment: CodeFragment, bound_vars: list[str], ctx: CodeGenContext
-) -> dict[str, ast.expr]:
-    """What each variable a parallel branch returns holds when the branch fails:
-    the default of its output terminal's type, as a failed node outputs. A
-    variable that holds one terminal's value takes that type's default; one that
-    holds a call's several outputs (``result.field`` bindings) is a namespace of
-    each field's default; any other has no type and is None."""
-    whole: dict[str, LVType | None] = {}
-    fields: dict[str, dict[str, LVType | None]] = {}
-    if ctx.graph is not None:
-        for terminal_id, name in fragment.bindings.items():
-            terminal = ctx.graph.get_terminal(terminal_id)
-            if terminal is None:
-                continue
-            root, _, field = name.partition(".")
-            if root not in bound_vars:
-                continue
-            if not field:
-                whole.setdefault(root, terminal.lv_type)
-            elif field.isidentifier():
-                fields.setdefault(root, {}).setdefault(field, terminal.lv_type)
-    defaults: dict[str, ast.expr] = {}
-    for name in bound_vars:
-        if name not in whole and name in fields:
-            ctx.add_import("from types import SimpleNamespace")
-            defaults[name] = ast.Call(
-                func=ast.Name(id="SimpleNamespace", ctx=ast.Load()),
-                args=[],
-                keywords=[
-                    ast.keyword(
-                        arg=field,
-                        value=default_value_expr(lv_type, fresh_array=True),
-                    )
-                    for field, lv_type in fields[name].items()
-                ],
-            )
-        else:
-            defaults[name] = default_value_expr(whole.get(name), fresh_array=True)
-    return defaults
-
-
-class _AssignedNameVisitor(ast.NodeVisitor):
-    """Collects Name targets of Assign/AnnAssign (each name of an unpacking
-    target too) anywhere in a statement tree, including inside nested blocks
-    (while/for/if/with/try) -- e.g. a shift-register update assigned inside a
-    while loop's body. Does NOT
-    descend into nested function/lambda defs, which introduce their own
-    scope (a name assigned there is not a name of the enclosing branch)."""
-
-    def __init__(self) -> None:
-        self.names: set[str] = set()
-
-    def _add_target(self, target: ast.expr) -> None:
-        if isinstance(target, ast.Name):
-            self.names.add(target.id)
-        elif isinstance(target, ast.Tuple | ast.List):
-            for element in target.elts:
-                self._add_target(element)
-        elif isinstance(target, ast.Starred):
-            self._add_target(target.value)
-
-    def visit_Assign(self, node: ast.Assign) -> None:
-        for target in node.targets:
-            self._add_target(target)
-        self.generic_visit(node)
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        if isinstance(node.target, ast.Name):
-            self.names.add(node.target.id)
-        self.generic_visit(node)
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        pass  # New scope -- do not descend.
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        pass  # New scope -- do not descend.
-
-    def visit_Lambda(self, node: ast.Lambda) -> None:
-        pass  # New scope -- do not descend.
-
-
-def _extract_assigned_names(stmts: list[ast.stmt]) -> set[str]:
-    """Extract variable names assigned anywhere in a list of statements.
-
-    Walks into nested blocks (while/for/if/with/try) since a value bound
-    by a node's CodeFragment may be assigned inside a loop body it
-    generated (e.g. a shift-register update) rather than as a top-level
-    statement of the fragment.
-    """
-    visitor = _AssignedNameVisitor()
-    for stmt in stmts:
-        visitor.visit(stmt)
-    return visitor.names
 
 
 def _build_submit(callable_expr: ast.expr) -> ast.Call:
