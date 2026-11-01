@@ -917,7 +917,7 @@ class XNodeNode(ParsedNode):
     terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
 
 
-def _property_rows(elem: ET.Element) -> list[ET.Element]:
+def property_rows(elem: ET.Element) -> list[ET.Element]:
     """The ``propItem`` rows of a Property Node, one per row, in ``dcoList``
     order. A row is written out once, where it first appears (in the ``dcoList``
     or inline in the ``<dco>`` of its terminal), and every other place names it
@@ -934,6 +934,41 @@ def _property_rows(elem: ET.Element) -> list[ET.Element]:
     return [defined[uid] for uid in order if uid in defined]
 
 
+def property_segments(row: ET.Element) -> list[PropertySegment]:
+    """The path steps of one ``propItem`` row: each ``propItemInfo`` of its
+    ``propList``, with its name, code and declared type (``dataTypeDesc``)."""
+    segments: list[PropertySegment] = []
+    prop_list = row.find("propList")
+    if prop_list is None:
+        return segments
+    for seg in prop_list.findall("SL__arrayElement"):
+        if seg.get("class") != "propItemInfo":
+            continue
+        code_text = seg.findtext("PropItemCode") or "0"
+        try:
+            code = int(code_text)
+        except ValueError:
+            code = 0
+        segments.append(
+            PropertySegment(
+                name=clean_labview_string(seg.findtext("PropItemName")),
+                code=code,
+                data_type_desc=seg.findtext("dataTypeDesc"),
+            )
+        )
+    return segments
+
+
+def declared_property_type_desc(elem: ET.Element, row_uid: str) -> str | None:
+    """The declared type (``dataTypeDesc`` text) of the property a Property
+    Node's row ``row_uid`` reads or writes: that of the last step of its path."""
+    for row in property_rows(elem):
+        if row.get("uid") == row_uid:
+            segments = property_segments(row)
+            return segments[-1].data_type_desc if segments else None
+    return None
+
+
 class PropertyNodeHandler(NodeTypeHandler):
     """Handler for Property Node (class="propNode")."""
 
@@ -948,26 +983,10 @@ class PropertyNodeHandler(NodeTypeHandler):
         # One ``propItem`` element of the ``dcoList`` is one row, in order (a terminal's
         # ``<dco>`` reference to a row names the same row, not another). Its
         # ``propList`` holds one ``propItemInfo`` per path segment.
-        properties: list[PropertyDef] = []
-        for row in _property_rows(elem):
-            segments: list[PropertySegment] = []
-            prop_list = row.find("propList")
-            if prop_list is not None:
-                for seg in prop_list.findall("SL__arrayElement"):
-                    if seg.get("class") != "propItemInfo":
-                        continue
-                    code_text = seg.findtext("PropItemCode") or "0"
-                    try:
-                        code = int(code_text)
-                    except ValueError:
-                        code = 0
-                    segments.append(
-                        PropertySegment(
-                            name=clean_labview_string(seg.findtext("PropItemName")),
-                            code=code,
-                        )
-                    )
-            properties.append(PropertyDef(segments=segments))
+        properties = [
+            PropertyDef(segments=property_segments(row))
+            for row in property_rows(elem)
+        ]
 
         # An IMPLICIT property node's DIRECT <ddo> CHILD (a sibling of its
         # own <termList>, never a part of it) names the front-panel control
