@@ -279,7 +279,7 @@ def test_a_parse_failure_on_a_control_is_an_lvkit_error_not_an_unreadable_file(
     def parse_bug(*args: object, **kwargs: object) -> None:
         raise ValueError("parser bug")
 
-    monkeypatch.setattr("lvkit.graph.loading.parse_type_map_rich", parse_bug)
+    monkeypatch.setattr("lvkit.graph.loading.parse_vi", parse_bug)
     graph = InMemoryVIGraph()
     key = graph.load_typedef(ctl)
     (problem,) = graph.problems([key])

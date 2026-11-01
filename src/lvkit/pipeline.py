@@ -166,6 +166,23 @@ def create_import_resolver(
             return layout.display_path(key)
         return graph.recorded_path(key) if graph is not None else None
 
+    def missing(name: str, key: str) -> MissingVIError:
+        """The gap for the VI at ``key`` that was not found. An instance saved
+        inside its caller has no file of its own: the message names the VI as the
+        caller labels it and says where it is kept, never the internal key."""
+        holder = graph.embedding_vi(key) if graph is not None else None
+        if holder is not None:
+            where = shown(holder) or Path(holder).name
+            return MissingVIError(
+                name,
+                None,
+                f"it is saved inside {where} (an Express VI or other "
+                "embedded instance) and has no file of its own",
+            )
+        return MissingVIError(
+            name, shown(key), graph.stub_reason(key) if graph is not None else None
+        )
+
     def locate_by_name(vi_name: str) -> Path:
         """The output file of a VI known only by name: a vi.lib VI, or a VI
         reference constant (which names its VI by name). A call of a project VI
@@ -173,11 +190,7 @@ def create_import_resolver(
         none stops code generation first."""
         if vi_name in vi_paths:
             return found(vi_name, vi_name)
-        raise MissingVIError(
-            vi_name,
-            shown(vi_name),
-            graph.stub_reason(vi_name) if graph is not None else None,
-        )
+        raise missing(vi_name, vi_name)
 
     def found(key: str, name: str) -> Path:
         """The output file of the VI at ``key``; a VI the graph holds only as a
@@ -188,7 +201,7 @@ def create_import_resolver(
             and vilib_resolver.has_python(graph.recorded_path(key))
         )
         if graph is not None and graph.is_stub(key) and not implemented:
-            raise MissingVIError(name, shown(key), graph.stub_reason(key))
+            raise missing(name, key)
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
@@ -198,9 +211,7 @@ def create_import_resolver(
             if callee_key in vi_paths:
                 return found(callee_key, subvi_name)
             if graph is not None and graph.is_stub(callee_key):
-                raise MissingVIError(
-                    subvi_name, shown(callee_key), graph.stub_reason(callee_key)
-                )
+                raise missing(subvi_name, callee_key)
         return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:

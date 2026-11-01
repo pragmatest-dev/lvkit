@@ -321,6 +321,16 @@ class QueryMixin:
             return None
         return self._recorded.path(key)
 
+    def embedding_vi(self, key: str) -> str | None:
+        """The key of the loaded VI that holds ``key`` inside its own file: a
+        dependency whose recorded path is a place in a VI file (an instance
+        saved in its caller, such as an Express VI) has no file of its own.
+        None for a dependency that is a file."""
+        parent = str(Path(key).parent)
+        if parent != key and parent in self._dep_graph and parent not in self._stubs:
+            return parent
+        return None
+
     def stub_reason(self, key: str) -> str | None:
         """Why the absent dependency ``key`` is missing, when more than its
         absence (several files of its name, a candidate that cannot be read);

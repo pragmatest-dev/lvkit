@@ -50,7 +50,6 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
-from ..parser.type_mapping import parse_type_map_rich
 from ..parser.vi import own_container_record
 from ..run_report import (
     CacheWriteError,
@@ -1926,7 +1925,7 @@ class LoadingMixin:
         or carries no parseable front panel.
         """
         # Guard the whole extract+parse. A control can extract to XML that is
-        # then malformed, so parse_type_map_rich / _get_fp_root_type_id can raise
+        # then malformed, so parse_vi / _get_fp_root_type_id can raise
         # ET.ParseError (a SyntaxError subclass — NOT an OSError/ValueError) or
         # ValueError. Honor this method's documented "(None, {}, None, None)
         # on failure" contract for those too (load_typedef relies on it).
@@ -1939,9 +1938,11 @@ class LoadingMixin:
                     node_type=NodeType.TYPEDEF,
                 )
                 return None, {}, None, None
-            type_map = parse_type_map_rich(main_xml)
             root_type_id = _get_fp_root_type_id(fp_xml)
             parsed = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+            # The types the control's records are applied to
+            # (``_store_type_records``) are the ones its root and fields are.
+            type_map = parsed.metadata.type_map
         except (RuntimeError, OSError, ValueError, ET.ParseError) as exc:
             # Only an unreadable file is "unreadable"; anything else (a malformed
             # extraction, a parse bug) is an lvkit error. Either way the control's
