@@ -428,9 +428,7 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
         "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
     )
     current = _facts_fingerprint()
-    row = conn.execute(
-            "SELECT fingerprint FROM index_meta WHERE id = 0"
-        ).fetchone()
+    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     if row is not None and row[0] == current:
         return
     for table in _ALL_TABLES:
@@ -653,7 +651,9 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
         return None
     try:
         conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
-        row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
+        row = conn.execute(
+            "SELECT fingerprint FROM index_meta WHERE id = 0"
+        ).fetchone()
     except sqlite3.Error:
         return None
     if row is None or row[0] != _facts_fingerprint():
