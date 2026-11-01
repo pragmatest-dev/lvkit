@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the project index keeps which VI a SubVI call goes to, and recalculated caller counts are written** — a call's callee is set when a VI is loaded, so `describe`, `render` and MCP `read_vi` no longer blank it; a refresh also writes the new `impact_score` / `callers_count` of unchanged VIs (#167).
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.

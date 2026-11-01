@@ -148,6 +148,103 @@ For a diagram instead of a list: `lvkit visualize <path> --mode deps`
 whatever one input loads — not a whole-project view, and not available
 through the MCP server today.
 
+## Analysing large monolithic VIs
+
+A top-level VI that grew for years can hold 15,000 block-diagram nodes and
+thousands of Property Nodes — too big to read whole. Ask the `node` view
+narrow questions instead, scoped to that one VI (`vi_path = '<path>'` keeps
+each query well inside the 2 s budget). Find the biggest VIs first:
+
+```sql
+SELECT vi_path, COUNT(*) AS nodes FROM node
+GROUP BY vi_path ORDER BY nodes DESC LIMIT 10
+```
+
+**"Where does this VI show a dialog, and inside which structure?"** Every
+node row names the structure it sits in (`parent_uid`, the `uid` of that
+Case Structure, loop or sequence) and the frame it sits in (`frame`, the
+case value or sequence frame number). Walking `parent_uid` up to the diagram
+gives the path from the outermost structure in. Dialogs are the One Button
+Dialog (`prim_id` 1340) and Two Button Dialog (1341) functions, plus SubVI
+calls (`qualified_name`) to Three Button Dialog and to the error handlers,
+which can show one:
+
+```sql
+WITH RECURSIVE
+structure AS MATERIALIZED (
+  SELECT uid, kind, name, parent_uid, frame FROM node
+  WHERE vi_path = '<path>'
+    AND kind IN ('case', 'while', 'for', 'sequence', 'event', 'disabled', 'inplace')
+),
+up(vi_path, kind, name, at, frame, inside) AS (
+  SELECT vi_path, kind, name, parent_uid, frame, ''
+  FROM node
+  WHERE vi_path = '<path>'
+    AND (prim_id IN (1340, 1341)
+         OR (kind = 'vi' AND qualified_name IN ('Simple Error Handler.vi',
+             'General Error Handler.vi', 'Three Button Dialog.vi')))
+  UNION ALL
+  SELECT up.vi_path, up.kind, up.name, s.parent_uid, s.frame,
+         CASE s.kind WHEN 'case' THEN 'Case Structure' ELSE s.name END
+         || COALESCE(' [' || up.frame || ']', '')
+         || CASE WHEN up.inside = '' THEN '' ELSE ' > ' || up.inside END
+  FROM up JOIN structure s ON s.uid = up.at
+)
+SELECT kind, name, inside FROM up
+WHERE at IS NULL
+ORDER BY inside
+```
+
+```
+kind       name               inside
+---------  -----------------  -------------------------------------------------------------------------
+primitive  One Button Dialog  Flat Sequence [1] > Flat Sequence [2] > Case Structure [1] > Case Structure [True]
+primitive  One Button Dialog  Flat Sequence [1] > Flat Sequence [2] > Case Structure [3] > Case Structure [True]
+```
+
+Keep the `structure ... AS MATERIALIZED` step as written (it needs SQLite
+3.35 or newer): it lets the walk look each structure up quickly, and without
+it the walk can run past the time limit. Change only the `WHERE` of the
+first `SELECT` in `up` to locate anything else — for example every place a
+control is touched (next question), with
+`name = 'EXIT' AND (kind = 'local_variable' OR object_name IS NOT NULL)`.
+To search the whole project, leave out both `vi_path` filters and add
+`vi_path` to the last `SELECT` (then expect the 1000-row cap).
+
+**"Which controls does this VI touch through Property Nodes and local
+variables?"** A Property Node or Invoke Node tied to a control, and a local
+variable, carry the control's label in `name`; `object_name` is the
+control's class as saved (`Bool (strict)`, `Ring (strict)`, possibly in the
+language LabVIEW was set to) and `method_name` is set only on Invoke Nodes:
+
+```sql
+SELECT name AS control,
+       SUM(kind = 'local_variable') AS local_variables,
+       SUM(kind = 'primitive' AND method_name IS NULL) AS property_nodes,
+       SUM(kind = 'primitive' AND method_name IS NOT NULL) AS invoke_nodes
+FROM node
+WHERE vi_path = '<path>'
+  AND (kind = 'local_variable' OR object_name IS NOT NULL)
+GROUP BY name
+ORDER BY local_variables + property_nodes + invoke_nodes DESC
+```
+
+What the index does **not** hold yet, so don't promise it: whether a local
+variable or Property Node **reads or writes** the control, **which
+properties** a Property Node reads or writes, and which control a Property
+Node fed by a **wired reference** points at — those rows all show
+`name = 'Property Node'` (or `'Invoke Node'`). Register For Events nodes also
+carry an `object_name`, so they count as Property Nodes here.
+
+**Call-tree questions need a refreshed index.** `callee_path` — which VI a
+SubVI call goes to — is set whenever a VI is loaded into the index, including
+by `describe`, `render`, `generate`, `docs`, `diff` or MCP `read_vi`/`render`.
+A callee outside the project has none. Only a refresh drops a callee that was
+deleted or moved out of the project since, and picks up a VI whose file
+changed. So before callers, callees or blast-radius queries let `lvkit query`
+refresh (leave out `--no-refresh`) or run `lvkit index <repo> --refresh`; over
+MCP, call `index` with `refresh=True` before `query`.
+
 ## Feeds
 
 Cross-VI facts from `query` feed `/lvkit-convert` (what does this VI's

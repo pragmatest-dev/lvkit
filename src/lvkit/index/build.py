@@ -396,6 +396,7 @@ def _recompute_impact(facts: dict[str, VIFacts]) -> None:
         else:
             f.impact_score = 0
             f.callers_count = 0
+        f.scores_computed = True
 
 
 @dataclass
@@ -639,8 +640,9 @@ def project_vi_facts(
     own constants, own dep_graph edges, own terminal types) — see
     ``model.py``'s module docstring for why that makes this a pure function
     of the VI's content hash — EXCEPT ``typedef_paths``/``typedef_versions``,
-    which read the ``.ctl`` controls this VI depends on (``project_root`` scopes
-    them to this project, matching what ``sync_typedefs`` can itself refresh).
+    which read the ``.ctl`` controls this VI depends on, and each SubVI call's
+    ``callee_path`` (``project_root`` scopes them to this project, matching what
+    ``sync_typedefs`` can itself refresh).
     """
     vnode = graph.get_graph_node(vi_name)
     # A directory build loads class methods (and library members) as loose
@@ -726,7 +728,10 @@ def project_vi_facts(
     # The grep-not-read node spine: one row per block-diagram node, in
     # deterministic iter_nodes order (the VI-def node is excluded there, so
     # every VINode below is a SubVI CALL site). No wires/dataflow — that stays
-    # in the read_vi netlist. ``callee_path`` is resolved later at merge time.
+    # in the read_vi netlist. A SubVI call's ``callee_path`` is its recorded
+    # ``callee_key`` when that file is under this project (the sync then drops
+    # any that is not an indexed VI).
+    real_root = project_root.resolve()
     nodes: list[NodeFact] = [
         NodeFact(
             uid=gn.id,
@@ -737,6 +742,7 @@ def project_vi_facts(
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=_node_callee_key(gn),
             callee_key=_callee_key(graph, gn),
+            callee_path=_in_project_callee_path(gn, str(vi_path), real_root),
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             network_path=(
@@ -760,7 +766,6 @@ def project_vi_facts(
     # out-of-root one (vi.lib, another repo) belongs to another project's index
     # and this project's sync can never refresh it. Both sides are resolved, so
     # a project reached through a symlinked folder keeps its own controls.
-    real_root = project_root.resolve()
     typedef_deps = sorted(
         dep
         for dep in graph.get_vi_dependencies(vi_name)
@@ -868,6 +873,21 @@ def _constant_wired_to(
         if isinstance(term, FPTerminal):
             return WiredTo.INDICATOR if term.is_indicator else WiredTo.CONTROL
     return WiredTo.OTHER
+
+
+def _in_project_callee_path(
+    node: AnyGraphNode, caller_path: str, real_root: Path
+) -> str | None:
+    """A SubVI call's callee file when it is a VI of this project other than the
+    caller itself: the call node's ``callee_key`` (the file its caller records)
+    if it lies under ``real_root``. A callee outside the project, or a call with
+    no recorded file, is ``None``."""
+    if not isinstance(node, VINode) or node.callee_key is None:
+        return None
+    key = node.callee_key
+    if key == caller_path or not Path(key).is_relative_to(real_root):
+        return None
+    return key
 
 
 def _node_callee_key(node: AnyGraphNode) -> str | None:
