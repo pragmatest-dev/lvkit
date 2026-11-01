@@ -7,8 +7,10 @@ the error it handles (the nodes upstream of it on its error wire, see
 
 - Clear Errors: ``try: <producers> except LabVIEWError: pass``.
 - Error case structure with an error frame that does work: ``try: <producers>``
-  / ``except LabVIEWError as e: <error frame>; raise`` / ``else: <no-error
-  frame>``.
+  / ``except LabVIEWError as e: <error frames>`` / ``else: <no-error frame>``.
+  An error frame selected by an error code is an ``if`` on ``e.code``; the frame
+  that covers the remaining errors is the ``else``. A frame ends with ``raise``
+  only when it sends the error out of the case unchanged.
 - Merge Errors: the held error model (``error_handler``).
 
 A handler whose error wire starts outside the diagram it sits in has nothing to
@@ -24,6 +26,7 @@ from collections.abc import Callable
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
 
+from .ast_utils import parse_expr
 from .context import CodeGenContext
 from .error_path import ErrorRole, error_inputs, trace_error_path
 from .errors_module import LABVIEW_ERROR_NAME
@@ -115,15 +118,49 @@ def _clear_errors(
     return True
 
 
+def _frame_statements(frame: case.ErrorFrameParts) -> list[ast.stmt]:
+    """The statements of one error frame, raising the error again when the
+    frame sends it out of the case unchanged."""
+    body = list(frame.body)
+    if frame.re_raises:
+        body.append(ast.Raise(exc=None, cause=None))
+    return body or [ast.Pass()]
+
+
+def _error_frames(frames: list[case.ErrorFrameParts]) -> list[ast.stmt]:
+    """The body of the handler: an ``if`` per frame selected by an error code, in
+    frame order, ending in the frame that covers the remaining errors. When no
+    frame covers them, they are raised again."""
+    remaining = next((f for f in frames if f.condition is None), None)
+    coded = [f for f in frames if f.condition is not None]
+    if not coded and remaining is not None:
+        return _frame_statements(remaining)
+    chain: list[ast.stmt] = (
+        _frame_statements(remaining)
+        if remaining is not None
+        else [ast.Raise(exc=None, cause=None)]
+    )
+    for frame in reversed(coded):
+        assert frame.condition is not None
+        chain = [
+            ast.If(
+                test=parse_expr(frame.condition),
+                body=_frame_statements(frame),
+                orelse=chain,
+            )
+        ]
+    return chain
+
+
 def _error_case(
     op: AnyGraphNode,
     operations: list[AnyGraphNode],
     ctx: CodeGenContext,
     tagged: Tagged,
 ) -> bool:
-    """An error case structure whose error frame does work: the error frame is
-    the handler of the producers, ending by raising the error again, and the
-    no-error frame the ``else`` of the ``try``."""
+    """An error case structure whose error frames do work: the error frames are
+    the handler of the producers, and the no-error frame the ``else`` of the
+    ``try``."""
     assert isinstance(op, CaseStructureNode)
     if not case.error_frame_ops(op, ctx):
         return False
@@ -141,7 +178,7 @@ def _error_case(
     ctx.merge(parts.bindings)
     ctx.imports.update(parts.imports)
     producers = [s for _, s in tagged[first : last + 1]]
-    handler = _handler(error_var, [*parts.on_error, ast.Raise(exc=None, cause=None)])
+    handler = _handler(error_var, _error_frames(parts.on_error))
     statements = [*parts.pre_decls, _try(producers, handler, parts.no_error)]
     tagged[first : last + 1] = [(ids, s) for s in statements]
     return True

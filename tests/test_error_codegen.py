@@ -9,10 +9,7 @@ generates the module, asserts the exact source, and runs it.
 from __future__ import annotations
 
 import importlib
-import sys
 import textwrap
-from collections.abc import Callable, Iterator
-from pathlib import Path
 from types import ModuleType
 
 import pytest
@@ -21,7 +18,6 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_codes import describe_error_code
 from lvkit.codegen.error_path import ERROR_WIRE_VI_NAMES
-from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
@@ -150,33 +146,6 @@ X_IN = term("x", "output", 0, "x", INT)
 ERR_IN = term("ein", "output", 1, "error in", ERR)
 RESULT_OUT = term("result", "input", 0, "result", INT)
 ERR_OUT = term("eout", "input", 1, "error out", ERR)
-
-
-@pytest.fixture
-def package(tmp_path: Path) -> Iterator[Callable[..., ModuleType]]:
-    """Write a generated module beside stub subVI modules and the package's
-    ``errors`` module, and import it."""
-    loaded: list[str] = []
-
-    def load(source: str, stubs: dict[str, str]) -> ModuleType:
-        name = f"errpkg_{abs(hash(tmp_path))}_{len(loaded)}"
-        root = tmp_path / name
-        root.mkdir()
-        (root / "__init__.py").write_text("")
-        (root / "errors.py").write_text(ERRORS_MODULE_SOURCE)
-        (root / "caller.py").write_text(source)
-        for module, body in stubs.items():
-            (root / f"{module}.py").write_text(textwrap.dedent(body))
-        sys.path.insert(0, str(tmp_path))
-        importlib.invalidate_caches()
-        loaded.append(name)
-        return importlib.import_module(f"{name}.caller")
-
-    yield load
-    while str(tmp_path) in sys.path:
-        sys.path.remove(str(tmp_path))
-    for key in [k for k in sys.modules if k.split(".")[0] in loaded]:
-        del sys.modules[key]
 
 
 STEP_STUB = """
@@ -858,7 +827,7 @@ def _error_case(
 
 
 def test_error_frame_that_does_work_is_the_handler_of_the_producers() -> None:
-    assert _error_case(error_frame_work=True) == textwrap.dedent(
+    assert _error_case(error_frame_work=True, keeps_error=True) == textwrap.dedent(
         """\
         from __future__ import annotations
         from typing import Any, NamedTuple
@@ -888,7 +857,7 @@ def test_error_frame_that_does_work_is_the_handler_of_the_producers() -> None:
 def test_error_frame_runs_in_the_handler_and_the_other_frame_after_a_clean_call(
     package,
 ) -> None:
-    source = _error_case(error_frame_work=True)
+    source = _error_case(error_frame_work=True, keeps_error=True)
     stubs = {
         "open_": stub("open_", 0),
         "use": stub("use", 100),
@@ -921,7 +890,12 @@ def test_error_frame_runs_in_the_handler_and_the_other_frame_after_a_clean_call(
 
 
 def test_error_frame_reads_the_code_of_an_error_the_diagram_raises(package) -> None:
-    source = _error_case(error_frame_work=True, reads_error=True, producer_raises=True)
+    source = _error_case(
+        error_frame_work=True,
+        keeps_error=True,
+        reads_error=True,
+        producer_raises=True,
+    )
     assert "report_result = report(x=e.code)" in source
     module = package(source, {"use": stub("use"), "report": stub("report", 0)})
     with pytest.raises(errors_of(module)) as raised:
