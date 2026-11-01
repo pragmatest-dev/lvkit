@@ -1294,6 +1294,38 @@ Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
 the node, the term's `<dco uid=...>` only references it, and its
 `propItemInfo` carries no `PropItemName` (the name is empty).
 
+## A Property Node row's `propItemInfo` carries `dataTypeDesc`, the property's declared type; a row saved with a `Void` terminal type keeps it there (issue #181)
+
+Each `propItemInfo` of a row's `propList` has a `<dataTypeDesc>` (a
+`TypeID(n)` into the VI's type table) next to its `<omidTypeDesc>`, `PropItemName`
+and `PropItemCode`. The terminal's own type is the row dco's `<typeDesc>`.
+Across the 1,681 `propItem` rows with a `propList` in the pre-extracted corpus
+the two types are the same in all but 6:
+
+- 2 rows have a `Void` terminal `typeDesc` while `dataTypeDesc` is `NumUInt32`:
+  `NumChans` (code 8577) on a DAQmx Task Property Node in
+  `LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/Setup AI.vi` (terminal
+  `TypeID(238)`, `dataTypeDesc` `TypeID(240)`, `omidTypeDesc` `TypeID(239)` =
+  `VoidBlock`) and the same row in `.../Digital Input/DI_class/Setup DI.vi`.
+  Both VIs are saved broken: their main `.xml` has `<Execution ...
+  BadSignal="1" BadNode="1">`. The sibling `.../Digital Output/DO_class/Setup
+  DO.vi` has the same property, is saved working (every `Bad*` is `0`), and its
+  terminal `typeDesc` is `NumUInt32`. So a `Void` terminal type on a row is not
+  the property's type; `dataTypeDesc` is.
+- 4 rows have a terminal `UnitUInt8` (a U8 with a unit) and a plain `NumUInt8`
+  `dataTypeDesc`. The terminal is the more exact type there.
+
+lvkit types a row's terminal from its own `typeDesc`, and only when that is
+`Void` uses `dataTypeDesc` (`parser/vi.py`, `_process_element_terminals`;
+`PropertySegment.data_type_desc`). For a two-segment row (`Image Parameters :
+Image Type`) the type is the last segment's: of the 52 two-segment rows in the
+corpus with a non-`Void` terminal type, the last segment's `dataTypeDesc` equals
+the terminal type in 52 and the first segment's in none.
+
+The dco `<objFlags>` of those 2 `Void` rows is 65537: bit 0x10000 is set. No
+other of the 1,681 rows has that bit. Its meaning is not decoded; lvkit does not
+read it.
+
 ## A reentrant VI is recorded with EITHER the `IsReentrant` OR the `SaveParallel` Execution flag; `PooledReentrancy` then picks shared vs preallocated clones (issue #132)
 
 In the main XML's `<LVSR><Section><Execution .../>`, pylabview names two flag
