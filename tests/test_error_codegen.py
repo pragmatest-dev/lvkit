@@ -1062,15 +1062,16 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
                         return step_c_result
                     _f1 = _executor.submit(_branch_1)
                 try:
-                    step_b_result = _f0.result()
-                except LabVIEWError as e:
-                    _held_error = _held_error or e
-                    step_b_result = SimpleNamespace(r=0)
-                try:
                     step_c_result = _f1.result()
                 except LabVIEWError as e:
                     _held_error = _held_error or e
                     step_c_result = SimpleNamespace(r=0)
+                try:
+                    step_b_result = _f0.result()
+                except LabVIEWError as e:
+                    _held_error = _held_error or e
+                    step_b_result = SimpleNamespace(r=0)
+                    raise
             except LabVIEWError:
                 pass
             step_d_result = step_d(x=x)

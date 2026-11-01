@@ -103,6 +103,9 @@ def build_held_error_check() -> ast.stmt:
 def build_merge_try_except(
     result_stmt: ast.stmt,
     defaults: dict[str, ast.expr] | None = None,
+    *,
+    hold: bool = True,
+    reraise: bool = False,
 ) -> ast.stmt:
     """Build try/except for a future.result() call at a merge point.
 
@@ -120,25 +123,33 @@ def build_merge_try_except(
         result_stmt: The assignment statement (result = _fN.result())
         defaults: Each variable the statement assigns, with the value a failed
             node outputs: the default of its type
+        hold: Whether the error is held for the merge
+        reraise: Whether the error is raised again after the defaults are set,
+            for a handler around the branch to catch
     """
-    handler_body: list[ast.stmt] = [
+    handler_body: list[ast.stmt] = []
+    if hold:
         # _held_error = _held_error or e
-        ast.Assign(
-            targets=[ast.Name(id="_held_error", ctx=ast.Store())],
-            value=ast.BoolOp(
-                op=ast.Or(),
-                values=[
-                    ast.Name(id="_held_error", ctx=ast.Load()),
-                    ast.Name(id="e", ctx=ast.Load()),
-                ],
-            ),
-        ),
-    ]
+        handler_body.append(
+            ast.Assign(
+                targets=[ast.Name(id="_held_error", ctx=ast.Store())],
+                value=ast.BoolOp(
+                    op=ast.Or(),
+                    values=[
+                        ast.Name(id="_held_error", ctx=ast.Load()),
+                        ast.Name(id="e", ctx=ast.Load()),
+                    ],
+                ),
+            )
+        )
 
     for name, default in (defaults or {}).items():
         handler_body.append(
             ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=default)
         )
+
+    if reraise:
+        handler_body.append(ast.Raise(exc=None, cause=None))
 
     return ast.Try(
         body=[result_stmt],

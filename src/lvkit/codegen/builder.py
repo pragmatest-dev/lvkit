@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import ast
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from dataclasses import dataclass
 
 import networkx as nx
 
@@ -32,7 +33,11 @@ from .error_handler import (
     needs_error_handling,
 )
 from .error_path import ErrorRole, classify_error_node
-from .error_wires import generate_error_handler
+from .error_wires import (
+    generate_error_handler,
+    handled_producer_ids,
+    merged_producer_ids,
+)
 from .errors import CodeGenError
 from .fragment import CodeFragment
 from .gaps import Gap, catch_gap, vi_body
@@ -216,6 +221,12 @@ def generate_body(
     # All operations passed here are top-level (nested structure contents
     # are fetched separately via ctx.child_nodes)
     tiers = topological_sort_tiered(operations, ctx)
+    handled_ids = (
+        handled_producer_ids(operations, ctx) if ctx.use_held_error_model else set()
+    )
+    merged_ids = (
+        merged_producer_ids(operations, ctx) if ctx.use_held_error_model else set()
+    )
 
     for tier in tiers:
         roles = {op.id: classify_error_node(op) for op in tier}
@@ -233,7 +244,9 @@ def generate_body(
         # wiring that dropped cross-branch inlined references.
         if ctx.use_held_error_model and len(remaining) > 1:
             tier_ids = {op.id for op in remaining}
-            for stmt in _generate_parallel_tier(remaining, ctx):
+            for stmt in _generate_parallel_tier(
+                remaining, ctx, handled_ids, merged_ids
+            ):
                 tagged.append((tier_ids, stmt))
             for op in remaining:
                 for stmt in ctx.local_indicators.assignments_after(op, ctx):
@@ -272,7 +285,10 @@ def generate_body(
 
 
 def _generate_parallel_tier(
-    tier: list[AnyGraphNode], ctx: CodeGenContext
+    tier: list[AnyGraphNode],
+    ctx: CodeGenContext,
+    handled_ids: Collection[str] = (),
+    merged_ids: Collection[str] = (),
 ) -> list[ast.stmt]:
     """Generate ThreadPoolExecutor block for parallel operations.
 
@@ -285,6 +301,12 @@ def _generate_parallel_tier(
     - By-reference data (classes, refnums): shared, mutations visible
       across branches via closure capture
     - Shift registers: loop-scoped state, accessible to all branches
+
+    A branch's error is held until the node that consumes it: a branch whose
+    error a Clear Errors or an error case structure handles (``handled_ids``)
+    raises it where the branch is awaited, inside the handler's ``try``, after
+    the branches that hold theirs; one whose error also reaches a Merge Errors
+    (``merged_ids``) holds it too.
     """
     ctx.imports.add("import concurrent.futures")
 
@@ -300,10 +322,9 @@ def _generate_parallel_tier(
     # Statements to emit AFTER the with block (future.result() unpacking)
     post_stmts: list[ast.stmt] = []
     # Track which fragments produce bindings that need returning
-    branch_info: list[tuple[str, list[str], dict[str, ast.expr]]] = []
-    # (future_var, [bound_var_names], {bound var: its value when the branch fails})
+    branch_info: list[_Branch] = []
 
-    for fragment in fragments:
+    for node, fragment in zip(tier, fragments, strict=True):
         stmts = fragment.statements
         if not stmts:
             continue
@@ -371,8 +392,15 @@ def _generate_parallel_tier(
                 value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
             )
         )
+        raises = node.id in handled_ids
         branch_info.append(
-            (future_var, bound_vars, _failed_branch_defaults(fragment, bound_vars, ctx))
+            _Branch(
+                future_var,
+                bound_vars,
+                _failed_branch_defaults(fragment, bound_vars, ctx),
+                raises=raises,
+                holds=not raises or node.id in merged_ids,
+            )
         )
 
     # Always merge bindings — even when all ops produce zero statements.
@@ -412,7 +440,10 @@ def _generate_parallel_tier(
     # When held-error model is active, wrap each .result() call in
     # try/except so exceptions are captured and the first error is
     # raised at the merge point (LabVIEW Merge Errors semantics).
-    for future_var, bound_vars, failed_defaults in branch_info:
+    # The branches that raise are awaited last: the others have held theirs.
+    branch_info.sort(key=lambda b: b.raises)
+    for branch in branch_info:
+        future_var, bound_vars = branch.future_var, branch.bound_vars
         result_expr = ast.Call(
             func=ast.Attribute(
                 value=ast.Name(id=future_var, ctx=ast.Load()),
@@ -437,7 +468,14 @@ def _generate_parallel_tier(
 
         if ctx.use_held_error_model:
             # Wrap in try/except: _held_error = _held_error or e
-            post_stmts.append(build_merge_try_except(result_stmt, failed_defaults))
+            post_stmts.append(
+                build_merge_try_except(
+                    result_stmt,
+                    branch.failed_defaults,
+                    hold=branch.holds,
+                    reraise=branch.raises,
+                )
+            )
         else:
             post_stmts.append(result_stmt)
 
@@ -446,6 +484,18 @@ def _generate_parallel_tier(
         ast.fix_missing_locations(stmt)
 
     return [with_stmt] + post_stmts
+
+
+@dataclass
+class _Branch:
+    """A parallel branch: its future, the variables it returns, what they hold
+    when it fails, and what happens to its error where the branch is awaited."""
+
+    future_var: str
+    bound_vars: list[str]
+    failed_defaults: dict[str, ast.expr]
+    raises: bool
+    holds: bool
 
 
 def _failed_branch_defaults(

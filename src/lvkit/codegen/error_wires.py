@@ -28,7 +28,7 @@ from lvkit.graph.models import AnyGraphNode, CaseStructureNode
 
 from .ast_utils import parse_expr
 from .context import CodeGenContext
-from .error_path import ErrorRole, error_inputs, trace_error_path
+from .error_path import ErrorRole, classify_error_node, error_inputs, trace_error_path
 from .errors_module import LABVIEW_ERROR_NAME
 from .nodes import case
 
@@ -56,6 +56,48 @@ def generate_error_handler(
     if handler is None:
         return False
     return handler(op, operations, ctx, tagged)
+
+
+def _is_handler(op: AnyGraphNode, ctx: CodeGenContext) -> bool:
+    """Whether ``op`` handles the error on its wire: a Clear Errors, or an error
+    case structure with an error frame that does work."""
+    role = classify_error_node(op)
+    return role is ErrorRole.CLEAR or (
+        role is ErrorRole.CASE
+        and isinstance(op, CaseStructureNode)
+        and bool(case.error_frame_ops(op, ctx))
+    )
+
+
+def handled_producer_ids(
+    operations: list[AnyGraphNode], ctx: CodeGenContext
+) -> set[str]:
+    """The ids of the nodes among ``operations`` whose error a handler consumes:
+    the nodes upstream of the error input of a Clear Errors or of an error case
+    structure with an error frame that does work. The handler catches what they
+    raise, so a parallel branch among them raises its error instead of holding
+    it until the end."""
+    ids: set[str] = set()
+    for op in operations:
+        if _is_handler(op, ctx):
+            ids |= trace_error_path(error_inputs(op), operations, ctx).op_ids
+    return ids
+
+
+def merged_producer_ids(
+    operations: list[AnyGraphNode], ctx: CodeGenContext
+) -> set[str]:
+    """The ids of the nodes among ``operations`` whose error reaches a Merge
+    Errors without passing a handler: the merge raises it, so a parallel branch
+    among them holds its error until the merge."""
+    ids: set[str] = set()
+    for op in operations:
+        if classify_error_node(op) is ErrorRole.MERGE:
+            path = trace_error_path(
+                error_inputs(op), operations, ctx, lambda o: _is_handler(o, ctx)
+            )
+            ids |= path.op_ids
+    return ids
 
 
 def _handler(error_var: str | None, body: list[ast.stmt]) -> ast.ExceptHandler:
