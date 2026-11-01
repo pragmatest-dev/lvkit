@@ -18,7 +18,7 @@ A container records its list when it loads, in every load mode; a VI records
 its claim when it loads. :meth:`MembershipMixin._link_membership` is the one
 place the ``owns`` edge is added and the claim compared with it, for every
 pair whose nodes are both in the graph, whichever loaded first, and the one
-place a one-sided membership becomes a problem on the VI: a VI that claims a
+place a one-sided membership becomes a note on the VI: a VI that claims a
 container whose file does not list it (LabVIEW's "This VI claims to be part
 of a library, but that library does not claim to own this VI"), or a VI a container
 lists that claims another owner.
@@ -174,7 +174,7 @@ class MembershipMixin:
     def _link_membership(self, key: str) -> None:
         """Add the ``owns`` edge of every container / member pair ``key`` is
         part of whose nodes are both in the graph, and record a one-sided
-        membership as a problem on the VI. The one place ``owns`` is added."""
+        membership as a note on the VI. The one place ``owns`` is added."""
         graph = self._dep_graph
         pairs: set[tuple[str, str]] = set()
         pairs.update((c, key) for c in self._listed_by.get(key, ()))
@@ -203,7 +203,7 @@ class MembershipMixin:
         if members is None or CLAIM_ATTR not in graph.nodes[member]:
             return
         if claimed and not listed:
-            self._membership_problem(
+            self._membership_note(
                 member,
                 f"this VI claims to be part of {self.key_label(container)}, but "
                 f"that {_kind(container)} does not claim to own this VI: it is "
@@ -216,13 +216,13 @@ class MembershipMixin:
                 if own is not None
                 else "claims no owner"
             )
-            self._membership_problem(
+            self._membership_note(
                 member,
                 f"{self.key_label(container)} lists this VI as its member, but "
                 f"the VI {claims}",
             )
 
-    def _membership_problem(self, vi_key: str, reason: str) -> None:
+    def _membership_note(self, vi_key: str, reason: str) -> None:
         self.record_problem(
             vi_key,
             Problem(

@@ -63,7 +63,7 @@ substrate.
   member, the list: membership) is added and the claim compared with it, for every
   pair whose nodes are both in the graph. A claim the
   container does not list, or a listed VI claiming another owner, is a
-  `ProblemKind.MEMBERSHIP` problem on the VI (format doc, "Membership").
+  `ProblemKind.MEMBERSHIP` note on the VI (the run stays Complete) (format doc, "Membership").
   `class_methods` is a class's method list (own; `overrides <Ancestor>` for a
   dynamic method of a dynamic ancestor method's name, any depth; then ancestors'
   public/protected methods as `inherited from`); describe and the docs' override

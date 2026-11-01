@@ -186,6 +186,7 @@ def test_a_vi_claiming_a_class_that_does_not_list_it_is_a_membership_problem() -
     assert graph.owning_class_key(key) is None
     (problem,) = graph.problems([key])
     assert problem.kind is ProblemKind.MEMBERSHIP
+    assert problem.is_note  # both files read whole: the run stays Complete
     assert problem.reason == (
         "this VI claims to be part of MyTestCase/MyClass.lvclass, but that "
         "class does not claim to own this VI: it is not a member"
