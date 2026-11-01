@@ -20,7 +20,9 @@ from lvkit.vi_files import strip_vi_extension
 from .errors import CodeGenError
 
 
-def default_value_expr(lv_type: LVType | None) -> ast.expr:
+def default_value_expr(
+    lv_type: LVType | None, *, fresh_array: bool = False
+) -> ast.expr:
     """A conservative Python default value (as an AST expr) for a LabVIEW type.
 
     Scalars get their real default (int→0, float→0.0, bool→False, string→"",
@@ -28,13 +30,15 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
     ``None`` to stay import-free and avoid the mutable-default-argument
     anti-pattern. Used for connector-pane parameter defaults AND for
     pre-declaring case/sequence output tunnels that a frame may leave unwired
-    (LabVIEW's "Use Default If Unwired" emits the type default, not None)."""
+    (LabVIEW's "Use Default If Unwired" emits the type default, not None).
+    ``fresh_array`` makes an array the empty list: for a value assigned once at a
+    place that is not a function parameter default."""
     if lv_type is None:
         return ast.Constant(value=None)
     kind = lv_type.kind
     underlying = lv_type.underlying_type
     if kind == LVTypeKind.ARRAY:
-        return ast.Constant(value=None)
+        return ast.List(elts=[], ctx=ast.Load()) if fresh_array else ast.Constant(None)
     if kind == LVTypeKind.PRIMITIVE:
         if is_string_type_name(underlying):
             return ast.Constant(value="")

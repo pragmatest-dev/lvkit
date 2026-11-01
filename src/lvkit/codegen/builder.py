@@ -10,13 +10,14 @@ import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
-from lvkit.models import LVTypeKind, Terminal, TypeNamer
+from lvkit.models import LVType, LVTypeKind, Terminal, TypeNamer
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
     build_result_class_name,
     build_type_checking_block,
+    default_value_expr,
     interface_names,
     param_default_expr,
     parse_expr,
@@ -33,6 +34,7 @@ from .error_handler import (
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
 from .errors import CodeGenError
+from .fragment import CodeFragment
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
@@ -298,7 +300,8 @@ def _generate_parallel_tier(
     # Statements to emit AFTER the with block (future.result() unpacking)
     post_stmts: list[ast.stmt] = []
     # Track which fragments produce bindings that need returning
-    branch_info: list[tuple[str, list[str]]] = []  # (future_var, [bound_var_names])
+    branch_info: list[tuple[str, list[str], dict[str, ast.expr]]] = []
+    # (future_var, [bound_var_names], {bound var: its value when the branch fails})
 
     for fragment in fragments:
         stmts = fragment.statements
@@ -368,7 +371,9 @@ def _generate_parallel_tier(
                 value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
             )
         )
-        branch_info.append((future_var, bound_vars))
+        branch_info.append(
+            (future_var, bound_vars, _failed_branch_defaults(fragment, bound_vars, ctx))
+        )
 
     # Always merge bindings — even when all ops produce zero statements.
     # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
@@ -407,7 +412,7 @@ def _generate_parallel_tier(
     # When held-error model is active, wrap each .result() call in
     # try/except so exceptions are captured and the first error is
     # raised at the merge point (LabVIEW Merge Errors semantics).
-    for future_var, bound_vars in branch_info:
+    for future_var, bound_vars, failed_defaults in branch_info:
         result_expr = ast.Call(
             func=ast.Attribute(
                 value=ast.Name(id=future_var, ctx=ast.Load()),
@@ -432,8 +437,7 @@ def _generate_parallel_tier(
 
         if ctx.use_held_error_model:
             # Wrap in try/except: _held_error = _held_error or e
-            result_var = bound_vars[0] if len(bound_vars) == 1 else None
-            post_stmts.append(build_merge_try_except(result_stmt, result_var))
+            post_stmts.append(build_merge_try_except(result_stmt, failed_defaults))
         else:
             post_stmts.append(result_stmt)
 
@@ -442,6 +446,48 @@ def _generate_parallel_tier(
         ast.fix_missing_locations(stmt)
 
     return [with_stmt] + post_stmts
+
+
+def _failed_branch_defaults(
+    fragment: CodeFragment, bound_vars: list[str], ctx: CodeGenContext
+) -> dict[str, ast.expr]:
+    """What each variable a parallel branch returns holds when the branch fails:
+    the default of its output terminal's type, as a failed node outputs. A
+    variable that holds one terminal's value takes that type's default; one that
+    holds a call's several outputs (``result.field`` bindings) is a namespace of
+    each field's default; any other has no type and is None."""
+    whole: dict[str, LVType | None] = {}
+    fields: dict[str, dict[str, LVType | None]] = {}
+    if ctx.graph is not None:
+        for terminal_id, name in fragment.bindings.items():
+            terminal = ctx.graph.get_terminal(terminal_id)
+            if terminal is None:
+                continue
+            root, _, field = name.partition(".")
+            if root not in bound_vars:
+                continue
+            if not field:
+                whole.setdefault(root, terminal.lv_type)
+            elif field.isidentifier():
+                fields.setdefault(root, {}).setdefault(field, terminal.lv_type)
+    defaults: dict[str, ast.expr] = {}
+    for name in bound_vars:
+        if name not in whole and name in fields:
+            ctx.add_import("from types import SimpleNamespace")
+            defaults[name] = ast.Call(
+                func=ast.Name(id="SimpleNamespace", ctx=ast.Load()),
+                args=[],
+                keywords=[
+                    ast.keyword(
+                        arg=field,
+                        value=default_value_expr(lv_type, fresh_array=True),
+                    )
+                    for field, lv_type in fields[name].items()
+                ],
+            )
+        else:
+            defaults[name] = default_value_expr(whole.get(name), fresh_array=True)
+    return defaults
 
 
 class _AssignedNameVisitor(ast.NodeVisitor):

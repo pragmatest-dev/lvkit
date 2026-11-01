@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a parallel branch that fails outputs the default of each output's type instead of `None`** — the nodes after the merge no longer fail with a `TypeError` that hides the held LabVIEW error.
 - **An error case structure generates every error frame in the `except`** — a frame selected by an error code is an `if e.code == …`, the Default frame is the `else`, and a frame raises the error again only when the incoming error reaches a wired error out through its nodes; the Enumerate Compute Nodes retry no longer disappears.
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.

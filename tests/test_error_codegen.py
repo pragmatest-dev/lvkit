@@ -424,6 +424,7 @@ def test_parallel_branches_with_errors_hold_their_errors_to_the_merge() -> None:
         from .step_a import step_a
         from .step_b import step_b
         from .step_c import step_c
+        from types import SimpleNamespace
         import concurrent.futures
 
         class CallerResult(NamedTuple):
@@ -447,12 +448,12 @@ def test_parallel_branches_with_errors_hold_their_errors_to_the_merge() -> None:
                 step_b_result = _f0.result()
             except LabVIEWError as e:
                 _held_error = _held_error or e
-                step_b_result = None
+                step_b_result = SimpleNamespace(r=0)
             try:
                 step_c_result = _f1.result()
             except LabVIEWError as e:
                 _held_error = _held_error or e
-                step_c_result = None
+                step_c_result = SimpleNamespace(r=0)
             if _held_error:
                 raise _held_error
             return CallerResult(result=step_b_result.r)"""
@@ -1039,6 +1040,7 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
         from .step_b import step_b
         from .step_c import step_c
         from .step_d import step_d
+        from types import SimpleNamespace
         import concurrent.futures
 
         class CallerResult(NamedTuple):
@@ -1063,12 +1065,12 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
                     step_b_result = _f0.result()
                 except LabVIEWError as e:
                     _held_error = _held_error or e
-                    step_b_result = None
+                    step_b_result = SimpleNamespace(r=0)
                 try:
                     step_c_result = _f1.result()
                 except LabVIEWError as e:
                     _held_error = _held_error or e
-                    step_c_result = None
+                    step_c_result = SimpleNamespace(r=0)
             except LabVIEWError:
                 pass
             step_d_result = step_d(x=x)

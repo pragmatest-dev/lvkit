@@ -102,7 +102,7 @@ def build_held_error_check() -> ast.stmt:
 
 def build_merge_try_except(
     result_stmt: ast.stmt,
-    result_var: str | None = None,
+    defaults: dict[str, ast.expr] | None = None,
 ) -> ast.stmt:
     """Build try/except for a future.result() call at a merge point.
 
@@ -114,11 +114,12 @@ def build_merge_try_except(
             result = _fN.result()
         except LabVIEWError as e:
             _held_error = _held_error or e
-            result = None
+            result = <the default of its type>
 
     Args:
         result_stmt: The assignment statement (result = _fN.result())
-        result_var: Variable name to set to None on exception
+        defaults: Each variable the statement assigns, with the value a failed
+            node outputs: the default of its type
     """
     handler_body: list[ast.stmt] = [
         # _held_error = _held_error or e
@@ -134,12 +135,9 @@ def build_merge_try_except(
         ),
     ]
 
-    if result_var:
+    for name, default in (defaults or {}).items():
         handler_body.append(
-            ast.Assign(
-                targets=[ast.Name(id=result_var, ctx=ast.Store())],
-                value=ast.Constant(value=None),
-            )
+            ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=default)
         )
 
     return ast.Try(
