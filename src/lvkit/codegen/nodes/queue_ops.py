@@ -36,7 +36,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
-from ..ast_utils import default_value_expr, parse_expr
+from ..ast_utils import parse_expr, type_default_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -355,7 +355,7 @@ def _generate_dequeue(
         element = ctx.make_output_var("element", node.id, element_term.id)
         bindings[element_term.id] = element
         attempt.append(_assign(element, get))
-        on_timeout.append(_assign(element, default_value_expr(element_term.lv_type)))
+        on_timeout.append(_assign(element, type_default_expr(element_term.lv_type)))
     attempt.append(_flag(flag, False))
     on_timeout.append(_flag(flag, True))
     return CodeFragment(
@@ -388,7 +388,7 @@ def _generate_preview(
         if timed_out is not None
         else None
     )
-    default = default_value_expr(element_term.lv_type if element_term else None)
+    default = type_default_expr(element_term.lv_type if element_term else None)
     wait = f"{queue}.not_empty.wait_for(lambda: {queue}.queue"
     wait += ")" if timeout is None else f", {timeout})"
     peek = f"{queue}.queue[0] if {queue}.queue else {ast.unparse(default)}"

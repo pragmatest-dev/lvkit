@@ -105,7 +105,6 @@ def test_enumerate_compute_nodes_retries_on_the_code_its_error_case_names(
 
 
 @pytest.mark.needs_samples
-@errors_as_values("error shift register / held error model")
 def test_lv_icon_has_no_held_error_model(tmp_path: Path) -> None:
     """lv_icon.vi runs its error chains in parallel and merges them. Branches are
     plain sequential code, each with its own error variable."""

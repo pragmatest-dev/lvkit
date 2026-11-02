@@ -31,6 +31,8 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
+from ..error_flow import merge_errors
+from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
 from .template_inputs import template_reads
@@ -108,12 +110,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a primitive node."""
     prim_id = node.prim_id
 
-    # Merge Errors (prim 2147; not 2401, which is Swap Values -- #59) is a
-    # structural signal, not a code node. In the exception model, error
-    # merging happens via try/except on future.result() calls — the
-    # primitive itself produces no code.
-    if prim_id == 2147:
-        return CodeFragment.empty()
+    # Merge Errors (prim 2147; not 2401, which is Swap Values -- #59).
+    if prim_id == PRIM_ID_MERGE_ERRORS:
+        return merge_errors(node, ctx)
 
     # Get primitive hint.
     # Specialized node_types (subset, aBuild, etc.) take priority over
@@ -312,7 +311,7 @@ def _expandable_base(term_index: int, expandable_indices: set[int]) -> int | Non
     return None
 
 
-# Errors are exceptions, so an error input with nothing wired to it holds no error.
+# An error input with nothing wired to it holds no error.
 NO_ERROR = "None"
 
 

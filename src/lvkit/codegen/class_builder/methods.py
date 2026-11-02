@@ -9,7 +9,15 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
 
-from ..ast_utils import distinct_names, interface_names, parse_expr
+from ..ast_utils import (
+    build_assign,
+    distinct_names,
+    interface_names,
+    parse_expr,
+    result_class_def,
+    terminal_annotation,
+    with_statements_after_docstring,
+)
 from ..builder import (
     CodeGenContext,
     annotated_terminals,
@@ -76,9 +84,18 @@ class _MethodBuilderMixin:
         receiver = _receiver_of(vi_context, shape)
         names = _parameter_names(vi_context, shape, receiver)
         for term in [*vi_context.inputs, *vi_context.off_pane_inputs]:
-            if term.id in names and not term.is_error_cluster:
+            if term.id in names:
                 ctx.bind(term.id, names[term.id])
         parameters = [t for t in vi_context.inputs if t is not receiver]
+        # A property's getter and setter take no error in: it is a variable of
+        # the body that holds no error.
+        error_locals: list[ast.stmt] = [
+            build_assign(names[t.id], ast.Constant(value=None))
+            for t in parameters
+            if property_accessor and t.is_error_cluster
+        ]
+        if property_accessor:
+            parameters = [t for t in parameters if not t.is_error_cluster]
         args = build_args(parameters, names, spell)
         if property_accessor:
             args.args.extend(args.kwonlyargs)
@@ -94,13 +111,16 @@ class _MethodBuilderMixin:
             for term in annotated_terminals(vi_context):
                 ctx.import_types(term.lv_type, at_run_time=False)
             try:
-                return function_body(
-                    vi_context,
-                    key,
-                    ctx,
-                    parameter_names=names,
-                    return_stmt=lambda: self._return_stmt(
-                        shape, vi_context, ctx, property_accessor
+                return with_statements_after_docstring(
+                    error_locals,
+                    function_body(
+                        vi_context,
+                        key,
+                        ctx,
+                        parameter_names=names,
+                        return_stmt=lambda: self._return_stmt(
+                            shape, vi_context, ctx, property_accessor
+                        ),
                     ),
                 )
             except CodeGenError as error:
@@ -136,7 +156,7 @@ class _MethodBuilderMixin:
         ctx: CodeGenContext,
         property_accessor: bool,
     ) -> ast.Return | None:
-        """The return of a method: its ``NamedTuple`` of the connector-pane results;
+        """The return of a method: its result class of the connector-pane results;
         nothing when it has none. A property getter returns its one value."""
         if not shape.results:
             return None
@@ -176,32 +196,27 @@ class _MethodBuilderMixin:
             return ast.Constant(value=None)
         if property_accessor and len(shape.results) == 1:
             out = _outputs_by_index(vi_context)[shape.results[0]]
-            return parse_expr(out.python_type(spell))
+            return parse_expr(terminal_annotation(out, spell))
         assert shape.result_class is not None
         return ast.Name(id=shape.result_class, ctx=ast.Load())
 
     def _result_class_def(
         self, shape: MethodShape, vi_context: VIContext
     ) -> ast.ClassDef:
-        """The ``NamedTuple`` the results of the method (and its overrides) are
+        """The result class the results of the method (and its overrides) are
         returned as."""
         assert shape.result_class is not None
         spell = type_namer(self._import_resolver.scoped(shape.key))
         outputs = _outputs_by_index(vi_context)
-        body: list[ast.stmt] = [
-            ast.AnnAssign(
-                target=ast.Name(id=shape.result_fields[index], ctx=ast.Store()),
-                annotation=parse_expr(outputs[index].python_type(spell)),
-                simple=1,
-            )
-            for index in shape.results
-        ]
-        return ast.ClassDef(
-            name=shape.result_class,
-            bases=[ast.Name(id="NamedTuple", ctx=ast.Load())],
-            keywords=[],
-            body=body,
-            decorator_list=[],
+        return result_class_def(
+            shape.result_class,
+            [
+                (
+                    shape.result_fields[index],
+                    parse_expr(terminal_annotation(outputs[index], spell)),
+                )
+                for index in shape.results
+            ],
         )
 
     def _gap_for(self, key: str, message: str) -> str:

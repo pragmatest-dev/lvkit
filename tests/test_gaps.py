@@ -34,7 +34,7 @@ from lvkit.models import (
 )
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.vilib_resolver import ResolutionContext, VILibResolutionNeeded
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_module
 from tests.test_loop_codegen import _mk_loop, _output_tunnel
 
 # ---------------------------------------------------------------------------
@@ -226,8 +226,7 @@ def _with_the_raise_shown_as(source: str, marker: str) -> list[str]:
 
 
 def _run(source: str, function: str, *args):
-    namespace: dict = {}
-    exec(compile(source, "gap_test", "exec"), namespace)  # noqa: S102
+    namespace = exec_module(source, "gap_test").__dict__
     return namespace[function](*args)
 
 
@@ -244,9 +243,11 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
     source, gaps = _build(context, [_mystery()])
     assert _with_the_raise_shown_as(source, "<raise>") == [
         "from __future__ import annotations",
-        "from typing import Any, NamedTuple",
+        "from dataclasses import dataclass",
+        "from typing import Any",
         "",
-        "class GapResult(NamedTuple):",
+        "@dataclass(frozen=True)",
+        "class GapResult:",
         "    y: int",
         "",
         "def gap(x: int) -> GapResult:",
@@ -305,7 +306,7 @@ def test_an_unknown_primitive_in_a_loop_raises_in_the_loop() -> None:
         ],
     )
     source, gaps = _build(context, [loop, _mystery(parent="loop1")])
-    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[8:] == [
         "def gap(x: int) -> GapResult:",
         "    while True:",
         "        result = None",
@@ -363,7 +364,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
         ],
     )
     source, gaps = _build(context, [case, _mystery(parent="case1", frame="True")])
-    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[8:] == [
         "def gap(flag: bool) -> GapResult:",
         "    case_output = 0",
         "    if flag:",

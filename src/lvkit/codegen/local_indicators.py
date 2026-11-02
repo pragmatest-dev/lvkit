@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode
 
-from .ast_utils import build_assign, param_default_expr
+from .ast_utils import build_assign, control_default_expr
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -44,7 +44,7 @@ class LocalIndicators:
             )
             ctx.bind(terminal_id, variable)
             found.variables[terminal_id] = variable
-            statements.append(build_assign(variable, param_default_expr(control)))
+            statements.append(build_assign(variable, control_default_expr(control)))
             # A control or constant wired straight to the indicator has no node
             # to assign it after: it sets the variable here.
             for source in ctx.graph.indicator_sources(terminal_id):

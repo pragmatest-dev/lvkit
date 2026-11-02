@@ -153,10 +153,11 @@ class TestErrorCaseUnwrap:
 # ── Error input not bound ──────────────────────────────────────────
 
 
-class TestErrorInputNotBound:
-    """from_vi_context should NOT bind error cluster inputs."""
+class TestErrorInputBound:
+    """from_vi_context binds an error cluster input like any other: an error wire
+    is a value."""
 
-    def test_error_input_skipped(self):
+    def test_error_input_bound(self):
         from lvkit.graph.models import VIContext
 
         error_term = Terminal(
@@ -181,8 +182,8 @@ class TestErrorInputNotBound:
             constants=[],
         )
         ctx = CodeGenContext.from_vi_context(vi_ctx)
-        assert ctx.resolve("err_in") is None  # NOT bound
-        assert ctx.resolve("data_in") == "data"  # bound
+        assert ctx.resolve("err_in") == "error_in_no_error"
+        assert ctx.resolve("data_in") == "data"
 
 
 # ── nMux role-based passthrough ────────────────────────────────────

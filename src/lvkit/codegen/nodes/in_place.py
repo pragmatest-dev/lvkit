@@ -32,6 +32,7 @@ from lvkit.models import (
     inplace_border_side,
 )
 
+from .. import error_flow
 from ..ast_utils import parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
@@ -112,6 +113,9 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     _bind_tile_inputs(node, tiles, ctx)
     data_var = _find_data_var(node, tunnel_uids, ctx)
     elements = _take_elements_out(tiles, data_var, ctx)
+    # A border tile's error out is the error that comes in on it, else none.
+    for tile in tiles:
+        ctx.merge(error_flow.guard(tile.op, CodeFragment(), ctx).bindings)
 
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(inner_nodes)

@@ -17,7 +17,7 @@ import pytest
 
 from lvkit.codegen.match_pattern_regex import to_python_regex
 from lvkit.codegen.module_function import function_source
-from tests.native_vi import generate, node, scalar
+from tests.native_vi import generate, node, result_values, scalar
 
 STRING = scalar("String")
 INT = scalar("NumInt32")
@@ -312,22 +312,22 @@ def test_constant_pattern_is_written_as_a_regex_literal() -> None:
 
 def test_constant_pattern_runs() -> None:
     run = _constant_pattern("c.")
-    assert tuple(run.function("abcde")) == ("ab", "cd", "e", 4)
-    assert tuple(run.function("hello")) == ("hello", "", "", -1)
+    assert result_values(run.function("abcde")) == ("ab", "cd", "e", 4)
+    assert result_values(run.function("hello")) == ("hello", "", "", -1)
 
 
 def test_constant_pattern_with_offset_runs() -> None:
     run = _constant_pattern("ab", with_offset=True)
     assert "search_start = max(o, 0)" in run.source
-    assert tuple(run.function("abab", 1)) == ("ab", "ab", "", 4)
-    assert tuple(run.function("abc", -5)) == ("", "ab", "c", 2)
-    assert tuple(run.function("abab", 3)) == ("abab", "", "", -1)
+    assert result_values(run.function("abab", 1)) == ("ab", "ab", "", 4)
+    assert result_values(run.function("abc", -5)) == ("", "ab", "c", 2)
+    assert result_values(run.function("abab", 3)) == ("abab", "", "", -1)
 
 
 def test_caret_anchors_at_a_nonzero_offset() -> None:
     run = _constant_pattern("^Level", with_offset=True)
-    assert tuple(run.function("a Level", 2)) == ("a ", "Level", "", 7)
-    assert tuple(run.function("a Level", 0)) == ("a Level", "", "", -1)
+    assert result_values(run.function("a Level", 2)) == ("a ", "Level", "", 7)
+    assert result_values(run.function("a Level", 0)) == ("a Level", "", "", -1)
 
 
 def test_computed_pattern_writes_the_translator_once() -> None:
@@ -335,14 +335,14 @@ def test_computed_pattern_writes_the_translator_once() -> None:
     assert run.source.count("def _match_pattern_regex(pattern: str) -> str:") == 1
     assert "re.search(_match_pattern_regex(p), s[search_start:])" in run.source
     assert "lvkit" not in run.source
-    assert tuple(run.function("a Level", "^Level", 2)) == ("a ", "Level", "", 7)
-    assert tuple(run.function("C:\\dir\\file.vi", "\\", 0)) == (
+    assert result_values(run.function("a Level", "^Level", 2)) == ("a ", "Level", "", 7)
+    assert result_values(run.function("C:\\dir\\file.vi", "\\", 0)) == (
         "C:",
         "\\",
         "dir\\file.vi",
         3,
     )
-    assert tuple(run.function("hello", "z", 2)) == ("hello", "", "", -1)
+    assert result_values(run.function("hello", "z", 2)) == ("hello", "", "", -1)
 
 
 def test_two_computed_patterns_share_one_translator() -> None:

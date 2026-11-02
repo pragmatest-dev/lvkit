@@ -4,12 +4,8 @@ A Global VI has no diagram: it is its front-panel controls, and every VI that
 reads or writes one of them shares the value. The module holds each control as a
 module-level name set to the control's saved default; a VI that uses the global
 imports the module and reads or writes those attributes (see
-``nodes/global_variable``).
-
-An error cluster control gets no name. Errors are exceptions in generated code, so
-an error cluster carries nothing: ``build_args`` and ``build_result_class`` skip
-it, and the property node generator skips its error terminals. A global variable
-node on such a control generates nothing for the same reason.
+``nodes/global_variable``). An error cluster control holds ``None`` (no error)
+or a ``LabVIEWError``, like any error wire.
 """
 
 from __future__ import annotations
@@ -23,18 +19,14 @@ from lvkit.models import LVTypeKind, Terminal
 
 from .ast_utils import (
     build_type_checking_block,
-    os_imports,
-    param_default_expr,
+    control_default_expr,
+    implicit_imports,
     parameter_names,
     parse_expr,
+    terminal_annotation,
     to_function_name,
 )
-from .context import (
-    _SIMPLENAMESPACE_IMPORT,
-    _format_constant,
-    _needs_simplenamespace,
-    type_namer,
-)
+from .context import _format_constant, type_namer
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
@@ -42,12 +34,12 @@ from .import_resolver import ImportResolver
 
 def _saved_default(
     control: Terminal, module_stem: str, data_files: dict[str, bytes] | None
-) -> tuple[ast.expr, bool]:
-    """The control's saved default as an expression, and whether it needs
-    ``SimpleNamespace``. A cluster or array keeps its saved value, formatted by the
-    same path as a cluster or array constant on a diagram; unlike a function
-    parameter default this is not a signature default, so a mutable container is
-    the intended initial value. Every other control takes ``param_default_expr``."""
+) -> ast.expr:
+    """The control's saved default as an expression. A cluster or array keeps its
+    saved value, formatted by the same path as a cluster or array constant on a
+    diagram; unlike a function parameter default this is not a signature default,
+    so a mutable container is the intended initial value. Every other control
+    takes ``control_default_expr``."""
     lv_type = control.lv_type
     default = control.default_value
     if control.unwritable is not None:
@@ -61,7 +53,7 @@ def _saved_default(
             data_files=data_files,
             whole_value=holds_array_whole(control.unwritable, lv_type),
         )
-        return ast.parse(text, mode="eval").body, False
+        return ast.parse(text, mode="eval").body
     if (
         lv_type is not None
         and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
@@ -77,10 +69,10 @@ def _saved_default(
             )
         )
         try:
-            return ast.parse(text, mode="eval").body, _needs_simplenamespace(text)
+            return ast.parse(text, mode="eval").body
         except SyntaxError:
             pass
-    return param_default_expr(control), False
+    return control_default_expr(control)
 
 
 def build_global_module(
@@ -104,17 +96,15 @@ def build_global_module(
         ast.ImportFrom(
             module="__future__", names=[ast.alias(name="annotations")], level=0
         ),
-        ast.ImportFrom(module="typing", names=[ast.alias(name="Any")], level=0),
-        ast.ImportFrom(module="pathlib", names=[ast.alias(name="Path")], level=0),
     ]
+    imports = ["from typing import Any"]
     assignments: list[ast.stmt] = []
-    needs_namespace = False
     needs_runtime = False
     for control in controls:
         if control.id not in names:
             continue
         try:
-            value, namespace = _saved_default(
+            value = _saved_default(
                 control, to_function_name(vi_node.name or ""), data_files
             )
         except ConversionGap as exc:
@@ -125,7 +115,8 @@ def build_global_module(
             continue
         if control.unwritable is not None:
             needs_runtime = True
-        needs_namespace = needs_namespace or namespace
+        if isinstance(import_resolver, ImportResolver) and control.is_error_cluster:
+            annotation_imports.add(import_resolver.error_import())
         if isinstance(import_resolver, ImportResolver) and control.lv_type:
             for named in control.lv_type.named_types():
                 type_ref = named.type_ref()
@@ -135,16 +126,15 @@ def build_global_module(
         assignments.append(
             ast.AnnAssign(
                 target=ast.Name(id=names[control.id], ctx=ast.Store()),
-                annotation=parse_expr(control.python_type(spell)),
+                annotation=parse_expr(terminal_annotation(control, spell)),
                 value=value,
                 simple=1,
             )
         )
-    if needs_namespace:
-        body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
     if needs_runtime:
-        body.extend(ast.parse(DATA_FILE_IMPORTS).body)
-    for statement in sorted(os_imports(assignments)):
+        imports.extend(DATA_FILE_IMPORTS.splitlines())
+    imports.extend(implicit_imports(assignments))
+    for statement in dict.fromkeys(imports):
         body.extend(ast.parse(statement).body)
     body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])

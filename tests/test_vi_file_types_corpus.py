@@ -124,6 +124,7 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     assert (
         "    create_annotations_result = create_annotations("
         "annotation_typedef=SimpleNamespace(key='', value=''), "
+        "error_in=error_in, "
         "annotation_keys=session_reservation_keys_result."
         "session_reservation_keys)"
     ) in lines

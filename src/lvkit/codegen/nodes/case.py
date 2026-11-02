@@ -20,9 +20,9 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    default_value_expr,
     parse_expr,
     to_var_name,
+    type_default_expr,
 )
 from ..context import CodeGenContext
 from ..error_path import is_error_selector
@@ -594,7 +594,7 @@ def _pre_declare_outputs(
         # the pre-declaration with that default so an unwired frame is faithful.
         # (Always-wired tunnels overwrite it, so this is safe in all cases.)
         outer = outer_id_to_term.get(_outer_term)
-        default = default_value_expr(outer.lv_type if outer else None)
+        default = type_default_expr(outer.lv_type if outer else None)
         pre_decls.append(build_assign(var_name, default))
 
     return pre_decls

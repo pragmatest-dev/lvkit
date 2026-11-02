@@ -38,6 +38,7 @@ from lvkit.models import (
     Tunnel,
     TunnelTerminal,
     TypeNamer,
+    _is_error_cluster,
     unique_names,
 )
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
@@ -94,9 +95,6 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
-    # Whether the VI has parallel branches with error wires: independent
-    # nodes then run as branches that hold their errors (see error_handler).
-    use_held_error_model: bool = False
     # The name of the caught ``LabVIEWError`` while the code of an error handler
     # (the error frame of an error case structure) is generated: an Unbundle of
     # the error cluster there reads the caught error. None outside a handler,
@@ -121,9 +119,6 @@ class CodeGenContext:
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
     module_stem: str = ""
-    # Lives on context (not builder) because child() must share it
-    # across the same generation pass.
-    _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     # Output tunnel (outer terminal id) -> the variable that is its merge.
     _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
@@ -268,8 +263,8 @@ class CodeGenContext:
     ) -> str | None:
         """The expression feeding input terminal ``terminal_id`` of ``node``.
 
-        None when the terminal is unwired, or it or the terminal feeding it
-        carries an error cluster (errors are exceptions, so it has no value).
+        None when the terminal is unwired. An error wire is a value like any
+        other (``None`` or a ``LabVIEWError``).
         A source that is a gap constant is bound to ``None``, so a wire from it
         reads ``"None"``: its function raises where it starts. A wired input
         with no variable at all is a bug in lvkit and raises ``CodeGenError``
@@ -282,11 +277,7 @@ class CodeGenContext:
         if self.graph is None:
             return None
         terminal = next((t for t in node.terminals if t.id == terminal_id), None)
-        if (
-            not self.graph.terminal_is_fed(terminal_id)
-            or (terminal is not None and terminal.is_error_cluster)
-            or self.graph.terminal_fed_by_error_cluster(terminal_id)
-        ):
+        if not self.graph.terminal_is_fed(terminal_id):
             return None
         value = self.resolve(terminal_id, allow_none=True)
         if value is None:
@@ -509,14 +500,8 @@ class CodeGenContext:
     def tunnels(node: AnyGraphNode) -> list[Tunnel]:
         """Reconstruct ``Tunnel`` objects from a structure node's terminal
         metadata. Pure function of the node's ``TunnelTerminal``s (no graph
-        needed).
-
-        A tunnel or shift register carrying an error cluster is left out: an
-        error is an exception in Python, so it has no value to bind, merge or
-        carry between iterations."""
-        return OperationsMixin._tunnels_from_terminals(
-            [t for t in node.terminals if not t.is_error_cluster]
-        )
+        needed)."""
+        return OperationsMixin._tunnels_from_terminals(list(node.terminals))
 
     def frame_children(
         self, node: AnyGraphNode
@@ -568,7 +553,6 @@ class CodeGenContext:
             imports=self.imports,
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
-            use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
@@ -603,12 +587,18 @@ class CodeGenContext:
         if import_stmt:
             self.imports.add(import_stmt)
 
-    def import_labview_error(self) -> None:
-        """Import ``LabVIEWError`` from the package's ``errors`` module."""
+    def import_labview_error(self, *, at_run_time: bool = True) -> None:
+        """Import ``LabVIEWError`` from the package's ``errors`` module: for a
+        value the module builds, or (``at_run_time`` False) for its annotations
+        only."""
         if isinstance(self.import_resolver, ImportResolver):
-            self.add_import(self.import_resolver.error_import())
+            statement = self.import_resolver.error_import()
         else:
-            self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
+            statement = f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}"
+        if at_run_time:
+            self.add_import(statement)
+        else:
+            self.annotation_imports.add(statement)
 
     def function_import(
         self, vi_name: str, callee_key: str | None = None
@@ -711,10 +701,42 @@ class CodeGenContext:
                 data_files=self.data_files,
                 whole_value=holds_array_whole(const.unwritable, lv_type),
             )
+        if lv_type is not None and _is_error_cluster(lv_type):
+            return self._error_constant(const)
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
         return _format_constant(const, names)
+
+    def _error_constant(self, const: Constant | ConstantNode) -> str:
+        """An error cluster constant as the value of an error wire: ``None`` when
+        its status is False and its code 0, else a ``LabVIEWError`` (a warning
+        when its status is False)."""
+        value = const.value
+        if isinstance(value, str):
+            try:
+                value = _literal_eval(value)
+            except (ValueError, SyntaxError):
+                value = const.value
+        if value is None:
+            return "None"
+        assert const.lv_type is not None and const.lv_type.fields is not None
+        if isinstance(value, dict):
+            keys = unique_names(f.name for f in const.lv_type.fields)
+            value = tuple(value.get(key) for key in keys)
+        if not isinstance(value, tuple | list) or len(value) != 3:
+            raise ConversionGap(
+                f"The error constant {const.label or ''!r} holds {value!r}, which "
+                "is not a status, a code and a source"
+            )
+        status, code, source = value
+        if not status and not code:
+            return "None"
+        self.import_labview_error()
+        return (
+            f"{LABVIEW_ERROR_NAME}(code={code!r}, source={source!r}, "
+            f"status={bool(status)!r})"
+        )
 
     def import_types(self, lv_type: LVType | None, *, at_run_time: bool) -> None:
         """Import the class of every class or typedef ``lv_type`` names: for the
@@ -920,12 +942,11 @@ def _bind_inputs_and_constants(
 ) -> None:
     """Bind input and constant terminals on the context.
 
-    Shared by from_graph() and from_vi_context(). Skips error cluster
-    inputs (Python uses exceptions instead).
+    Shared by from_graph() and from_vi_context().
     """
     names = interface_names([i for i in inputs if i.id], [], []).parameters
     for inp in inputs:
-        if inp.id and not inp.is_error_cluster:
+        if inp.id:
             var = names[inp.id]
             ctx.bind(inp.id, var)
             # Track array-typed inputs so the final arrayify pass broadcasts

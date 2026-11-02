@@ -18,12 +18,13 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    default_value_expr,
     parse_expr,
     sanitize_state_var_suffix,
     to_var_name,
+    type_default_expr,
 )
 from ..context import CodeGenContext
+from ..error_flow import error_occurred
 from ..fragment import CodeFragment
 
 
@@ -132,7 +133,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     sr_lv_type = outer_sr_term.lv_type
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
-                ctx.add_module_global(global_name, default_value_expr(sr_lv_type))
+                ctx.add_module_global(global_name, type_default_expr(sr_lv_type))
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
                 pre_loop_stmts.append(ast.Global(names=[global_name]))
@@ -218,7 +219,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # it (both would clobber into one variable otherwise).
                 ctx._allocated_vars.add(last_var)
                 outer_sr_term = term_by_id.get(outer_term)
-                seed = default_value_expr(
+                seed = type_default_expr(
                     outer_sr_term.lv_type if outer_sr_term else None
                 )
                 pre_loop_stmts.append(build_assign(last_var, seed))
@@ -830,6 +831,23 @@ def _iteration_terminal(node: LoopNode) -> Terminal | None:
     )
 
 
+def _stop_test(
+    node: LoopNode, stop_terminal: str, value: str, ctx: CodeGenContext
+) -> ast.expr:
+    """The condition that ends the iteration, from ``value`` wired to the
+    conditional terminal: the value itself, or that an error occurred when the
+    wire is an error (a warning does not stop the loop); negated for Continue if
+    True."""
+    fed_by_error = ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
+        stop_terminal
+    )
+    condition = error_occurred(value) if fed_by_error else value
+    cond_expr = parse_expr(condition)
+    if node.stop_condition_inverted:
+        cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+    return cond_expr
+
+
 def _build_while_loop(
     node: LoopNode, body: list[ast.stmt], ctx: CodeGenContext
 ) -> tuple[ast.While, str | None]:
@@ -867,12 +885,13 @@ def _build_while_loop(
         # The cpdArith or other operation computes this inside the loop
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
             body = [
                 *body,
-                ast.If(test=cond_expr, body=[ast.Break()], orelse=[]),
+                ast.If(
+                    test=_stop_test(node, stop_terminal, stop_condition, ctx),
+                    body=[ast.Break()],
+                    orelse=[],
+                ),
             ]
             return ast.While(
                 test=ast.Constant(value=True),
@@ -925,9 +944,7 @@ def _build_for_loop(
     if stop_terminal:
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+            cond_expr = _stop_test(node, stop_terminal, stop_condition, ctx)
             body = [*body, ast.If(test=cond_expr, body=[ast.Break()], orelse=[])]
 
     # Auto-indexing input arrays, classified once by generate() (step 3) and

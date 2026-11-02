@@ -223,7 +223,7 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
     result_var = ctx.make_output_var("vi_reference_result", node.id)
     bindings: dict[str, str] = {}
     for term in ctx.enriched_terminals(node):
-        if term.index is None or term.index < 0 or term.is_error_cluster:
+        if term.index is None or term.index < 0:
             continue
         if term.index not in labelled:
             continue
@@ -263,7 +263,7 @@ def _member_value_call(
             f"{_label(node)}: the VI the reference holds is only known when the "
             f"diagram runs, and the project's VIs with its connector pane ({shown}) "
             "are not all called the same way: a method of a class takes its object "
-            "as self; both return a NamedTuple of the connector pane's outputs.",
+            "as self; both return a result object of the connector pane's outputs.",
             node,
         )
     if form.member is None:

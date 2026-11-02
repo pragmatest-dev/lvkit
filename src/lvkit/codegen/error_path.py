@@ -1,10 +1,5 @@
-"""Which nodes of a diagram handle errors, and which nodes produce an error a
-handler receives.
-
-An error cluster wire is not carried into the generated code: a failure raises
-``LabVIEWError`` (or the Python exception of the call that failed) and a handler
-catches it. A handler therefore needs the statements that can raise the error it
-handles, which are the nodes upstream of it on its error wire.
+"""Which nodes of a diagram handle errors, and which nodes an error wire comes
+through: the nodes upstream of a node on its error wire.
 """
 
 from __future__ import annotations
@@ -34,8 +29,8 @@ if TYPE_CHECKING:
 # Merge Errors primitive; not 2401, which is Swap Values (#59).
 PRIM_ID_MERGE_ERRORS = 2147
 
-# The vi.lib VIs whose call is generated as exception handling at the call site,
-# never as a call of a generated module.
+# The vi.lib error VIs a call site generates itself, never as a call of a
+# generated module.
 ERROR_WIRE_VI_NAMES = frozenset(
     {
         VI_NAME_MERGE_ERRORS,

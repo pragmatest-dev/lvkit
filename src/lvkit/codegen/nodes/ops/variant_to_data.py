@@ -20,8 +20,8 @@ not resolve) takes the value as it is. Which terminal is which is the catalog
 entry's, by position, in the node's own numbering (LabVIEW versions number this
 node two ways, ``primitive_resolver.terminal_sets``): the second input is
 ``variant``, the second output ``data``; a call without the ``variant`` input is
-a ``TerminalNotOnCall`` gap. Errors are exceptions, so ``error in`` and ``error
-out`` generate nothing.
+a ``TerminalNotOnCall`` gap. The node runs only when no error came in on its
+``error in`` (``error_flow``).
 """
 
 from __future__ import annotations

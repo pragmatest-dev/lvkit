@@ -28,6 +28,7 @@ from lvkit.graph.models import (
     VINode,
 )
 
+from .. import error_flow
 from ..context import CodeGenContext
 from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
@@ -62,13 +63,14 @@ from . import (
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate code for a graph node. A node that cannot be converted (a
+    """Generate code for a graph node, run only when no error came in on its
+    error in (``error_flow.guard``). A node that cannot be converted (a
     ``ConversionGap``) is recorded as a gap and generates the ``raise`` that
     stands where it would run (see ``gaps.py``)."""
-    with catch_gap(node, ctx) as guard:
-        return _generate(node, ctx)
-    assert guard.fragment is not None
-    return guard.fragment
+    with catch_gap(node, ctx) as caught:
+        return error_flow.guard(node, _generate(node, ctx), ctx)
+    assert caught.fragment is not None
+    return caught.fragment
 
 
 def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:

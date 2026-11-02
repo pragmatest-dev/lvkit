@@ -13,40 +13,115 @@ from lvkit.lv_type_codes import (
     is_boolean_type_name,
     is_string_type_name,
 )
-from lvkit.models import ClusterField, LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    ScalarValue,
+    Terminal,
+    TypeNamer,
+    _is_error_cluster,
+)
 from lvkit.path_value import python_path
 from lvkit.vi_files import strip_vi_extension
 
 from .errors import CodeGenError
+from .errors_module import LABVIEW_ERROR_NAME
 
 
-def default_value_expr(lv_type: LVType | None) -> ast.expr:
-    """A conservative Python default value (as an AST expr) for a LabVIEW type.
+def type_default_expr(lv_type: LVType | None) -> ast.expr:
+    """The default value of a LabVIEW type, as LabVIEW gives it: what a skipped
+    node's output, an unwired output tunnel, a shift register with nothing wired
+    to it and every other "default of the type" takes.
 
-    Scalars get their real default (int→0, float→0.0, bool→False, string→"",
-    enum/ring→0); mutable/complex types (array, cluster, path, typedef) get
-    ``None`` to stay import-free and avoid the mutable-default-argument
-    anti-pattern. Used for connector-pane parameter defaults AND for
-    pre-declaring case/sequence output tunnels that a frame may leave unwired
-    (LabVIEW's "Use Default If Unwired" emits the type default, not None)."""
+    A number is 0, a Boolean False, a string ``""``, an enum or ring its first
+    item, a path the empty path, an array ``[]``; a named cluster is a
+    ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
+    them (the forms cluster constants take); an error cluster is ``None`` (no
+    error). A type with no Python value (a refnum, a class, a variant) is
+    ``None``. The module that holds the expression imports what it names
+    (``implicit_imports``)."""
     if lv_type is None:
         return ast.Constant(value=None)
     kind = lv_type.kind
     underlying = lv_type.underlying_type
     if kind == LVTypeKind.ARRAY:
-        return ast.Constant(value=None)
+        return ast.List(elts=[], ctx=ast.Load())
+    if kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
+        return _cluster_default(lv_type)
     if kind == LVTypeKind.PRIMITIVE:
-        if is_string_type_name(underlying):
-            return ast.Constant(value="")
-        if is_boolean_type_name(underlying):
-            return ast.Constant(value=False)
-        if underlying in INTEGER_TYPE_NAMES:
-            return ast.Constant(value=0)
-        if underlying in ("NumFloat32", "NumFloat64"):
-            return ast.Constant(value=0.0)
-    elif kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        if underlying == "Path":
+            return parse_expr("Path('')")
+        return _scalar_default(underlying)
+    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
     return ast.Constant(value=None)
+
+
+def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
+    """The default a parameter of a LabVIEW type takes in a ``def`` when the
+    control saves none: the type's default for a number, Boolean, string, enum
+    or ring, and ``None`` for anything else (a ``def`` default is evaluated once,
+    so a list or object there would be shared by every call)."""
+    if lv_type is None:
+        return ast.Constant(value=None)
+    if lv_type.kind == LVTypeKind.PRIMITIVE:
+        return _scalar_default(lv_type.underlying_type)
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        return ast.Constant(value=0)
+    return ast.Constant(value=None)
+
+
+def _scalar_default(underlying: str | None) -> ast.Constant:
+    if is_string_type_name(underlying):
+        return ast.Constant(value="")
+    if is_boolean_type_name(underlying):
+        return ast.Constant(value=False)
+    if underlying in INTEGER_TYPE_NAMES:
+        return ast.Constant(value=0)
+    if underlying in ("NumFloat32", "NumFloat64"):
+        return ast.Constant(value=0.0)
+    return ast.Constant(value=None)
+
+
+def _cluster_default(lv_type: LVType) -> ast.expr:
+    if _is_error_cluster(lv_type) or lv_type.classname or not lv_type.fields:
+        return ast.Constant(value=None)
+    values = [type_default_expr(f.type) for f in lv_type.fields]
+    if not lv_type.typedef_name:
+        return ast.Tuple(elts=values, ctx=ast.Load())
+    names = field_attribute_names(f.name for f in lv_type.fields)
+    return ast.Call(
+        func=ast.Name(id="SimpleNamespace", ctx=ast.Load()),
+        args=[],
+        keywords=[
+            ast.keyword(arg=name, value=value)
+            for name, value in zip(names, values, strict=True)
+        ],
+    )
+
+
+# The names a generated module spells bare and imports only when it uses them.
+_IMPLICIT_IMPORTS = {
+    "os": "import os",
+    "Path": "from pathlib import Path",
+    "SimpleNamespace": "from types import SimpleNamespace",
+}
+
+
+def implicit_imports(statements: Iterable[ast.stmt]) -> list[str]:
+    """The imports of the bare names lvkit writes into generated code without
+    importing them where it writes them (``os`` of a path volume, ``Path`` and
+    ``SimpleNamespace`` of a type's default): one per name the statements load.
+    A generated variable or function never takes one of these names
+    (``to_var_name``)."""
+    used = {
+        node.id
+        for stmt in statements
+        for node in ast.walk(stmt)
+        if isinstance(node, ast.Name) and node.id in _IMPLICIT_IMPORTS
+    }
+    return [_IMPLICIT_IMPORTS[name] for name in sorted(used)]
 
 
 def parse_expr(template: str) -> ast.expr:
@@ -268,8 +343,8 @@ def to_var_name(name: str) -> str:
 
 
 def result_field_name(name: str) -> str:
-    """A VI output's field name on its NamedTuple result. NamedTuple rejects a
-    leading underscore, so such labels get an ``output`` prefix. The result
+    """A VI output's field name on its result class. A label with a leading
+    underscore gets an ``output`` prefix (the name stays public). The result
     class and every caller reading the field share this one definition."""
     name = to_var_name(name or "output")
     return "output" + name if name.startswith("_") else name
@@ -313,22 +388,20 @@ def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
 
 
 def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
-    """Terminal id -> the Python parameter name of each non-error-cluster VI
-    control, unique across ``terminals`` (connector-pane controls first, then
-    off-pane ones). The function signature and the variable each control is
-    bound to both take their name from here."""
-    params = [t for t in terminals if not t.is_error_cluster]
-    names = unique_names([to_var_name(t.name or "input") for t in params])
-    return {t.id: name for t, name in zip(params, names, strict=True)}
+    """Terminal id -> the Python parameter name of each VI control, unique across
+    ``terminals`` (connector-pane controls first, then off-pane ones). The
+    function signature and the variable each control is bound to both take their
+    name from here."""
+    names = unique_names([to_var_name(t.name or "input") for t in terminals])
+    return {t.id: name for t, name in zip(terminals, names, strict=True)}
 
 
 def result_field_names(outputs: list[Terminal]) -> dict[str, str]:
-    """Terminal id -> result field name of each non-error-cluster connector-pane
-    indicator: ``result_field_name`` of the label (callers read them by it), made
-    distinct when two labels give the same name."""
-    pane = [t for t in outputs if not t.is_error_cluster]
-    names = unique_names([result_field_name(t.name or "output") for t in pane])
-    return {t.id: name for t, name in zip(pane, names, strict=True)}
+    """Terminal id -> result field name of each connector-pane indicator:
+    ``result_field_name`` of the label (callers read them by it), made distinct
+    when two labels give the same name."""
+    names = unique_names([result_field_name(t.name or "output") for t in outputs])
+    return {t.id: name for t, name in zip(outputs, names, strict=True)}
 
 
 def distinct_names(taken: Iterable[str], wanted: Iterable[str]) -> list[str]:
@@ -438,6 +511,48 @@ def build_result_class_name(vi_name: str) -> str:
     return f"{camel}Result"
 
 
+RESULT_CLASS_IMPORT = "from dataclasses import dataclass"
+
+
+def terminal_annotation(term: Terminal, spell: TypeNamer | None) -> str:
+    """The annotation of a parameter or result field of the terminal ``term``: an
+    error cluster is ``LabVIEWError | None`` (``None`` is no error), any other
+    type ``Terminal.python_type``."""
+    if term.is_error_cluster:
+        return f"{LABVIEW_ERROR_NAME} | None"
+    return term.python_type(spell)
+
+
+def result_class_def(
+    class_name: str, fields: list[tuple[str, ast.expr]]
+) -> ast.ClassDef:
+    """The class a VI's or method's results are returned as: a frozen
+    ``dataclass`` with one annotated field per connector-pane output, read by
+    name (``fields``: name and annotation). The module imports
+    ``RESULT_CLASS_IMPORT``."""
+    return ast.ClassDef(
+        name=class_name,
+        bases=[],
+        keywords=[],
+        body=[
+            ast.AnnAssign(
+                target=ast.Name(id=name, ctx=ast.Store()),
+                annotation=annotation,
+                simple=1,
+            )
+            for name, annotation in fields
+        ]
+        or [ast.Pass()],
+        decorator_list=[
+            ast.Call(
+                func=ast.Name(id="dataclass", ctx=ast.Load()),
+                args=[],
+                keywords=[ast.keyword(arg="frozen", value=ast.Constant(value=True))],
+            )
+        ],
+    )
+
+
 def module_part(name: str) -> str:
     """One path part (a folder or a file stem) as the Python module or package
     name it is generated as: lower case, spaces and hyphens to ``_``, every other
@@ -471,12 +586,27 @@ def to_module_name(vi_name: str) -> str:
     return module_part(strip_vi_extension(vi_name))
 
 
-def param_default_expr(inp: Terminal) -> ast.expr:
-    """Default-value AST for a parameter: the terminal's real connector-pane
-    default when it maps cleanly to the scalar type, else the type default."""
+def parameter_default_expr(inp: Terminal) -> ast.expr:
+    """The default of a control as a ``def`` parameter: its saved default when
+    that maps cleanly to its scalar type, else ``parameter_default_expr_of_type``."""
+    saved = _saved_scalar_default(inp)
+    return saved if saved is not None else parameter_default_expr_of_type(inp.lv_type)
+
+
+def control_default_expr(inp: Terminal) -> ast.expr:
+    """The value a control or indicator holds as a variable of the function (an
+    off-pane control, an indicator a Local Variable reads): its saved default
+    when that maps cleanly to its scalar type, else ``type_default_expr``."""
+    saved = _saved_scalar_default(inp)
+    return saved if saved is not None else type_default_expr(inp.lv_type)
+
+
+def _saved_scalar_default(inp: Terminal) -> ast.expr | None:
+    """A control's saved default as its scalar type reads it; None when it saves
+    none or one that is not a scalar of its type."""
     dv = inp.default_value
     if dv is None:
-        return default_value_expr(inp.lv_type)
+        return None
     underlying = inp.lv_type.underlying_type if inp.lv_type else None
     try:
         if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
@@ -499,21 +629,23 @@ def param_default_expr(inp: Terminal) -> ast.expr:
                 return ast.Constant(value=value)
     except (ValueError, TypeError, SyntaxError):
         pass
-    return default_value_expr(inp.lv_type)
+    return None
 
 
-def os_imports(statements: Iterable[ast.AST]) -> set[str]:
-    """``{"import os"}`` when ``statements`` read ``os`` by its bare name, else
-    empty: a path value spells its volume for the OS the code runs on with
-    ``os.name`` (``python_path``). Every module builder adds these to its imports.
-    A bare ``os`` can only be that module: generated variable and function names
-    never take a module's name (``to_var_name``)."""
-    reads_os = any(
-        isinstance(node, ast.Name) and node.id == "os"
-        for statement in statements
-        for node in ast.walk(statement)
+def with_statements_after_docstring(
+    statements: list[ast.stmt], body: list[ast.stmt]
+) -> list[ast.stmt]:
+    """``body`` with ``statements`` at its start, after the docstring if it has
+    one."""
+    first = body[0] if body else None
+    has_docstring = (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
     )
-    return {"import os"} if reads_os else set()
+    if has_docstring:
+        return [*body[:1], *statements, *body[1:]]
+    return [*statements, *body]
 
 
 def build_type_checking_block(statements: set[str]) -> list[ast.stmt]:

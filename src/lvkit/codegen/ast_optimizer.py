@@ -239,7 +239,7 @@ class UnusedImportRemover(ast.NodeTransformer):
     """
 
     # Names that should never be removed (always needed for type hints)
-    ALWAYS_KEEP = {"annotations", "Any", "NamedTuple"}
+    ALWAYS_KEEP = {"annotations", "Any"}
 
     def __init__(self) -> None:
         self.used_names: set[str] = set()

@@ -40,7 +40,7 @@ class WireQueriesMixin:
 
     def terminal_fed_by_error_cluster(self, terminal_id: str) -> bool:
         """Whether a wire into the terminal comes from a terminal that carries an
-        error cluster, which has no value."""
+        error cluster."""
         for src in self.incoming_edges(terminal_id):
             source = self.get_graph_node(src.node_id)
             if source is not None and any(

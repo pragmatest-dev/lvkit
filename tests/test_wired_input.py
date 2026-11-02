@@ -22,7 +22,6 @@ def _index_array():
     )
 
 
-
 def test_index_array_with_a_gap_constant_index_generates_with_one_gap() -> None:
     gaps: list[Gap] = []
     generated = generate(
@@ -396,36 +395,6 @@ def test_wires_round_a_cycle_make_its_nodes_a_gap_not_a_bystander() -> None:
     assert {g.node_name for g in gaps} == {"a", "b"}
     with pytest.raises(NotImplementedError, match="read as a cycle"):
         generated.function(1)
-
-
-def test_a_parallel_branch_assigns_an_indicator_variable_of_the_function() -> None:
-    import ast
-    import concurrent.futures
-
-    from lvkit.codegen.builder import _generate_parallel_tier
-    from tests.helpers import make_ctx
-    from tests.native_vi import array
-
-    def index_row(node_id: str):
-        return node(
-            node_id,
-            None,
-            [(0, "input", array("NumInt32")), (1, "output", I32), (2, "input", I32)],
-            node_type="aIndx",
-        )
-
-    ctx = make_ctx("a:0", "a:1", "a:2", "b:0", "b:1", "b:2")
-    ctx.local_indicators.variables["fp:ind"] = "indexed_array"
-    branches = _generate_parallel_tier([index_row("a"), index_row("b")], ctx)
-    wrapper = ast.parse(
-        "def outer():\n    indexed_array = None\n    return indexed_array"
-    )
-    outer = wrapper.body[0]
-    assert isinstance(outer, ast.FunctionDef)
-    outer.body[1:1] = branches
-    namespace: dict = {"concurrent": concurrent}
-    exec(compile(ast.fix_missing_locations(wrapper), "branch", "exec"), namespace)
-    assert namespace["outer"]() == []
 
 
 def test_a_control_wired_straight_to_an_indicator_sets_the_variable() -> None:

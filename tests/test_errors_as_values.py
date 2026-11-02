@@ -183,18 +183,16 @@ def assert_result_object(result: Any, *fields: str) -> None:
 # =============================================================
 
 
-@errors_as_values("VI with error in / error out")
 def test_a_vi_takes_error_in_and_returns_error_out(project: Project) -> None:  # noqa: F811
     package = generate(project, C.vi_error_terminals)
     parameters = inspect.signature(package.function).parameters
     assert parameters["error_in"].default is None
-    assert "error_in: LabVIEWError | None = None" in package.source
+    assert "error_in: LabVIEWError | None=None" in package.source
     result = package.function(x=1)
     assert_result_object(result, "result", "error_out")
     assert (result.result, result.error_out) == (2, None)
 
 
-@errors_as_values("VI with error in / error out")
 def test_error_in_flows_to_error_out_and_a_plain_node_still_runs(
     project: Project,  # noqa: F811
 ) -> None:
@@ -205,7 +203,6 @@ def test_error_in_flows_to_error_out_and_a_plain_node_still_runs(
     assert result.result == 2
 
 
-@errors_as_values("VI with error in / error out")
 def test_a_required_error_in_has_no_default(project: Project) -> None:  # noqa: F811
     package = generate(project, lambda p: C.vi_error_terminals(p, REQUIRED))
     parameter = inspect.signature(package.function).parameters["error_in"]
@@ -218,7 +215,6 @@ def test_a_required_error_in_has_no_default(project: Project) -> None:  # noqa: 
 # =============================================================
 
 
-@errors_as_values("subVI call")
 def test_a_subvi_is_called_with_error_in_and_its_error_out_is_read(
     project: Project,  # noqa: F811
 ) -> None:
@@ -234,7 +230,6 @@ def test_a_subvi_is_called_with_error_in_and_its_error_out_is_read(
     assert result.error_out is error
 
 
-@errors_as_values("subVI call")
 def test_a_subvi_is_always_called_and_decides_whether_to_skip(
     project: Project,  # noqa: F811
 ) -> None:
@@ -248,7 +243,6 @@ def test_a_subvi_is_always_called_and_decides_whether_to_skip(
     assert step.CALLS == [1]
 
 
-@errors_as_values("subVI call")
 def test_a_node_downstream_of_a_failure_is_skipped(project: Project) -> None:  # noqa: F811
     stubs = {
         "step_a": failing_step("step_a", 7),
@@ -261,7 +255,6 @@ def test_a_node_downstream_of_a_failure_is_skipped(project: Project) -> None:  #
     assert result.error_out.status is True
 
 
-@errors_as_values("subVI call")
 def test_a_chain_without_a_failure_runs_every_node(project: Project) -> None:  # noqa: F811
     stubs = {"step_a": ok_step("step_a"), "step_b": skipping_step("step_b", 10)}
     package = generate(project, C.subvi_chain, stubs)
@@ -275,13 +268,12 @@ def test_a_chain_without_a_failure_runs_every_node(project: Project) -> None:  #
 # =============================================================
 
 
-@errors_as_values("catalog node with error in")
 def test_a_catalog_node_runs_inside_a_guard_on_its_error_in(
     project: Project,  # noqa: F811
     tmp_path: Path,
 ) -> None:
     package = generate(project, C.catalog_node_skips)
-    assert "if error_in is None:" in package.source
+    assert "if error_in is None or not error_in.status:" in package.source
     data = tmp_path / "data.bin"
     data.write_bytes(b"12345")
     with data.open("rb") as handle:
@@ -290,7 +282,6 @@ def test_a_catalog_node_runs_inside_a_guard_on_its_error_in(
     assert (result.size, result.error_out) == (5, None)
 
 
-@errors_as_values("catalog node with error in")
 def test_a_skipped_catalog_node_takes_its_type_default(
     project: Project,  # noqa: F811
 ) -> None:
@@ -306,7 +297,7 @@ def test_a_catalog_node_that_runs_despite_an_error_is_not_guarded(
     project: Project,  # noqa: F811
 ) -> None:
     package = generate(project, C.catalog_node_runs_despite_error)
-    assert "if error_in is None:" not in package.source
+    assert "if error_in is None or not error_in.status:" not in package.source
     error = package.error(7)
     result = package.function(file=SimpleNamespace(name="a.txt"), error_in=error)
     assert (str(result.path), result.error_out) == ("a.txt", error)
@@ -323,7 +314,7 @@ def test_a_native_failure_becomes_the_error_out(
     tmp_path: Path,
 ) -> None:
     package = generate(project, C.native_failure)
-    assert "if error_in is None:" in package.source
+    assert "if error_in is None or not error_in.status:" in package.source
     assert "except" in package.source and "LabVIEWError(" in package.source
     result = package.function(path=tmp_path / "missing.bin")
     assert_result_object(result, "refnum", "error_out")
@@ -333,7 +324,6 @@ def test_a_native_failure_becomes_the_error_out(
     assert result.error_out.message
 
 
-@errors_as_values("native operation that can fail")
 def test_a_native_operation_that_works_leaves_the_error_out_empty(
     project: Project,  # noqa: F811
     tmp_path: Path,
@@ -346,7 +336,6 @@ def test_a_native_operation_that_works_leaves_the_error_out_empty(
     result.refnum.close()
 
 
-@errors_as_values("native operation that can fail")
 def test_a_native_operation_does_not_run_after_an_error(
     project: Project,  # noqa: F811
     tmp_path: Path,
@@ -377,7 +366,6 @@ def test_an_error_case_fed_from_error_in_runs_its_error_frame(
     assert (failed.result, failed.error_out) == (100, error)
 
 
-@errors_as_values("error case")
 def test_a_warning_selects_the_no_error_frame(project: Project) -> None:  # noqa: F811
     package = generate(project, C.error_case_panel_fed)
     warning = package.error(5, status=False)
@@ -433,8 +421,14 @@ def test_unbundle_reads_the_fields_of_the_error_on_its_wire(
     assert (result.failed, result.code) == (bool(status), code)
 
 
-@errors_as_values("Unbundle of an error")
-@pytest.mark.parametrize(("error", "expected"), [(None, 1), (7, 100), ("warning", 1)])
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (None, 1),
+        pytest.param(7, 100, marks=errors_as_values("Unbundle of an error")),
+        ("warning", 1),
+    ],
+)
 def test_the_status_of_an_error_selects_a_boolean_case(
     project: Project,  # noqa: F811
     error: int | str | None,
@@ -467,7 +461,6 @@ def test_bundle_with_status_false_and_a_code_builds_a_warning(
     assert (warning.status, warning.code) == (False, 5)
 
 
-@errors_as_values("Bundle into an error")
 def test_bundle_with_status_false_and_code_zero_is_no_error(
     project: Project,  # noqa: F811
 ) -> None:
@@ -480,7 +473,6 @@ def test_bundle_with_status_false_and_code_zero_is_no_error(
 # =============================================================
 
 
-@errors_as_values("Merge Errors")
 @pytest.mark.parametrize(
     ("a", "b", "merged_code", "merged_status"),
     [
@@ -521,7 +513,6 @@ def test_merge_errors_picks_the_first_error_in_input_order(
         assert (error.code, error.status) == (merged_code, merged_status)
 
 
-@errors_as_values("Merge Errors")
 def test_a_node_after_merge_errors_is_skipped_on_the_merged_error(
     project: Project,  # noqa: F811
 ) -> None:
@@ -540,7 +531,6 @@ def test_a_node_after_merge_errors_is_skipped_on_the_merged_error(
     assert len(package.stub("step_b").CALLS) == 1
 
 
-@errors_as_values("Merge Errors")
 def test_a_node_after_merge_errors_runs_when_nothing_failed(
     project: Project,  # noqa: F811
 ) -> None:
@@ -559,7 +549,6 @@ def test_a_node_after_merge_errors_runs_when_nothing_failed(
 # =============================================================
 
 
-@errors_as_values("Clear Errors")
 def test_clear_errors_lets_the_nodes_after_it_run(project: Project) -> None:  # noqa: F811
     stubs = {
         "step_a": failing_step("step_a", 7),
@@ -571,7 +560,6 @@ def test_clear_errors_lets_the_nodes_after_it_run(project: Project) -> None:  # 
     assert (result.result, result.error_out) == (11, None)
 
 
-@errors_as_values("Clear Errors")
 @pytest.mark.parametrize(
     ("code", "cleared"), [(7, True), (9, False)], ids=["the code", "another code"]
 )
@@ -594,7 +582,6 @@ def test_clear_errors_with_a_specific_code_clears_only_that_code(
         assert result.error_out.code == 9
 
 
-@errors_as_values("Clear Errors")
 def test_clear_errors_leaves_a_clean_wire_alone(project: Project) -> None:  # noqa: F811
     stubs = {"step_a": ok_step("step_a"), "step_b": ok_step("step_b", 10)}
     package = generate(project, C.clear_errors, stubs)
@@ -606,7 +593,6 @@ def test_clear_errors_leaves_a_clean_wire_alone(project: Project) -> None:  # no
 # =============================================================
 
 
-@errors_as_values("Error Cluster From Error Code")
 @pytest.mark.parametrize(
     ("code", "expected"), [(0, None), (5, (True, 5))], ids=["zero", "code"]
 )
@@ -625,7 +611,6 @@ def test_error_cluster_from_error_code_builds_the_error(
         assert (error.status, error.code) == expected
 
 
-@errors_as_values("Error Cluster From Error Code")
 def test_error_cluster_from_error_code_is_a_warning_when_asked(
     project: Project,  # noqa: F811
 ) -> None:
@@ -664,7 +649,6 @@ def test_simple_error_handler_reports_the_error_without_a_dialog(
 # =============================================================
 
 
-@errors_as_values("error shift register")
 def test_an_error_shift_register_keeps_the_loop_going_and_skips_later_calls(
     project: Project,  # noqa: F811
 ) -> None:
@@ -680,7 +664,6 @@ def test_an_error_shift_register_keeps_the_loop_going_and_skips_later_calls(
     assert (result.result, result.error_out.code) == (5, 7)
 
 
-@errors_as_values("error shift register")
 def test_an_error_shift_register_starts_from_the_error_in(
     project: Project,  # noqa: F811
 ) -> None:
@@ -693,7 +676,6 @@ def test_an_error_shift_register_starts_from_the_error_in(
     assert result.error_out is error
 
 
-@errors_as_values("error loop tunnel")
 def test_an_error_goes_through_a_loop_by_tunnels(project: Project) -> None:  # noqa: F811
     package = generate(
         project, C.error_loop_tunnel, {"step_a": recording_step("step_a")}
@@ -706,7 +688,6 @@ def test_an_error_goes_through_a_loop_by_tunnels(project: Project) -> None:  # n
     assert result.error_out is error
 
 
-@errors_as_values("loop stop terminal wired to an error")
 def test_a_while_loop_stops_when_its_stop_terminal_gets_an_error(
     project: Project,  # noqa: F811
 ) -> None:
@@ -717,7 +698,8 @@ def test_a_while_loop_stops_when_its_stop_terminal_gets_an_error(
     result = package.function(x=5)
     assert len(package.stub("step_a").CALLS) == 3
     assert result.error_out.code == 7
-    assert "if error" in package.source and "break" in package.source
+    error = "step_a_result.error_out"
+    assert f"if {error} is not None and {error}.status:\n" in package.source
 
 
 # =============================================================
@@ -725,7 +707,6 @@ def test_a_while_loop_stops_when_its_stop_terminal_gets_an_error(
 # =============================================================
 
 
-@errors_as_values("forked error wire")
 @pytest.mark.parametrize("failing", ["a", "b"])
 def test_every_branch_of_a_forked_error_wire_runs(
     project: Project,  # noqa: F811
@@ -738,14 +719,13 @@ def test_every_branch_of_a_forked_error_wire_runs(
     package = generate(project, C.forked_error, stubs)
     package.stub(f"step_{failing}").ERROR = package.error(7)
     result = package.function(x=1)
-    assert_result_object(result, "result_a", "error_out_a", "result_b", "error_out_b")
+    assert_result_object(result, "result_a", "result_b", "error_out_a", "error_out_b")
     assert (result.result_a, result.result_b) == (2, 11)
     assert (result.error_out_a is None) == (failing != "a")
     assert (result.error_out_b is None) == (failing != "b")
     assert "concurrent" not in package.source
 
 
-@errors_as_values("forked error wire")
 def test_both_branches_of_a_forked_error_wire_receive_the_error_in(
     project: Project,  # noqa: F811
 ) -> None:
@@ -757,7 +737,6 @@ def test_both_branches_of_a_forked_error_wire_receive_the_error_in(
     assert package.stub("step_b").CALLS == [(1, error)]
 
 
-@errors_as_values("unwired error in")
 def test_a_node_with_an_unwired_error_in_runs_after_a_failure(
     project: Project,  # noqa: F811
 ) -> None:
@@ -776,7 +755,6 @@ def test_a_node_with_an_unwired_error_in_runs_after_a_failure(
 # =============================================================
 
 
-@errors_as_values("error constant")
 @pytest.mark.parametrize(
     ("kind", "expected"),
     [("none", None), ("error5", (True, 5)), ("warning5", (False, 5))],
@@ -794,7 +772,6 @@ def test_an_error_constant_is_its_value(
         assert (error.status, error.code) == expected
 
 
-@errors_as_values("error local variable")
 def test_an_error_local_variable_is_a_function_variable(
     project: Project,  # noqa: F811
 ) -> None:

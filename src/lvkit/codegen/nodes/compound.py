@@ -8,11 +8,11 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -707,7 +707,7 @@ def generate_array_reshape(
         val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
-    default_expr = _reshape_default_element(lv_type.element_type)
+    default_expr = type_default_expr(lv_type.element_type)
 
     flat_var = "_flat"
     flat_stmt = build_assign(flat_var, flat_expr)
@@ -777,44 +777,3 @@ def _build_flatten_expr(array_val: str, source_ndim: int) -> ast.expr:
         elt=ast.Name(id=loop_vars[-1], ctx=ast.Load()),
         generators=generators,
     )
-
-
-def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
-    """Python literal AST for a LabVIEW element type's default (zero) value.
-
-    Used to pad a reshaped array when the source has fewer elements than
-    the requested shape -- LabVIEW pads with the array element type's
-    default rather than growing/erroring.
-    """
-    if elem_type is None:
-        return ast.Constant(value=None)
-
-    kind = elem_type.kind
-    underlying = elem_type.underlying_type
-
-    if kind == LVTypeKind.ARRAY:
-        return ast.List(elts=[], ctx=ast.Load())
-    if kind == LVTypeKind.CLUSTER:
-        return ast.Constant(value=None)
-    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
-        return ast.Constant(value=0)
-    if kind == LVTypeKind.PRIMITIVE:
-        if is_string_type_name(underlying):
-            return ast.Constant(value="")
-        if is_boolean_type_name(underlying):
-            return ast.Constant(value=False)
-        if underlying in (
-            "NumInt8",
-            "NumInt16",
-            "NumInt32",
-            "NumInt64",
-            "NumUInt8",
-            "NumUInt16",
-            "NumUInt32",
-            "NumUInt64",
-        ):
-            return ast.Constant(value=0)
-        if underlying in ("NumFloat32", "NumFloat64"):
-            return ast.Constant(value=0.0)
-
-    return ast.Constant(value=None)

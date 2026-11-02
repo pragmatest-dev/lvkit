@@ -27,10 +27,10 @@ from lvkit.models import (
 from ..ast_utils import (
     build_assign,
     build_assign_attr,
-    default_value_expr,
     field_attribute_paths,
     parse_expr,
     to_var_name,
+    type_default_expr,
 )
 from ..class_attributes import ClassAttributes, class_field_paths
 from ..class_model import type_attributes
@@ -316,7 +316,7 @@ def _error_read(
     return ErrorFieldRead(
         terminal_id=term.id,
         role=error_field_role(field.type),
-        no_error_value=ast.unparse(default_value_expr(field.type)),
+        no_error_value=ast.unparse(type_default_expr(field.type)),
     )
 
 
@@ -401,7 +401,7 @@ def _build_measure_data(
         elif f.type is not None and f.type.kind == LVTypeKind.ARRAY:
             value = "[]"
         else:
-            value = ast.unparse(default_value_expr(f.type))
+            value = ast.unparse(type_default_expr(f.type))
         fields.append(f"{name}={value}")
     var = ctx.make_output_var("cluster", node.id, agg_out.id)
     return CodeFragment(

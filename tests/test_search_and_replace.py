@@ -15,7 +15,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
-from tests.native_vi import Generated, generate, node, scalar
+from tests.native_vi import Generated, generate, node, result_values, scalar
 
 STR = scalar("String")
 I32 = scalar("NumInt32")
@@ -122,9 +122,9 @@ class TestPlainMode:
             "    result_string = s[:search_start] + replaced\n"
             "    return NativeTestResult(r=result_string, n=number_of_replacements)"
         )
-        assert tuple(run.function("AaAa", 1)) == ("Axxx", 3)
-        assert tuple(run.function("AaAa", -4)) == ("xxxx", 4)
-        assert tuple(run.function("AaAa", 9)) == ("AaAa", 0)
+        assert result_values(run.function("AaAa", 1)) == ("Axxx", 3)
+        assert result_values(run.function("AaAa", -4)) == ("xxxx", 4)
+        assert result_values(run.function("AaAa", 9)) == ("AaAa", 0)
 
     def test_replace_string_named_match_is_not_the_lambda_parameter(self) -> None:
         run = build(
@@ -133,14 +133,14 @@ class TestPlainMode:
             names={"repl": "match"},
         )
         assert "lambda matched: match" in body(run)
-        assert tuple(run.function("banana", "X", 0)) == ("bXnana", 1)
+        assert result_values(run.function("banana", "X", 0)) == ("bXnana", 1)
 
     def test_search_string_is_text_not_a_pattern(self) -> None:
         run = build({"search": "a.c", "repl": "-", "o": "ctl"}, outs=("r", "n"))
-        assert tuple(run.function("abc a.c", 0)) == ("abc -", 1)
+        assert result_values(run.function("abc a.c", 0)) == ("abc -", 1)
         # The replacement is inserted as it is: no backslash or $ reads.
         literal = build({"search": "a", "repl": "\\1$1", "o": "ctl"}, outs=("r", "n"))
-        assert tuple(literal.function("ba", 0)) == ("b\\1$1", 1)
+        assert result_values(literal.function("ba", 0)) == ("b\\1$1", 1)
 
     def test_offset_past_replacement(self) -> None:
         run = build({"search": "a", "repl": "xx", "o": "ctl"}, outs=("r", "n", "p"))
@@ -164,9 +164,9 @@ class TestPlainMode:
         )
         # NI: the offset in result string just after the last replacement; the
         # next match, if any, is after it; -1 when nothing was found.
-        assert tuple(run.function("a-a-a", 2)) == ("a-xx-a", 1, 4)
-        assert tuple(run.function("a-a-a", 0)) == ("xx-a-a", 1, 2)
-        assert tuple(run.function("bbb", 0)) == ("bbb", 0, -1)
+        assert result_values(run.function("a-a-a", 2)) == ("a-xx-a", 1, 4)
+        assert result_values(run.function("a-a-a", 0)) == ("xx-a-a", 1, 2)
+        assert result_values(run.function("bbb", 0)) == ("bbb", 0, -1)
 
     def test_offset_past_the_last_of_all_replacements(self) -> None:
         run = build({"search": "a", "repl": "xx", "ra": "True"}, outs=("p",))
@@ -177,8 +177,8 @@ class TestPlainMode:
     def test_replace_all_computed_with_the_offset_past(self) -> None:
         run = build({"search": "a", "repl": "x", "ra": "ctl"}, outs=("r", "p"))
         assert "[:None if ra else 1]" in body(run)
-        assert tuple(run.function("aaa", True)) == ("xxx", 3)
-        assert tuple(run.function("aaa", False)) == ("xaa", 1)
+        assert result_values(run.function("aaa", True)) == ("xxx", 3)
+        assert result_values(run.function("aaa", False)) == ("xaa", 1)
 
 
 class TestRegularExpressionMode:
@@ -195,7 +195,10 @@ class TestRegularExpressionMode:
         )
         assert "lvkit" not in run.source
         assert "_pcre_regex" not in run.source
-        assert tuple(run.function("Welcome LabVIEW")) == ("Welcome to LabVIEW!", 1)
+        assert result_values(run.function("Welcome LabVIEW")) == (
+            "Welcome to LabVIEW!",
+            1,
+        )
 
     def test_ni_examples_run(self) -> None:
         doc = build(
@@ -244,9 +247,9 @@ class TestRegularExpressionMode:
             regex=True,
             outs=("r", "n", "p"),
         )
-        assert tuple(run.function("a1b2", 0)) == ("a[1]b[2]", 2, 8)
-        assert tuple(run.function("a1b2c", 2)) == ("a1b[2]c", 1, 6)
-        assert tuple(run.function("abc", 0)) == ("abc", 0, -1)
+        assert result_values(run.function("a1b2", 0)) == ("a[1]b[2]", 2, 8)
+        assert result_values(run.function("a1b2c", 2)) == ("a1b[2]c", 1, 6)
+        assert result_values(run.function("abc", 0)) == ("abc", 0, -1)
 
     def test_constant_pattern_with_a_construct_python_cannot_read_is_a_gap(
         self,

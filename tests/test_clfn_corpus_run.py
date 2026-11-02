@@ -341,7 +341,7 @@ def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
     """CreateFileA answers INVALID_HANDLE_VALUE, so GetFileSizeEx fails and the
     VI builds error 5054 through Error Cluster From Error Code. The Clear Errors
     after the read only clears the wire to the handle close: the close still runs,
-    and the error still reaches the caller."""
+    and the error is the VI's error out."""
     module = generated_vi(_vi(_KEY_FILE_VI))
     closed: list[int] = []
     close_handle = kernel32.CloseHandle
@@ -351,10 +351,13 @@ def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
         return close_handle(handle)
 
     monkeypatch.setattr(kernel32, "CloseHandle", record)
-    with pytest.raises(_generated_error(module)) as raised:
-        module.read_discovery_service_key_file(key_file_path=tmp_path / "nope.json")
-    assert raised.value.code == 5054
-    assert raised.value.message == "Failed to get the discovery service key file size."
+    result = module.read_discovery_service_key_file(
+        key_file_path=tmp_path / "nope.json"
+    )
+    error = result.error_out
+    assert isinstance(error, _generated_error(module))
+    assert (error.status, error.code) == (True, 5054)
+    assert error.message == "Failed to get the discovery service key file size."
     assert len(closed) == 1
 
 
@@ -364,10 +367,13 @@ def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
     """CreateFileA answering 0 is the case the VI reports as error 5053."""
     module = generated_vi(_vi(_KEY_FILE_VI))
     monkeypatch.setattr(kernel32, "CreateFileA", lambda *args: 0)
-    with pytest.raises(_generated_error(module)) as raised:
-        module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")
-    assert raised.value.code == 5053
-    assert raised.value.message == (
+    result = module.read_discovery_service_key_file(
+        key_file_path=tmp_path / "key.json"
+    )
+    error = result.error_out
+    assert isinstance(error, _generated_error(module))
+    assert (error.status, error.code) == (True, 5053)
+    assert error.message == (
         "Failed to read the discovery service key file.\n"
         "Ensure that the discovery service is running."
     )

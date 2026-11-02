@@ -196,7 +196,7 @@ def is_gap_raise(stmt: ast.stmt) -> bool:
 def _outputs(node: AnyGraphNode) -> list[Terminal]:
     """The terminals other nodes read from ``node``: its outputs, and for a
     structure the outer side of its output tunnels (its other terminals belong to
-    its diagram). An error cluster carries nothing (an error is an exception)."""
+    its diagram)."""
     if isinstance(node, StructureNode):
         return [
             term
@@ -204,13 +204,8 @@ def _outputs(node: AnyGraphNode) -> list[Terminal]:
             if isinstance(term, TunnelTerminal)
             and term.boundary == "outer"
             and term.direction == "output"
-            and not term.is_error_cluster
         ]
-    return [
-        term
-        for term in node.terminals
-        if term.direction == "output" and not term.is_error_cluster
-    ]
+    return [term for term in node.terminals if term.direction == "output"]
 
 
 def gap_fragment(node: AnyGraphNode, ctx: CodeGenContext, reason: str) -> CodeFragment:

@@ -27,7 +27,7 @@ from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import ResolvedPrimitive
 from lvkit.terminal_default import DefaultBehavior
 
-from ...ast_utils import build_assign, default_value_expr, parse_expr
+from ...ast_utils import build_assign, parse_expr, type_default_expr
 from ...context import CodeGenContext
 from ...errors import CodeGenError
 from ...fragment import CodeFragment
@@ -110,7 +110,7 @@ def generate_1d_index_array(
                     guarded_index(
                         array_var,
                         index_var,
-                        ast.unparse(default_value_expr(output.lv_type)),
+                        ast.unparse(type_default_expr(output.lv_type)),
                     )
                 ),
             )
@@ -167,7 +167,7 @@ def _generate_nd_index_array(
     default = (
         "[]"
         if still_array
-        else ast.unparse(default_value_expr(array.lv_type.element_type))
+        else ast.unparse(type_default_expr(array.lv_type.element_type))
     )
 
     def select(held: str, depth: int) -> str:
@@ -202,4 +202,4 @@ def index_array(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
         # IndexErrors (e.g. Sort/Reverse 2D Array on an empty input).
         return guarded_index("in_0", "in_2", "[]")
     # 1D: the element's real default on an out-of-range index.
-    return guarded_index("in_0", "in_2", ast.unparse(default_value_expr(elem)))
+    return guarded_index("in_0", "in_2", ast.unparse(type_default_expr(elem)))

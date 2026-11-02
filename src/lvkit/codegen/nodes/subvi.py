@@ -112,7 +112,12 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
         value=parts.call,
     )
-    return CodeFragment(statements=[*parts.prelude, stmt], bindings=parts.bindings)
+    # The called function takes the error in and decides whether to skip.
+    return CodeFragment(
+        statements=[*parts.prelude, stmt],
+        bindings=parts.bindings,
+        runs_on_error=True,
+    )
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
@@ -272,9 +277,6 @@ def _generate_inline(
     for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
-        # Skip error cluster outputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
 
         term_index = term.index
         term_id = term.id
@@ -290,11 +292,12 @@ def _generate_inline(
                 var_name = f"{func_name}_{param_key}"
                 output_var_map[param_key] = var_name
                 bindings[term_id] = var_name
-            elif ctx.is_wired(term_id):
+            elif ctx.is_wired(term_id) and not term.is_error_cluster:
                 # Output not in template but wired downstream — bind to None
                 bindings[term_id] = "None"
-            # else: not in template, not wired — skip entirely
-        else:
+            # else: not in template, not wired — skip entirely; an error out the
+            # template does not set is the node's error in (``error_flow``)
+        elif not term.is_error_cluster:
             # Output not in vilib definition - bind to None
             bindings[term_id] = "None"
 
@@ -482,10 +485,6 @@ def _build_arguments(
         )
         wired = value is not None
 
-        # Skip error cluster terminals — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-
         # An unwired input of a catalog VI runs with the default the catalog (or
         # the loaded VI's control) gives it; any other unwired input uses the
         # called function's own default.
@@ -640,10 +639,6 @@ def _build_output_bindings(
         term_id = term.id
         term_index = term.index
         term_name = term.name or ""
-
-        # Skip error terminals — Python uses exceptions
-        if term.is_error_cluster:
-            continue
 
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:

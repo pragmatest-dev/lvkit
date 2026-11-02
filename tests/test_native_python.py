@@ -11,7 +11,14 @@ import math
 import pytest
 
 from lvkit.models import ClusterField, LVType, LVTypeKind
-from tests.native_vi import Generated, array, generate, node, scalar
+from tests.native_vi import (
+    Generated,
+    array,
+    generate,
+    node,
+    result_values,
+    scalar,
+)
 
 DBL = scalar("NumFloat64")
 I32 = scalar("NumInt32")
@@ -29,7 +36,7 @@ def body(generated: Generated) -> str:
 
 
 def run(generated: Generated, *arguments):
-    return generated.function(*arguments)[0]
+    return result_values(generated.function(*arguments))[0]
 
 
 def no_lvkit(generated: Generated) -> None:
@@ -520,25 +527,25 @@ def test_extended_precision_complex_is_two_floats():
 def test_unflatten_number_and_rest():
     generated = unflatten(U32)
     assert "struct.unpack_from('>I', flattened)[0]" in body(generated)
-    assert tuple(generated.function("\x00\x00\x00\x07xyz")) == (7, "xyz")
+    assert result_values(generated.function("\x00\x00\x00\x07xyz")) == (7, "xyz")
     no_lvkit(generated)
 
 
 def test_unflatten_string_reads_its_length_prefix():
     generated = unflatten(STR)
-    assert tuple(generated.function("\x00\x00\x00\x02hiXX")) == ("hi", "XX")
+    assert result_values(generated.function("\x00\x00\x00\x02hiXX")) == ("hi", "XX")
 
 
 def test_unflatten_one_dimensional_array():
     generated = unflatten(array("NumFloat64"))
     data = "\x00\x00\x00\x01" + "\x3f\xf0" + "\x00" * 6
-    assert tuple(generated.function(data)) == ([1.0], "")
+    assert result_values(generated.function(data)) == ([1.0], "")
 
 
 def test_unflatten_two_dimensional_array_reshapes_by_its_sizes():
     generated = unflatten(array("NumInt16", 2))
     data = "\x00\x00\x00\x02\x00\x00\x00\x02\x00\x01\x00\x02\x00\x03\x00\x04"
-    assert tuple(generated.function(data)) == ([[1, 2], [3, 4]], "")
+    assert result_values(generated.function(data)) == ([[1, 2], [3, 4]], "")
     no_lvkit(generated)
 
 
@@ -555,7 +562,7 @@ def test_unflatten_cluster_reads_its_numbers_in_one_call():
     generated = unflatten(record)
     assert "struct.unpack_from('>iHd', data, pos)" in generated.source
     data = "\x00\x00\x00\x05\x00\x07" + "\x3f\xf0" + "\x00" * 6 + "\x00\x00\x00\x01Z"
-    assert tuple(generated.function(data)) == ((5, 7, 1.0, "Z"), "")
+    assert result_values(generated.function(data)) == ((5, 7, 1.0, "Z"), "")
 
 
 def swap(data: LVType, prim_id: int):
@@ -607,7 +614,7 @@ def test_unflatten_reads_byte_order_and_size_flag_from_constants():
         constants={"c9": (2, u16)},
     )
     assert "struct.unpack_from('<H', flattened)[0]" in body(generated)
-    assert generated.function("\x05\x00")[0] == 5
+    assert result_values(generated.function("\x05\x00"))[0] == 5
 
 
 def test_unflatten_without_size_prefix_takes_the_whole_string():
@@ -630,7 +637,7 @@ def test_unflatten_without_size_prefix_takes_the_whole_string():
         [("fp:s", "uf:11"), ("c10", "uf:10"), ("uf:2", "fp:v"), ("uf:3", "fp:rest")],
         constants={"c10": (False, BOOL)},
     )
-    assert tuple(generated.function("rawtext")) == ("rawtext", "")
+    assert result_values(generated.function("rawtext")) == ("rawtext", "")
 
 
 def test_rotate_matches_the_documented_examples_in_eight_bits():
