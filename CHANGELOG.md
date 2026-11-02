@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the connector pane is the signature of every generated function and method (#235)** — a Required input is a positional parameter, a Recommended or Optional one is keyword-only with its default, and the outputs are the fields of one result object (also for a method with one output); a control or indicator that is not on the pane is a local variable listed in the docstring, no longer a parameter or a result field, so two such controls no longer repeat one keyword; a call that leaves a Required input unwired is a gap.
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.

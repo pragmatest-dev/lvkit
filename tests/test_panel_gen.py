@@ -291,3 +291,20 @@ def test_array_wrappers_positioned_from_bounds_and_typed() -> None:
     assert "cell_h=26" in src
     assert "element_type='stdNum'" in src
     assert "integer=True" in src
+
+
+def test_the_logic_is_called_by_keyword_and_only_its_pane_outputs_are_written() -> None:
+    """The logic function's Required inputs are positional and its other inputs
+    keyword-only, so the panel passes every parameter by name; a panel indicator
+    the result has no field for (one off the connector pane) is not written."""
+    src = build_panel_module(
+        _scalar_panel(),
+        logic_module_stem="logic",
+        logic_func_name="measure",
+        param_names=["threshold", "extra"],
+        result_fields=None,
+    )
+    assert "threshold=state.threshold," in src
+    assert "extra=None,  # TODO: no matching input control" in src
+    assert "state.out_path =" not in src
+    compile(src, "<panel>", "exec")

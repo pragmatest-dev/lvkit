@@ -364,4 +364,4 @@ def test_a_control_named_like_an_imported_module_does_not_hide_it(
     )
     function, source = _generate(load(tmp_path, xml, _TYPES))
     assert f"{renamed}:" in source and "import os\n" in source
-    assert function(**{renamed: 1}).result.as_posix() in ("/D/data", "D:/data")
+    assert function().result.as_posix() in ("/D/data", "D:/data")

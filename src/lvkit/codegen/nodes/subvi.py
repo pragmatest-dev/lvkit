@@ -492,6 +492,12 @@ def _build_arguments(
         if value is None:
             value = catalog_defaults.get(term_index)
         if value is None:
+            if names is not None and term_index in names.required:
+                raise ConversionGap(
+                    f"The call of {subvi_name!r} leaves its required input "
+                    f"{term_name or names.parameters[term_index]!r} unwired",
+                    node,
+                )
             continue
 
         # Determine parameter name with priority:

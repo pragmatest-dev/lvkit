@@ -429,7 +429,9 @@ class TestClassPrivateDataNmux:
         ns: dict = {}
         exec(compile(code, "<TestResult_Init.vi>", "exec"), ns)  # noqa: S102
         this = types.SimpleNamespace()
-        result = ns["testresult_init"](this, "event_ref")
+        result = ns["testresult_init"](
+            testresult_in=this, resultstatuschangedeventref="event_ref"
+        )
         out = result.testresult_out
         assert out is this
         fields = vars(out)
@@ -614,13 +616,13 @@ class TestClusterBundleUnbundle:
 
     def test_ascending_sorts_and_tracks_pointers(self):
         func = self._func()
-        r = func([3, 1, 2], 0)  # order 0 = ascending
+        r = func([3, 1, 2], order=0)  # order 0 = ascending
         assert list(r.sorted_array_out) == [1, 2, 3]
         assert list(r.sorted_pointers) == [1, 2, 0]  # original indices
 
     def test_descending(self):
         func = self._func()
-        r = func([3, 1, 2], 1)  # order 1 = descending
+        r = func([3, 1, 2], order=1)  # order 1 = descending
         assert list(r.sorted_array_out) == [3, 2, 1]
 
 
@@ -646,18 +648,21 @@ class TestTrimWhitespace:
 
     def test_trims_leading_and_trailing_whitespace(self):
         func = self._func()
+        mode = "remove_leading_and_trailing"
         # The enum "Remove (leading and trailing)" is 0=leading, 1=trailing,
         # 2=both (from the VI's own enum labels + the case selector tables) —
         # mode 2 is "both", NOT mode 0.
-        assert func("  hi there  ", 2).string_out == "hi there"
-        assert func("\t\tabc\t", 2).string_out == "abc"
-        assert func("nows", 2).string_out == "nows"  # no whitespace, unchanged
-        assert func("   ", 2).string_out == ""  # all whitespace
-        assert func("  lead", 2).string_out == "lead"
-        assert func("trail  ", 2).string_out == "trail"
+        assert func("  hi there  ", **{mode: 2}).string_out == "hi there"
+        assert func("\t\tabc\t", **{mode: 2}).string_out == "abc"
+        # no whitespace: unchanged
+        assert func("nows", **{mode: 2}).string_out == "nows"
+        assert func("   ", **{mode: 2}).string_out == ""  # all whitespace
+        assert func("  lead", **{mode: 2}).string_out == "lead"
+        assert func("trail  ", **{mode: 2}).string_out == "trail"
 
     def test_trims_one_side_per_mode(self):
         func = self._func()
+        mode = "remove_leading_and_trailing"
         # 0 = leading only, 1 = trailing only (per the enum labels).
-        assert func("  hi  ", 0).string_out == "hi  "
-        assert func("  hi  ", 1).string_out == "  hi"
+        assert func("  hi  ", **{mode: 0}).string_out == "hi  "
+        assert func("  hi  ", **{mode: 1}).string_out == "  hi"

@@ -86,6 +86,7 @@ def generate(
             id=f"fp:{name}",
             index=i,
             direction="input",
+            wiring_rule=1,
             name=name,
             is_public=True,
             is_indicator=False,

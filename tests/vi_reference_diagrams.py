@@ -322,6 +322,7 @@ def add_control(
         id=f"{vi}::{uid}",
         index=0,
         direction="input",
+        wiring_rule=1,
         name=name,
         lv_type=lv_type,
         is_public=True,

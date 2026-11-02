@@ -81,6 +81,7 @@ def public_terminal(name, direction, kind, index=0):
         id=f"fp:{name}",
         index=index,
         direction=direction,
+        wiring_rule=1 if direction == "input" else 0,
         name=name,
         is_public=True,
         is_indicator=direction == "output",

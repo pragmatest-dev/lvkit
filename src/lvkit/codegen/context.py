@@ -345,9 +345,10 @@ class CodeGenContext:
                 return tunnel_name
 
         var_name = to_var_name(base_name)
-        if var_name in self._allocated_vars:
-            op_suffix = node_id.split("::")[-1] if "::" in node_id else node_id
-            var_name = f"{var_name}_{op_suffix}"
+        count = 1
+        while var_name in self._allocated_vars:
+            count += 1
+            var_name = f"{to_var_name(base_name)}_{count}"
         self._allocated_vars.add(var_name)
         return var_name
 
@@ -884,7 +885,7 @@ def _bind_inputs_and_constants(
     Shared by from_graph() and from_vi_context(). Skips error cluster
     inputs (Python uses exceptions instead).
     """
-    names = interface_names([i for i in inputs if i.id], [], [], []).parameters
+    names = interface_names([i for i in inputs if i.id], [], []).parameters
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
             var = names[inp.id]
