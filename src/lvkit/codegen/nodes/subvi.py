@@ -35,6 +35,7 @@ from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..label_names import python_label
+from ..native_failure import catch_failures
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -81,17 +82,16 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
 
-    # A catalog VI the generator writes from the graph.
-    if vilib_vi and vilib_vi.op:
-        fragment = vilib_op.generate(node, ctx, vilib_vi)
+    # A catalog VI the generator writes from the graph, or from its inline
+    # template.
+    if vilib_vi and (vilib_vi.op or (vilib_vi.python_code and vilib_vi.inline)):
+        fragment = (
+            vilib_op.generate(node, ctx, vilib_vi)
+            if vilib_vi.op
+            else _generate_inline(node, ctx, vilib_vi)
+        )
         fragment.runs_on_error = vilib_vi.runs_on_error
-        return fragment
-
-    # Check for inline replacement first
-    if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
-        fragment = _generate_inline(node, ctx, vilib_vi)
-        fragment.runs_on_error = vilib_vi.runs_on_error
-        return fragment
+        return catch_failures(node, fragment, vilib_vi.errors, vilib_vi.name, ctx)
 
     # The module of the VI the call names. A polymorphic call whose polymorphic
     # VI the caller does not record calls the variant it resolves to.

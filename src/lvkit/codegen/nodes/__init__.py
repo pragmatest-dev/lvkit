@@ -27,13 +27,14 @@ from lvkit.graph.models import (
     SharedVariableNode,
     VINode,
 )
-from lvkit.primitive_resolver import get_resolver
+from lvkit.primitive_resolver import NativeError, get_resolver
 
 from .. import error_flow
 from ..context import CodeGenContext
 from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
 from ..gaps import catch_gap
+from ..native_failure import catch_failures
 
 # Import modules (not classes) for dispatch
 from . import (
@@ -121,11 +122,15 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         if node.method_name:
             return invoke_node.generate(node, ctx)
         fragment = _generate_primitive(node, ctx)
-        # The catalog marks a primitive NI runs even when an error came in.
         entry = get_resolver().get_by_id(node.prim_id) if node.prim_id else None
-        if entry is not None and entry.get("runs_on_error", False):
+        if entry is None:
+            return fragment
+        # The catalog marks a primitive NI runs even when an error came in, and
+        # the failures of its operation that are its error out.
+        if entry.get("runs_on_error", False):
             fragment.runs_on_error = True
-        return fragment
+        failures = [NativeError.model_validate(e) for e in entry.get("errors", [])]
+        return catch_failures(node, fragment, failures, entry.get("name", ""), ctx)
     if isinstance(node, ConstantNode):
         return constant.generate(node, ctx)
     if isinstance(node, LocalVariableNode):

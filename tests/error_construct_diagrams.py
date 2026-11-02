@@ -200,14 +200,15 @@ def release_queue_after_step(project: Project) -> str:
     return _with_steps(project, vi, "Step A.vi")
 
 
-def native_failure(project: Project) -> str:
+def native_failure(project: Project, *, error_out_wired: bool = True) -> str:
     """Open/Create/Replace File (primitive 8050) on the path ``path``; opening a
-    file that is not there fails in Python."""
+    file that is not there fails in Python. With ``error_out_wired`` False the
+    node's error out is not wired (the VI has no error out)."""
     vi = Vi(NAME)
     path = vi.control("path", PATH, REQUIRED)
     ein = vi.error_in()
     refnum = vi.indicator("refnum", FILE)
-    eout = vi.error_out()
+    eout = vi.error_out() if error_out_wired else None
     node = vi.primitive(
         8050,
         [
@@ -221,6 +222,33 @@ def native_failure(project: Project) -> str:
     vi.wire(path, node["file path"])
     vi.wire(ein, node["error in"])
     vi.wire(node["refnum"], refnum)
+    if eout is not None:
+        vi.wire(node["error out"], eout)
+    project.add(vi)
+    return NAME
+
+
+def vilib_template_node(project: Project) -> str:
+    """The vi.lib VI Get LV Class Path, whose catalog entry is an inline
+    template: ``path`` is the class path of the object ``thing``."""
+    vi = Vi(NAME)
+    obj = vi.control("thing", FILE, REQUIRED)
+    ein = vi.error_in()
+    path = vi.indicator("path", PATH)
+    eout = vi.error_out()
+    node = vi.call(
+        "Get LV Class Path.vi",
+        [
+            ("error in (no error)", 8, ERR, False),
+            ("object", 11, FILE, False),
+            ("error out", 0, ERR, True),
+            ("class path", 3, PATH, True),
+        ],
+        vilib="Utility/LVClass",
+    )
+    vi.wire(obj, node["object"])
+    vi.wire(ein, node["error in (no error)"])
+    vi.wire(node["class path"], path)
     vi.wire(node["error out"], eout)
     project.add(vi)
     return NAME

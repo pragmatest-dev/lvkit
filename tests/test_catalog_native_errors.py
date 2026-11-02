@@ -1,0 +1,96 @@
+"""The catalog's ``errors`` field: the failures of a node's Python operation that
+are its error out (``codegen/native_failure.py``), each with a code from NI's
+public error-code list."""
+
+from __future__ import annotations
+
+import builtins
+import importlib
+import json
+from pathlib import Path
+
+from lvkit.codegen.error_codes import describe_error_code
+from lvkit.codegen.native_failure import GENERIC_ERROR_CODE
+from lvkit.primitive_resolver import NativeError
+
+DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
+
+FILE_PATH_OPS = [("FileNotFoundError", 7), ("PermissionError", 8), ("OSError", 6)]
+FILE_REFNUM_OPS = [("OSError", 6)]
+COPY_MOVE = [
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("FileExistsError", 10),
+    ("OSError", 6),
+]
+
+PRIMITIVES = {
+    "8050:Open/Create/Replace File": FILE_PATH_OPS,
+    "8051:Read from Binary File": FILE_REFNUM_OPS,
+    "8052:Close File": FILE_REFNUM_OPS,
+    "8053:Copy": COPY_MOVE,
+    "8062:Get File Position": FILE_REFNUM_OPS,
+    "8063:Get File Size": FILE_REFNUM_OPS,
+    "8065:Get Permissions": FILE_PATH_OPS,
+    "8068:Move": COPY_MOVE,
+    "8070:Read from Text File": FILE_PATH_OPS,
+    "8073:Set File Position": FILE_REFNUM_OPS,
+    "8078:Write to Binary File": FILE_REFNUM_OPS,
+    "8082:File/Directory Info": FILE_PATH_OPS,
+    "8083:List Folder": FILE_PATH_OPS,
+}
+
+
+def _declared() -> dict[str, list[NativeError]]:
+    """``<primResID>:<name>`` / ``<file>:<name>`` of every catalog entry with
+    ``errors``, and its parsed failures."""
+    found: dict[str, list[NativeError]] = {}
+    for path in sorted((DATA / "primitives").glob("*.json")):
+        for prim_id, entry in (
+            json.loads(path.read_text()).get("primitives") or {}
+        ).items():
+            if isinstance(entry, dict) and "errors" in entry:
+                found[f"{prim_id}:{entry['name']}"] = [
+                    NativeError.model_validate(e) for e in entry["errors"]
+                ]
+    for path in sorted((DATA / "vilib").glob("*.json")):
+        data = json.loads(path.read_text())
+        for entry in data.get("entries", []) if isinstance(data, dict) else []:
+            if "errors" in entry:
+                found[f"{path.stem}:{entry['name']}"] = [
+                    NativeError.model_validate(e) for e in entry["errors"]
+                ]
+    return found
+
+
+def _exception_class(failure: NativeError) -> type[BaseException]:
+    if failure.module is None:
+        cls = getattr(builtins, failure.exception)
+    else:
+        cls = getattr(importlib.import_module(failure.module), failure.exception)
+    assert isinstance(cls, type) and issubclass(cls, Exception), failure
+    return cls
+
+
+def test_the_entries_that_declare_failures_are_the_pinned_ones() -> None:
+    declared = {
+        key: [(f.exception, f.code) for f in failures]
+        for key, failures in _declared().items()
+    }
+    assert declared == PRIMITIVES
+
+
+def test_every_declared_failure_is_an_exception_caught_in_a_reachable_order() -> None:
+    """Each exception names a Python exception class, and no handler catches a
+    class an earlier one already catches (it would never run)."""
+    for key, failures in _declared().items():
+        classes = [_exception_class(f) for f in failures]
+        for i, later in enumerate(classes):
+            for earlier in classes[:i]:
+                assert not issubclass(later, earlier), (key, later, earlier)
+
+
+def test_every_declared_code_has_ni_s_description() -> None:
+    codes = {f.code for failures in _declared().values() for f in failures}
+    for code in {GENERIC_ERROR_CODE, *(c for c in codes if c is not None)}:
+        assert describe_error_code(code), code

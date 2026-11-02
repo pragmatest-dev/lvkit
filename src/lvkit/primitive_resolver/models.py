@@ -56,6 +56,17 @@ class TerminalAlias(BaseModel):
     terminal: int
 
 
+class NativeError(BaseModel):
+    """One way a catalog node's Python operation can fail, and the LabVIEW error
+    code that failure is: the Python exception class ``exception``, imported
+    from ``module`` (``None`` for a built-in one), and the code from NI's public
+    error-code list (``None`` for the generic code)."""
+
+    exception: str
+    module: str | None = None
+    code: int | None = None
+
+
 class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
 
@@ -78,6 +89,9 @@ class PrimitiveEntry(BaseModel):
     icon: NodeIcon | None = None
     # NI's page says the node runs even when an error comes in on its error in.
     runs_on_error: bool = False
+    # The failures of the node's Python operation that are its error out, in
+    # the order they are caught (``codegen/native_failure.py``).
+    errors: list[NativeError] = Field(default_factory=list)
 
 
 class ResolvedPrimitive(BaseModel):

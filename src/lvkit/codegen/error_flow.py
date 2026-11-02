@@ -168,42 +168,55 @@ def _skipped_on_error(
     guard takes its type's default when it skips, an error out the incoming
     error."""
     body = list(fragment.statements)
-    assigned = _assigned_names(body)
-    defaults: dict[str, ast.stmt] = {}
+    assigned = assigned_names(body)
     for term in node.terminals:
-        if term.direction != "output":
-            continue
         value = fragment.bindings.get(term.id)
-        if term.is_error_cluster:
-            # A skipped node passes the incoming error on.
-            if value is not None and value.isidentifier() and value in assigned:
-                defaults.setdefault(value, build_assign(value, parse_expr(error)))
-            continue
-        if value is None:
+        if term.direction != "output" or term.is_error_cluster or value is None:
             continue
         expr = parse_expr(value)
-        if isinstance(expr, ast.Constant) or (
-            isinstance(expr, ast.Name) and expr.id not in assigned
-        ):
-            continue
-        if not isinstance(expr, ast.Name):
+        if not isinstance(expr, ast.Constant | ast.Name):
             var = ctx.make_output_var(
                 to_var_name(term.name or "value"), node.id, term.id
             )
             body.append(build_assign(var, expr))
             fragment.bindings[term.id] = var
-            value = var
-        defaults.setdefault(value, build_assign(value, type_default_expr(term.lv_type)))
+            assigned.add(var)
     if not body:
         return fragment
+    # A skipped node passes the incoming error on.
+    defaults = output_defaults(node, fragment.bindings, assigned, error)
     test = ast.If(
         test=parse_expr(no_error_occurred(error)),
         body=body,
-        orelse=list(defaults.values()),
+        orelse=defaults,
     )
     setattr(test, _GUARD, error)
     fragment.statements = [test]
     return fragment
+
+
+def output_defaults(
+    node: AnyGraphNode,
+    bindings: dict[str, str],
+    assigned: set[str],
+    error: str | None,
+) -> list[ast.stmt]:
+    """The assignments that give the outputs of ``node`` their value when its
+    work did not happen (it was skipped, or it failed), in terminal order: each
+    output bound to a variable in ``assigned`` takes its type's default, and an
+    error out takes ``error`` (left alone when ``error`` is ``None``)."""
+    defaults: dict[str, ast.stmt] = {}
+    for term in node.terminals:
+        value = bindings.get(term.id)
+        if term.direction != "output" or value is None or value not in assigned:
+            continue
+        if not term.is_error_cluster:
+            defaults.setdefault(
+                value, build_assign(value, type_default_expr(term.lv_type))
+            )
+        elif error is not None:
+            defaults.setdefault(value, build_assign(value, parse_expr(error)))
+    return list(defaults.values())
 
 
 def share_guards(statements: list[ast.stmt]) -> list[ast.stmt]:
@@ -220,7 +233,7 @@ def share_guards(statements: list[ast.stmt]) -> list[ast.stmt]:
             and isinstance(previous, ast.If)
             and isinstance(stmt, ast.If)
             and getattr(previous, _GUARD, None) == error
-            and not _loaded_names(parse_expr(error)) & _assigned_names(previous.body)
+            and not _loaded_names(parse_expr(error)) & assigned_names(previous.body)
         ):
             previous.body.extend(stmt.body)
             previous.orelse.extend(stmt.orelse)
@@ -234,7 +247,7 @@ def _loaded_names(expr: ast.expr) -> set[str]:
     return {node.id for node in ast.walk(expr) if isinstance(node, ast.Name)}
 
 
-def _assigned_names(statements: list[ast.stmt]) -> set[str]:
+def assigned_names(statements: list[ast.stmt]) -> set[str]:
     """The names the statements assign, at any depth."""
     names: set[str] = set()
     for stmt in statements:

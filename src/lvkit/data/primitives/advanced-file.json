@@ -287,6 +287,24 @@
     },
     "8053": {
       "name": "Copy",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 7,
@@ -530,6 +548,12 @@
     },
     "8062": {
       "name": "Get File Position",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -572,6 +596,12 @@
     },
     "8063": {
       "name": "Get File Size",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -614,6 +644,20 @@
     },
     "8065": {
       "name": "Get Permissions",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 8,
@@ -768,6 +812,24 @@
     },
     "8068": {
       "name": "Move",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 7,
@@ -830,6 +892,12 @@
     },
     "8073": {
       "name": "Set File Position",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -1009,6 +1077,20 @@
     },
     "8082": {
       "name": "File/Directory Info",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 8,
@@ -1079,6 +1161,20 @@
     },
     "8083": {
       "name": "List Folder",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 5,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from lvkit.models import TerminalDirection
-from lvkit.primitive_resolver import NodeIcon
+from lvkit.primitive_resolver import NativeError, NodeIcon
 from lvkit.terminal_default import TerminalDefault
 
 
@@ -38,6 +38,9 @@ class VIEntry(BaseModel):
     # NI's page says the VI runs even when an error comes in on its error in
     # (``CodeFragment.runs_on_error``).
     runs_on_error: bool = False
+    # The failures of the VI's Python operation that are its error out, in the
+    # order they are caught (``codegen/native_failure.py``).
+    errors: list[NativeError] = Field(default_factory=list)
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
     # Public NI docs URL (labview-api-ref bundle). Replaces the old `page` PDF

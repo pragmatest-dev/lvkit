@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 from queue import Queue
@@ -28,6 +30,8 @@ import pytest
 
 import tests.error_construct_diagrams as C
 from lvkit.codegen.error_flow import first_error
+from lvkit.primitive_resolver import NativeError
+from lvkit.vilib_resolver import VILibResolver
 from tests.error_diagrams import (
     REQUIRED,
     Package,
@@ -328,7 +332,6 @@ def test_close_file_closes_the_file_whatever_error_comes_in(
 # =============================================================
 
 
-@errors_as_values("native operation that can fail")
 def test_a_native_failure_becomes_the_error_out(
     project: Project,  # noqa: F811
     tmp_path: Path,
@@ -366,6 +369,145 @@ def test_a_native_operation_does_not_run_after_an_error(
     error = package.error(7)
     result = package.function(path=existing, error_in=error)
     assert (result.refnum, result.error_out) == (None, error)
+
+
+def _native_failure(package: Package, path: Path, error_in: Any = None) -> Any:
+    """The error out of Open/Create/Replace File on ``path``, after checking the
+    refnum is Not a Refnum and the source names the function."""
+    result = package.function(path=path, error_in=error_in)
+    assert result.refnum is None
+    assert result.error_out.status is True
+    assert result.error_out.source == "Open/Create/Replace File"
+    return result.error_out
+
+
+def test_a_missing_file_is_error_7(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = generate(project, C.native_failure)
+    error = _native_failure(package, tmp_path / "missing.bin")
+    assert error.code == 7
+    assert "missing.bin" in error.message
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="needs a user that file permissions apply to",
+)
+def test_a_file_without_permission_is_error_8(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = generate(project, C.native_failure)
+    locked = tmp_path / "locked.bin"
+    locked.write_bytes(b"x")
+    locked.chmod(0)
+    try:
+        assert _native_failure(package, locked).code == 8
+    finally:
+        locked.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+def test_another_file_failure_is_the_generic_file_error_6(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """Opening a folder as a file fails with an ``OSError`` no listed subclass
+    matches."""
+    package = generate(project, C.native_failure)
+    assert _native_failure(package, tmp_path).code == 6
+
+
+def test_a_failure_after_a_warning_is_the_error_out(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """A warning does not skip the node; its own failure is an error, which is
+    the first error."""
+    package = generate(project, C.native_failure)
+    warning = package.error(5, status=False)
+    assert _native_failure(package, tmp_path / "missing.bin", warning).code == 7
+
+
+def test_a_failure_the_catalog_does_not_list_stays_an_exception(
+    project: Project,  # noqa: F811
+) -> None:
+    """Get File Size lists only ``OSError``: an object with no file number is a
+    fault of the caller, raised as Python raises it."""
+    package = generate(project, C.catalog_node_skips)
+    with pytest.raises(AttributeError):
+        package.function(file=object())
+
+
+def test_a_failure_with_its_error_out_unwired_stays_an_exception(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = generate(project, lambda p: C.native_failure(p, error_out_wired=False))
+    assert "except" not in package.source
+    with pytest.raises(FileNotFoundError):
+        package.function(path=tmp_path / "missing.bin")
+
+
+def test_a_vilib_template_failure_becomes_the_error_out(
+    project: Project,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A vi.lib template entry lists its failures as a primitive's does; a failure
+    the entry gives no code for is NI's generic error 42."""
+    real = VILibResolver.resolve_recorded
+
+    def failing_entry(self: VILibResolver, recorded_path: str | None) -> Any:
+        entry = real(self, recorded_path)
+        if entry is None or entry.name != "Get LV Class Path":
+            return entry
+        return entry.model_copy(
+            update={
+                "python_code": "{class_path} = Path({object}.class_path)",
+                "errors": [NativeError(exception="AttributeError")],
+            }
+        )
+
+    monkeypatch.setattr(VILibResolver, "resolve_recorded", failing_entry)
+    package = generate(project, C.vilib_template_node)
+    found = package.function(thing=SimpleNamespace(class_path="a.lvclass"))
+    assert (found.path, found.error_out) == (Path("a.lvclass"), None)
+    failed = package.function(thing=object())
+    assert failed.path == Path("")
+    assert (failed.error_out.code, failed.error_out.source) == (42, "Get LV Class Path")
+    assert failed.error_out.message
+
+
+def _failing_close(closed: list[str]) -> SimpleNamespace:
+    def close() -> None:
+        closed.append("a.txt")
+        raise OSError("disk went away")
+
+    return SimpleNamespace(name="a.txt", close=close)
+
+
+def test_a_node_that_runs_despite_an_error_reports_its_own_failure(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(project, C.catalog_node_runs_despite_error)
+    closed: list[str] = []
+    result = package.function(file=_failing_close(closed))
+    assert closed == ["a.txt"]
+    assert (result.error_out.code, result.error_out.source) == (6, "Close File")
+    assert result.error_out.message == "disk went away"
+    assert result.path == Path("")
+
+
+def test_a_node_that_runs_despite_an_error_keeps_the_error_that_came_in(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(project, C.catalog_node_runs_despite_error)
+    closed: list[str] = []
+    error = package.error(7)
+    result = package.function(file=_failing_close(closed), error_in=error)
+    assert closed == ["a.txt"]
+    assert result.error_out is error
 
 
 # =============================================================
