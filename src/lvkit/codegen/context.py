@@ -345,9 +345,10 @@ class CodeGenContext:
                 return tunnel_name
 
         var_name = to_var_name(base_name)
-        if var_name in self._allocated_vars:
-            op_suffix = node_id.split("::")[-1] if "::" in node_id else node_id
-            var_name = f"{var_name}_{op_suffix}"
+        count = 1
+        while var_name in self._allocated_vars:
+            count += 1
+            var_name = f"{to_var_name(base_name)}_{count}"
         self._allocated_vars.add(var_name)
         return var_name
 

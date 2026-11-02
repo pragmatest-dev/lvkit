@@ -60,15 +60,13 @@ def scale(owner: LVType, bonus: bool) -> Recipe:
     ``Bonus`` (100) and no ``Gain``; an off-pane indicator ``Debug``."""
 
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
-        extra = (
-            [off_pane(vi, "input", "bonus", "Bonus", "100")]
+        controls = (
+            [("bonus", "Bonus", "100")]
             if bonus
-            else [
-                off_pane(vi, "input", "gain1", "Gain", "5"),
-                off_pane(vi, "input", "gain2", "Gain", "7"),
-            ]
+            else [("gain1", "Gain", "5"), ("gain2", "Gain", "7")]
         )
-        terms = [e.id.split(":")[1] for e in extra]
+        extra = [off_pane(vi, "input", tag, *rest) for tag, *rest in controls]
+        terms = [tag for tag, *_ in controls]
         wires = [wire(vi, "req", "s1.x"), wire(vi, "opt", "s1.y")]
         nodes: list[GraphNode] = [add(vi, "s1")]
         previous = "s1"
@@ -362,3 +360,29 @@ def test_a_lazy_import_goes_after_the_docstring() -> None:
     assert ast.unparse(_with_imports_after_docstring(imports, plain)) == (
         "import os\nx = 1"
     )
+
+
+def test_a_project_under_a_windows_style_path_generates_the_same(
+    tmp_path: Path,
+) -> None:
+    """Ids hold the file path, which on Windows has ``:`` and ``\\``; nothing is
+    named from an id, so the project generates as under any other path."""
+    root = tmp_path / "C:\\Users\\x"
+    root.mkdir()
+    project = shapes_project(root)
+    mix_key = project.add_vi("Mix", mix)
+    project.add_vi("Caller", caller(project.vis["Base.Scale"], mix_key))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        obj = module("base").Base()
+        assert module("caller").caller(obj=obj, x=1).total == 14 + 10 + 5 + 7
+
+
+def test_a_repeated_output_name_is_numbered_never_named_by_the_node_id() -> None:
+    from lvkit.codegen.context import CodeGenContext
+
+    ctx = CodeGenContext(vi_name="t.vi")
+    node_id = "C:\\Users\\x\\Scale.vi:s3"
+    names = [ctx.make_output_var("total", node_id) for _ in range(3)]
+    assert names == ["total", "total_2", "total_3"]
