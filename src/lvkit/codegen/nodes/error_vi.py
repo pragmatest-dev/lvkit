@@ -64,9 +64,10 @@ def _incoming_error(node: VINode, ctx: CodeGenContext) -> str:
 
 
 def _clear_errors(node: VINode, ctx: CodeGenContext) -> CodeFragment:
-    """Clear Errors: its error out is ``None``. With a specific error code wired
-    (not 0), only an error of that code is cleared, and ``specific error
-    cleared?`` says whether it was. It runs whatever error comes in."""
+    """Clear Errors: its error out is ``None``. With a specific error code wired,
+    only an error of that code is cleared (the code 0 clears every error), and
+    ``specific error cleared?`` says whether it was. It runs whatever error comes
+    in."""
     entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
@@ -79,14 +80,14 @@ def _clear_errors(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     else:
         cleared = ctx.make_output_var("specific_error_cleared", node.id)
         error = ctx.make_output_var("cleared_error", node.id)
-        statements = [
-            build_assign(
-                cleared,
-                parse_expr(
-                    f"{incoming} is not None and "
-                    f"{incoming}.code == {paren_if_compound(code)}"
-                ),
-            ),
+        matches = f"{incoming}.code == {code}"
+        if _int_constant(code) is None:
+            code_var = ctx.make_output_var("specific_error_code", node.id)
+            statements.append(build_assign(code_var, parse_expr(code)))
+            matches = f"{code_var} == 0 or {incoming}.code == {code_var}"
+        test = f"{incoming} is not None and ({matches})"
+        statements += [
+            build_assign(cleared, parse_expr(test)),
             build_assign(error, parse_expr(f"None if {cleared} else {incoming}")),
         ]
     bindings = {

@@ -455,11 +455,16 @@ def merge_errors_in_order(project: Project) -> str:
 
 
 def clear_errors(
-    project: Project, *, code: int | None = None, full_pane: bool = False
+    project: Project,
+    *,
+    code: int | None = None,
+    full_pane: bool = False,
+    code_control: bool = False,
 ) -> str:
     """``Step A.vi`` then Clear Errors (clearing only ``code`` when given) then
     ``Step B.vi`` on the cleared error. ``full_pane`` adds the connector pane's
-    four unused inputs before the code input, as the VI's pane has."""
+    four unused inputs before the code input, as the VI's pane has.
+    ``code_control`` wires the code from the control ``code`` instead."""
     unused = (
         [(f"unused {i}", i, I32, False) for i in (1, 2, 5, 6)] if full_pane else []
     )
@@ -479,7 +484,12 @@ def clear_errors(
     vi.wire(x, a["x"], b["x"])
     vi.wire(ein, a["error in"])
     vi.wire(a["error out"], clear["error in (no error)"])
-    if code is not None:
+    if code_control:
+        vi.wire(
+            vi.control("code", I32, REQUIRED),
+            clear["specific error code to clear (0: all)"],
+        )
+    elif code is not None:
         vi.wire(vi.int_constant(code), clear["specific error code to clear (0: all)"])
     vi.wire(clear["error out"], b["error in"])
     vi.wire(b["r"], result)

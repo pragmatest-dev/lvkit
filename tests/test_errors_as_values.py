@@ -862,6 +862,25 @@ def test_clear_errors_with_a_specific_code_clears_only_that_code(
         assert result.error_out.code == 9
 
 
+@pytest.mark.parametrize(
+    ("code", "cleared"),
+    [(0, True), (7, True), (9, False)],
+    ids=["0 clears every error", "the code", "another code"],
+)
+def test_clear_errors_with_a_code_from_a_control(
+    project: Project,  # noqa: F811
+    code: int,
+    cleared: bool,
+) -> None:
+    stubs = {
+        "step_a": failing_step("step_a", 7),
+        "step_b": skipping_step("step_b", 10),
+    }
+    package = generate(project, lambda p: C.clear_errors(p, code_control=True), stubs)
+    result = package.function(x=1, code=code)
+    assert (result.error_out is None) == cleared
+
+
 def test_clear_errors_leaves_a_clean_wire_alone(project: Project) -> None:  # noqa: F811
     stubs = {"step_a": ok_step("step_a"), "step_b": ok_step("step_b", 10)}
     package = generate(project, C.clear_errors, stubs)
