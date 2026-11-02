@@ -385,7 +385,7 @@ def _bind_data_outputs(
             )
             if source is None:
                 continue
-            value = ctx.resolve(source.id)
+            value = ctx.resolve(source.id, allow_none=True)
             if value is not None:
                 bindings[port.id] = value
             break
