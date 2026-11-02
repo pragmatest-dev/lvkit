@@ -39,6 +39,7 @@ PRIMITIVES = {
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8078:Write to Binary File": FILE_REFNUM_OPS,
     "8082:File/Directory Info": FILE_PATH_OPS,
+    "8003:Variant To Data": [("TypeError", 91)],
     "8083:List Folder": FILE_PATH_OPS,
     "9111:Enqueue Element": RELEASED_QUEUE,
     "9112:Preview Queue Element": RELEASED_QUEUE,
