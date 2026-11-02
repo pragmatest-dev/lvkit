@@ -16,7 +16,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import build_type_checking_block, to_module_name
+from ..ast_utils import build_type_checking_block, os_imports, to_module_name
 from ..class_attributes import Accessor
 from ..class_model import (
     ClassModel,
@@ -96,13 +96,9 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             body=body,
             decorator_list=[],
         )
-        results = self._result_classes()
-        module_body = [
-            *self._build_imports(base),
-            *results,
-            *self._parts.statements(),
-            class_def,
-        ]
+        definitions = [*self._result_classes(), *self._parts.statements(), class_def]
+        self._parts.imports.update(os_imports(definitions))
+        module_body = [*self._build_imports(base), *definitions]
         module = ast.Module(body=module_body, type_ignores=[])
         return optimize_module(module)
 

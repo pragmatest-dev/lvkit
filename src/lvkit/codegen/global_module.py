@@ -23,6 +23,7 @@ from lvkit.models import LVTypeKind, Terminal
 
 from .ast_utils import (
     build_type_checking_block,
+    os_imports,
     param_default_expr,
     parameter_names,
     parse_expr,
@@ -143,6 +144,8 @@ def build_global_module(
         body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
     if needs_runtime:
         body.extend(ast.parse(DATA_FILE_IMPORTS).body)
+    for statement in sorted(os_imports(assignments)):
+        body.extend(ast.parse(statement).body)
     body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])
     ast.fix_missing_locations(module)

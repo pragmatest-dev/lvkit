@@ -19,6 +19,7 @@ from .ast_utils import (
     build_result_class_name,
     build_type_checking_block,
     interface_names,
+    os_imports,
     param_default_expr,
     parse_expr,
     to_function_name,
@@ -732,15 +733,8 @@ def build_module_ast(
     func_def = build_function_def(vi_context, vi_name, body, spell)
     module_body.append(func_def)
 
-    # ``os`` is imported when a path expression in the module spells its volume
-    # for the running OS. A bare ``os`` name can only be that module: generated
-    # variable and function names never take a module's name (``to_var_name``).
-    if any(
-        isinstance(node, ast.Name) and node.id == "os"
-        for stmt in module_body
-        for node in ast.walk(stmt)
-    ):
-        ctx.add_import("import os")
+    for statement in os_imports(module_body):
+        ctx.add_import(statement)
 
     imports = build_imports(vi_context, ctx)
     return ast.Module(body=[*imports, *module_body], type_ignores=[])

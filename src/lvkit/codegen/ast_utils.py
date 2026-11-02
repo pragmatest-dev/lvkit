@@ -502,6 +502,20 @@ def param_default_expr(inp: Terminal) -> ast.expr:
     return default_value_expr(inp.lv_type)
 
 
+def os_imports(statements: Iterable[ast.AST]) -> set[str]:
+    """``{"import os"}`` when ``statements`` read ``os`` by its bare name, else
+    empty: a path value spells its volume for the OS the code runs on with
+    ``os.name`` (``python_path``). Every module builder adds these to its imports.
+    A bare ``os`` can only be that module: generated variable and function names
+    never take a module's name (``to_var_name``)."""
+    reads_os = any(
+        isinstance(node, ast.Name) and node.id == "os"
+        for statement in statements
+        for node in ast.walk(statement)
+    )
+    return {"import os"} if reads_os else set()
+
+
 def build_type_checking_block(statements: set[str]) -> list[ast.stmt]:
     """``if TYPE_CHECKING:`` block importing the types the annotations name; empty
     when there are none."""
