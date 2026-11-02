@@ -15,13 +15,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "boolean"
+          "type": "boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "boolean"
+          "type": "boolean",
+          "error_cluster_status": true
         }
       ],
       "python_code": {
@@ -49,13 +51,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "boolean"
+          "type": "boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "boolean"
+          "type": "boolean",
+          "error_cluster_status": true
         }
       ],
       "python_code": {
@@ -83,13 +87,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "error_cluster_status": true
         }
       ],
       "python_code": {
@@ -115,7 +121,8 @@
           "index": 1,
           "direction": "input",
           "name": "x",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         }
       ],
       "python_code": {
@@ -138,13 +145,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         }
       ],
       "verified": false,
@@ -158,13 +167,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 0,
@@ -194,13 +205,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         }
       ],
       "verified": false,
@@ -219,13 +232,15 @@
           "index": 1,
           "direction": "input",
           "name": "y",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 2,
           "direction": "input",
           "name": "x",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         }
       ],
       "verified": false,
@@ -244,7 +259,8 @@
           "index": 1,
           "direction": "input",
           "name": "boolean",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "error_cluster_status": true
         }
       ],
       "python_code": {

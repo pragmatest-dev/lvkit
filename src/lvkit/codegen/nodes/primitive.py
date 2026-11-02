@@ -32,7 +32,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
-from ..error_flow import merge_errors
+from ..error_flow import error_occurred, merge_errors
 from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
@@ -345,6 +345,8 @@ def _build_input_map(
     # function's other inputs (``in_<index>``).
     behavior_written: set[int] = set()
     expandable_indices: set[int] = set()
+    # Inputs that take only the status of an error cluster wired to them.
+    status_inputs: set[int] = set()
     if resolved and resolved.terminals:
         for rt in resolved.terminals:
             if rt.direction == TerminalDirection.INPUT:
@@ -355,6 +357,8 @@ def _build_input_map(
                     behavior_written.add(rt.index)
                 if getattr(rt, "expandable", False):
                     expandable_indices.add(rt.index)
+                if rt.error_cluster_status:
+                    status_inputs.add(rt.index)
 
     # The catalog terminal each node terminal repeats, for a node resized to its
     # array types.
@@ -416,6 +420,14 @@ def _build_input_map(
                     ctx,
                 )
             resolved_value = value
+            # An error cluster wired to an input that takes only its status
+            # passes whether an error occurred (a warning is not one).
+            if (
+                laid_out_slot.get(term_index, term_index) in status_inputs
+                and ctx.graph is not None
+                and ctx.graph.terminal_fed_by_error_cluster(term_id)
+            ):
+                resolved_value = error_occurred(value)
         elif default_value is not None:
             resolved_value = default_value
         elif term.is_error_cluster:
