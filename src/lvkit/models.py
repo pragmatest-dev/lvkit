@@ -1062,10 +1062,12 @@ class Tunnel(BaseModel):
 
 
 class PropertySegment(BaseModel):
-    """One step of a property row's path: its name and PropItemCode."""
+    """One step of a property row's path: its name, PropItemCode and declared
+    type (the ``TypeID(n)`` text of ``dataTypeDesc``; None when absent)."""
 
     name: str
     code: int
+    data_type_desc: str | None = None
 
 
 class PropertyDef(BaseModel):
