@@ -184,7 +184,7 @@ def test_instances_of_one_malleable_vi_in_a_caller_share_its_file() -> None:
         "MeasurementServerTests.lvlib:Create Connection Cluster.vim",
         "MeasurementServerTests.lvlib:"
         "One Session Two Pins One Instrument Two Sites - Digital.vi",
-        "NI Session Management niDigital.lvlib:Get Connections.vi",
+        "NI Session Management niDigital.lvlib:Get Connections - NPin MConn.vi",
     ]
     assert "Instance:" not in text
 

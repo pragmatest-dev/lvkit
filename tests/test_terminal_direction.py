@@ -4,6 +4,10 @@ it in the catalog's connector-pane order."""
 
 from __future__ import annotations
 
+import pytest
+
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import VINode
 from lvkit.graph.op_walk import _subvi_ports
 from lvkit.models import TerminalDirection
 from lvkit.primitive_resolver.models import PrimitiveTerminal
@@ -25,12 +29,18 @@ def test_catalog_terminals_read_the_same_values() -> None:
     )
 
 
-def test_a_catalog_only_dependency_shows_its_ports_in_pane_order() -> None:
-    """``DAQmx Start Task.vi`` is not loaded; describe reads its catalog entry."""
+def test_a_catalog_only_dependency_shows_its_ports_in_pane_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``DAQmx Start Task.vi`` is not loaded; describe reads its catalog entry.
+    The call records no terminals here, so no port has a type."""
     recorded = "<vilib>/DAQmx/configure/task.llb/DAQmx Start Task.vi"
     entry = get_resolver().resolve_recorded(recorded)
     assert entry is not None
-    ports = _subvi_ports(None, None, recorded)  # type: ignore[arg-type]
+    graph = InMemoryVIGraph()
+    monkeypatch.setattr(graph, "loaded_callee_key", lambda node: None)
+    call = VINode(id="c", vi_path="caller.vi", qualified_path=recorded)
+    ports = _subvi_ports(graph, call)
     assert ports is not None
     ins, outs = ports
     assert [p.name for p in ins] == [
@@ -38,5 +48,5 @@ def test_a_catalog_only_dependency_shows_its_ports_in_pane_order() -> None:
         for t in sorted(entry.terminals, key=lambda t: t.index or 0)
         if t.direction is TerminalDirection.INPUT
     ]
-    assert [(p.name, p.type) for p in ins] == [("task in", "Refnum")]
-    assert [(p.name, p.type) for p in outs] == [("task out", "Refnum")]
+    assert [(p.name, p.type) for p in ins] == [("task in", None)]
+    assert [(p.name, p.type) for p in outs] == [("task out", None)]

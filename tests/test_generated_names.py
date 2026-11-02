@@ -287,7 +287,7 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     assert _unresolved_relative_imports(package) == []
     source = _module_named(package, "session_reservation/session_reservation.py")
     assert (
-        "is_dvr_valid(dvr_valid_in=self.__session_and_driver_infos[0].dvr_valid)"
+        "is_dvr_valid(dvr_valid_in=self.__data_dvr[0].dvr_valid)"
     ) in source.read_text()
 
 

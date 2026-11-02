@@ -343,11 +343,20 @@ def add_control(
 def own_by_class(loaded: Loaded, class_name: str) -> None:
     """The callee is a method of the class ``class_name``, whose file sits in the
     callee's folder."""
-    from lvkit.graph.node_kinds import EdgeRel, NodeType
+    from lvkit.graph.membership import ListedMethod
+    from lvkit.graph.node_kinds import NodeType
 
     graph = loaded.graph
     class_key = str(Path(loaded.callee).with_name(class_name))
     graph._dep_graph.add_node(class_key, node_type=NodeType.CLASS)  # noqa: SLF001
-    graph._dep_graph.add_edge(class_key, loaded.callee, rel=EdgeRel.OWNS)  # noqa: SLF001
+    listed = ListedMethod(
+        scope="public",
+        is_static=False,
+        is_accessor=False,
+        accessor_field=None,
+        must_override=False,
+        must_call_parent=False,
+    )
+    graph._record_members(class_key, {loaded.callee: listed})  # noqa: SLF001
     graph._vi_display_names[loaded.callee] = f"{class_name}:{CALLEE_NAME}"  # noqa: SLF001
     graph._vi_display_names[class_key] = class_name  # noqa: SLF001

@@ -82,6 +82,7 @@ from lvkit.graph.models import (
 )
 from lvkit.models import VIKind
 from lvkit.parser.metadata import _parse_lvsr_properties, parse_vi_metadata
+from tests.helpers import vi_key
 
 
 class TestParseLvsrProperties:
@@ -692,7 +693,7 @@ def _skip_if_missing(path: Path) -> None:
 def _context_for(path: Path) -> VIContext:
     g = InMemoryVIGraph()
     g.load_vi(str(path), mode=LoadMode.NONE)
-    vi_name = g.resolve_vi_name(path.name)
+    vi_name = vi_key(g, path.name)
     return g.get_vi_context(vi_name)
 
 
@@ -797,7 +798,7 @@ class TestVIPropertiesCorpus:
 
         g = InMemoryVIGraph()
         g.load_vi(str(PASSWORD_PROTECTED_VI), mode=LoadMode.NONE)
-        vi_name = g.resolve_vi_name(PASSWORD_PROTECTED_VI.name)
+        vi_name = vi_key(g, PASSWORD_PROTECTED_VI.name)
         text = describe_vi(g, vi_name)
         assert "## Properties" in text
         assert "lock_state: password_protected" in text
@@ -813,7 +814,7 @@ class TestVIPropertiesCorpus:
 
         g = InMemoryVIGraph()
         g.load_vi(str(PASSWORD_PROTECTED_VI), mode=LoadMode.NONE)
-        vi_name = g.resolve_vi_name(PASSWORD_PROTECTED_VI.name)
+        vi_name = vi_key(g, PASSWORD_PROTECTED_VI.name)
         d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         assert d["properties"]["lock_state"] == "password_protected"
         assert d["properties"]["execution"]["reentrancy"] == "preallocated_clone"

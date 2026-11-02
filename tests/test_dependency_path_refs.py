@@ -17,6 +17,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import AnyGraphNode
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import vi_key
 
 DAQMX_CALLER_VI = Path(
     ".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi"
@@ -80,7 +81,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
 def test_vilib_iuses_carry_qualified_path(daqmx_graph):
     """DAQmx (vilib) iuses carry qualified_path via the LIbd/BDHP parser fix."""
     g = daqmx_graph
-    vn = g.resolve_vi_name("DAQ AO.vi")
+    vn = vi_key(g, "DAQ AO.vi")
     top = g.top_level_nodes(vn)
     paths = [
         op.qualified_path

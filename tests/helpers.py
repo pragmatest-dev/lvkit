@@ -329,3 +329,67 @@ def error_cluster_type() -> Any:
             ClusterField(name="source", type=primitive("String")),
         ],
     )
+
+
+def vi_key(graph, text: str) -> str:
+    """The key of the one VI of ``graph`` that ``text`` names: a key, a
+    qualified name, or a file name. A test's way to say which VI it loaded."""
+    if text in graph._vi_nodes:
+        return text
+    leaf = text.rsplit(":", 1)[-1]
+    for matches in (
+        lambda d: d.get("qname") == text,
+        lambda d: d.get("name") == text,
+        lambda d: ":" in text and d.get("name") == leaf,
+    ):
+        keys = [k for k, d in graph._dep_graph.nodes(data=True) if matches(d)]
+        if len(keys) == 1:
+            return keys[0]
+        if keys:
+            raise AssertionError(f"{text!r} matches several VIs: {sorted(keys)}")
+    folded = [
+        k
+        for k, d in graph._dep_graph.nodes(data=True)
+        if (d.get("qname") or "").casefold() == text.casefold()
+    ]
+    return folded[0] if len(folded) == 1 else text
+
+
+def with_file_keys(lv_type, keys: dict[str, str]):
+    """A copy of ``lv_type`` (and its fields, elements and values) whose class or
+    typedef types carry ``file_key``, taken from ``keys`` by the name the type
+    spells (compared without regard to case): the tie a loaded VI makes through
+    its link records, written out for a handmade graph."""
+    import dataclasses
+
+    if lv_type is None:
+        return None
+    folded = {name.casefold(): key for name, key in keys.items()}
+    changes: dict = {}
+    name = lv_type.classname or lv_type.typedef_name
+    if name and name.casefold() in folded:
+        changes["file_key"] = folded[name.casefold()]
+    for attr in ("element_type", "value_type"):
+        inner = getattr(lv_type, attr)
+        if inner is not None:
+            changes[attr] = with_file_keys(inner, keys)
+    if lv_type.pane:
+        changes["pane"] = tuple(
+            dataclasses.replace(slot, type=with_file_keys(slot.type, keys))
+            for slot in lv_type.pane
+        )
+    if lv_type.fields:
+        changes["fields"] = [
+            dataclasses.replace(f, type=with_file_keys(f.type, keys))
+            for f in lv_type.fields
+        ]
+    return dataclasses.replace(lv_type, **changes)
+
+
+def key_graph_types(graph, keys: dict[str, str]) -> None:
+    """Give every class and typedef type on the terminals of ``graph``'s nodes
+    its ``file_key`` (``with_file_keys``)."""
+    for _, data in graph._graph.nodes(data=True):
+        node = data.get("node")
+        for terminal in getattr(node, "terminals", None) or ():
+            terminal.lv_type = with_file_keys(terminal.lv_type, keys)

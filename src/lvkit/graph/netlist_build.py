@@ -127,6 +127,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
     correlate_property_terminals,
+    is_void_slot,
     selector_frame_values,
 )
 from .operations import frame_key
@@ -272,14 +273,14 @@ def _disambiguate_cross_group_names(components: list[NetlistComponent]) -> None:
 
 def _build_class_context(
     graph: InMemoryVIGraph,
-    ctx: VIContext,
+    vi_key: str,
 ) -> ClassContext | None:
     """The JSON IR's class-context shape -- the shared
     ``queries.collect_class_context`` returned DIRECTLY (no netlist-local
     wrapper dataclass). describe.py's ``## Class`` section
     (``_describe_class_context``) builds on the SAME collector, so the two
     surfaces can't drift on what "the class context" means."""
-    return collect_class_context(graph, ctx)
+    return collect_class_context(graph, vi_key)
 
 
 def _fp_terminal_uid(t: Terminal) -> str | None:
@@ -1204,7 +1205,7 @@ def _is_real_terminal(t: Terminal) -> bool:
     ``render/``) so Phase A's "keep every terminal" doesn't surface pane
     geometry noise that was never a genuine terminal.
     """
-    return not (t.lv_type is not None and t.lv_type.type_descriptor() == "Void")
+    return not is_void_slot(t.lv_type)
 
 
 def _ordered_real_terminals_gn(
@@ -2421,7 +2422,7 @@ def _build_components_gn(
         assert isinstance(rep, VINode)
         key = graph.call_qualified_name(rep) or rep.name
         assert key is not None
-        ports = _subvi_ports(graph, graph.loaded_callee_key(rep), rep.qualified_path)
+        ports = _subvi_ports(graph, rep)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
@@ -2503,7 +2504,6 @@ def _build_dependency_manifest(
     interface from the graph. Empty only when the VI has no dependencies --
     never a guess, never a filesystem re-resolution.
     """
-    vi_name = graph.resolve_vi_name(vi_name)
     assemblies = [
         NetlistDependency(
             kind=DependencyKind.ASSEMBLY, qualified=a.qualified, path=None
@@ -2521,7 +2521,7 @@ def _build_dependency_manifest(
 
     # Shown relative to the project of the VI's own path (its identity: the
     # original a copy stands for).
-    own = Path(graph.resolve_vi_name(vi_name))
+    own = Path(vi_name)
     rel_base = project_root(own) if own.is_absolute() else Path.cwd()
 
     # The files this VI's variable nodes refer to -- a Global VI through its global
@@ -2623,7 +2623,6 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
     (inputs/outputs/constants/connector pattern/properties/health) come from
     ``get_vi_context``.
     """
-    vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
     flat = _walk_flat_gn(graph, vi_name)
@@ -2714,7 +2713,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         components=components,
         properties=ctx.properties,
         health=ctx.health,
-        class_context=_build_class_context(graph, ctx),
+        class_context=_build_class_context(graph, vi_name),
         connector_pane=connector_pane,
         dependencies=dependencies,
     )

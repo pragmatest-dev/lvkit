@@ -83,6 +83,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 from ..models import (
+    SCALAR_TYPE_DESCRIPTOR,
     ClusterField,
     DisableStructureKind,
     EnumValue,
@@ -330,11 +331,11 @@ def _reconstruct_named_type(
     NAME (memoized, cycle-safe -- the in-progress placeholder is stashed in
     ``memo`` before recursing into its own fields/members). Every real
     footnote entry's def text always starts with ``Enum{``/``Ring{``/
-    ``Cluster{`` -- ``lvnet_named_stem`` (the module side) only ever
-    contributes a footnote name for those three ``LVType`` kinds, and each
-    one's OWN ``lvnet_type_lossless_def`` dispatch is keyed on that same
-    kind -- so any other shape here is a genuine reconstruction gap, raised
-    rather than guessed at.
+    ``Cluster{``, or is a scalar token (a scalar typedef) --
+    ``lvnet_named_stem`` (the module side) only contributes a footnote name
+    for those ``LVType`` kinds, and each one's OWN ``lvnet_type_lossless_def``
+    dispatch is keyed on that same kind -- so any other shape here is a
+    genuine reconstruction gap, raised rather than guessed at.
     """
     if name in memo:
         return memo[name]
@@ -357,9 +358,29 @@ def _reconstruct_named_type(
             lv, def_text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, memo
         )
         return lv
+    scalar = _scalar_named_type(name, entry)
+    if scalar is not None:
+        memo[name] = scalar
+        return scalar
     raise LvnetReconstructError(
         f"'types :' entry {name!r} has an unexpected def shape: {def_text!r}"
     )
+
+
+def _scalar_named_type(name: str, entry: ParsedTypeDef) -> LVType | None:
+    """The scalar typedef a ``<Name> = <scalar token>`` footnote entry defines
+    (``IEColor = U32``); None when the def text is not a scalar token. The
+    underlying type is the first one whose descriptor is that token."""
+    token = entry.def_text
+    for underlying, descriptor in SCALAR_TYPE_DESCRIPTOR.items():
+        if descriptor == token:
+            return LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type=underlying,
+                typedef_name=name,
+                typedef_path=entry.path,
+            )
+    return None
 
 
 def _reconstruct_type_ref(

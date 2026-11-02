@@ -254,15 +254,14 @@ def test_an_unreadable_control_dependency_is_a_problem_with_pylabview_s_reason(
 
 
 def test_an_unreadable_private_data_control_is_one_problem_on_the_control(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
 ) -> None:
     graph = InMemoryVIGraph()
     cls_key = str((tmp_path / "C.lvclass").resolve())
     graph._add_stub(cls_key, NodeType.CLASS, "C.lvclass", None, None, None)
     ctl = tmp_path / "C.ctl"
     ctl.write_bytes(b"not a labview file")
-    monkeypatch.setattr(graph, "_find_private_data_ctl", lambda *a: ctl)
-    cls = SimpleNamespace(name="C", private_data_url="C.ctl")
+    cls = SimpleNamespace(name="C", private_data_url="C.ctl", private_data_path=None)
     graph._load_private_data_ctl(cls_key, cls, tmp_path / "C.lvclass")  # type: ignore[arg-type]
     assert graph.problems([cls_key]) == []
     (problem,) = graph.problems()
@@ -279,7 +278,7 @@ def test_a_parse_failure_on_a_control_is_an_lvkit_error_not_an_unreadable_file(
     def parse_bug(*args: object, **kwargs: object) -> None:
         raise ValueError("parser bug")
 
-    monkeypatch.setattr("lvkit.graph.loading.parse_type_map_rich", parse_bug)
+    monkeypatch.setattr("lvkit.graph.loading.parse_vi", parse_bug)
     graph = InMemoryVIGraph()
     key = graph.load_typedef(ctl)
     (problem,) = graph.problems([key])

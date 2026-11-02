@@ -48,7 +48,6 @@ class OperationsMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
-        def resolve_vi_name(self, vi_name: str) -> str: ...
         def loaded_callee_key(self, node: VINode) -> str | None: ...
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
         def get_operation_order(
@@ -76,7 +75,6 @@ class OperationsMixin:
         includes every top-level node the old manual scan did, via the
         identical ``op_kind in allowed_kinds and parent is None`` filter).
         """
-        vi_name = self.resolve_vi_name(vi_name)
         nodes: list[AnyGraphNode] = []
         for uid in self.get_operation_order(vi_name, extra_kinds=extra_kinds):
             if uid not in self._graph:

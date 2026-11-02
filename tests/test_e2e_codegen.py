@@ -24,6 +24,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
 from lvkit.pipeline import create_import_resolver
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import vi_key
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -83,6 +84,7 @@ def assert_no_garbage(code: str, vi_name: str) -> None:
 
 def _generate(graph: InMemoryVIGraph, vi_name: str) -> str:
     """Generate Python code for a VI via the full pipeline."""
+    vi_name = vi_key(graph, vi_name)
     ctx = graph.get_vi_context(vi_name)
     return build_module(ctx, vi_name, graph=graph)
 
@@ -326,26 +328,38 @@ class TestIPESDeleteLine:
 
     def test_graph_has_ipes_operation(self, delete_line_graph):
         """Parser → graph → InPlaceNode with boundary children."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes_nodes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes_nodes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )
         assert len(ipes_nodes) >= 1, "Expected at least one IPES"
 
     def test_ipes_has_decompose_and_recompose(self, delete_line_graph):
         """IPES must have decompose and recompose boundary children."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )[0]
         decompose, recompose = _ipes_decompose_recompose(
-            delete_line_graph, self.VI_NAME, ipes
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), ipes
         )
         assert len(decompose) >= 1
         assert len(recompose) >= 1
 
     def test_decompose_has_agg_and_list_terminals(self, delete_line_graph):
         """Decompose op must have agg input + list outputs."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )[0]
         decompose, _recompose = _ipes_decompose_recompose(
-            delete_line_graph, self.VI_NAME, ipes
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), ipes
         )
         dec = decompose[0]
         agg = [t for t in dec.terminals if t.nmux_role == "agg"]
@@ -395,7 +409,7 @@ class TestClassPrivateDataNmux:
         graph = InMemoryVIGraph()
         graph.load_vi(str(GET_TESTS_RUN_VI))
 
-        vi_name = "TestResult.lvclass:GetTestsRun.vi"
+        vi_name = vi_key(graph, "TestResult.lvclass:GetTestsRun.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -421,7 +435,7 @@ class TestClassPrivateDataNmux:
         graph = InMemoryVIGraph()
         graph.load_vi(str(TESTRESULT_INIT_VI))
 
-        vi_name = "TestResult.lvclass:TestResult_Init.vi"
+        vi_name = vi_key(graph, "TestResult.lvclass:TestResult_Init.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -461,7 +475,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -484,7 +498,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
 
@@ -527,7 +541,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
 

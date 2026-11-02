@@ -159,13 +159,13 @@ def type_attributes(
     graph: InMemoryVIGraph, lv_type: LVType | None, caller_vi_key: str | None
 ) -> ClassAttributes | None:
     """The attributes of the class a wire of type ``lv_type`` carries, found among
-    the calling VI's own links, for a Bundle/Unbundle By Name or In Place Element
+    the calling VI's own records, for a Bundle/Unbundle By Name or In Place Element
     on its private data; ``None`` for a wire that is not a loaded class. Only the
     class's own VIs reach its private data (its storage is private), so a node
     in any other VI is an lvkit error."""
     if lv_type is None:
         return None
-    key = graph.class_type_key(lv_type, caller_vi_key)
+    key = graph.class_type_key(lv_type)
     if key is None:
         return None
     _require_own_class(graph, key, caller_vi_key, "Its private data")
@@ -290,7 +290,7 @@ def _receivers(
     inputs, _, outputs, _ = graph.vi_interface(vi_key)
 
     def is_class(t: Terminal) -> bool:
-        return graph.is_class_wire(t.lv_type, vi_key, class_key)
+        return graph.is_class_wire(t.lv_type, class_key)
 
     return (
         next((t for t in inputs if is_class(t)), None),
@@ -480,9 +480,7 @@ def check_private_access(
     written in the class body where Python finds the name; anything else is an
     lvkit error."""
     if is_private(name):
-        _require_own_class(
-            graph, class_key, caller_key, f"The private member '{name}'"
-        )
+        _require_own_class(graph, class_key, caller_key, f"The private member '{name}'")
 
 
 def member_reference(

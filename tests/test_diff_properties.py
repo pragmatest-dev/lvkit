@@ -49,6 +49,7 @@ from lvkit.graph.models import (
     VIHealth,
     VIProperties,
 )
+from tests.helpers import vi_key
 
 # Same real, permissively-licensed VI ``test_diff.py`` uses as VI_A -- any
 # loadable VI works here since we overwrite its properties/health facets
@@ -61,7 +62,7 @@ VI_PATH = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=False)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 

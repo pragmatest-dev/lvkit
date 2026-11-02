@@ -17,6 +17,7 @@ from lvkit.parser.models import (
 from lvkit.parser.nodes.case import _apply_one_table
 from lvkit.parser.vi import _process_element_terminals
 from tests.conftest import SAMPLES_ROOT
+from tests.helpers import vi_key
 
 
 def _invoke_node(terms: list[tuple[str, int]]) -> ET.Element:
@@ -102,7 +103,7 @@ def test_gif_read_unpack_error_case_reads_no_error_and_error() -> None:
         pytest.skip("corpus VI not present")
     graph = InMemoryVIGraph()
     graph.load_vi(vi)
-    text = describe_vi(graph, graph.resolve_vi_name(vi.name))
+    text = describe_vi(graph, vi_key(graph, vi.name))
     assert 'Frame "No Error":' in text
     assert 'Frame "Error":' in text
     assert "-2147483648" not in text

@@ -34,7 +34,7 @@ from ..num_format import format_numeric_const
 from ..parser.constants import NMUX_NAMED_LANE_NODE_CLASSES
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
-from .models import Constant
+from .models import Constant, VINode
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -174,7 +174,7 @@ def _nmux_field_sources(
                 agg.lv_type.classname,
                 graph,
             )
-        dep_fields = graph.get_type_fields(agg.lv_type, caller_vi_key=vi_name) or []
+        dep_fields = graph.get_type_fields(agg.lv_type) or []
     return own_fields, dep_fields
 
 
@@ -438,9 +438,7 @@ def selector_frame_values(
         # alone is "Error"; a frame that stores no value is the default.
         status = 0 if frame.is_no_error else 1
         codes = [
-            r
-            for r in frame.selector_ranges
-            if not (r.is_single and r.start == status)
+            r for r in frame.selector_ranges if not (r.is_single and r.start == status)
         ]
         listed = [f"Error {_format_ranges(codes, str)}"] if codes else []
         if frame.is_no_error:
@@ -520,72 +518,102 @@ class ComponentPort:
     """One named, typed port on a component's declared interface."""
 
     name: str
-    type: str
+    # None when neither the callee nor the call records the port's type.
+    type: str | None
+
+
+def _type_text(lv_type: LVType | None) -> str:
+    """A port's type as lvkit writes it; ``Any`` when none is known."""
+    return lv_type.type_descriptor() if lv_type else "Any"
+
+
+def is_void_slot(lv_type: LVType | None) -> bool:
+    """Whether a terminal's type is ``Void``: the type the Function type a caller
+    records gives a pane position with no parameter of the callee
+    (``labview-binary-format.md``)."""
+    return lv_type is not None and lv_type.type_descriptor() == "Void"
+
+
+def _recorded_type(lv_type: LVType | None) -> str | None:
+    """The type a call records for a terminal, None when it records none (no
+    type, or a ``Void`` slot)."""
+    if lv_type is None or is_void_slot(lv_type):
+        return None
+    return lv_type.type_descriptor()
 
 
 def _subvi_ports(
-    graph: InMemoryVIGraph,
-    callee_key: str | None,
-    recorded_path: str | None,
+    graph: InMemoryVIGraph, call: VINode
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
-    """Typed (inputs, outputs) port list for a called SubVI.
+    """Typed (inputs, outputs) port list for the SubVI ``call`` calls.
 
-    ``callee_key`` is the loaded callee's ``vi_key`` (see
-    ``InMemoryVIGraph.loaded_callee_key``): its resolved front-panel signature
-    is used. Without one, an unloaded vilib ref falls back to the resolver's
-    terminal layout (looked up by the path the call records, ``recorded_path``).
-    Returns ``None`` when neither is available -- callers decide how to render
-    that (bare name, or an empty-port declaration), never fabricate ports.
+    A loaded callee (``InMemoryVIGraph.loaded_callee_key``) gives its resolved
+    front-panel signature. Without one, a vi.lib call's ports are the catalog's
+    terminals (looked up by the path the call records) at their pane
+    positions, each typed by what the call records at that position (no type
+    when it records none), plus each terminal the call records at a position
+    the catalog does not place, named by its position. A catalog terminal with
+    no direction is placed by the call's terminal at its position; one with no
+    position cannot be placed and is left out. Returns ``None`` when neither
+    source is available -- callers decide how to render that (bare name, or an
+    empty-port declaration), never fabricate ports.
     """
+    callee_key = graph.loaded_callee_key(call)
     if callee_key is not None:
         sctx = graph.get_vi_context(callee_key)
         ins = [
-            ComponentPort(
-                name=t.name or str(t.index),
-                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
-            )
+            ComponentPort(name=t.name or str(t.index), type=_type_text(t.lv_type))
             for t in sctx.inputs
         ]
         outs = [
-            ComponentPort(
-                name=t.name or str(t.index),
-                type=t.lv_type.type_descriptor() if t.lv_type else "Any",
-            )
+            ComponentPort(name=t.name or str(t.index), type=_type_text(t.lv_type))
             for t in sctx.outputs
         ]
         return ins, outs
 
-    entry = _get_vilib_resolver().resolve_recorded(recorded_path)
+    entry = _get_vilib_resolver().resolve_recorded(call.qualified_path)
     if entry is not None and entry.terminals:
-        # str(t.type): the vilib resolver's terminal type is frequently
-        # unset for real entries (e.g. niDigital.* instrument handles) --
-        # ``str(None) == "None"`` reproduces the exact text the old
-        # f-string-based signature rendered, so non-verbose output (which
-        # still calls through here) is byte-identical to before this
-        # module existed.
-        # In the catalog's connector-pane order (a terminal it gives no index
-        # last, in its listed order).
-        ordered = sorted(
-            entry.terminals,
-            key=lambda t: (t.index is None, t.index if t.index is not None else 0),
-        )
-        ins = [
-            ComponentPort(name=t.name, type=str(t.type))
-            for t in ordered
-            if t.direction == TerminalDirection.INPUT
-        ]
-        outs = [
-            ComponentPort(name=t.name, type=str(t.type))
-            for t in ordered
-            if t.direction == TerminalDirection.OUTPUT
-        ]
-        return ins, outs
+        recorded = {t.index: t for t in call.terminals}
+        # (position, direction, name, type) of every port, catalog first.
+        placed: dict[int, tuple[TerminalDirection, str, str | None]] = {}
+        for t in entry.terminals:
+            if t.index is None or t.index in placed:
+                continue
+            own = recorded.get(t.index)
+            direction = t.direction or (own.direction if own else None)
+            if direction is None:
+                continue
+            placed[t.index] = (
+                direction,
+                t.name,
+                _recorded_type(own.lv_type) if own else None,
+            )
+        for index, own in recorded.items():
+            if index not in placed and _recorded_type(own.lv_type) is not None:
+                placed[index] = (
+                    own.direction,
+                    own.name or str(index),
+                    _recorded_type(own.lv_type),
+                )
+        ports: dict[TerminalDirection, list[ComponentPort]] = {
+            TerminalDirection.INPUT: [],
+            TerminalDirection.OUTPUT: [],
+        }
+        for index in sorted(placed):
+            direction, name, type_text = placed[index]
+            ports[direction].append(ComponentPort(name=name, type=type_text))
+        return ports[TerminalDirection.INPUT], ports[TerminalDirection.OUTPUT]
     return None
 
 
 def _render_ports(ins: list[ComponentPort], outs: list[ComponentPort]) -> str:
     """``"(a: T, b: U) -> (c: V)"`` -- ASCII-only, shared by describe's
     ``## Dependencies`` line and netlist's ``## Components`` declaration."""
-    in_str = ", ".join(f"{p.name}: {p.type}" for p in ins)
-    out_str = ", ".join(f"{p.name}: {p.type}" for p in outs)
+    in_str = ", ".join(_port_text(p) for p in ins)
+    out_str = ", ".join(_port_text(p) for p in outs)
     return f"({in_str}) -> ({out_str})"
+
+
+def _port_text(port: ComponentPort) -> str:
+    """``name: Type``, or the name alone when its type is not known."""
+    return port.name if port.type is None else f"{port.name}: {port.type}"

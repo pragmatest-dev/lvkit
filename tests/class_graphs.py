@@ -17,16 +17,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, key_graph_types
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
@@ -209,7 +209,16 @@ class Project:
         )
         self.graph._vi_display_names[key] = f"{name}.lvclass"  # noqa: SLF001
         self.classes[name] = key
+        self._record_types()
         return key
+
+    def _record_types(self) -> None:
+        """Tie every class type on the VIs' terminals to its class, as a loaded VI
+        does through its link records."""
+        key_graph_types(
+            self.graph,
+            {f"{name}.lvclass": key for name, key in self.classes.items()},
+        )
 
     def _register(self, key: str, recipe: Recipe, display: str) -> VIContext:
         context, nodes = recipe(key)
@@ -246,32 +255,25 @@ class Project:
         Definition folder of that property."""
         key = self.key_of(cls, vi)
         class_key = self.classes[cls]
-        context = self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
+        self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
         self.graph._dep_graph.nodes[class_key]["method_paths"][  # noqa: SLF001
             f"{vi}.vi"
         ] = key
-        role: PropertyRole | None = None
-        if property_name is not None:
-            role = property_role(
-                context.inputs,
-                context.outputs,
-                lambda t, cls=cls: bool(
-                    t.lv_type and t.lv_type.classname == f"{cls}.lvclass"
-                ),
-            )
-        self.graph._add_ownership_edge(  # noqa: SLF001
-            class_key,
-            key,
+        # Listed in the class's file, as a loaded class records it; the
+        # ``owns`` edge follows (``graph/membership.py``).
+        listed = self.graph.listed_members(class_key)
+        listed[key] = ListedMethod(
             scope=scope,
-            is_accessor=property_name is not None,
-            accessor_type=role.value if role else None,
-            accessor_field=property_name,
             is_static=static,
+            is_accessor=property_name is not None,
+            accessor_field=property_name,
             must_override=False,
             must_call_parent=False,
         )
+        self.graph._record_members(class_key, listed)  # noqa: SLF001
         self.members[key] = class_key
         self.vis[f"{cls}.{vi}"] = key
+        self._record_types()
         return key
 
     def add_vi(self, vi: str, recipe: Recipe) -> str:
@@ -280,6 +282,7 @@ class Project:
         self._register(key, recipe, f"{vi}.vi")
         self.free.append(key)
         self.vis[vi] = key
+        self._record_types()
         return key
 
     def generate(self, gaps: list[Gap] | None = None) -> Package:

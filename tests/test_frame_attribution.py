@@ -22,7 +22,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.graph.op_walk import _format_error_cluster
 from lvkit.models import LVType
-from tests.helpers import error_cluster_type
+from tests.helpers import error_cluster_type, vi_key
 
 IN_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
@@ -83,7 +83,7 @@ class TestConstructionAttribution:
     def test_in_vi_has_frame_attributed_constants(self):
         graph = InMemoryVIGraph()
         graph.load_vi(str(IN_VI), mode=LoadMode.NONE)
-        vi_name = graph.resolve_vi_name(IN_VI.name)
+        vi_name = vi_key(graph, IN_VI.name)
 
         consts = graph.get_constants(vi_name)
         attributed = [c for c in consts if c.parent is not None]

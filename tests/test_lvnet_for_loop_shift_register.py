@@ -137,7 +137,7 @@ def test_the_generated_function_returns_the_register_value(
 ) -> None:
     views = _views(tmp_path, listed=listed)
     context = views.graph.get_vi_context(views.vi)
-    source = build_module(context, "T.vi", graph=views.graph)
+    source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
     assert namespace["t"]().result == 10  # type: ignore[operator]

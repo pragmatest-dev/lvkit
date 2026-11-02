@@ -21,7 +21,7 @@ from ..models import (
 )
 from ..parser.node_types import get_display_name
 from ..path_value import is_path_text
-from ..vi_files import is_vi_file, strip_vi_extension
+from ..vi_files import strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
 from .models import (
@@ -55,7 +55,6 @@ from .netlist_build import (
     sequence_local_read_gn,
     trace_source_gn,
 )
-from .node_kinds import EdgeRel
 from .op_walk import (
     _const_value_str,
     _render_ports,
@@ -102,7 +101,6 @@ def describe_vi(
     node-first wiring body) is a SEPARATE output entirely -- see
     ``lvkit.graph.netlist`` and the CLI's ``describe --format lvnet``.
     """
-    vi_name = graph.resolve_vi_name(vi_name)
     ctx = graph.get_vi_context(vi_name)
 
     lines: list[str] = []
@@ -152,7 +150,7 @@ def describe_vi(
     lines.extend(_describe_off_pane_front_panel(ctx, verbose))
 
     # Class context: when this VI is a .lvclass method
-    lines.extend(_describe_class_context(graph, ctx))
+    lines.extend(_describe_class_context(graph, vi_name))
 
     # Constants: show actual values. Constants nested inside a structure
     # are shown with their frame (in Control Flow below), not here.
@@ -201,9 +199,7 @@ def describe_vi(
             lines.append(f"  (.NET unreadable: {reason})")
         for name, call in sorted(subvi_callees.items()):
             desc = _get_subvi_description(graph.catalog_path(call))
-            ports = _subvi_ports(
-                graph, graph.loaded_callee_key(call), call.qualified_path
-            )
+            ports = _subvi_ports(graph, call)
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
             if sig:
@@ -579,33 +575,31 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
 
 def _describe_class_context(
     graph: InMemoryVIGraph,
-    ctx: VIContext,
+    vi_key: str,
 ) -> list[str]:
     """Describe the owning class when this VI is a .lvclass method.
 
-    Surfaces the class's parent, fields, and sibling methods -- context an
-    agent needs to write a method body but which is absent from the VI's
-    own dataflow. Returns an empty list for non-class VIs.
+    Surfaces the class's parent, fields, and methods -- context an agent needs
+    to write a method body but which is absent from the VI's own dataflow.
+    The methods are ``class_methods``: the class's own (what its file lists),
+    each override marked with the ancestor it overrides, then its ancestors'
+    public and protected methods marked with the ancestor they come from.
+    Returns an empty list for non-class VIs.
 
     Renders ``queries.collect_class_context`` -- the SAME collector
     ``netlist._build_class_context`` wraps for the JSON IR -- so the two
     surfaces can't drift on what "the class context" means. ``fields``/
     ``methods`` (the class's private-data fields and sibling method names)
     aren't part of that shared context (netlist has no use for them) and are
-    still gathered here directly.
+    gathered here directly.
     """
-    cc = collect_class_context(graph, ctx)
-    if cc is None:
+    cc = collect_class_context(graph, vi_key)
+    class_key = graph.owning_class_key(vi_key)
+    if cc is None or class_key is None:
         return []
 
-    fields = graph.get_class_fields(cc.owning_class) or []
-    siblings = sorted(
-        {
-            t.split(":")[-1]
-            for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-            if e.get("rel") == EdgeRel.OWNS and is_vi_file(t)
-        }
-    )
+    fields = graph.get_class_fields(class_key) or []
+    methods = graph.class_methods(class_key)
 
     lines = ["## Class", f"  {cc.owning_class}"]
     if cc.parent:
@@ -618,8 +612,15 @@ def _describe_class_context(
         lines.append("  fields:")
         for f in fields:
             lines.append(f"    {f.name}: {type_label(f.type)}")
-    if siblings:
-        lines.append(f"  methods: {', '.join(siblings)}")
+    if methods:
+        lines.append("  methods:")
+        for m in methods:
+            origin = (
+                f" ({m.origin.value} {graph.vi_display_name(m.ancestor)})"
+                if m.ancestor is not None
+                else ""
+            )
+            lines.append(f"    {m.name}{origin}")
     # This method's own item properties -- terse, only when non-default.
     if cc.scope:
         lines.append(f"  scope: {cc.scope}")

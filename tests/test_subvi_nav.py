@@ -21,6 +21,7 @@ import pytest
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
+from tests.helpers import vi_key
 
 # Lives in the same directory as its SubVI calls (Get Tag Content.vi, Get
 # Children.vi, Get Attributes.vi, Parse XML.vi, Draw Tree from XML.vi) — the
@@ -44,7 +45,7 @@ def _render(path: Path) -> str:
         graph.load_vi(path, mode=LoadMode.NONE)
     except Exception as exc:  # pragma: no cover - corpus load gaps
         pytest.skip(f"failed to load {path}: {exc}")
-    vi = graph.resolve_vi_name(path.name)
+    vi = vi_key(graph, path.name)
     svg = render_vi(graph, vi)
     if svg is None:
         pytest.skip("sample lacks required diagram geometry")

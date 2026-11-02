@@ -25,6 +25,7 @@ from lvkit.graph.netlist import (
     render_lvnet,
 )
 from lvkit.load_mode import LoadMode
+from tests.helpers import vi_key
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _GOLDEN_VI = _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi"
@@ -42,7 +43,7 @@ def _load() -> tuple[InMemoryVIGraph, str]:
         LoadMode.MINIMAL,
         layout=False,
     )
-    vi_name = graph.resolve_vi_name(_GOLDEN_VI.name)
+    vi_name = vi_key(graph, _GOLDEN_VI.name)
     return graph, vi_name
 
 

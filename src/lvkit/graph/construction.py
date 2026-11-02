@@ -342,17 +342,15 @@ class ConstructionMixin:
         def _enrich_type(
             self,
             _parsed_type: ParsedType | None,
+            _file_key: str,
         ) -> LVType | None: ...
-        def resolve_vi_name(self, _vi_name: str) -> str: ...
         def catalog_path_of(
             self,
             _interface_key: str | None,
             _qualified_path: str | None,
             _caller: str,
         ) -> str | None: ...
-        def with_class_levels(
-            self, _lv_type: LVType | None, _caller_vi_key: str | None = None
-        ) -> LVType | None: ...
+        def with_class_levels(self, _lv_type: LVType | None) -> LVType | None: ...
 
     @staticmethod
     def _enrich_nmux_terminals(
@@ -508,13 +506,13 @@ class ConstructionMixin:
 
             term_info = bd.terminal_info.get(fp_term.uid)
             if term_info and term_info.parsed_type:
-                lv_type = self._enrich_type(term_info.parsed_type)
+                lv_type = self._enrich_type(term_info.parsed_type, vi_key)
 
             if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
             lv_type = _control_ring_type(lv_type, ctrl)
-            lv_type = self.with_class_levels(lv_type, vi_key)
+            lv_type = self.with_class_levels(lv_type)
 
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
@@ -603,9 +601,9 @@ class ConstructionMixin:
             lv_type = None
             term_info = bd.terminal_info.get(const.uid)
             if term_info and term_info.parsed_type:
-                lv_type = self._enrich_type(term_info.parsed_type)
+                lv_type = self._enrich_type(term_info.parsed_type, vi_key)
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
-            lv_type = self.with_class_levels(lv_type, vi_key)
+            lv_type = self.with_class_levels(lv_type)
 
             _, decoded_value, display_value, unwritable = decode_constant(
                 const, lv_type=lv_type
@@ -726,7 +724,7 @@ class ConstructionMixin:
                 if t_info.parent_uid == node.uid:
                     lv_type = None
                     if t_info.parsed_type:
-                        lv_type = self._enrich_type(t_info.parsed_type)
+                        lv_type = self._enrich_type(t_info.parsed_type, vi_key)
                     raw_terms.append((term_uid, t_info, lv_type))
 
             # Get known terminal layout for index matching.
@@ -1258,11 +1256,11 @@ class ConstructionMixin:
         if ctrl.lv_type is not None and not (
             ctrl.lv_type.underlying_type or ""
         ).startswith("TypeID"):
-            lv_type = self._enrich_type(_lvtype_to_parsed(ctrl.lv_type))
+            lv_type = self._enrich_type(_lvtype_to_parsed(ctrl.lv_type), vi_key)
         if lv_type is None:
             lv_type = control_type_to_lvtype(ctrl.control_type)
         lv_type = _control_ring_type(lv_type, ctrl)
-        lv_type = self.with_class_levels(lv_type, vi_key)
+        lv_type = self.with_class_levels(lv_type)
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
@@ -1350,9 +1348,7 @@ class ConstructionMixin:
         for call_term in gnode.terminals:
             callee_t = None
             if call_term.index is not None and call_term.index >= 0:
-                callee_t = callee_term_map.get(
-                    (call_term.index, call_term.direction)
-                )
+                callee_t = callee_term_map.get((call_term.index, call_term.direction))
             else:
                 # idx=-1: match by elimination — find unmatched callee
                 # terminal with same direction
@@ -1540,10 +1536,7 @@ class ConstructionMixin:
             if hasattr(gnode, "prim_id") and gnode.prim_id:
                 prim_resolved = resolve_primitive(
                     prim_id=gnode.prim_id,
-                    node_slots={
-                        (t.index, t.direction)
-                        for t in gnode.terminals
-                    },
+                    node_slots={(t.index, t.direction) for t in gnode.terminals},
                 )
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
@@ -1666,7 +1659,7 @@ class ConstructionMixin:
             # Outer terminal
             outer_lv_type = None
             if outer_ti and outer_ti.parsed_type:
-                outer_lv_type = self._enrich_type(outer_ti.parsed_type)
+                outer_lv_type = self._enrich_type(outer_ti.parsed_type, vi_key)
 
             outer_terminal = TunnelTerminal(
                 id=q_outer_uid,
@@ -1690,7 +1683,7 @@ class ConstructionMixin:
             # Inner terminal
             inner_lv_type = None
             if inner_ti and inner_ti.parsed_type:
-                inner_lv_type = self._enrich_type(inner_ti.parsed_type)
+                inner_lv_type = self._enrich_type(inner_ti.parsed_type, vi_key)
 
             # Correlate this inner tunnel to its owning case frame by
             # position: the Nth inner tunnel for a given outer_uid belongs
@@ -1807,7 +1800,7 @@ class ConstructionMixin:
                 q_uid = self._qid(vi_key, uid)
                 lv_type = None
                 if ti.parsed_type:
-                    lv_type = self._enrich_type(ti.parsed_type)
+                    lv_type = self._enrich_type(ti.parsed_type, vi_key)
 
                 structure_terminals.append(
                     Terminal(

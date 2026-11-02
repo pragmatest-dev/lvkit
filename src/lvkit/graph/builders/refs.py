@@ -286,7 +286,9 @@ def _global_vi_ref(node: GRefNode, ctx: GraphBuildContext) -> GlobalVIRef:
             "the block-diagram link table, so its Global VI is unknown"
         )
     return GlobalVIRef(
-        qualified_name=ref.qualified_name, path_tokens=tuple(ref.path_tokens)
+        qualified_name=ref.qualified_name,
+        path_tokens=tuple(ref.path_tokens),
+        key=ctx.iuse_to_callee_key.get(node.uid),
     )
 
 
@@ -296,7 +298,7 @@ def _check_global_control(
     """Compare the control the node records with the control the loaded Global VI
     has at the same position of its front-panel control list, and report a
     mismatch: the Global VI changed since this VI last saw it."""
-    key = ctx.mixin._dep_key_for_ref(ref.qualified_name, ctx.vi_name)
+    key = ref.key
     if key is None or key not in ctx.graph:
         return
     global_node = ctx.graph.nodes[key].get("node")

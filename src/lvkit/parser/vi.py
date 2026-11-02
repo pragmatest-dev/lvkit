@@ -155,6 +155,7 @@ from .nodes import (
 from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
+from .typedef_ties import tie_typedef_records
 from .utils import (
     decode_xml_entities_to_bytes,
     extract_caption,
@@ -428,28 +429,32 @@ def _parse_metadata(
 
     # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
     # from LabVIEW's link tables (the decoded LIvi/LIbd/LIfp records and the
-    # _LIvi/_LIbd/_LIfp PTH0 records pylabview left raw) — a leaf -> path
-    # INDEX the loader consults to give the type-derived class/typedef deps a
-    # recorded path, making the closure path-driven and
-    # identical on web and desktop. Kept SEPARATE from dependency_refs (never
-    # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
+    # _LIvi/_LIbd/_LIfp PTH0 records pylabview left raw), each with its record
+    # kind: the loader takes the VI's class and typedef dependencies from these
+    # records, by path, identically on web and desktop.
     link_path_refs: list[ParsedDependencyRef] = []
-    # One ref per name the records give a recorded path: two records of one
-    # file can name it differently (one omitting the caller's own owner).
+    # One ref per record kind and name the records give a recorded path: two
+    # records of one file can name it differently (one omitting the caller's
+    # own owner).
     seen_refs: set[tuple[str | None, ...]] = set()
     recorded_refs = parse_xml_link_path_refs(main_root, owning_libraries)
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
         if link_bin.exists():
-            recorded_refs.extend(parse_link_path_refs(link_bin, owning_libraries))
+            recorded_refs.extend(
+                parse_link_path_refs(link_bin, owning_libraries, link_version)
+            )
     for ref in name_records_by_path(recorded_refs):
-        key = (ref.qualified_name, ref.name, *ref.path_tokens)
+        key = (ref.record, ref.qualified_name, ref.name, *ref.path_tokens)
         if key not in seen_refs:
             seen_refs.add(key)
             link_path_refs.append(ref)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
+    link_path_refs = tie_typedef_records(
+        link_path_refs, main_xml, getattr(type_map, "flat_ids", {})
+    )
 
     return ParsedVIMetadata(
         qualified_name=qualified_name,

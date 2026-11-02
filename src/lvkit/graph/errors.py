@@ -20,7 +20,7 @@ class DependencyFileError(ConversionGap):
 
 
 class AmbiguousVIReferenceError(DependencyFileError):
-    """A bare name/qname lookup (``resolve_vi_name``) matched two or more
+    """A bare name/qname lookup (by the index) matched two or more
     on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
     not duplicate copies of the same VI -- or a recorded path's folder holds
     several files whose names differ from the recorded one only in case.

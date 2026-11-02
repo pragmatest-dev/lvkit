@@ -340,20 +340,22 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     call graph, whose edges are now the ``kind='vi'`` node spine: each SubVI-call
     node's ``callee_path``, the indexed file its caller recorded (see
     ``query.resolve_node_callee_paths``). Keyed on VI path, so it classifies even
-    the many VIs whose ``qualified_name`` is NULL. 194 uncalled of 491, incl. the
+    the many VIs whose ``qualified_name`` is NULL. 195 uncalled of 491, incl. the
     JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
     uncalled. Keyed on VI path, so dynamic-dispatch overrides and
     Call-By-Reference targets read as statically uncalled — order-invariant.
     (Ground truth: ``docs/_internal/mcp-evals.md`` Q18, confirmed 2026-08-17.)
 
-    194, not the 181 a search by file name gave: 13 methods of TestCase,
+    195, not the 181 a search by file name gave: 13 methods of TestCase,
     TextTestRunner and _TextTestResult are called only by VIs (the Ant plugin,
     the LabVIEW 8.2 Merge Errors example) that record them at the toolkit's
     installed ``<vilib>/addons/_JKI Toolkits/VI Tester/...`` path, or inherit
     them through a parent class recorded there; the source copies are not at
-    that path, so those calls are to missing VIs."""
+    that path, so those calls are to missing VIs. ``Prototype/.../MyNewVI.vi``
+    is uncalled too: it claims ``MyClass.lvclass``, which does not list it, so
+    the dispatch call to that class's ``MyNewVI.vi`` is to a missing method."""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[194]]
+    assert total.rows == [[195]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[14]]

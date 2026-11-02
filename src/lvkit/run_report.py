@@ -76,6 +76,13 @@ class ProblemKind(str, Enum):
     # label part, the flat type's Label, the connector pane's names); it is
     # named ``control_<uid>``. A note: the VI is read whole.
     UNLABELED_CONTROL = "control without a label"
+    # A VI and a class or library disagree on whether the VI is its member: the
+    # VI claims a container whose file does not list it (LabVIEW: "This VI
+    # claims to be part of a library, but that library does not claim to own
+    # this VI"), or a container lists a VI that claims another owner. The
+    # container's list decides: the VI is a member only when it is listed. A
+    # note: both files are read whole.
+    MEMBERSHIP = "membership"
 
 
 class Outcome(str, Enum):
@@ -89,11 +96,13 @@ class Outcome(str, Enum):
 # How the summary counts each kind of note.
 _NOTE_PHRASES = {
     ProblemKind.FOUND_ELSEWHERE: (
-        "file(s) loaded from the VI search path, not from the path their caller "
-        "records"
+        "file(s) loaded from the VI search path, not from the path their caller records"
     ),
     ProblemKind.UNLABELED_CONTROL: (
         "control(s) record no label and are named control_<uid>"
+    ),
+    ProblemKind.MEMBERSHIP: (
+        "VI(s) and a class or library disagree on whether the VI is its member"
     ),
 }
 
@@ -119,8 +128,13 @@ class Problem:
     def is_note(self) -> bool:
         """Whether this is a note: the run went right, and the user may want to
         know (a file found on the VI search path, not at its recorded path; a
-        control that records no label)."""
-        return self.kind in (ProblemKind.FOUND_ELSEWHERE, ProblemKind.UNLABELED_CONTROL)
+        control that records no label; a VI and a class or library that
+        disagree on its membership)."""
+        return self.kind in (
+            ProblemKind.FOUND_ELSEWHERE,
+            ProblemKind.UNLABELED_CONTROL,
+            ProblemKind.MEMBERSHIP,
+        )
 
     @property
     def line(self) -> str:

@@ -15,7 +15,7 @@ from lvkit.graph.netlist_json import netlist_to_dict
 from lvkit.graph.op_walk import stamp_nmux_lane_names
 from lvkit.load_mode import LoadMode
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
-from tests.helpers import register_nodes
+from tests.helpers import register_nodes, vi_key
 
 _SAMPLES = Path(".lvkit/cache/samples")
 _VI = "events.vi"
@@ -88,7 +88,7 @@ def _graph(root: Path, relative: str) -> tuple[InMemoryVIGraph, str]:
         pytest.skip(f"{vi} not present")
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi), LoadMode.MINIMAL, layout=False)
-    return graph, graph.resolve_vi_name(vi.name)
+    return graph, vi_key(graph, vi.name)
 
 
 def _event_data_outputs(graph: InMemoryVIGraph, vi_name: str) -> list[list[str | None]]:

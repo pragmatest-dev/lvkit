@@ -830,7 +830,7 @@ def _event_data_glyph(
     fields = [
         f
         for _path, f in _flatten_fields(
-            graph.get_type_fields(agg.lv_type, caller_vi_key=node.vi_path) or []
+            graph.get_type_fields(agg.lv_type) or []
             if agg is not None and agg.lv_type is not None
             else []
         )

@@ -3,6 +3,10 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A class's methods are what its file lists, in every view** — describe's `## Class` appears for every method however the class was loaded, and lists its ancestors' public and protected methods as `inherited from <Ancestor>` and an override as `overrides <Ancestor>`.
+- **A VI that claims a class or library whose file does not list it is not a member, and is a note in LabVIEW's words (the run stays Complete)** — `this VI claims to be part of …, but that class does not claim to own this VI`; a dispatch call to it is a missing method.
+- **A class is named by the library chain its own file records** (`NI.Lib.ContainingLib`), never by how a caller spells it.
+- **A class's fields carry their full types** — its private-data control, kept inside the `.lvclass`, is read like any `.ctl`: JKI `TestResult` `Errors: [error{test, error}]`, not `[?]`; a class whose private data is a Data Value Reference shows that one field (`Data DVR`), as its Bundle/Unbundle By Name does.
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.

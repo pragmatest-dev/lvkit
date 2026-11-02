@@ -2,7 +2,7 @@
 
 Methods: get_inputs, get_outputs, get_constants, get_wires,
 get_operation_order, get_dataflow_graph (test-only), get_vi_context,
-get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub,
+get_subvi_calls, list_vis, get_vi_source_path, is_stub,
 get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 """
 
@@ -15,13 +15,13 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ..class_property import property_role
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
-from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
 from .models import (
     AnyGraphNode,
@@ -33,7 +33,6 @@ from .models import (
     Label,
     LabelNode,
     MethodAccessInfo,
-    MethodOverrideInfo,
     PolyInfo,
     SharedVariableNode,
     StructureNode,
@@ -54,7 +53,11 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
+
+if TYPE_CHECKING:
+    from .membership import ListedMethod
 from .recorded_paths import RecordedPaths, resolve_against
+from .type_records import TypeRecords, resolve_name, resolve_type
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -101,9 +104,6 @@ class QueryMixin:
     _stubs: set[str]
     _recorded: RecordedPaths
     _poly_info: dict[str, PolyInfo]
-    _qualified_aliases: dict[str, str]
-    _name_to_keys: dict[str, list[str]]
-    _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
@@ -120,57 +120,35 @@ class QueryMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def has_parallel_branches(self, vi_name: str) -> bool: ...
-        def get_class_fields(
-            self,
-            classname: str,
-            caller_vi_key: str | None = None,
-        ) -> list[ClusterField] | None: ...
-        def _dep_key_for_ref(
-            self, ref: str, caller_vi_key: str | None = None
-        ) -> str | None: ...
         def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
-        def class_type_key(
-            self, lv_type: LVType, caller_vi_key: str | None = None
-        ) -> str | None: ...
+        def class_type_key(self, lv_type: LVType) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
-        def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None: ...
         def key_label(self, key: str) -> str: ...
+        def listed_members(
+            self, container_key: str
+        ) -> dict[str, ListedMethod | None]: ...
 
     # === Dependency Graph Queries ===
 
-    def resolve_vi_name(self, vi_name: str) -> str:
-        """Resolve any VI reference to its canonical ``vi_key`` (source path).
+    def type_records_of(self, key: str) -> TypeRecords | None:
+        """The class, typedef and library records the VI or control at ``key``
+        stored when it loaded (``LoadingMixin._store_type_records``); None when
+        it stored none (a stub, a file never loaded)."""
+        if key not in self._dep_graph:
+            return None
+        records: TypeRecords | None = self._dep_graph.nodes[key].get("type_records")
+        return records
 
-        A ``vi_key`` is a VI's identity: the canonical source-path string it was
-        loaded under (see ``_load_vi_recursive``). This accepts a ``vi_key``
-        (returned as-is), a qualified name (``Lib.lvclass:VI.vi``), a
-        differently-cased alias, or a bare filename, and maps it through the
-        name/qname reverse indexes. When a name/qname maps to MORE THAN ONE key
-        -- genuine on-disk duplicates (a VI copied into a build-output tree, or
-        parallel plugin trees) -- the pick is DETERMINISTIC (see
-        ``_pick_vi_key``), never first-filesystem-order (that was the confluence
-        bug). Returns the input unchanged when nothing matches.
-        """
-        # Already a canonical key.
-        if vi_name in self._vi_nodes:
-            return vi_name
-        # A differently-cased / library reference aliased to a real key.
-        if vi_name in self._qualified_aliases:
-            return self._qualified_aliases[vi_name]
-        # Qualified name -> key(s).
-        keys = self._qname_to_keys.get(vi_name)
-        if keys:
-            return self._pick_vi_key(keys)
-        # Bare filename -> key(s).
-        keys = self._name_to_keys.get(vi_name)
-        if keys:
-            return self._pick_vi_key(keys)
-        # A qualified ref we didn't index under that exact qname: try its leaf.
-        if ":" in vi_name:
-            keys = self._name_to_keys.get(vi_name.rsplit(":", 1)[-1])
-            if keys:
-                return self._pick_vi_key(keys)
-        return vi_name
+    def recorded_type_key(self, file_key: str, lv_type: LVType) -> str | None:
+        """The dependency key of the file the class or typedef ``lv_type`` denotes
+        in the VI or control at ``file_key`` (``resolve_type``): tied once, when
+        the file loaded, through its link records; None when none gives it."""
+        return resolve_type(file_key, lv_type, self.type_records_of)
+
+    def recorded_name_key(self, file_key: str, name: str) -> str | None:
+        """The dependency key of the file the qualified name ``name`` (a project
+        library's) denotes in the VI at ``file_key`` (``resolve_name``)."""
+        return resolve_name(file_key, name, self.type_records_of)
 
     def loaded_callee_key(self, node: VINode) -> str | None:
         """The ``vi_key`` of the VI whose connector pane a SubVI call node shows
@@ -185,11 +163,12 @@ class QueryMixin:
 
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives
-        the VI it calls (``VINode.callee_key``: a loaded file's own name, a
-        stub's recorded one), so a call and the ``uses :`` entry of its callee
-        spell one identity one way; the caller's record when the call has no
-        callee in the graph."""
-        key = node.callee_key
+        the VI it calls (``VINode.interface_key``: the instance a polymorphic
+        call runs, else the callee; a loaded file's own name, a stub's recorded
+        one), so a call and the ``uses :`` entry of its callee spell one
+        identity one way; the caller's record when the call has no callee in
+        the graph."""
+        key = node.interface_key
         if key is not None and key in self._dep_graph:
             qname = self._dep_graph.nodes[key].get("qname")
             if qname:
@@ -226,81 +205,21 @@ class QueryMixin:
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
         bare filename) for titles/headers. DISPLAY ONLY — never a lookup key. The
-        identity remains the ``vi_key`` (path) from :meth:`resolve_vi_name`; this
-        maps that key to its qname so the viewer shows the qualified name instead
-        of the absolute source path. Falls back to the resolved key's basename,
-        then the input, when no display name was recorded."""
-        key = self.resolve_vi_name(vi_name)
-        display = self._vi_display_names.get(key)
+        identity remains the ``vi_key`` (path); this maps that key to its qname so
+        the viewer shows the qualified name instead of the absolute source path.
+        Falls back to the key's basename when no display name was recorded."""
+        display = self._vi_display_names.get(vi_name)
         if display:
             return display
-        return Path(key).name or vi_name
-
-    def _pick_vi_key(self, keys: list[str]) -> str:
-        """Deterministically choose among duplicate ``vi_key``s that share a
-        name/qname. Prefer the richest copy -- a stripped built copy loses
-        control labels, so it carries fewer labelled terminals than its source
-        twin, and fewer graph nodes -- then the lexically-smallest key. Path is
-        the identity; this only fires for genuine on-disk duplicates, and the
-        final key tie-break makes it filesystem-order-independent.
-
-        GUARD: before collapsing, group the candidates by the loader-tracked
-        qualified identity (``_vi_display_names`` -- each VI's own LIBN/LIBH
-        owner chain, stamped once at load time; see ``_load_vi_recursive``).
-        Two keys sharing that qname are genuinely the SAME VI saved to two
-        paths (a stripped build copy alongside its source twin, or a parallel
-        plugin tree) -- the collapse above is correct for those. Two keys with
-        DIFFERENT qnames are provably DIFFERENT VIs that merely share a bare
-        filename -- routine under LabVIEW dynamic dispatch, where every
-        class's override of a method is literally ``run.vi`` (e.g.
-        ``TestCase.lvclass:run.vi`` vs ``TestSuite.lvclass:run.vi``).
-        Silently collapsing those via "richest wins" previously picked one
-        arbitrarily and rendered/diffed/described the WRONG VI, so this
-        raises a named, actionable error instead of guessing.
-        """
-        if len(keys) == 1:
-            return keys[0]
-
-        by_qname: dict[str, list[str]] = {}
-        for key in keys:
-            by_qname.setdefault(self._vi_display_names.get(key, key), []).append(key)
-        if len(by_qname) > 1:
-            groups = "; ".join(
-                f"{self.key_label(qname)!r}: "
-                f"{sorted(self.key_label(k) for k in group_keys)}"
-                for qname, group_keys in sorted(by_qname.items())
-            )
-            raise AmbiguousVIReferenceError(
-                "Ambiguous VI reference -- this name matches multiple "
-                f"DISTINCT VIs (different qualified identity): {groups}. "
-                "Load/reference the VI by its full source path instead of "
-                "its bare filename or an unqualified name."
-            )
-
-        def rank(key: str) -> tuple[int, int, str]:
-            uids = self._vi_nodes.get(key) or set()
-            labelled = 0
-            if key in self._graph:
-                node = self._graph.nodes[key].get("node")
-                if node is not None:
-                    labelled = sum(
-                        1
-                        for t in getattr(node, "terminals", ())
-                        if getattr(t, "name", None)
-                    )
-            # Richest first (more labelled terminals, then more nodes); the key
-            # itself is the final, deterministic tie-break.
-            return (-labelled, -len(uids), key)
-
-        return min(keys, key=rank)
+        return Path(vi_name).name or vi_name
 
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
         return list(self._vi_nodes.keys())
 
     def get_vi_source_path(self, vi_name: str) -> Path | None:
-        """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
-        return self._source_paths.get(self.resolve_vi_name(vi_name))
+        """Get the source file path for the VI at ``vi_name`` (a vi_key)."""
+        return self._source_paths.get(vi_name)
 
     def library_folders(self) -> dict[str, tuple[Path, ...]]:
         """The folders each pseudo path names, in the order they are tried."""
@@ -389,7 +308,7 @@ class QueryMixin:
         """Get a VI's block-diagram geometry, or None if the graph was not
         loaded with ``layout=True``. Populated from the same parse (no second
         heap read); the renderer consumes this instead of re-reading the XML."""
-        return self._layouts.get(self.resolve_vi_name(vi_name))
+        return self._layouts.get(vi_name)
 
     def is_stub(self, key: str) -> bool:
         """Check if a dep-graph node (a VI, class, typedef, ...) is a stub
@@ -407,6 +326,16 @@ class QueryMixin:
         if key not in self._dep_graph:
             return None
         return self._recorded.path(key)
+
+    def embedding_vi(self, key: str) -> str | None:
+        """The key of the loaded VI that holds ``key`` inside its own file: a
+        dependency whose recorded path is a place in a VI file (an instance
+        saved in its caller, such as an Express VI) has no file of its own.
+        None for a dependency that is a file."""
+        parent = str(Path(key).parent)
+        if parent != key and parent in self._dep_graph and parent not in self._stubs:
+            return parent
+        return None
 
     def stub_reason(self, key: str) -> str | None:
         """Why the absent dependency ``key`` is missing, when more than its
@@ -452,11 +381,8 @@ class QueryMixin:
                 if uid not in self._graph:
                     continue
                 gnode = self._graph.nodes[uid].get("node")
-                if (
-                    isinstance(gnode, VINode)
-                    and gnode.name == vi_name
-                    and gnode.id != vi_name  # Not the VI definition itself
-                ):
+                # A call to this stub: the call's own key for the VI it calls.
+                if isinstance(gnode, VINode) and gnode.interface_key == vi_name:
                     for term in gnode.terminals:
                         term_type = (
                             term.lv_type.type_descriptor() if term.lv_type else "Any"
@@ -479,7 +405,6 @@ class QueryMixin:
 
     def get_vi_dependencies(self, vi_name: str) -> list[str]:
         """Get VIs that this VI depends on (SubVIs it calls)."""
-        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
@@ -489,16 +414,15 @@ class QueryMixin:
         loaded, so ``get_vi_dependencies`` is its full dependency list. False
         for a VI loaded at ``LoadMode.NONE`` (connector pane only) and for one
         this graph never loaded."""
-        mode = self._dep_load_mode.get(self.resolve_vi_name(vi_name))
+        mode = self._dep_load_mode.get(vi_name)
         return mode is not None and mode is not LoadMode.NONE
 
-    def type_key(self, ref: str, caller_vi_key: str) -> str | None:
+    def type_key(self, lv_type: LVType) -> str | None:
         """The dependency key (file path) of the loaded class or typedef that
-        the type name ``ref`` denotes in ``caller_vi_key``, found among that
-        VI's own dependencies. ``None`` when no single loaded dependency of the
-        caller carries the name."""
-        key = self._dependency_key(ref, caller_vi_key)
-        if key is None or key in self._stubs:
+        ``lv_type`` is (``LVType.file_key``).
+        ``None`` when it denotes no loaded one."""
+        key = lv_type.file_key
+        if key is None or key not in self._dep_graph or key in self._stubs:
             return None
         if self._dep_graph.nodes[key].get("node_type") not in (
             NodeType.CLASS,
@@ -534,15 +458,13 @@ class QueryMixin:
             and self._dep_graph.nodes[key].get("node_type") == NodeType.CLASS
         )
 
-    def is_class_wire(
-        self, lv_type: LVType | None, vi_key: str, class_key: str
-    ) -> bool:
-        """Whether a wire of type ``lv_type`` in the VI ``vi_key`` carries an
-        object of the class at ``class_key``: the class the type names, found
-        among the VI's own links, is that class (never compared by name)."""
+    def is_class_wire(self, lv_type: LVType | None, class_key: str) -> bool:
+        """Whether a wire of type ``lv_type`` carries an object of the class at
+        ``class_key``: the class file the type's ``file_key`` names is that class
+        (never compared by name)."""
         if lv_type is None or lv_type.ref_type != "UDClassInst":
             return False
-        return self.class_type_key(lv_type, vi_key) == class_key
+        return self.class_type_key(lv_type) == class_key
 
     def class_child_keys(self, key: str) -> list[str]:
         """The keys of the loaded classes whose parent is the class at ``key``,
@@ -588,9 +510,10 @@ class QueryMixin:
 
     def class_member_keys(self, key: str) -> list[str]:
         """The keys of the VIs the class at ``key`` owns, in the order its file
-        lists them."""
+        lists them (``listed_members``; an ``owns`` edge is added when the
+        member loads, in any order)."""
         members = []
-        for member in self._dep_graph.successors(key):
+        for member in self.listed_members(key):
             edge = self._dep_graph.get_edge_data(key, member) or {}
             if (
                 edge.get("rel") == EdgeRel.OWNS
@@ -621,18 +544,19 @@ class QueryMixin:
 
     def global_vi_key(self, node: GlobalVariableNode) -> str | None:
         """The dependency key (the Global VI's file path) a global variable node
-        refers to, found among the calling VI's own dependencies. ``None`` when
-        no single dependency of that VI carries the node's recorded name."""
-        return self._dep_key_for_ref(node.global_vi.qualified_name, node.vi_path)
+        refers to: the file the calling VI's link record for the node names.
+        ``None`` when the dependencies were not loaded."""
+        key = node.global_vi.key
+        return key if key is not None and key in self._dep_graph else None
 
     def shared_variable_library_key(self, node: SharedVariableNode) -> str | None:
-        """The dependency key (the library's file path) the project library of a
-        Shared Variable node is found under, among the calling VI's own
-        dependencies. ``None`` when the node records no library or no single
-        dependency of that VI carries the library's name."""
+        """The dependency key (the library's file path) of the project library of
+        a Shared Variable node: the file the calling VI's own records give the
+        library's name (``recorded_type_key``). ``None`` when the node records no
+        library or no single file is found."""
         if node.library is None:
             return None
-        return self._dep_key_for_ref(node.library.qualified_name, node.vi_path)
+        return self.recorded_name_key(node.vi_path, node.library.qualified_name)
 
     def global_vi_control(
         self, node: GlobalVariableNode
@@ -704,7 +628,7 @@ class QueryMixin:
         ``/proj``, fetch these paths (the absent ones) from the workspace,
         reload, repeat until the set stops growing — with no reinvented
         dependency walk: the paths are the ones the loader itself recorded."""
-        root = self.resolve_vi_name(vi_name)
+        root = vi_name
         if root not in self._dep_graph:
             return set()
         paths: set[Path] = set()
@@ -716,7 +640,6 @@ class QueryMixin:
 
     def get_vi_dependents(self, vi_name: str) -> list[str]:
         """Get VIs that depend on this VI (VIs that call it)."""
-        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.predecessors(vi_name))
@@ -814,7 +737,7 @@ class QueryMixin:
 
     def _get_vi_nodes(self, vi_name: str) -> set[str]:
         """Get the set of node UIDs belonging to a VI."""
-        return self._vi_nodes.get(self.resolve_vi_name(vi_name), set())
+        return self._vi_nodes.get(vi_name, set())
 
     def _get_typed_node(self, uid: str) -> AnyGraphNode | None:
         """Get the typed Pydantic node model for a graph node."""
@@ -829,7 +752,6 @@ class QueryMixin:
         Returns a new DiGraph containing only nodes belonging to this VI,
         with edges between them. Used for backward compatibility.
         """
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return None
@@ -945,19 +867,18 @@ class QueryMixin:
         return ordered_interface(results, direction, gnode.connector_pattern_id)
 
     def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """The input terminals of the VI ``vi_name`` names (see
-        ``resolve_vi_name``); a caller holding a key uses ``pane_terminals``."""
+        """The input terminals of the VI at key ``vi_name``."""
         return self.pane_terminals(
-            self.resolve_vi_name(vi_name),
+            vi_name,
             TerminalDirection.INPUT,
             public_only=public_only,
         )
 
     def get_outputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """The output terminals of the VI ``vi_name`` names, in canonical
-        connector-pane order; a caller holding a key uses ``pane_terminals``."""
+        """The output terminals of the VI at key ``vi_name``, in canonical
+        connector-pane order."""
         return self.pane_terminals(
-            self.resolve_vi_name(vi_name),
+            vi_name,
             TerminalDirection.OUTPUT,
             public_only=public_only,
         )
@@ -969,9 +890,7 @@ class QueryMixin:
         loaded under exactly ``vi_key``, each in interface order: what its
         function's parameters and result fields are named from. Nothing is
         resolved by name (``pane_terminals``)."""
-        inputs = self.pane_terminals(
-            vi_key, TerminalDirection.INPUT, public_only=False
-        )
+        inputs = self.pane_terminals(vi_key, TerminalDirection.INPUT, public_only=False)
         outputs = self.pane_terminals(
             vi_key, TerminalDirection.OUTPUT, public_only=False
         )
@@ -984,23 +903,14 @@ class QueryMixin:
 
     def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]:
         """Front-panel controls not wired to the connector pane."""
-        return [
-            t
-            for t in self.get_inputs(vi_name, public_only=False)
-            if _off_pane(t)
-        ]
+        return [t for t in self.get_inputs(vi_name, public_only=False) if _off_pane(t)]
 
     def get_off_pane_outputs(self, vi_name: str) -> list[Terminal]:
         """Front-panel indicators not wired to the connector pane."""
-        return [
-            t
-            for t in self.get_outputs(vi_name, public_only=False)
-            if _off_pane(t)
-        ]
+        return [t for t in self.get_outputs(vi_name, public_only=False) if _off_pane(t)]
 
     def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -1030,7 +940,6 @@ class QueryMixin:
 
     def get_labels(self, vi_name: str) -> list[Label]:
         """Get all free labels (block-diagram comments) in a VI."""
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -1076,7 +985,6 @@ class QueryMixin:
         dataflow-topological sort as every other node instead of being
         dropped before ordering even starts.
         """
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -1145,7 +1053,6 @@ class QueryMixin:
         want external wires only); pass ``include_internal=True`` to get
         the full set, with internal edges first (legacy behavior).
         """
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if node_uids is None:
             return []
@@ -1214,7 +1121,6 @@ class QueryMixin:
         everything else. Sorted by ``_node_order_key`` for deterministic,
         byte-reproducible output (``_vi_nodes`` is a hash-randomized set).
         """
-        vi_name = self.resolve_vi_name(vi_name)
         node_uids = self._vi_nodes.get(vi_name)
         if not node_uids:
             return []
@@ -1316,34 +1222,30 @@ class QueryMixin:
         no full ``VIContext`` build. Same source ``get_vi_context`` reads
         (``_vi_properties``); for callers that only need this one facet
         (e.g. ``index/build.py``)."""
-        vi_name = self.resolve_vi_name(vi_name)
         return self._vi_properties.get(vi_name, VIProperties())
 
     def get_vi_health(self, vi_name: str) -> VIHealth:
         """The VI's Health facet (compile-health) alone -- see
         ``get_vi_properties``."""
-        vi_name = self.resolve_vi_name(vi_name)
         return self._vi_health.get(vi_name, VIHealth())
 
     def get_dotnet_assemblies(self, vi_name: str) -> VIDotNetAssemblies:
         """The .NET assemblies the VI calls, and the link records that could not
         be read."""
-        vi_name = self.resolve_vi_name(vi_name)
         return self._vi_dotnet_assemblies.get(vi_name, VIDotNetAssemblies())
 
     def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
         """The VI's OWN front-panel layout (every control, not just the
         connector-pane subset), or None when the VI is unknown or its node
         carries none."""
-        key = self.resolve_vi_name(vi_name)
-        if key not in self._graph:
+        if vi_name not in self._graph:
             return None
-        node = self._graph.nodes[key].get("node")
+        node = self._graph.nodes[vi_name].get("node")
         return node.front_panel if isinstance(node, VINode) else None
 
     def vi_is_broken(self, vi_name: str) -> bool:
         """Whether the VI was saved broken (its compile-health flags)."""
-        health = self._vi_health.get(self.resolve_vi_name(vi_name))
+        health = self._vi_health.get(vi_name)
         return health is not None and health.is_broken
 
     def get_vi_context(self, vi_name: str) -> VIContext:
@@ -1352,7 +1254,6 @@ class QueryMixin:
         Returns a VIContext with inputs, outputs, constants, etc.
         Builds from typed graph nodes.
         """
-        vi_name = self.resolve_vi_name(vi_name)
         if vi_name not in self._vi_nodes:
             return VIContext(name=vi_name)
 
@@ -1485,6 +1386,18 @@ class QueryMixin:
     # class to its method VIs carry the per-method scope/accessor info
     # parsed by ``structure.parse_lvclass()``.
 
+    def class_keys(self) -> list[str]:
+        """The keys of all loaded (non-stub) classes in the dependency graph,
+        ordered by qualified name, then key."""
+        return sorted(
+            (
+                n
+                for n, d in self._dep_graph.nodes(data=True)
+                if d.get("node_type") == NodeType.CLASS and n not in self._stubs
+            ),
+            key=lambda n: (self._dep_graph.nodes[n].get("qname", n), n),
+        )
+
     def list_classes(self) -> list[str]:
         """List all loaded (non-stub) class QNAMES in the dependency graph.
 
@@ -1502,7 +1415,7 @@ class QueryMixin:
 
         Returns None if ``vi_name`` isn't a class method VI.
         """
-        key = self._owning_class_key(self.resolve_vi_name(vi_name))
+        key = self._owning_class_key(vi_name)
         if key is None:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
@@ -1512,7 +1425,7 @@ class QueryMixin:
         None — the class's identity, for class queries that must not be
         resolved by the class's name (another file of that name may be in the
         graph)."""
-        return self._owning_class_key(self.resolve_vi_name(vi_name))
+        return self._owning_class_key(vi_name)
 
     def _owner_key(self, key: str, owner_type: NodeType) -> str | None:
         """PATH key of the ``owner_type`` node that owns ``key`` via an "owns"
@@ -1543,28 +1456,22 @@ class QueryMixin:
         ``loading.py``). Returns None if ``vi_name`` isn't a library member VI
         (or the library was never loaded).
         """
-        key = self._owner_key(self.resolve_vi_name(vi_name), NodeType.LIBRARY)
+        key = self._owner_key(vi_name, NodeType.LIBRARY)
         if key is None:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
 
-    def get_class_hierarchy(self, classname: str) -> ClassHierarchyInfo | None:
+    def get_class_hierarchy(self, class_key: str) -> ClassHierarchyInfo | None:
         """Get hierarchy info for one loaded class: parent, children,
         documented methods, and fields (own + inherited).
 
-        Returns None if ``classname`` isn't a loaded (non-stub) class node.
+        Returns None if ``class_key`` isn't a loaded (non-stub) class node.
         """
-        # Resolve the class reference to its PATH-key node (the key is the path;
-        # the caller passes a qname/name).
-        node_key = self._dep_key_for_ref(classname)
-        if (
-            node_key is None
-            or node_key in self._stubs
-            or self._dep_graph.nodes[node_key].get("node_type") != NodeType.CLASS
-        ):
+        node_key = self._class_node_key(class_key)
+        if node_key is None:
             return None
         data = self._dep_graph.nodes[node_key]
-        own_qname = data.get("qname", classname)
+        own_qname = data.get("qname", node_key)
 
         # parent_class is recorded as the bare ancestor name (no ".lvclass",
         # no library qualification — see structure._parent_from_link_info). Only
@@ -1578,17 +1485,11 @@ class QueryMixin:
             else None
         )
 
-        # Children: invert parent_class across every loaded class. Compare
-        # against the bare (unqualified) leaf of our own name, matching how
-        # parent_class is recorded. Report each child's display QNAME.
-        leaf = own_qname.rsplit(":", 1)[-1]
-        own_bare = leaf[: -len(".lvclass")] if leaf.endswith(".lvclass") else leaf
+        # Children: the loaded classes whose recorded parent is this class.
+        # Each is reported by its display QNAME.
         child_classes = sorted(
-            ndata.get("qname", node)
-            for node, ndata in self._dep_graph.nodes(data=True)
-            if ndata.get("node_type") == NodeType.CLASS
-            and node not in self._stubs
-            and ndata.get("parent_class") == own_bare
+            self._dep_graph.nodes[child].get("qname", child)
+            for child in self._child_class_keys(node_key)
         )
 
         # Methods: the loaded VIs this class owns (a stub or unresolved method
@@ -1617,30 +1518,40 @@ class QueryMixin:
         )
 
     def _class_member_keys(self, class_key: str) -> list[str]:
-        """The keys of the loaded VIs the class node ``class_key`` owns."""
+        """The keys of the loaded VIs the class node ``class_key`` owns, in the
+        order its file lists them."""
         return [
-            succ
-            for succ in self._dep_graph.successors(class_key)
-            if succ in self._vi_nodes
-            and (self._dep_graph.get_edge_data(class_key, succ) or {}).get("rel")
+            member
+            for member in self.listed_members(class_key)
+            if member in self._vi_nodes
+            and (self._dep_graph.get_edge_data(class_key, member) or {}).get("rel")
             == EdgeRel.OWNS
         ]
 
-    def _class_node_key(self, classname: str) -> str | None:
-        """Resolve a class reference to its LOADED class-node PATH key, or None
-        (stub, unresolved, or not a class). The KEY is the path; ``classname``
-        is a name, resolved via :meth:`_dep_key_for_ref`. Shared by every
-        class-attribute query so they all look up by identity, not by a name
-        that no longer keys the graph."""
-        key = self._dep_key_for_ref(classname)
+    def _child_class_keys(self, class_key: str) -> list[str]:
+        """The keys of the loaded classes whose recorded parent (``parent_key``)
+        is the class at ``class_key``."""
+        return [
+            node
+            for node, ndata in self._dep_graph.nodes(data=True)
+            if ndata.get("node_type") == NodeType.CLASS
+            and node not in self._stubs
+            and ndata.get("parent_key") == class_key
+        ]
+
+    def _class_node_key(self, class_key: str) -> str | None:
+        """``class_key`` when it is the PATH key of a LOADED class node, else
+        None (stub, unknown, or not a class). Shared by every class-attribute
+        query."""
+        key = class_key if class_key in self._dep_graph else None
         if key is None or key in self._stubs:
             return None
         if self._dep_graph.nodes[key].get("node_type") != NodeType.CLASS:
             return None
         return key
 
-    def get_class_parent(self, classname: str) -> str | None:
-        """The AUTHORITATIVE parent class of ``classname`` (bare name +
+    def get_class_parent(self, class_key: str) -> str | None:
+        """The AUTHORITATIVE parent class of the class at ``class_key`` (bare name +
         ``.lvclass``), or None if it's a root / not a loaded class node.
 
         Unlike ``get_class_hierarchy``, this does NOT gate on the parent being
@@ -1652,7 +1563,7 @@ class QueryMixin:
         paths — no spurious NULL beside the real value (the WaitOnTestComplete
         duplicate). Docs keep the link-safe, load-gated ``get_class_hierarchy``.
         """
-        key = self._class_node_key(classname)
+        key = self._class_node_key(class_key)
         if key is None:
             return None
         parent_raw = self._dep_graph.nodes[key].get("parent_class")
@@ -1660,20 +1571,20 @@ class QueryMixin:
             return parent_raw + ".lvclass"
         return None
 
-    def get_class_version(self, classname: str) -> str | None:
+    def get_class_version(self, class_key: str) -> str | None:
         """The class's ``NI.Lib.Version`` (dotted-quad string), or None if
         it's a not-loaded/stub class node or the property was absent.
 
         Straight passthrough of ``structure.LVClass.version``, recorded on
         the class node at load time (``loading.load_lvclass``).
         """
-        key = self._class_node_key(classname)
+        key = self._class_node_key(class_key)
         if key is None:
             return None
         version = self._dep_graph.nodes[key].get("version")
         return version if isinstance(version, str) else None
 
-    def get_class_ancestors(self, classname: str) -> list[str]:
+    def get_class_ancestors(self, class_key: str) -> list[str]:
         """The class's FULL ancestor chain, nearest-first, or ``[]`` if it's a
         not-loaded/stub class node or no ancestor's file resolved.
 
@@ -1682,20 +1593,20 @@ class QueryMixin:
         ``structure._build_ancestor_chain``); may be a PREFIX of the true
         chain when an ancestor's ``.lvclass`` isn't present in this checkout.
         """
-        key = self._class_node_key(classname)
+        key = self._class_node_key(class_key)
         if key is None:
             return []
         ancestors = self._dep_graph.nodes[key].get("ancestors")
         return list(ancestors) if ancestors else []
 
     def get_method_access(self, vi_name: str) -> MethodAccessInfo | None:
-        """Get access-scope info for a class method VI.
+        """Get access-scope info for a class method VI: what its class's file
+        records for it (its ``owns`` edge), and, for a property accessor whose
+        VI is loaded, its role from its connector pane.
 
-        Returns None if ``vi_name`` isn't a class method VI, or its "owns"
-        edge predates the scope/accessor attrs (should not happen for
-        anything loaded via ``load_lvclass()``).
+        Returns None if ``vi_name`` isn't a method its class lists.
         """
-        method_key = self.resolve_vi_name(vi_name)
+        method_key = vi_name
         owner_key = self._owning_class_key(method_key)
         if owner_key is None:
             return None
@@ -1703,71 +1614,21 @@ class QueryMixin:
         scope = edata.get("scope")
         if scope is None:
             return None
+        role = None
+        if edata.get("is_accessor") and method_key in self._vi_nodes:
+            inputs, _, outputs, _ = self.vi_interface(method_key)
+            role = property_role(
+                inputs, outputs, lambda t: self.is_class_wire(t.lv_type, owner_key)
+            )
         return MethodAccessInfo(
             vi_name=vi_name,
             scope=scope,
             is_accessor=bool(edata.get("is_accessor")),
-            accessor_type=edata.get("accessor_type"),
+            accessor_type=role.value if role else None,
             accessor_field=edata.get("accessor_field"),
             is_static=bool(edata.get("is_static")),
             must_override=bool(edata.get("must_override")),
             must_call_parent=bool(edata.get("must_call_parent")),
-        )
-
-    def get_method_overrides(self, vi_name: str) -> MethodOverrideInfo | None:
-        """Get bidirectional override links for a class method VI.
-
-        Matches by bare method name (e.g. "run.vi") against the immediate
-        parent class and each immediate child class. Only links to VIs that
-        are themselves documented (in ``list_vis()``). Returns None if
-        ``vi_name`` isn't a class method VI, or no override link exists in
-        either direction.
-        """
-        owner = self.get_owning_class(vi_name)
-        if owner is None:
-            return None
-        hierarchy = self.get_class_hierarchy(owner)
-        if hierarchy is None:
-            return None
-
-        # An override is the same-named method owned by the parent class or by
-        # a child class; each class's methods are the VIs it owns.
-        def _bare_name(key: str) -> str:
-            node = self._graph.nodes[key].get("node") if key in self._graph else None
-            if isinstance(node, VINode) and node.name:
-                return node.name
-            return self.vi_display_name(key).rsplit(":", 1)[-1]
-
-        bare_method = _bare_name(self.resolve_vi_name(vi_name))
-
-        def _method_of(class_qname: str) -> str | None:
-            class_key = self._dep_key_for_ref(class_qname)
-            if class_key is None:
-                return None
-            for member in self._class_member_keys(class_key):
-                if _bare_name(member) == bare_method:
-                    return member
-            return None
-
-        overrides = (
-            _method_of(hierarchy.parent_class) if hierarchy.parent_class else None
-        )
-        overridden_by = sorted(
-            (
-                found
-                for found in (_method_of(child) for child in hierarchy.child_classes)
-                if found is not None
-            ),
-            key=lambda key: (self.vi_display_name(key), key),
-        )
-
-        if overrides is None and not overridden_by:
-            return None
-
-        return MethodOverrideInfo(
-            vi_name=vi_name,
-            overrides=overrides,
-            overridden_by=overridden_by,
         )
 
 
@@ -1792,29 +1653,23 @@ class ClassContext:
 
 def collect_class_context(
     graph: InMemoryVIGraph,
-    ctx: VIContext,
+    vi_key: str,
 ) -> ClassContext | None:
-    """The owning class's context when ``ctx`` is a ``.lvclass`` method VI,
-    else None -- the single source both ``describe._describe_class_context``
-    and ``netlist._build_class_context`` build on."""
-    cls = ctx.library
-    if not cls or not cls.endswith(".lvclass"):
-        return None
-    if not graph._dep_graph.has_node(cls):
+    """The owning class's context when the VI at ``vi_key`` is a ``.lvclass``
+    method (the class its "owns" edge comes from), else None -- the single source
+    both ``describe._describe_class_context`` and
+    ``netlist._build_class_context`` build on."""
+    class_key = graph.owning_class_key(vi_key)
+    if class_key is None or graph._class_node_key(class_key) is None:
         return None
 
-    parent = graph._dep_graph.nodes[cls].get("parent_class")
-    # ctx.name is the DISPLAY bare filename (e.g. "run.vi" -- see
-    # get_vi_context's docstring comment), which collides across every
-    # same-named override in a dynamic-dispatch class hierarchy. Resolve by
-    # ctx.qualified_name (the class-qualified identity, e.g.
-    # "TestSuite.lvclass:run.vi") instead -- exact and unambiguous.
-    access = graph.get_method_access(ctx.qualified_name or ctx.name)
+    parent = graph._dep_graph.nodes[class_key].get("parent_class")
+    access = graph.get_method_access(vi_key)
     return ClassContext(
-        owning_class=cls,
+        owning_class=graph._dep_graph.nodes[class_key].get("qname", class_key),
         parent=parent,
-        version=graph.get_class_version(cls),
-        ancestors=graph.get_class_ancestors(cls),
+        version=graph.get_class_version(class_key),
+        ancestors=graph.get_class_ancestors(class_key),
         scope=access.scope if access else None,
         is_static=bool(access and access.is_static),
         must_override=bool(access and access.must_override),

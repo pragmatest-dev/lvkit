@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode
+from lvkit.models import LVType
 
 from .errors import CodeGenError
 
@@ -56,7 +57,7 @@ class ImportResolver:
         self,
         function_import: Callable[[str, str | None], NameImport],
         module_import: Callable[[str], ModuleImport],
-        type_import: Callable[[str, str | None], NameImport | None],
+        type_import: Callable[[LVType], NameImport | None],
         node_import: Callable[[str], NameImport],
         error_import: Callable[[], str],
         package_spec: Callable[[str], str],
@@ -90,11 +91,10 @@ class ImportResolver:
     def module(self, vi_name: str) -> ModuleImport:
         return self._module_import(vi_name)
 
-    def type_import(self, type_ref: str) -> NameImport | None:
+    def type_import(self, lv_type: LVType) -> NameImport | None:
         """The statement importing the class of the LabVIEW class or typedef
-        named ``type_ref``; None when the calling VI has no loaded dependency of
-        that name."""
-        return self._type_import(type_ref, self._scope)
+        ``lv_type``; None when the calling VI has no loaded file for it."""
+        return self._type_import(lv_type)
 
     def scoped(self, caller_key: str) -> ImportResolver:
         """This resolver for the VI at ``caller_key``: the classes and typedefs a
