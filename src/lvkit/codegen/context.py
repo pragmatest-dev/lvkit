@@ -41,6 +41,7 @@ from lvkit.models import (
     _is_error_cluster,
     unique_names,
 )
+from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.string_literal import quote_string
 from lvkit.type_names import ROOT_CLASS
@@ -1219,6 +1220,15 @@ def _format_constant(
     if underlying == "Picture":
         # A Picture holding drawing data raised above; what is left is empty.
         return "None"
+    if holds_handle(const.lv_type):
+        # Not a Refnum is None; a saved handle names an object of the session
+        # that saved it and has no Python meaning.
+        if value == NULL_REFNUM:
+            return "None"
+        raise ConversionGap(
+            f"The refnum constant {const.label or ''!r} holds the handle {value}, "
+            "which names an object of the LabVIEW session that saved it"
+        )
     if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":

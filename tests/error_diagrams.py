@@ -62,6 +62,9 @@ _FUNCTION = len(TYPES)
 REQUIRED, RECOMMENDED, OPTIONAL = 0x1000, 0x0800, 0x0000
 _OUTPUT_FLAG = 0x0100
 
+# innerLpTunDCO objFlags bit: auto-indexing enabled (parser/nodes/base.py).
+_INDEXING_FLAG = 0x400000
+
 # An error constant's saved value: status, code, source.
 ERROR_CONSTANT_HEX = {
     "none": "00" + "00000000" + "00000000",
@@ -151,6 +154,11 @@ class Vi:
 
     def __post_init__(self) -> None:
         self.scope = self.root
+
+    def add_type(self, type_desc: str) -> int:
+        """Add the type ``type_desc`` (a ``<TypeDesc>``) to the VI; its type id."""
+        self.extra_types.append(type_desc)
+        return len(TYPES) + len(self.extra_types) - 1
 
     def next_uid(self, count: int = 1) -> int:
         """The first of ``count`` fresh uids."""
@@ -364,9 +372,19 @@ class Vi:
         scopes: list[Scope],
         *,
         output: bool = False,
+        element_type: int | None = None,
     ) -> tuple[Tunnel, str]:
+        """A tunnel; ``element_type`` makes it an auto-indexing tunnel whose inner
+        side carries that type."""
         outer = self.next_uid(2)
         dco_uid = outer + 1
+        indexing = ""
+        if element_type is not None:
+            indexing = (
+                f'<innerLpTunDCO class="innerLpTun" uid="{self.next_uid()}">'
+                f"<objFlags>{_INDEXING_FLAG}</objFlags>"
+                f"<typeDesc>TypeID({element_type})</typeDesc></innerLpTunDCO>"
+            )
         faces = []
         for scope in scopes:
             face = self.next_uid()
@@ -380,6 +398,7 @@ class Vi:
                 type_id=type_id,
                 faces=[*faces, outer],
                 flags=1 if output else None,
+                extra=indexing,
             ),
         )
         return Tunnel(outer, faces), xml
@@ -432,11 +451,13 @@ class Vi:
         *,
         tunnels: list[tuple[int, bool]] = (),  # type: ignore[assignment]
         shift_registers: list[int] = (),  # type: ignore[assignment]
+        indexing_inputs: list[tuple[int, int]] = (),  # type: ignore[assignment]
     ) -> Structure:
         """A ``forLoop`` (count terminal ``selector``) or ``whileLoop`` (stop
         terminal ``faces[0]``, continuing while False). ``tunnels`` are
         ``(type id, is output)``; ``shift_registers`` are the registers' type
-        ids."""
+        ids; ``indexing_inputs`` are auto-indexing input tunnels, ``(array type
+        id, element type id)``, after ``tunnels`` in ``Structure.tunnels``."""
         uid = self.next_uid()
         scope = self._new_scope()
         borders: list[str] = []
@@ -460,6 +481,12 @@ class Vi:
         made = []
         for type_id, output in tunnels:
             tun, xml = self.tunnel_terminal("lpTun", type_id, [scope], output=output)
+            made.append(tun)
+            borders.append(xml)
+        for array_type, element_type in indexing_inputs:
+            tun, xml = self.tunnel_terminal(
+                "lpTun", array_type, [scope], element_type=element_type
+            )
             made.append(tun)
             borders.append(xml)
         registers = []

@@ -26,6 +26,7 @@ from ..ast_utils import (
 from ..context import CodeGenContext
 from ..error_flow import error_occurred
 from ..fragment import CodeFragment
+from . import while_indexing
 
 
 def _when_condition(
@@ -356,18 +357,28 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A While Loop's iteration terminal counts from 0; Python has no counter in
     # `while True`, so a wired one is a local that starts at 0 and steps at the
-    # end of each iteration.
+    # end of each iteration. An auto-indexing input tunnel reads the element of
+    # that counter too (``while_indexing``).
     while_counter: str | None = None
+    element_stmts: list[ast.stmt] = []
     if loop_type == "whileLoop":
         iter_term = _iteration_terminal(node)
-        if iter_term is not None and ctx.is_wired(iter_term.id):
+        indexed = while_indexing.indexing_inputs(
+            tunnels, {t.id for t in node.terminals if t.direction == "input"}
+        )
+        counted = iter_term is not None and ctx.is_wired(iter_term.id)
+        if counted or indexed:
             depth = ctx.loop_depth
             while_counter = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
-            inner_ctx.bind(iter_term.id, while_counter)
             pre_loop_stmts.append(build_assign(while_counter, ast.Constant(value=0)))
+            if counted and iter_term is not None:
+                inner_ctx.bind(iter_term.id, while_counter)
+            element_stmts = while_indexing.bind_elements(
+                indexed, term_by_id, while_counter, ctx, inner_ctx, node.id
+            )
 
     # 4. Generate inner node code
-    inner_stmts = _generate_inner(inner_nodes, inner_ctx)
+    inner_stmts = [*element_stmts, *_generate_inner(inner_nodes, inner_ctx)]
 
     # 4. Add output-tunnel writes at end of loop body: append for indexed
     # accumulators, plain assignment for last-value (indexing-disabled) tunnels.
