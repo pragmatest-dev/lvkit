@@ -352,6 +352,23 @@ class LVType:
             return self.element_type._refnum_leaf()
         return self.kind == LVTypeKind.PRIMITIVE and self.underlying_type == "Refnum"
 
+    def is_named_scalar(self) -> bool:
+        """Whether this is a typedef of a single value (a numeric, string,
+        Boolean, Path, ...): a named type with no members, so its name stands
+        for it everywhere. A class refnum keeps its class name; a refnum, Set or
+        Map typedef is described by its element and is not counted."""
+        return (
+            self.kind == LVTypeKind.PRIMITIVE
+            and self.typedef_name is not None
+            and self.underlying_type not in ("Refnum", "Set", "Map")
+        )
+
+    def scalar_descriptor(self) -> str:
+        """The scalar token of this type without its typedef name (``U32`` for
+        a typedef ``IEColor`` of a U32): what the ``types :`` footnote defines
+        the name as."""
+        return replace(self, typedef_name=None).type_descriptor(expand_named=False)
+
     def type_ref(self) -> str | None:
         """The LabVIEW name of the class or typedef this type names -- the
         reference a caller's dependencies are searched for -- or None for a type
@@ -360,7 +377,7 @@ class LVType:
         if self.kind == LVTypeKind.PRIMITIVE:
             if self.underlying_type == "Refnum":
                 return self.classname
-            return None
+            return self.typedef_name if self.is_named_scalar() else None
         if self.kind in (
             LVTypeKind.CLUSTER,
             LVTypeKind.ENUM,
@@ -517,6 +534,8 @@ class LVType:
             if self._refnum_leaf():
                 return f"DotNet refnum{{{self.dotnet_type.name}}}"
             return self.dotnet_type.name
+        if self.is_named_scalar():
+            return _strip_typedef_stem(self.typedef_name or "")
         if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
             inner = (
@@ -570,7 +589,7 @@ class LVType:
                 key = _member_descriptor(self.element_type, expand_named)
                 value = _member_descriptor(self.value_type, expand_named)
                 return f"map{{{key}: {value}}}"
-            return _SCALAR_TYPE_DESCRIPTOR.get(
+            return SCALAR_TYPE_DESCRIPTOR.get(
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
@@ -1209,7 +1228,7 @@ class EventFrame(Frame):
 # ``LVType.type_descriptor()``'s faithful text label. These read identically in
 # both contexts; String/Variant diverge (a glyph reads "abc"/"Var", a
 # faithful text label reads the full word) and stay defined separately in
-# each consumer — see ``_SCALAR_TYPE_DESCRIPTOR`` below and ``render/style.py``.
+# each consumer — see ``SCALAR_TYPE_DESCRIPTOR`` below and ``render/style.py``.
 _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
     "NumFloat64": "DBL",
     "NumFloat32": "SGL",
@@ -1233,7 +1252,7 @@ _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
 # shared numeric/Boolean/Path table plus the non-numeric tokens spelled out
 # in full (a text label reads "String"/"Variant", never the glyph
 # abbreviation "abc"/"Var" — see ``render/style.py::_TYPE_REPR`` for that).
-_SCALAR_TYPE_DESCRIPTOR: dict[str, str] = {
+SCALAR_TYPE_DESCRIPTOR: dict[str, str] = {
     **_NUMERIC_TYPE_DESCRIPTOR,
     **{name: "String" for name in STRING_TYPE_NAMES},
     "Variant": "Variant",

@@ -178,7 +178,9 @@ def test_flattened_private_data_is_read_as_the_recorded_control(
     assert fields is not None
     assert [(f.name, type_label(f.type)) for f in fields] == [
         ("pin map context", "PinMapContext{pin_map_id, sites}"),
-        ("gRPC server call", "U64"),
+        # The field is a typedef (grpcId) of a U64: a typedef of a single value
+        # keeps its name, so it reads grpcId and no longer the bare U64.
+        ("gRPC server call", "grpcId"),
     ]
 
 
