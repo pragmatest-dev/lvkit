@@ -277,6 +277,39 @@ class Vi:
         )
         return uids
 
+    def compound_arithmetic(
+        self, mode: int, output: tuple[str, int], inputs: list[tuple[str, int]]
+    ) -> dict[str, int]:
+        """A Compound Arithmetic node in the mode ``mode`` (its objFlags: And is
+        0xA0000, Or 0xB0000) with the output and inputs ``(name, type id)``, in
+        the layout a real file records (the output terminal first, its dco the
+        ``dcoAgg``, the inputs' dcos the ``dcoList``); returns terminal uids by
+        name."""
+        xml = ""
+        uids: dict[str, int] = {}
+        dcos: list[int] = []
+        for position, (name, type_id) in enumerate([output, *inputs]):
+            uid = self.next_uid(2)
+            flags = 0x20001 if position == 0 else 0x40000
+            xml += (
+                f'<SL__arrayElement class="term" uid="{uid}">'
+                f'<dco class="cpdArithDCO" uid="{uid + 1}">'
+                f"<objFlags>{flags}</objFlags>"
+                f"<typeDesc>TypeID({type_id})</typeDesc></dco></SL__arrayElement>"
+            )
+            uids[name] = uid
+            dcos.append(uid + 1)
+        listed = "".join(f'<SL__arrayElement uid="{d}" />' for d in dcos[1:])
+        uid = self.next_uid()
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="cpdArith" uid="{uid}">'
+            f"<objFlags>{mode}</objFlags>"
+            f'<termList elements="{len(dcos)}">{xml}</termList>'
+            f'<dcoList elements="{len(dcos) - 1}">{listed}</dcoList>'
+            f'<dcoAgg uid="{dcos[0]}" /></SL__arrayElement>'
+        )
+        return uids
+
     def call(
         self,
         name: str,

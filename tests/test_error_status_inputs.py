@@ -159,3 +159,49 @@ def test_and_of_two_booleans_is_unchanged(
     package = project.generate(_and_of_two_flags(project))
     assert ".status" not in package.source
     assert package.function(a=a, b=b).result is (a and b)
+
+
+COMPOUND_AND, COMPOUND_OR = 0xA0000, 0xB0000
+
+
+def _compound_of_error_and_flag(project: Project, mode: int) -> str:  # noqa: F811
+    """result = Compound Arithmetic (``mode``) of error in and flag."""
+    vi = Vi(NAME)
+    ein = vi.error_in()
+    flag = vi.control("flag", BOOL, REQUIRED)
+    result = vi.indicator("result", BOOL)
+    node = vi.compound_arithmetic(
+        mode, ("result", BOOL), [("value 0", ERR), ("value 1", BOOL)]
+    )
+    vi.wire(ein, node["value 0"])
+    vi.wire(flag, node["value 1"])
+    vi.wire(node["result"], result)
+    project.add(vi)
+    return NAME
+
+
+@pytest.mark.parametrize(
+    ("mode", "error", "flag", "expected"),
+    [
+        (COMPOUND_AND, "none", True, False),
+        (COMPOUND_AND, "error", True, True),
+        (COMPOUND_AND, "warning", True, False),
+        (COMPOUND_OR, "none", False, False),
+        (COMPOUND_OR, "error", False, True),
+        (COMPOUND_OR, "warning", False, False),
+        (COMPOUND_OR, "warning", True, True),
+    ],
+)
+def test_compound_arithmetic_takes_the_status_of_an_error_cluster(
+    project: Project,  # noqa: F811
+    mode: int,
+    error: str,
+    flag: bool,
+    expected: bool,
+) -> None:
+    """NI's Compound Arithmetic page: "If value is an error cluster, only the
+    status parameter of the error cluster passes to the input terminal." """
+    package = project.generate(_compound_of_error_and_flag(project, mode))
+    assert "error_in is not None and error_in.status" in package.source
+    result = package.function(error_in=_error_in(package, error), flag=flag)
+    assert result.result is expected

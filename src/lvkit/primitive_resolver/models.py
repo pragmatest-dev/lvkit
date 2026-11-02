@@ -137,6 +137,11 @@ class ResolvedPrimitive(BaseModel):
     # NI's page says the node runs even when an error comes in on its error in
     # (``CodeFragment.runs_on_error``).
     runs_on_error: bool = False
+    # NI's page says every input of the node takes only the status of an error
+    # cluster wired to it: a node whose inputs grow with it and have no catalog
+    # terminals (Compound Arithmetic). A fixed input says it on its own terminal
+    # (``PrimitiveTerminal.error_cluster_status``).
+    inputs_error_cluster_status: bool = False
 
 
 def _collect_icon(prim: dict) -> NodeIcon | None:

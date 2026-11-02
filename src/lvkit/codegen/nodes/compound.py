@@ -10,10 +10,12 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.primitive_resolver import get_resolver
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
 from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
 from ..context import CodeGenContext
+from ..error_flow import status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_array import replace_subarray_statements
@@ -115,7 +117,22 @@ def generate_compound_arith(
 
     output_term = outputs[0]
     output_id = output_term.id
-    boolean = _is_boolean(output_term) or any(_is_boolean(t) for t in inputs)
+    # NI: an error cluster wired to a value input passes only its status, a
+    # Boolean.
+    entry = get_resolver().resolve_by_node_type(node.node_type or "")
+    reads_status = entry is not None and entry.inputs_error_cluster_status
+    status_inputs = {
+        t.id
+        for t in inputs
+        if reads_status
+        and ctx.graph is not None
+        and ctx.graph.terminal_fed_by_error_cluster(t.id)
+    }
+    boolean = (
+        _is_boolean(output_term)
+        or any(_is_boolean(t) for t in inputs)
+        or bool(status_inputs)
+    )
     # LabVIEW And/Or/Xor are bitwise on integer operands. Only go bitwise when
     # an operand is KNOWN to be an integer; unknown/boolean stays logical (both
     # idiomatic and behaviour-preserving).
@@ -135,6 +152,8 @@ def generate_compound_arith(
     for inp in sorted_inputs:
         val = ctx.wired_input(inp.id, node)
         if val:
+            if inp.id in status_inputs:
+                val = status_read(val, inp.id, ctx)
             expr = parse_expr(val)
             if inp.inverted:
                 expr = _invert_expr(expr, boolean, operation, inp.lv_type, ctx)

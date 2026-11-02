@@ -32,7 +32,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
-from ..error_flow import error_occurred, merge_errors
+from ..error_flow import merge_errors, status_read
 from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
@@ -419,15 +419,11 @@ def _build_input_map(
                     resolved,
                     ctx,
                 )
-            resolved_value = value
-            # An error cluster wired to an input that takes only its status
-            # passes whether an error occurred (a warning is not one).
-            if (
-                laid_out_slot.get(term_index, term_index) in status_inputs
-                and ctx.graph is not None
-                and ctx.graph.terminal_fed_by_error_cluster(term_id)
-            ):
-                resolved_value = error_occurred(value)
+            resolved_value = (
+                status_read(value, term_id, ctx)
+                if laid_out_slot.get(term_index, term_index) in status_inputs
+                else value
+            )
         elif default_value is not None:
             resolved_value = default_value
         elif term.is_error_cluster:

@@ -341,6 +341,9 @@ class PrimitiveResolver:
                 icon=_collect_icon(info),
                 doc_url=info.get("doc_url"),
                 runs_on_error=info.get("runs_on_error", False),
+                inputs_error_cluster_status=info.get(
+                    "inputs_error_cluster_status", False
+                ),
             )
         return None
 

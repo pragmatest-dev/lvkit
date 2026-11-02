@@ -51,6 +51,18 @@ def error_occurred(error: str) -> str:
     return f"{error} is not None and {error}.status"
 
 
+def status_read(value: str, terminal_id: str, ctx: CodeGenContext) -> str:
+    """``value``, wired to an input NI says takes only the status of an error
+    cluster wired to it (And, Or, Not, Select's ``s``, Compound Arithmetic, …):
+    whether an error occurred when an error cluster is wired there (a warning is
+    not one), else ``value`` itself."""
+    if ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
+        terminal_id
+    ):
+        return error_occurred(value)
+    return value
+
+
 def no_error_occurred(error: str) -> str:
     """The condition a node on the error wire ``error`` runs under: no error
     occurred (no error at all, or a warning)."""
