@@ -39,6 +39,10 @@ _ERROR_CODE_TERMINALS = {
 }
 
 
+# The input of Clear Errors that names the one code to clear.
+_CLEAR_CODE = "specific_error_code_to_clear_0_all"
+
+
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate the call of a vi.lib error VI (``error_path.is_error_wire_vi``)."""
     file_name = get_resolver().catalog_file_name(ctx.catalog_path(node))
@@ -63,13 +67,12 @@ def _clear_errors(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Clear Errors: its error out is ``None``. With a specific error code wired
     (not 0), only an error of that code is cleared, and ``specific error
     cleared?`` says whether it was. It runs whatever error comes in."""
+    entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
+    if entry is None:
+        return CodeFragment.empty()
     terminals = ctx.enriched_terminals(node)
     incoming = _incoming_error(node, ctx)
-    code_in = next(
-        (t for t in terminals if t.direction == "input" and not t.is_error_cluster),
-        None,
-    )
-    code = ctx.wired_input(code_in.id, node) if code_in is not None else None
+    code = _catalog_input(node, ctx, entry, _CLEAR_CODE)
     statements: list[ast.stmt] = []
     if code is None or code == "0":
         cleared, error = "False", "None"

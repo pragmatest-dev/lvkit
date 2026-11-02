@@ -835,6 +835,7 @@ def test_clear_errors_lets_the_nodes_after_it_run(project: Project) -> None:  # 
     assert (result.result, result.error_out) == (11, None)
 
 
+@pytest.mark.parametrize("full_pane", [False, True], ids=["pane", "full pane"])
 @pytest.mark.parametrize(
     ("code", "cleared"), [(7, True), (9, False)], ids=["the code", "another code"]
 )
@@ -842,12 +843,16 @@ def test_clear_errors_with_a_specific_code_clears_only_that_code(
     project: Project,  # noqa: F811
     code: int,
     cleared: bool,
+    full_pane: bool,
 ) -> None:
+    """The code is the input the VI's pane names, not the pane's first input."""
     stubs = {
         "step_a": failing_step("step_a", code),
         "step_b": skipping_step("step_b", 10),
     }
-    package = generate(project, lambda p: C.clear_errors(p, code=7), stubs)
+    package = generate(
+        project, lambda p: C.clear_errors(p, code=7, full_pane=full_pane), stubs
+    )
     result = package.function(x=1)
     if cleared:
         assert package.stub("step_b").CALLS == [1]

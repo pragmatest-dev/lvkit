@@ -454,14 +454,21 @@ def merge_errors_in_order(project: Project) -> str:
     return _with_steps(project, vi, "Step A.vi", "Step B.vi", "Step C.vi")
 
 
-def clear_errors(project: Project, *, code: int | None = None) -> str:
+def clear_errors(
+    project: Project, *, code: int | None = None, full_pane: bool = False
+) -> str:
     """``Step A.vi`` then Clear Errors (clearing only ``code`` when given) then
-    ``Step B.vi`` on the cleared error."""
+    ``Step B.vi`` on the cleared error. ``full_pane`` adds the connector pane's
+    four unused inputs before the code input, as the VI's pane has."""
+    unused = (
+        [(f"unused {i}", i, I32, False) for i in (1, 2, 5, 6)] if full_pane else []
+    )
     vi, x, ein, result, eout = _x_error_result()
     a, b = vi.step("Step A.vi"), vi.step("Step B.vi")
     clear = vi.call(
         "Clear Errors.vi",
         [
+            *unused,
             ("specific error code to clear (0: all)", 7, I32, False),
             ("error in (no error)", 4, ERR, False),
             ("specific error cleared?", 3, BOOL, True),
