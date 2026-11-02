@@ -76,6 +76,7 @@ class VIReferenceMixin(WireOriginMixin):
         def node_type(self, key: str) -> NodeType: ...
         def _owner_key(self, key: str, owner_type: NodeType) -> str | None: ...
         def iter_nodes(self, vi_name: str) -> list[AnyGraphNode]: ...
+        def vi_label(self, path: Path | str) -> str: ...
 
     def referenced_vi(self, terminal_id: str) -> ReferencedVI:
         """The VI the VI reference arriving at ``terminal_id`` holds.
@@ -230,7 +231,9 @@ class VIReferenceMixin(WireOriginMixin):
         for key in sorted(self._vi_nodes):
             if os.path.normpath(key) == wanted:
                 return ReferencedVI(self.vi_display_name(key), key)
-        raise VIReferenceUnresolved(f"The VI at {text!r} is not loaded with this VI.")
+        raise VIReferenceUnresolved(
+            f"The VI at {self.vi_label(wanted)!r} is not loaded with this VI."
+        )
 
 
 def is_this_vi(node: AnyGraphNode) -> bool:

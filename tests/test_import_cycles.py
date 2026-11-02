@@ -16,9 +16,24 @@ PATH = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
 REF = this_vi_type()
 
 
-def opener(vi: str) -> tuple[VIContext, list[GraphNode]]:
-    """An Open VI Reference of the constant path ``Caller.vi`` (beside this VI);
-    the reference is the output ``ref``."""
+def opening(absolute: str) -> Recipe:
+    """An Open VI Reference of the constant absolute path ``absolute`` (its
+    ``/``-separated components); the reference is the output ``ref``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return opener(vi, absolute)
+
+    return build
+
+
+def opener(vi: str, absolute: str = "") -> tuple[VIContext, list[GraphNode]]:
+    """An Open VI Reference of the constant path ``Caller.vi`` beside this VI, or
+    of the absolute path ``absolute``; the reference is the output ``ref``."""
+    path = (
+        format_path(0, absolute.split("/"))
+        if absolute
+        else format_path(1, ["Caller.vi"])
+    )
     node = PrimitiveNode(
         id=f"{vi}:open",
         vi_path=vi,
@@ -36,7 +51,7 @@ def opener(vi: str) -> tuple[VIContext, list[GraphNode]]:
             outputs=[pane(vi, "output", "ref", REF, "ref", 0)],
             constants=[
                 Constant(
-                    id=f"{vi}:path", value=format_path(1, ["Caller.vi"]), lv_type=PATH
+                    id=f"{vi}:path", value=path, lv_type=PATH
                 )
             ],
             data_flow=[wire(vi, "path", "open.path"), wire(vi, "open.ref", "ref")],
@@ -90,3 +105,19 @@ def test_vis_that_import_each_other_import_inside_their_functions(
         caller = module("caller")
         assert caller.caller().ref is caller.caller
         assert module("plain").plain().ref is caller.caller
+
+
+def test_a_vi_reference_to_a_vi_not_loaded_names_it_by_its_project_path(
+    tmp_path: Path,
+) -> None:
+    """The VI path is absolute (as a diagram builds it from Current VI's Path);
+    the gap names the path a user sees, never the absolute one."""
+    missing = tmp_path / "src" / "Missing.vi"
+    project = Project(tmp_path)
+    project.add_vi("Opener", opening(missing.as_posix().lstrip("/")))
+    package = project.generate()
+    reasons = [g.reason for g in package.gaps]
+    assert reasons == [
+        "Open VI Reference: The VI at 'Missing.vi' is not loaded with this VI."
+    ]
+    assert str(tmp_path) not in package.sources["opener"]
