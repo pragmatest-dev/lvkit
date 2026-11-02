@@ -23,6 +23,7 @@ from ..builder import (
     annotated_terminals,
     build_args,
     function_body,
+    output_value,
 )
 from ..class_model import ClassModel, MethodKind, MethodShape
 from ..context import type_namer
@@ -166,15 +167,9 @@ class _MethodBuilderMixin:
             return None
         outputs = _outputs_by_index(vi_context)
         vi_node = self._graph.get_graph_node(shape.key)
-        values: list[ast.expr] = []
-        for index in shape.results:
-            out = outputs[index]
-            value = (
-                ctx.wired_input(out.id, vi_node)
-                if vi_node is not None
-                else ctx.resolve(out.id)
-            )
-            values.append(parse_expr(value) if value else ast.Constant(value=None))
+        values = [
+            output_value(outputs[index], vi_node, ctx) for index in shape.results
+        ]
         if property_accessor and len(values) == 1:
             return ast.Return(value=values[0])
         assert shape.result_class is not None

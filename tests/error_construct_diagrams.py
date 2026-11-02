@@ -67,6 +67,19 @@ def vi_error_terminals(project: Project, error_rule: int | None = RECOMMENDED) -
     return NAME
 
 
+def unwired_outputs(project: Project) -> str:
+    """A number, a string, a path and error out on the connector pane, none of
+    them wired on the diagram."""
+    vi = Vi(NAME)
+    vi.control("x", I32)
+    vi.indicator("count", I32)
+    vi.indicator("name", STR)
+    vi.indicator("where", PATH)
+    vi.error_out()
+    project.add(vi)
+    return NAME
+
+
 def subvi_call(project: Project) -> str:
     """``Step A.vi`` with error in and error out wired."""
     vi, x, ein, result, eout = _x_error_result()

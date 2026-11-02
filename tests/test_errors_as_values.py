@@ -202,6 +202,22 @@ def test_a_vi_takes_error_in_and_returns_error_out(project: Project) -> None:  #
     assert (result.result, result.error_out) == (2, None)
 
 
+def test_an_output_wired_to_nothing_returns_its_default(
+    project: Project,  # noqa: F811
+) -> None:
+    """An indicator wired to nothing returns its default value, as in LabVIEW: 0,
+    an empty string, the empty path, and no error."""
+    package = generate(project, C.unwired_outputs)
+    result = package.function(x=1)
+    assert_result_object(result, "count", "name", "where", "error_out")
+    assert (result.count, result.name, result.where, result.error_out) == (
+        0,
+        "",
+        Path(""),
+        None,
+    )
+
+
 def test_error_in_flows_to_error_out_and_a_plain_node_still_runs(
     project: Project,  # noqa: F811
 ) -> None:

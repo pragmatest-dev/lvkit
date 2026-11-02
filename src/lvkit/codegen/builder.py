@@ -19,6 +19,7 @@ from .ast_utils import (
     build_assign,
     build_result_class_name,
     build_type_checking_block,
+    control_default_expr,
     implicit_imports,
     interface_names,
     parameter_default_expr,
@@ -334,10 +335,32 @@ def _record_cycles(
             ctx.circular_nodes[op_id] = reason
 
 
+def output_value(
+    out: Terminal, vi_node: AnyGraphNode | None, ctx: CodeGenContext
+) -> ast.expr:
+    """The value a connector-pane output returns: the value wired to its
+    indicator; for an indicator wired to nothing, the indicator's default (its
+    saved default, else its type's); ``None`` for a wire whose value a gap
+    leaves unknown."""
+    # resolve() returns an EXPRESSION string (often compound, e.g.
+    # "low_000 + product" from an inlined output), so parse it into a real AST —
+    # a bare ast.Name(id=expr) is malformed and hides the variable loads from
+    # later passes (dead-code elimination then deletes the assignments the
+    # return depends on).
+    value = (
+        ctx.wired_input(out.id, vi_node) if vi_node is not None else ctx.resolve(out.id)
+    )
+    if value:
+        return parse_expr(value)
+    if ctx.is_wired(out.id):
+        return ast.Constant(value=None)
+    return control_default_expr(out)
+
+
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
     """The return of the VI's function: its result class built from the value
-    wired to each connector-pane output (``None`` for one wired to nothing);
-    nothing when the pane has no output."""
+    each connector-pane output returns (``output_value``); nothing when the pane
+    has no output."""
     outputs = vi_context.outputs
     if not outputs:
         return None
@@ -350,20 +373,10 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
     vi_node = (
         ctx.graph.get_graph_node(vi_context.name) if ctx.graph is not None else None
     )
-    keywords = []
-    for out in outputs:
-        # resolve() returns an EXPRESSION string (often compound, e.g.
-        # "low_000 + product" from an inlined output), so parse it into a real
-        # AST — a bare ast.Name(id=expr) is malformed and hides the variable
-        # loads from later passes (dead-code elimination then deletes the
-        # assignments the return depends on).
-        value = (
-            ctx.wired_input(out.id, vi_node)
-            if vi_node is not None
-            else ctx.resolve(out.id)
-        )
-        value_ast = parse_expr(value) if value else ast.Constant(value=None)
-        keywords.append(ast.keyword(arg=field_names[out.id], value=value_ast))
+    keywords = [
+        ast.keyword(arg=field_names[out.id], value=output_value(out, vi_node, ctx))
+        for out in outputs
+    ]
 
     return ast.Return(
         value=ast.Call(
