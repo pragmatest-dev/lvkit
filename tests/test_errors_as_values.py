@@ -34,6 +34,7 @@ import tests.error_construct_diagrams as C
 from lvkit.codegen.error_flow import first_error
 from lvkit.primitive_resolver import NativeError
 from lvkit.vilib_resolver import VILibResolver
+from tests.case_structure_fixture import FrameSpec
 from tests.error_diagrams import (
     REQUIRED,
     Package,
@@ -623,6 +624,22 @@ def test_an_error_case_fed_from_error_in_runs_its_error_frame(
     assert "error_in is not None and error_in.status" in package.source
     ok = package.function(x=1)
     assert (ok.result, ok.error_out) == (2, None)
+    error = package.error(7)
+    failed = package.function(x=1, error_in=error)
+    assert (failed.result, failed.error_out) == (100, error)
+
+
+def test_an_error_frame_that_stores_the_status_runs_for_an_error(
+    project: Project,  # noqa: F811
+) -> None:
+    """The Error frame stores the status 1 and is not the Default frame."""
+    package = generate(
+        project,
+        lambda p: C.error_case_panel_fed(
+            p, FrameSpec(ranges=((1, 1),)), default_frame=None
+        ),
+    )
+    assert package.function(x=1).result == 2
     error = package.error(7)
     failed = package.function(x=1, error_in=error)
     assert (failed.result, failed.error_out) == (100, error)

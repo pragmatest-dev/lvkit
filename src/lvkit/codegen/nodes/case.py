@@ -459,7 +459,9 @@ def _generate_error_case(
 
     The No Error frame is the ``else`` of ``if <error occurred>:``. In the
     ``if`` the frames that store error codes are an ``if``/``elif`` chain on the
-    error's code, in frame order, and the Default frame is its last ``else``. A
+    error's code, in frame order, and the Default frame is its last ``else``. An
+    Error frame that stores only the status (no code) catches every error the
+    code frames do not, as the Default frame does. A
     selector wire that carries no error runs only the No Error frame."""
     _bind_input_tunnels(node, ctx)
     selector = (
@@ -487,10 +489,10 @@ def _generate_error_case(
             # A No Error frame that also stores codes runs for those codes too.
             if codes:
                 branches.append((_code_test(error, codes), copy.deepcopy(body)))
-        elif frame.is_default:
-            default = body
-        elif codes:
+        elif codes and not frame.is_default:
             branches.append((_code_test(error, codes), body))
+        else:
+            default = body
 
     if error == "None":
         return CodeFragment(

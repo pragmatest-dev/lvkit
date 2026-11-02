@@ -307,15 +307,21 @@ def queue_function(
 NO_ERROR_FRAME = FrameSpec(no_error_point=True)
 
 
-def error_case_panel_fed(project: Project) -> str:
+def error_case_panel_fed(
+    project: Project,
+    error_frame: FrameSpec = FrameSpec(),
+    default_frame: int | None = 1,
+) -> str:
     """An error case fed straight from the VI's own error in. No Error frame:
-    ``result = x + 1``. Error frame: ``result = 100``. Error out is the error in."""
+    ``result = x + 1``. Error frame: ``result = 100``. Error out is the error in.
+    ``error_frame`` is what the Error frame stores: nothing (the Default frame),
+    or the status 1 (``FrameSpec(ranges=((1, 1),))``) with ``default_frame=None``."""
     vi, x, ein, result, eout = _x_error_result()
     case = vi.case(
         "error",
         ERR,
-        [NO_ERROR_FRAME, FrameSpec()],
-        default_frame=1,
+        [NO_ERROR_FRAME, error_frame],
+        default_frame=default_frame,
         tunnels=[(I32, False), (I32, True)],
     )
     x_in, out = case.tunnels
