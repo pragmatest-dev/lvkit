@@ -273,3 +273,25 @@ def test_an_error_imported_at_run_time_is_not_imported_again_for_annotations(
     ``TYPE_CHECKING`` for its annotations."""
     source, _ = generated(tmp_path, BUILD_ERROR_CLUSTER)
     assert source.count("import LabVIEWError") == 1
+
+
+READ_GENERAL_SETTINGS = (
+    "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/"
+    "Graphical Test Runner Support/Read General Settings.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_a_catalog_function_returns_a_dataclass_result(tmp_path: Path) -> None:
+    """Get System Directory's catalog function is written into the module with a
+    result read by field name, like every other result."""
+    result = generate_python(
+        SAMPLES / READ_GENERAL_SETTINGS, tmp_path / "gen", mode=LoadMode.FULL
+    )
+    module = next(Path(result["output_dir"]).rglob("get_system_directory.py"))
+    source = module.read_text(encoding="utf-8")
+    assert "NamedTuple" not in source
+    scope: dict[str, object] = {}
+    exec(compile(source, str(module), "exec"), scope)  # noqa: S102
+    found = scope["get_system_directory"](0)  # type: ignore[operator]
+    assert found.system_directory_path == Path.home()
