@@ -44,7 +44,9 @@ def _generate(
         node_type="iUse",
         callee_key=_KEY,
         terminals=[
-            FPTerminal(id="k:d", index=4, direction="input", lv_type=data),
+            FPTerminal(
+                id="k:d", index=4, direction="input", wiring_rule=1, lv_type=data
+            ),
             FPTerminal(id="k:t", index=1, direction="output", lv_type=_U8),
         ],
     )
@@ -52,8 +54,8 @@ def _generate(
         name="caller.vi",
         inputs=[
             FPTerminal(
-                id="fp:x", index=0, direction="input", name="x", is_public=True,
-                is_indicator=False, lv_type=data,
+                id="fp:x", index=0, direction="input", wiring_rule=1, name="x",
+                is_public=True, is_indicator=False, lv_type=data,
             )
         ],
         outputs=[

@@ -263,8 +263,7 @@ def _member_value_call(
             f"{_label(node)}: the VI the reference holds is only known when the "
             f"diagram runs, and the project's VIs with its connector pane ({shown}) "
             "are not all called the same way: a method of a class takes its object "
-            "as self and returns its results as one value or a NamedTuple, a VI "
-            "returns a NamedTuple of its outputs.",
+            "as self; both return a NamedTuple of the connector pane's outputs.",
             node,
         )
     if form.member is None:

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VINode
 from lvkit.models import PaneSlot, Terminal, TerminalDirection
 
@@ -23,10 +24,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class CalleeNames:
-    """A called VI's parameter keywords and result fields, by terminal index."""
+    """A called VI's parameter keywords and result fields, by connector-pane
+    index; ``required`` are the indices of the inputs a caller must wire."""
 
     parameters: dict[int, str]
     fields: dict[int, str]
+    required: frozenset[int] = frozenset()
 
 
 def callee_names(ctx: CodeGenContext, node: VINode) -> CalleeNames | None:
@@ -45,18 +48,23 @@ def callee_names(ctx: CodeGenContext, node: VINode) -> CalleeNames | None:
         inputs, off_inputs, outputs, off_outputs = graph.vi_interface(candidate)
         if not (inputs or off_inputs or outputs or off_outputs):
             continue
-        names = interface_names(inputs, off_inputs, outputs, off_outputs)
+        names = interface_names(inputs, off_inputs, outputs)
         return CalleeNames(
             parameters={
                 t.index: names.parameters[t.id]
-                for t in [*inputs, *off_inputs]
+                for t in inputs
                 if t.id in names.parameters
             },
             fields={
-                t.index: names.fields[t.id]
-                for t in [*outputs, *off_outputs]
-                if t.id in names.fields
+                t.index: names.fields[t.id] for t in outputs if t.id in names.fields
             },
+            required=frozenset(
+                t.index
+                for t in inputs
+                if t.index is not None
+                and t.id in names.parameters
+                and is_required(t, "input")
+            ),
         )
     return None
 
@@ -81,7 +89,7 @@ def pane_names(pane: tuple[PaneSlot, ...]) -> CalleeNames:
         ]
 
     inputs, outputs = terminals(False), terminals(True)
-    names = interface_names(inputs, [], outputs, [])
+    names = interface_names(inputs, [], outputs)
     return CalleeNames(
         parameters={
             t.index: names.parameters[t.id] for t in inputs if t.id in names.parameters

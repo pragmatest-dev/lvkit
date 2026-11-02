@@ -25,6 +25,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.parser.models import ParsedWiringRule
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
 
@@ -44,9 +45,16 @@ def class_type(name: str) -> LVType:
 
 
 def pane(
-    vi: str, direction: str, tag: str, lv_type: LVType, name: str, index: int
+    vi: str,
+    direction: str,
+    tag: str,
+    lv_type: LVType,
+    name: str,
+    index: int,
+    wiring_rule: ParsedWiringRule | None = None,
 ) -> FPTerminal:
-    """A control (``input``) or indicator (``output``) on the connector pane."""
+    """A control (``input``) or indicator (``output``) on the connector pane; a
+    control is Required unless ``wiring_rule`` says otherwise."""
     return FPTerminal(
         id=f"{vi}:{tag}",
         index=index,
@@ -55,6 +63,13 @@ def pane(
         lv_type=lv_type,
         is_public=True,
         is_indicator=direction == "output",
+        wiring_rule=(
+            wiring_rule
+            if wiring_rule is not None
+            else ParsedWiringRule.REQUIRED
+            if direction == "input"
+            else ParsedWiringRule.INVALID
+        ),
     )
 
 
@@ -220,7 +235,12 @@ class Project:
                 id=key,
                 vi_path=key,
                 name=Path(key).name,
-                terminals=[*context.inputs, *context.outputs],
+                terminals=[
+                    *context.inputs,
+                    *context.off_pane_inputs,
+                    *context.outputs,
+                    *context.off_pane_outputs,
+                ],
             ),
         )
         self.graph._dep_graph.add_node(key)  # noqa: SLF001

@@ -9,6 +9,7 @@ from collections.abc import Callable
 import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
 from lvkit.models import LVTypeKind, Terminal, TypeNamer
 
@@ -33,6 +34,7 @@ from .error_handler import (
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
 from .errors import CodeGenError
+from .front_panel import front_panel_docstring, off_pane_locals
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
@@ -138,22 +140,26 @@ def function_body(
 
     # What the function evaluates when it is entered and cannot be written
     # raises first.
-    body: list[ast.stmt] = list(ctx.entry_raises)
+    body: list[ast.stmt] = []
+    names = (
+        parameter_names
+        or interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
+    )
+    docstring = front_panel_docstring(vi_context, names, ctx.type_namer())
+    if docstring is not None:
+        body.append(docstring)
+    body.extend(ctx.entry_raises)
+
+    # A control that is not on the connector pane is a local variable set to its
+    # saved default.
+    body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
 
     # Normalize unwired array inputs: they default to None (a mutable [] default
     # would be shared across calls), so map None -> [] up front, matching
     # LabVIEW's "unwired array input == empty array". `x or []` also folds an
     # already-empty list to [] harmlessly.
     parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
-    body.extend(
-        build_array_input_normalization(
-            parameters,
-            parameter_names
-            or interface_names(
-                vi_context.inputs, vi_context.off_pane_inputs, [], []
-            ).parameters,
-        )
-    )
+    body.extend(build_array_input_normalization(parameters, names))
 
     if use_error_handling:
         ctx.import_labview_error()
@@ -639,19 +645,16 @@ def _record_cycles(
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
     """Build return statement for function.
 
-    Returns NamedTuple with output values resolved from context.
+    Returns the NamedTuple of the connector-pane outputs, resolved from context.
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
+    outputs = vi_context.outputs
     if not outputs:
         return None
 
     result_class = build_result_class_name(vi_context.name)
     field_names = interface_names(
-        vi_context.inputs,
-        vi_context.off_pane_inputs,
-        vi_context.outputs,
-        vi_context.off_pane_outputs,
+        vi_context.inputs, vi_context.off_pane_inputs, outputs
     ).fields
 
     # Resolve output values, skipping error clusters
@@ -786,19 +789,15 @@ def annotated_terminals(vi_context: VIContext) -> list[Terminal]:
             *vi_context.inputs,
             *vi_context.off_pane_inputs,
             *vi_context.outputs,
-            *vi_context.off_pane_outputs,
         )
         if not term.is_error_cluster
     ]
 
 
 def has_result_fields(vi_context: VIContext) -> bool:
-    """True when the VI returns a value: some indicator is not an error cluster
-    (an error is an exception, so it has no result field)."""
-    return any(
-        not out.is_error_cluster
-        for out in (*vi_context.outputs, *vi_context.off_pane_outputs)
-    )
+    """True when the VI returns a value: some connector-pane indicator is not an
+    error cluster (an error is an exception, so it has no result field)."""
+    return any(not out.is_error_cluster for out in vi_context.outputs)
 
 
 def build_result_class(
@@ -810,15 +809,12 @@ def build_result_class(
     """
     if not has_result_fields(vi_context):
         return None
-    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
+    outputs = vi_context.outputs
 
     class_name = build_result_class_name(vi_context.name)
 
     field_names = interface_names(
-        vi_context.inputs,
-        vi_context.off_pane_inputs,
-        vi_context.outputs,
-        vi_context.off_pane_outputs,
+        vi_context.inputs, vi_context.off_pane_inputs, outputs
     ).fields
 
     # Build fields, skipping error clusters
@@ -875,7 +871,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs, vi_context.off_pane_inputs, spell=spell)
+    args = build_args(vi_context.inputs, spell=spell)
 
     # Build return annotation
     returns = None
@@ -898,76 +894,42 @@ def build_function_def(
 
 def build_args(
     inputs: list[Terminal],
-    off_pane_inputs: list[Terminal] | None = None,
     names: dict[str, str] | None = None,
     spell: TypeNamer | None = None,
 ) -> ast.arguments:
-    """Build function arguments from inputs.
+    """The parameters of a VI's function: its connector-pane ``inputs`` only.
 
-    ``off_pane_inputs`` (front-panel controls that are not on the connector
-    pane) become keyword-only parameters after the connector-pane ones, each
-    defaulting to the control's saved default -- the value such a control holds
-    when LabVIEW calls the VI as a subVI.
+    A Required input has no default and is positional; a Recommended or Optional
+    one is keyword-only with the control's saved default (what the input holds
+    when a caller leaves it unwired). Each group keeps connector-pane order.
+    Front-panel controls that are not on the connector pane are not parameters
+    (``off_pane_locals``).
 
-    ``names`` maps terminal id -> parameter name (``interface_names`` over every
-    control of the VI); when omitted it is computed over ``inputs`` and
-    ``off_pane_inputs``.
-
-    Skips error cluster inputs - Python uses exceptions instead.
-
-    Every input gets a default, in connector-pane order. In LabVIEW any input
-    terminal may be left unwired and then takes its own default value, so every
-    generated parameter is optional-with-default — which also sidesteps Python's
-    "non-default argument follows default argument" rule without reordering the
-    parameters (callers pass arguments by keyword). The default
-    is the terminal's real connector-pane default when known, else the type
-    default (e.g. 0 / '' / None).
+    ``names`` maps terminal id -> parameter name (``interface_names``); when
+    omitted it is computed over ``inputs``. Error clusters are skipped: errors are
+    exceptions in Python.
     """
-    args = []
-    defaults = []
     if names is None:
-        names = interface_names(inputs, off_pane_inputs or [], [], []).parameters
+        names = interface_names(inputs, [], []).parameters
 
-    for inp in inputs:
-        if inp.is_error_cluster:
-            continue
-
+    def argument(term: Terminal) -> ast.arg:
         # Arrays and anonymous clusters use a conservative None default.
-        type_hint = inp.python_type(spell)
-        if _is_array_input(inp) or _is_anonymous_cluster(inp):
+        type_hint = term.python_type(spell)
+        if _is_array_input(term) or _is_anonymous_cluster(term):
             type_hint = f"{type_hint} | None"
-        args.append(
-            ast.arg(
-                arg=names[inp.id],
-                annotation=parse_expr(type_hint),
-            )
-        )
-        defaults.append(param_default_expr(inp))
+        return ast.arg(arg=names[term.id], annotation=parse_expr(type_hint))
 
-    kwonly_args = []
-    kw_defaults: list[ast.expr | None] = []
-    for ctl in off_pane_inputs or []:
-        if ctl.is_error_cluster:
-            continue
-        type_hint = ctl.python_type(spell)
-        if _is_array_input(ctl) or _is_anonymous_cluster(ctl):
-            type_hint = f"{type_hint} | None"
-        kwonly_args.append(
-            ast.arg(
-                arg=names[ctl.id],
-                annotation=parse_expr(type_hint),
-            )
-        )
-        kw_defaults.append(param_default_expr(ctl))
-
+    parameters = [t for t in inputs if not t.is_error_cluster]
+    required = [t for t in parameters if is_required(t, "input")]
+    optional = [t for t in parameters if not is_required(t, "input")]
     return ast.arguments(
         posonlyargs=[],
-        args=args,
+        args=[argument(t) for t in required],
         vararg=None,
-        kwonlyargs=kwonly_args,
-        kw_defaults=kw_defaults,
+        kwonlyargs=[argument(t) for t in optional],
+        kw_defaults=[param_default_expr(t) for t in optional],
         kwarg=None,
-        defaults=defaults,
+        defaults=[],
     )
 
 

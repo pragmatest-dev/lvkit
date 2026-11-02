@@ -88,6 +88,7 @@ def _terminal(
         lv_type=lv_type,
         is_public=True,
         is_indicator=direction == "output",
+        wiring_rule=0 if direction == "output" else 1,  # Required inputs
     )
 
 
@@ -389,7 +390,7 @@ def test_public_accessors_are_a_public_property_over_the_private_field(
     obj.count = 7
     assert obj._C__count == 7
     # A method of the class reads the field, not the property.
-    assert obj.peek() == 7
+    assert obj.peek().value == 7
 
 
 def _call(
@@ -501,7 +502,7 @@ def test_the_access_level_of_the_accessors_spells_the_property(
     assert {a.python_name for a in attributes.accessors.values()} == {spelled}
     obj = built.instance()
     setattr(obj, spelled, 3)
-    assert getattr(obj, spelled) == 3 and obj.peek() == 3
+    assert getattr(obj, spelled) == 3 and obj.peek().value == 3
 
 
 def test_a_private_property_is_spelled_private_and_its_storage_kept_apart(
@@ -518,7 +519,7 @@ def test_a_private_property_is_spelled_private_and_its_storage_kept_apart(
     assert "return self.__count_value" in source
     obj = built.instance()
     obj._C__count = 4
-    assert obj._C__count == 4 and obj._C__count_value == 4 and obj.peek() == 4
+    assert obj._C__count == 4 and obj._C__count_value == 4 and obj.peek().value == 4
 
 
 def test_a_private_property_read_outside_its_class_is_an_lvkit_error(
@@ -559,7 +560,7 @@ def test_a_write_vi_alone_is_a_property_with_no_getter(tmp_path: Path) -> None:
     assert "@property().setter\n    def count(self, value" in source
     obj = built.instance()
     obj.count = 5
-    assert obj.peek() == 5
+    assert obj.peek().value == 5
     with pytest.raises(AttributeError):
         _ = obj.count
 
@@ -575,7 +576,7 @@ def test_accessors_with_logic_are_a_property_written_from_their_diagrams(
     obj.count = 4
     assert obj._C__count == 8
     assert obj.count == 16
-    assert obj.peek() == 8
+    assert obj.peek().value == 8
 
 
 def test_a_pair_with_one_side_of_logic_is_one_property(tmp_path: Path) -> None:
@@ -674,4 +675,4 @@ def test_bundle_and_unbundle_on_a_library_owned_class_use_its_fields(
     assert "return self.__count" in source
     obj = built.instance()
     obj.count = 4
-    assert obj.peek() == 4
+    assert obj.peek().value == 4

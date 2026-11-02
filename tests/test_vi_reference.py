@@ -644,7 +644,7 @@ def test_a_reference_that_is_a_value_is_called_with_the_panes_names(
     reference = d.typed_vi_reference()
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
-    assert _source(loaded).endswith("def refs(vi_ref: Any=None):\n    vi_ref(x=5)")
+    assert _source(loaded).endswith("def refs(vi_ref: Any):\n    vi_ref(x=5)")
 
 
 def test_a_reference_whose_pane_has_a_dynamic_dispatch_terminal_is_a_gap(
@@ -671,7 +671,7 @@ def test_a_started_call_of_a_reference_value_is_submitted(tmp_path: Path) -> Non
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
     assert _source(loaded).endswith(
-        "def refs(vi_ref: Any=None):\n    _async_call_pool.submit(vi_ref, x=5)"
+        "def refs(vi_ref: Any):\n    _async_call_pool.submit(vi_ref, x=5)"
     )
 
 

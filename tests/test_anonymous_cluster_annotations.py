@@ -31,6 +31,7 @@ def terminal(lv_type, *, output=False):
         is_public=True,
         is_indicator=output,
         lv_type=lv_type,
+        wiring_rule=0 if output else 1,  # a Required input is positional
     )
 
 
@@ -81,7 +82,9 @@ def test_generated_cluster_annotations_match_explicit_tuple_values(lv_type, valu
     annotations = get_type_hints(function, globalns=namespace)
     assert annotations["value"] == tuple | None
     assert get_type_hints(annotations["return"], globalns=namespace)["result"] is tuple
-    assert inspect.signature(function).parameters["value"].default is None
+    # A Required input has no default.
+    parameter = inspect.signature(function).parameters["value"]
+    assert parameter.default is inspect.Parameter.empty
 
 
 @pytest.mark.parametrize(

@@ -31,6 +31,7 @@ from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
 from lvkit.graph.op_walk import stamp_nmux_lane_names
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
+from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
     Project,
@@ -62,7 +63,9 @@ def bump(owner: LVType, field_index: int, by_pane: bool) -> Recipe:
                 name=vi,
                 inputs=[
                     pane(vi, "input", "in", owner, "Self", 0),
-                    pane(vi, "input", "n", INT, "n", 2),
+                    pane(
+                        vi, "input", "n", INT, "n", 2, ParsedWiringRule.RECOMMENDED
+                    ),
                 ],
                 outputs=[pane(vi, "output", "out", owner, "Self out", 1)],
                 data_flow=[
@@ -405,7 +408,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
     base_source, child_source = package.sources["base"], package.sources["child"]
     assert "lvkit" not in base_source + child_source
     assert "class Base:" in base_source and "class Child(Base):" in child_source
-    assert "def __add(self, n" in base_source
+    assert "def __add(self, *, n: int=0)" in base_source
     assert "self.__add(n=n)" in base_source
     assert "super().increment(n=n)" in child_source
     # The members have no module of their own.
@@ -854,7 +857,7 @@ def test_a_static_member_with_no_class_input_is_a_static_method(tmp_path: Path) 
     assert "from .base import Base" in package.sources["use"]
     with package.use() as module:
         assert module("use").use(x=4).y == 4
-        assert module("base").Base.make(seed=7) == 7
+        assert module("base").Base.make(seed=7).value == 7
 
 
 # --- 11: a method named like a property -------------------------------------------
@@ -959,7 +962,7 @@ def test_a_method_that_cannot_be_written_is_that_vis_gap_not_the_classs(
         with pytest.raises(NotImplementedError, match="no object wired"):
             base.broken()
         with pytest.raises(NotImplementedError, match="no input of its class"):
-            module("base").Base.noobject()
+            module("base").Base.noobject(seed=0)
 
 
 def _structure_project(reader_first: bool):
@@ -1069,7 +1072,7 @@ def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> N
     with package.use() as module:
         holding = module("holder").Holder()
         holding._Holder__inner = module("counter").Counter()
-        result = holding.take(v=5)
+        result = holding.take(v=5).out
         assert holding._Holder__inner._Counter__count == 0
         assert result._Counter__count == 5 and result is not holding._Holder__inner
 
@@ -1172,7 +1175,7 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
     assert "copy.deepcopy(" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
-        result = original.run(v=7, n=2)
+        result = original.run(v=7, n=2).out
         assert original._Counter__count == 0
         assert result._Counter__count == 7
 
@@ -1411,7 +1414,7 @@ def test_a_child_method_reads_a_parent_property_never_the_parents_field(
         obj = module("child").Child()
         obj.count = 7
         obj._Child__count = 1
-        assert obj.parent_count() == 7
+        assert obj.parent_count().seen == 7
 
 
 # --- Call By Reference of a member VI -----------------------------------------------
@@ -1670,19 +1673,25 @@ def test_a_reference_value_to_a_plain_vi_reads_its_result_fields(
 def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
     tmp_path: Path,
 ) -> None:
+    # The member takes its class input as `self`; the VI names it by its label.
+    slots = [
+        (0, False, BASE, "Base in"),
+        (1, True, BASE, "Base out"),
+        (2, False, INT, "n"),
+    ]
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
-    project.add_method("Base", "Make", static_make, static=True)
-    project.add_vi("Twice", _function(SEED))
-    project.add_vi("Caller", _call_held(SEED))
+    project.add_method("Base", "Bump", bump(BASE, 0, True), static=True)
+    project.add_vi("Twice", _function(slots))
+    project.add_vi("Caller", _call_held(slots))
     gaps: list[Gap] = []
     package = project.generate(gaps)
     (gap,) = gaps
-    assert "Base.lvclass:Make.vi" in gap.reason and "Twice.vi" in gap.reason
+    assert "Base.lvclass:Bump.vi" in gap.reason and "Twice.vi" in gap.reason
     assert "not all called the same way" in gap.reason
     with package.use() as module:
         with pytest.raises(NotImplementedError, match="not all called the same"):
-            module("caller").caller(ref=module("twice").twice, seed=1)
+            module("caller").caller(ref=module("twice").twice, base_in=None, n=1)
 
 
 def test_a_member_and_a_vi_called_the_same_way_share_the_call(

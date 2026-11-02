@@ -9,7 +9,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
 
-from ..ast_utils import interface_names, parse_expr
+from ..ast_utils import distinct_names, interface_names, parse_expr
 from ..builder import (
     CodeGenContext,
     annotated_terminals,
@@ -45,9 +45,13 @@ class _MethodBuilderMixin:
         shape: MethodShape,
         name: str | None = None,
         decorators: list[ast.expr] | None = None,
+        property_accessor: bool = False,
     ) -> ast.FunctionDef:
         """The method of the member VI ``shape.key``: a static method when it
         takes no class wire, else an instance method whose ``self`` is that wire.
+        The getter or setter of a Python property (``property_accessor``) is
+        called as ``obj.name`` and ``obj.name = value``: its value is positional
+        and a getter returns the value itself.
         A member that cannot be a method (its name is taken, its class has no
         base) raises where it would run."""
         graph = self._graph
@@ -74,7 +78,10 @@ class _MethodBuilderMixin:
             if term.id in names and not term.is_error_cluster:
                 ctx.bind(term.id, names[term.id])
         parameters = [t for t in vi_context.inputs if t is not receiver]
-        args = build_args(parameters, vi_context.off_pane_inputs, names, spell)
+        args = build_args(parameters, names, spell)
+        if property_accessor:
+            args.args.extend(args.kwonlyargs)
+            args.kwonlyargs, args.kw_defaults = [], []
         if receiver is not None:
             args.args.insert(0, ast.arg(arg="self", annotation=None))
 
@@ -91,7 +98,9 @@ class _MethodBuilderMixin:
                     key,
                     ctx,
                     parameter_names=names,
-                    return_stmt=lambda: self._return_stmt(shape, vi_context, ctx),
+                    return_stmt=lambda: self._return_stmt(
+                        shape, vi_context, ctx, property_accessor
+                    ),
                 )
             except CodeGenError as error:
                 # One method that cannot be written is that VI's gap; the rest of
@@ -102,7 +111,7 @@ class _MethodBuilderMixin:
         self._parts.collect(ctx)
         generated = {i for i in ctx.imports if i.startswith("from .")}
         if self._lazy and generated:
-            body = [*_local_imports(generated), *body]
+            body = _with_imports_after_docstring(_local_imports(generated), body)
             self._parts.imports.update(ctx.imports - generated)
         else:
             self._parts.imports.update(ctx.imports)
@@ -116,14 +125,20 @@ class _MethodBuilderMixin:
             args=args,
             body=body or [ast.Pass()],
             decorator_list=decorators or [],
-            returns=self._return_annotation(shape, vi_context, spell),
+            returns=self._return_annotation(
+                shape, vi_context, spell, property_accessor
+            ),
         )
 
     def _return_stmt(
-        self, shape: MethodShape, vi_context: VIContext, ctx: CodeGenContext
+        self,
+        shape: MethodShape,
+        vi_context: VIContext,
+        ctx: CodeGenContext,
+        property_accessor: bool,
     ) -> ast.Return | None:
-        """The return of a method: its one result, or its ``NamedTuple`` of
-        results; nothing when it has none."""
+        """The return of a method: its ``NamedTuple`` of the connector-pane results;
+        nothing when it has none. A property getter returns its one value."""
         if not shape.results:
             return None
         outputs = _outputs_by_index(vi_context)
@@ -137,7 +152,7 @@ class _MethodBuilderMixin:
                 else ctx.resolve(out.id)
             )
             values.append(parse_expr(value) if value else ast.Constant(value=None))
-        if len(values) == 1:
+        if property_accessor and len(values) == 1:
             return ast.Return(value=values[0])
         assert shape.result_class is not None
         return ast.Return(
@@ -152,15 +167,19 @@ class _MethodBuilderMixin:
         )
 
     def _return_annotation(
-        self, shape: MethodShape, vi_context: VIContext, spell: TypeNamer | None
+        self,
+        shape: MethodShape,
+        vi_context: VIContext,
+        spell: TypeNamer | None,
+        property_accessor: bool,
     ) -> ast.expr:
         if not shape.results:
             return ast.Constant(value=None)
-        if len(shape.results) >= 2:
-            assert shape.result_class is not None
-            return ast.Name(id=shape.result_class, ctx=ast.Load())
-        out = _outputs_by_index(vi_context)[next(iter(shape.results))]
-        return parse_expr(out.python_type(spell))
+        if property_accessor and len(shape.results) == 1:
+            out = _outputs_by_index(vi_context)[shape.results[0]]
+            return parse_expr(out.python_type(spell))
+        assert shape.result_class is not None
+        return ast.Name(id=shape.result_class, ctx=ast.Load())
 
     def _result_class_def(
         self, shape: MethodShape, vi_context: VIContext
@@ -200,26 +219,29 @@ def _receiver_of(vi_context: VIContext, shape: MethodShape) -> Terminal | None:
 
 
 def _outputs_by_index(vi_context: VIContext) -> dict[int, Terminal]:
-    return {t.index: t for t in [*vi_context.outputs, *vi_context.off_pane_outputs]}
+    return {t.index: t for t in vi_context.outputs}
 
 
 def _parameter_names(
     vi_context: VIContext, shape: MethodShape, receiver: Terminal | None
 ) -> dict[str, str]:
     """Terminal id to name of every input: ``self`` for the class wire, the
-    keyword the declaration of the method gives each other input (an override
-    takes its declaration's, so a call by keyword reaches either)."""
-    own = interface_names(
-        vi_context.inputs, vi_context.off_pane_inputs, [], []
-    ).parameters
+    keyword the declaration of the method gives each other connector-pane input
+    (an override takes its declaration's, so a call by keyword reaches either),
+    and for each off-pane control the name of its local variable, distinct from
+    every parameter."""
+    own = interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
     names: dict[str, str] = {}
-    for term in [*vi_context.inputs, *vi_context.off_pane_inputs]:
+    for term in vi_context.inputs:
         if receiver is not None and term is receiver:
             names[term.id] = "self"
         elif term.index in shape.parameters:
             names[term.id] = shape.parameters[term.index]
         elif term.id in own:
             names[term.id] = own[term.id]
+    controls = [t for t in vi_context.off_pane_inputs if t.id in own]
+    locals_ = distinct_names(names.values(), [own[t.id] for t in controls])
+    names.update({t.id: name for t, name in zip(controls, locals_, strict=True)})
     return names
 
 
@@ -230,3 +252,16 @@ def _local_imports(statements: set[str]) -> list[ast.stmt]:
     for statement in sorted(statements):
         local.extend(ast.parse(statement).body)
     return local
+
+
+def _with_imports_after_docstring(
+    imports: list[ast.stmt], body: list[ast.stmt]
+) -> list[ast.stmt]:
+    """``body`` with ``imports`` at its start, after the docstring if it has one."""
+    first = body[0] if body else None
+    has_docstring = (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    )
+    return [*body[:1], *imports, *body[1:]] if has_docstring else [*imports, *body]

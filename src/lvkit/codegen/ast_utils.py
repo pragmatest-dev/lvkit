@@ -322,24 +322,25 @@ def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
     return {t.id: name for t, name in zip(params, names, strict=True)}
 
 
-def result_field_names(
-    outputs: list[Terminal], off_pane_outputs: list[Terminal]
-) -> dict[str, str]:
-    """Terminal id -> result field name of each non-error-cluster indicator.
-    Connector-pane fields are ``result_field_name`` of the label (callers read
-    them by it), made distinct when two labels give the same name; an off-pane
-    indicator's field is made distinct from every earlier one."""
+def result_field_names(outputs: list[Terminal]) -> dict[str, str]:
+    """Terminal id -> result field name of each non-error-cluster connector-pane
+    indicator: ``result_field_name`` of the label (callers read them by it), made
+    distinct when two labels give the same name."""
     pane = [t for t in outputs if not t.is_error_cluster]
-    pane_names = unique_names([result_field_name(t.name or "output") for t in pane])
-    names = {t.id: name for t, name in zip(pane, pane_names, strict=True)}
-    taken = list(names.values())
-    for t in off_pane_outputs:
-        if t.is_error_cluster:
-            continue
-        name = unique_names([*taken, result_field_name(t.name or "output")])[-1]
-        taken.append(name)
-        names[t.id] = name
-    return names
+    names = unique_names([result_field_name(t.name or "output") for t in pane])
+    return {t.id: name for t, name in zip(pane, names, strict=True)}
+
+
+def distinct_names(taken: Iterable[str], wanted: Iterable[str]) -> list[str]:
+    """The names ``wanted``, each made distinct from every name in ``taken`` and
+    from the others (the first holder of a name keeps it)."""
+    used = list(taken)
+    result: list[str] = []
+    for name in wanted:
+        chosen = unique_names([*used, name])[-1]
+        used.append(chosen)
+        result.append(chosen)
+    return result
 
 
 @dataclass(frozen=True)
@@ -355,15 +356,16 @@ def interface_names(
     inputs: list[Terminal],
     off_pane_inputs: list[Terminal],
     outputs: list[Terminal],
-    off_pane_outputs: list[Terminal],
 ) -> InterfaceNames:
     """The one place a VI's parameter names and result field names are made from
-    its terminals, in interface order, each set distinct. The VI's own function
-    and result class use them, and so does every caller that passes it keyword
-    arguments and reads its result fields."""
+    its terminals, in interface order, each set distinct. The connector pane is
+    the interface: ``parameters`` names its inputs, and also the local variable of
+    each off-pane control (distinct from every parameter); ``fields`` names its
+    outputs. The VI's own function and result class use them, and so does every
+    caller that passes it keyword arguments and reads its result fields."""
     return InterfaceNames(
         parameters=parameter_names([*inputs, *off_pane_inputs]),
-        fields=result_field_names(outputs, off_pane_outputs),
+        fields=result_field_names(outputs),
     )
 
 

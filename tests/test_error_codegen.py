@@ -59,7 +59,16 @@ UNSPECIFIED = -2147467259
 
 
 def term(tid: str, direction: str, index: int, name: str, lv: LVType) -> Terminal:
-    return Terminal(id=tid, direction=direction, index=index, name=name, lv_type=lv)
+    # A control of the VI (the diagram's source) is a Required input.
+    rule = 1 if direction == "output" else 0
+    return Terminal(
+        id=tid,
+        direction=direction,
+        index=index,
+        name=name,
+        lv_type=lv,
+        wiring_rule=rule,
+    )
 
 
 def tunnel(
@@ -228,7 +237,7 @@ def test_error_wires_between_subvis_are_plain_calls() -> None:
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             step_a_result = step_a(x=x)
             step_b_result = step_b(x=step_a_result.r)
             return CallerResult(result=step_b_result.r)"""
@@ -280,7 +289,7 @@ def test_error_cluster_from_a_computed_code_raises_when_it_is_not_zero(
         from typing import Any, NamedTuple
         from .errors import LabVIEWError
 
-        def caller(code: int=0):
+        def caller(code: int):
             if code != 0:
                 raise LabVIEWError(code=code, message='')"""
     )
@@ -385,7 +394,7 @@ def test_clear_errors_catches_the_errors_of_the_code_on_its_wire() -> None:
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             try:
                 step_a_result = step_a(x=x)
             except LabVIEWError:
@@ -460,7 +469,7 @@ def test_parallel_branches_with_errors_hold_their_errors_to_the_merge() -> None:
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             _held_error = None
             step_a(x=x)
             with concurrent.futures.ThreadPoolExecutor() as _executor:
@@ -538,7 +547,7 @@ def test_a_vi_with_only_error_out_returns_none(package) -> None:
         from typing import Any, NamedTuple
         from .step_a import step_a
 
-        def caller(x: int=0):
+        def caller(x: int):
             step_a(x=x)"""
     )
     module = package(source, {"step_a": stub("step_a")})
@@ -626,7 +635,7 @@ def test_bundling_a_true_status_into_an_error_raises_it() -> None:
         from typing import Any, NamedTuple
         from .errors import LabVIEWError
 
-        def caller(code: int=0, src: str=''):
+        def caller(code: int, src: str):
             raise LabVIEWError(code=code, source=src)"""
     )
 
@@ -870,7 +879,7 @@ def test_error_frame_that_does_work_is_the_handler_of_the_producers() -> None:
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             data = 0
             try:
                 open__result = open_(x=x)
@@ -942,7 +951,7 @@ def test_error_case_with_an_empty_error_frame_is_straight_line_code(package) -> 
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             open__result = open_(x=x)
             data = 0
             use_result = use(x=open__result.r)
@@ -1070,7 +1079,7 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
         class CallerResult(NamedTuple):
             result: int
 
-        def caller(x: int=0) -> CallerResult:
+        def caller(x: int) -> CallerResult:
             _held_error = None
             try:
                 step_a_result = step_a(x=x)

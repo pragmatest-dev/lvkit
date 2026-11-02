@@ -198,10 +198,10 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
         )
         graph._term_to_node[tid] = nid
 
-    for inp in vi_context.inputs:
+    for inp in [*vi_context.inputs, *vi_context.off_pane_inputs]:
         if inp.id:
             _stub(inp.id, "output", inp)
-    for out in vi_context.outputs:
+    for out in [*vi_context.outputs, *vi_context.off_pane_outputs]:
         if out.id:
             _stub(out.id, "input", out)
     for const in vi_context.constants:

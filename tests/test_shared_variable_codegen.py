@@ -37,6 +37,7 @@ def _fp(tid: str, index: int, name: str, direction: str) -> FPTerminal:
         id=tid,
         index=index,
         direction=direction,
+        wiring_rule=1 if direction == "input" else 0,
         name=name,
         is_public=True,
         is_indicator=direction == "output",

@@ -33,6 +33,7 @@ class _PropertyBuilderMixin:
             shape: MethodShape,
             name: str | None = None,
             decorators: list[ast.expr] | None = None,
+            property_accessor: bool = False,
         ) -> ast.FunctionDef: ...
 
     def _build_properties(
@@ -70,7 +71,12 @@ class _PropertyBuilderMixin:
                         "setter",
                     )
                 stmts.append(
-                    self._build_method(shape, name=name, decorators=[decorator])
+                    self._build_method(
+                        shape,
+                        name=name,
+                        decorators=[decorator],
+                        property_accessor=True,
+                    )
                 )
                 source = _name(name)
         return stmts

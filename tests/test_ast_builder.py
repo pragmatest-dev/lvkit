@@ -1642,9 +1642,10 @@ class TestErrorClusterFiltering:
 
         args = build_args(inputs)
 
-        # Should only have "value" - error in/out filtered
-        assert len(args.args) == 1
-        assert args.args[0].arg == "value"
+        # Should only have "value" - error in/out filtered. Its wiring rule is
+        # unknown, so it is not Required: keyword-only.
+        assert args.args == []
+        assert [a.arg for a in args.kwonlyargs] == ["value"]
 
     def test_error_cluster_output_filtered_by_name(self):
         """Test that error cluster outputs are filtered by name pattern."""

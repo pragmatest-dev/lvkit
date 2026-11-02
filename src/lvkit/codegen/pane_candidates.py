@@ -4,8 +4,8 @@ A reference whose VI is only known when the diagram runs holds a VI of the
 project with the connector pane its strictly typed refnum records: the slots of
 the pane, each with its direction and type. A VI's function and a method of a
 class are called differently (``class_model.MethodShape``): a method takes its
-class input as ``self`` and returns nothing, its one result, or a ``NamedTuple``
-of two or more, while a VI's function returns a ``NamedTuple`` of its outputs.
+class input as ``self``. Both return nothing when the connector pane has no
+output, else a ``NamedTuple`` of the pane's outputs.
 ``call_form`` finds the VIs of the project whose pane is that pane, slot by slot
 and type by type, and the way each is called; the call is right only when they
 are all called the same way."""
@@ -34,7 +34,6 @@ class ResultStyle(Enum):
     """How a call gives its results back."""
 
     NONE = "none"  # nothing
-    VALUE = "value"  # the one result itself
     FIELDS = "fields"  # the fields of a NamedTuple
 
 
@@ -131,8 +130,8 @@ def _vi_shape(
 
 
 def _function_form(graph: InMemoryVIGraph, key: str) -> CallForm:
-    inputs, off_inputs, outputs, off_outputs = graph.vi_interface(key)
-    names = interface_names(inputs, off_inputs, outputs, off_outputs)
+    inputs, off_inputs, outputs, _ = graph.vi_interface(key)
+    names = interface_names(inputs, off_inputs, outputs)
     results: list[Terminal] = [t for t in outputs if t.id in names.fields]
     return CallForm(
         keywords=tuple(
@@ -153,19 +152,11 @@ def _method_form(shape: MethodShape) -> CallForm:
     keywords = dict(shape.parameters)
     if shape.receiver_in is not None:
         keywords[shape.receiver_in] = "self"
-    style = (
-        ResultStyle.NONE
-        if not shape.results
-        else ResultStyle.VALUE
-        if len(shape.results) == 1
-        else ResultStyle.FIELDS
-    )
+    style = ResultStyle.FIELDS if shape.results else ResultStyle.NONE
     return CallForm(
         keywords=tuple(sorted(keywords.items())),
         style=style,
-        fields=tuple(sorted(shape.result_fields.items()))
-        if style is ResultStyle.FIELDS
-        else tuple((i, "") for i in shape.results),
+        fields=tuple(sorted(shape.result_fields.items())),
         receiver_out=None if shape.returns_receiver else shape.receiver_out,
         class_key=shape.class_key if shape.receiver_in is not None else None,
         member=shape,

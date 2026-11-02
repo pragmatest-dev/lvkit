@@ -31,6 +31,7 @@ import networkx as nx
 
 from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import derive_python_name
 
@@ -68,11 +69,12 @@ class MethodKind(str, Enum):
 class MethodShape:
     """One member VI as a Python method.
 
-    ``parameters`` maps the pane index of each input other than the class wire
-    and the error cluster to its keyword; ``result_fields`` maps the pane index of
-    each result to its field of the ``NamedTuple`` ``result_class`` (named only
-    when there are two or more results). ``results`` are the pane indices
-    returned, in pane order, and include the class output when
+    Only connector-pane terminals are in a shape. ``parameters`` maps the pane
+    index of each input other than the class wire and the error cluster to its
+    keyword, and ``required`` are the indices of those a caller must wire;
+    ``result_fields`` maps the pane index of each result to its field of the
+    ``NamedTuple`` ``result_class`` (named when there is a result). ``results`` are
+    the pane indices returned, in pane order, and include the class output when
     ``returns_receiver``: the class output is not the object the method was
     called on, changed in place, in this VI or in a VI that overrides it."""
 
@@ -83,6 +85,7 @@ class MethodShape:
     receiver_in: int | None
     receiver_out: int | None
     parameters: dict[int, str]
+    required: frozenset[int]
     results: tuple[int, ...]
     result_fields: dict[int, str]
     returns_receiver: bool
@@ -387,18 +390,23 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
     root_class, root_key, _ = _family(graph, class_key, vi_key)
     returns = _family_returns_receiver(graph, class_key, vi_key)
 
-    r_in, r_off_in, r_out, r_off_out = graph.vi_interface(root_key)
-    names = interface_names(r_in, r_off_in, r_out, r_off_out)
+    r_in, r_off_in, r_out, _ = graph.vi_interface(root_key)
+    names = interface_names(r_in, r_off_in, r_out)
     root_receiver_in, _ = _receivers(graph, root_class, root_key)
     root_receiver_index = root_receiver_in.index if root_receiver_in else None
     parameters = {
         t.index: names.parameters[t.id]
-        for t in [*r_in, *r_off_in]
+        for t in r_in
         if t.id in names.parameters and t.index != root_receiver_index
     }
+    required = frozenset(
+        t.index
+        for t in r_in
+        if t.index in parameters and is_required(t, "input")
+    )
     results: list[int] = []
     result_fields: dict[int, str] = {}
-    for t in [*r_out, *r_off_out]:
+    for t in r_out:
         if t.is_error_cluster or t.id not in names.fields:
             continue
         is_receiver = receiver_out is not None and t.index == receiver_out.index
@@ -414,11 +422,12 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
         receiver_in=receiver_in.index if receiver_in else None,
         receiver_out=receiver_out.index if receiver_out else None,
         parameters=parameters,
+        required=required,
         results=tuple(results),
         result_fields=result_fields,
         returns_receiver=returns,
         result_class=(
-            build_result_class_name(Path(root_key).name) if len(results) >= 2 else None
+            build_result_class_name(Path(root_key).name) if results else None
         ),
         root_key=root_key,
         root_class_key=root_class,
@@ -515,7 +524,11 @@ def result_class_imports(
     that another class's module defines (an override returns its declaration's)."""
     by_class: dict[str, set[str]] = {}
     for shape in model.shapes.values():
-        if shape.result_class is not None and shape.root_class_key != model.key:
+        if (
+            shape.result_class is not None
+            and has_result_class(model, shape)
+            and shape.root_class_key != model.key
+        ):
             by_class.setdefault(shape.root_class_key, set()).add(shape.result_class)
     statements = []
     for root_class, names in sorted(by_class.items()):
@@ -525,9 +538,16 @@ def result_class_imports(
     return statements
 
 
+def has_result_class(model: ClassModel, shape: MethodShape) -> bool:
+    """Whether the method ``shape`` returns a result class: it has a result and is
+    not the getter or setter of a property (those return their value itself)."""
+    accessors = model.attributes.accessors
+    return shape.result_class is not None and shape.key not in accessors
+
+
 def declares_result_class(model: ClassModel, shape: MethodShape) -> bool:
     """Whether the module of the class defines the result class of ``shape``."""
-    return shape.result_class is not None and shape.root_class_key == model.key
+    return has_result_class(model, shape) and shape.root_class_key == model.key
 
 
 def lazy_imports(graph: InMemoryVIGraph, class_key: str) -> bool:

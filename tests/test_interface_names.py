@@ -46,7 +46,7 @@ def test_a_caller_reads_the_fields_and_passes_the_keywords_the_callee_names(
         loaded.callee,
         graph=loaded.graph,
     )
-    assert "def callee(a_b: int=0, a_b_2: int=0)" in callee_source
+    assert "def callee(*, a_b: int=0, a_b_2: int=0)" in callee_source
     assert "r_1: int" in callee_source and "r_1_2: int" in callee_source
 
     call = VINode(

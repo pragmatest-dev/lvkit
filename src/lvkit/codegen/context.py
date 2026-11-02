@@ -884,7 +884,7 @@ def _bind_inputs_and_constants(
     Shared by from_graph() and from_vi_context(). Skips error cluster
     inputs (Python uses exceptions instead).
     """
-    names = interface_names([i for i in inputs if i.id], [], [], []).parameters
+    names = interface_names([i for i in inputs if i.id], [], []).parameters
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
             var = names[inp.id]

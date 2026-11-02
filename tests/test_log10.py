@@ -29,6 +29,7 @@ def generated_log10(rank=0, input_type="NumFloat64", output_type="NumFloat64"):
         id="fp:values",
         index=0,
         direction="input",
+        wiring_rule=1,
         name="values",
         is_public=True,
         is_indicator=False,

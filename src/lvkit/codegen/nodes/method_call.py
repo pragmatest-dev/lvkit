@@ -11,9 +11,9 @@ A class is one Python class and its member VIs are its methods
 A private member is called only from its class's own VIs, written in the class
 body (``class_model.check_private_access``). A member with no method (its name is
 another member's, its VI was not found) makes the call a gap. Arguments go by
-keyword. The results are read the way the shape of the method
-says (``MethodShape``): nothing, the one value, or the fields of its
-``NamedTuple``; the class output is the receiver, which the method changed in
+keyword. A connector-pane input the method requires and the call leaves unwired is a
+gap. The results are the fields of the method's ``NamedTuple`` (``MethodShape``),
+read by name; the class output is the receiver, which the method changed in
 place, unless the shape returns it.
 """
 
@@ -30,6 +30,7 @@ from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..class_model import (
     MethodKind,
     MethodShape,
+    accessor_of,
     check_private_access,
     class_import,
     not_a_method,
@@ -140,9 +141,19 @@ def build_call(
             keywords.append(
                 ast.keyword(arg=shape.parameters[term.index], value=parse_expr(value))
             )
+        elif term.index in shape.required:
+            raise ConversionGap(
+                f"The call of {shape.name!r} leaves its required input "
+                f"{shape.parameters[term.index]!r} unwired",
+                node,
+            )
 
     bindings: dict[str, str] = {}
     result_var: str | None = None
+    # The getter of a property gives its one value itself.
+    bare_value = (
+        len(shape.results) == 1 and accessor_of(ctx.graph, shape.key) is not None
+    )
     if shape.results:
         result_var = ctx.make_output_var(f"{shape.name.lstrip('_')}_result", node.id)
     for term in terminals:
@@ -151,7 +162,7 @@ def build_call(
         if term.index in shape.results and result_var is not None:
             bindings[term.id] = (
                 result_var
-                if len(shape.results) == 1
+                if bare_value
                 else f"{result_var}.{shape.result_fields[term.index]}"
             )
         elif term.index == shape.receiver_out and receiver is not None:
