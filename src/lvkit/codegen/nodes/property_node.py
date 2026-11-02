@@ -91,7 +91,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     nested property is an attribute chain (``ref.label.text``). Implicit
     control bindings require a separate runtime model and are rejected
     instead of fabricating reference values. Error-cluster terminals are
-    skipped: errors surface as Python exceptions.
+    not read here: the node's error out is its error in, and the node is
+    skipped when an error comes in (``error_flow.guard``).
     """
     properties = node.properties or []
     value_ids = node.property_value_terminal_ids
@@ -169,7 +170,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise CodeGenError("Property value direction is unresolved", node)
 
     for term in fixed:
-        # Error clusters become Python exceptions, so their wires carry nothing.
+        # The error out is the error in (``error_flow.guard``); nothing to bind.
         if term.is_error_cluster:
             continue
         if term.direction != "output" or not ctx.is_wired(term.id):

@@ -51,7 +51,8 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         )
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
-    # Code, the error handlers) are exception handling, not calls of a module.
+    # Code, the error handlers) work on error wire values at the call site; they
+    # are not calls of a module.
     catalog_path = ctx.catalog_path(node)
     if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)

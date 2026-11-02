@@ -16,8 +16,9 @@ A node that names the library ``LabVIEW`` calls one of LabVIEW's own functions,
 which no library on disk provides: it is written out as the Python that
 ``data/labview_manager.json`` lists for that function (``ext_func_manager``).
 
-The node's error terminals are not bound, like every other node here: a library
-that cannot be loaded or called raises the exception ``ctypes`` raises.
+The node's error out is its error in and the node is skipped when an error comes
+in (``error_flow.guard``), like every other node here; a library that cannot be
+loaded or called raises the exception ``ctypes`` raises.
 """
 
 from __future__ import annotations

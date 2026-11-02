@@ -432,7 +432,7 @@ def _build_input_map(
 
         # Resolve from context: a wired data input always has a variable (a
         # constant that is a gap is bound to None; its function raises where it
-        # starts); an error cluster has none, errors being exceptions.
+        # starts); an unwired error in is no error (``NO_ERROR``) below.
         value = ctx.wired_input(term_id, node, term_name or term_index)
         if value:
             # Wired terminal with -1 index: resolution failure
