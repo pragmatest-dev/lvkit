@@ -429,21 +429,21 @@ def test_search_1d_array_collects_all_match_indices() -> None:
         "array/array.llb/Search 1D Array (I32)__ogtk.vi",
         array=[5, 3, 5, 7],
         element_data=5,
-        start_index_0=0,
+        start_index=0,
     )
     assert list(r.indices_of_elements) == [0, 2]
     r_none = _run_pkg(
         "array/array.llb/Search 1D Array (I32)__ogtk.vi",
         array=[1, 2, 3],
         element_data=9,
-        start_index_0=0,
+        start_index=0,
     )
     assert list(r_none.indices_of_elements) == []
     r_off = _run_pkg(
         "array/array.llb/Search 1D Array (I32)__ogtk.vi",
         array=[5, 3, 5, 7],
         element_data=5,
-        start_index_0=1,
+        start_index=1,
     )
     assert list(r_off.indices_of_elements) == [2]
 

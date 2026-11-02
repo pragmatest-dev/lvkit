@@ -21,6 +21,7 @@ from .ast_utils import (
     terminal_annotation,
     to_var_name,
 )
+from .label_names import python_label
 
 _HEADING = "Front panel, not on the connector pane:"
 
@@ -60,7 +61,8 @@ def front_panel_docstring(
         taken = [names[c.id] for c in vi_context.inputs if c.id in names]
         taken.extend(names[c.id] for c in controls)
         labels = distinct_names(
-            taken, [to_var_name(c.name or "indicator") for c in indicators]
+            taken,
+            [to_var_name(python_label(c) or "indicator") for c in indicators],
         )
         lines.extend(
             f"    {label}: {terminal_annotation(c, spell)}"

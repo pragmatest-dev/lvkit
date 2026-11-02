@@ -49,7 +49,7 @@ from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
 
 from ..ast_utils import GENERATED_MODULE_NAMES, build_assign, module_part, parse_expr
-from ..callee_names import pane_names
+from ..callee_names import CalleeNames, pane_names
 from ..class_attributes import run_time_name
 from ..class_model import (
     MethodKind,
@@ -62,7 +62,7 @@ from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..pane_candidates import candidates
+from ..pane_candidates import CallForm, candidates
 from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -214,10 +214,19 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "dispatch terminal; " + _DYNAMIC_MEMBER,
             node,
         )
-    member_call = _member_value_call(node, ctx, function, pane)
-    if member_call is not None:
-        return member_call
-    names = pane_names(pane)
+    assert ctx.graph is not None and ctx.vi_name is not None
+    form = _one_form(node, ctx, pane)
+    if form is not None and form.member is not None:
+        call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
+        result_var = call.result_var or ctx.make_output_var(
+            "vi_reference_result", node.id
+        )
+        return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
+    names = (
+        CalleeNames(parameters=dict(form.keywords), fields=dict(form.fields))
+        if form is not None
+        else pane_names(pane)
+    )
     labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
     result_var = ctx.make_output_var("vi_reference_result", node.id)
@@ -244,17 +253,17 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
     return _Call(function, keywords, result_var, bindings)
 
 
-def _member_value_call(
-    node: VINode, ctx: CodeGenContext, function: str, pane: tuple[PaneSlot, ...]
-) -> _Call | None:
-    """The call of a reference value that may hold a method of a class: the
-    project's VIs with the reference's pane (``pane_candidates``) include a
-    member, so the call is the method's when every candidate is called the same
-    way, and a gap when they are not; None when no member has the pane (the call
-    is a VI's function's, by the pane's names)."""
+def _one_form(
+    node: VINode, ctx: CodeGenContext, pane: tuple[PaneSlot, ...]
+) -> CallForm | None:
+    """The call right for every VI of the project the reference value can hold
+    (``pane_candidates``): the VIs with the reference's connector pane, each
+    named as its own function or method names its terminals. None when the
+    project has no such VI (the call names them by the pane's labels); a gap
+    when they are not all called the same way."""
     assert ctx.graph is not None and ctx.vi_name is not None
     found = candidates(ctx.graph, pane, ctx.vi_name)
-    if not found.members:
+    if not found.forms:
         return None
     form = found.one_form()
     if form is None:
@@ -262,15 +271,11 @@ def _member_value_call(
         raise ConversionGap(
             f"{_label(node)}: the VI the reference holds is only known when the "
             f"diagram runs, and the project's VIs with its connector pane ({shown}) "
-            "are not all called the same way: a method of a class takes its object "
-            "as self; both return a result object of the connector pane's outputs.",
+            "are not all called the same way: their parameters or results are "
+            "named differently, or a method of a class takes its object as self.",
             node,
         )
-    if form.member is None:
-        return None
-    call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
-    result_var = call.result_var or ctx.make_output_var("vi_reference_result", node.id)
-    return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
+    return form
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:

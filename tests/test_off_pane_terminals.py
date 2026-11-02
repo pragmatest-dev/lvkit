@@ -212,8 +212,8 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         pytest.skip(f"sample corpus VI not present: {vi}")
     graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
-    assert "task_" not in code.split("):", 1)[0]
-    assert "task_ = ''" in code
+    assert "task" not in code.split("):", 1)[0]
+    assert "task = ''" in code
     namespace = exec_module(code, "<failUnlessError>").__dict__
     function = namespace["failunlesserror"]
     assert callable(function)
@@ -222,11 +222,9 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         def __init__(self) -> None:
             self.messages: list[str] = []
 
-        def fail(
-            self, message_: str, error_in_no_error: object = None
-        ) -> SimpleNamespace:
-            self.messages.append(message_)
-            return SimpleNamespace(error_out=error_in_no_error)
+        def fail(self, message: str, error_in: object = None) -> SimpleNamespace:
+            self.messages.append(message)
+            return SimpleNamespace(error_out=error_in)
 
     default_case, named_case = Recorder(), Recorder()
     function(testcase_in=default_case)
@@ -234,7 +232,7 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     # holds its saved default, the empty string.
     assert default_case.messages == ["no error when expected"]
     with pytest.raises(TypeError):
-        function(testcase_in=named_case, task_="parsing")
+        function(testcase_in=named_case, task="parsing")
 
 
 def _fp(tid: str, name: str, direction: str, index: int | None, default=None):

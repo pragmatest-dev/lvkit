@@ -154,7 +154,7 @@ class TestErrorInputBound:
             constants=[],
         )
         ctx = CodeGenContext.from_vi_context(vi_ctx)
-        assert ctx.resolve("err_in") == "error_in_no_error"
+        assert ctx.resolve("err_in") == "error_in"
         assert ctx.resolve("data_in") == "data"
 
 

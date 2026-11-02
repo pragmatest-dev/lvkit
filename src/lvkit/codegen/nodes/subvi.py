@@ -34,6 +34,7 @@ from ..error_path import is_error_wire_vi
 from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..label_names import python_label
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -508,8 +509,8 @@ def _build_arguments(
         elif names is not None and term_index in names.parameters:
             param_name = names.parameters[term_index]
         elif term_name:
-            # Use terminal name from node
-            param_name = to_var_name(term_name)
+            # The callee is not loaded: the call's own terminal names it.
+            param_name = to_var_name(python_label(term) or term_name)
         else:
             _raise_terminal_resolution(subvi_name, "input", term, ctx, vilib_vi)
 
@@ -604,12 +605,13 @@ def _build_vilib_terminal_map(
     vilib_vi: VIEntry | None,
     direction: TerminalDirection,
 ) -> dict[int, str]:
-    """Build index → terminal name mapping from vilib VI.
-
-    Prefers python_param if available, otherwise uses terminal name.
-    """
+    """Index -> the name the catalog gives each terminal of a vi.lib VI whose
+    module the catalog writes (its ``python_code``): ``python_param``, else the
+    terminal's name. Empty for any other VI: its module is generated from its
+    diagram, so a call names its terminals as that module does
+    (``callee_names``)."""
     result: dict[int, str] = {}
-    if vilib_vi:
+    if vilib_vi and vilib_vi.python_code is not None:
         for vt in vilib_vi.terminals:
             if vt.direction == direction and vt.index is not None:
                 result[vt.index] = vt.python_param or vt.name
@@ -646,7 +648,7 @@ def _build_output_bindings(
         elif names is not None and term_index in names.fields:
             field = names.fields[term_index]
         elif term_name:
-            field = result_field_name(term_name)
+            field = result_field_name(python_label(term) or term_name)
         else:
             _raise_terminal_resolution(subvi_name, "output", term, ctx, vilib_vi)
 

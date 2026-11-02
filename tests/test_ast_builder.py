@@ -1645,7 +1645,7 @@ class TestErrorClusterTerminals:
         # No wiring rule is known, so none is Required: all keyword-only.
         assert args.args == []
         assert [a.arg for a in args.kwonlyargs] == [
-            "error_in_no_error",
+            "error_in",
             "value",
             "error_out",
         ]

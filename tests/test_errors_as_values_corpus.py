@@ -173,7 +173,6 @@ def test_framework_test_loops_until_the_error(tmp_path: Path) -> None:
 
 
 @pytest.mark.needs_samples
-@errors_as_values("Unbundle of an error, forked error wire")
 def test_get_control_ref_stops_its_loop_on_the_status_of_the_error(
     tmp_path: Path,
 ) -> None:

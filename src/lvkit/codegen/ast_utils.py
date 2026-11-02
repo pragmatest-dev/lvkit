@@ -27,6 +27,7 @@ from lvkit.vi_files import strip_vi_extension
 
 from .errors import CodeGenError
 from .errors_module import LABVIEW_ERROR_NAME
+from .label_names import python_label
 
 
 def type_default_expr(lv_type: LVType | None) -> ast.expr:
@@ -389,18 +390,20 @@ def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
 
 def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
     """Terminal id -> the Python parameter name of each VI control, unique across
-    ``terminals`` (connector-pane controls first, then off-pane ones). The
-    function signature and the variable each control is bound to both take their
-    name from here."""
-    names = unique_names([to_var_name(t.name or "input") for t in terminals])
+    ``terminals`` (connector-pane controls first, then off-pane ones), made from
+    its ``python_label``. The function signature and the variable each control is
+    bound to both take their name from here."""
+    names = unique_names([to_var_name(python_label(t) or "input") for t in terminals])
     return {t.id: name for t, name in zip(terminals, names, strict=True)}
 
 
 def result_field_names(outputs: list[Terminal]) -> dict[str, str]:
     """Terminal id -> result field name of each connector-pane indicator:
-    ``result_field_name`` of the label (callers read them by it), made distinct
-    when two labels give the same name."""
-    names = unique_names([result_field_name(t.name or "output") for t in outputs])
+    ``result_field_name`` of its ``python_label`` (callers read them by it), made
+    distinct when two labels give the same name."""
+    names = unique_names(
+        [result_field_name(python_label(t) or "output") for t in outputs]
+    )
     return {t.id: name for t, name in zip(outputs, names, strict=True)}
 
 

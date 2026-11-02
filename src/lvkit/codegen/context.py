@@ -58,6 +58,7 @@ from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
+from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .references import REFERENCE_KINDS, generated_nodes
@@ -168,7 +169,7 @@ class CodeGenContext:
         names: set[str] = set()
         for inp in self.vi_inputs:
             var = self.graph.get_var_name(inp.id) if self.graph is not None else None
-            names.add(var or to_var_name(inp.name or "input"))
+            names.add(var or to_var_name(python_label(inp) or "input"))
         return names
 
     def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:

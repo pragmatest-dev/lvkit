@@ -164,6 +164,11 @@ Every commit's diff is reviewed by me (a stronger model than its author).
     runs despite an incoming error keeps the incoming error in its error out;
     its own failure surfaces only when nothing came in (first error wins).
     The Close File catalog entry is fixed to actually close the file.
+11. **Decided 2026-11-02:** a Python name drops a label's parenthetical only when it
+    states the terminal's default (`error in (no error)` → `error_in`, `enable (T)`
+    → `enable` when its default is TRUE); any other parenthetical, such as a unit,
+    stays (`timeout (ms)` → `timeout_ms`). Repeats are numbered
+    (`codegen/label_names.py`).
 9. **Open:** class property accessors stay Python properties (`obj.x`,
    `obj.x = v`; maintainer 2026-11-01: they need not be special method calls
    as long as they behave like LabVIEW). A LabVIEW class Property Node has
