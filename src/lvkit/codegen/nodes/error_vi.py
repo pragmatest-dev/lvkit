@@ -20,7 +20,7 @@ from lvkit.parser.constants import (
 )
 from lvkit.vilib_resolver import VIEntry, get_resolver
 
-from ..ast_utils import build_assign, parse_expr
+from ..ast_utils import build_assign, paren_if_compound, parse_expr
 from ..context import CodeGenContext
 from ..error_codes import describe_error_code
 from ..error_flow import (
@@ -79,7 +79,10 @@ def _clear_errors(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         statements = [
             build_assign(
                 cleared,
-                parse_expr(f"{incoming} is not None and {incoming}.code == {code}"),
+                parse_expr(
+                    f"{incoming} is not None and "
+                    f"{incoming}.code == {paren_if_compound(code)}"
+                ),
             ),
             build_assign(error, parse_expr(f"None if {cleared} else {incoming}")),
         ]
@@ -117,18 +120,28 @@ def _error_cluster_from_error_code(node: VINode, ctx: CodeGenContext) -> CodeFra
         message = None
     description = describe_error_code(constant) if isinstance(constant, int) else None
     if description is not None:
-        message = f"{message} or {description!r}" if message else repr(description)
+        message = (
+            f"{paren_if_compound(message)} or {description!r}"
+            if message
+            else repr(description)
+        )
     warning = wired("is_warning")
-    status = {None: "True", "False": "True", "True": "False"}.get(
-        warning, f"not {warning}"
-    )
+    if warning in (None, "False"):
+        status = "True"
+    elif warning == "True":
+        status = "False"
+    else:
+        status = f"not {paren_if_compound(warning)}"
     error = (
         f"{LABVIEW_ERROR_NAME}(code={code}, message={message or repr('')}, "
         f"status={status})"
     )
     ctx.import_labview_error()
     if not isinstance(constant, int):
-        error = f"{error} if {code} != 0 else {_incoming_error(node, ctx)}"
+        error = (
+            f"{error} if {paren_if_compound(code)} != 0 "
+            f"else {_incoming_error(node, ctx)}"
+        )
     var = ctx.make_output_var("error", node.id)
     return CodeFragment(
         statements=[build_assign(var, parse_expr(error))],
@@ -206,7 +219,7 @@ def _reported_error(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
         f"message={description or ''!r}, status=True)"
     )
     if constant is None:
-        found = f"{found} if {code} != 0 else {incoming}"
+        found = f"{found} if {paren_if_compound(code)} != 0 else {incoming}"
     if incoming == "None":
         return found
     return f"{incoming} if {error_occurred(incoming)} else ({found})"

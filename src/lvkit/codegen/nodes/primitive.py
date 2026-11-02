@@ -25,6 +25,7 @@ from lvkit.terminal_default import DefaultBehavior
 
 from ..ast_utils import (
     build_assign,
+    paren_if_compound,
     parse_expr,
     parse_stmt,
     to_var_name,
@@ -54,35 +55,6 @@ def _array_operand_ranks(
             if operand:
                 ranks[ast.unparse(parse_expr(operand))] = term.lv_type.dimensions or 1
     return ranks
-
-
-def _paren_if_compound(expr: str) -> str:
-    """Wrap an inlined operand in parens if it is a compound expression.
-
-    Operand substitution into a template is string-level, so an inlined
-    sub-expression must keep its precedence: an upstream ``z | x`` dropped into
-    ``in_1 & in_2`` has to stay ``(z | x) & …``, not collapse to ``z | x & …``
-    (``&`` binds tighter than ``|``). Wrapping is always safe — redundant parens
-    never change meaning — and also fixes ``~in_1`` / ``in_1[0]`` / etc."""
-    try:
-        node = ast.parse(expr, mode="eval").body
-    except (SyntaxError, ValueError):
-        return expr
-    if isinstance(
-        node,
-        (
-            ast.BoolOp,
-            ast.BinOp,
-            ast.UnaryOp,
-            ast.Compare,
-            ast.IfExp,
-            ast.Lambda,
-            ast.NamedExpr,
-            ast.Await,
-        ),
-    ):
-        return f"({expr})"
-    return expr
 
 
 def _int_input_terminal(node: PrimitiveNode) -> Terminal | None:
@@ -472,7 +444,7 @@ def _build_input_map(
         if not matched_expandable:
             # Parenthesize a compound operand so its precedence survives the
             # string-level substitution into an operator template.
-            operand = _paren_if_compound(resolved_value)
+            operand = paren_if_compound(resolved_value)
             if (
                 not value
                 and laid_out_slot.get(term_index, term_index) in behavior_written

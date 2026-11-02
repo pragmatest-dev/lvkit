@@ -186,3 +186,18 @@ def test_get_control_ref_stops_its_loop_on_the_status_of_the_error(
         n for n in ast.walk(loop) if isinstance(n, ast.Attribute) and n.attr == "status"
     ]
     assert statuses
+
+
+ICON_EDITOR_FIRST_CALL = (
+    "ni-labview-icon-editor/resource/plugins/NIIconEditor/Support/"
+    "Icon Editor First Call.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_error_code_read_from_a_conditional_is_one_operand(tmp_path: Path) -> None:
+    """The error code of an Error Cluster From Error Code is an ``a if c else b``
+    expression (an Unbundle of an error). It is parenthesised wherever the node
+    puts it in a larger expression, so the module generates and compiles."""
+    source, _ = generated(tmp_path, ICON_EDITOR_FIRST_CALL)
+    assert "else 0) != 0 else" in source

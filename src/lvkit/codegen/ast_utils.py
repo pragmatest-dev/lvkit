@@ -662,3 +662,32 @@ def build_type_checking_block(statements: set[str]) -> list[ast.stmt]:
         test=ast.Name(id="TYPE_CHECKING", ctx=ast.Load()), body=guarded, orelse=[]
     )
     return [*names, block]
+
+
+def paren_if_compound(expr: str) -> str:
+    """Wrap an inlined operand in parens if it is a compound expression.
+
+    Operand substitution into a template is string-level, so an inlined
+    sub-expression must keep its precedence: an upstream ``z | x`` dropped into
+    ``in_1 & in_2`` has to stay ``(z | x) & …``, not collapse to ``z | x & …``
+    (``&`` binds tighter than ``|``). Wrapping is always safe — redundant parens
+    never change meaning — and also fixes ``~in_1`` / ``in_1[0]`` / etc."""
+    try:
+        node = ast.parse(expr, mode="eval").body
+    except (SyntaxError, ValueError):
+        return expr
+    if isinstance(
+        node,
+        (
+            ast.BoolOp,
+            ast.BinOp,
+            ast.UnaryOp,
+            ast.Compare,
+            ast.IfExp,
+            ast.Lambda,
+            ast.NamedExpr,
+            ast.Await,
+        ),
+    ):
+        return f"({expr})"
+    return expr

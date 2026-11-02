@@ -100,15 +100,15 @@ def test_key_python_code_semantics():
 def test_paren_if_compound_preserves_operand_precedence():
     """An inlined compound operand must be parenthesized so its precedence
     survives string substitution into an operator template (task #86)."""
-    from lvkit.codegen.nodes.primitive import _paren_if_compound
+    from lvkit.codegen.ast_utils import paren_if_compound
 
-    assert _paren_if_compound("z | x") == "(z | x)"  # BinOp -> wrapped
-    assert _paren_if_compound("~x") == "(~x)"  # UnaryOp -> wrapped
-    assert _paren_if_compound("a and b") == "(a and b)"  # BoolOp -> wrapped
-    assert _paren_if_compound("a < b") == "(a < b)"  # Compare -> wrapped
-    assert _paren_if_compound("x") == "x"  # Name -> unchanged
-    assert _paren_if_compound("f(a)") == "f(a)"  # Call -> unchanged
-    assert _paren_if_compound("a.b[0]") == "a.b[0]"  # Subscript -> unchanged
+    assert paren_if_compound("z | x") == "(z | x)"  # BinOp -> wrapped
+    assert paren_if_compound("~x") == "(~x)"  # UnaryOp -> wrapped
+    assert paren_if_compound("a and b") == "(a and b)"  # BoolOp -> wrapped
+    assert paren_if_compound("a < b") == "(a < b)"  # Compare -> wrapped
+    assert paren_if_compound("x") == "x"  # Name -> unchanged
+    assert paren_if_compound("f(a)") == "f(a)"  # Call -> unchanged
+    assert paren_if_compound("a.b[0]") == "a.b[0]"  # Subscript -> unchanged
 
 
 def test_boolean_logic_prims_have_integer_bitwise_variant():
