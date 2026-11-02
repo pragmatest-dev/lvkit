@@ -257,3 +257,19 @@ def test_a_polymorphic_module_imports_each_name_once(tmp_path: Path) -> None:
         for alias in node.names
     ]
     assert len(names) == len(set(names))
+
+
+BUILD_ERROR_CLUSTER = (
+    "OpenG/extracted/File Group 0/user.lib/_OpenG.lib/error/error.llb/"
+    "Build Error Cluster__ogtk.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_an_error_imported_at_run_time_is_not_imported_again_for_annotations(
+    tmp_path: Path,
+) -> None:
+    """A module that builds a ``LabVIEWError`` imports it once, not again under
+    ``TYPE_CHECKING`` for its annotations."""
+    source, _ = generated(tmp_path, BUILD_ERROR_CLUSTER)
+    assert source.count("import LabVIEWError") == 1

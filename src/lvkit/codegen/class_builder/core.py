@@ -200,7 +200,11 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         statements.extend(sorted(self._parts.imports))
         for statement in statements:
             imports.extend(ast.parse(statement).body)
-        imports.extend(build_type_checking_block(self._parts.annotation_imports))
+        imports.extend(
+            build_type_checking_block(
+                self._parts.annotation_imports - self._parts.imports
+            )
+        )
         return imports
 
 

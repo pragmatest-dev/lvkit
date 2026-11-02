@@ -444,7 +444,7 @@ def build_imports(
         except SyntaxError as e:
             raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
-    imports.extend(build_type_checking_block(ctx.annotation_imports))
+    imports.extend(build_type_checking_block(ctx.annotation_imports - ctx.imports))
     return imports
 
 
