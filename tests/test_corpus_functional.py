@@ -40,8 +40,17 @@ CORPUS = Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG
 _GEN = Path("scripts/generate_python.py")
 
 
-def _run_leaf(vi_rel: str, *args: object) -> Any:
-    """Generate a leaf VI, exec it, and call its entry function with args."""
+def _call(fn: Any, *args: object, **kwargs: object) -> Any:
+    """Call ``fn`` by keyword: ``args`` are the values of its parameters in
+    connector-pane order (the Required inputs first, then the others), each passed
+    by its name."""
+    names = list(inspect.signature(fn).parameters)
+    return fn(**dict(zip(names, args, strict=False)), **kwargs)
+
+
+def _run_leaf(vi_rel: str, *args: object, **kwargs: object) -> Any:
+    """Generate a leaf VI, exec it, and call its entry function with args (by
+    parameter name, in pane order) and kwargs."""
     vi = CORPUS / vi_rel
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi_rel}")
@@ -55,7 +64,7 @@ def _run_leaf(vi_rel: str, *args: object) -> Any:
     func_name = to_function_name(ctx.name)
     fn = ns.get(func_name)
     assert callable(fn), f"entry function {func_name} not defined"
-    return fn(*args)
+    return _call(fn, *args, **kwargs)
 
 
 def _posix(path: object) -> str:
@@ -168,13 +177,13 @@ def test_boolean_trigger_rising_and_falling_edges_are_independent() -> None:
                 ns[k] = prev
 
     set_state(first_call=True, prev=False)
-    r = fn(True)  # first call: both edges suppressed
+    r = _call(fn, True)  # first call: both edges suppressed
     assert (r.rising_edge, r.falling_edge) == (False, False)
     set_state(first_call=False, prev=False)
-    r = fn(True)  # F -> T: rising only
+    r = _call(fn, True)  # F -> T: rising only
     assert (r.rising_edge, r.falling_edge) == (True, False)
     set_state(first_call=False, prev=True)
-    r = fn(False)  # T -> F: falling only
+    r = _call(fn, False)  # T -> F: falling only
     assert (r.rising_edge, r.falling_edge) == (False, True)
 
 
@@ -198,7 +207,9 @@ def test_unwired_array_input_defaults_to_empty() -> None:
     the top of the function (LabVIEW's unwired array == empty array), so the body
     iterates it instead of crashing on None. 1D Array to String joins its input
     with a delimiter -> '' for the empty default, 'a,b,c' for a real array."""
-    empty = _run_leaf("string/string.llb/1D Array to String__ogtk.vi")
+    empty = _run_leaf(
+        "string/string.llb/1D Array to String__ogtk.vi", array_of_strings=None
+    )
     assert empty.delimited_string == ""
     joined = _run_leaf(
         "string/string.llb/1D Array to String__ogtk.vi", ["a", "b", "c"], ","
@@ -267,7 +278,7 @@ def test_2d_array_ops_survive_empty_input() -> None:
         "array/array.llb/Sort 2D Array (I32)__ogtk.vi",
         "array/array.llb/Reverse 2D Array (I32)__ogtk.vi",
     ):
-        _run_leaf(vi)  # all-default (empty) input must not raise
+        _run_leaf(vi, None)  # an unwired (empty) input must not raise
 
 
 def test_get_header_from_td_builds_cluster() -> None:
