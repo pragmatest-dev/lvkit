@@ -399,7 +399,6 @@ def test_an_error_case_picks_the_frame_of_the_error_code(
 # =============================================================
 
 
-@errors_as_values("Unbundle of an error")
 @pytest.mark.parametrize(
     ("status", "code"),
     [(None, 0), (True, 7), (False, 5)],
@@ -423,7 +422,7 @@ def test_unbundle_reads_the_fields_of_the_error_on_its_wire(
     ("error", "expected"),
     [
         (None, 1),
-        pytest.param(7, 100, marks=errors_as_values("Unbundle of an error")),
+        (7, 100),
         ("warning", 1),
     ],
 )

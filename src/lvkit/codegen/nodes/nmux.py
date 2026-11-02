@@ -35,6 +35,7 @@ from ..ast_utils import (
 from ..class_attributes import ClassAttributes, class_field_paths
 from ..class_model import type_attributes
 from ..context import CodeGenContext
+from ..error_flow import error_occurred
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
 from ..value_copy import owned_input
@@ -137,11 +138,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             if agg_lv_type is not None and _is_error_cluster(agg_lv_type):
                 read = _error_read(t, class_fields)
                 if read is not None:
-                    bindings[t.id] = (
-                        read.caught_value(ctx.error_var)
-                        if ctx.error_var
-                        else read.no_error_value
-                    )
+                    bindings[t.id] = read.value(agg_var)
             elif agg_var:
                 if anon:
                     path = _position_path(t, class_fields)
@@ -295,11 +292,15 @@ class ErrorFieldRead:
     role: ErrorFieldRole
     no_error_value: str
 
-    def caught_value(self, error_var: str) -> str:
-        """The value of the field when the error ``error_var`` was caught."""
+    def value(self, error: str | None) -> str:
+        """The value of the field in the error on the wire ``error``: the
+        error's own field, or the no-error value when the wire holds no error."""
+        if error is None or error == "None":
+            return self.no_error_value
         if self.role is ErrorFieldRole.STATUS:
-            return "True"
-        return f"{error_var}.{self.role.value}"
+            return error_occurred(error)
+        field = f"{error}.{self.role.value}"
+        return f"{field} if {error} is not None else {self.no_error_value}"
 
 
 def _error_read(
