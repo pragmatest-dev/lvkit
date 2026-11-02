@@ -15,8 +15,8 @@ import pytest
 
 from lvkit.codegen.class_model import member_shape
 from lvkit.codegen.gaps import Gap
-from lvkit.graph.models import GraphNode, VIContext
-from lvkit.models import FPTerminal, LVType
+from lvkit.graph.models import GraphNode, LoopNode, VIContext
+from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
@@ -164,6 +164,35 @@ def lone(vi: str) -> tuple[VIContext, list[GraphNode]]:
     )
 
 
+def counter(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    """A While Loop that stops when the Required input ``stop`` is True; its
+    iteration terminal ``i`` is wired only to the off-pane indicator ``Values``."""
+    boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    loop = LoopNode(
+        id=f"{vi}:loop",
+        vi_path=vi,
+        name="While Loop",
+        node_type="whileLoop",
+        loop_type="whileLoop",
+        stop_condition_terminal=f"{vi}:loop.stop",
+        terminals=[
+            Terminal(id=f"{vi}:loop.i", index=0, direction="output", lv_type=INT),
+            Terminal(
+                id=f"{vi}:loop.stop", index=1, direction="input", lv_type=boolean
+            ),
+        ],
+    )
+    return (
+        VIContext(
+            name=vi,
+            inputs=[pane(vi, "input", "stop", boolean, "stop", 0)],
+            off_pane_outputs=[off_pane(vi, "output", "values", "Values")],
+            data_flow=[wire(vi, "loop.i", "values"), wire(vi, "stop", "loop.stop")],
+        ),
+        [loop],
+    )
+
+
 def shapes_project(tmp_path: Path) -> Project:
     project = Project(tmp_path)
     project.add_class("Base", [])
@@ -270,6 +299,22 @@ def test_a_vi_with_everything_off_the_pane_has_no_parameter_and_no_result(
     assert "    x: int = 3\n" in source and "    y: int\n" in source
     with package.use() as module:
         assert module("lone").lone() is None
+
+
+def test_a_counter_read_only_by_an_off_pane_indicator_keeps_its_start(
+    tmp_path: Path,
+) -> None:
+    """The While Loop's ``i`` steps with ``i += 1``, which reads ``i``: its
+    starting value stays although no returned value reads it."""
+    project = Project(tmp_path)
+    project.add_vi("Counter", counter)
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["counter"]
+    assert "    i = 0\n    while True:" in source
+    assert "        i += 1" in source
+    with package.use() as module:
+        assert module("counter").counter(True) is None
 
 
 def caller(scale_key: str, mix_key: str, wire_a: bool = True) -> Recipe:
