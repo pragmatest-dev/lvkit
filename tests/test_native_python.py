@@ -7,10 +7,12 @@ The generated module imports nothing from ``lvkit``.
 from __future__ import annotations
 
 import math
+import struct
 
 import pytest
 
 from lvkit.models import ClusterField, LVType, LVTypeKind
+from tests.helpers import error_cluster_type
 from tests.native_vi import (
     Generated,
     array,
@@ -534,6 +536,70 @@ def test_unflatten_number_and_rest():
 def test_unflatten_string_reads_its_length_prefix():
     generated = unflatten(STR)
     assert result_values(generated.function("\x00\x00\x00\x02hiXX")) == ("hi", "XX")
+
+
+def unflatten_with_error_out(target: LVType):
+    """Unflatten From String whose error out is the VI's ``error_out``."""
+    return generate(
+        {"s": STR},
+        {"v": target, "error_out": error_cluster_type()},
+        [
+            node(
+                "uf",
+                1165,
+                [
+                    (0, "output", error_cluster_type()),
+                    (2, "output", target),
+                    (7, "input", target),
+                    (8, "input", error_cluster_type()),
+                    (11, "input", STR),
+                ],
+            )
+        ],
+        [("fp:s", "uf:11"), ("uf:2", "fp:v"), ("uf:0", "fp:error_out")],
+    )
+
+
+TRUNCATED = (
+    "Unflatten or byte stream read operation failed due to corrupt, unexpected, "
+    "or truncated data."
+)
+
+
+@pytest.mark.parametrize(
+    ("target", "data", "default"),
+    [
+        (U32, "\x00\x07", 0),  # four bytes needed, two given
+        (STR, "\x00\x00\x00\x09hi", ""),  # nine characters promised, two given
+        (array("NumInt16"), "\x00\x00\x00\x03\x00\x01", []),  # three, one given
+    ],
+)
+def test_unflatten_of_truncated_data_is_error_116(
+    target: LVType, data: str, default: object
+):
+    generated = unflatten_with_error_out(target)
+    assert "except struct_error as exception:" in body(generated)
+    result = generated.function(data)
+    assert result.v == default
+    error = result.error_out
+    assert (error.code, error.status, error.source) == (
+        116,
+        True,
+        "Unflatten From String",
+    )
+    assert error.message
+    no_lvkit(generated)
+
+
+def test_unflatten_of_whole_data_has_no_error():
+    generated = unflatten_with_error_out(STR)
+    result = generated.function("\x00\x00\x00\x02hi")
+    assert (result.v, result.error_out) == ("hi", None)
+
+
+def test_unflatten_of_truncated_data_with_its_error_out_unwired_raises():
+    with pytest.raises(struct.error):
+        unflatten(STR).function("\x00\x00\x00\x09hi")
 
 
 def test_unflatten_one_dimensional_array():

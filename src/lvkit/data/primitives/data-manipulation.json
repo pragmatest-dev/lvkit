@@ -212,62 +212,6 @@
       "source": "vi-scripting-nodes-lv2025",
       "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
     },
-    "1165": {
-      "name": "Unflatten From String",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "output",
-          "name": "error out",
-          "type": "ErrorCluster"
-        },
-        {
-          "index": 1,
-          "direction": "output",
-          "name": "value",
-          "type": "Cluster"
-        },
-        {
-          "index": 2,
-          "direction": "output",
-          "name": "rest of the binary string",
-          "type": "String"
-        },
-        {
-          "index": 3,
-          "direction": "input",
-          "name": "type",
-          "type": "Cluster"
-        },
-        {
-          "index": 4,
-          "direction": "input",
-          "name": "error in (no error)",
-          "type": "ErrorCluster"
-        },
-        {
-          "index": 5,
-          "direction": "input",
-          "name": "byte order (0:big-endian, network order)",
-          "type": "Enum16"
-        },
-        {
-          "index": 6,
-          "direction": "input",
-          "name": "data includes array or string size? (T)",
-          "type": "Boolean"
-        },
-        {
-          "index": 7,
-          "direction": "input",
-          "name": "binary string",
-          "type": "String"
-        }
-      ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
-    },
     "1166": {
       "name": "Type Cast",
       "terminals": [
@@ -297,6 +241,13 @@
     },
     "1165": {
       "name": "Unflatten From String",
+      "errors": [
+        {
+          "exception": "error",
+          "module": "struct",
+          "code": 116
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",
       "terminals": [
         {
