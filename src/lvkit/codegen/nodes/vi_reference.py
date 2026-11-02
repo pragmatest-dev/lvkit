@@ -321,13 +321,7 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             bindings=bindings,
         )
 
-    ctx.add_import(_EXECUTOR_IMPORT)
-    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
-    submit = ast.Call(
-        func=parse_expr(f"{_EXECUTOR}.submit"),
-        args=[parse_expr(call.function)],
-        keywords=call.keywords,
-    )
+    submit = submit_to_pool(ctx, call.function, call.keywords)
     if options is not None and options & CALL_AND_FORGET:
         return CodeFragment(
             statements=[*call.prelude, ast.Expr(value=submit)], bindings=bindings
@@ -335,6 +329,21 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     future = ctx.make_output_var("future", node.id)
     return CodeFragment(
         statements=[*call.prelude, build_assign(future, submit)], bindings=bindings
+    )
+
+
+def submit_to_pool(
+    ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
+) -> ast.Call:
+    """``function(**keywords)`` started on the module's thread pool, which this
+    adds: the call goes on while the caller does not wait for it. Its value is
+    the call's ``Future``."""
+    ctx.add_import(_EXECUTOR_IMPORT)
+    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
+    return ast.Call(
+        func=parse_expr(f"{_EXECUTOR}.submit"),
+        args=[parse_expr(function)],
+        keywords=keywords,
     )
 
 

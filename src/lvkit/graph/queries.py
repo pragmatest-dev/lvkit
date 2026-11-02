@@ -183,6 +183,11 @@ class QueryMixin:
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
 
+    def is_loaded_vi(self, key: str) -> bool:
+        """Whether the VI at ``key`` is loaded in the graph: not a stub, not a
+        file the load did not reach."""
+        return key in self._vi_nodes
+
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives
         the VI it calls (``VINode.callee_key``: a loaded file's own name, a
