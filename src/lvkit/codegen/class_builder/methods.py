@@ -208,6 +208,8 @@ class _MethodBuilderMixin:
         assert shape.result_class is not None
         spell = type_namer(self._import_resolver.scoped(shape.key))
         outputs = _outputs_by_index(vi_context)
+        if any(outputs[index].is_error_cluster for index in shape.results):
+            self._parts.annotation_imports.add(self._import_resolver.error_import())
         return result_class_def(
             shape.result_class,
             [

@@ -201,3 +201,59 @@ def test_error_code_read_from_a_conditional_is_one_operand(tmp_path: Path) -> No
     puts it in a larger expression, so the module generates and compiles."""
     source, _ = generated(tmp_path, ICON_EDITOR_FIRST_CALL)
     assert "else 0) != 0 else" in source
+
+
+DAQMX_MODULE_CONFIGURATION = (
+    "DCAF-DAQModule/source/module/configuration/from string.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_a_class_result_with_an_error_out_imports_the_error(tmp_path: Path) -> None:
+    """The result classes in a class's module annotate ``error_out``, so the module
+    imports ``LabVIEWError`` for its annotations."""
+    result = generate_python(
+        SAMPLES / DAQMX_MODULE_CONFIGURATION, tmp_path / "gen", mode=LoadMode.FULL
+    )
+    module = next(Path(result["output_dir"]).rglob("daqmx_module_configuration.py"))
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert "LabVIEWError" in imported
+
+
+IS_AN_ERROR_POLY = (
+    "JKI-VI-Tester/source/JKI Reuse/"
+    "Is an Error__jki_lib_error_handling -- VI Tester.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_a_polymorphic_module_imports_each_name_once(tmp_path: Path) -> None:
+    """The header of a polymorphic module and the imports its variants need do not
+    repeat a name, and name no ``NamedTuple``."""
+    result = generate_python(
+        SAMPLES / IS_AN_ERROR_POLY, tmp_path / "gen", mode=LoadMode.FULL
+    )
+    module = next(
+        m
+        for m in Path(result["output_dir"]).rglob("*.py")
+        if m.read_text(encoding="utf-8").startswith('"""Polymorphic VI module."""')
+    )
+    source = module.read_text(encoding="utf-8")
+    imports = [
+        line for line in source.splitlines() if line.startswith(("import ", "from "))
+    ]
+    assert "NamedTuple" not in source
+    assert len(imports) == len(set(imports))
+    names = [
+        alias.asname or alias.name
+        for node in ast.parse(source).body
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    ]
+    assert len(names) == len(set(names))

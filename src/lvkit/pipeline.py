@@ -406,7 +406,7 @@ def _generate_polymorphic_module(
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
         "from pathlib import Path",
-        "from typing import Any, NamedTuple",
+        "from typing import Any",
         "",
     ]
 
@@ -502,13 +502,15 @@ def _generate_polymorphic_module(
 
     # Hoist any imports the variant bodies referenced into the shared header
     # (after the fixed imports, before the blank line separating header/body).
+    type_checking_block = [
+        ast.unparse(stmt)
+        for stmt in build_type_checking_block(variant_annotation_imports)
+    ]
+    variant_imports.difference_update(type_checking_block)
     if variant_imports:
         lines[4:4] = sorted(variant_imports)
     if variant_annotation_imports:
-        lines[4:4] = [
-            ast.unparse(stmt)
-            for stmt in build_type_checking_block(variant_annotation_imports)
-        ]
+        lines[4:4] = type_checking_block
 
     # Generate wrapper function. Name it by the VI's DISPLAY name (basename),
     # not the full path — callers import it as to_function_name(node.name) (the
