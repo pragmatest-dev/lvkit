@@ -250,18 +250,21 @@ def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
     handler.lfu_error_handler__ogtk(retval=1)  # a succeeded call: nothing to report
     kernel32.last_error = 5
     # a failed call reports error 6
-    with pytest.raises(_generated_error(handler)) as raised:
-        handler.lfu_error_handler__ogtk(retval=0, prepend_string="test")
-    assert raised.value.code == 6
-    assert "WinError: test; " in raised.value.source
+    error = handler.lfu_error_handler__ogtk(retval=0, prepend_string="test").error_out
+    assert isinstance(error, _generated_error(handler))
+    assert (error.status, error.code) == (True, 6)
+    assert "WinError: test; " in error.source
 
 
 def test_a_missing_file_fails_to_open(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
     opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
-    with pytest.raises(_generated_error(opener)):
-        opener.lf_open_file__ogtk(file_path=tmp_path / "nope.bin", open_mode_0=_READ)
+    result = opener.lf_open_file__ogtk(
+        file_path=tmp_path / "nope.bin", open_mode_0=_READ
+    )
+    assert isinstance(result.error_out, _generated_error(opener))
+    assert result.error_out.status is True
     assert kernel32.last_error == 2  # ERROR_FILE_NOT_FOUND
 
 
