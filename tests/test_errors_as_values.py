@@ -622,12 +622,12 @@ def test_error_cluster_from_error_code_is_a_warning_when_asked(
 # =============================================================
 
 
-@errors_as_values("Simple Error Handler")
 def test_simple_error_handler_reports_the_error_without_a_dialog(
     project: Project,  # noqa: F811
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     package = generate(project, C.simple_error_handler)
+    capsys.readouterr()  # what generating printed
     clean = package.function()
     assert_result_object(clean, "failed", "code", "error_out")
     assert (clean.failed, clean.code, clean.error_out) == (False, 0, None)

@@ -19,6 +19,7 @@ nodes inside it are. Consecutive nodes on one error chain share one ``if``
 from __future__ import annotations
 
 import ast
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode, StructureNode
@@ -47,6 +48,25 @@ def no_error_occurred(error: str) -> str:
     """The condition a node on the error wire ``error`` runs under: no error
     occurred (no error at all, or a warning)."""
     return f"{error} is None or not {error}.status"
+
+
+class ErrorFieldRole(Enum):
+    """Which field of an error cluster a slot is."""
+
+    STATUS = "status"
+    CODE = "code"
+    SOURCE = "source"
+
+    def in_error(self, error: str | None) -> str:
+        """The expression for this field of the error on the wire ``error``;
+        a wire that holds no error (``None``) has status False, code 0 and an
+        empty source."""
+        if self is ErrorFieldRole.STATUS:
+            return error_occurred(error or "None")
+        none = "0" if self is ErrorFieldRole.CODE else "''"
+        if error is None or error == "None":
+            return none
+        return f"{error}.{self.value} if {error} is not None else {none}"
 
 
 def error_terminals(node: AnyGraphNode, direction: str) -> list[Terminal]:

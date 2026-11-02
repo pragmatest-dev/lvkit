@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-from enum import Enum
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
@@ -34,7 +33,7 @@ from ..ast_utils import (
 from ..class_attributes import ClassAttributes, class_field_paths
 from ..class_model import type_attributes
 from ..context import CodeGenContext
-from ..error_flow import error_occurred
+from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
 from ..value_copy import owned_input
@@ -262,25 +261,6 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
 
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
-
-
-class ErrorFieldRole(Enum):
-    """Which field of an error cluster a slot is."""
-
-    STATUS = "status"
-    CODE = "code"
-    SOURCE = "source"
-
-    def in_error(self, error: str | None) -> str:
-        """The expression for this field of the error on the wire ``error``;
-        a wire that holds no error (``None``) has status False, code 0 and an
-        empty source."""
-        if self is ErrorFieldRole.STATUS:
-            return error_occurred(error or "None")
-        none = "0" if self is ErrorFieldRole.CODE else "''"
-        if error is None or error == "None":
-            return none
-        return f"{error}.{self.value} if {error} is not None else {none}"
 
 
 def error_field_role(field_type: LVType | None) -> ErrorFieldRole:
