@@ -114,21 +114,20 @@ def test_lv_icon_has_no_held_error_model(tmp_path: Path) -> None:
 
 
 @pytest.mark.needs_samples
-@errors_as_values("Merge Errors, Simple Error Handler, error case")
 def test_prepare_lv_handles_error_43_and_does_not_raise_it_again(
     tmp_path: Path,
 ) -> None:
     """Merge Errors feeds an error case with frames No Error, Error 43 (nothing to
     do) and Default (Simple Error Handler). The merged error is handled by the case
-    and is not raised again at the end of the VI; Simple Error Handler is not the
-    broken dictionary template."""
+    and is not raised; Simple Error Handler is not the broken dictionary template.
+    The VI has no error terminals, so it returns no result."""
     source, tree = generated(tmp_path, PREPARE_LV)
     for text in NO_HELD_ERROR_MODEL:
         assert text not in source
     assert re.search(r"\.code == 43", source)
     assert "error_in.get" not in source
     assert "RuntimeError" not in source
-    assert "error_out" in result_fields(tree)
+    assert result_fields(tree) == []
 
 
 @pytest.mark.needs_samples
