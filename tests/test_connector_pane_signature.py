@@ -378,6 +378,59 @@ def test_a_caller_reads_the_results_of_a_vi_and_a_method_by_field(
         assert module("caller").caller(obj=obj, x=1).total == 14 + 10 + 5 + 7
 
 
+def test_an_override_whose_declaration_was_not_loaded_is_called_with_its_inputs(
+    tmp_path: Path,
+) -> None:
+    """The parent class lists ``Scale.vi`` but its VI was not loaded: the
+    child's override is the declaration Python sees, so a call passes the
+    inputs it wires by the override's own parameter names."""
+    project = Project(tmp_path)
+    base = project.add_class("Base", [])
+    project.add_class("Child", [], parent="Base")
+    project.graph._dep_graph.nodes[base]["method_paths"]["Scale.vi"] = str(  # noqa: SLF001
+        tmp_path / "src" / "Base" / "Scale.vi"
+    )
+    scale_key = project.add_method("Child", "Scale", scale(CHILD, bonus=True))
+
+    def run(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "obj", CHILD, "obj", 0),
+                    pane(vi, "input", "x", INT, "x", 1),
+                ],
+                outputs=[pane(vi, "output", "total", INT, "total", 2)],
+                data_flow=[
+                    wire(vi, "obj", "scale.self"),
+                    wire(vi, "x", "scale.req"),
+                    wire(vi, "scale.total", "total"),
+                ],
+            ),
+            [
+                call(
+                    vi,
+                    "scale",
+                    scale_key,
+                    "dynIUse",
+                    [("self", 0, CHILD), ("req", 2, INT), ("opt", 3, INT)],
+                    [("total", 4, INT)],
+                )
+            ],
+        )
+
+    project.add_vi("Run", run)
+    package = project.generate()
+    assert package.gaps == []
+    assert "def scale(self, req: int, *, opt: int=10) -> ScaleResult:" in (
+        package.sources["child"]
+    )
+    assert ".scale(req=x)" in package.sources["run"]
+    with package.use() as module:
+        child = module("child").Child()
+        assert module("run").run(child, 1).total == 1 + 10 + 100
+
+
 def test_a_call_that_leaves_a_required_input_unwired_is_a_gap(tmp_path: Path) -> None:
     project = shapes_project(tmp_path)
     mix_key = project.add_vi("Mix", mix)

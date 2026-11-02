@@ -306,7 +306,11 @@ def _family(
 ) -> tuple[str, str, list[str]]:
     """``(root class, root VI, every VI of the family)`` of the dynamic-dispatch
     VI ``vi_key``: the declaration and each override in the loaded descendants.
-    A VI that is not dynamic dispatch is its own family."""
+    A VI that is not dynamic dispatch is its own family. Only a VI the graph
+    holds as a member of its class is in the family: the class generated for an
+    ancestor whose VI was not loaded has no such method, so the topmost loaded
+    VI is the declaration Python sees, and its connector pane is the
+    signature."""
     access = graph.get_method_access(vi_key)
     if access is None or access.is_static:
         return class_key, vi_key, [vi_key]
@@ -314,7 +318,7 @@ def _family(
     root_class, root_key = class_key, vi_key
     parent = graph.class_parent_key(class_key)
     while parent is not None:
-        found = graph.class_method(parent, name)
+        found = _member_method(graph, parent, name)
         if found is None:
             break
         root_class, root_key = found
@@ -328,11 +332,23 @@ def _family(
             continue
         seen.add(child)
         if graph.class_declares(child, name):
-            found = graph.class_method(child, name)
-            assert found is not None
-            keys.append(found[1])
+            found = _member_method(graph, child, name)
+            if found is not None:
+                keys.append(found[1])
         pending.extend(graph.class_child_keys(child))
     return root_class, root_key, keys
+
+
+def _member_method(
+    graph: InMemoryVIGraph, class_key: str, name: str
+) -> tuple[str, str] | None:
+    """``(owner class, VI)`` of the method file ``name`` of the class at
+    ``class_key`` or its nearest ancestor that lists it, when the graph holds
+    that VI as a member of its class; None otherwise."""
+    found = graph.class_method(class_key, name)
+    if found is None or found[1] not in graph.class_member_keys(found[0]):
+        return None
+    return found
 
 
 def _own_returns_receiver(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> bool:
