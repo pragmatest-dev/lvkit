@@ -20,7 +20,10 @@ dispatch member VI, so a reference to one is a gap.
 The nodes that call through a reference have four terminals that are not
 terminals of the called VI: the VI reference in (index -1) and out (-2), then
 error in (-3) and out (-4). The terminals from index 0 up are the called VI's
-connector pane.
+connector pane. The node's own error in skips the call when an error came in
+(``error_flow.own_error_terminals``); its own error out reports a call that
+could not be made, a reference value that is Not a Refnum. The called VI's
+error in and error out are a parameter and a result of the call like any other.
 """
 
 from __future__ import annotations
@@ -36,6 +39,8 @@ from pathlib import Path
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
 from lvkit.graph.vi_reference import (
+    CALL_REFERENCE_IN,
+    CALL_REFERENCE_OUT,
     OPEN_VI_PATH_INDEX,
     OPEN_VI_REFERENCE_INDEX,
     VI_CLASS,
@@ -48,7 +53,13 @@ from lvkit.graph.vi_reference import (
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
 
-from ..ast_utils import GENERATED_MODULE_NAMES, build_assign, module_part, parse_expr
+from ..ast_utils import (
+    GENERATED_MODULE_NAMES,
+    build_assign,
+    module_part,
+    parse_expr,
+    to_var_name,
+)
 from ..callee_names import CalleeNames, pane_names
 from ..class_attributes import run_time_name
 from ..class_model import (
@@ -59,17 +70,19 @@ from ..class_model import (
     python_class_name,
 )
 from ..context import CodeGenContext
+from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
 from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
 
-_REFERENCE_IN = -1
-_REFERENCE_OUT = -2
+# NI, General LabVIEW Error Codes: 1026 "VI Reference is invalid."
+INVALID_VI_REFERENCE_CODE = 1026
 
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
@@ -137,7 +150,7 @@ class _Call:
 
 
 def _reference_input(node: VINode, ctx: CodeGenContext) -> Terminal:
-    reference = _frame_terminal(node, ctx, _REFERENCE_IN)
+    reference = _frame_terminal(node, ctx, CALL_REFERENCE_IN)
     if reference is None or not ctx.is_wired(reference.id) or ctx.graph is None:
         if node.qualified_path:
             raise ConversionGap(
@@ -299,6 +312,7 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     style = _call_style(node)
     assert ctx.graph is not None
     options: int | None = None
+    known_when_generated = True
     if node.callee_key is not None:
         # The VI is chosen in the node's setup; the caller records it.
         name = node.qualified_name or Path(node.callee_key).name
@@ -309,32 +323,89 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             target = ctx.graph.referenced_vi(reference.id)
         except VIReferenceUnresolved:
             call = _value_call(node, ctx, reference)
+            known_when_generated = False
         else:
             call = _static_call(node, ctx, target)
             options = target.options
-    bindings = dict(call.bindings)
-    reference_out = _frame_terminal(node, ctx, _REFERENCE_OUT)
+    # A started call goes on without the caller, which reads none of its
+    # results.
+    bindings = dict(call.bindings) if style is CallStyle.CALL else {}
+    reference_out = _frame_terminal(node, ctx, CALL_REFERENCE_OUT)
     if reference_out is not None:
         bindings[reference_out.id] = call.function
+    fragment = CodeFragment(
+        statements=[*call.prelude, _invocation(node, ctx, style, call, options)],
+        bindings=bindings,
+    )
+    if known_when_generated:
+        return fragment
+    return _made_only_with_a_vi(node, ctx, call.function, fragment)
 
+
+def _invocation(
+    node: VINode,
+    ctx: CodeGenContext,
+    style: CallStyle,
+    call: _Call,
+    options: int | None,
+) -> ast.stmt:
+    """The statement that makes the call: the call itself, or (Start
+    Asynchronous Call) its start on the thread pool."""
     if style is CallStyle.CALL:
         invoke = ast.Call(
             func=parse_expr(call.function), args=[], keywords=call.keywords
         )
-        return CodeFragment(
-            statements=[*call.prelude, build_assign(call.result_var, invoke)],
-            bindings=bindings,
-        )
-
+        return build_assign(call.result_var, invoke)
     submit = submit_to_pool(ctx, call.function, call.keywords)
     if options is not None and options & CALL_AND_FORGET:
-        return CodeFragment(
-            statements=[*call.prelude, ast.Expr(value=submit)], bindings=bindings
-        )
-    future = ctx.make_output_var("future", node.id)
-    return CodeFragment(
-        statements=[*call.prelude, build_assign(future, submit)], bindings=bindings
+        return ast.Expr(value=submit)
+    return build_assign(ctx.make_output_var("future", node.id), submit)
+
+
+def _made_only_with_a_vi(
+    node: VINode, ctx: CodeGenContext, reference: str, fragment: CodeFragment
+) -> CodeFragment:
+    """``fragment``, the call through the reference value ``reference``, made
+    only when the value holds a VI. A reference that is Not a Refnum (``None``)
+    makes no call: the node's outputs take their defaults and its own error is
+    error 1026, "VI Reference is invalid." (NI, General LabVIEW Error Codes),
+    which its error out reports unless an error came in (``error_flow``). A
+    node whose error out is not wired has nowhere to report it, so calling the
+    reference stays what fails, as a native failure does
+    (``native_failure``)."""
+    _, error_outs = own_error_terminals(node)
+    if not any(ctx.is_wired(term.id) for term in error_outs):
+        return fragment
+    statements = list(fragment.statements)
+    # The called VI's outputs (its connector pane, from index 0) are read from
+    # the call's result only when the call is made.
+    for term in ctx.enriched_terminals(node):
+        value = fragment.bindings.get(term.id)
+        if (
+            term.direction != "output"
+            or term.index is None
+            or term.index < 0
+            or value is None
+        ):
+            continue
+        var = ctx.make_output_var(to_var_name(term.name or "value"), node.id, term.id)
+        statements.append(build_assign(var, parse_expr(value)))
+        fragment.bindings[term.id] = var
+    own_error = ctx.make_output_var("own_error", node.id)
+    defaults = output_defaults(
+        node, fragment.bindings, assigned_names(statements), None
     )
+    ctx.import_labview_error()
+    invalid = labview_error(INVALID_VI_REFERENCE_CODE, _label(node))
+    fragment.statements = [
+        ast.If(
+            test=parse_expr(f"({reference}) is None"),
+            body=[*defaults, build_assign(own_error, invalid)],
+            orelse=[*statements, build_assign(own_error, parse_expr("None"))],
+        )
+    ]
+    fragment.own_error = own_error
+    return fragment
 
 
 def submit_to_pool(

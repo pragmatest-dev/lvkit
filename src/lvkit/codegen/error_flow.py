@@ -13,9 +13,11 @@ A node is not skipped by its caller when its own code reads the error in: a
 subVI or method call passes it to the called function, which decides
 (``CodeFragment.runs_on_error``); a node the catalog marks ``runs_on_error``
 (NI: it runs even if an error occurred) runs always, and its error out is the
-incoming error, else its own (``first_error``). A structure is never skipped as
-a whole; the nodes inside it are. Consecutive nodes on one error chain share one ``if``
-(``share_guards``). Merge Errors combines its inputs (``merge_errors``).
+incoming error, else its own (``first_error``). Call By Reference is skipped on
+its own error in, not the called VI's (``own_error_terminals``). A structure is
+never skipped as a whole; the nodes inside it are. Consecutive nodes on one error
+chain share one ``if`` (``share_guards``). Merge Errors combines its inputs
+(``merge_errors``).
 """
 
 from __future__ import annotations
@@ -26,7 +28,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode, StructureNode
+from lvkit.graph.vi_reference import CALL_ERROR_IN, CALL_ERROR_OUT
 from lvkit.models import Terminal
+from lvkit.parser.constants import NODE_CLASS_CALL_BY_REF
 
 from .ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
 from .fragment import CodeFragment
@@ -79,25 +83,51 @@ def error_terminals(node: AnyGraphNode, direction: str) -> list[Terminal]:
     ]
 
 
+def own_error_terminals(node: AnyGraphNode) -> tuple[Terminal | None, list[Terminal]]:
+    """The error in and error outs of ``node`` itself: the error that skips its
+    work and the outputs that pass that error on.
+
+    A Call By Reference or Start Asynchronous Call node has its own error in and
+    error out beside the called VI's connector pane; the called VI's error
+    terminals are parameters and results of the call like any other. Any other
+    node's error in is its one error cluster input (none when it has several, as
+    Merge Errors does) and its error outs are its error cluster outputs."""
+    if node.node_type == NODE_CLASS_CALL_BY_REF:
+        error_in = next(
+            (
+                t
+                for t in node.terminals
+                if t.direction == "input" and t.index == CALL_ERROR_IN
+            ),
+            None,
+        )
+        outs = [
+            t
+            for t in node.terminals
+            if t.direction == "output" and t.index == CALL_ERROR_OUT
+        ]
+        return error_in, outs
+    inputs = error_terminals(node, "input")
+    return (inputs[0] if len(inputs) == 1 else None), error_terminals(node, "output")
+
+
 def guard(
     node: AnyGraphNode, fragment: CodeFragment, ctx: CodeGenContext
 ) -> CodeFragment:
     """``fragment``, the code of ``node``, run only when no error came in on the
-    node's error in, and its error outputs that the code does not set bound to
-    the incoming error.
-
-    The error in of a node is its one error cluster input, on a node that also
-    has an error cluster output. A node with several error inputs (Merge Errors)
-    combines them in its own code."""
+    node's error in, and its error outs that the code does not set bound to the
+    incoming error (``own_error_terminals``). A node whose work produced an error
+    of its own (``CodeFragment.own_error``) reports it only when no error came
+    in. A node with several error inputs (Merge Errors) combines them in its own
+    code."""
     if isinstance(node, StructureNode):
         return fragment
-    inputs = error_terminals(node, "input")
-    outputs = error_terminals(node, "output")
+    error_in, outputs = own_error_terminals(node)
     incoming = (
-        ctx.wired_input(inputs[0].id, node) if len(inputs) == 1 and outputs else None
+        ctx.wired_input(error_in.id, node) if error_in is not None and outputs else None
     )
     error = incoming or "None"
-    if fragment.runs_on_error and fragment.own_error is not None:
+    if fragment.own_error is not None:
         incoming_error_wins(outputs, fragment, error, ctx, node)
     for term in outputs:
         fragment.bindings.setdefault(term.id, error)
@@ -125,8 +155,9 @@ def incoming_error_wins(
     ctx: CodeGenContext,
     node: AnyGraphNode,
 ) -> None:
-    """Bind the error outs ``outputs`` of a node that runs despite an error to
-    ``first_error(incoming, fragment.own_error)``, assigned after its code."""
+    """Bind the error outs ``outputs`` of a node whose work can produce an error
+    of its own to ``first_error(incoming, fragment.own_error)``, assigned after
+    its code."""
     assert fragment.own_error is not None
     value = first_error(incoming, fragment.own_error)
     for term in outputs:
@@ -170,9 +201,10 @@ def _skipped_on_error(
     error."""
     body = list(fragment.statements)
     assigned = assigned_names(body)
+    own_outs = {t.id for t in own_error_terminals(node)[1]}
     for term in node.terminals:
         value = fragment.bindings.get(term.id)
-        if term.direction != "output" or term.is_error_cluster or value is None:
+        if term.direction != "output" or term.id in own_outs or value is None:
             continue
         expr = parse_expr(value)
         if not isinstance(expr, ast.Constant | ast.Name):
@@ -206,14 +238,16 @@ def output_defaults(
     """The assignments that give the outputs of ``node`` their value when its
     work did not happen (it was skipped, or it failed), in terminal order: each
     output bound to a variable in ``assigned`` takes the expression ``values``
-    gives for its terminal index, else its type's default, and an error out
-    takes ``error`` (left alone when ``error`` is ``None``)."""
+    gives for its terminal index, else its type's default, and the node's own
+    error out (``own_error_terminals``) takes ``error`` (left alone when
+    ``error`` is ``None``)."""
+    own_outs = {t.id for t in own_error_terminals(node)[1]}
     defaults: dict[str, ast.stmt] = {}
     for term in node.terminals:
         value = bindings.get(term.id)
         if term.direction != "output" or value is None or value not in assigned:
             continue
-        if not term.is_error_cluster:
+        if term.id not in own_outs:
             given = (values or {}).get(term.index)
             expr = (
                 parse_expr(given)

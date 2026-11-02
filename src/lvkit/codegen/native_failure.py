@@ -34,7 +34,7 @@ from lvkit.vilib_resolver import VIEntry
 
 from .ast_utils import build_assign, parse_expr
 from .error_codes import describe_error_code
-from .error_flow import assigned_names, error_terminals, output_defaults
+from .error_flow import assigned_names, output_defaults, own_error_terminals
 from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
 
@@ -93,7 +93,7 @@ def catch_failures(
 ) -> CodeFragment:
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
-    outputs = error_terminals(node, "output")
+    _, outputs = own_error_terminals(node)
     if (
         not catalog.failures
         or not fragment.statements
@@ -175,19 +175,31 @@ def _labview_error(failure: NativeError, source: str, exception: str) -> ast.exp
     """``LabVIEWError(code=…, source=…, message=…)`` for ``failure``, caught as
     the variable ``exception``."""
     code = GENERIC_ERROR_CODE if failure.code is None else failure.code
-    message = f"str({exception})"
+    return labview_error(code, source, f"str({exception})")
+
+
+def labview_error(code: int, source: str, message: str | None = None) -> ast.expr:
+    """``LabVIEWError(code=…, source=…, message=…)``: an error of ``code`` the
+    node named ``source`` reports. ``message`` is the expression of its text,
+    with NI's description of the code standing in when it is empty; without
+    ``message`` the text is that description. The module imports
+    ``LabVIEWError`` with ``CodeGenContext.import_labview_error``."""
     description = describe_error_code(code)
-    if description is not None:
-        message = f"{message} or {description!r}"
+    if message is None:
+        text = repr(description or "")
+    elif description is not None:
+        text = f"{message} or {description!r}"
+    else:
+        text = message
     return parse_expr(
-        f"{LABVIEW_ERROR_NAME}(code={code}, source={source!r}, message={message})"
+        f"{LABVIEW_ERROR_NAME}(code={code}, source={source!r}, message={text})"
     )
 
 
 def _incoming_error(node: AnyGraphNode, ctx: CodeGenContext) -> str:
-    """The error that comes in on the node's one error in; ``None`` when there
-    is none or it is unwired."""
-    inputs = error_terminals(node, "input")
-    if len(inputs) != 1:
+    """The error that comes in on the node's error in; ``None`` when there is
+    none or it is unwired."""
+    error_in, _ = own_error_terminals(node)
+    if error_in is None:
         return "None"
-    return ctx.wired_input(inputs[0].id, node) or "None"
+    return ctx.wired_input(error_in.id, node) or "None"

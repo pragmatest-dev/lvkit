@@ -1232,6 +1232,7 @@
   "551": "Requested action aborted: page type unknown.",
   "552": "Requested file action aborted.",
   "553": "Requested action not taken.",
+  "1026": "VI Reference is invalid.",
   "1122": "Refnum became invalid while node waited for it.",
   "1158": "One or more application items already exist.",
   "1159": "Cannot find one or more application items.",
