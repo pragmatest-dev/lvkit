@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.core import uid_of
 from lvkit.graph.models import (
@@ -49,7 +50,7 @@ from .ast_utils import (
     to_function_name,
     to_var_name,
 )
-from .class_model import member_reference, member_shape
+from .class_model import class_import, member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -655,6 +656,25 @@ class CodeGenContext:
             return self.function_name
         return self.vi_reference_expression(self.function_name, self.vi_name)
 
+    def _class_object(self, lv_type: LVType) -> str:
+        """A new object of the class a class constant holds, the class imported:
+        a class constant is the class's default object. A class that is not
+        loaded, or has no module, is a gap."""
+        class_key = (
+            self.graph.class_type_key(lv_type, self.vi_name)
+            if self.graph is not None
+            else None
+        )
+        if class_key is None or not isinstance(self.import_resolver, ImportResolver):
+            raise ConversionGap(
+                f"The class constant of {lv_type.classname} names a class that is "
+                "not loaded; add it to the project or a --search-path"
+            )
+        assert self.graph is not None
+        imported = class_import(self.graph, class_key, self.import_resolver)
+        self.add_import(imported.statement)
+        return f"{imported.name}()"
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""
@@ -662,8 +682,8 @@ class CodeGenContext:
 
     def constant_expression(self, const: Constant | ConstantNode) -> str:
         """The Python expression for a constant, importing the enum class when
-        the constant is one of its members, and the function when it is a
-        reference to a VI."""
+        the constant is one of its members, the function when it is a reference
+        to a VI, and the class when it is an object of a class."""
         lv_type = const.lv_type
         if (
             lv_type is not None
@@ -671,6 +691,8 @@ class CodeGenContext:
             and isinstance(const.value, str)
         ):
             return self.vi_reference_expression(const.value, const.referenced_vi_key)
+        if lv_type is not None and lv_type.ref_type == "UDClassInst":
+            return self._class_object(lv_type)
         if const.unwritable is not None:
             for statement in DATA_FILE_IMPORTS.splitlines():
                 self.add_import(statement)

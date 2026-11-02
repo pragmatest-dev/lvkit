@@ -1854,3 +1854,64 @@ def test_a_private_member_of_another_class_is_no_candidate(tmp_path: Path) -> No
     assert package.gaps == []
     with package.use() as module:
         assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
+
+
+def class_constant(owner: str) -> Recipe:
+    """A VI whose class constant of ``owner`` is its output ``obj``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        from lvkit.graph.models import Constant
+
+        owner_type = class_type(owner)
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "obj", owner_type, "obj", 0)],
+                constants=[
+                    Constant(
+                        id=f"{vi}:const", value=f"{owner}.lvclass", lv_type=owner_type
+                    )
+                ],
+                data_flow=[wire(vi, "const", "obj")],
+            ),
+            [],
+        )
+
+    return build
+
+
+def test_a_class_constant_is_a_new_default_object_of_the_class(
+    tmp_path: Path,
+) -> None:
+    """A class constant is the class's default object: ``Base()`` in a method of
+    the class and in a VI of no class (which imports the class), never the
+    class file's name."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", class_constant("Base"), static=True)
+    project.add_vi("Build", class_constant("Base"))
+    package = project.generate()
+    assert package.gaps == []
+    assert "return MakeResult(obj=Base())" in package.sources["base"]
+    assert "from .base import Base" in package.sources["build"]
+    assert "return BuildResult(obj=Base())" in package.sources["build"]
+    with package.use() as module:
+        base = module("base").Base
+        made = base.make().obj
+        assert isinstance(made, base) and made._Base__count == 0
+        built = module("build").build().obj
+        assert isinstance(built, base) and built is not base.make().obj
+
+
+def test_a_class_constant_of_a_class_not_loaded_is_a_gap(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Build", class_constant("Gone"))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert [g.reason for g in gaps] == [
+        "The class constant of Gone.lvclass names a class that is not loaded; add "
+        "it to the project or a --search-path"
+    ]
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="Gone.lvclass"):
+            module("build").build()

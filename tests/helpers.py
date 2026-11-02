@@ -204,21 +204,23 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
     for out in [*vi_context.outputs, *vi_context.off_pane_outputs]:
         if out.id:
             _stub(out.id, "input", out)
+    # A constant's node and its one output terminal share its id, as the loader
+    # builds them (``graph/construction.py``).
     for const in vi_context.constants:
-        if const.id and f"_fp_{const.id}" not in graph._graph:
+        if const.id and const.id not in graph._graph:
             graph._graph.add_node(
-                f"_fp_{const.id}",
+                const.id,
                 node=ConstantNode(
-                    id=f"_fp_{const.id}",
+                    id=const.id,
                     vi_path=vi_name,
-                    name=f"_fp_{const.id}",
+                    name=const.id,
                     value=const.value,
                     lv_type=const.lv_type,
                     terminals=[Terminal(id=const.id, index=0, direction="output")],
                 ),
             )
-            graph._term_to_node[const.id] = f"_fp_{const.id}"
-            graph._vi_nodes[vi_name].add(f"_fp_{const.id}")
+            graph._term_to_node[const.id] = const.id
+            graph._vi_nodes[vi_name].add(const.id)
 
     register_nodes(graph, nodes, vi_name=vi_name)
 
