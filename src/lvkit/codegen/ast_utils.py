@@ -472,16 +472,20 @@ def sanitize_state_var_suffix(uid: str) -> str:
     Used for module-level persistent-state variable names: uninitialized
     shift-register globals (see codegen/nodes/loop.py) and stateful
     primitives like First Call? (codegen/nodes/first_call.py). Graph uids
-    are already qualified as ``"<vi_name>::<raw_uid>"`` (see
-    ``InMemoryVIGraph._qid``), so the sanitized result stays unique and
-    stable across regenerations of the same VI -- unlike ``to_var_name``,
-    which strips non-alnum characters entirely, this replaces runs of them
-    with a single ``_`` so the ``vi_name`` and ``raw_uid`` portions don't
+    are qualified as ``"<vi path>::<raw_uid>"`` (see ``InMemoryVIGraph._qid``);
+    the suffix keeps the VI's file name and the raw uid, never the folders of
+    the path (generated code names no location on the machine that made it).
+    One module holds the VIs of one class at most, whose file names differ, so
+    the suffix is unique in its module and the same on every machine. Unlike
+    ``to_var_name``, which strips non-alnum characters entirely, this replaces
+    runs of them with a single ``_`` so the file name and the raw uid don't
     collapse into each other.
     """
+    base, _, raw = uid.rpartition("::")
+    file_name = base.replace("\\", "/").rsplit("/", 1)[-1]
     chars: list[str] = []
     prev_underscore = False
-    for ch in uid:
+    for ch in f"{file_name}::{raw}" if base else raw:
         if ch.isalnum():
             chars.append(ch.lower())
             prev_underscore = False

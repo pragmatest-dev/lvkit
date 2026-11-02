@@ -6,7 +6,7 @@ import ast
 
 import pytest
 
-from lvkit.codegen.ast_utils import parse_stmt
+from lvkit.codegen.ast_utils import parse_stmt, sanitize_state_var_suffix
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
@@ -1277,3 +1277,18 @@ def test_a_constant_stop_condition_is_not_assigned_to():
     )
     assert "True = False" not in source
     compile(source, "loop", "exec")
+
+
+@pytest.mark.parametrize(
+    "uid",
+    [
+        "/home/someone/proj/sub/Shift Thing.vi::1010",
+        "C:\\Users\\someone\\proj\\Shift Thing.vi::1010",
+        "sub/Shift Thing.vi::1010",
+    ],
+)
+def test_a_state_variable_names_the_vi_file_not_its_folders(uid: str) -> None:
+    """The name of an uninitialized shift register's module variable keeps the
+    VI's file name and the node's uid; it names no folder of the machine that
+    generated it, so it is the same wherever the code is generated."""
+    assert sanitize_state_var_suffix(uid) == "shift_thing_vi_1010"
