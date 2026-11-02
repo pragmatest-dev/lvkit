@@ -35,6 +35,9 @@ class VIEntry(BaseModel):
     # template (``codegen/nodes/vilib_op.py``).
     op: str | None = None
     inline: bool = False
+    # NI's page says the VI runs even when an error comes in on its error in
+    # (``CodeFragment.runs_on_error``).
+    runs_on_error: bool = False
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
     # Public NI docs URL (labview-api-ref bundle). Replaces the old `page` PDF

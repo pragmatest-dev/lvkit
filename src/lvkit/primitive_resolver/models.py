@@ -76,6 +76,8 @@ class PrimitiveEntry(BaseModel):
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     icon: NodeIcon | None = None
+    # NI's page says the node runs even when an error comes in on its error in.
+    runs_on_error: bool = False
 
 
 class ResolvedPrimitive(BaseModel):
@@ -109,6 +111,9 @@ class ResolvedPrimitive(BaseModel):
     # Public NI docs URL (labview-api-ref bundle) — surfaced in the rendered
     # SVG's hover tooltip (task #67). None when the primitive has no page.
     doc_url: str | None = None
+    # NI's page says the node runs even when an error comes in on its error in
+    # (``CodeFragment.runs_on_error``).
+    runs_on_error: bool = False
 
 
 def _collect_icon(prim: dict) -> NodeIcon | None:

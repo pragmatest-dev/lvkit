@@ -1120,6 +1120,7 @@
     },
     {
       "name": "Close File Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "category": "File I/O",
       "description": "Closes an open file specified by refnum and returns the path to the file associated with the refnum. Error I/O operates uniquely in this function, which closes the file regardless of whether an error occurred in a preceding operation. This ensures that files are closed correctly. difference if you disable buffering. Functions 1472 ni.com",
@@ -2871,6 +2872,7 @@
     },
     {
       "name": "TDMS Close Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-close.html",
       "category": "File I/O",
       "description": "Closes the .tdms file you opened with the TDMS Open function.",
@@ -4189,6 +4191,7 @@
     },
     {
       "name": "Close Zip File",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/close-zip-file-vi.html",
       "category": "File I/O",
       "description": "Closes the zip file zip file in specifies. Functions 1724 ni.com",

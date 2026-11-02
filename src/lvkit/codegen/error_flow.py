@@ -11,8 +11,10 @@ error out the node does not set itself is its error in.
 
 A node is not skipped by its caller when its own code reads the error in: a
 subVI or method call passes it to the called function, which decides
-(``CodeFragment.runs_on_error``). A structure is never skipped as a whole; the
-nodes inside it are. Consecutive nodes on one error chain share one ``if``
+(``CodeFragment.runs_on_error``); a node the catalog marks ``runs_on_error``
+(NI: it runs even if an error occurred) runs always, and its error out is the
+incoming error, else its own (``first_error``). A structure is never skipped as
+a whole; the nodes inside it are. Consecutive nodes on one error chain share one ``if``
 (``share_guards``). Merge Errors combines its inputs (``merge_errors``).
 """
 
@@ -94,11 +96,42 @@ def guard(
         ctx.wired_input(inputs[0].id, node) if len(inputs) == 1 and outputs else None
     )
     error = incoming or "None"
+    if fragment.runs_on_error and fragment.own_error is not None:
+        incoming_error_wins(outputs, fragment, error, ctx, node)
     for term in outputs:
         fragment.bindings.setdefault(term.id, error)
     if incoming is None or incoming == "None" or fragment.runs_on_error:
         return fragment
     return _skipped_on_error(node, fragment, incoming, ctx)
+
+
+def first_error(incoming: str, own: str) -> str:
+    """The error out of a node that runs despite an incoming error: ``incoming``
+    when an error occurred on it, else the node's ``own`` error, else (``own`` is
+    ``None``) ``incoming``, which may be a warning."""
+    if incoming == "None":
+        return own
+    return (
+        f"{incoming} if {error_occurred(incoming)} "
+        f"else ({own} if {own} is not None else {incoming})"
+    )
+
+
+def incoming_error_wins(
+    outputs: list[Terminal],
+    fragment: CodeFragment,
+    incoming: str,
+    ctx: CodeGenContext,
+    node: AnyGraphNode,
+) -> None:
+    """Bind the error outs ``outputs`` of a node that runs despite an error to
+    ``first_error(incoming, fragment.own_error)``, assigned after its code."""
+    assert fragment.own_error is not None
+    value = first_error(incoming, fragment.own_error)
+    for term in outputs:
+        var = ctx.make_output_var("error_out", node.id, term.id)
+        fragment.statements.append(build_assign(var, parse_expr(value)))
+        fragment.bindings[term.id] = var
 
 
 def merge_errors(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:

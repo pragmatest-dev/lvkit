@@ -64,6 +64,7 @@
     },
     "9109": {
       "name": "Release Queue",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
       "verified": true,
       "terminals": [

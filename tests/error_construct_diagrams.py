@@ -16,6 +16,7 @@ from tests.error_diagrams import (
     I32,
     I64,
     PATH,
+    QUEUE,
     RECOMMENDED,
     REQUIRED,
     STR,
@@ -174,6 +175,29 @@ def catalog_node_runs_despite_error(project: Project) -> str:
     vi.wire(node["error out"], eout)
     project.add(vi)
     return NAME
+
+
+def release_queue_after_step(project: Project) -> str:
+    """``Step A.vi`` then Release Queue (primitive 9109) of the queue ``queue``,
+    joined by their error wire."""
+    vi, x, ein, result, eout = _x_error_result()
+    queue = vi.control("queue", QUEUE, REQUIRED)
+    a = vi.step("Step A.vi")
+    node = vi.primitive(
+        9109,
+        [
+            ("queue", 0, QUEUE, False),
+            ("error in", 3, ERR, False),
+            ("error out", 11, ERR, True),
+        ],
+    )
+    vi.wire(x, a["x"])
+    vi.wire(ein, a["error in"])
+    vi.wire(a["r"], result)
+    vi.wire(a["error out"], node["error in"])
+    vi.wire(queue, node["queue"])
+    vi.wire(node["error out"], eout)
+    return _with_steps(project, vi, "Step A.vi")
 
 
 def native_failure(project: Project) -> str:

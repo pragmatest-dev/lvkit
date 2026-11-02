@@ -83,11 +83,15 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
 
     # A catalog VI the generator writes from the graph.
     if vilib_vi and vilib_vi.op:
-        return vilib_op.generate(node, ctx, vilib_vi)
+        fragment = vilib_op.generate(node, ctx, vilib_vi)
+        fragment.runs_on_error = vilib_vi.runs_on_error
+        return fragment
 
     # Check for inline replacement first
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
-        return _generate_inline(node, ctx, vilib_vi)
+        fragment = _generate_inline(node, ctx, vilib_vi)
+        fragment.runs_on_error = vilib_vi.runs_on_error
+        return fragment
 
     # The module of the VI the call names. A polymorphic call whose polymorphic
     # VI the caller does not record calls the variant it resolves to.

@@ -20,12 +20,14 @@ import dataclasses
 import inspect
 from collections.abc import Callable
 from pathlib import Path
+from queue import Queue
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 import tests.error_construct_diagrams as C
+from lvkit.codegen.error_flow import first_error
 from tests.error_diagrams import (
     REQUIRED,
     Package,
@@ -292,7 +294,6 @@ def test_a_skipped_catalog_node_takes_its_type_default(
     assert (result.size, result.error_out) == (0, error)
 
 
-@errors_as_values("catalog node that runs despite an error")
 def test_a_catalog_node_that_runs_despite_an_error_is_not_guarded(
     project: Project,  # noqa: F811
 ) -> None:
@@ -873,3 +874,45 @@ def test_a_loop_stop_wired_to_a_gap_nodes_error_out_keeps_its_stop_test(
     assert f"{error} = None" in package.source
     with pytest.raises(NotImplementedError):
         package.function(x=1)
+
+
+def test_release_queue_runs_after_a_failed_node_and_keeps_its_error(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(
+        project, C.release_queue_after_step, {"step_a": failing_step("step_a", 7)}
+    )
+    assert "if error_in is None or not error_in.status:" not in package.source
+    queue: Queue[int] = Queue()
+    result = package.function(x=1, queue=queue)
+    assert queue.is_shutdown
+    assert (result.error_out.code, result.error_out.status) == (7, True)
+
+
+def test_release_queue_passes_no_error_when_nothing_failed(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(
+        project, C.release_queue_after_step, {"step_a": ok_step("step_a")}
+    )
+    queue: Queue[int] = Queue()
+    result = package.function(x=1, queue=queue)
+    assert queue.is_shutdown
+    assert result.error_out is None
+
+
+def test_the_error_of_a_node_that_runs_despite_an_error_is_the_first_one() -> None:
+    expression = first_error("incoming", "own")
+    error = SimpleNamespace(status=True, code=7)
+    warning = SimpleNamespace(status=False, code=5)
+    own = SimpleNamespace(status=True, code=9)
+
+    def value(incoming: Any, own_error: Any) -> Any:
+        return eval(expression, {"incoming": incoming, "own": own_error})  # noqa: S307
+
+    assert value(error, own) is error
+    assert value(None, own) is own
+    assert value(warning, own) is own
+    assert value(warning, None) is warning
+    assert value(None, None) is None
+    assert first_error("None", "own") == "own"

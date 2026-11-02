@@ -245,6 +245,7 @@ class PrimitiveResolver:
                     elementwise=prim.get("elementwise", False),
                     icon=_collect_icon(prim),
                     doc_url=prim.get("doc_url"),
+                    runs_on_error=prim.get("runs_on_error", False),
                 )
                 alternatives = [
                     [TerminalAlias.model_validate(a) for a in alias_set]
@@ -309,6 +310,7 @@ class PrimitiveResolver:
                 elementwise=prim.get("elementwise", False),
                 icon=_collect_icon(prim),
                 doc_url=prim.get("doc_url"),
+                runs_on_error=prim.get("runs_on_error", False),
             )
         return None
 
@@ -338,6 +340,7 @@ class PrimitiveResolver:
                 elementwise=info.get("elementwise", False),
                 icon=_collect_icon(info),
                 doc_url=info.get("doc_url"),
+                runs_on_error=info.get("runs_on_error", False),
             )
         return None
 

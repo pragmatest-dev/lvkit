@@ -2,6 +2,7 @@
   "primitives": {
     "1405": {
       "name": "Close File",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,
@@ -332,6 +333,7 @@
     },
     "8052": {
       "name": "Close File",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 4,

@@ -111,6 +111,7 @@
     },
     "2409": {
       "name": "Delete Data Value Reference",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

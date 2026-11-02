@@ -52,10 +52,11 @@ TYPES = [
     '<TypeDesc Type="Path" Prop1="0xFFFFFFFF" Format="inline" />',
     '<TypeDesc Type="Refnum" RefType="ByteStream" Format="inline" />',
     '<TypeDesc Type="NumInt64" Prop1="0" Format="inline" />',
+    '<TypeDesc Type="Refnum" RefType="Queue" Format="inline" />',
 ]
-PATH, FILE, I64 = 7, 8, 9
+PATH, FILE, I64, QUEUE = 7, 8, 9, 10
 _TYPE_NAMES = ["Boolean", "NumInt32", "String", "Boolean", "NumInt32", "String"]
-_TYPE_NAMES += ["Cluster", "Path", "Refnum", "NumInt64"]
+_TYPE_NAMES += ["Cluster", "Path", "Refnum", "NumInt64", "Refnum"]
 _FUNCTION = len(TYPES)
 
 # The wiring rule flags of a connector pane slot.

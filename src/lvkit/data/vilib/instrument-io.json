@@ -220,6 +220,7 @@
     },
     {
       "name": "VISA Close Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-close.html",
       "category": "Instrument I/O",
       "description": "Closes a device session or event object specified by VISA resource name.",
@@ -1241,6 +1242,7 @@
     },
     {
       "name": "GPIB Status Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/gpib-status.html",
       "category": "Instrument I/O",
       "description": "Shows the present status of the GPIB Controller indicated by address string. Error I/O operates uniquely in this function. The function gets the status of the GPIB Controller Functions 2796 ni.com regardless of whether an error occurred in a preceding operation.",

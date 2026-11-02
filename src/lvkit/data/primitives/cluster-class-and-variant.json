@@ -227,6 +227,7 @@
     },
     "8018": {
       "name": "Preserve Run-Time Class",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,
