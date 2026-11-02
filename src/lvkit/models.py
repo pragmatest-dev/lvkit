@@ -407,14 +407,19 @@ class LVType:
         ``names`` gives the name the module spells a named class or typedef as,
         or None when the module can import none. A named type that has none
         renders as its LabVIEW representation: an ``int`` for an enum or ring,
-        ``Any`` otherwise.
+        the value's own type for a typedef of a single value (``int`` for a U64
+        typedef), ``Any`` otherwise.
         """
         class_name = self.python_class_name()
         if class_name is not None:
             local = class_name if names is None else names(self)
             if local is not None:
                 return local
-            return "int" if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING) else "Any"
+            if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+                return "int"
+            if self.is_named_scalar():
+                return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
+            return "Any"
         if self.kind == LVTypeKind.PRIMITIVE:
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:

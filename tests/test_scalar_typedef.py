@@ -202,3 +202,34 @@ def test_a_plain_u32_is_an_int_with_no_import() -> None:
     source = _generated(U32)
     assert "color_in: int" in source
     assert "IEColor" not in source
+
+
+def test_a_typedef_with_no_module_annotates_its_value_type() -> None:
+    """When the typedef's file isn't in the project there is no module to import
+    its name from; the annotation is the value's own type, not ``Any``."""
+    missing = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="NumUInt64",
+        typedef_name="grpcId.ctl",
+        typedef_path="Shared/grpcId.ctl",
+    )
+    assert missing.to_python(lambda t: None) == "int"
+    source = _generated(missing)
+    assert "color_in: int" in source
+    assert "grpcId" not in source
+    assert "color_out: int" in source
+
+
+def test_other_named_types_with_no_module_are_unchanged() -> None:
+    enum = LVType(
+        kind=LVTypeKind.ENUM,
+        typedef_name="Mode.ctl",
+        values={"A": EnumValue(value=0), "B": EnumValue(value=1)},
+    )
+    cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Cfg.ctl",
+        fields=[ClusterField("x", U32)],
+    )
+    assert enum.to_python(lambda t: None) == "int"
+    assert cluster.to_python(lambda t: None) == "Any"
