@@ -400,13 +400,18 @@ def error_cluster_from_error_code(project: Project, *, warning: bool = False) ->
     return NAME
 
 
-def simple_error_handler(project: Project) -> str:
+def simple_error_handler(project: Project, *, with_code: bool = False) -> str:
     """Simple Error Handler on the error in: ``failed`` is its ``error?``, ``code``
-    its ``code out``; its error out is the VI's."""
+    its ``code out``; its error out is the VI's. ``with_code`` wires the controls
+    ``error code`` and ``error source`` to its error code and error source, and
+    its ``source out`` to the indicator ``source``."""
     vi = Vi(NAME)
     ein = vi.error_in()
+    code_in = vi.control("error code", I32, RECOMMENDED) if with_code else None
+    source_in = vi.control("error source", STR, RECOMMENDED) if with_code else None
     failed = vi.indicator("failed", BOOL)
     code = vi.indicator("code", I32)
+    source = vi.indicator("source", STR) if with_code else None
     eout = vi.error_out()
     node = vi.call(
         "Simple Error Handler.vi",
@@ -427,6 +432,10 @@ def simple_error_handler(project: Project) -> str:
     vi.wire(node["error?"], failed)
     vi.wire(node["code out"], code)
     vi.wire(node["error out"], eout)
+    if code_in is not None and source_in is not None and source is not None:
+        vi.wire(code_in, node["error code (no error:0)"])
+        vi.wire(source_in, node['error source (" ")'])
+        vi.wire(node["source out"], source)
     project.add(vi)
     return NAME
 

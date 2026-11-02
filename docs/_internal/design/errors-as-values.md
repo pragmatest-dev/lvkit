@@ -73,7 +73,7 @@ a warning is `LabVIEWError(status=False, code=…)`.
 | Merge Errors | first input with status True, else first warning, else `None`, in input order |
 | Clear Errors | `err = None` (with a specific code wired: only that code) |
 | Error Cluster From Error Code | `LabVIEWError(code, …, status=not is_warning)` or `None` for code 0 |
-| Simple / General Error Handler | `error_out = err`, outputs (`error?`, `code out`, `source out`, `message`) from it; no dialog |
+| Simple / General Error Handler | the error it reports: `err` when an error occurred on it; else, for a nonzero `error code`, `LabVIEWError(status=True, code=error_code, source=error_source)`; else `err` (`None`, or a warning). `error_out` is that error, outputs (`error?`, `code out`, `source out`, `message`) from it; an unwired `error code` is 0 and writes no code test; no dialog |
 | Error shift register / loop tunnel | a loop variable like any other |
 | Loop stop terminal wired to an error | `if err is not None and err.status: break` |
 | Forked error wire / parallel branches | plain sequential code, each branch carrying its own variable; the thread pool tier (`builder.py:_generate_parallel_tier`) is removed |
@@ -158,6 +158,12 @@ Every commit's diff is reviewed by me (a stronger model than its author).
    (positional unpacking depends on field order). Done in this change because it
    rewrites every result anyway (`error_out`). Today: ~25 `NamedTuple` mentions
    in 11 codegen files, 9 test files.
+10. **Decided 2026-11-02:** `status` means "an error occurred" (NI). A guarded
+    node skips only when one did: `if err is None or not err.status:`; a
+    warning (status False, code set) does not skip and flows on. A node that
+    runs despite an incoming error keeps the incoming error in its error out;
+    its own failure surfaces only when nothing came in (first error wins).
+    The Close File catalog entry is fixed to actually close the file.
 9. **Open:** class property accessors stay Python properties (`obj.x`,
    `obj.x = v`; maintainer 2026-11-01: they need not be special method calls
    as long as they behave like LabVIEW). A LabVIEW class Property Node has

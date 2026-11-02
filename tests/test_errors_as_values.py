@@ -639,6 +639,44 @@ def test_simple_error_handler_reports_the_error_without_a_dialog(
     assert "RuntimeError" not in package.source
 
 
+def test_simple_error_handler_reports_its_error_code_when_no_error_came_in(
+    project: Project,  # noqa: F811
+) -> None:
+    """NI: when error in has no error, the VI tests error code; a nonzero code is
+    an error, from error source. An error in wins over the code; a warning on
+    error in with code 0 flows on."""
+    package = generate(project, lambda p: C.simple_error_handler(p, with_code=True))
+    fields = ("failed", "code", "source", "error_out")
+    found = package.function(error_code=7, error_source="my step")
+    assert_result_object(found, *fields)
+    error = found.error_out
+    assert (error.status, error.code, error.source) == (True, 7, "my step")
+    assert (found.failed, found.code, found.source) == (True, 7, "my step")
+
+    incoming = package.error(9)
+    result = package.function(error_in=incoming, error_code=7, error_source="mine")
+    assert (result.failed, result.code, result.error_out) == (True, 9, incoming)
+
+    clean = package.function()
+    assert (clean.failed, clean.code, clean.source, clean.error_out) == (
+        False,
+        0,
+        "",
+        None,
+    )
+    warning = package.error(5, status=False)
+    result = package.function(error_in=warning)
+    assert (result.failed, result.code, result.error_out) == (False, 5, warning)
+
+
+def test_simple_error_handler_without_an_error_code_writes_no_code_test(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(project, C.simple_error_handler)
+    assert "!= 0" not in package.source
+    assert "LabVIEWError(" not in package.source
+
+
 # =============================================================
 # Loops
 # =============================================================

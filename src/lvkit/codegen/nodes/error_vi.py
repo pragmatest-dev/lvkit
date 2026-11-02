@@ -3,7 +3,7 @@
 An error wire is a value (``error_flow``): Merge Errors merges its inputs, Clear
 Errors sets its error out to ``None`` (or clears one code), Error Cluster From
 Error Code builds a ``LabVIEWError`` from its code, and Simple Error Handler reports
-the error in without a dialog.
+the error in, or an error of its error code, without a dialog.
 """
 
 from __future__ import annotations
@@ -18,12 +18,17 @@ from lvkit.parser.constants import (
     VI_NAME_MERGE_ERRORS,
     VI_NAME_SIMPLE_ERROR_HANDLER,
 )
-from lvkit.vilib_resolver import get_resolver
+from lvkit.vilib_resolver import VIEntry, get_resolver
 
 from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
 from ..error_codes import describe_error_code
-from ..error_flow import ErrorFieldRole, error_terminals, merge_errors
+from ..error_flow import (
+    ErrorFieldRole,
+    error_occurred,
+    error_terminals,
+    merge_errors,
+)
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 
@@ -93,31 +98,18 @@ def _error_cluster_from_error_code(node: VINode, ctx: CodeGenContext) -> CodeFra
     as the message (the wired message wins when there is one). The node is
     skipped, passing the incoming error on, when an error comes in
     (``error_flow``)."""
-    resolver = get_resolver()
-    entry = resolver.resolve_recorded(ctx.catalog_path(node))
+    entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
-    index_of = {
-        t.python_param: t.index
-        for t in entry.terminals
-        if t.direction == TerminalDirection.INPUT
-    }
 
     def wired(role: str) -> str | None:
-        index = index_of.get(_ERROR_CODE_TERMINALS[role])
-        for term in ctx.enriched_terminals(node):
-            if term.direction == "input" and term.index == index:
-                return ctx.wired_input(term.id, node)
-        return None
+        return _catalog_input(node, ctx, entry, _ERROR_CODE_TERMINALS[role])
 
     code = wired("code")
     if code is None:
         return CodeFragment.empty()
-    try:
-        constant = ast.literal_eval(code)
-    except (ValueError, SyntaxError):
-        constant = None
-    if constant == 0 and isinstance(constant, int):
+    constant = _int_constant(code)
+    if constant == 0:
         return CodeFragment.empty()
 
     message = wired("message")
@@ -150,11 +142,18 @@ _SIMPLE_ERROR_HANDLER_OUTPUTS = {
     "source_out": ErrorFieldRole.SOURCE,
 }
 
+# The inputs of Simple Error Handler the error it reports is made from.
+_HANDLER_CODE = "error_code_no_error_0"
+_HANDLER_SOURCE = "error_source"
+
 
 def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
-    """Simple Error Handler: ``error?``, ``code out`` and ``source out`` are the
-    status, code and source of the error in, ``message`` is its message, and the
-    error out is the error in. It shows no dialog. It runs whatever error comes in."""
+    """Simple Error Handler: the error it reports is the error in when an error
+    occurred on it; else, for a nonzero ``error code``, an error of that code
+    from ``error source``; else the error in (``None``, or a warning). Its error
+    out is that error, ``error?``, ``code out`` and ``source out`` are its
+    status, code and source, and ``message`` its message. It shows no dialog.
+    It runs whatever error comes in."""
     entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
@@ -163,12 +162,14 @@ def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         for t in entry.terminals
         if t.direction == TerminalDirection.OUTPUT
     }
-    incoming = _incoming_error(node, ctx)
-    message = (
-        "''" if incoming == "None" else f"{incoming}.message if {incoming} else ''"
-    )
     statements: list[ast.stmt] = []
-    bindings: dict[str, str] = {}
+    error = _reported_error(node, ctx, entry)
+    if error != _incoming_error(node, ctx):
+        var = ctx.make_output_var("handled_error", node.id)
+        statements.append(build_assign(var, parse_expr(error)))
+        error = var
+    message = "''" if error == "None" else f"{error}.message if {error} else ''"
+    bindings = {term.id: error for term in error_terminals(node, "output")}
     for term in ctx.enriched_terminals(node):
         param = param_of.get(term.index)
         if term.direction != "output" or term.is_error_cluster:
@@ -179,7 +180,66 @@ def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         if not ctx.is_wired(term.id):
             continue
         var = ctx.make_output_var(param or "value", node.id, term.id)
-        value = message if role is None else role.in_error(incoming)
+        value = message if role is None else role.in_error(error)
         statements.append(build_assign(var, parse_expr(value)))
         bindings[term.id] = var
     return CodeFragment(statements=statements, bindings=bindings, runs_on_error=True)
+
+
+def _reported_error(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
+    """The error Simple Error Handler reports, as an expression: the error in
+    when an error occurred on it; else an error of the ``error code`` input with
+    the ``error source`` input, when the code is not 0; else the error in. An
+    unwired ``error code`` is 0, so the error in is all there is."""
+    incoming = _incoming_error(node, ctx)
+    code = _catalog_input(node, ctx, entry, _HANDLER_CODE)
+    constant = _int_constant(code) if code is not None else 0
+    if code is None or constant == 0:
+        return incoming
+    source = _catalog_input(node, ctx, entry, _HANDLER_SOURCE)
+    if source is None:
+        source = repr(_catalog_default(entry, _HANDLER_SOURCE) or "")
+    description = describe_error_code(constant) if constant is not None else None
+    ctx.import_labview_error()
+    found = (
+        f"{LABVIEW_ERROR_NAME}(code={code}, source={source}, "
+        f"message={description or ''!r}, status=True)"
+    )
+    if constant is None:
+        found = f"{found} if {code} != 0 else {incoming}"
+    if incoming == "None":
+        return found
+    return f"{incoming} if {error_occurred(incoming)} else ({found})"
+
+
+def _catalog_input(
+    node: VINode, ctx: CodeGenContext, entry: VIEntry, param: str
+) -> str | None:
+    """The expression wired to the input the catalog entry names ``param``;
+    ``None`` when it is unwired."""
+    index = next(
+        (
+            t.index
+            for t in entry.terminals
+            if t.direction == TerminalDirection.INPUT and t.python_param == param
+        ),
+        None,
+    )
+    for term in ctx.enriched_terminals(node):
+        if term.direction == "input" and term.index == index:
+            return ctx.wired_input(term.id, node)
+    return None
+
+
+def _catalog_default(entry: VIEntry, param: str) -> object:
+    """The default the catalog entry records for its input ``param``."""
+    return next((t.default for t in entry.terminals if t.python_param == param), None)
+
+
+def _int_constant(expression: str) -> int | None:
+    """The integer ``expression`` is when it is a constant, else ``None``."""
+    try:
+        value = ast.literal_eval(expression)
+    except (ValueError, SyntaxError):
+        return None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
