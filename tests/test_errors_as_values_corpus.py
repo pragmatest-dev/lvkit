@@ -119,13 +119,14 @@ def test_prepare_lv_handles_error_43_and_does_not_raise_it_again(
     tmp_path: Path,
 ) -> None:
     """Merge Errors feeds an error case with frames No Error, Error 43 (nothing to
-    do) and Default (Simple Error Handler). The merged error is handled by the case
-    and is not raised; Simple Error Handler is not the broken dictionary template.
-    The VI has no error terminals, so it returns no result."""
+    do) and Default (Simple Error Handler, which shows no dialog). An error runs
+    neither frame's work and is not raised; the No Error frame's work runs only
+    when no error came out of Merge Errors. Simple Error Handler is not the broken
+    dictionary template. The VI has no error terminals, so it returns no result."""
     source, tree = generated(tmp_path, PREPARE_LV)
     for text in NO_HELD_ERROR_MODEL:
         assert text not in source
-    assert re.search(r"\.code == 43", source)
+    assert "if not (merged_error is not None and merged_error.status):" in source
     assert "error_in.get" not in source
     assert "RuntimeError" not in source
     assert result_fields(tree) == []

@@ -890,3 +890,41 @@ def test_start_asynchronous_call_with_no_error_in_starts_the_call(
         refs._async_call_pool.shutdown(wait=True)  # type: ignore[attr-defined]
         assert callee.calls == [(5, None)]
         assert result.error_out is None
+
+
+# The callee's connector pane has no error terminals: y = x + 1.
+_CALLEE_NO_ERRORS = (
+    "from types import SimpleNamespace\n"
+    "calls = []\n"
+    "def callee(x=None):\n"
+    "    calls.append(x)\n"
+    "    return SimpleNamespace(y=x + 1)\n"
+)
+
+
+def test_a_called_vi_with_no_error_terminals_is_skipped_on_the_nodes_error_in(
+    tmp_path: Path,
+) -> None:
+    """The called VI's connector pane has no error in or error out; the node's
+    own error in still skips the call and its error out passes the error on.
+    The call names only the pane's terminals."""
+    call = d.call_through_reference(30, "Call By Reference")
+    loaded = d.load(tmp_path, [_STATIC, call], [d.wire(100, 11, 31)], [_X])
+    for uid in (35, 37):
+        d.type_terminal(loaded, uid, d.ERROR)
+    d.type_terminal(loaded, 43, _I32)
+    d.add_control(loaded, "error in", d.ERROR, 35, uid="node error")
+    d.add_indicator(loaded, "error out", d.ERROR, 37, 2)
+    d.add_indicator(loaded, "y", _I32, 43, 1)
+    source = _source(loaded)
+    assert "callee(x=5)" in source
+    for refs in _package(tmp_path, source, _CALLEE_NO_ERRORS):
+        callee = sys.modules["generated_refs.callee"]
+        errors = importlib.import_module("generated_refs.errors")
+        result = refs.refs(error_in=None)  # type: ignore[attr-defined]
+        assert callee.calls == [5]
+        assert (result.y, result.error_out) == (6, None)
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(error_in=incoming)  # type: ignore[attr-defined]
+        assert callee.calls == [5]
+        assert (result.y, result.error_out) == (0, incoming)
