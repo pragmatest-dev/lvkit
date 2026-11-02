@@ -42,6 +42,7 @@ from lvkit.models import (
 )
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.string_literal import quote_string
+from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
@@ -658,8 +659,12 @@ class CodeGenContext:
 
     def _class_object(self, lv_type: LVType) -> str:
         """A new object of the class a class constant holds, the class imported:
-        a class constant is the class's default object. A class that is not
-        loaded, or has no module, is a gap."""
+        a class constant is the class's default object. LabVIEW Object, the
+        class every class descends from, is Python's ``object`` (a generated
+        class with no parent has no base). A class that is not loaded, or has no
+        module, is a gap."""
+        if lv_type.classname == ROOT_CLASS:
+            return "object()"
         class_key = (
             self.graph.class_type_key(lv_type, self.vi_name)
             if self.graph is not None

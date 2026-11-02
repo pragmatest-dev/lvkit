@@ -1903,6 +1903,39 @@ def test_a_class_constant_is_a_new_default_object_of_the_class(
         assert isinstance(built, base) and built is not base.make().obj
 
 
+def test_a_labview_object_constant_is_a_python_object(tmp_path: Path) -> None:
+    """LabVIEW Object, the root of every class, is never a file: its constant is
+    ``object()``, the root of every Python class."""
+    from lvkit.graph.models import Constant
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        root = LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            ref_type="UDClassInst",
+            classname="LabVIEW Object",
+        )
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "obj", root, "obj", 0)],
+                constants=[
+                    Constant(id=f"{vi}:const", value="LabVIEW Object", lv_type=root)
+                ],
+                data_flow=[wire(vi, "const", "obj")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Root", build)
+    package = project.generate()
+    assert package.gaps == []
+    assert "return RootResult(obj=object())" in package.sources["root"]
+    with package.use() as module:
+        assert type(module("root").root().obj) is object
+
+
 def test_a_class_constant_of_a_class_not_loaded_is_a_gap(tmp_path: Path) -> None:
     project = Project(tmp_path)
     project.add_vi("Build", class_constant("Gone"))
