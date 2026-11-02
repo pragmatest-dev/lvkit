@@ -842,3 +842,34 @@ def test_a_gap_still_raises_not_implemented_at_run_time(
     package = project.generate(C.NAME)
     with pytest.raises(NotImplementedError):
         package.function(x=1)
+
+
+def test_a_loop_stop_wired_to_a_gap_nodes_error_out_keeps_its_stop_test(
+    project: Project,  # noqa: F811
+) -> None:
+    """A gap node binds every output, its error out too, to ``None`` before its
+    ``raise``; a While Loop whose stop terminal reads that error out still tests
+    it."""
+    from tests.error_diagrams import ERR, I32, Vi
+
+    vi = Vi(C.NAME)
+    x = vi.control("x", I32, REQUIRED)
+    result = vi.indicator("result", I32)
+    loop = vi.loop("whileLoop")
+    with vi.inside(loop.scopes[0]):
+        node = vi.primitive(
+            99999, [("error out", 0, ERR, True), ("error in", 1, ERR, False)]
+        )
+    vi.wire(node["error out"], loop.faces[0])
+    vi.wire(x, result)
+    project.add(vi)
+    package = project.generate(C.NAME)
+    stop = next(
+        line.strip()
+        for line in package.source.splitlines()
+        if line.strip().startswith("if ") and line.strip().endswith(".status:")
+    )
+    error = stop.removeprefix("if ").split(" is not None")[0]
+    assert f"{error} = None" in package.source
+    with pytest.raises(NotImplementedError):
+        package.function(x=1)
