@@ -189,6 +189,14 @@
     },
     "9111": {
       "name": "Enqueue Element",
+      "errors": [
+        {
+          "exception": "ShutDown",
+          "module": "queue",
+          "code": 1122,
+          "since_python": "3.13"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element.html",
       "verified": true,
       "terminals": [
@@ -227,7 +235,8 @@
           "index": 10,
           "direction": "output",
           "name": "timed_out",
-          "type": "Boolean"
+          "type": "Boolean",
+          "on_failure": true
         },
         {
           "index": 11,
@@ -243,6 +252,14 @@
     },
     "9112": {
       "name": "Preview Queue Element",
+      "errors": [
+        {
+          "exception": "ShutDown",
+          "module": "queue",
+          "code": 1122,
+          "since_python": "3.13"
+        }
+      ],
       "terminals": [
         {
           "index": 0,
@@ -281,7 +298,8 @@
           "index": 10,
           "direction": "output",
           "name": "timed out?",
-          "type": "Boolean"
+          "type": "Boolean",
+          "on_failure": true
         },
         {
           "index": 11,
@@ -296,6 +314,14 @@
     },
     "9113": {
       "name": "Dequeue Element",
+      "errors": [
+        {
+          "exception": "ShutDown",
+          "module": "queue",
+          "code": 1122,
+          "since_python": "3.13"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/dequeue-element.html",
       "verified": true,
       "terminals": [
@@ -334,7 +360,8 @@
           "index": 10,
           "direction": "output",
           "name": "timed_out",
-          "type": "Boolean"
+          "type": "Boolean",
+          "on_failure": true
         },
         {
           "index": 11,
@@ -350,6 +377,13 @@
     },
     "9114": {
       "name": "Flush Queue",
+      "errors": [
+        {
+          "exception": "ShutDown",
+          "module": "queue",
+          "since_python": "3.13"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-queue.html",
       "verified": true,
       "terminals": [
@@ -391,6 +425,14 @@
     },
     "9129": {
       "name": "Enqueue Element At Opposite End",
+      "errors": [
+        {
+          "exception": "ShutDown",
+          "module": "queue",
+          "code": 1122,
+          "since_python": "3.13"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element-at-opposite-end.html",
       "verified": true,
       "terminals": [
@@ -429,7 +471,8 @@
           "index": 10,
           "direction": "output",
           "name": "timed_out",
-          "type": "Boolean"
+          "type": "Boolean",
+          "on_failure": true
         },
         {
           "index": 11,

@@ -254,6 +254,54 @@ def vilib_template_node(project: Project) -> str:
     return NAME
 
 
+# Queue functions by primResID: Enqueue Element, Enqueue Element At Opposite End,
+# Preview Queue Element, Dequeue Element, Flush Queue.
+ENQUEUE, ENQUEUE_FRONT, PREVIEW, DEQUEUE, FLUSH = 9111, 9129, 9112, 9113, 9114
+
+
+def queue_function(
+    project: Project, prim_id: int, *, timeout: bool = False, timed_out: bool = True
+) -> str:
+    """The queue function ``prim_id`` on the queue ``queue``: an enqueue adds the
+    I32 ``element``; Preview and Dequeue give ``element``. With ``timeout`` the
+    VI has a ``timeout_ms`` control; with ``timed_out`` the node's ``timed out?``
+    is wired to an indicator (not for Flush Queue)."""
+    vi = Vi(NAME)
+    queue = vi.control("queue", QUEUE, REQUIRED)
+    adds = prim_id in (ENQUEUE, ENQUEUE_FRONT)
+    gives = prim_id in (PREVIEW, DEQUEUE)
+    slots = [("queue", 0, QUEUE, False), ("error in", 3, ERR, False)]
+    slots.append(("error out", 11, ERR, True))
+    if adds:
+        slots.append(("element", 1, I32, False))
+    if gives:
+        slots.append(("element", 9, I32, True))
+    if timeout:
+        slots.append(("timeout in ms", 2, I32, False))
+    if prim_id != FLUSH:
+        slots.append(("timed out?", 10, BOOL, True))
+    element_in = vi.control("element", I32, REQUIRED) if adds else None
+    ms = vi.control("timeout_ms", I32, REQUIRED) if timeout else None
+    ein = vi.error_in()
+    element_out = vi.indicator("element", I32) if gives else None
+    flag = vi.indicator("timed_out", BOOL) if timed_out and prim_id != FLUSH else None
+    eout = vi.error_out()
+    node = vi.primitive(prim_id, slots)
+    vi.wire(queue, node["queue"])
+    vi.wire(ein, node["error in"])
+    vi.wire(node["error out"], eout)
+    if element_in is not None:
+        vi.wire(element_in, node["element"])
+    if element_out is not None:
+        vi.wire(node["element"], element_out)
+    if ms is not None:
+        vi.wire(ms, node["timeout in ms"])
+    if flag is not None:
+        vi.wire(node["timed out?"], flag)
+    project.add(vi)
+    return NAME
+
+
 # -- error case ----------------------------------------------------------------
 
 NO_ERROR_FRAME = FrameSpec(no_error_point=True)

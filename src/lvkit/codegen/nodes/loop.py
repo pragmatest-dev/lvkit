@@ -536,7 +536,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 bindings[outer_term] = inner_val
 
     # Add initialization for while loop stop condition
-    # (condition is computed inside loop, so we init to False before)
+    # (condition is computed inside loop, so we init it before: False, or no
+    # error for an error wire)
     # Skip if the variable is already a function parameter or if the
     # resolved value is an expression or a constant such as True (not a valid
     # assignment target)
@@ -547,8 +548,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             and not keyword.iskeyword(stop_condition_var)
         )
         if is_identifier and stop_condition_var not in param_names:
+            fed_by_error = node.stop_condition_terminal is not None and (
+                _fed_by_error(node.stop_condition_terminal, ctx)
+            )
             pre_loop_stmts.append(
-                build_assign(stop_condition_var, ast.Constant(value=False))
+                build_assign(
+                    stop_condition_var,
+                    ast.Constant(value=None if fed_by_error else False),
+                )
             )
 
     # Write uninitialized-SR locals back to their module globals so the
@@ -842,6 +849,13 @@ def _iteration_terminal(node: LoopNode) -> Terminal | None:
     )
 
 
+def _fed_by_error(stop_terminal: str, ctx: CodeGenContext) -> bool:
+    """The loop's conditional terminal is wired to an error."""
+    return ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
+        stop_terminal
+    )
+
+
 def _stop_test(
     node: LoopNode, stop_terminal: str, value: str, ctx: CodeGenContext
 ) -> ast.expr:
@@ -849,10 +863,7 @@ def _stop_test(
     conditional terminal: the value itself, or that an error occurred when the
     wire is an error (a warning does not stop the loop); negated for Continue if
     True."""
-    fed_by_error = ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
-        stop_terminal
-    )
-    condition = error_occurred(value) if fed_by_error else value
+    condition = error_occurred(value) if _fed_by_error(stop_terminal, ctx) else value
     cond_expr = parse_expr(condition)
     if node.stop_condition_inverted:
         cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from lvkit.models import TerminalDirection
+from lvkit.models import ScalarValue, TerminalDirection
 from lvkit.primitive_resolver import NativeError, NodeIcon
 from lvkit.terminal_default import TerminalDefault
 
@@ -19,6 +19,9 @@ class VITerminal(TerminalDefault):
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None
     python_param: str | None = None
+    # The value NI documents for this output when the VI's operation fails
+    # (``codegen/native_failure.py``); none: the type's default.
+    on_failure: ScalarValue = None
 
 
 class VIEntry(BaseModel):

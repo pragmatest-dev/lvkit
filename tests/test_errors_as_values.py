@@ -20,6 +20,8 @@ import dataclasses
 import inspect
 import os
 import stat
+import sys
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from queue import Queue
@@ -508,6 +510,105 @@ def test_a_node_that_runs_despite_an_error_keeps_the_error_that_came_in(
     result = package.function(file=_failing_close(closed), error_in=error)
     assert closed == ["a.txt"]
     assert result.error_out is error
+
+
+# Shutting a queue down (Release Queue, queue.shutdown) needs Python 3.13.
+needs_shutdown = pytest.mark.skipif(
+    sys.version_info < (3, 13), reason="queue.shutdown needs Python 3.13"
+)
+
+
+def _released() -> Queue[int]:
+    queue: Queue[int] = Queue()
+    queue.shutdown()
+    return queue
+
+
+def _released_soon() -> Queue[int]:
+    """A queue released while a node waits on it."""
+    queue: Queue[int] = Queue()
+    threading.Timer(0.05, queue.shutdown).start()
+    return queue
+
+
+@needs_shutdown
+@pytest.mark.parametrize("make_queue", [_released, _released_soon])
+@pytest.mark.parametrize("prim_id", [C.DEQUEUE, C.PREVIEW])
+def test_taking_from_a_released_queue_is_error_1122(
+    project: Project,  # noqa: F811
+    prim_id: int,
+    make_queue: Callable[[], Queue[int]],
+) -> None:
+    """NI: if the queue becomes invalid (released) the function stops waiting and
+    returns error 1122; ``timed out?`` is TRUE on an error."""
+    package = generate(project, lambda p: C.queue_function(p, prim_id))
+    result = package.function(queue=make_queue())
+    assert (result.element, result.timed_out) == (0, True)
+    assert (result.error_out.code, result.error_out.status) == (1122, True)
+    assert result.error_out.message
+
+
+@needs_shutdown
+@pytest.mark.parametrize("prim_id", [C.ENQUEUE, C.ENQUEUE_FRONT])
+def test_adding_to_a_released_queue_is_error_1122(
+    project: Project,  # noqa: F811
+    prim_id: int,
+) -> None:
+    package = generate(project, lambda p: C.queue_function(p, prim_id))
+    queue = _released()
+    result = package.function(queue=queue, element=3)
+    assert result.timed_out is True
+    assert result.error_out.code == 1122
+    assert list(queue.queue) == []
+
+
+@needs_shutdown
+def test_flushing_a_released_queue_is_the_generic_error_42(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(project, lambda p: C.queue_function(p, C.FLUSH))
+    assert package.function(queue=_released()).error_out.code == 42
+
+
+@pytest.mark.parametrize("prim_id", [C.DEQUEUE, C.PREVIEW])
+def test_taking_from_a_queue_works_with_no_error(
+    project: Project,  # noqa: F811
+    prim_id: int,
+) -> None:
+    package = generate(project, lambda p: C.queue_function(p, prim_id))
+    queue: Queue[int] = Queue()
+    queue.put(5)
+    result = package.function(queue=queue)
+    assert (result.element, result.timed_out, result.error_out) == (5, False, None)
+
+
+@pytest.mark.parametrize("timed_out", [True, False])
+def test_a_dequeue_timeout_is_no_error(
+    project: Project,  # noqa: F811
+    timed_out: bool,
+) -> None:
+    """NI: when the wait times out no error is returned and ``timed out?`` is
+    TRUE, whether or not ``timed out?`` is wired."""
+    package = generate(
+        project,
+        lambda p: C.queue_function(p, C.DEQUEUE, timeout=True, timed_out=timed_out),
+    )
+    result = package.function(queue=Queue(), timeout_ms=10)
+    assert (result.element, result.error_out) == (0, None)
+    if timed_out:
+        assert result.timed_out is True
+
+
+def test_a_queue_function_does_not_run_after_an_error(
+    project: Project,  # noqa: F811
+) -> None:
+    package = generate(project, lambda p: C.queue_function(p, C.DEQUEUE))
+    error = package.error(7)
+    queue: Queue[int] = Queue()
+    queue.put(5)
+    result = package.function(queue=queue, error_in=error)
+    assert (result.element, result.error_out) == (0, error)
+    assert list(queue.queue) == [5]
 
 
 # =============================================================
@@ -1037,6 +1138,7 @@ def test_a_loop_stop_wired_to_a_gap_nodes_error_out_keeps_its_stop_test(
         package.function(x=1)
 
 
+@needs_shutdown
 def test_release_queue_runs_after_a_failed_node_and_keeps_its_error(
     project: Project,  # noqa: F811
 ) -> None:
@@ -1050,6 +1152,7 @@ def test_release_queue_runs_after_a_failed_node_and_keeps_its_error(
     assert (result.error_out.code, result.error_out.status) == (7, True)
 
 
+@needs_shutdown
 def test_release_queue_passes_no_error_when_nothing_failed(
     project: Project,  # noqa: F811
 ) -> None:

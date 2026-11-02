@@ -21,6 +21,7 @@ a whole; the nodes inside it are. Consecutive nodes on one error chain share one
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -200,20 +201,26 @@ def output_defaults(
     bindings: dict[str, str],
     assigned: set[str],
     error: str | None,
+    values: Mapping[int, str] | None = None,
 ) -> list[ast.stmt]:
     """The assignments that give the outputs of ``node`` their value when its
     work did not happen (it was skipped, or it failed), in terminal order: each
-    output bound to a variable in ``assigned`` takes its type's default, and an
-    error out takes ``error`` (left alone when ``error`` is ``None``)."""
+    output bound to a variable in ``assigned`` takes the expression ``values``
+    gives for its terminal index, else its type's default, and an error out
+    takes ``error`` (left alone when ``error`` is ``None``)."""
     defaults: dict[str, ast.stmt] = {}
     for term in node.terminals:
         value = bindings.get(term.id)
         if term.direction != "output" or value is None or value not in assigned:
             continue
         if not term.is_error_cluster:
-            defaults.setdefault(
-                value, build_assign(value, type_default_expr(term.lv_type))
+            given = (values or {}).get(term.index)
+            expr = (
+                parse_expr(given)
+                if given is not None
+                else type_default_expr(term.lv_type)
             )
+            defaults.setdefault(value, build_assign(value, expr))
         elif error is not None:
             defaults.setdefault(value, build_assign(value, parse_expr(error)))
     return list(defaults.values())

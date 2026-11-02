@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from lvkit.models import TerminalDirection
+from lvkit.models import ScalarValue, TerminalDirection
 from lvkit.terminal_default import TerminalDefault
 
 
@@ -26,6 +26,9 @@ class PrimitiveTerminal(TerminalDefault):
     group: str | None = None
     # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
     dco_ref: str | None = None
+    # The value NI documents for this output when the node's operation fails
+    # (``codegen/native_failure.py``); none: the type's default.
+    on_failure: ScalarValue = None
 
 
 class NodeIcon(BaseModel):
@@ -60,11 +63,14 @@ class NativeError(BaseModel):
     """One way a catalog node's Python operation can fail, and the LabVIEW error
     code that failure is: the Python exception class ``exception``, imported
     from ``module`` (``None`` for a built-in one), and the code from NI's public
-    error-code list (``None`` for the generic code)."""
+    error-code list (``None`` for the generic code). ``since_python`` is the
+    Python version the module has the class from, when it is not every version
+    lvkit's generated code runs on."""
 
     exception: str
     module: str | None = None
     code: int | None = None
+    since_python: str | None = None
 
 
 class PrimitiveEntry(BaseModel):

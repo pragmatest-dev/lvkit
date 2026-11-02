@@ -163,7 +163,6 @@ def _breaks_only_under_a_condition(loop: ast.While) -> bool:
 
 
 @pytest.mark.needs_samples
-@errors_as_values("loop stop terminal wired to an error")
 def test_framework_test_loops_until_the_error(tmp_path: Path) -> None:
     """A While Loop whose stop terminal is wired to an error cluster loops until
     the error: the generated loop does not end in an unconditional ``break``."""

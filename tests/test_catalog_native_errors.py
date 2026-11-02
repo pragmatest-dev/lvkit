@@ -7,6 +7,7 @@ from __future__ import annotations
 import builtins
 import importlib
 import json
+import sys
 from pathlib import Path
 
 from lvkit.codegen.error_codes import describe_error_code
@@ -23,6 +24,7 @@ COPY_MOVE = [
     ("FileExistsError", 10),
     ("OSError", 6),
 ]
+RELEASED_QUEUE = [("ShutDown", 1122)]
 
 PRIMITIVES = {
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
@@ -38,6 +40,11 @@ PRIMITIVES = {
     "8078:Write to Binary File": FILE_REFNUM_OPS,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8083:List Folder": FILE_PATH_OPS,
+    "9111:Enqueue Element": RELEASED_QUEUE,
+    "9112:Preview Queue Element": RELEASED_QUEUE,
+    "9113:Dequeue Element": RELEASED_QUEUE,
+    "9114:Flush Queue": [("ShutDown", None)],
+    "9129:Enqueue Element At Opposite End": RELEASED_QUEUE,
 }
 
 
@@ -63,7 +70,13 @@ def _declared() -> dict[str, list[NativeError]]:
     return found
 
 
-def _exception_class(failure: NativeError) -> type[BaseException]:
+def _exception_class(failure: NativeError) -> type[BaseException] | None:
+    """The class ``failure`` names; ``None`` when this Python is older than the
+    version that has it."""
+    if failure.since_python is not None and sys.version_info < tuple(
+        int(part) for part in failure.since_python.split(".")
+    ):
+        return None
     if failure.module is None:
         cls = getattr(builtins, failure.exception)
     else:
@@ -84,7 +97,7 @@ def test_every_declared_failure_is_an_exception_caught_in_a_reachable_order() ->
     """Each exception names a Python exception class, and no handler catches a
     class an earlier one already catches (it would never run)."""
     for key, failures in _declared().items():
-        classes = [_exception_class(f) for f in failures]
+        classes = [c for f in failures if (c := _exception_class(f)) is not None]
         for i, later in enumerate(classes):
             for earlier in classes[:i]:
                 assert not issubclass(later, earlier), (key, later, earlier)
