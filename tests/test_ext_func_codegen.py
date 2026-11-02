@@ -54,12 +54,16 @@ def test_value_parameter_and_return_value() -> None:
     assert (result.result, result.x_out) == (5, -5)
     assert "lvkit" not in source
     assert (
-        f"{_LIB} = ctypes.CDLL({_C_LIBRARY!r})\n"
-        f"{_LIB}_abs = {_LIB}['abs']\n"
-        f"{_LIB}_abs.argtypes = [ctypes.c_int32]\n"
-        f"{_LIB}_abs.restype = ctypes.c_int32\n"
+        f"@functools.cache\ndef {_LIB}():\n    return ctypes.CDLL({_C_LIBRARY!r})\n"
     ) in source
-    assert f"p0_out = {_LIB}_abs(x)\n    p1_out = x\n" in source
+    assert (
+        f"@functools.cache\ndef {_LIB}_abs():\n"
+        f"    function = {_LIB}()['abs']\n"
+        f"    function.argtypes = [ctypes.c_int32]\n"
+        f"    function.restype = ctypes.c_int32\n"
+        f"    return function\n"
+    ) in source
+    assert f"p0_out = {_LIB}_abs()(x)\n    p1_out = x\n" in source
 
 
 @pytest.mark.skipif(_C_LIBRARY is None, reason="no C library to call")
@@ -73,7 +77,7 @@ def test_float_wire_into_an_integer_parameter_is_rounded() -> None:
         indicators={0: "result"},
     )
     assert clfn_test(-2.6).result == 3
-    assert f"{_LIB}_abs(int(round(x)))" in source
+    assert f"{_LIB}_abs()(int(round(x)))" in source
 
 
 @pytest.mark.skipif(_C_LIBRARY is None, reason="no C library to call")
@@ -89,7 +93,7 @@ def test_string_parameter() -> None:
     result = clfn_test("hello")
     assert (result.length, result.text_out) == (5, "hello")
     assert "_strlen_1 = ctypes.create_string_buffer(text.encode('latin-1'))" in source
-    assert f"{_LIB}_strlen.argtypes = [ctypes.c_char_p]" in source
+    assert "function.argtypes = [ctypes.c_char_p]" in source
     assert "p1_out = _strlen_1.value.decode('latin-1')" in source
 
 
@@ -144,20 +148,52 @@ def test_unwired_inputs_are_the_type_default() -> None:
         controls={},
         indicators={0: "result"},
     )
-    assert f"{_LIB}_abs(0)" in source
+    assert f"{_LIB}_abs()(0)" in source
     assert clfn_test().result == 0
 
 
-def test_a_library_that_cannot_be_loaded_raises_os_error_on_import() -> None:
-    with pytest.raises(OSError):
-        build_vi(
-            "no_such_library_for_lvkit",
-            "f",
-            [_NUMBER],
-            ["NumInt32"],
-            controls={},
-            indicators={0: "result"},
-        )
+def test_a_library_that_cannot_be_loaded_raises_os_error_where_the_node_runs() -> None:
+    clfn_test, _ = build_vi(
+        "no_such_library_for_lvkit",
+        "f",
+        [_NUMBER],
+        ["NumInt32"],
+        controls={},
+        indicators={0: "result"},
+    )
+    with pytest.raises(OSError, match="no_such_library_for_lvkit"):
+        clfn_test()
+
+
+@pytest.mark.skipif(_C_LIBRARY is None, reason="no C library to call")
+def test_a_function_the_library_lacks_raises_where_the_node_runs() -> None:
+    clfn_test, _ = build_vi(
+        _C_LIBRARY,
+        "no_such_function_for_lvkit",
+        [_NUMBER],
+        ["NumInt32"],
+        controls={},
+        indicators={0: "result"},
+    )
+    with pytest.raises(AttributeError, match="no_such_function_for_lvkit"):
+        clfn_test()
+
+
+@pytest.mark.skipif(_C_LIBRARY is None, reason="no C library to call")
+def test_the_library_and_function_are_looked_up_once_across_calls() -> None:
+    clfn_test, _ = build_vi(
+        _C_LIBRARY,
+        "abs",
+        [_NUMBER, _NUMBER],
+        ["NumInt32", "NumInt32"],
+        controls={1: "x"},
+        indicators={0: "result"},
+    )
+    namespace = clfn_test.__globals__
+    assert namespace[_LIB].cache_info().misses == 0
+    assert [clfn_test(-3).result, clfn_test(-4).result] == [3, 4]
+    assert namespace[_LIB].cache_info().misses == 1
+    assert namespace[f"{_LIB}_abs"].cache_info().misses == 1
 
 
 _PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
@@ -190,10 +226,10 @@ def test_corpus_vi_generates_python_that_compiles(vi_path: Path, function: str) 
     source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     compile(source, vi_path.name, "exec")
     assert (
-        "_kernel32_dll = getattr(ctypes, 'WinDLL', ctypes.CDLL)('kernel32.dll')"
-        in source
-    )
-    assert f"_kernel32_dll[{function!r}]" in source
+        "def _kernel32_dll():\n"
+        "    return getattr(ctypes, 'WinDLL', ctypes.CDLL)('kernel32.dll')"
+    ) in source
+    assert f"_kernel32_dll()[{function!r}]" in source
 
 
 _TIMESPEC = LVType(
@@ -230,10 +266,7 @@ def test_adapt_to_type_cluster_is_a_pointer_to_a_structure_of_its_fields() -> No
     ) in source
     assert "_clock_gettime_2 = _P2Out()" in source
     assert "p2_out = (_clock_gettime_2.seconds, _clock_gettime_2.nanoseconds)" in source
-    assert (
-        f"{_LIB}_clock_gettime.argtypes = [ctypes.c_int32, ctypes.POINTER(_P2Out)]"
-        in source
-    )
+    assert "function.argtypes = [ctypes.c_int32, ctypes.POINTER(_P2Out)]" in source
 
 
 def test_parameter_layout_of_every_wire_type() -> None:

@@ -52,16 +52,26 @@ def _text(library_name: str, convention: str, **fields: object) -> str:
     return source
 
 
+def _loader(name: str, load: str) -> str:
+    return f"@functools.cache\ndef {name}():\n    return {load}\n"
+
+
 _ABS = (
-    "{n}_abs = {n}['abs']\n{n}_abs.argtypes = [ctypes.c_int32]\n"
-    "{n}_abs.restype = ctypes.c_int32\n"
+    "@functools.cache\ndef {n}_abs():\n"
+    "    function = {n}()['abs']\n"
+    "    function.argtypes = [ctypes.c_int32]\n"
+    "    function.restype = ctypes.c_int32\n"
+    "    return function\n"
 )
 
 
 def test_a_stdcall_library_loads_with_windll_where_windows_has_it() -> None:
     source = _text("kernel32.dll", "stdcall")
     assert (
-        "_kernel32_dll = getattr(ctypes, 'WinDLL', ctypes.CDLL)('kernel32.dll')\n"
+        _loader(
+            "_kernel32_dll", "getattr(ctypes, 'WinDLL', ctypes.CDLL)('kernel32.dll')"
+        )
+        + "\n"
         + _ABS.format(n="_kernel32_dll")
     ) in source
     assert "import sys" not in source
@@ -70,15 +80,18 @@ def test_a_stdcall_library_loads_with_windll_where_windows_has_it() -> None:
 
 def test_a_c_library_loads_with_cdll() -> None:
     source = _text("libfoo.so", "c")
-    assert "_libfoo_so = ctypes.CDLL('libfoo.so')\n" + _ABS.format(n="_libfoo_so") in (
-        source
+    assert (
+        _loader("_libfoo_so", "ctypes.CDLL('libfoo.so')")
+        + "\n"
+        + _ABS.format(n="_libfoo_so")
+        in source
     )
 
 
-def test_a_wildcard_name_is_expanded_when_the_module_is_imported() -> None:
+def test_a_wildcard_name_is_expanded_when_the_library_is_first_loaded() -> None:
     source = _text("nilvaiu.*", "c")
     assert ast.unparse(ast.parse(LIBRARY_FILE_SOURCE)) in source
-    assert "_nilvaiu_ = ctypes.CDLL(_library_file('nilvaiu.*'))\n" in source
+    assert _loader("_nilvaiu_", "ctypes.CDLL(_library_file('nilvaiu.*'))") in source
     assert source.count("def _library_file") == 1
     assert "import os\nimport sys\n" in source
 
@@ -287,15 +300,16 @@ def test_a_project_library_is_copied_and_loaded_from_its_copy(
     ]
     source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
     assert (
-        "_vendorlib_ = getattr(ctypes, 'WinDLL', ctypes.CDLL)(os.path.join("
+        "def _vendorlib_():\n"
+        "    return getattr(ctypes, 'WinDLL', ctypes.CDLL)(os.path.join("
         "os.path.dirname(__file__), '..', 'libs', _library_file('vendorlib**.*')))\n"
     ) in source
     assert "lvkit" not in source
     module = _import(out)
-    loaded = Path(module._vendorlib_._name).resolve()  # noqa: SLF001
+    loaded = Path(module._vendorlib_()._name).resolve()  # noqa: SLF001
     assert loaded == (out / "vis/libs/vendorlib_64.so").resolve()
     pair = (module.ctypes.c_uint16 * 2)(1, 2)
-    module._vendorlib_.swap(pair)  # noqa: SLF001
+    module._vendorlib_().swap(pair)  # noqa: SLF001
     assert list(pair) == [2, 1]
 
 
@@ -327,7 +341,7 @@ def test_a_library_it_needs_in_the_project_is_copied_too(project: Project) -> No
         "vis/libs/libb.so",
     ]
     module = _import(out)
-    assert module._liba_so.a_value() == 42  # noqa: SLF001
+    assert module._liba_so().a_value() == 42  # noqa: SLF001
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the library is a Linux .so")
@@ -356,10 +370,10 @@ def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
         "os.path.join(os.path.dirname(__file__), _library_file('Vendor Lib**.*'))"
     ) in source
     module = _import(out, "vendor_libs")
-    loaded = Path(module._vendor_lib_._name).resolve()  # noqa: SLF001
+    loaded = Path(module._vendor_lib_()._name).resolve()  # noqa: SLF001
     assert loaded == (out / "vendor_libs/Vendor Lib_64.so").resolve()
     pair = (module.ctypes.c_uint16 * 2)(3, 4)
-    module._vendor_lib_.swap(pair)  # noqa: SLF001
+    module._vendor_lib_().swap(pair)  # noqa: SLF001
     assert list(pair) == [4, 3]
 
 
@@ -396,7 +410,8 @@ def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> No
     assert not [p for p in _tree(out) if p.endswith(".so")]
     source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
     assert (
-        "_outside_so = getattr(ctypes, 'WinDLL', ctypes.CDLL)('outside.so')" in source
+        _loader("_outside_so", "getattr(ctypes, 'WinDLL', ctypes.CDLL)('outside.so')")
+        in source
     )
 
 
