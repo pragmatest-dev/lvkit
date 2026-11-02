@@ -498,15 +498,15 @@ def test_a_call_that_leaves_a_required_input_unwired_is_a_gap(tmp_path: Path) ->
 def test_a_lazy_import_goes_after_the_docstring() -> None:
     import ast
 
-    from lvkit.codegen.class_builder.methods import _with_imports_after_docstring
+    from lvkit.codegen.import_cycles import with_imports_after_docstring
 
     imports = ast.parse("import os").body
     documented = ast.parse('"""Doc."""\nx = 1').body
-    assert ast.unparse(_with_imports_after_docstring(imports, documented)) == (
+    assert ast.unparse(with_imports_after_docstring(imports, documented)) == (
         "'Doc.'\nimport os\nx = 1"
     )
     plain = ast.parse("x = 1").body
-    assert ast.unparse(_with_imports_after_docstring(imports, plain)) == (
+    assert ast.unparse(with_imports_after_docstring(imports, plain)) == (
         "import os\nx = 1"
     )
 

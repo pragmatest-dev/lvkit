@@ -20,6 +20,7 @@ from ..class_model import ClassModel, MethodKind, MethodShape
 from ..context import type_namer
 from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
+from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
 
 if TYPE_CHECKING:
@@ -109,12 +110,10 @@ class _MethodBuilderMixin:
 
         body = vi_body(ctx, key, build)
         self._parts.collect(ctx)
-        generated = {i for i in ctx.imports if i.startswith("from .")}
-        if self._lazy and generated:
-            body = _with_imports_after_docstring(_local_imports(generated), body)
-            self._parts.imports.update(ctx.imports - generated)
-        else:
-            self._parts.imports.update(ctx.imports)
+        imports = ctx.imports
+        if self._lazy:
+            body, imports = imports_inside(body, imports)
+        self._parts.imports.update(imports)
         if shape.kind is MethodKind.STATIC:
             decorators = [
                 ast.Name(id="staticmethod", ctx=ast.Load()),
@@ -243,25 +242,3 @@ def _parameter_names(
     locals_ = distinct_names(names.values(), [own[t.id] for t in controls])
     names.update({t.id: name for t, name in zip(controls, locals_, strict=True)})
     return names
-
-
-def _local_imports(statements: set[str]) -> list[ast.stmt]:
-    """The imports of other generated modules a method makes when it runs, for a
-    class whose module is in an import cycle."""
-    local: list[ast.stmt] = []
-    for statement in sorted(statements):
-        local.extend(ast.parse(statement).body)
-    return local
-
-
-def _with_imports_after_docstring(
-    imports: list[ast.stmt], body: list[ast.stmt]
-) -> list[ast.stmt]:
-    """``body`` with ``imports`` at its start, after the docstring if it has one."""
-    first = body[0] if body else None
-    has_docstring = (
-        isinstance(first, ast.Expr)
-        and isinstance(first.value, ast.Constant)
-        and isinstance(first.value.value, str)
-    )
-    return [*body[:1], *imports, *body[1:]] if has_docstring else [*imports, *body]

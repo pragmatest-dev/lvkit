@@ -27,8 +27,6 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import networkx as nx
-
 from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.interface_order import is_required
@@ -133,7 +131,6 @@ class _RunState:
     models: dict[str, ClassModel] = field(default_factory=dict)
     returns: dict[str, bool] = field(default_factory=dict)
     active: set[str] = field(default_factory=set)
-    cyclic_classes: set[str] | None = None
 
 
 _STATES: weakref.WeakKeyDictionary[InMemoryVIGraph, _RunState] = (
@@ -564,41 +561,6 @@ def has_result_class(model: ClassModel, shape: MethodShape) -> bool:
 def declares_result_class(model: ClassModel, shape: MethodShape) -> bool:
     """Whether the module of the class defines the result class of ``shape``."""
     return has_result_class(model, shape) and shape.root_class_key == model.key
-
-
-def lazy_imports(graph: InMemoryVIGraph, class_key: str) -> bool:
-    """Whether the module of the class at ``class_key`` is in an import cycle with
-    other generated modules (it calls a VI that calls it back), so the imports
-    its methods need go inside the methods that use them."""
-    state = _state(graph)
-    if state.cyclic_classes is None:
-        state.cyclic_classes = _classes_in_import_cycles(graph)
-    return class_key in state.cyclic_classes
-
-
-def _classes_in_import_cycles(graph: InMemoryVIGraph) -> set[str]:
-    """The classes that lie on a cycle of the calls between the modules, where a
-    class and its member VIs are one module and a class also depends on its
-    parent."""
-    module_of: dict[str, str] = {}
-    for key in graph.list_class_keys():
-        module_of[key] = key
-        for member in graph.class_member_keys(key):
-            module_of[member] = key
-    modules = nx.DiGraph()
-    for caller, callee in graph.call_edges():
-        a, b = module_of.get(caller, caller), module_of.get(callee, callee)
-        if a != b:
-            modules.add_edge(a, b)
-    for key in sorted(set(module_of.values())):
-        parent = graph.class_parent_key(key)
-        if parent is not None:
-            modules.add_edge(key, parent)
-    cyclic: set[str] = set()
-    for component in nx.strongly_connected_components(modules):
-        if len(component) > 1:
-            cyclic.update(k for k in component if module_of.get(k) == k)
-    return cyclic
 
 
 def shares_refnums(graph: InMemoryVIGraph, class_key: str) -> bool:

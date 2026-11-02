@@ -24,13 +24,13 @@ from ..class_model import (
     base_import,
     class_model,
     declares_result_class,
-    lazy_imports,
     result_class_imports,
     shares_refnums,
 )
 from ..context import type_namer
 from ..errors import CodeGenError
 from ..gaps import Gap, gap_of
+from ..import_cycles import in_import_cycle
 from ..import_resolver import ImportResolver, NameImport
 from ..type_fields import annotation_imports
 from ..value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
@@ -66,7 +66,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         self._import_resolver = import_resolver
         self._gaps: list[Gap] = gaps if gaps is not None else []
         self._model: ClassModel = class_model(graph, class_key)
-        self._lazy = lazy_imports(graph, class_key)
+        self._lazy = in_import_cycle(graph, class_key)
         self._parts = ModuleParts(
             module_stem=to_module_name(Path(class_key).name), data_files=data_files
         )

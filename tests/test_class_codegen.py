@@ -1183,7 +1183,8 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
 def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
     tmp_path: Path,
 ) -> None:
-    from lvkit.codegen.class_model import lazy_imports
+    from lvkit.codegen import import_cycles
+    from lvkit.codegen.import_cycles import in_import_cycle
 
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
@@ -1191,13 +1192,12 @@ def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
     free = project.add_vi("Helper", passthrough(BASE))
     graph = project.graph
     graph._dep_graph.add_edge(method, free)  # noqa: SLF001
-    assert not lazy_imports(graph, project.classes["Base"])
+    assert not in_import_cycle(graph, project.classes["Base"])
     # The free VI names the class only for a class constant.
     graph._dep_graph.add_edge(free, project.classes["Base"])  # noqa: SLF001
-    from lvkit.codegen import class_model
-
-    class_model._STATES.pop(graph, None)  # noqa: SLF001
-    assert lazy_imports(graph, project.classes["Base"])
+    import_cycles._CYCLIC.pop(graph, None)  # noqa: SLF001
+    assert in_import_cycle(graph, project.classes["Base"])
+    assert in_import_cycle(graph, free)
 
 
 def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:

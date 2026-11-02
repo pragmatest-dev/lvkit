@@ -75,6 +75,7 @@ class VIReferenceMixin(WireOriginMixin):
         def is_stub(self, key: str) -> bool: ...
         def node_type(self, key: str) -> NodeType: ...
         def _owner_key(self, key: str, owner_type: NodeType) -> str | None: ...
+        def iter_nodes(self, vi_name: str) -> list[AnyGraphNode]: ...
 
     def referenced_vi(self, terminal_id: str) -> ReferencedVI:
         """The VI the VI reference arriving at ``terminal_id`` holds.
@@ -133,6 +134,24 @@ class VIReferenceMixin(WireOriginMixin):
             raise VIReferenceUnresolved("The VI path input is not wired.")
         target = _same_vi([self._opened_by(path_term, n, s) for n, s in origins])
         return ReferencedVI(target.name, target.key, self._open_options(node))
+
+    def opened_vi_edges(self) -> list[tuple[str, str]]:
+        """``(VI, opened VI)`` for each Open VI Reference of a loaded VI whose VI
+        is known without running the diagram (``opened_vi``): the generated code
+        imports the opened VI's function like a subVI's. Sorted."""
+        edges: set[tuple[str, str]] = set()
+        for key in sorted(self._vi_nodes):
+            for node in self.iter_nodes(key):
+                if not (
+                    isinstance(node, PrimitiveNode)
+                    and node.prim_id == OPEN_VI_REFERENCE_PRIM_ID
+                ):
+                    continue
+                try:
+                    edges.add((key, self.opened_vi(node).key))
+                except VIReferenceUnresolved:
+                    continue
+        return sorted(edges)
 
     def _opened_by(
         self, path_term: Terminal, node: AnyGraphNode, source: WireEnd
