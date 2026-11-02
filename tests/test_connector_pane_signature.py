@@ -8,6 +8,7 @@ returned. A VI's function and a class's method follow the same rule."""
 from __future__ import annotations
 
 import inspect
+import sys
 from pathlib import Path
 
 import pytest
@@ -362,6 +363,11 @@ def test_a_lazy_import_goes_after_the_docstring() -> None:
     )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="a folder name cannot hold ':' and '\\' there; Windows runs every test "
+    "under its own such path",
+)
 def test_a_project_under_a_windows_style_path_generates_the_same(
     tmp_path: Path,
 ) -> None:
