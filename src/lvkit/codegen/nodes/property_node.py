@@ -56,7 +56,7 @@ def _default_object_expression(
     ctx: CodeGenContext, value: DefaultObjectProperty
 ) -> str:
     """``value.python`` with the generating VI's function and callees written in."""
-    expression = value.python.replace("{function}", ctx.function_name)
+    expression = value.python.replace("{function}", ctx.this_vi_expression())
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
     return expression

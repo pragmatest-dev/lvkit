@@ -644,6 +644,17 @@ class CodeGenContext:
         self.add_import(statement)
         return expression
 
+    def this_vi_expression(self) -> str:
+        """The expression that is the function of the VI being generated (LabVIEW's
+        "This VI"): its name in its own module, or for a member VI of a class the
+        method on its class (``vi_reference_expression``), since a method's bare
+        name is not defined inside the class."""
+        if self.graph is None or self.vi_name is None:
+            return self.function_name
+        if member_shape(self.graph, self.vi_name) is None:
+            return self.function_name
+        return self.vi_reference_expression(self.function_name, self.vi_name)
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""

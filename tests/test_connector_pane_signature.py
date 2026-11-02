@@ -15,7 +15,7 @@ import pytest
 
 from lvkit.codegen.class_model import member_shape
 from lvkit.codegen.gaps import Gap
-from lvkit.graph.models import GraphNode, LoopNode, VIContext
+from lvkit.graph.models import GraphNode, LocalVariableNode, LoopNode, VIContext
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
@@ -28,6 +28,7 @@ from tests.class_graphs import (
     pane,
     wire,
 )
+from tests.vi_reference_diagrams import this_vi_type
 
 BASE, CHILD = class_type("Base"), class_type("Child")
 REQUIRED = ParsedWiringRule.REQUIRED
@@ -429,6 +430,55 @@ def test_an_override_whose_declaration_was_not_loaded_is_called_with_its_inputs(
     with package.use() as module:
         child = module("child").Child()
         assert module("run").run(child, 1).total == 1 + 10 + 100
+
+
+def itself(receiver: LVType | None) -> Recipe:
+    """A method whose "This VI" reference is its output ``ref``; with
+    ``receiver`` it is a dynamic method taking that class wire."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        ref_type = this_vi_type()
+        this_vi = LocalVariableNode(
+            id=f"{vi}:this",
+            vi_path=vi,
+            name="This VI",
+            terminals=[
+                Terminal(
+                    id=f"{vi}:this.ref", index=0, direction="output", lv_type=ref_type
+                )
+            ],
+        )
+        inputs = [pane(vi, "input", "self", receiver, "Self", 0)] if receiver else []
+        return (
+            VIContext(
+                name=vi,
+                inputs=inputs,
+                outputs=[pane(vi, "output", "ref", ref_type, "ref", 1)],
+                data_flow=[wire(vi, "this.ref", "ref")],
+            ),
+            [this_vi],
+        )
+
+    return build
+
+
+def test_this_vi_in_a_method_is_the_method_on_its_class(tmp_path: Path) -> None:
+    """Inside a class the bare method name is not defined: "This VI" is the
+    method on its class, for a static and a dynamic method alike."""
+    project = Project(tmp_path)
+    project.add_class("Base", [])
+    project.add_method("Base", "Find", itself(None), static=True)
+    project.add_method("Base", "Self Ref", itself(BASE))
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["base"]
+    assert "return FindResult(ref=Base.find)" in source
+    assert "return SelfRefResult(ref=Base.self_ref)" in source
+    with package.use() as module:
+        base = module("base").Base
+        assert base.find().ref is base.find
+        assert base.find().ref.__name__ == "find"
+        assert base().self_ref().ref is base.self_ref
 
 
 def test_a_call_that_leaves_a_required_input_unwired_is_a_gap(tmp_path: Path) -> None:
