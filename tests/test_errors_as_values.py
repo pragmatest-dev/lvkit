@@ -300,8 +300,27 @@ def test_a_catalog_node_that_runs_despite_an_error_is_not_guarded(
     package = generate(project, C.catalog_node_runs_despite_error)
     assert "if error_in is None or not error_in.status:" not in package.source
     error = package.error(7)
-    result = package.function(file=SimpleNamespace(name="a.txt"), error_in=error)
+    closed: list[str] = []
+    file = SimpleNamespace(name="a.txt", close=lambda: closed.append("a.txt"))
+    result = package.function(file=file, error_in=error)
     assert (str(result.path), result.error_out) == ("a.txt", error)
+    assert closed == ["a.txt"]
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_close_file_closes_the_file_whatever_error_comes_in(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+    failed: bool,
+) -> None:
+    package = generate(project, C.catalog_node_runs_despite_error)
+    path = tmp_path / "a.bin"
+    with path.open("wb") as file:
+        error = package.error(7) if failed else None
+        result = package.function(file=file, error_in=error)
+        assert file.closed
+    assert Path(result.path) == path
+    assert result.error_out is error
 
 
 # =============================================================

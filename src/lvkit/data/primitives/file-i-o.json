@@ -361,10 +361,11 @@
         }
       ],
       "python_code": {
+        "_body": "in_7.close()",
         "path": "getattr(in_7, 'name', None)",
         "error_out": "in_4"
       },
-      "note": "runtime: in_7.close(); path output is the closed file's path",
+      "note": "closes the file; the path output is the closed file's path",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "verified": false
     },
