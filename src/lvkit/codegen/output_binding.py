@@ -10,7 +10,8 @@ inside face, the count terminal's inside face) would be computed each time that
 diagram runs, and an indicator placed inside a frame is read where the VI
 returns, outside it. A value whose expression calls a function is always kept in
 a variable: the call may have effects, and moving it would change when they
-happen.
+happen. So is a value read from an array, cluster or class that another node may
+change in place before the reader runs (``_changed_before_read``).
 """
 
 from __future__ import annotations
@@ -19,15 +20,22 @@ import ast
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import LoopNode
-from lvkit.models import TunnelTerminal
+from lvkit.models import LVTypeKind, Terminal, TunnelTerminal
 
-from .ast_utils import build_assign, paren_if_compound
+from .ast_utils import build_assign, paren_if_compound, parse_expr
 from .fragment import CodeFragment
 
 if TYPE_CHECKING:
     from lvkit.graph.models import AnyGraphNode, WireEnd
 
     from .context import CodeGenContext
+
+_CHANGEABLE_KINDS = (
+    LVTypeKind.ARRAY,
+    LVTypeKind.CLUSTER,
+    LVTypeKind.CLASS,
+    LVTypeKind.TYPEDEF_REF,
+)
 
 
 def has_call(expr: ast.expr) -> bool:
@@ -51,10 +59,58 @@ def written_into_reader(
     readers = ctx.graph.wire_readers(terminal_id)
     if len(readers) != 1 or not ctx.graph.read_in_frame_of(readers[0], node):
         return False
-    set_again = _set_again_before(readers[0], ctx)
-    return not any(
-        isinstance(part, ast.Name) and part.id in set_again for part in ast.walk(expr)
+    read = _names(expr)
+    if read & _set_again_before(readers[0], ctx):
+        return False
+    return not _changed_before_read(node, terminal_id, read, ctx)
+
+
+def _names(expr: ast.expr) -> set[str]:
+    """The variables the expression reads."""
+    return {part.id for part in ast.walk(expr) if isinstance(part, ast.Name)}
+
+
+def _changeable(term: Terminal) -> bool:
+    """Whether the terminal carries an array, cluster or class object, which a
+    node such as Bundle By Name or an In Place Element Structure may change in
+    place. An error cluster is not one: every change to an error makes a new
+    error value (``nodes/nmux._generate_error_bundle``)."""
+    lv_type = term.lv_type
+    return lv_type is not None and not term.is_error_cluster and (
+        lv_type.kind in _CHANGEABLE_KINDS or lv_type.ref_type == "UDClassInst"
     )
+
+
+def _changed_before_read(
+    node: AnyGraphNode, terminal_id: str, read: set[str], ctx: CodeGenContext
+) -> bool:
+    """Whether a value the expression of output ``terminal_id`` reads through an
+    input of ``node`` could be changed in place before the expression's reader
+    runs. A node that changes a value in place copies it only when something
+    that does not run before it can still read it
+    (``InMemoryVIGraph.value_is_shared``); the node's own read counts as one
+    that ran first, which stops being true when the read moves to its reader.
+    So the value stays in a variable when the expression reads an array, cluster
+    or class input whose wire also goes to another terminal
+    (``InMemoryVIGraph.value_read_elsewhere``), or that another output of the
+    node can pass on."""
+    assert ctx.graph is not None
+    passes_on = any(
+        term.direction == "output"
+        and term.id != terminal_id
+        and _changeable(term)
+        and ctx.is_wired(term.id)
+        for term in node.terminals
+    )
+    for term in node.terminals:
+        if term.direction != "input" or not _changeable(term):
+            continue
+        value = ctx.resolve(term.id)
+        if value is None or not (read & _names(parse_expr(value))):
+            continue
+        if passes_on or ctx.graph.value_read_elsewhere(term.id):
+            return True
+    return False
 
 
 def _set_again_before(reader: WireEnd, ctx: CodeGenContext) -> set[str]:

@@ -48,6 +48,31 @@ class WireQueriesMixin:
             if self.terminal_vi(dest.terminal_id) == home
         ]
 
+    def value_read_elsewhere(self, terminal_id: str) -> bool:
+        """Whether the value that reaches the input ``terminal_id`` is also wired
+        to another terminal. The wire is followed back through structure tunnels;
+        the inside faces of one tunnel (one per case frame) are one reader."""
+        return self._read_elsewhere(terminal_id, set())
+
+    def _read_elsewhere(self, terminal_id: str, seen: set[str]) -> bool:
+        if terminal_id in seen:
+            return False
+        seen.add(terminal_id)
+        home = self.terminal_vi(terminal_id)
+        for src in self.incoming_edges(terminal_id):
+            if self.terminal_vi(src.terminal_id) != home:
+                continue
+            tunnel = isinstance(self.get_terminal(src.terminal_id), TunnelTerminal)
+            others = [
+                dest
+                for dest in self.wire_readers(src.terminal_id)
+                if dest.terminal_id != terminal_id
+                and not (tunnel and dest.node_id == src.node_id)
+            ]
+            if others or (tunnel and self._read_elsewhere(src.terminal_id, seen)):
+                return True
+        return False
+
     def read_in_frame_of(self, reader: WireEnd, node: AnyGraphNode) -> bool:
         """Whether the terminal ``reader``, wired from an output of ``node``,
         reads the value on the diagram ``node`` is on (the same structure frame,
