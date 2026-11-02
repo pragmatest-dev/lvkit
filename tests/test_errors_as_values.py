@@ -439,7 +439,6 @@ def test_the_status_of_an_error_selects_a_boolean_case(
     assert package.function(error_in=value).result == expected
 
 
-@errors_as_values("Bundle into an error")
 def test_bundle_builds_an_error_value(project: Project) -> None:  # noqa: F811
     package = generate(project, C.bundle_error)
     result = package.function(status=True, code=5, source="here")
@@ -449,7 +448,6 @@ def test_bundle_builds_an_error_value(project: Project) -> None:  # noqa: F811
     assert (error.status, error.code, error.source) == (True, 5, "here")
 
 
-@errors_as_values("Bundle into an error")
 def test_bundle_with_status_false_and_a_code_builds_a_warning(
     project: Project,  # noqa: F811
 ) -> None:

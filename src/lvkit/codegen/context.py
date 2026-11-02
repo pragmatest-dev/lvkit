@@ -95,11 +95,6 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
-    # The name of the caught ``LabVIEWError`` while the code of an error handler
-    # (the error frame of an error case structure) is generated: an Unbundle of
-    # the error cluster there reads the caught error. None outside a handler,
-    # where an error cluster is the no-error one.
-    error_var: str | None = None
     # Every gap found while generating this module (see ``gaps.py``). Shared
     # across child contexts, so a gap nested in a loop or case is still listed.
     gaps: list[Gap] = field(default_factory=list, repr=False)
@@ -553,7 +548,6 @@ class CodeGenContext:
             imports=self.imports,
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
-            error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module

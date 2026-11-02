@@ -26,7 +26,6 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    build_assign_attr,
     field_attribute_paths,
     parse_expr,
     to_var_name,
@@ -138,7 +137,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             if agg_lv_type is not None and _is_error_cluster(agg_lv_type):
                 read = _error_read(t, class_fields)
                 if read is not None:
-                    bindings[t.id] = read.value(agg_var)
+                    bindings[t.id] = read.role.in_error(agg_var)
             elif agg_var:
                 if anon:
                     path = _position_path(t, class_fields)
@@ -159,7 +158,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             and agg_terminals[0].lv_type
             and _is_error_cluster(agg_terminals[0].lv_type)
         ):
-            return _generate_error_bundle(node, list_in, class_fields, ctx)
+            return _generate_error_bundle(
+                node, list_in, agg_out, agg_var, class_fields, ctx
+            )
 
         if agg_var:
             if anon:
@@ -270,6 +271,17 @@ class ErrorFieldRole(Enum):
     CODE = "code"
     SOURCE = "source"
 
+    def in_error(self, error: str | None) -> str:
+        """The expression for this field of the error on the wire ``error``;
+        a wire that holds no error (``None``) has status False, code 0 and an
+        empty source."""
+        if self is ErrorFieldRole.STATUS:
+            return error_occurred(error or "None")
+        none = "0" if self is ErrorFieldRole.CODE else "''"
+        if error is None or error == "None":
+            return none
+        return f"{error}.{self.value} if {error} is not None else {none}"
+
 
 def error_field_role(field_type: LVType | None) -> ErrorFieldRole:
     """The role of an error cluster field, from its type: the Boolean is the
@@ -285,22 +297,10 @@ def error_field_role(field_type: LVType | None) -> ErrorFieldRole:
 @dataclass(frozen=True)
 class ErrorFieldRead:
     """One field an Unbundle takes out of an error cluster: the terminal it
-    leaves from, its role, and the value it holds when no error occurred (the
-    type's default: status False, code 0, source empty)."""
+    leaves from and its role."""
 
     terminal_id: str
     role: ErrorFieldRole
-    no_error_value: str
-
-    def value(self, error: str | None) -> str:
-        """The value of the field in the error on the wire ``error``: the
-        error's own field, or the no-error value when the wire holds no error."""
-        if error is None or error == "None":
-            return self.no_error_value
-        if self.role is ErrorFieldRole.STATUS:
-            return error_occurred(error)
-        field = f"{error}.{self.role.value}"
-        return f"{field} if {error} is not None else {self.no_error_value}"
 
 
 def _error_read(
@@ -314,11 +314,7 @@ def _error_read(
     if not 0 <= term.nmux_field_index < len(flat):
         return None
     _path, field = flat[term.nmux_field_index]
-    return ErrorFieldRead(
-        terminal_id=term.id,
-        role=error_field_role(field.type),
-        no_error_value=ast.unparse(type_default_expr(field.type)),
-    )
+    return ErrorFieldRead(term.id, error_field_role(field.type))
 
 
 def _position_path(
@@ -417,51 +413,39 @@ def _build_measure_data(
 def _generate_error_bundle(
     node: PrimitiveNode,
     list_in: list[Terminal],
+    agg_out: list[Terminal],
+    base: str | None,
     class_fields: list[ClusterField] | None,
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Generate what a Bundle into an error cluster does.
-
-    A Bundle that sets the status raises ``LabVIEWError`` with the code and
-    source it bundles, when the status is true. Inside an error handler, a
-    Bundle that sets only the code or the source changes the error being
-    handled, which then stays raised.
-    """
+    """Generate what a Bundle into an error cluster does: a new error value whose
+    bundled fields are the wired values and whose other fields are those of the
+    error on the cluster input (``base``). A cluster with no error (status False,
+    code 0) is ``None``, the error wire's no-error value."""
     values: dict[ErrorFieldRole, str] = {}
     for t in sorted(list_in, key=lambda t: t.index):
-        val = ctx.wired_input(t.id, node)
         read = _error_read(t, class_fields)
-        if val and read is not None:
+        val = ctx.wired_input(t.id, node)
+        if read is not None and val:
             values[read.role] = val
 
-    status = values.get(ErrorFieldRole.STATUS)
-    if status is None:
-        if ctx.error_var is None:
-            return CodeFragment.empty()
-        return CodeFragment(
-            statements=[
-                build_assign_attr(ctx.error_var, role.value, parse_expr(val))
-                for role, val in values.items()
-            ]
-        )
+    def field_value(role: ErrorFieldRole) -> str:
+        return values.get(role) or role.in_error(base)
 
+    status = f"({field_value(ErrorFieldRole.STATUS)})"
+    code = f"({field_value(ErrorFieldRole.CODE)})"
+    source = f"({field_value(ErrorFieldRole.SOURCE)})"
     ctx.import_labview_error()
-    raise_stmt = ast.Raise(
-        exc=ast.Call(
-            func=ast.Name(id="LabVIEWError", ctx=ast.Load()),
-            args=[],
-            keywords=[
-                ast.keyword(arg=role.value, value=parse_expr(values[role]))
-                for role in (ErrorFieldRole.CODE, ErrorFieldRole.SOURCE)
-                if role in values
-            ],
-        ),
-        cause=None,
-    )
-    if status == "True":
-        return CodeFragment(statements=[raise_stmt])
+    error = f"LabVIEWError(status={status}, code={code}, source={source})"
+    if status != "(True)":
+        occurred = " or ".join(
+            test for test in (status, f"{code} != 0") if test != "(False)"
+        )
+        error = f"{error} if {occurred} else None"
+    var = ctx.make_output_var("error", node.id)
     return CodeFragment(
-        statements=[ast.If(test=parse_expr(status), body=[raise_stmt], orelse=[])]
+        statements=[build_assign(var, parse_expr(error))],
+        bindings={t.id: var for t in agg_out},
     )
 
 
