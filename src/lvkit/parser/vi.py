@@ -57,6 +57,7 @@ from .constants import (
     NODE_CLASS_ARRAY_INDEX,
     NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
+    NODE_CLASS_PROP_NODE,
     NODE_CLASS_SHIFT_REG,
     OPERATION_NODE_CLASSES,
     STRUCTURE_NODE_CLASSES,
@@ -139,7 +140,12 @@ from .models import (
     ParsedWire,
     SelectorTable,
 )
-from .node_types import InvokeNode, PropertyNode, parse_node
+from .node_types import (
+    InvokeNode,
+    PropertyNode,
+    declared_property_type_desc,
+    parse_node,
+)
 from .nodes import (
     extract_case_structures,
     extract_constants,
@@ -1207,6 +1213,16 @@ def _process_element_terminals(
         dotnet_type_unreadable = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
+            if (
+                elem_class == NODE_CLASS_PROP_NODE
+                and dco_uid
+                and lv_type.underlying_type == "Void"
+            ):
+                # A Property Node row saved with a Void terminal type keeps the
+                # property's declared type on its ``propItemInfo``.
+                declared = declared_property_type_desc(elem, dco_uid)
+                if declared:
+                    lv_type = resolve_type_rich(declared, type_map)
             dotnet_type, dotnet_type_unreadable = _dotnet_item_type(elem, dco, dco_uid)
             if dotnet_type is not None:
                 lv_type = replace(lv_type, dotnet_type=dotnet_type)

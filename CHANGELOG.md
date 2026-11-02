@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A Property Node row saved with a Void type shows the property's declared type** — DAQmx Task `NumChans` in `Setup AI.vi` is `U32`, not `Void` (#181).
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
 - **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
 - **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.
