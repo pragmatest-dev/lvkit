@@ -2,6 +2,7 @@
 
 Provides post-generation cleanup of generated Python AST:
 - Dead code elimination (unused variable assignments)
+- Self-assignment removal (``x = x``)
 - Duplicate import removal
 """
 
@@ -421,6 +422,66 @@ class DeadBranchEliminator(ast.NodeTransformer):
         return node
 
 
+class SelfAssignmentRemover(ast.NodeTransformer):
+    """Remove ``x = x``: the variable already holds the value, so the statement
+    does nothing. A block left empty is tidied: an ``if`` with nothing in either
+    branch goes (its test is kept as a statement when it calls something), an
+    ``if`` with only an ``else`` tests the opposite, and any other empty block
+    holds ``pass``."""
+
+    _BLOCKS = ("body", "orelse", "finalbody")
+
+    def generic_visit(self, node: ast.AST) -> ast.AST:
+        super().generic_visit(node)
+        for field in self._BLOCKS:
+            block = getattr(node, field, None)
+            if not isinstance(block, list):
+                continue
+            kept: list[ast.stmt] = [s for s in block if not _is_self_assignment(s)]
+            # A body needs a statement; an else or finally may be empty.
+            if not kept and field == "body":
+                kept = [ast.Pass()]
+            setattr(node, field, kept)
+        return node
+
+    def visit_If(self, node: ast.If) -> ast.AST | list[ast.stmt] | None:
+        self.generic_visit(node)
+        body = _without_pass(node.body)
+        orelse = _without_pass(node.orelse)
+        if not body and not orelse:
+            if any(isinstance(n, ast.Call) for n in ast.walk(node.test)):
+                return ast.Expr(value=node.test)
+            return None
+        if not body:
+            return ast.If(
+                test=ast.UnaryOp(op=ast.Not(), operand=node.test),
+                body=orelse,
+                orelse=[],
+            )
+        node.body = body
+        node.orelse = orelse
+        return node
+
+
+def _is_self_assignment(stmt: ast.stmt) -> bool:
+    return (
+        isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+        and isinstance(stmt.value, ast.Name)
+        and stmt.targets[0].id == stmt.value.id
+    )
+
+
+def _without_pass(block: list[ast.stmt]) -> list[ast.stmt]:
+    return [s for s in block if not isinstance(s, ast.Pass)]
+
+
+def remove_self_assignments(module: ast.Module) -> ast.Module:
+    """Remove every ``x = x`` (``SelfAssignmentRemover``)."""
+    return SelfAssignmentRemover().visit(module)
+
+
 def fold_constants(module: ast.Module) -> ast.Module:
     """Fold constant expressions in module AST."""
     return ConstantFolder().visit(module)
@@ -443,6 +504,7 @@ def optimize_module(module: ast.Module) -> ast.Module:
     module = remove_duplicate_imports(module)
     module = fold_constants(module)
     module = eliminate_dead_branches(module)
+    module = remove_self_assignments(module)
     module = eliminate_dead_code(module)
     module = remove_unused_imports(module)
     return module
