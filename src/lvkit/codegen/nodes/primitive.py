@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import re
 from collections.abc import Mapping
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
@@ -24,7 +24,6 @@ from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 from lvkit.terminal_default import DefaultBehavior
 
 from ..ast_utils import (
-    build_assign,
     paren_if_compound,
     parse_expr,
     parse_stmt,
@@ -36,6 +35,7 @@ from ..error_flow import merge_errors, status_read
 from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
+from ..output_binding import bind_output
 from .template_inputs import template_reads
 
 
@@ -233,6 +233,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         )
     else:
         fragment = _build_string_hint(
+            node,
             resolved.python_code or "",
             input_map,
             wired_outputs,
@@ -548,13 +549,6 @@ def _detect_passthroughs(
         node, resolved, [k for k in hint if k not in ("_body", "_import")]
     )
 
-    # Build resolved output name lookup
-    resolved_outputs: dict[int, str] = {}
-    if resolved and resolved.terminals:
-        for rt in resolved.terminals:
-            if rt.direction == TerminalDirection.OUTPUT:
-                resolved_outputs[rt.index] = rt.name or ""
-
     for term in node.terminals:
         if term.direction != "output":
             continue
@@ -562,15 +556,12 @@ def _detect_passthroughs(
             continue
         if not ctx.is_wired(term.id):
             continue
-        term_name = term.name or ""
-        if not term_name and term.index in resolved_outputs:
-            term_name = resolved_outputs[term.index]
         expr_ordinal = ordinals.get(term.index)
         if expr_ordinal is None or expr_ordinal >= len(exprs):
             continue
         expr_template = exprs[expr_ordinal]
 
-        # Case 1: bare input reference (in_N) — identity passthrough
+        # A bare input reference (in_N): the output is the input.
         if re.match(r"^in_\d+$", expr_template):
             resolved_var = input_map.get(expr_template)
             if (
@@ -580,29 +571,6 @@ def _detect_passthroughs(
             ):
                 bindings[term.id] = resolved_var
                 skip_ids.add(term.id)
-            continue
-
-        # Case 2: single-use simple expression — inline into consumer
-        # If this output has exactly one consumer and the expression is
-        # simple (no function calls, no string literals), bind the
-        # substituted expression directly. Turns
-        # `equal_478 = x == y; if equal_478:` into `if x == y:`.
-        # Skip if hint has _body — the _body creates variables that
-        # output expressions depend on (e.g., Match Pattern's _m).
-        if "_body" in hint:
-            continue
-        if ctx.graph is None:
-            continue
-        consumers = ctx.graph.outgoing_edges(term.id)
-        if len(consumers) != 1:
-            continue
-        substituted = _substitute_template(expr_template, input_map, resolved)
-        # Only inline simple expressions — no parens (function calls),
-        # no quotes (string literals), no brackets (subscripts)
-        if any(c in substituted for c in "('\"["):
-            continue
-        bindings[term.id] = substituted
-        skip_ids.add(term.id)
 
     return bindings, skip_ids
 
@@ -650,13 +618,22 @@ def _output_index_ordinals(
     return {idx: pos for pos, idx in enumerate(out_indices)}
 
 
+class _WiredOutput(NamedTuple):
+    """A wired output of a primitive: its terminal id and connector pane index,
+    and the name its variable is made from when it has one."""
+
+    terminal_id: str
+    base_name: str
+    index: int
+
+
 def _get_wired_outputs(
     node: PrimitiveNode,
     resolved: ResolvedPrimitive | None,
     ctx: CodeGenContext,
     skip_term_ids: set[str] | None = None,
-) -> list[tuple[str, str, str, int]]:
-    """Get (terminal_id, terminal_name, var_name, terminal_index) for wired outputs.
+) -> list[_WiredOutput]:
+    """The wired outputs of the primitive, in terminal order.
 
     Matches by connector pane index (sparse dict lookup).
     Terminal names in the primitive JSON should be valid Python identifiers.
@@ -701,17 +678,17 @@ def _get_wired_outputs(
 
         # Expandable output: accept all terminals mapped to expandable index.
         # ``_{len(outputs)}`` distinguishes several expandable outputs WITHIN one
-        # node; route through make_output_var so the name is also unique ACROSS
-        # nodes (four single-output Index Array nodes would otherwise all be
-        # ``element_0`` and clobber each other -- MD5's a/b/c/d extraction).
+        # node; its variable is made by make_output_var, so the name is also
+        # unique ACROSS nodes (four single-output Index Array nodes would
+        # otherwise all be ``element_0`` and clobber each other -- MD5's a/b/c/d
+        # extraction).
         if expandable_out_index is not None and term_index == expandable_out_index:
             base_name = resolved_outputs.get(expandable_out_index, "element")
-            var_name = ctx.make_output_var(
-                f"{to_var_name(base_name)}_{len(outputs)}",
-                node.id,
-                terminal_id=term_id,
+            outputs.append(
+                _WiredOutput(
+                    term_id, f"{to_var_name(base_name)}_{len(outputs)}", term_index
+                )
             )
-            outputs.append((term_id, term_name or base_name, var_name, term_index))
             continue
 
         # Output with -1 index and no name: resolution failure
@@ -723,12 +700,8 @@ def _get_wired_outputs(
                 ctx,
             )
 
-        var_name = (
-            ctx.make_output_var(term_name, node.id, terminal_id=term_id)
-            if term_name
-            else f"out_{term_index}"
-        )
-        outputs.append((term_id, term_name, var_name, term_index))
+        base_name = term_name or f"out_{term_index}"
+        outputs.append(_WiredOutput(term_id, base_name, term_index))
 
     return outputs
 
@@ -737,7 +710,7 @@ def _build_dict_hint(
     node: PrimitiveNode,
     hint: dict[str, str],
     input_map: dict[str, str],
-    wired_outputs: list[tuple[str, str, str, int]],
+    wired_outputs: list[_WiredOutput],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
     operand_ranks: Mapping[str, int] | None = None,
@@ -747,9 +720,12 @@ def _build_dict_hint(
     Dict format:
     - "_body": Optional statement to execute first
     - other keys: output_name → expression (authored in output-terminal order)
+
+    Each output's value goes where ``bind_output`` puts it. With a ``_body`` it
+    stays in a variable: its expression reads names the body sets (Match
+    Pattern's ``_m``), which another node's body sets again.
     """
     statements: list[ast.stmt] = []
-    bindings: dict[str, str] = {}
     imports: set[str] = set()
 
     # Handle _import (add to fragment imports)
@@ -771,29 +747,34 @@ def _build_dict_hint(
     ordinals = _output_index_ordinals(
         node, resolved, [k for k in hint if k not in ("_body", "_import")]
     )
-    for i, (term_id, term_name, var_name, term_index) in enumerate(wired_outputs):
-        expr_idx = ordinals.get(term_index, i)
+    fragment = CodeFragment(statements=statements, imports=imports)
+    for i, output in enumerate(wired_outputs):
+        expr_idx = ordinals.get(output.index, i)
+        expr_ast: ast.expr = ast.Constant(value=None)  # more outputs than expressions
         if expr_idx < len(exprs):
-            expr_substituted = _substitute_template(
-                exprs[expr_idx], input_map, resolved
+            expr_ast = parse_expr(
+                _substitute_template(exprs[expr_idx], input_map, resolved)
             )
-            expr_ast = parse_expr(expr_substituted)
             if operand_ranks:
                 expr_ast, _ = arrayify(expr_ast, operand_ranks)
-            statements.append(build_assign(var_name, expr_ast))
-            bindings[term_id] = var_name
-        else:
-            # More outputs than expressions — placeholder
-            statements.append(build_assign(var_name, ast.Constant(value=None)))
-            bindings[term_id] = var_name
-
-    return CodeFragment(statements=statements, bindings=bindings, imports=imports)
+        fragment.extend(
+            bind_output(
+                node,
+                output.terminal_id,
+                output.base_name,
+                expr_ast,
+                ctx,
+                movable=not body,
+            )
+        )
+    return fragment
 
 
 def _build_string_hint(
+    node: PrimitiveNode,
     hint: str,
     input_map: dict[str, str],
-    wired_outputs: list[tuple[str, str, str, int]],
+    wired_outputs: list[_WiredOutput],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
     operand_ranks: Mapping[str, int] | None = None,
@@ -823,12 +804,14 @@ def _build_string_hint(
 
     # Assign to output variables
     if len(wired_outputs) == 1:
-        term_id, _, var_name, _ = wired_outputs[0]
-        statements.append(build_assign(var_name, expr_ast))
-        bindings[term_id] = var_name
+        output = wired_outputs[0]
+        return bind_output(node, output.terminal_id, output.base_name, expr_ast, ctx)
     elif len(wired_outputs) > 1:
         # Multiple outputs - unpack tuple
-        var_names = [v for _, _, v, _ in wired_outputs]
+        var_names = [
+            ctx.make_output_var(o.base_name, node.id, terminal_id=o.terminal_id)
+            for o in wired_outputs
+        ]
         statements.append(
             ast.Assign(
                 targets=[
@@ -840,8 +823,8 @@ def _build_string_hint(
                 value=expr_ast,
             )
         )
-        for term_id, _, var_name, _ in wired_outputs:
-            bindings[term_id] = var_name
+        for output, var_name in zip(wired_outputs, var_names, strict=True):
+            bindings[output.terminal_id] = var_name
     else:
         # No outputs - just expression as statement
         statements.append(ast.Expr(value=expr_ast))

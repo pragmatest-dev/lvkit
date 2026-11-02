@@ -92,7 +92,7 @@ def test_the_code_of_the_wired_type_is_a_constant(
     gaps: list[Gap] = []
     source = _generate(data, monkeypatch, gaps)
     assert gaps == []
-    assert f"type_descriptor_enumeration = {code}" in source
+    assert f"return CallerResult(t={code})" in source
     namespace: dict = {}
     exec(compile(source, "caller.py", "exec"), namespace)
     assert namespace["caller"](None).t == code

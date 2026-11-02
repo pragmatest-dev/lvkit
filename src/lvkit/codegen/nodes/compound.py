@@ -19,6 +19,7 @@ from ..error_flow import status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_array import replace_subarray_statements
+from ..output_binding import bind_output
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -160,16 +161,12 @@ def generate_compound_arith(
                 val = ast.unparse(expr)
             input_exprs.append(val)
 
-    var_name = ctx.make_output_var(
-        _arith_base_name(operation, output_term), node.id, terminal_id=output_id
-    )
+    base_name = _arith_base_name(operation, output_term)
 
     if not input_exprs:
         default_value = False if operation in ("or", "and") else 0
-        stmt = build_assign(var_name, ast.Constant(value=default_value))
-        return CodeFragment(
-            statements=[stmt],
-            bindings={output_id: var_name},
+        return bind_output(
+            node, output_id, base_name, ast.Constant(value=default_value), ctx
         )
 
     if len(input_exprs) == 1:
@@ -178,11 +175,7 @@ def generate_compound_arith(
             combined = _invert_expr(
                 combined, boolean, operation, output_term.lv_type, ctx
             )
-            stmt = build_assign(var_name, combined)
-            return CodeFragment(
-                statements=[stmt],
-                bindings={output_id: var_name},
-            )
+            return bind_output(node, output_id, base_name, combined, ctx)
         return CodeFragment(bindings={output_id: input_exprs[0]})
 
     combined = parse_expr(input_exprs[0])
@@ -240,11 +233,7 @@ def generate_compound_arith(
     if output_term.inverted:
         combined = _invert_expr(combined, boolean, operation, output_term.lv_type, ctx)
 
-    stmt = build_assign(var_name, combined)
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_id: var_name},
-    )
+    return bind_output(node, output_id, base_name, combined, ctx)
 
 
 def _arith_base_name(operation: str, output_term: Terminal) -> str:
@@ -300,18 +289,8 @@ def generate_array_build(
         else:
             parts.append(ast.Constant(value=None))
 
-    var_name = ctx.make_output_var(
-        _make_array_var_name(input_names), node.id, terminal_id=output_id
-    )
-
     expr: ast.expr = ast.List(elts=parts, ctx=ast.Load())
-
-    stmt = build_assign(var_name, expr)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_id: var_name},
-    )
+    return bind_output(node, output_id, _make_array_var_name(input_names), expr, ctx)
 
 
 def generate_concat_strings(
@@ -352,15 +331,8 @@ def generate_concat_strings(
         for part in parts[1:]:
             expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
 
-    out_name = outputs[0].name
-    var_name = ctx.make_output_var(
-        out_name or "concatenated_string", node.id, terminal_id=output_id
-    )
-
-    return CodeFragment(
-        statements=[build_assign(var_name, expr)],
-        bindings={output_id: var_name},
-    )
+    base_name = outputs[0].name or "concatenated_string"
+    return bind_output(node, output_id, base_name, expr, ctx)
 
 
 def _make_array_var_name(input_names: list[str]) -> str:
@@ -464,18 +436,9 @@ def generate_array_init(
                 ],
             )
 
-    var_name = ctx.make_output_var(
-        "initialized_array",
-        node.id,
-        terminal_id=output_term.id,
-    )
-    stmt = build_assign(var_name, expr)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_term.id: var_name},
-        imports=imports,
-    )
+    fragment = bind_output(node, output_term.id, "initialized_array", expr, ctx)
+    fragment.imports.update(imports)
+    return fragment
 
 
 def generate_array_replace(
@@ -643,17 +606,7 @@ def generate_array_insert(
         f"if 0 <= ({idx_str}) <= len({array_val}) else list({array_val})"
     )
 
-    var_name = ctx.make_output_var(
-        "output_array",
-        node.id,
-        terminal_id=output_term.id,
-    )
-    stmt = build_assign(var_name, parse_expr(expr_str))
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_term.id: var_name},
-    )
+    return bind_output(node, output_term.id, "output_array", parse_expr(expr_str), ctx)
 
 
 def generate_array_reshape(

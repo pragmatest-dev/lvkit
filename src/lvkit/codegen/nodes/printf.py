@@ -7,9 +7,10 @@ import re
 
 from lvkit.graph.models import PrimitiveNode
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..output_binding import bind_output
 
 
 def _is_runtime_value(expr: str) -> bool:
@@ -74,12 +75,6 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     else:
         expr_str = "''"
 
-    statements: list[ast.stmt] = []
-    bindings: dict[str, str] = {}
-
     out_term = outputs[0]
-    var_name = to_var_name(out_term.name or "formatted")
-    statements.append(build_assign(var_name, parse_expr(expr_str)))
-    bindings[out_term.id] = var_name
-
-    return CodeFragment(statements=statements, bindings=bindings)
+    base_name = out_term.name or "formatted"
+    return bind_output(node, out_term.id, base_name, parse_expr(expr_str), ctx)

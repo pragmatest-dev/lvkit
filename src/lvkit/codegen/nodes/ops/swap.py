@@ -13,10 +13,11 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 
-from ...ast_utils import build_assign, parse_expr
+from ...ast_utils import parse_expr
 from ...context import CodeGenContext
 from ...flat import BYTE_ORDER_PREFIX, Functions, UnsupportedLayout, layout_of
 from ...fragment import CodeFragment
+from ...output_binding import bind_output
 from . import register_op_fragment
 from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
@@ -35,10 +36,9 @@ def _swap(
         raise unsupported_layout_error(node, error) from error
     fns = Functions(ctx, BYTE_ORDER_PREFIX[0])
     expression = layout.swap(value, chunk, width_min, 0, fns)
-    variable = ctx.make_output_var("swapped", node.id, terminal_id=result.id)
-    statements: list[ast.stmt] = [build_assign(variable, parse_expr(expression))]
-    add_flat_imports(ctx, statements)
-    return CodeFragment(statements=statements, bindings={result.id: variable})
+    swapped = parse_expr(expression)
+    add_flat_imports(ctx, [ast.Expr(value=swapped)])
+    return bind_output(node, result.id, "swapped", swapped, ctx)
 
 
 @register_op_fragment("SWAP_BYTES")

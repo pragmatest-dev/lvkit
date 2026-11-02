@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..models import FPTerminal, Terminal, TunnelTerminal
-from .models import AnyGraphNode, LocalVariableNode, LoopNode, WireEnd
+from .models import AnyGraphNode, LocalVariableNode, LoopNode, StructureNode, WireEnd
 
 
 class WireQueriesMixin:
@@ -36,6 +36,47 @@ class WireQueriesMixin:
         return any(
             self.terminal_vi(src.terminal_id) == home
             for src in self.incoming_edges(terminal_id)
+        )
+
+    def wire_readers(self, terminal_id: str) -> list[WireEnd]:
+        """The terminals of the terminal's own VI that the wire from the output
+        ``terminal_id`` goes to."""
+        home = self.terminal_vi(terminal_id)
+        return [
+            dest
+            for dest in self.outgoing_edges(terminal_id)
+            if self.terminal_vi(dest.terminal_id) == home
+        ]
+
+    def read_in_frame_of(self, reader: WireEnd, node: AnyGraphNode) -> bool:
+        """Whether the terminal ``reader``, wired from an output of ``node``,
+        reads the value on the diagram ``node`` is on (the same structure frame,
+        or the VI's own diagram). A structure reads it there through a border
+        terminal on that diagram (the case selector, a loop's count terminal, an
+        output tunnel's inside face) unless the value passes inside the
+        structure; a front-panel terminal reads it where the VI returns, on the
+        VI's own diagram."""
+        reader_node = self.get_graph_node(reader.node_id)
+        if reader_node is None:
+            return False
+        if isinstance(reader_node, StructureNode):
+            return not self._passes_into_structure(reader.terminal_id)
+        return (reader_node.parent, reader_node.frame) == (node.parent, node.frame)
+
+    def _passes_into_structure(self, terminal_id: str) -> bool:
+        """Whether a value wired to ``terminal_id`` is read inside a structure:
+        the terminal is the outside of a structure's border terminal (a tunnel,
+        shift register, case selector or count terminal) and something on a
+        diagram of the structure reads one of its inside faces."""
+        term = self.get_terminal(terminal_id)
+        if not isinstance(term, TunnelTerminal) or term.boundary != "outer":
+            return False
+        structure = self.terminal_node_id(terminal_id)
+        return any(
+            reader.terminal_id != terminal_id
+            for face in self.outgoing_edges(terminal_id)
+            if face.node_id == structure
+            for reader in self.outgoing_edges(face.terminal_id)
         )
 
     def terminal_fed_by_error_cluster(self, terminal_id: str) -> bool:

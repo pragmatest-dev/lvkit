@@ -78,6 +78,14 @@ def _ref(uid: int) -> str:
     return f'<SL__arrayElement uid="{uid}" />'
 
 
+def _fp_term_xml(term: int, pane_uid: int) -> str:
+    """The diagram terminal ``term`` of the front-panel object ``pane_uid``."""
+    return (
+        f'<SL__arrayElement class="fPTerm" uid="{term}">'
+        f'<dco uid="{pane_uid}" /></SL__arrayElement>'
+    )
+
+
 @dataclass(frozen=True)
 class Pane:
     """One front-panel control or indicator."""
@@ -151,6 +159,7 @@ class Vi:
     wires: list[str] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
     fp_terms: dict[int, int] = field(default_factory=dict)  # pane uid -> terminal
+    placed: set[int] = field(default_factory=set)  # panes inside a structure frame
     extra_types: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -201,6 +210,13 @@ class Vi:
 
     def error_out(self, rule: int | None = RECOMMENDED) -> int:
         return self.indicator("error out", ERR, rule)
+
+    def place_inside(self, pane_term: int, scope: Scope) -> None:
+        """Put the diagram terminal ``pane_term`` of a control or indicator on the
+        diagram of ``scope`` (a structure frame) instead of the VI's own."""
+        pane = next(p for p in self.panes if self.fp_terms[p.uid] == pane_term)
+        self.placed.add(pane.uid)
+        scope.terms.append(_fp_term_xml(pane_term, pane.uid))
 
     def local_variable(self, pane_term: int) -> int:
         """A local variable of the control or indicator whose terminal is
@@ -584,15 +600,12 @@ class Vi:
         )
 
     def _bd_xml(self) -> str:
-        fp = "".join(
-            f'<SL__arrayElement class="fPTerm" uid="{self.fp_terms[p.uid]}">'
-            f'<dco uid="{p.uid}" /></SL__arrayElement>'
-            for p in self.panes
-        )
+        on_root = [p for p in self.panes if p.uid not in self.placed]
+        fp = "".join(_fp_term_xml(self.fp_terms[p.uid], p.uid) for p in on_root)
         held = [*self.root.terms, fp]
         holder = (
             '<SL__arrayElement class="sRN" uid="99">'
-            f'<termList elements="{len(self.root.terms) + len(self.panes)}">'
+            f'<termList elements="{len(self.root.terms) + len(on_root)}">'
             f"{''.join(held)}</termList></SL__arrayElement>"
         )
         nodes = [*self.root.nodes, holder]

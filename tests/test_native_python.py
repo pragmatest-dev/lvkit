@@ -102,9 +102,8 @@ def test_array_minus_array_is_a_zip_comprehension():
     generated = binary(
         1051, array("NumFloat64"), array("NumFloat64"), array("NumFloat64")
     )
-    assert "return NativeTestResult(r=[_e0 - _e1 for _e0, _e1 in zip(x, y)])" in body(
-        generated
-    )
+    # The element-wise form calls zip, so it is kept in a variable.
+    assert "difference = [_e0 - _e1 for _e0, _e1 in zip(x, y)]" in body(generated)
     assert run(generated, [5.0, 7.0], [1.0, 2.0]) == [4.0, 5.0]
     no_lvkit(generated)
 
@@ -303,7 +302,7 @@ def array_subset(rank: int, with_length: bool):
 
 def test_array_subset_is_a_slice():
     generated = array_subset(1, True)
-    assert "subarray = values[i:i + n]" in body(generated)
+    assert "return NativeTestResult(r=values[i:i + n])" in body(generated)
     assert run(generated, [1.0, 2.0, 3.0, 4.0], 1, 2) == [2.0, 3.0]
     assert run(generated, [1.0, 2.0, 3.0], 2, 10) == [3.0]
     no_lvkit(generated)
@@ -311,7 +310,7 @@ def test_array_subset_is_a_slice():
 
 def test_array_subset_without_length_runs_to_the_end():
     generated = array_subset(1, False)
-    assert "subarray = values[i:]" in body(generated)
+    assert "return NativeTestResult(r=values[i:])" in body(generated)
     assert run(generated, [1.0, 2.0, 3.0, 4.0], 1) == [2.0, 3.0, 4.0]
 
 

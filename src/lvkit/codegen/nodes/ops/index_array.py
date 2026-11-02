@@ -32,6 +32,7 @@ from ...context import CodeGenContext
 from ...errors import CodeGenError
 from ...fragment import CodeFragment
 from ...native_array import dimension_sizes, guarded_index
+from ...output_binding import bind_output
 from ..terminal_roles import laid_out_roles
 from . import register_op, register_op_fragment
 
@@ -182,11 +183,7 @@ def _generate_nd_index_array(
     expression = select(source, 0)
     if guards:
         expression = f"({expression} if {' and '.join(guards)} else {default})"
-    variable = ctx.make_output_var("element", node.id, terminal_id=plan.output.id)
-    return CodeFragment(
-        statements=[build_assign(variable, parse_expr(expression))],
-        bindings={plan.output.id: variable},
-    )
+    return bind_output(node, plan.output.id, "element", parse_expr(expression), ctx)
 
 
 @register_op("INDEX_ARRAY")
