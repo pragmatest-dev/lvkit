@@ -353,7 +353,6 @@ def test_a_native_operation_does_not_run_after_an_error(
 # =============================================================
 
 
-@errors_as_values("error case")
 def test_an_error_case_fed_from_error_in_runs_its_error_frame(
     project: Project,  # noqa: F811
 ) -> None:
@@ -374,7 +373,6 @@ def test_a_warning_selects_the_no_error_frame(project: Project) -> None:  # noqa
     assert result.error_out is warning
 
 
-@errors_as_values("error case with error-code frames")
 @pytest.mark.parametrize(
     ("error", "expected"), [(None, 1), (7, 100), (9, 200), ("warning", 1)]
 )

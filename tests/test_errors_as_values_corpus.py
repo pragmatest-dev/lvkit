@@ -89,7 +89,6 @@ NO_HELD_ERROR_MODEL = ("_held_error", "ThreadPoolExecutor", "concurrent.futures"
 
 
 @pytest.mark.needs_samples
-@errors_as_values("error case with error-code frames")
 def test_enumerate_compute_nodes_retries_on_the_code_its_error_case_names(
     tmp_path: Path,
 ) -> None:
@@ -133,7 +132,6 @@ def test_prepare_lv_handles_error_43_and_does_not_raise_it_again(
 
 
 @pytest.mark.needs_samples
-@errors_as_values("error case whose Error frame does work")
 def test_reserve_sessions_wrapper_runs_its_error_frame_and_keeps_the_error(
     tmp_path: Path,
 ) -> None:
