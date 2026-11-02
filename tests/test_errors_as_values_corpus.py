@@ -12,6 +12,7 @@ commit that implements its construct.
 from __future__ import annotations
 
 import ast
+import builtins
 import re
 from pathlib import Path
 
@@ -224,6 +225,48 @@ def test_a_class_result_with_an_error_out_imports_the_error(tmp_path: Path) -> N
         for alias in node.names
     }
     assert "LabVIEWError" in imported
+
+
+def _undefined_annotation_names(tree: ast.Module) -> set[str]:
+    """The names the annotations of a module use that it neither defines nor
+    imports (an annotation is not evaluated, so the module still imports)."""
+    defined = {name for name in dir(builtins)}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef | ast.FunctionDef):
+            defined.add(node.name)
+        elif isinstance(node, ast.ImportFrom | ast.Import):
+            defined.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            defined.add(node.id)
+    annotations = [
+        node.annotation
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AnnAssign | ast.arg) and node.annotation is not None
+    ] + [
+        node.returns
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.returns is not None
+    ]
+    return {
+        name.id
+        for annotation in annotations
+        for name in ast.walk(annotation)
+        if isinstance(name, ast.Name) and name.id not in defined
+    }
+
+
+@pytest.mark.needs_samples
+def test_a_class_module_imports_every_type_its_annotations_name(
+    tmp_path: Path,
+) -> None:
+    """Result classes and unwritten methods annotate the types of their
+    terminals, so the module imports them."""
+    result = generate_python(
+        SAMPLES / DAQMX_MODULE_CONFIGURATION, tmp_path / "gen", mode=LoadMode.FULL
+    )
+    module = next(Path(result["output_dir"]).rglob("daqmx_module_configuration.py"))
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    assert _undefined_annotation_names(tree) == set()
 
 
 IS_AN_ERROR_POLY = (

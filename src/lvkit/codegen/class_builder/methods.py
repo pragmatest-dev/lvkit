@@ -30,6 +30,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
+from ..type_fields import annotation_imports
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
@@ -104,12 +105,15 @@ class _MethodBuilderMixin:
             args.args.insert(0, ast.arg(arg="self", annotation=None))
 
         reason = self._unavailable.get(key)
+        # The signature annotates these types whether or not the body is written.
+        for term in annotated_terminals(vi_context):
+            ctx.import_types(term.lv_type, at_run_time=False)
+            if term.is_error_cluster:
+                ctx.import_labview_error(at_run_time=False)
 
         def build() -> list[ast.stmt]:
             if reason is not None:
                 return [raise_statement(reason)]
-            for term in annotated_terminals(vi_context):
-                ctx.import_types(term.lv_type, at_run_time=False)
             try:
                 return with_statements_after_docstring(
                     error_locals,
@@ -208,6 +212,12 @@ class _MethodBuilderMixin:
         assert shape.result_class is not None
         spell = type_namer(self._import_resolver.scoped(shape.key))
         outputs = _outputs_by_index(vi_context)
+        self._parts.annotation_imports.update(
+            annotation_imports(
+                [outputs[index].lv_type for index in shape.results],
+                self._import_resolver.scoped(shape.key),
+            )
+        )
         if any(outputs[index].is_error_cluster for index in shape.results):
             self._parts.annotation_imports.add(self._import_resolver.error_import())
         return result_class_def(
