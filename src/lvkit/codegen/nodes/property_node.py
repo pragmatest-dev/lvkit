@@ -20,6 +20,7 @@ from .base import (
     resolve_ref_input,
     unwired_ref_class,
 )
+from .subvi import called_vi
 
 
 def _attribute_chain(
@@ -44,8 +45,11 @@ def _callees(ctx: CodeGenContext) -> str:
     names: list[str] = []
     if ctx.graph is not None and ctx.vi_name:
         for other in ctx.graph.iter_nodes(ctx.vi_name):
-            if isinstance(other, VINode) and other.callee_key is not None:
-                name = ctx.import_function(other.name or "", other.callee_key)
+            if not isinstance(other, VINode):
+                continue
+            callee_name, callee_key = called_vi(other)
+            if callee_key is not None:
+                name = ctx.import_function(callee_name, callee_key)
                 if name != ctx.function_name and name not in names:
                     names.append(name)
     tail = "," if len(names) == 1 else ""

@@ -391,9 +391,10 @@ def test_build_path_file_names_array_path() -> None:
 
 
 def test_index_array_elements() -> None:
-    """Index Array Elements picks array[i] for each i in indices."""
+    """Index 1D Array Elements (I32), a variant of the polymorphic Index Array
+    Elements, picks array[i] for each i in indices."""
     r = _run_pkg(
-        "array/array.llb/Index Array Elements__ogtk.vi",
+        "array/array.llb/Index 1D Array Elements (I32)__ogtk.vi",
         array=[10, 20, 30],
         indices=[0, 2],
     )
