@@ -19,6 +19,7 @@ from types import ModuleType
 
 from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
+from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
@@ -309,6 +310,7 @@ class Project:
         out = self.tmp_path / "pkg"
         out.mkdir(exist_ok=True)
         (out / "__init__.py").write_text("")
+        (out / f"{ERRORS_MODULE_NAME}.py").write_text(ERRORS_MODULE_SOURCE)
         for key in self.vis.values():
             for class_key in self.classes.values():
                 graph._dep_graph.add_edge(key, class_key)  # noqa: SLF001

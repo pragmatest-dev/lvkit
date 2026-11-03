@@ -5,7 +5,10 @@ The accessor is the getter or the setter of a property of its class
 value``. Call Parent of a property's read VI is ``super().name``, of its write VI
 ``Parent.name.fset(self, value)`` with ``Parent`` the class the calling class
 descends from. A private property is reached only from its class's own VIs. The
-access runs whatever error comes in, and the error out is that error."""
+error out is the incoming error (the accessor cannot produce one of its own,
+``class_model``); the access is skipped on an incoming error when the accessor
+VI skips its work then (``Accessor.skips_on_error``), else it runs whatever
+error comes in."""
 
 from __future__ import annotations
 
@@ -36,6 +39,7 @@ def generate(
     assert class_key is not None
     check_private_access(ctx.graph, accessor.python_name, class_key, ctx.vi_name)
     terminals = ctx.enriched_terminals(node)
+    runs_on_error = not accessor.skips_on_error
 
     def terminal(direction: str, index: int | None) -> Terminal | None:
         if index is None:
@@ -100,20 +104,24 @@ def generate(
             target.ctx = ast.Store()
             stmt = ast.Assign(targets=[target], value=value_expr)
         return CodeFragment(
-            statements=[*prelude, stmt], bindings=bindings, runs_on_error=True
+            statements=[*prelude, stmt], bindings=bindings, runs_on_error=runs_on_error
         )
 
     value_out = terminal("output", pane.value_out)
     if value_out is None:
         return CodeFragment(
-            statements=[ast.Expr(value=target)], bindings=bindings, runs_on_error=True
+            statements=[ast.Expr(value=target)],
+            bindings=bindings,
+            runs_on_error=runs_on_error,
         )
     var = ctx.make_output_var(
         to_var_name(accessor.property_name), node.id, value_out.id
     )
     bindings[value_out.id] = var
     stmt = ast.Assign(targets=[ast.Name(id=var, ctx=ast.Store())], value=target)
-    return CodeFragment(statements=[stmt], bindings=bindings, runs_on_error=True)
+    return CodeFragment(
+        statements=[stmt], bindings=bindings, runs_on_error=runs_on_error
+    )
 
 
 def _super(node: VINode, ctx: CodeGenContext, receiver: str) -> ast.expr:

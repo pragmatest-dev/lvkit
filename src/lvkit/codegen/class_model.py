@@ -22,13 +22,14 @@ while a run generates)."""
 from __future__ import annotations
 
 import weakref
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.error_behaviour import ErrorBehaviour
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import derive_python_name
@@ -240,6 +241,18 @@ def _build_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
             # `obj.name` cannot stand for it.
             del accessors[key]
             shape = _shape(graph, class_key, key, accessor=False)
+        elif key in accessors:
+            behaviour = _accessor_error_behaviour(graph, class_key, key)
+            if behaviour is None:
+                # Its error out can carry an error of its own: an ordinary method
+                # with error in and error out.
+                del accessors[key]
+                shape = _shape(graph, class_key, key, accessor=False)
+            else:
+                accessors[key] = replace(
+                    accessors[key],
+                    skips_on_error=behaviour is ErrorBehaviour.SKIPS_ON_ERROR,
+                )
         model.shapes[key] = shape
 
     # The names the class body defines itself (``class_builder``) are taken.
@@ -383,6 +396,22 @@ def _own_returns_receiver(graph: InMemoryVIGraph, class_key: str, vi_key: str) -
         state.active.discard(vi_key)
     state.returns[vi_key] = result
     return result
+
+
+def _accessor_error_behaviour(
+    graph: InMemoryVIGraph, class_key: str, vi_key: str
+) -> ErrorBehaviour | None:
+    """What the accessor VI ``vi_key`` and every VI that overrides it, or that
+    it overrides, do with an incoming error, when they all do the same and it
+    leaves their error out the incoming error (``passes_error_along``); None
+    otherwise: a call of one of them may report an error of its own, so the
+    accessor is an ordinary method."""
+    _, _, keys = _family(graph, class_key, vi_key)
+    behaviours = {graph.vi_error_behaviour(key) for key in keys}
+    if len(behaviours) != 1:
+        return None
+    behaviour = behaviours.pop()
+    return behaviour if behaviour.passes_error_along else None
 
 
 def _family_returns_receiver(

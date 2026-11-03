@@ -416,6 +416,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         "__init__",
         "base",
         "child",
+        "errors",
     ]
     with package.use() as module:
         base, child = module("base").Base, module("child").Child
