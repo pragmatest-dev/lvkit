@@ -209,12 +209,14 @@ Disable, event or stacked-sequence frame says where it is in each version:
 `location_after` and `location_before` list, outermost first, every frame it
 is inside as `{"structure": "<uid>", "frame": <position>, "value": ...}` —
 `frame` is the frame's position in its structure (0 for the first), `value`
-the frame's shown value, or a list when it shows several. `[]` means the VI's
-own diagram; `null` means the element is not in that version (an added element
+the list of values the frame shows. `[]` as the location means the VI's own
+diagram, including inside a loop or flat sequence there; `null` means the
+element is not in that version (an added element
 has no `location_before`, a removed one no `location_after`). `frame_pairs` is a
 list with one `{"before": "<uid>", "after": "<uid>", "pairs": [...]}` per
 structure matched across the versions (its uid in each version; they differ
-when LabVIEW re-keyed the structure and the diff matched it by its wiring);
+when LabVIEW gave the structure a new uid and the diff matched it by its
+wiring);
 `pairs` lists the frames that are
 the same frame in both versions, as `[before position, after position]` —
 matched by value, then by contents; an added or removed frame has no pair. **VI health is never diffed** — it's
@@ -253,11 +255,11 @@ in a review, or hosted as a static CI artifact.
   case.
 - Independent zoom (toolbar buttons, `+`/`-` keys, or Ctrl/Cmd+scroll) is
   shared across all four view modes.
-- The URL fragment encodes the selected change, view mode, change-list mode,
-  and per-structure frame selection
+- A link into the viewer can open a specific change: the viewer reads the
+  change, view mode, change-list mode and frames from the URL fragment
   (`#c=N&view=overlay&list=tree&frame=UID:POSITION`, a frame of the after
-  version by its position; the before pane shows the same frame), so a link
-  into the viewer can deep-link straight to a specific change.
+  version by its position; the before pane shows the same frame). It reads
+  the fragment once when the page opens and does not update it as you click.
 
 ### Flat vs. tree change list
 

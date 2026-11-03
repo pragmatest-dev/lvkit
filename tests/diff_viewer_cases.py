@@ -2,9 +2,10 @@
 (uid 600) whose before version has frames ``1`` and ``2`` and whose after
 version gains a frame ``5`` in front and renames ``2`` to ``3`` (same
 contents). Frame ``2``/``3`` holds a nested case whose selector the frame's
-Tick Count (uid 510) feeds; LabVIEW re-keyed it (uid 650 before, 655 after),
-so the diff matches it by that wiring. Its frame ``8`` gains a Random Number
-(uid 680) in the after version."""
+Tick Count (uid 510) feeds; LabVIEW gave it a new uid (650 before, 655 after),
+and the diff matches it by that wiring. In the nested case, frame ``7`` gains a
+Tick Count (uid 685), frame ``8`` loses a Random Number (675), and frame ``9``
+(holding uid 690) is removed."""
 
 from __future__ import annotations
 
@@ -115,11 +116,16 @@ def bd_xml(case: Case) -> str:
 """
 
 
-def _nested(uid: int, *, added: bool) -> Case:
-    frame_8 = [(670, TICK), *([(680, RANDOM)] if added else [])]
-    return Case(
-        uid, 120, 140, [(7, [(660, RANDOM)]), (8, frame_8)], selector_source=510
-    )
+def _nested(uid: int, *, after: bool) -> Case:
+    if after:
+        frames = [(7, [(660, RANDOM), (685, TICK)]), (8, [(670, TICK)])]
+    else:
+        frames = [
+            (7, [(660, RANDOM)]),
+            (8, [(670, TICK), (675, RANDOM)]),
+            (9, [(690, TICK)]),
+        ]
+    return Case(uid, 120, 140, frames, selector_source=510)
 
 
 BEFORE = Case(
@@ -127,21 +133,34 @@ BEFORE = Case(
     60,
     100,
     [(1, [(500, RANDOM)]), (2, [(510, TICK)])],
-    {1: _nested(650, added=False)},
+    {1: _nested(650, after=False)},
 )
 AFTER = Case(
     600,
     60,
     100,
     [(5, [(520, TICK)]), (1, [(500, RANDOM)]), (3, [(510, TICK)])],
-    {2: _nested(655, added=True)},
+    {2: _nested(655, after=True)},
+)
+
+# A case structure (uid 600) whose frame "2" is renamed "3" (same contents),
+# and which the after version wraps in a new case structure (uid 700).
+WRAPPED_BEFORE = Case(600, 60, 100, [(1, [(500, RANDOM)]), (2, [(510, TICK)])])
+WRAPPED_AFTER = Case(
+    700,
+    20,
+    60,
+    [(4, [(530, TICK)])],
+    {0: Case(600, 120, 140, [(1, [(500, RANDOM)]), (3, [(510, TICK)])])},
 )
 
 
-def write_versions(folder: Path) -> tuple[Path, Path]:
+def write_versions(
+    folder: Path, before: Case = BEFORE, after: Case = AFTER
+) -> tuple[Path, Path]:
     """Write the before and after block diagrams; returns their paths."""
     paths = []
-    for side, case in (("before", BEFORE), ("after", AFTER)):
+    for side, case in (("before", before), ("after", after)):
         path = folder / side / "Frames_BDHb.xml"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(bd_xml(case))

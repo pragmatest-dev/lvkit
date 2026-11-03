@@ -101,7 +101,7 @@ _FRAME_CONTROLLER_JS = """(function() {
       for (var j = 0; j < segs.length; j++) {
         var seg = segs[j];
         if (!seg) continue;
-        var k = seg.indexOf(":");
+        var k = seg.lastIndexOf(":");
         if (state[seg.slice(0, k)] !== seg.slice(k + 1)) { vis = false; break; }
       }
       g.classList.toggle("lv-frame-hidden", !vis);

@@ -1603,23 +1603,10 @@ function applyPane(pane){
   const st=stFor(pane);
   pane.querySelectorAll('.lv-frame').forEach(g=>{
     g.classList.toggle('lv-frame-hidden', !pathShown(st, g.dataset.path));});
-  pane.querySelectorAll('.lv-selector[data-lv-action="toggle"]').forEach(g=>{
-    const u=g.dataset.lvStruct, t=g.querySelector('text');
-    if(t && st.sel[u]!==undefined) t.textContent=frameLabel(pane, u, st.sel[u]);});
 }
-// What a person sees for a frame: its label as the renderer drew it in the
-// selector's own text zone (the frame's "lv-label" group, already fitted to
-// that zone, left of the ▼) — never its position.
-function frameLabel(pane, u, pos){
-  const leaf=u+':'+pos;
-  for(const g of pane.querySelectorAll('.lv-frame.lv-label')){
-    if((g.dataset.path||'').split(';').pop()===leaf){
-      const t=g.querySelector('text');
-      if(t) return t.textContent;
-    }
-  }
-  return '';
-}
+// What a person reads for a frame is the renderer's own label group for it
+// (`lv-frame lv-label`, data-path ending UID:POSITION, already fitted to the
+// selector's text zone): the visibility toggle above shows the selected one.
 function applyFrames(){ applyPane(beforePane); applyPane(afterPane); updateParkState(); }
 
 // The frame pairing, both ways: a structure's uid in one pane -> {uid: its uid
@@ -1825,13 +1812,17 @@ function decorateMenus(){
     CHANGES.forEach(c=>{
       if(!c.container_uid || selfAddRem.has(String(c.container_uid))) return;
       // The change's innermost frame must be its container's own frame (its own
-      // side names the container's uid); in each pane, that frame is the leaf
-      // of the pane's side of its location, wherever the frame sits there.
+      // side names the container's uid). In each pane the dot goes on that
+      // pane's innermost frame of the change: its own location on that side when
+      // it has one (the versions may nest it differently), else its other side's
+      // mapped through the frame pairing (only when every frame has a partner).
       const own=ownLocation(c);
       const ownLeaf=own && own.length ? own[own.length-1] : null;
       if(!ownLeaf || String(ownLeaf.structure)!==String(c.container_uid)) return;
-      const loc=sideLocation(c, pane===beforePane);
-      if(!loc || loc.length!==own.length) return;   // no partner frame in this pane
+      const isBefore=pane===beforePane;
+      const side=isBefore?c.location_before:c.location_after;
+      const loc=side || sideLocation(c, isBefore);
+      if(!loc || !loc.length || (!side && loc.length!==own.length)) return;
       const leaf=loc[loc.length-1];
       const uid=leaf.structure, cls=c.change;
       const opt=pane.querySelector(

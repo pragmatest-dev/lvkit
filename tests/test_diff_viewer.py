@@ -25,6 +25,8 @@ from lvkit.graph.diff import (
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
+from lvkit.vi_diff import diff_vi_files
+from tests.diff_viewer_cases import write_versions
 
 
 def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
@@ -380,12 +382,19 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<button data-mode="split" class="active"' in html
         assert '<span id="opWrap" hidden>' in html
 
-    def test_the_frame_matching_is_embedded_for_the_panes(self):
+    def test_the_frame_matching_is_embedded_for_the_panes(self, tmp_path):
         """The viewer moves the other pane to a frame's partner through
-        ``FRAME_PAIRS`` (``ChangeMap.frame_pairs``); the behaviour itself is
-        driven in a real browser by ``tests/test_diff_viewer_browser.py``."""
-        html = self._html()
-        assert "const FRAME_PAIRS = [];" in html
+        ``FRAME_PAIRS`` (``ChangeMap.frame_pairs``): the handmade two-version
+        case's case structure 600 (frame "5" inserted, "2" renamed "3") and its
+        nested case 650/655 (frame "9" removed). The behaviour itself is driven
+        in a real browser by ``tests/test_diff_viewer_browser.py``."""
+        body = diff_vi_files(*write_versions(tmp_path), fmt="html", warm_index=False)
+        assert body is not None
+        pairs = (
+            '[{"before": "600", "after": "600", "pairs": [[0, 1], [1, 2]]}, '
+            '{"before": "650", "after": "655", "pairs": [[0, 0], [1, 1]]}]'
+        )
+        assert f"const FRAME_PAIRS = {pairs};" in body.body
 
     def test_zoom_buttons_disable_at_the_limits(self):
         """+ is disabled at ZMAX; − is disabled at the dynamic fit-both floor

@@ -8,11 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from ..models import (
-    CaseFrame,
-    EventFrame,
     FPTerminal,
-    Frame,
-    SequenceFrame,
     Terminal,
     TunnelTerminal,
 )
@@ -20,6 +16,21 @@ from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
 from .core import uid_of
 from .describe import _body_child_nodes, _frame_child_nodes
+from .diff_frames import (
+    FrameMatching,
+    FramePairs,
+    Location,
+    frame_display,
+    frame_location,
+    frame_match_key,
+    frame_step,
+    frame_value_changed,
+    frames_of,
+    is_interactive_struct,
+    location_to_json,
+    match_frames,
+    uid_sort,
+)
 from .models import (
     CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
@@ -49,12 +60,9 @@ from .netlist import (
     instance_line,
     scope_header,
 )
-from .netlist_build import case_frame_label_gn, case_selector_type_gn
 from .op_walk import (
     _const_value_str,
-    _selector_label,
     _terminal_display_name,
-    selector_shown_values,
 )
 from .operations import frame_key, frame_position
 from .render_lvnet import lvnet_literal_token
@@ -73,31 +81,6 @@ if TYPE_CHECKING:
 
 
 # ── Report dataclasses ────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class FrameStep:
-    """One frame an element is inside: frame ``frame`` (its position in the
-    structure's frames) of the structure whose uid is ``structure``, and the
-    value(s) that frame shows."""
-
-    structure: str
-    frame: int
-    values: tuple[str, ...]
-
-    def to_dict(self) -> dict[str, object]:
-        value: str | list[str] = (
-            self.values[0] if len(self.values) == 1 else list(self.values)
-        )
-        return {"structure": self.structure, "frame": self.frame, "value": value}
-
-
-# Root -> leaf: every frame an element is inside.
-Location = tuple[FrameStep, ...]
-
-
-def _location_to_json(location: Location | None) -> list[dict[str, object]] | None:
-    return None if location is None else [step.to_dict() for step in location]
 
 
 @dataclass
@@ -157,7 +140,7 @@ class ElementChange:
     # Sequence the element sits in. None if the element is top-level, inside
     # a loop, or inside a flat sequence — those aren't independently
     # hide/show-able (render/scene.py's ``_frame_path`` skips them too; see
-    # ``_is_interactive_struct``), so their contents count as base-level for
+    # ``is_interactive_struct``), so their contents count as base-level for
     # this field. Added/modified -> head-side container; removed -> base-side.
     container_uid: str | None = None
     # Where the element sits in each version: the frames it is inside, root ->
@@ -185,19 +168,6 @@ class ElementChange:
     # tunnel sits on (head side for added/modified, base for removed), so the
     # tree lists each tunnel change under its loop/case header. None otherwise.
     structure_uid: str | None = None
-
-
-@dataclass(frozen=True)
-class FramePairs:
-    """The frames of one structure that are the same frame in both versions:
-    the structure's uid in each version (they differ when LabVIEW re-keyed it
-    and the diff matched it by dataflow) and every pair as ``(before position,
-    after position)`` -- matched by value, then by content
-    (``_struct_frame_changes``). An added or removed frame has no pair."""
-
-    before: str
-    after: str
-    pairs: list[tuple[int, int]]
 
 
 @dataclass
@@ -238,8 +208,8 @@ class ChangeMap:
                     if c.chain_paths is not None
                     else None,
                     "container_uid": c.container_uid,
-                    "location_after": _location_to_json(c.location_after),
-                    "location_before": _location_to_json(c.location_before),
+                    "location_after": location_to_json(c.location_after),
+                    "location_before": location_to_json(c.location_before),
                     "element": c.element,
                     "endpoints": c.endpoints,
                     "structure_uid": c.structure_uid,
@@ -268,28 +238,6 @@ _STRUCT_OPS = (
     EventStructureNode,
     InPlaceNode,
 )
-
-
-def _frames_of(op: AnyGraphNode) -> Sequence[Frame] | None:
-    """The frame list of a FRAME-BEARING structure, else None — the single
-    'is this a frame-set structure?' test, shared by ``_struct_frame_changes``
-    (which diffs the set) and ``_matched_struct_pairs`` (which pairs them). Every
-    kind here has its changes represented as a frame-set diff (added / removed /
-    value-changed) through the same helpers; Disable's frames are CaseFrames and
-    Event's are EventFrames. A LoopNode is a structure but NOT here: it has
-    one unconditional body, not a selectable frame set. (The literal isinstance
-    lives ONLY here so the type checker can narrow ``op`` to a ``.frames``-bearing
-    type — pyright won't narrow on a tuple stored in a variable.)"""
-    if isinstance(
-        op,
-        (CaseStructureNode, SequenceNode, EventStructureNode, DisableStructureNode),
-    ):
-        return op.frames
-    return None
-
-
-def _uid_sort(uid: str) -> tuple[int, object]:
-    return (0, int(uid)) if uid.isdigit() else (1, uid)
 
 
 def _struct_label(op: AnyGraphNode) -> str:
@@ -366,48 +314,6 @@ class _ElemInfo:
     location: Location = ()
 
 
-def _is_interactive_struct(op: AnyGraphNode) -> bool:
-    """Whether ``op`` is wrapped in a togglable ``<g class="lv-frame"
-    data-path=...>`` group by render/scene.py — a Case, (Conditional/Diagram-)
-    Disable, or Event structure, or a STACKED sequence. MUST stay in lockstep
-    with scene.py's own interactive-structure set (CaseStructureNode /
-    DisableStructureNode / EventStructureNode / stacked sequence), so a
-    location's step matches a real hideable group the viewer can address. A
-    While/For loop shows its body unconditionally, and a FLAT sequence shows
-    every frame at once (film-strip) — neither is hidden, so their children
-    keep the enclosing context's locality unchanged."""
-    if isinstance(op, (CaseStructureNode, DisableStructureNode, EventStructureNode)):
-        return True
-    return isinstance(op, SequenceNode) and op.node_type != "flatSequence"
-
-
-def _frame_shown(op: AnyGraphNode, frame: Frame) -> tuple[str, ...]:
-    """The value(s) ``frame`` of the structure ``op`` shows: a case frame's
-    selector values (and ``Default`` when its label says so), else the frame's
-    one label (``_frame_display``)."""
-    if isinstance(op, CaseStructureNode) and isinstance(frame, CaseFrame):
-        lv_type, is_error = case_selector_type_gn(op)
-        return selector_shown_values(frame, lv_type, is_error)
-    return (_frame_display(frame, op),)
-
-
-def _frame_position_of(op: AnyGraphNode, frame: Frame) -> int:
-    """The position of ``frame`` itself in ``op``'s frames."""
-    return next(i for i, f in enumerate(_frames_of(op) or []) if f is frame)
-
-
-def _step(op: AnyGraphNode, position: int) -> FrameStep:
-    """The location step for frame ``position`` of the structure ``op``."""
-    frames = _frames_of(op) or []
-    return FrameStep(uid_of(op.id), position, _frame_shown(op, frames[position]))
-
-
-def _by_value(location: Location) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """``location`` by structure and frame VALUE, not position -- how a location
-    is compared ACROSS the two versions (a frame can move between them)."""
-    return tuple((step.structure, step.values) for step in location)
-
-
 def _location_of(elements: dict[str, _ElemInfo], node_id: str) -> Location:
     """Where the node ``node_id`` sits (``()`` for one no map holds: the VI's
     own connector-pane terminal)."""
@@ -435,21 +341,21 @@ def _collect_elements(
     own frames' contents). Each node is stamped with that inherited context
     as-is; only when recursing INTO a Case/Sequence structure's frames does a
     new step get appended (and only if that structure is interactive —
-    see ``_is_interactive_struct`` — otherwise the context passes through
+    see ``is_interactive_struct`` — otherwise the context passes through
     unchanged, matching render/scene.py's own scoping).
     """
     for op in nodes:
         kind = "structure" if isinstance(op, _STRUCT_OPS) else "node"
         out[uid_of(op.id)] = _ElemInfo(op, kind, container_uid, location)
-        frames = _frames_of(op)
+        frames = frames_of(op)
         if frames is not None:
             struct_uid = uid_of(op.id)
-            interactive = _is_interactive_struct(op)
+            interactive = is_interactive_struct(op)
             frame_children = _frame_child_nodes(graph, op, vi_name)
             for i, frame in enumerate(frames):
                 if interactive:
                     child_container = struct_uid
-                    child_location = (*location, _step(op, i))
+                    child_location = (*location, frame_step(op, i))
                 else:
                     child_container, child_location = container_uid, location
                 _collect_elements(
@@ -863,7 +769,7 @@ def _sink_sort_key(key: tuple[str, object]) -> tuple:
         term_rank = (1, term_key)
     else:
         term_rank = (2, "")
-    return (_uid_sort(node_key), term_rank)
+    return (uid_sort(node_key), term_rank)
 
 
 def _wire_changes(
@@ -1233,7 +1139,7 @@ def _constant_locality(
     context already threaded through). Looks up that parent structure's own
     already-stamped ``_ElemInfo`` and extends it by one step if the
     parent is an interactive structure (Case/stacked Sequence, matching
-    ``_is_interactive_struct``); a Loop/flat-Sequence parent contributes no
+    ``is_interactive_struct``); a Loop/flat-Sequence parent contributes no
     step, so the constant just inherits that structure's own locality
     unchanged (identical scoping to ``_collect_elements``'s own recursion)."""
     if c.parent is None:
@@ -1242,10 +1148,10 @@ def _constant_locality(
     entry = elements.get(struct_uid)
     if entry is None:
         return None, ()
-    if _is_interactive_struct(entry.op):
-        position = frame_position(_frames_of(entry.op) or [], c.frame)
+    if is_interactive_struct(entry.op):
+        position = frame_position(frames_of(entry.op) or [], c.frame)
         if position is not None:
-            return struct_uid, (*entry.location, _step(entry.op, position))
+            return struct_uid, (*entry.location, frame_step(entry.op, position))
     return entry.container_uid, entry.location
 
 
@@ -1253,38 +1159,10 @@ def _constant_locality(
 #
 # Within a Case/Sequence structure matched across versions (same UID, or
 # matched by ``_match_elements``'s exact/fuzzy dataflow identity), diff the
-# FRAME SET by ``Frame.uid``. Individual node/wire changes inside a frame are
-# already reported by the passes above (per-node UID matching, per-sink wire
-# diff) — this only reports the frame CONTAINER itself: a whole frame
-# appearing/disappearing, or the same frame's selector/index changing.
-
-
-def _frame_display(frame: Frame, op: AnyGraphNode) -> str:
-    """Human label for one frame — the SAME faithful, enum-aware text the
-    netlist/tree produces. A case frame goes through ``op_walk._selector_label``
-    (resolving the owning structure's selector ``lv_type`` exactly as
-    ``netlist_build._build_case_scope_gn`` does, so an enum value reads as its
-    item name, an error cluster as ``No Error``/``Error``, etc.); a sequence
-    frame is its index. This keeps the flat-list label (``ElementChange.label``)
-    and the tree frame label (rendered via ``_selector_label`` too) in
-    agreement."""
-    if isinstance(op, DisableStructureNode) and isinstance(frame, CaseFrame):
-        # Disable frames ARE CaseFrames, but their selector_value already IS the
-        # display text ("Enabled"/"Disabled"/"Frame N") and their is_default
-        # means "the active/compiled-in frame", not a catch-all default — so
-        # they must NOT go through _selector_label's is_default→"Default" branch
-        # (mirror ``_build_disabled_scope_gn``, which bypasses it for the same
-        # reason).
-        return str(frame.selector_value)
-    if isinstance(frame, CaseFrame):
-        if isinstance(op, CaseStructureNode):
-            return case_frame_label_gn(op, frame)
-        return _selector_label(frame, None, False)
-    if isinstance(frame, SequenceFrame):
-        return str(frame.index)
-    if isinstance(frame, EventFrame):
-        return frame.event_label or "event frame"
-    return "frame"
+# FRAME SET (``diff_frames.match_frames``). Individual node/wire changes inside
+# a frame are already reported by the passes above (per-node UID matching,
+# per-sink wire diff) — this only reports the frame CONTAINER itself: a whole
+# frame appearing/disappearing, or the same frame's selector/index changing.
 
 
 def _frame_element_label(op: AnyGraphNode) -> str:
@@ -1302,107 +1180,23 @@ def _frame_element_label(op: AnyGraphNode) -> str:
     return "frame"
 
 
-def _frame_key(frame: Frame) -> str:
-    """Stable key for matching a frame across versions: LabVIEW's own frame
-    ``uid`` when the parser recorded one (currently only ``SequenceFrame`` —
-    see parser/nodes/sequence.py; a ``CaseFrame``'s heap format carries no
-    per-frame uid, so the parser never sets one — always None today). Falls
-    back to the frame's selector/index VALUE, which DEGRADES a genuine in-place
-    value edit (e.g. LabVIEW's "add value to this case") into a remove+add,
-    because the frame's identity is then indistinguishable from its value.
-    Documented, not hidden — a real frame uid always wins when present.
-
-    An ``EventFrame`` has no uid AND a RESOLUTION-dependent label (the displayed
-    frame reconstructs faithfully; others degrade to ``<unknown event ...>``), so
-    keying on its label would make a mere relabel read as remove+add. Key on the
-    stable leading ``[N]`` index instead."""
-    if frame.uid is not None:
-        return frame.uid
-    if isinstance(frame, EventFrame):
-        s = frame.event_label.lstrip()
-        if s.startswith("[") and "]" in s:
-            idx = s[1 : s.index("]")]
-            if idx.isdigit():
-                return f"~[{idx}]"
-        return f"~{frame.event_label}"
-    if isinstance(frame, SequenceFrame):
-        return f"~{frame.index}"
-    if isinstance(frame, CaseFrame):
-        return f"~{frame.selector_value}"
-    return "~"
-
-
-# A frame's cross-version match key: its ``_frame_key`` and how many earlier
-# frames of its structure have that key (two frames with one value -- a VI
-# lvkit could not read -- still match one to one, in order).
-_MatchKey = tuple[str, int]
-
-
-def _match_keys(frames: Sequence[Frame]) -> dict[_MatchKey, int]:
-    """Each frame's ``_MatchKey`` -> its position."""
-    seen: dict[str, int] = {}
-    keys: dict[_MatchKey, int] = {}
-    for position, frame in enumerate(frames):
-        key = _frame_key(frame)
-        keys[(key, seen.get(key, 0))] = position
-        seen[key] = seen.get(key, 0) + 1
-    return keys
-
-
-def _match_key_sort(key: _MatchKey) -> tuple[tuple[int, object], int]:
-    return (_uid_sort(key[0]), key[1])
-
-
-def _frame_value_changed(fa: Frame, fb: Frame) -> bool:
-    """Whether two frames MATCHED by ``_frame_key`` differ in their selector/
-    index content — the ``kind="value"`` detector. When matched by real uid
-    (sequence frames) this catches e.g. a stacked-sequence reorder or a
-    case's ``is_default``/ranges/strings changing while the uid stayed put;
-    when matched by the value-based fallback key, the key ITSELF encodes
-    ``selector_value``/``index``, so those are equal by construction and only
-    the remaining fields (``is_default``, ranges, strings) can differ."""
-    if isinstance(fa, CaseFrame) and isinstance(fb, CaseFrame):
-        return (
-            fa.selector_value != fb.selector_value
-            or fa.is_default != fb.is_default
-            or fa.selector_ranges != fb.selector_ranges
-            or fa.selector_strings != fb.selector_strings
-        )
-    if isinstance(fa, SequenceFrame) and isinstance(fb, SequenceFrame):
-        return fa.index != fb.index
-    if isinstance(fa, EventFrame) and isinstance(fb, EventFrame):
-        # Matched by stable [N] index (see _frame_key); the label is
-        # resolution-dependent, so a label-only diff is our text changing, not
-        # the VI's event — never report it as a frame value change.
-        return False
-    return False
-
-
-def _frame_location(entry: _ElemInfo, position: int) -> Location:
-    """Where a frame change sits: the owning structure's own location, then
-    -- ONLY when the structure is interactive (Case/stacked Sequence/Event/
-    Disable, see ``_is_interactive_struct``) -- that frame itself. Those are the
-    only kinds with a real rendered ``lv-frame`` group a viewer could address; a
-    flat sequence's frame change keeps its structure's location unextended."""
-    if _is_interactive_struct(entry.op):
-        return (*entry.location, _step(entry.op, position))
-    return entry.location
-
-
 def _frame_node_uids(
     graph: InMemoryVIGraph,
     struct_node: AnyGraphNode,
-    frame_key: object,
+    position: int,
     vi_name: str,
 ) -> set[str]:
-    """Every node UID contained anywhere in the frame keyed ``frame_key`` of
+    """Every node UID contained anywhere in frame ``position`` of
     ``struct_node`` — recursing into nested structures' frames AND loop/IPES
     bodies via :func:`_collect_elements` (its child-locating pass, minus the
     locality bookkeeping), matching how the diff tree itself is built. This
     set is the frame's CONTENT identity: a frame whose value changed but
     whose contents stayed keeps (most of) this set, letting two frames be
     recognised as the-same-frame-renamed."""
-    children = _frame_child_nodes(graph, struct_node, vi_name).get(frame_key, [])
+    frame = (frames_of(struct_node) or [])[position]
+    children = _frame_child_nodes(graph, struct_node, vi_name).get(
+        frame_key(frame, position), []
+    )
     tmp: dict[str, _ElemInfo] = {}
     _collect_elements(graph, vi_name, children, tmp)
     return set(tmp.keys())
@@ -1424,53 +1218,20 @@ def _mk_frame_change(
     frame the change is reported on (the after frame, or the before frame of a
     removed one); the caller gives each side's location."""
     op = entry.op
-    frame = (_frames_of(op) or [])[position]
-    key = _frame_key(frame)
+    frame = (frames_of(op) or [])[position]
+    key = frame_match_key(frame)
     return ElementChange(
         key,
         f"{op.id}::frame::{key}",
         kind,
         change,
-        _frame_display(frame, op),
+        frame_display(frame, op),
         detail=detail,
         container_uid=uid_of(op.id),
         location_after=location_after,
         location_before=location_before,
         element=_frame_element_label(op),
     )
-
-
-def _pair_frames_by_content(
-    only_a: list[tuple[int, set[str]]],
-    only_b: list[tuple[int, set[str]]],
-    matchmap: dict[str, str],
-) -> list[tuple[int, int]]:
-    """Pair leftover before/after frames (by position) that are the SAME frame
-    with a changed value, recognised by shared CONTENT: a before-frame's node
-    UIDs (precomputed by the caller via :func:`_frame_node_uids`), mapped
-    through the dataflow match map (``base->head``; identity when a node kept
-    its UID — the common case), overlapping an after-frame's node UIDs. Greedy
-    by most shared nodes with a deterministic tiebreak (the positions); each
-    frame used at most once. Zero overlap ⇒ not paired here (a genuine
-    add/remove)."""
-    scored: list[tuple[int, int, int]] = []
-    for pa, a_uids_raw in only_a:
-        a_uids = {matchmap.get(u, u) for u in a_uids_raw}
-        for pb, b_uids in only_b:
-            shared = len(a_uids & b_uids)
-            if shared:
-                scored.append((shared, pa, pb))
-    scored.sort(key=lambda s: (-s[0], s[1], s[2]))
-    used_a: set[int] = set()
-    used_b: set[int] = set()
-    pairs: list[tuple[int, int]] = []
-    for _, pa, pb in scored:
-        if pa in used_a or pb in used_b:
-            continue
-        used_a.add(pa)
-        used_b.add(pb)
-        pairs.append((pa, pb))
-    return pairs
 
 
 def _struct_frame_changes(
@@ -1481,7 +1242,7 @@ def _struct_frame_changes(
     entry_a: _ElemInfo,
     entry_b: _ElemInfo,
     matchmap: dict[str, str],
-) -> tuple[list[ElementChange], list[tuple[int, int]]]:
+) -> tuple[list[ElementChange], FramePairs]:
     """Diff one matched frame-bearing structure's FRAME SET across versions —
     uniformly for Case / Sequence / Event / (Conditional-/Diagram-)Disable: a
     whole frame added/removed, or the SAME frame's value changed. A value change
@@ -1491,18 +1252,22 @@ def _struct_frame_changes(
     instead of an add+remove. Does NOT touch the frame's contents (already
     reported by the node/wire passes; same don't-describe-twice rule).
 
-    Also returns every pair of frames that are the same frame, as ``(before
-    position, after position)``, in after-position order (``ChangeMap.
-    frame_pairs``)."""
+    Also returns the structure's ``FramePairs`` (``ChangeMap.frame_pairs``)."""
     op_a, op_b = entry_a.op, entry_b.op
-    if type(op_a) is not type(op_b):
-        return [], []  # UID recycle across kinds — not a frame-set change
-    frames_a, frames_b = _frames_of(op_a), _frames_of(op_b)
-    if frames_a is None or frames_b is None:
-        return [], []
+    frames_a, frames_b = frames_of(op_a) or [], frames_of(op_b) or []
+    match = match_frames(
+        frames_a,
+        frames_b,
+        lambda pa: _frame_node_uids(graph_a, op_a, pa, va),
+        lambda pb: _frame_node_uids(graph_b, op_b, pb, vb),
+        matchmap,
+    )
 
-    map_a = _match_keys(frames_a)
-    map_b = _match_keys(frames_b)
+    def location_a(pa: int) -> Location:
+        return frame_location(op_a, entry_a.location, pa)
+
+    def location_b(pb: int) -> Location:
+        return frame_location(op_b, entry_b.location, pb)
 
     def value_change(pa: int, pb: int) -> ElementChange:
         # The change is reported on the AFTER frame (pb); its before-side twin
@@ -1512,69 +1277,42 @@ def _struct_frame_changes(
             pb,
             "value",
             "modified",
-            location_after=_frame_location(entry_b, pb),
-            location_before=_frame_location(entry_a, pa),
+            location_after=location_b(pb),
+            location_before=location_a(pa),
             detail=_transition(
-                _frame_display(frames_a[pa], op_a), _frame_display(frames_b[pb], op_b)
+                frame_display(frames_a[pa], op_a), frame_display(frames_b[pb], op_b)
             ),
         )
 
-    changes: list[ElementChange] = []
-    pairs: list[tuple[int, int]] = []
-    # 1. Frames matched by key: a same-key field change (case is_default/ranges/
-    #    strings, a stacked-sequence reorder) — otherwise unchanged.
-    for key in sorted(map_a.keys() & map_b.keys(), key=_match_key_sort):
-        pa, pb = map_a[key], map_b[key]
-        pairs.append((pa, pb))
-        if _frame_value_changed(frames_a[pa], frames_b[pb]):
-            changes.append(value_change(pa, pb))
-    # 2. Leftover frames: recover the-same-frame-renamed by content; the rest are
-    #    genuine adds/removes.
-    only_a = [
-        map_a[k] for k in sorted(map_a.keys() - map_b.keys(), key=_match_key_sort)
+    changes = [
+        value_change(pa, pb)
+        for pa, pb in match.by_key
+        if frame_value_changed(frames_a[pa], frames_b[pb])
     ]
-    only_b = [
-        map_b[k] for k in sorted(map_b.keys() - map_a.keys(), key=_match_key_sort)
+    changes += [value_change(pa, pb) for pa, pb in match.by_content]
+    changes += [
+        _mk_frame_change(
+            entry_a,
+            pa,
+            "frame",
+            "removed",
+            location_after=None,
+            location_before=location_a(pa),
+        )
+        for pa in match.removed
     ]
-    only_a_sig = [
-        (pa, _frame_node_uids(graph_a, op_a, frame_key(frames_a[pa], pa), va))
-        for pa in only_a
+    changes += [
+        _mk_frame_change(
+            entry_b,
+            pb,
+            "frame",
+            "added",
+            location_after=location_b(pb),
+            location_before=None,
+        )
+        for pb in match.added
     ]
-    only_b_sig = [
-        (pb, _frame_node_uids(graph_b, op_b, frame_key(frames_b[pb], pb), vb))
-        for pb in only_b
-    ]
-    content_pairs = _pair_frames_by_content(only_a_sig, only_b_sig, matchmap)
-    pairs.extend(content_pairs)
-    for pa, pb in content_pairs:
-        changes.append(value_change(pa, pb))
-    paired_a = {pa for pa, _ in content_pairs}
-    paired_b = {pb for _, pb in content_pairs}
-    for pa in only_a:
-        if pa not in paired_a:
-            changes.append(
-                _mk_frame_change(
-                    entry_a,
-                    pa,
-                    "frame",
-                    "removed",
-                    location_after=None,
-                    location_before=_frame_location(entry_a, pa),
-                ),
-            )
-    for pb in only_b:
-        if pb not in paired_b:
-            changes.append(
-                _mk_frame_change(
-                    entry_b,
-                    pb,
-                    "frame",
-                    "added",
-                    location_after=_frame_location(entry_b, pb),
-                    location_before=None,
-                ),
-            )
-    return changes, sorted(pairs, key=lambda pair: pair[1])
+    return changes, FramePairs(uid_of(op_a.id), uid_of(op_b.id), match.pairs)
 
 
 def _matched_structure_pairs(
@@ -1589,9 +1327,9 @@ def _matched_structure_pairs(
     exact/fuzzy dataflow identity (a re-keyed structure). A mismatched type at
     a shared uid (LabVIEW recycling a uid for a different kind of node) is
     skipped — same guard as the constant modified-check's type guard."""
-    cand = [(u, u) for u in sorted(a.keys() & b.keys(), key=_uid_sort)]
+    cand = [(u, u) for u in sorted(a.keys() & b.keys(), key=uid_sort)]
     h2b = {**exact, **fuzzy}
-    cand += [(u, h2b[u]) for u in sorted(h2b, key=_uid_sort)]
+    cand += [(u, h2b[u]) for u in sorted(h2b, key=uid_sort)]
     pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
     for base_uid, head_uid in cand:
         ea, eb = a.get(base_uid), b.get(head_uid)
@@ -1614,7 +1352,7 @@ def _matched_struct_pairs(
     return [
         (ea, eb)
         for ea, eb in _matched_structure_pairs(a, b, exact, fuzzy)
-        if _frames_of(ea.op) is not None
+        if frames_of(ea.op) is not None
     ]
 
 
@@ -1867,9 +1605,11 @@ def _constant_changes(
     layout_b: Layout | None,
     wires_a: list[Wire],
     wires_b: list[Wire],
+    matching: FrameMatching,
 ) -> list[ElementChange]:
     """All constant changes as ``kind="constant"`` ``ElementChange``s. See the
-    section header above for the identity model."""
+    section header above for the identity model; ``matching`` maps the before
+    version's frames onto the after version's."""
     consts_a = {uid_of(c.id): c for c in graph_a.get_constants(va)}
     consts_b = {uid_of(c.id): c for c in graph_b.get_constants(vb)}
 
@@ -1939,7 +1679,7 @@ def _constant_changes(
     changes: list[ElementChange] = []
 
     # ── Tier 0: same UID kept by LabVIEW — same constant. ──
-    for uid in sorted(consts_a.keys() & consts_b.keys(), key=_uid_sort):
+    for uid in sorted(consts_a.keys() & consts_b.keys(), key=uid_sort):
         ca, cb = consts_a[uid], consts_b[uid]
         if _const_type(ca) != _const_type(cb):
             continue  # UID recycle across types — not a constant edit (skip).
@@ -1947,11 +1687,20 @@ def _constant_changes(
             changes.append(modified(ca, cb))
 
     left_a = [
-        consts_a[u] for u in sorted(consts_a.keys() - consts_b.keys(), key=_uid_sort)
+        consts_a[u] for u in sorted(consts_a.keys() - consts_b.keys(), key=uid_sort)
     ]
     left_b = [
-        consts_b[u] for u in sorted(consts_b.keys() - consts_a.keys(), key=_uid_sort)
+        consts_b[u] for u in sorted(consts_b.keys() - consts_a.keys(), key=uid_sort)
     ]
+
+    # A constant's locality, comparable across the versions: a before location
+    # is mapped onto the after version's frames through the frame pairing (a
+    # frame can move, change its value or sit in a structure with a new uid).
+    def _where(c: Constant, elems: dict[str, _ElemInfo]) -> tuple[object, ...]:
+        location = _constant_locality(c, elems)[1]
+        if elems is a:
+            return matching.before_key(location)
+        return FrameMatching.after_key(location)
 
     # ── Tier 1: pair leftovers by reconstructed identity (name + connection +
     # locality), 1:1. VALUE is NOT in the key, so a value-only edit still pairs
@@ -1962,7 +1711,7 @@ def _constant_changes(
         elems: dict[str, _ElemInfo],
     ) -> tuple[tuple, bool]:
         ccons = frozenset(cons.get(uid_of(c.id), set()))
-        where = _by_value(_constant_locality(c, elems)[1])
+        where = _where(c, elems)
         anchored_here = c.label is not None or any(n in anchored for n, _ in ccons)
         return (c.label, where, ccons), anchored_here
 
@@ -1987,11 +1736,11 @@ def _constant_changes(
     rem_a = [c for c in left_a if uid_of(c.id) not in paired_a]
     rem_b = [c for c in left_b if uid_of(c.id) not in paired_b]
 
-    # ── Tier 2: value+type multiset collapse, scoped per frame — the old
-    # unnamed-constant behaviour, now locality-aware (identical constants in the
-    # SAME frame cancel as unchanged; anything left is a real add/remove). ──
+    # ── Tier 2: value+type multiset collapse, scoped per frame: identical
+    # constants in the SAME frame cancel as unchanged; anything left is a real
+    # add/remove. ──
     def vkey(c: Constant, elems: dict[str, _ElemInfo]) -> tuple:
-        where = _by_value(_constant_locality(c, elems)[1])
+        where = _where(c, elems)
         return (repr(c.value), _const_type(c) or "unknown", where)
 
     b_by_vkey: dict[tuple, list[Constant]] = defaultdict(list)
@@ -2005,7 +1754,7 @@ def _constant_changes(
             changes.append(removed(ca))
     for cb in sorted(
         (c for lst in b_by_vkey.values() for c in lst),
-        key=lambda c: _uid_sort(uid_of(c.id)),
+        key=lambda c: uid_sort(uid_of(c.id)),
     ):
         changes.append(added(cb))
 
@@ -2195,7 +1944,7 @@ def _matched_node_pairs(
     seen: set[tuple[str, str]] = set()
     cand = [(u, u) for u in a.keys() & b.keys()]
     cand += list({**exact, **fuzzy}.items())
-    for base_uid, head_uid in sorted(cand, key=lambda p: _uid_sort(p[0])):
+    for base_uid, head_uid in sorted(cand, key=lambda p: uid_sort(p[0])):
         ea, eb = a.get(base_uid), b.get(head_uid)
         if ea is None or eb is None or (base_uid, head_uid) in seen:
             continue
@@ -2414,6 +2163,22 @@ def diff_uid(
                 location_before=entry.location,
             )
         )
+    # Frame set matching: within every Case/Sequence/Event/Disable structure
+    # matched across versions (same uid, or exact/fuzzy dataflow match), its
+    # frames paired (``ChangeMap.frame_pairs``) and a whole frame added/removed,
+    # or the same frame's selector/index value changed. Done before the constant
+    # pass, which compares locations through the pairing; the frame changes are
+    # reported further down.
+    frame_results = [
+        _struct_frame_changes(
+            graph_a, graph_b, va, vb, entry_a, entry_b, {**exact, **fuzzy}
+        )
+        for entry_a, entry_b in _matched_struct_pairs(a, b, exact, fuzzy)
+    ]
+    cmap.frame_pairs = sorted(
+        (pairs for _, pairs in frame_results), key=lambda fp: uid_sort(fp.after)
+    )
+
     # Constant changes (added/removed/modified), as ``kind="constant"`` elements
     # at any nesting depth — matched by name/connection/locality, classified by
     # value (see ``_constant_changes``). Reuses the exact/fuzzy node matching for
@@ -2432,6 +2197,7 @@ def diff_uid(
             layout_b,
             wires_a,
             wires_b,
+            FrameMatching(cmap.frame_pairs),
         )
     )
 
@@ -2499,19 +2265,9 @@ def diff_uid(
         )
     )
 
-    # Frame set changes: within every Case/Sequence structure matched across
-    # versions (same uid, or exact/fuzzy dataflow match), a whole frame
-    # added/removed, or the same frame's selector/index value changed.
-    for entry_a, entry_b in _matched_struct_pairs(a, b, exact, fuzzy):
-        frame_changes, frame_pairs = _struct_frame_changes(
-            graph_a, graph_b, va, vb, entry_a, entry_b, {**exact, **fuzzy}
-        )
+    # Frame set changes (matched above, before the constant pass).
+    for frame_changes, _ in frame_results:
         cmap.changes.extend(frame_changes)
-        if frame_pairs:
-            cmap.frame_pairs.append(
-                FramePairs(uid_of(entry_a.op.id), uid_of(entry_b.op.id), frame_pairs)
-            )
-    cmap.frame_pairs.sort(key=lambda fp: _uid_sort(fp.after))
 
     # Border-terminal changes on every matched structure (loops included): a
     # tunnel turned shift register, indexing toggled, a tunnel added/removed —
@@ -2564,7 +2320,7 @@ def diff_uid(
             for uid in a.keys() & b.keys()
             if a[uid].kind == "node" and uid not in _node_modified
         ),
-        key=_uid_sort,
+        key=uid_sort,
     )
     # Provisional display order: structures first, then added < removed <
     # modified, then by UID. This is only a deterministic TIEBREAK now -- the
@@ -2578,7 +2334,7 @@ def diff_uid(
     def _provisional(c: ElementChange) -> tuple[bool, int, tuple[int, object]]:
         if c.kind == "tunnel":
             return (True, len(_rank), (2, _emitted[id(c)]))
-        return (c.kind != "structure", _rank.get(c.change, 3), _uid_sort(c.uid))
+        return (c.kind != "structure", _rank.get(c.change, 3), uid_sort(c.uid))
 
     cmap.changes.sort(key=_provisional)
     _reorder_by_tree(cmap, graph_a, graph_b, va, vb)
@@ -2655,10 +2411,12 @@ def _reorder_by_tree(
 # Geometry (bounds/path/chain_paths) is never touched by either tier --
 # logical change only, exactly like a code diff.
 
-# One frame of the tree: (structure uid, side, frame position). The tree reads
-# the AFTER version's frames; a frame only the before version has (a removed
-# frame, or one in a removed structure) is addressed on the before side.
-Segment = tuple[str, str, int]
+# One frame of the tree: (structure uid, side, frame position, the structure's
+# uid on that side). The structure is named by its after uid whenever it has one
+# (a matched structure, even one whose uid changed), so it shows once; a frame
+# only the before version has (a removed frame, or one in a removed structure)
+# is addressed on the before side.
+Segment = tuple[str, str, int, str]
 
 # The dedicated glyph for a CONSTANT change -- a small circle, giving a constant
 # row the same leading kind marker as node (``◻``)/wire (``↔``)/scope (``⬚``)
@@ -2669,25 +2427,25 @@ Segment = tuple[str, str, int]
 _CONST_GLYPH = "○"
 
 
-def _segments(
-    c: ElementChange, before_to_after: dict[str, tuple[str, dict[int, int]]]
-) -> tuple[Segment, ...]:
+def _segments(c: ElementChange, matching: FrameMatching) -> tuple[Segment, ...]:
     """The frames ``c`` sits in, as tree segments — the containment chain
     ``_netlist_diff`` recurses by, for every change kind (node/wire/structure/
     frame/value) alike. A change is placed by its after location; a removed one
     by its before location, each frame moved to its after structure and partner
-    frame (``ChangeMap.frame_pairs``, keyed by the before uid) when it has one.
-    ``()`` on the VI's own diagram."""
+    frame (``ChangeMap.frame_pairs``) when it has one. ``()`` on the VI's own
+    diagram."""
     if c.location_after is not None:
-        return tuple((s.structure, "after", s.frame) for s in c.location_after)
+        return tuple(
+            (s.structure, "after", s.frame, s.structure) for s in c.location_after
+        )
     segs: list[Segment] = []
     for s in c.location_before or ():
-        after_uid, pairs = before_to_after.get(s.structure, (s.structure, {}))
-        partner = pairs.get(s.frame)
+        after = matching.after_structure(s.structure)
+        partner = matching.after_frame(s.structure, s.frame)
         segs.append(
-            (after_uid, "after", partner)
-            if partner is not None
-            else (s.structure, "before", s.frame)
+            (after, "after", partner, after)
+            if after is not None and partner is not None
+            else (after or s.structure, "before", s.frame, s.structure)
         )
     return tuple(segs)
 
@@ -2878,7 +2636,7 @@ def _netlist_diff(
     surviving uid in its running-index order). ``render`` then sorts each
     container's structure uids AND leaf node/wire changes together by
     ``source_order.get(uid, <past every known uid>)``, tiebroken by
-    ``_uid_sort`` for determinism when a uid has no netlist position at all
+    ``uid_sort`` for determinism when a uid has no netlist position at all
     (e.g. a wire change keyed by its own terminal uid, not a node/scope uid).
     """
     mod_b = build_netlist_from_graph(graph_b, vb)
@@ -2912,19 +2670,17 @@ def _netlist_diff(
             return (-1, 0, uid)
         if prefix == "property":
             return (-1, 10 + _PROPERTY_GROUP_RANK.get(field, 9), field)
-        rank, tie = _uid_sort(uid)
+        rank, tie = uid_sort(uid)
         return (source_order.get(uid, _past_every_uid), rank, tie)
 
     elems = [c for c in cmap.changes if c.kind in _TREE_KINDS]
     frame_elems = [c for c in cmap.changes if c.kind in _FRAME_KINDS]
-    before_to_after = {
-        fp.before: (fp.after, dict(fp.pairs)) for fp in cmap.frame_pairs
-    }
+    matching = FrameMatching(cmap.frame_pairs)
     by_path: dict[tuple[Segment, ...], list[ElementChange]] = {}
     for c in elems:
-        by_path.setdefault(_segments(c, before_to_after), []).append(c)
+        by_path.setdefault(_segments(c, matching), []).append(c)
     frame_change_at: dict[tuple[Segment, ...], ElementChange] = {
-        _segments(c, before_to_after): c for c in frame_elems
+        _segments(c, matching): c for c in frame_elems
     }
 
     def node_content(c: ElementChange) -> str:
@@ -2957,20 +2713,17 @@ def _netlist_diff(
         struct_c = next((c for c in elems if c.uid == uid), None)
         return struct_c.label if struct_c is not None else uid
 
-    def frame_label(struct_uid: str, side: str, position: int) -> str:
+    def frame_label(segment: Segment) -> str:
         """The faithful DISPLAY text for one frame: the frame's own netlist
         label on its side (the netlist lists a structure's frames in the graph's
-        frame order). Falls back to the label the change map carries when that
-        side's netlist has no such frame (should not happen)."""
-        scope = (scope_b if side == "after" else scope_a).get(struct_uid)
-        if scope is not None and position < len(scope.frames):
-            return scope.frames[position].label
-        for c in cmap.changes:
-            location = c.location_after if side == "after" else c.location_before
-            for step in location or ():
-                if step.structure == struct_uid and step.frame == position:
-                    return ", ".join(step.values)
-        return ""
+        frame order, and every location names a frame that side has)."""
+        _, side, position, side_uid = segment
+        scope = (scope_b if side == "after" else scope_a).get(side_uid)
+        if scope is None or position >= len(scope.frames):
+            raise AssertionError(
+                f"the {side} netlist has no frame {position} of structure {side_uid}"
+            )
+        return scope.frames[position].label
 
     def wire_content(c: ElementChange, siblings: list[ElementChange]) -> str | None:
         """ASCII connectivity line for a standalone wire change, or ``None``
@@ -3003,7 +2756,7 @@ def _netlist_diff(
         depth = len(path)
         uids: set[str] = set()
         for c in cmap.changes:
-            segs = _segments(c, before_to_after)
+            segs = _segments(c, matching)
             if len(segs) > depth and segs[:depth] == path:
                 uids.add(segs[depth][0])
         return sorted(uids, key=_sort_key)
@@ -3017,7 +2770,7 @@ def _netlist_diff(
         depth = len(path)
         found: set[Segment] = set()
         for c in cmap.changes:
-            segs = _segments(c, before_to_after)
+            segs = _segments(c, matching)
             if (
                 len(segs) > depth
                 and segs[:depth] == path
@@ -3046,7 +2799,7 @@ def _netlist_diff(
                     NetlistDiffRow(
                         change=fc.change if fc is not None else None,
                         depth=depth,
-                        text=f'"{frame_label(*segment)}":{detail}',
+                        text=f'"{frame_label(segment)}":{detail}',
                         uid=fc.uid if fc is not None else None,
                         kind="frame",
                     )
@@ -3110,7 +2863,7 @@ def _netlist_diff(
                 tunnels_by_struct.setdefault(c.structure_uid, []).append(c)
         # A structure's OWN header must render even with NO descendant at
         # all -- an empty/childless added case, or (always) a Loop/flat
-        # Sequence: neither is ``_is_interactive_struct``, so its children
+        # Sequence: neither is ``is_interactive_struct``, so its children
         # never gain its uid as a location step (they pass its own
         # locality straight through -- see ``_collect_elements``), meaning
         # ``child_uids`` alone would never surface it. So the struct uid SET

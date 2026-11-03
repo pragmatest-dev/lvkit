@@ -1193,10 +1193,9 @@ class EventFrame(Frame):
     """
 
     # Positional frame index (order in the Event Structure's frame list). The
-    # active frame is chosen at runtime, so there is no selector_value to key
-    # on — this position IS the stable correlation token, and it matches what
-    # the renderer stamps (``construction.py`` → ``str(idx)``), so diff
-    # frame-paths line up with the SVG's ``data-path`` for cross-pane lookup.
+    # active frame is chosen at runtime, so there is no selector_value; like
+    # every frame, an event frame is addressed by its position in its
+    # structure.
     index: int = 0
     event_label: str = ""
 

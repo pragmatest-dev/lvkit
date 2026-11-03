@@ -29,9 +29,8 @@ from ..graph.models import (
     WireEnd,
 )
 from ..graph.op_walk import _selector_label
-from ..graph.operations import frame_position, structure_frames
+from ..graph.operations import frame_position, position_of, structure_frames
 from ..models import (
-    CaseFrame,
     FPTerminal,
     LVType,
     LVTypeKind,
@@ -466,11 +465,6 @@ def _shown_index(idx: int | None, n_frames: int, default: int = 0) -> int:
     return idx if idx is not None and 0 <= idx < n_frames else default
 
 
-def _position_of(frames: list[CaseFrame], frame: CaseFrame) -> str:
-    """The position (``str``) of ``frame`` itself in ``frames``."""
-    return str(next(i for i, f in enumerate(frames) if f is frame))
-
-
 def _frame_info(
     nodes: list[AnyGraphNode],
     vi_name: str,
@@ -527,7 +521,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = _position_of(node.frames, shown)
+            default_frame[raw] = str(position_of(node.frames, shown))
             frame_labels[raw] = {
                 position: _selector_label(f, lv_type, is_error)
                 for position, f in zip(positions, node.frames, strict=True)
@@ -576,7 +570,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = _position_of(node.frames, shown)
+            default_frame[raw] = str(position_of(node.frames, shown))
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"

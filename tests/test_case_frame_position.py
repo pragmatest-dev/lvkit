@@ -38,7 +38,7 @@ from lvkit.run_report import (
     RunReport,
 )
 from lvkit.vi_diff import diff_vi_files
-from tests.diff_viewer_cases import write_versions
+from tests.diff_viewer_cases import WRAPPED_AFTER, WRAPPED_BEFORE, write_versions
 from tests.test_disable_graph import _BD_XML as _DISABLE_BD_XML
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -492,7 +492,7 @@ def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
         None,
     )
     assert change["location_before"] == [
-        {"structure": "600", "frame": 1, "value": "1"}
+        {"structure": "600", "frame": 1, "value": ["1"]}
     ]
     assert data["frame_pairs"] == [
         {"before": "600", "after": "600", "pairs": [[0, 0], [1, 1]]}
@@ -579,14 +579,19 @@ def test_an_error_table_listing_the_error_frame_first() -> None:
     assert _statuses([(1, 1, 0)]) == [("1", False), ("0", True)]
 
 
+def _step(structure: str, frame: int, *values: str) -> dict[str, object]:
+    return {"structure": structure, "frame": frame, "value": list(values)}
+
+
 def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
     before, after = write_versions(tmp_path)
     body = diff_vi_files(before, after, fmt="json", warm_index=False)
     assert body is not None
     data = json.loads(body.body)
     # Before frames "1", "2" are after frames "1" (moved to position 1 by the
-    # new frame "5") and "3" (renamed, same contents); the nested case, re-keyed
-    # 650 -> 655 and matched by the wire into its selector, keeps its frames.
+    # new frame "5") and "3" (renamed, same contents); the nested case, given a
+    # new uid (650 -> 655) and matched by the wire into its selector, keeps
+    # frames "7" and "8" and loses "9".
     assert data["frame_pairs"] == [
         {"before": "600", "after": "600", "pairs": [[0, 1], [1, 2]]},
         {"before": "650", "after": "655", "pairs": [[0, 0], [1, 1]]},
@@ -596,20 +601,16 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
         for c in data["changes"]
     }
     assert located == {
-        ("~5", "added"): (None, [{"structure": "600", "frame": 0, "value": "5"}]),
-        ("520", "added"): (None, [{"structure": "600", "frame": 0, "value": "5"}]),
-        ("~3", "modified"): (
-            [{"structure": "600", "frame": 1, "value": "2"}],
-            [{"structure": "600", "frame": 2, "value": "3"}],
-        ),
-        ("680", "added"): (
-            None,
-            [
-                {"structure": "600", "frame": 2, "value": "3"},
-                {"structure": "655", "frame": 1, "value": "8"},
-            ],
-        ),
+        ("~5", "added"): (None, [_step("600", 0, "5")]),
+        ("520", "added"): (None, [_step("600", 0, "5")]),
+        ("~3", "modified"): ([_step("600", 1, "2")], [_step("600", 2, "3")]),
+        ("685", "added"): (None, [_step("600", 2, "3"), _step("655", 0, "7")]),
+        ("675", "removed"): ([_step("600", 1, "2"), _step("650", 1, "8")], None),
+        ("~9", "removed"): ([_step("600", 1, "2"), _step("650", 2, "9")], None),
+        ("690", "removed"): ([_step("600", 1, "2"), _step("650", 2, "9")], None),
     }
+    # One block for the nested case, under its after uid, with the removed
+    # frame "9" in it.
     text = diff_vi_files(before, after, fmt="text", warm_index=False)
     assert text is not None
     assert text.body.splitlines() == [
@@ -618,6 +619,24 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
         "+     Tick Count (ms)#1() -> millisecond_timer_value",
         '~   "3": 2 -> 3',
         "      case (Tick Count (ms)#2.millisecond_timer_value):",
+        '        "7":',
+        "+         Tick Count (ms)#3() -> millisecond_timer_value",
         '        "8":',
-        "+         Random Number (0-1)#3() -> number",
+        "-         Random Number (0-1)#3() -> number",
+        '-       "9":',
+        "-         Tick Count (ms)#3() -> millisecond_timer_value",
     ]
+
+
+def test_a_diff_of_a_case_wrapped_in_a_new_case(tmp_path: Path) -> None:
+    before, after = write_versions(tmp_path, WRAPPED_BEFORE, WRAPPED_AFTER)
+    body = diff_vi_files(before, after, fmt="json", warm_index=False)
+    assert body is not None
+    data = json.loads(body.body)
+    # The new case 700 is added, so only 600 is matched.
+    assert data["frame_pairs"] == [
+        {"before": "600", "after": "600", "pairs": [[0, 0], [1, 1]]}
+    ]
+    (renamed,) = [c for c in data["changes"] if c["uid"] == "~3"]
+    assert renamed["location_before"] == [_step("600", 1, "2")]
+    assert renamed["location_after"] == [_step("700", 0, "4"), _step("600", 1, "3")]

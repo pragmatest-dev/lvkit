@@ -11,13 +11,12 @@ import pytest
 
 from lvkit.graph.core import InMemoryVIGraph, _node_order_key
 from lvkit.graph.diff import (
-    FramePairs,
-    FrameStep,
     diff_to_dict,
     diff_uid,
     format_diff,
     netlist_diff_rows,
 )
+from lvkit.graph.diff_frames import FramePairs, FrameStep
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
@@ -636,7 +635,7 @@ class TestLocalityStamping:
         entry = next(c for c in d["changes"] if c["uid"] == "4117")
         assert entry["container_uid"] == "3870"
         assert entry["location_after"][-1]["structure"] == "3870"
-        assert entry["location_after"][-1]["value"] == "True"
+        assert entry["location_after"][-1]["value"] == ["True"]
         assert entry["location_before"] is None
 
 

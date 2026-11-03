@@ -382,7 +382,6 @@ def structure_frames(node: object | None) -> Sequence[Frame]:
     return getattr(node, "frames", None) or []
 
 
-
 def frame_position(frames: Sequence[Frame], key: str | int | None) -> int | None:
     """The position in ``frames`` of the frame whose :func:`frame_key` is
     ``key`` -- how a view addresses a frame within one VI; ``None`` when no
@@ -391,3 +390,8 @@ def frame_position(frames: Sequence[Frame], key: str | int | None) -> int | None
         if frame_key(frame, position) == key:
             return position
     return None
+
+
+def position_of(frames: Sequence[Frame], frame: Frame) -> int:
+    """The position of ``frame`` itself (by identity) in ``frames``."""
+    return next(i for i, f in enumerate(frames) if f is frame)

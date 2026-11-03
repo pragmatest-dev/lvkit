@@ -399,18 +399,23 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   are positions; labels come only from `Scene.frame_labels` (the selector's
   label groups and menu). Both the render's own toggle script
   (`render/__init__.py:_FRAME_CONTROLLER_JS`) and the diff viewer read positions.
-- **diff locates every change per side and pairs every frame.** An
-  `ElementChange` carries `location_after`/`location_before` (`graph/diff.py`
-  `FrameStep`: structure uid, frame position, shown values; `None` for the side
-  the element is not in) built by `_collect_elements`/`_frame_location`.
-  `_struct_frame_changes` matches frames ACROSS versions by value (`_frame_key`,
-  plus an occurrence number so two same-valued frames still pair in order), then
-  by contents, and returns every pair as `(before position, after position)`:
-  `ChangeMap.frame_pairs`, one `FramePairs` (the structure's before and after
-  uid -- they differ when the diff matched a re-keyed structure by dataflow --
-  and its pairs) per matched structure; the viewer addresses each pane by that
-  pane's uid. Constants are
-  matched across versions by location VALUE (`_by_value`), never position. The
+- **diff locates every change per side and pairs every frame.** The frame
+  types and matching live in `graph/diff_frames.py`; `graph/diff.py` uses them.
+  An `ElementChange` carries `location_after`/`location_before` (`FrameStep`:
+  structure uid, frame position, shown values as a list; `None` for the side
+  the element is not in) built by `_collect_elements` with `frame_step`/`frame_location`.
+  `_struct_frame_changes` matches frames ACROSS versions with `match_frames`: by
+  value (`frame_match_key`, plus an occurrence number so two same-valued frames
+  still pair in order), then by contents, and returns every pair as `(before
+  position, after position)`: `ChangeMap.frame_pairs`, one `FramePairs` (the
+  structure's before and after uid -- they differ when LabVIEW gave the
+  structure a new uid and the diff matched it by its wiring -- and its pairs)
+  per matched structure, with no pairs when none of its frames match; the
+  viewer addresses each pane by that pane's uid. `diff_uid` runs the frame
+  matching BEFORE the constants, and constants are matched across versions by
+  location through that pairing (`FrameMatching.before_key`/`after_key`), so
+  a constant whose frame changed its value, became the Default, or sits in a
+  structure with a new uid is still the same constant. The
   viewer (`render/templates/diff_viewer.html`: `setFrame`/`partner`/
   `sideLocation`/`revealFrame`, deep link `#frame=uid:pos`) moves the other pane
   to a frame's partner and leaves it where it is when there is none; the text
