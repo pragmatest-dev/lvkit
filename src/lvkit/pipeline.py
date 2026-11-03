@@ -309,6 +309,7 @@ def create_import_resolver(
         project_file,
         shown,
         names_import,
+        taken,
     )
 
 

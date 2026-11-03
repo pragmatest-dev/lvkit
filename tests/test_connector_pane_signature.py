@@ -606,3 +606,25 @@ def test_a_variable_named_after_a_call_never_takes_the_called_function() -> None
     assert ctx.make_output_var("mix", "node") == "mix_2"
     assert ctx.import_function("Mix.vi") == "mix"
     assert ctx.imports == {"from .mix import mix"}
+
+
+def test_the_alias_is_never_a_top_level_name_of_the_module(tmp_path: Path) -> None:
+    """The caller is ``Mix_2.vi``, so ``mix_2`` is its own function: the
+    called ``mix`` is imported as ``mix_3``, not as the caller itself."""
+    project = Project(tmp_path)
+    mix_key = project.add_vi("Mix", mix)
+    project.add_vi("Mix_2", named_like_mix(mix_key, on_pane=True))
+    package = project.generate()
+    source = package.sources["mix_2"]
+    assert "from .mix import mix as mix_3\n" in source
+    assert "def mix_2(mix: int)" in source and "mix_3(a=mix)" in source
+    with package.use() as module:
+        assert module("mix_2").mix_2(6).total == 6 + 0 + 4 + 9
+
+
+def test_a_name_bound_only_on_the_graph_is_held() -> None:
+    """A For Loop's element variable or a method's parameter is bound on a
+    terminal, not counted among the made variables: it still holds its name."""
+    ctx = CodeGenContext.from_wires([], bindings={"element": "mix"})
+    assert ctx.import_function("Mix.vi") == "mix_2"
+    assert ctx.imports == {"from .mix import mix as mix_2"}
