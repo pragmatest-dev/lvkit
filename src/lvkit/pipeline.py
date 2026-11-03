@@ -20,6 +20,7 @@ from typing import Any
 from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
 from lvkit.codegen.ast_utils import (
+    build_result_class_name,
     build_type_checking_block,
     to_function_name,
     unique_names,
@@ -392,6 +393,15 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
         traceback.print_exception(exc)
 
 
+def _is_type_checking_block(node: ast.stmt) -> bool:
+    """Whether ``node`` is ``if TYPE_CHECKING:``."""
+    return (
+        isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "TYPE_CHECKING"
+    )
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -464,22 +474,27 @@ def _generate_polymorphic_module(
         # Take the function and result class; collect imports the body needs
         # into the shared header rather than dropping them.
         tree = ast.parse(code)
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                lines.append("")
-                lines.append(ast.unparse(node))
-                variant_result_classes.append(node.name)
-            elif isinstance(node, ast.FunctionDef):
-                lines.append("")
-                lines.append(ast.unparse(node))
-            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+        result_class = build_result_class_name(vi_context.name)
+        for index, node in enumerate(tree.body):
+            if index == 0 and ast.get_docstring(tree) is not None:
+                continue  # the variant module's docstring
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
                 imp = ast.unparse(node)
                 if imp not in _header:
                     variant_imports.add(imp)
-            elif isinstance(node, ast.If):
+            elif _is_type_checking_block(node):
+                assert isinstance(node, ast.If)
                 variant_annotation_imports.update(
                     ast.unparse(stmt) for stmt in node.body
                 )
+            else:
+                # Everything else the variant's module defines, in order: its
+                # result class, its function, and any module-level state or
+                # helpers (a stored-state global, Call Library Function code).
+                if isinstance(node, ast.ClassDef) and node.name == result_class:
+                    variant_result_classes.append(node.name)
+                lines.append("")
+                lines.append(ast.unparse(node))
 
         # Collect inputs/outputs for union signature
         for inp in vi_context.inputs:
@@ -559,7 +574,8 @@ def _generate_polymorphic_module(
     lines.append(f"def {wrapper_func}(*args, **kwargs) -> {returns}:")
     # repr() makes the VI path a valid string literal whatever it contains
     # (a Windows path holds backslashes).
-    docstring = repr(f"Polymorphic wrapper for {wrapper_name}.")
+    shown = layout.display_path(wrapper_name)
+    docstring = repr(f"Polymorphic wrapper for {shown}.")
     lines.append(f"    {docstring}")
     lines.append("    _vals = [*args, *kwargs.values()]")
 
