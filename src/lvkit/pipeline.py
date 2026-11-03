@@ -25,6 +25,7 @@ from lvkit.codegen.ast_utils import (
     to_function_name,
     unique_names,
 )
+from lvkit.codegen.class_builder.shared_state import ModuleParts
 from lvkit.codegen.error_path import is_error_wire_vi
 from lvkit.codegen.errors import MissingVIError
 from lvkit.codegen.errors_module import (
@@ -449,6 +450,10 @@ def _generate_polymorphic_module(
     module_names = {
         to_function_name(Path(name).name) for name in [wrapper_name, *variants]
     }
+    # Their module-level code (helpers, ctypes declarations, globals) is named
+    # against one another, and each statement goes into the module once.
+    shared = ModuleParts(module_stem=to_function_name(Path(wrapper_name).name))
+    written: set[str] = set()
     for variant_name in variants:
         vi_context = graph.get_vi_context(variant_name)
         # build_module names the variant function from its DISPLAY name
@@ -476,6 +481,7 @@ def _generate_polymorphic_module(
             graph=graph,
             data_files=data_files,
             gaps=gaps,
+            shared=shared,
         )
         # Take the function and result class; collect imports the body needs
         # into the shared header rather than dropping them.
@@ -499,8 +505,11 @@ def _generate_polymorphic_module(
                 # helpers (a stored-state global, Call Library Function code).
                 if isinstance(node, ast.ClassDef) and node.name == result_class:
                     variant_result_classes.append(node.name)
-                lines.append("")
-                lines.append(ast.unparse(node))
+                text = ast.unparse(node)
+                if text not in written:
+                    written.add(text)
+                    lines.append("")
+                    lines.append(text)
 
         # Collect inputs/outputs for union signature
         for inp in vi_context.inputs:

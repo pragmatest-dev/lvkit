@@ -17,6 +17,7 @@ from lvkit.formula.emit import VarSpec, transpile
 from lvkit.graph.models import FormulaNode
 from lvkit.models import LVTypeKind
 
+from ..ast_utils import sanitize_state_var_suffix
 from ..fragment import CodeFragment
 
 if TYPE_CHECKING:
@@ -63,9 +64,11 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     if not node.script:
         raise ConversionGap(f"Formula Node {node.id} has no script")
 
-    uid = node.id.split("::")[-1]
-    suffix = re.sub(r"\W", "_", uid)
-    func_name = f"_formula_{suffix}"
+    suffix = re.sub(r"\W", "_", node.id.split("::")[-1])
+    # The module-level function is named by the VI and the node, like a
+    # stored-state global: unique in a module that holds several VIs (the
+    # variants of a polymorphic VI).
+    func_name = f"_formula_{sanitize_state_var_suffix(node.id)}"
 
     specs = _varspecs(node)
     result = transpile(node.script, specs, func_name=func_name)
