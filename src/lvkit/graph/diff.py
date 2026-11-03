@@ -55,7 +55,7 @@ from .op_walk import (
     _selector_label,
     _terminal_display_name,
 )
-from .operations import frame_key
+from .operations import frame_key, shown_frame_value
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -360,10 +360,10 @@ def _frame_value(frame: Frame) -> object:
     ``CaseFrame.selector_value`` for a case, ``SequenceFrame.index`` for a
     sequence (flat or stacked), ``EventFrame.index`` for an event frame
     (positional — the active frame is runtime-chosen, so it has no selector).
-    Matches exactly what render/scene.py::_frame_path stores as ``cur.frame``
-    for the same node (``construction.py`` stamps event children with
-    ``str(idx)`` too), so ``str()``-ing it here reproduces the identical token
-    and diff frame-paths correlate with the SVG ``data-path``."""
+    Matches exactly the token render/scene.py::_frame_path writes for the
+    same frame (``operations.shown_frame_value`` of a child's frame key), so
+    ``str()``-ing it here reproduces the identical token and diff frame-paths
+    correlate with the SVG ``data-path``."""
     if isinstance(frame, CaseFrame):
         return frame.selector_value
     if isinstance(frame, SequenceFrame):
@@ -1195,7 +1195,8 @@ def _constant_locality(
     if entry is None:
         return None, None
     if _is_interactive_struct(entry.op):
-        return struct_uid, _extend_frame_path(entry.frame_path, struct_uid, c.frame)
+        value = shown_frame_value(_frames_of(entry.op) or [], c.frame)
+        return struct_uid, _extend_frame_path(entry.frame_path, struct_uid, value)
     return entry.container_uid, entry.frame_path
 
 
@@ -1442,8 +1443,8 @@ def _struct_frame_changes(
     base_uid, head_uid = uid_of(op_a.id), uid_of(op_b.id)
     map_a: dict[str, Frame] = {_frame_key(f): f for f in frames_a}
     map_b: dict[str, Frame] = {_frame_key(f): f for f in frames_b}
-    # Frame -> its graph-child-lookup key (case/disable selector_value,
-    # sequence str(index), event str(list position)) -- needed to fetch each
+    # Frame -> its graph-child-lookup key (``frame_key``: case/disable/event
+    # str(list position), sequence str(index)) -- needed to fetch each
     # leftover frame's contained-node identity via _frame_node_uids below.
     keys_a = {id(f): frame_key(f, i) for i, f in enumerate(frames_a)}
     keys_b = {id(f): frame_key(f, i) for i, f in enumerate(frames_b)}

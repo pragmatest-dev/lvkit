@@ -751,7 +751,7 @@ class TestFrameSetChanges:
         # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
         # 36:1->0 case; the shared node itself stays unchanged, not reported.)
         # The shared node lives in the frame as a real child graph node
-        # (parent=the case uid, frame=the selector value) — the SAME
+        # (parent=the case uid, frame=the frame's position) — the SAME
         # containment construction.py stamps; _populate_frame_operations then
         # projects it back into the frame's operations for the content-overlap
         # matcher. A fresh node per side (same uid) so the two graphs don't
@@ -766,7 +766,7 @@ class TestFrameSetChanges:
             )
 
         node_a = _add_child()
-        node_a.frame = "1"
+        node_a.frame = "0"
         case_a = CaseStructureNode(
             id="vi::500",
             vi_path="vi",

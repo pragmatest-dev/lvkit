@@ -78,6 +78,7 @@ from .models import (
     VINode,
     WireEnd,
 )
+from .operations import frame_key
 from .terminal_layout import array_rank
 from .terminal_names import NodeSlot, catalog_terminal_names
 
@@ -999,13 +1000,13 @@ class ConstructionMixin:
         # and that sRN is one of the frame's inner_node_uids.
         frame_owner: dict[str, tuple[str, str | int | None]] = {}
 
-        def _stamp(uid: str, struct_id: str, frame_key: str | int | None) -> None:
-            frame_owner[uid] = (struct_id, frame_key)
+        def _stamp(uid: str, struct_id: str, key: str | int | None) -> None:
+            frame_owner[uid] = (struct_id, key)
             q_uid = self._qid(vi_key, uid)
             if q_uid in g and "node" in g.nodes[q_uid]:
                 inner_node = g.nodes[q_uid]["node"]
                 inner_node.parent = struct_id
-                inner_node.frame = frame_key
+                inner_node.frame = key
 
         for loop in bd.loops:
             q_loop_uid = self._qid(vi_key, loop.uid)
@@ -1014,9 +1015,9 @@ class ConstructionMixin:
 
         for cs in bd.case_structures:
             q_cs_uid = self._qid(vi_key, cs.uid)
-            for frame in cs.frames:
+            for idx, frame in enumerate(cs.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_cs_uid, frame.selector_value)
+                    _stamp(uid, q_cs_uid, frame_key(frame, idx))
 
         for fs in bd.flat_sequences:
             q_fs_uid = self._qid(vi_key, fs.uid)
@@ -1031,18 +1032,15 @@ class ConstructionMixin:
 
         for disable in bd.disable_structures:
             q_disable_uid = self._qid(vi_key, disable.uid)
-            for frame in disable.frames:
+            for idx, frame in enumerate(disable.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_disable_uid, frame.selector_value)
+                    _stamp(uid, q_disable_uid, frame_key(frame, idx))
 
-        # Event structure frames are keyed by INDEX (str(idx)) — like a
-        # stacked sequence, not a case — since the active frame is chosen at
-        # runtime by whichever event fires, not a selector wire/value.
         for es in bd.event_structures:
             q_es_uid = self._qid(vi_key, es.uid)
             for idx, frame in enumerate(es.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_es_uid, str(idx))
+                    _stamp(uid, q_es_uid, frame_key(frame, idx))
 
         # Attribute constants to the frame that contains them. A constant
         # wired inside a structure is a diagram constant whose output
@@ -1054,10 +1052,10 @@ class ConstructionMixin:
                 continue
             q_const_uid = self._qid(vi_key, const.uid)
             if q_const_uid in g and "node" in g.nodes[q_const_uid]:
-                struct_id, frame_key = frame_owner[ct.parent_uid]
+                struct_id, key = frame_owner[ct.parent_uid]
                 cnode = g.nodes[q_const_uid]["node"]
                 cnode.parent = struct_id
-                cnode.frame = frame_key
+                cnode.frame = key
 
         # Attribute FP terminals (front-panel controls placed on a diagram
         # via an sRN — e.g. an Event Structure's registered event-source
@@ -1084,9 +1082,9 @@ class ConstructionMixin:
             terminal = vi_terminal_by_id.get(self._qid(vi_key, fp_term.uid))
             if terminal is None:
                 continue
-            struct_id, frame_key = frame_owner[ct.parent_uid]
+            struct_id, key = frame_owner[ct.parent_uid]
             terminal.parent = struct_id
-            terminal.frame = frame_key
+            terminal.frame = key
 
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
@@ -1602,7 +1600,7 @@ class ConstructionMixin:
         PER FRAME (parser_tunnels lists them grouped by outer_terminal_uid,
         in frame order — see case.py::_extract_case_tunnels). When
         case_frames is provided, each inner TunnelTerminal is stamped with
-        the selector_value of the frame it belongs to, correlated
+        the ``frame_key`` of the frame it belongs to, correlated
         positionally: the Nth tunnel entry sharing an outer_terminal_uid
         belongs to case_frames[N]. This lets renderers exclude tunnel wires
         belonging to hidden frames.
@@ -1700,7 +1698,7 @@ class ConstructionMixin:
                 position = outer_tunnel_position.get(outer_uid, 0)
                 outer_tunnel_position[outer_uid] = position + 1
                 if position < len(case_frames):
-                    inner_frame = case_frames[position].selector_value
+                    inner_frame = frame_key(case_frames[position], position)
 
             # Inner direction is opposite of outer for data flow
             inner_terminal = TunnelTerminal(

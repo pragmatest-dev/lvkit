@@ -341,7 +341,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
                 boundary="inner",
                 tunnel_type="csTun",
                 paired_id="outer",
-                frame="True",
+                frame="0",  # the "True" frame's position
                 lv_type=_lv("NumInt32"),
             ),
         ],
@@ -361,7 +361,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
             Wire.from_terminals(from_terminal_id="outer", to_terminal_id="fp:y"),
         ],
     )
-    source, gaps = _build(context, [case, _mystery(parent="case1", frame="True")])
+    source, gaps = _build(context, [case, _mystery(parent="case1", frame="0")])
     assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
         "def gap(flag: bool=False) -> GapResult:",
         "    case_output = 0",

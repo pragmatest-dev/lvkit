@@ -29,6 +29,7 @@ from ..graph.models import (
     WireEnd,
 )
 from ..graph.op_walk import _selector_label
+from ..graph.operations import shown_frame_value
 from ..models import (
     FPTerminal,
     LVType,
@@ -366,10 +367,20 @@ def _frame_path(
             parent,
             (CaseStructureNode, DisableStructureNode, EventStructureNode),
         ) or _is_stacked_sequence(parent):
-            segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
+            segs.append((_strip_prefix(parent.id, vi_name), _frame_token(parent, cur)))
         cur = parent
     segs.reverse()
     return tuple(segs)
+
+
+def _frame_token(
+    struct: AnyGraphNode, item: AnyGraphNode | FPTerminal | TunnelTerminal
+) -> str:
+    """The token a frame-path segment names ``item``'s frame of ``struct``
+    by: the value that frame shows (``operations.shown_frame_value`` of the
+    frame key ``item`` carries) -- a case or disable frame's selector value,
+    a sequence or event frame's key."""
+    return str(shown_frame_value(getattr(struct, "frames", None) or [], item.frame))
 
 
 def _fp_terminal_frame_path(
@@ -403,7 +414,7 @@ def _fp_terminal_frame_path(
         parent,
         (CaseStructureNode, DisableStructureNode, EventStructureNode),
     ) or _is_stacked_sequence(parent):
-        segs.append((_strip_prefix(parent.id, vi_name), str(t.frame)))
+        segs.append((_strip_prefix(parent.id, vi_name), _frame_token(parent, t)))
     return tuple(segs)
 
 
@@ -868,7 +879,7 @@ def _structure_borders(
         unwired_frames: frozenset[str] = frozenset()
         if glyph_kind == "tunnel" and t.direction == "output":
             unwired_frames = frozenset(
-                str(inner.frame)
+                _frame_token(node, inner)
                 for inner in inner_by_outer.get(t.id, [])
                 if inner.frame is not None and inner.id not in wired_dest
             )
@@ -1229,7 +1240,8 @@ def _wire_path(
             and term.frame is not None
         ):
             base = _frame_path(node, by_id, vi_name)
-            cands.append(base + ((_strip_prefix(node.id, vi_name), str(term.frame)),))
+            token = _frame_token(node, term)
+            cands.append(base + ((_strip_prefix(node.id, vi_name), token),))
         else:
             cands.append(_frame_path(node, by_id, vi_name))
     return max(cands, key=len) if cands else ()

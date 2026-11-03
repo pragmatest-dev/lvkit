@@ -1006,8 +1006,9 @@ class TunnelTerminal(Terminal):
     tunnel_type: str = ""  # "lSR", "rSR", "lpTun", "lMax", "caseSel"
     boundary: str = ""  # "outer" or "inner"
     paired_id: str | None = None  # matching terminal on other side
-    # For case-structure inner tunnels: the owning CaseFrame's selector_value.
-    # None for outer tunnels and for non-case-structure tunnels (loop/sequence).
+    # For case and disable structure inner tunnels: the owning frame's key
+    # (``graph.operations.frame_key``, the frame's position). None for outer
+    # tunnels and for every other structure's tunnels (loop/sequence/event).
     frame: str | int | None = None
     # Carried straight from the parsed Tunnel (construction.py) so
     # graph/operations.py::_tunnels_from_terminals can round-trip them onto
@@ -1020,7 +1021,8 @@ class TunnelTerminal(Terminal):
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
     # Position of the frame an inner tunnel terminal sits in (see
-    # ``Tunnel.frame_position``); ``frame`` above keeps the case selector value.
+    # ``Tunnel.frame_position``); ``frame`` above is set only for case and
+    # disable structures.
     frame_position: int | None = None
 
 

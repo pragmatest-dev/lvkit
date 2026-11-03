@@ -55,6 +55,8 @@ ERR = LVType(
 )
 
 NO_ERROR, ERROR = "No Error", "Error"
+# The key a node or inner tunnel in each frame carries: the frame's position.
+NO_ERROR_FRAME, ERROR_FRAME = "0", "1"
 UNSPECIFIED = -2147467259
 
 
@@ -752,17 +754,19 @@ def _error_case(
     (``keeps_error``) or is not sent out (cleared)."""
     nodes: list = [
         step("P", "Open.vi"),
-        step("Q", "Use.vi", parent="CS", frame=NO_ERROR),
+        step("Q", "Use.vi", parent="CS", frame=NO_ERROR_FRAME),
     ]
     terminals = [
         term("sel", "input", 0, "sel", ERR),
         tunnel("t_in", "input", "outer", "t_in_e", ERR),
-        tunnel("t_in_e", "output", "inner", "t_in", ERR, frame=ERROR),
+        tunnel("t_in_e", "output", "inner", "t_in", ERR, frame=ERROR_FRAME),
         tunnel("t_out", "output", "outer", "t_out_e", ERR),
-        tunnel("t_out_e", "input", "inner", "t_out", ERR, frame=ERROR),
+        tunnel("t_out_e", "input", "inner", "t_out", ERR, frame=ERROR_FRAME),
         tunnel("d_out", "output", "outer", "d_n", INT, name="data"),
-        tunnel("d_n", "input", "inner", "d_out", INT, frame=NO_ERROR, name="data"),
-        tunnel("d_e", "input", "inner", "d_out", INT, frame=ERROR, name="data"),
+        tunnel(
+            "d_n", "input", "inner", "d_out", INT, frame=NO_ERROR_FRAME, name="data"
+        ),
+        tunnel("d_e", "input", "inner", "d_out", INT, frame=ERROR_FRAME, name="data"),
     ]
     wires = [
         ("x", "P_x"),
@@ -783,7 +787,7 @@ def _error_case(
                 name="Some Built-in Node",
                 node_type="prim",
                 parent="CS",
-                frame=ERROR,
+                frame=ERROR_FRAME,
                 terminals=[
                     term("B_ein", "input", 0, "error in", ERR),
                     term("B_eout", "output", 1, "error out", ERR),
@@ -801,7 +805,7 @@ def _error_case(
                     name="Unbundle",
                     node_type="nMux",
                     parent="CS",
-                    frame=ERROR,
+                    frame=ERROR_FRAME,
                     terminals=[
                         Terminal(
                             id="u_agg",
@@ -825,7 +829,7 @@ def _error_case(
             )
             wires.append(("t_in_e", "u_agg"))
             report_x = "u_code"
-        nodes.append(step("R", "Report.vi", parent="CS", frame=ERROR))
+        nodes.append(step("R", "Report.vi", parent="CS", frame=ERROR_FRAME))
         wires += [(report_x, "R_x"), ("R_r", "d_e")]
     case = CaseStructureNode(
         id="CS",

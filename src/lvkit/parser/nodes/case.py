@@ -810,12 +810,26 @@ def _try_apply_selector_tables(
     return True
 
 
-def _apply_error_status(frame: CaseFrame, ranges: list[tuple[int, int]]) -> None:
-    """Set one frame of a table-based error case. These VIs were saved before
-    error-code frames existed, so the case switches on the status Boolean: the
-    frame whose values hold 0 (status False) is No Error, the other is Error.
-    Both frames are described, so neither is a default."""
-    no_error = any(start <= 0 <= end for start, end in ranges)
+def _apply_error_statuses(case: ParsedCaseStructure, table: SelectorTable) -> None:
+    """Set the frames of a table-based error case. These VIs were saved before
+    error-code frames existed, so the case switches on the status Boolean: a
+    frame whose values hold 0 (status False) is No Error, a frame with other
+    values is Error. A table can list only one of the two frames; the frame it
+    does not list is then the other status."""
+    no_error: list[bool | None] = []
+    for idx in range(len(case.frames)):
+        ranges = [(s, e) for s, e, d in table.ranges if d == idx]
+        no_error.append(any(s <= 0 <= e for s, e in ranges) if ranges else None)
+    if len(no_error) == 2 and no_error.count(None) == 1:
+        listed = next(v for v in no_error if v is not None)
+        no_error = [listed if v is not None else not listed for v in no_error]
+    for frame, frame_no_error in zip(case.frames, no_error, strict=True):
+        _apply_error_status(frame, bool(frame_no_error))
+
+
+def _apply_error_status(frame: CaseFrame, no_error: bool) -> None:
+    """Set one frame of a table-based error case to No Error (status 0) or
+    Error (status 1). Both frames are described, so neither is a default."""
     status = 0 if no_error else 1
     frame.is_default = False
     frame.is_no_error = no_error
@@ -839,11 +853,11 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
     # case's own displayed_frame (from dIdx) rather than overwrite with -1.
     if table.displayed_frame >= 0:
         case.displayed_frame = table.displayed_frame
+    if case.selector_type == SelectorKind.ERROR:
+        _apply_error_statuses(case, table)
+        return
     for idx, frame in enumerate(case.frames):
         my_ranges = [(s, e) for s, e, d in table.ranges if d == idx]
-        if case.selector_type == SelectorKind.ERROR:
-            _apply_error_status(frame, my_ranges)
-            continue
         if not my_ranges:
             # No value maps here → this is the implicit Default frame.
             frame.is_default = True
@@ -876,9 +890,7 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             ]
             frame.selector_strings = []
             first = my_ranges[0]
-            frame.is_no_error = (
-                case.selector_type == SelectorKind.ERROR and first[0] == 0
-            )
+            frame.is_no_error = False
             frame.selector_value = (
                 str(first[0]) if first[0] == first[1] else f"{first[0]}..{first[1]}"
             )

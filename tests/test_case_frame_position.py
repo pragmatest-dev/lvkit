@@ -1,0 +1,275 @@
+"""A node in a case or Diagram Disable structure belongs to its frame by the
+frame's position, so two frames that carry the same name still show only their
+own nodes (#238); and the table rule that names the frames of an error case."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from lvkit.codegen.builder import build_module
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.describe import describe_vi
+from lvkit.graph.lvnet_parse import parse_lvnet
+from lvkit.graph.lvnet_reconstruct import reconstruct_module
+from lvkit.graph.models import CaseStructureNode
+from lvkit.graph.netlist import build_netlist_from_graph
+from lvkit.graph.netlist_json import netlist_to_dict
+from lvkit.graph.render_lvnet import render_lvnet
+from lvkit.models import CaseFrame
+from lvkit.parser.models import ParsedCaseStructure, SelectorKind, SelectorTable
+from lvkit.parser.nodes.case import _apply_one_table
+
+# Frame 0 waits for a Random Number (0-1), frame 1 for a Tick Count (ms); a
+# Random Number on the VI's diagram feeds the selector.
+_RANDOM, _TICK, _SELECTOR_SOURCE = "500", "510", "400"
+_WAIT_0, _WAIT_1 = "520", "530"
+_WIRES = [
+    (f"{_SELECTOR_SOURCE}1", "601"),
+    (f"{_RANDOM}1", f"{_WAIT_0}2"),
+    (f"{_TICK}1", f"{_WAIT_1}2"),
+]
+
+
+def _prim(uid: str, prim_id: int, n_terms: int = 1) -> str:
+    """A primitive whose terminal ``k`` (its connector index) is uid ``<uid><k+1>``;
+    terminal 0 is its output, the others are inputs."""
+    terms = "".join(
+        f"""
+                  <SL__arrayElement class="term" uid="{uid}{k + 1}">
+                    <dco class="parm" uid="{uid}{k + 1}0">
+                      {"<objFlags>1</objFlags>" if k == 0 else ""}
+                      {f"<parmIndex>{k}</parmIndex>" if k else ""}
+                    </dco>
+                  </SL__arrayElement>"""
+        for k in range(n_terms)
+    )
+    return f"""
+              <SL__arrayElement class="prim" uid="{uid}">
+                <primResID>{prim_id}</primResID>
+                <termList elements="{n_terms}">{terms}
+                </termList>
+              </SL__arrayElement>"""
+
+
+def _range(value: int, diagram: int) -> str:
+    return f"""
+          <SL__arrayElement class="SelectorRange">
+            <start>{value}</start><end>{value}</end>
+            <startRangeType>0</startRangeType><endRangeType>0</endRangeType>
+            <diagramIdx>{diagram}</diagramIdx>
+          </SL__arrayElement>"""
+
+
+def _bd_xml(second_value: int) -> str:
+    """A two-frame Case structure on the VI's diagram: frame 0 matches 1 and
+    holds a Random Number, frame 1 matches ``second_value`` and holds a Tick
+    Count. ``second_value=1`` gives both frames the name "1"."""
+    frames = "".join(
+        f"""
+          <SL__arrayElement class="diag" uid="{610 + i}">
+            <zPlaneList elements="0" />
+            <nodeList elements="2">{_prim(uid, prim_id)}{_prim(wait, 1302, 2)}
+            </nodeList>
+            <signalList elements="0" />
+          </SL__arrayElement>"""
+        for i, (uid, prim_id, wait) in enumerate(
+            ((_RANDOM, 1070, _WAIT_0), (_TICK, 1300, _WAIT_1))
+        )
+    )
+    signals = "".join(
+        f"""
+      <SL__arrayElement class="signal" uid="{900 + i}">
+        <termList elements="2">
+          <SL__arrayElement uid="{src}" />
+          <SL__arrayElement uid="{dst}" />
+        </termList>
+      </SL__arrayElement>"""
+        for i, (src, dst) in enumerate(_WIRES)
+    )
+    return f"""<?xml version='1.0' encoding='utf-8'?>
+<SL__rootObject class="oHExt" uid="1">
+  <root class="diag" uid="2">
+    <zPlaneList elements="1">
+      <SL__arrayElement class="select" uid="600">
+        <termList elements="1">
+          <SL__arrayElement class="term" uid="601">
+            <dco class="caseSel" uid="602">
+              <termList elements="1">
+                <SL__arrayElement uid="601" />
+              </termList>
+              <typeDesc>TypeID(1)</typeDesc>
+            </dco>
+          </SL__arrayElement>
+        </termList>
+        <diagramList elements="2">{frames}
+        </diagramList>
+        <caseSelDCO uid="602" />
+        <SelectRangeArray32 elements="2">{_range(1, 0)}{_range(second_value, 1)}
+        </SelectRangeArray32>
+      </SL__arrayElement>
+    </zPlaneList>
+    <nodeList elements="2">{_prim(_SELECTOR_SOURCE, 1070)}
+      <SL__arrayElement uid="600" />
+    </nodeList>
+    <signalList elements="{len(_WIRES)}">{signals}
+    </signalList>
+  </root>
+</SL__rootObject>
+"""
+
+
+def _load(tmp_path: Path, second_value: int) -> tuple[InMemoryVIGraph, str]:
+    bd_xml = tmp_path / "SameName_BDHb.xml"
+    bd_xml.write_text(_bd_xml(second_value))
+    graph = InMemoryVIGraph()
+    graph.load_vi(bd_xml)
+    return graph, graph.list_vis()[0]
+
+
+def _case(graph: InMemoryVIGraph, vi_name: str) -> CaseStructureNode:
+    case = graph.get_graph_node(f"{vi_name}::600")
+    assert isinstance(case, CaseStructureNode)
+    return case
+
+
+def test_each_frame_holds_its_own_nodes_by_position(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    case = _case(graph, vi_name)
+    assert [f.selector_value for f in case.frames] == ["1", "1"]
+    frames = {}
+    for uid in (_RANDOM, _WAIT_0, _TICK, _WAIT_1):
+        node = graph.get_graph_node(f"{vi_name}::{uid}")
+        assert node is not None
+        frames[uid] = node.frame
+    assert frames == {_RANDOM: "0", _WAIT_0: "0", _TICK: "1", _WAIT_1: "1"}
+
+
+def _operations(text: str) -> list[str]:
+    return text.split("## Operations\n", 1)[1].splitlines()
+
+
+def test_describe_shows_each_node_once_in_its_own_frame(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    assert _operations(describe_vi(graph, vi_name)) == [
+        "Random Number (0-1) [prim 1070]",
+        "Case Structure (2 frames)",
+        '  Frame "1":',
+        "    Random Number (0-1) [prim 1070]",
+        "    Wait (ms) [prim 1302]",
+        '  Frame "1":',
+        "    Tick Count (ms) [prim 1300]",
+        "    Wait (ms) [prim 1302]",
+    ]
+
+
+_LVNET_CASE = """\
+    case Random_Number_(0-1)_400::number :
+      frame "1" :
+        function Random_Number_(0-1)_500 : Random Number (0-1)
+          out  number : ?
+        function Wait_(ms)_520 : Wait (ms)
+          in   milliseconds_to_wait    : ? = Random_Number_(0-1)_500::number
+          out  millisecond_timer_value : ?
+      frame "1" :
+        function Tick_Count_(ms)_510 : Tick Count (ms)
+          out  millisecond_timer_value : ?
+        function Wait_(ms)_530 : Wait (ms)
+          in   milliseconds_to_wait    : ? = Tick_Count_(ms)_510::millisecond_timer_value
+          out  millisecond_timer_value : ?
+"""  # noqa: E501 (the lvnet line is one long line)
+
+
+def test_lvnet_shows_each_node_once_in_its_own_frame(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    module = build_netlist_from_graph(graph, vi_name)
+    text = render_lvnet(module)
+    assert f"{text}\n".endswith(_LVNET_CASE)
+    for verbose in (False, True):
+        written = render_lvnet(module, verbose=verbose)
+        read_back = reconstruct_module(parse_lvnet(written))
+        assert render_lvnet(read_back, verbose=verbose) == written
+
+
+def test_json_shows_each_node_once_in_its_own_frame(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    data = netlist_to_dict(build_netlist_from_graph(graph, vi_name))
+    (scope,) = [item for item in data["body"] if item["kind"] == "scope"]
+    assert [
+        (frame["label"], [item["uid"] for item in frame["body"]])
+        for frame in scope["frames"]
+    ] == [("1", [_RANDOM, _WAIT_0]), ("1", [_TICK, _WAIT_1])]
+
+
+_GENERATED_BODY = """\
+def samename():
+    number = random.random()
+    match number:
+        case 1:
+            number_500 = random.random()
+            time.sleep(number_500 / 1000)
+        case 1:
+            millisecond_timer_value = int(time.time() * 1000)
+            time.sleep(millisecond_timer_value / 1000)"""
+
+
+def test_generate_puts_each_node_in_its_own_branch(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    assert source.rstrip().endswith(_GENERATED_BODY)
+    namespace: dict[str, object] = {}
+    exec(compile(source, "samename.py", "exec"), namespace)  # noqa: S102
+    function = namespace["samename"]
+    assert callable(function)
+    assert function() is None
+
+
+def test_frames_with_different_names_keep_their_names(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=2)
+    assert [f.selector_value for f in _case(graph, vi_name).frames] == ["1", "2"]
+    assert _operations(describe_vi(graph, vi_name))[2:8] == [
+        '  Frame "1":',
+        "    Random Number (0-1) [prim 1070]",
+        "    Wait (ms) [prim 1302]",
+        '  Frame "2":',
+        "    Tick Count (ms) [prim 1300]",
+        "    Wait (ms) [prim 1302]",
+    ]
+    text = render_lvnet(build_netlist_from_graph(graph, vi_name))
+    assert f"{text}\n".endswith(
+        _LVNET_CASE.replace(
+            'frame "1" :\n        function Tick', 'frame "2" :\n        function Tick'
+        )
+    )
+    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    assert source.rstrip().endswith(
+        _GENERATED_BODY.replace(
+            "        case 1:\n            milli", "        case 2:\n            milli"
+        )
+    )
+
+
+def _error_case() -> ParsedCaseStructure:
+    return ParsedCaseStructure(
+        uid="1",
+        frames=[CaseFrame(selector_value=str(i)) for i in range(2)],
+        selector_type=SelectorKind.ERROR,
+    )
+
+
+def _statuses(ranges: list[tuple[int, int, int]]) -> list[tuple[str, bool]]:
+    case = _error_case()
+    _apply_one_table(case, SelectorTable(type_id=0, displayed_frame=0, ranges=ranges))
+    assert not any(f.is_default for f in case.frames)
+    return [(str(f.selector_value), f.is_no_error) for f in case.frames]
+
+
+def test_an_error_table_listing_only_the_error_frame() -> None:
+    assert _statuses([(1, 1, 1)]) == [("0", True), ("1", False)]
+
+
+def test_an_error_table_listing_only_the_no_error_frame() -> None:
+    assert _statuses([(-2147483648, 0, 0)]) == [("0", True), ("1", False)]
+
+
+def test_an_error_table_listing_the_error_frame_first() -> None:
+    assert _statuses([(1, 1, 0)]) == [("1", False), ("0", True)]

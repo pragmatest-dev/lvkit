@@ -7,6 +7,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import DisableStructureNode
+from lvkit.graph.operations import frame_key
 from lvkit.models import CaseFrame
 
 from ..ast_utils import build_assign, default_value_expr
@@ -35,6 +36,7 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
     if not isinstance(frame, CaseFrame):
         raise CodeGenError("Disable structure frame is not a case frame", node)
 
+    key = frame_key(frame, node.active_frame)
     outer_by_id = {t.id: t for t in node.terminals}
     bindings: dict[str, str] = {}
     for tunnel in ctx.tunnels(node):
@@ -51,10 +53,7 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
     for tunnel in ctx.tunnels(node):
         outer = outer_by_id[tunnel.outer_terminal_uid]
         inner = outer_by_id[tunnel.inner_terminal_uid]
-        if (
-            outer.direction == "output"
-            and getattr(inner, "frame", None) == frame.selector_value
-        ):
+        if outer.direction == "output" and getattr(inner, "frame", None) == key:
             inner_var = ctx.resolve(tunnel.inner_terminal_uid)
             if inner_var:
                 bindings[tunnel.outer_terminal_uid] = inner_var

@@ -382,6 +382,19 @@ two in different layers:
 The render composite then asks the graph *"what's inside X?"* and the layout
 *"in what order do I paint them?"*
 
+- **A node's frame is the frame's key, never its name.** `GraphNode.frame`, a
+  constant's or label's `frame`, an FP terminal's frame stamp and a case or
+  disable inner tunnel's `frame` all hold `frame_key(frame, position)`
+  (`graph/operations.py`): the frame's position in `frames` for a case, Diagram
+  Disable or event frame, `str(index)` for a sequence frame; `construction.py`'s
+  `_stamp` and `build_structure_terminals` set it, and every grouping (describe,
+  netlist, codegen `frame_children`, diff element correlation) compares against
+  it, so two frames with one name keep their own nodes (#238). The name is only
+  shown: `shown_frame_value(frames, key)` turns a key back into the selector
+  value for the render's frame-path tokens (`render/scene.py:_frame_token`), the
+  index `node.frame` column (`index/build.py:_shown_frame`) and diff frame paths.
+  `graph.diff` still matches frames ACROSS two versions by name (`_frame_key`).
+
 **Why:** The user re-derived this hard under pressure while reviewing the #35/#39
 render-tree plan — first "z-order is a draw concern, keep it out of the graph,"
 then "but containment IS critical logical understanding, why wouldn't the graph

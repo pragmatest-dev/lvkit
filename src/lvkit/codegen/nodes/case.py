@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
+from lvkit.graph.operations import frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import (
     CaseFrame,
@@ -43,7 +44,7 @@ class _OutputTunnel:
 
     outer_uid: str
     lv_type: LVType | None
-    # frame selector_value -> that frame's inner terminal uid
+    # frame_key of the frame -> that frame's inner terminal uid
     inner_by_frame: dict[object, str] = field(default_factory=dict)
 
 
@@ -93,8 +94,9 @@ def _resolve_output_tunnels(
     bindings: dict[str, str] = {}
     divergent: dict[str, str] = {}  # outer_uid -> merge var (needs pre-declare)
     n_frames = len(node.frames)
+    position = {id(frame): i for i, frame in enumerate(node.frames)}
     body_by_frame: dict[object, list[ast.stmt]] = {
-        frame.selector_value: body for frame, body in frame_bodies
+        frame_key(frame, position[id(frame)]): body for frame, body in frame_bodies
     }
 
     for ot in _output_tunnels(node, ctx):

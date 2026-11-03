@@ -55,7 +55,7 @@ def test_disable_structure_inner_node_parented_not_top_level(tmp_path: Path) -> 
     q_inner = f"{vi_name}::200"
     inner_node = graph._graph.nodes[q_inner]["node"]  # noqa: SLF001
     assert inner_node.parent == f"{vi_name}::100"
-    assert inner_node.frame == "Enabled"
+    assert inner_node.frame == "0"  # the "Enabled" frame's position
 
     # It must NOT appear in top_level_nodes() (top-level only).
     top_level_ids = {op.id for op in graph.top_level_nodes(vi_name)}
@@ -71,5 +71,5 @@ def test_disable_structure_inner_node_parented_not_top_level(tmp_path: Path) -> 
     frame_by_value = {f.selector_value: f for f in disable_node.frames}
     assert set(frame_by_value) == {"Enabled", "Disabled"}
     children = graph.child_nodes(q_struct, vi_name)
-    enabled_children = [c for c in children if c.frame == "Enabled"]
+    enabled_children = [c for c in children if c.frame == "0"]
     assert [op.id for op in enabled_children] == [q_inner]

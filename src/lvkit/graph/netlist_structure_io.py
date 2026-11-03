@@ -40,6 +40,7 @@ from .netlist_models import (
     ScopeOutput,
     StructureInput,
 )
+from .operations import frame_key
 
 # The net-vocabulary word of each structure kind: ``<word>_<uid>.out<K>``.
 FRAME_ONLY_NET_PREFIX: dict[type, str] = {
@@ -170,11 +171,11 @@ def _frame_inner(
     node: AnyGraphNode, outer: Terminal, position: int
 ) -> Terminal | None:
     """The inner face of ``outer`` in the frame at ``position``: a Disable
-    structure's by the frame's selector value, a Sequence's and an Event
+    structure's by the frame's :func:`frame_key`, a Sequence's and an Event
     Structure's by the frame position the file records."""
     if isinstance(node, DisableStructureNode):
-        selector = node.frames[position].selector_value
-        return next((t for t in _inner_faces(node, outer) if t.frame == selector), None)
+        key = frame_key(node.frames[position], position)
+        return next((t for t in _inner_faces(node, outer) if t.frame == key), None)
     return next(
         (t for t in _inner_faces(node, outer) if t.frame_position == position), None
     )

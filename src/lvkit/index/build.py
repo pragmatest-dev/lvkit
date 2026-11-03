@@ -44,6 +44,7 @@ from ..graph.models import (
 from ..graph.models import FormulaNode as GraphFormulaNode
 from ..graph.models import PrimitiveNode as GraphPrimitiveNode
 from ..graph.node_kinds import NodeType
+from ..graph.operations import shown_frame_value
 from ..models import FPTerminal
 from ..parser.node_types import get_display_name
 from ..run_report import (
@@ -748,7 +749,7 @@ def project_vi_facts(
                 gn.library_unreadable if isinstance(gn, SharedVariableNode) else None
             ),
             parent_uid=gn.parent,
-            frame=str(gn.frame) if gn.frame is not None else None,
+            frame=_shown_frame(graph, gn),
         )
         for gn in graph.iter_nodes(vi_name)
     ]
@@ -848,6 +849,17 @@ def project_vi_facts(
         health_broken_poly=health.broken_poly,
         health_is_broken=health.is_broken,
     )
+def _shown_frame(graph: InMemoryVIGraph, node: AnyGraphNode) -> str | None:
+    """The frame the index records a node in: the selector value of its case
+    or disable frame, the key of its sequence or event frame
+    (``shown_frame_value``); ``None`` outside any frame."""
+    if node.frame is None:
+        return None
+    parent = graph.get_graph_node(node.parent) if node.parent else None
+    frames = getattr(parent, "frames", None) or []
+    return str(shown_frame_value(frames, node.frame))
+
+
 
 
 def _constant_wired_to(
