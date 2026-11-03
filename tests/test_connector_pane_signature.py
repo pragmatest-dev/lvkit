@@ -19,6 +19,7 @@ from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import GraphNode, LocalVariableNode, LoopNode, VIContext
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
+from lvkit.pipeline import create_import_resolver
 from tests.class_graphs import (
     INT,
     Project,
@@ -628,3 +629,19 @@ def test_a_name_bound_only_on_the_graph_is_held() -> None:
     ctx = CodeGenContext.from_wires([], bindings={"element": "mix"})
     assert ctx.import_function("Mix.vi") == "mix_2"
     assert ctx.imports == {"from .mix import mix as mix_2"}
+
+
+def test_resolvers_of_one_module_share_its_names(tmp_path: Path) -> None:
+    """The variants of a polymorphic VI share one module: a sibling's function
+    name (``mix_2``) is never an alias, and an alias one variant takes is not
+    given to another."""
+    names = {"mix_2"}
+    out = tmp_path / "pkg"
+    first, second = (
+        create_import_resolver(
+            "pkg", out, {}, out / "poly.py", module_names=names
+        )
+        for _ in range(2)
+    )
+    assert first.alias_name("mix", lambda n: False) == "mix_3"
+    assert second.alias_name("mix", lambda n: False) == "mix_4"

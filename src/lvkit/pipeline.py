@@ -127,6 +127,7 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
+    module_names: set[str] | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -149,6 +150,9 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
+        module_names: The top-level names of the module, shared by every
+            resolver that writes into it (the variants of a polymorphic VI);
+            each name an import is spelled as is added to it.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -217,7 +221,8 @@ def create_import_resolver(
     # derived name, or one with the name of what the module defines, are told
     # apart by an alias.
     spelled: dict[str, str] = {}
-    taken = set(defined_names)
+    taken = module_names if module_names is not None else set()
+    taken.update(defined_names)
     if caller_key is not None:
         taken.add(to_function_name(Path(caller_key).name))
 
@@ -423,6 +428,11 @@ def _generate_polymorphic_module(
     variant_imports: set[str] = set()
     variant_annotation_imports: set[str] = set()
 
+    # One module holds every variant: their imports are spelled against one set
+    # of the module's names, which starts with every function it defines.
+    module_names = {
+        to_function_name(Path(name).name) for name in [wrapper_name, *variants]
+    }
     for variant_name in variants:
         vi_context = graph.get_vi_context(variant_name)
         # build_module names the variant function from its DISPLAY name
@@ -441,6 +451,7 @@ def _generate_polymorphic_module(
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
             layout=layout,
+            module_names=module_names,
         )
         code = build_module(
             vi_context,
