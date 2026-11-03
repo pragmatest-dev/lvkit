@@ -645,3 +645,32 @@ def test_resolvers_of_one_module_share_its_names(tmp_path: Path) -> None:
     )
     assert first.alias_name("mix", lambda n: False) == "mix_3"
     assert second.alias_name("mix", lambda n: False) == "mix_4"
+
+
+def calls_itself(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    """``Again.vi``: an off-pane control labelled ``again`` (1) wired to ``a``
+    of a call to ``Again.vi`` itself."""
+    control = off_pane(vi, "input", "c", "again", "1")
+    return (
+        VIContext(
+            name=vi,
+            inputs=[pane(vi, "input", "a", INT, "a", 0, OPTIONAL)],
+            off_pane_inputs=[control],
+            outputs=[pane(vi, "output", "out", INT, "out", 1)],
+            data_flow=[wire(vi, "c", "self.a"), wire(vi, "self.out", "out")],
+        ),
+        [call(vi, "self", vi, "iUse", [("a", 0, INT)], [("out", 1, INT)])],
+    )
+
+
+def test_a_vi_that_calls_itself_while_a_control_has_its_name(tmp_path: Path) -> None:
+    """The call reaches the function, not the control: the function imports its
+    own module's function under a name of its own, inside its body."""
+    project = Project(tmp_path)
+    project.add_vi("Again", calls_itself)
+    package = project.generate()
+    source = package.sources["again"]
+    assert "\n    from .again import again as again_2\n" in source
+    assert "    again = 1\n" in source and "again_2(a=again)" in source
+    with package.use() as module:
+        assert callable(module("again").again)

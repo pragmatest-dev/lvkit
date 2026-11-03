@@ -38,7 +38,11 @@ from .errors import CodeGenError
 from .front_panel import front_panel_docstring, off_pane_locals
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
-from .import_cycles import imports_inside, in_import_cycle
+from .import_cycles import (
+    imports_inside,
+    in_import_cycle,
+    with_imports_after_docstring,
+)
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
@@ -103,6 +107,10 @@ def build_module(
     ctx.qualified_vi_name = vi_context.qualified_name
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
+    body = with_imports_after_docstring(
+        [stmt for imp in sorted(ctx.inside_imports) for stmt in ast.parse(imp).body],
+        body,
+    )
     if graph is not None and in_import_cycle(graph, vi_name):
         body, ctx.imports = imports_inside(body, ctx.imports)
 

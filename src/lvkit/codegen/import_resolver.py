@@ -76,6 +76,7 @@ class ImportResolver:
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
         module_names: set[str] | None = None,
+        own_function_import: Callable[[str], NameImport] | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -92,6 +93,7 @@ class ImportResolver:
         # The names the generated module binds at its top level: what it
         # defines and every name its imports are spelled as.
         self._module_names = module_names if module_names is not None else set()
+        self._own_function_import = own_function_import
 
     def alias_name(self, derived: str, in_use: Callable[[str], bool]) -> str:
         """A name of its own for an import whose ``derived`` name ``in_use``
@@ -101,6 +103,13 @@ class ImportResolver:
         name = numbered_name(derived, lambda n: n in self._module_names or in_use(n))
         self._module_names.add(name)
         return name
+
+    def own_function(self, name: str) -> NameImport:
+        """The import of the function ``name`` the module being generated defines,
+        from that module itself (made inside a function, at run time)."""
+        if self._own_function_import is None:
+            raise CodeGenError("This resolver has no module of its own to import from")
+        return self._own_function_import(name)
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;

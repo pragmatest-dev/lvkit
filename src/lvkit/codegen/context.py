@@ -131,6 +131,9 @@ class CodeGenContext:
     _function_imports: dict[str, NameImport] = field(
         default_factory=dict, repr=False
     )
+    # Imports the function makes inside its body, after its docstring (a VI
+    # that calls itself while a variable holds its name).
+    inside_imports: set[str] = field(default_factory=set, repr=False)
     # Output tunnel (outer terminal id) -> the variable that is its merge.
     _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
     # Variable names bound to array-typed values, with each array's dimension
@@ -586,6 +589,7 @@ class CodeGenContext:
             function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
             _function_imports=self._function_imports,  # Shared — same scope
+            inside_imports=self.inside_imports,  # Shared — same function
             _tunnel_var_names=self._tunnel_var_names,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
@@ -638,17 +642,37 @@ class CodeGenContext:
         holds (``_holds``) is imported under a name of its own, one no
         top-level name of the module has (``from .fill import fill as fill_2``),
         and the name it is called by is taken, so no variable named later takes
-        it."""
+        it. A VI that calls itself defines the function it calls; when a
+        variable holds its name, the function imports its own module's function
+        under a name of its own, inside the function (``inside_imports``), where
+        the module has finished loading by the time it runs."""
         imported = self.function_import(vi_name, callee_key)
         known = self._function_imports.get(imported.statement)
         if known is None:
             known = imported
-            if imported.statement and self._holds(imported.name):
-                known = imported.aliased(self._alias_name(imported.name))
+            if self._holds(imported.name):
+                known = self._own_import(imported).aliased(
+                    self._alias_name(imported.name)
+                )
             self._allocated_vars.add(known.name)
             self._function_imports[imported.statement] = known
-        self.add_import(known.statement)
+        if imported.statement:
+            self.add_import(known.statement)
+        elif known.statement:
+            self.inside_imports.add(known.statement)
         return known.name
+
+    def _own_import(self, imported: NameImport) -> NameImport:
+        """``imported``, or for the function of the module being generated (an
+        empty statement) the import of it from this module itself."""
+        if imported.statement:
+            return imported
+        if not isinstance(self.import_resolver, ImportResolver):
+            raise CodeGenError(
+                f"{imported.name!r} calls itself while a variable holds its name, "
+                "and there is no package to import it from"
+            )
+        return self.import_resolver.own_function(imported.name)
 
     def _alias_name(self, derived: str) -> str:
         """A name of its own for an import of ``derived``, which a variable of
