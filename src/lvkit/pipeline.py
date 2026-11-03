@@ -19,7 +19,10 @@ from typing import Any
 
 from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
-from lvkit.codegen.ast_optimizer import remove_unused_imports
+from lvkit.codegen.ast_optimizer import (
+    remove_duplicate_imports,
+    remove_unused_imports,
+)
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
     to_function_name,
@@ -423,10 +426,10 @@ def _generate_polymorphic_module(
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
-        "from pathlib import Path",
-        "from typing import Any, NamedTuple",
         "",
     ]
+    # The header's imports end here; the variants' own imports go in at it.
+    header_end = 2
 
     # Generate each variant
     variant_funcs: list[str] = []
@@ -521,9 +524,9 @@ def _generate_polymorphic_module(
     # Hoist any imports the variant bodies referenced into the shared header
     # (after the fixed imports, before the blank line separating header/body).
     if variant_imports:
-        lines[4:4] = sorted(variant_imports)
+        lines[header_end:header_end] = sorted(variant_imports)
     if variant_annotation_imports:
-        lines[4:4] = [
+        lines[header_end:header_end] = [
             ast.unparse(stmt)
             for stmt in build_type_checking_block(variant_annotation_imports)
         ]
@@ -540,6 +543,7 @@ def _generate_polymorphic_module(
         returns = variant_result_classes[0]
     elif all_outputs:
         returns = "Any"
+        lines.insert(header_end, "from typing import Any")
     else:
         returns = "None"
 
@@ -593,7 +597,9 @@ def _generate_polymorphic_module(
     else:
         lines.append("    pass")
 
-    module = remove_unused_imports(ast.parse("\n".join(lines)))
+    module = remove_unused_imports(
+        remove_duplicate_imports(ast.parse("\n".join(lines)))
+    )
     return ast.unparse(module) + "\n"
 
 
