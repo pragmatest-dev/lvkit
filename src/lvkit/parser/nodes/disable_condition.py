@@ -116,7 +116,7 @@ def read_condition(sel_info: ET.Element) -> Condition:
     if label is None:
         return Condition(" ".join(strings), "lvkit could not follow its condition")
     if reader.unknown:
-        codes = ", ".join(f"0x{code}" for code in reader.unknown)
+        codes = ", ".join(f"0x{code}" if code else "none" for code in reader.unknown)
         return Condition(
             label, f"lvkit could not read the operator of its condition (code {codes})"
         )

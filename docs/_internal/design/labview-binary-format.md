@@ -680,8 +680,7 @@ since NI's docs say the first frame whose condition is TRUE is enabled
 That page also says conditions can be joined with AND/OR; no corpus VI does, and no other
 operator code (a `!=`, AND, OR) occurs, so none is decoded. `parser/nodes/disable_condition.py`
 reads the tree generically; an unknown code shows as `?` in the label
-(`TARGET_TYPE ? Windows`) and is reported as a `value not read` problem on the VI. Before
-this, the parser ignored the tree and always wrote `==`.
+(`TARGET_TYPE ? Windows`) and is reported as a `value not read` problem on the VI.
 
 ## "BD <compressedWireTable> = LabVIEW's real routed wire geometry — DECODED + rendered by default (FAITHFUL_WIRE_TABLE=True, task #84 DONE); auto-router is the fallback"
 <!-- was memory: reference_compressed_wire_table -->
