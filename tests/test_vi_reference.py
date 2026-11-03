@@ -722,3 +722,31 @@ def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
         refs.refs()  # type: ignore[attr-defined]
         callee = sys.modules["generated_refs.callee"]
         assert callee.calls[0][0] == "refs"
+
+
+class _ModuleGraph:
+    """A graph that knows one class method and one polymorphic variant."""
+
+    def owning_class_key(self, key: str) -> str | None:
+        return "/p/Cls/Cls.lvclass" if key == "/p/Cls/Do.vi" else None
+
+    def get_poly_variant_wrappers(self) -> dict[str, str]:
+        return {"/p/Two/scalar.vi": "/p/wrap.vi"}
+
+
+@pytest.mark.parametrize(
+    ("vi", "module"),
+    [
+        ("/p/Cls/Do.vi", "/p/Cls/Cls.lvclass"),
+        ("/p/Two/scalar.vi", "/p/wrap.vi"),
+        ("/p/Main.vi", "/p/Main.vi"),
+    ],
+    ids=["method", "polymorphic-variant", "vi"],
+)
+def test_a_path_computed_at_run_time_is_read_from_the_written_module(
+    vi: str, module: str
+) -> None:
+    """A path a diagram computes is read from the folder of the module the VI
+    is written into: its class, its polymorphic VI, or itself."""
+    graph = _ModuleGraph()
+    assert vi_reference.written_module_key(graph, vi) == module  # type: ignore[arg-type]
