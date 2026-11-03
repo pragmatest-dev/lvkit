@@ -1460,8 +1460,8 @@ class QueryMixin:
 
     def poly_call_choices(self) -> dict[str, dict[str, set[str | None]]]:
         """For each polymorphic VI some node calls: the VIs that call it, each with
-        the variants its calls resolve to (``None`` for a call that leaves the
-        choice to the wrapper). One pass over every node of every VI."""
+        the variants its calls record (``None`` for a call that records none).
+        One pass over every node of every VI."""
         calls: dict[str, dict[str, set[str | None]]] = {}
         for caller, uids in self._vi_nodes.items():
             for uid in uids:

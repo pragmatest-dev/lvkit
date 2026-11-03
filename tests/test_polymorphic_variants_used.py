@@ -1,21 +1,25 @@
-"""A variant of a polymorphic VI gets generated code when a VI that is itself
-generated uses it: a call of the wrapper that resolves to it, a call of it by
-name from another variant, or a reference to it."""
+"""A call of a polymorphic VI calls the variant its caller records, from the
+polymorphic VI's module, which holds only its variants. A variant gets
+generated code when a VI that is itself generated uses it: a call of the wrapper
+that records it, a call of it by name from another variant, or a reference to
+it. A call that records no variant is a gap."""
 
 from __future__ import annotations
 
-import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
 
-from lvkit import pipeline
+from lvkit import cli, pipeline
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import GraphNode, PolyInfo, VIContext
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
-from tests.test_call_identity import _Call, _record, _static, _Tree
+from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
+from tests.test_call_identity import _Call, _record, _run, _static, _Tree
 
 
 class _Graph:
@@ -76,9 +80,9 @@ def test_a_variant_used_by_a_vi_that_is_not_generated_is_left_out() -> None:
     assert _chosen(graph, {"main"}) == ["array"]
 
 
-def test_a_call_that_leaves_the_choice_to_the_wrapper_needs_every_variant() -> None:
+def test_a_call_that_records_no_variant_needs_none() -> None:
     graph = _Graph({"wrap": {"main": {None}}}, {})
-    assert _chosen(graph, {"main"}) == ["array", "scalar"]
+    assert _chosen(graph, {"main"}) == []
 
 
 def test_a_wrapper_nothing_calls_keeps_every_variant() -> None:
@@ -90,10 +94,18 @@ def test_a_catalog_variant_is_never_generated() -> None:
     assert _chosen(graph, {"main"}) == []
 
 
-@pytest.fixture
-def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
-    """``main.vi`` calls the wrapper ``wrap.vi``; the variant ``array`` calls the
-    variant ``scalar`` by name."""
+_VARIANTS = {"array": ("One", "array.vi"), "scalar": ("Two", "scalar.vi")}
+
+
+def _poly_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    callers: dict[str, list[str | None]],
+) -> _Tree:
+    """The wrapper ``wrap.vi`` with the variants ``One/array.vi`` (which calls
+    ``Two/scalar.vi`` by name) and ``Two/scalar.vi``; each of ``callers`` (a VI
+    file name to the variant each of its calls records, or None for none) calls
+    the wrapper."""
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
@@ -104,7 +116,7 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [],
         [_static(["scalar.vi"], ["", "..", "Two", "scalar.vi"])],
     )
-    variants = [("One", "array.vi"), ("Two", "scalar.vi")]
+    variants = list(_VARIANTS.values())
     wrapper = built.vi(
         "wrap.vi",
         "wrap.vi",
@@ -122,39 +134,136 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
     )
     slot.write_text(text)
-    built.vi(
-        "main.vi",
-        "main.vi",
-        [],
-        [
-            _Call(
-                node_class="polyIUse",
-                label="wrap.vi",
-                records=[
-                    ("PUPV", ["wrap.vi"], ["", "wrap.vi"], 0),
-                    ("IUVI", ["array.vi"], ["", "One", "array.vi"], 0),
-                ],
+    for caller, picks in callers.items():
+        calls = []
+        for variant in picks:
+            call_records = [("PUPV", ["wrap.vi"], ["", "wrap.vi"], 0)]
+            if variant is not None:
+                folder, name = _VARIANTS[variant]
+                call_records.append(("IUVI", [name], ["", folder, name], 0))
+            calls.append(
+                _Call(node_class="polyIUse", label="wrap.vi", records=call_records)
             )
-        ],
-    )
+        built.vi(caller, caller, [], calls)
     return built
 
 
-def test_a_variant_called_by_a_chosen_variant_is_written_and_importable(
+@pytest.fixture
+def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
+    """``main.vi`` calls the wrapper ``wrap.vi``, recording its variant
+    ``array``."""
+    return _poly_tree(tmp_path, monkeypatch, {"main.vi": ["array"]})
+
+
+_WRAP_MODULE = [
+    "'The variants of the polymorphic VI wrap.vi.'",
+    "from __future__ import annotations",
+    "from pathlib import Path",
+    "from typing import Any",
+    "",
+    "",
+    "def array():",
+    "    scalar()",
+    "",
+    "def scalar():",
+    "    pass",
+]
+
+
+def test_a_call_runs_the_variant_its_caller_records(
     poly: _Tree, tmp_path: Path
 ) -> None:
+    """``main`` imports the variant ``array`` from the polymorphic VI's module and
+    calls it; the module holds only the variants, and running ``main`` runs
+    ``array`` and, through it, ``scalar``."""
     out = tmp_path / "gen"
     result = generate_python(poly.root / "main.vi", out)
     assert not result["gaps"]
-    wrap = next(out.rglob("wrap.py"))
-    source = wrap.read_text()
-    assert "def array(" in source and "def scalar(" in source
-    spec = importlib.util.spec_from_file_location("wrap_module", wrap)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.array()  # runs the variant it calls
-    assert "scalar(" in source.split("def array(")[1].split("def ")[0]
+    package = out / "main"
+    assert (package / "main.py").read_text().splitlines()[2:] == [
+        "from .wrap import array",
+        "",
+        "def main():",
+        "    array()",
+    ]
+    assert (package / "wrap.py").read_text().splitlines() == _WRAP_MODULE
+    main = _run(package, "main")
+    ran: list[str] = []
+    main.array.__globals__["scalar"] = lambda: ran.append("scalar")
+    main.main()
+    assert ran == ["scalar"]
+
+
+def test_two_callers_each_call_the_variant_they_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built = _poly_tree(
+        tmp_path, monkeypatch, {"main.vi": ["array"], "other.vi": ["scalar"]}
+    )
+    out = tmp_path / "gen"
+    result = generate_python(built.root, out)
+    assert not result["gaps"]
+    package = out / built.root.name
+    calls = {
+        caller: (package / f"{caller}.py").read_text().splitlines()[2:]
+        for caller in ("main", "other")
+    }
+    assert calls == {
+        "main": ["from .wrap import array", "", "def main():", "    array()"],
+        "other": ["from .wrap import scalar", "", "def other():", "    scalar()"],
+    }
+    _run(package, "main").main()
+    _run(package, "other").other()
+
+
+def test_one_caller_of_two_variants_imports_each_by_its_own_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two functions of one module are two imports, each under its own name."""
+    built = _poly_tree(tmp_path, monkeypatch, {"main.vi": ["array", "scalar"]})
+    out = tmp_path / "gen"
+    result = generate_python(built.root / "main.vi", out)
+    assert not result["gaps"]
+    package = out / "main"
+    lines = (package / "main.py").read_text().splitlines()
+    assert lines[2:4] == ["from .wrap import array", "from .wrap import scalar"]
+    assert lines[4:] == ["", "def main():", "    array()", "    scalar()"]
+    _run(package, "main").main()
+
+
+_NO_VARIANT = (
+    "This use of the polymorphic VI wrap.vi records no variant, so which one it "
+    "runs is not known; its variants: One/array.vi, Two/scalar.vi"
+)
+
+
+def test_a_call_that_records_no_variant_is_a_gap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The warning names the polymorphic VI and its variants; the call raises
+    that reason when it runs, and the run is Partial."""
+    built = _poly_tree(tmp_path, monkeypatch, {"main.vi": [None]})
+    out = tmp_path / "gen"
+    monkeypatch.setattr(
+        sys, "argv", ["lvkit", "generate", str(built.root / "main.vi"), "-o", str(out)]
+    )
+    assert cli.main() == 3
+    captured = capsys.readouterr()
+    warnings = [
+        line for line in captured.err.splitlines() if line.startswith("warning: ")
+    ]
+    assert warnings[0] == (
+        f"warning: main.vi: generate: wrap.vi: {_NO_VARIANT} [unsupported_node]"
+    )
+    assert "Partial: 1 VIs generated, 1 with gaps (1 gaps)" in captured.out
+    package = out / "main"
+    source = (package / "main.py").read_text()
+    assert f"raise NotImplementedError('{_NO_VARIANT}\\ngap kind: " in source
+    assert not (package / "wrap.py").exists()
+    with pytest.raises(NotImplementedError, match="records no variant"):
+        _run(package, "main").main()
 
 
 def test_a_polymorphic_call_resolves_to_the_variant_its_record_names(
@@ -173,7 +282,7 @@ def test_a_variants_module_level_code_is_kept_and_paths_are_project_relative(
 ) -> None:
     """A variant's module-level statements (a stored-state global, Call Library
     Function code) go into the polymorphic module with its function, and the
-    wrapper's docstring names the VI by its project-relative path."""
+    module's docstring names the polymorphic VI by its project-relative path."""
     real = pipeline.build_module
 
     def with_state(*args: object, **kwargs: object) -> str:
@@ -185,4 +294,65 @@ def test_a_variants_module_level_code_is_kept_and_paths_are_project_relative(
     source = next(out.rglob("wrap.py")).read_text()
     assert "_lv_state_kept = None" in source
     assert str(poly.root) not in source
-    assert "Polymorphic wrapper for " in source
+    assert source.startswith("'The variants of the polymorphic VI wrap.vi.'\n")
+
+
+def _variant(input_name: str, output_name: str) -> Recipe:
+    """A variant whose output is its input added to itself."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "in", INT, input_name, 0)],
+                outputs=[pane(vi, "output", "out", INT, output_name, 1)],
+                data_flow=[
+                    wire(vi, "in", "s.x"),
+                    wire(vi, "in", "s.y"),
+                    wire(vi, "s.sum", "out"),
+                ],
+            ),
+            [add(vi, "s")],
+        )
+
+    return build
+
+
+def test_a_call_passes_its_values_by_the_recorded_variants_pane(
+    tmp_path: Path,
+) -> None:
+    """The variants name their terminals differently (``value``/``doubled``,
+    ``values``/``total``) and the call's own terminals differently again: the
+    call is the recorded variant's function, its input passed and its output
+    read by that variant's names."""
+    project = Project(tmp_path)
+    scalar = project.add_vi("Scalar", _variant("value", "doubled"))
+    array = project.add_vi("Array", _variant("values", "total"))
+    wrap = str((tmp_path / "src" / "Wrap.vi").resolve())
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=[scalar, array])  # noqa: SLF001
+
+    def calls_array(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        node = call(vi, "w", wrap, "polyIUse", [("x", 0, INT)], [("y", 1, INT)])
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "n", INT, "n", 0)],
+                outputs=[pane(vi, "output", "r", INT, "r", 1)],
+                data_flow=[wire(vi, "n", "w.x"), wire(vi, "w.y", "r")],
+            ),
+            [
+                node.model_copy(
+                    update={"variant_key": array, "qualified_name": "Array.vi"}
+                )
+            ],
+        )
+
+    project.add_vi("Caller", calls_array)
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["caller"]
+    assert "from .array import array\n" in source
+    assert "array_result = array(values=n)" in source
+    assert "array_result.total" in source
+    with package.use() as module:
+        assert module("caller").caller(n=4).r == 8

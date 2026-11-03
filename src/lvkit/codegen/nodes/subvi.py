@@ -94,25 +94,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         fragment.runs_on_error = vilib_vi.runs_on_error
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
 
-    # The module of the VI the call names. A polymorphic call whose polymorphic
-    # VI the caller does not record calls the variant it resolves to.
-    callee_name, callee_key = subvi_name, node.callee_key
-    if callee_key is None and node.variant_key is not None:
-        callee_key = node.variant_key
-        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
-    elif (
-        node.variant_key is not None
-        and vilib_vi is not None
-        and vilib_vi.python_code is not None
-    ):
-        # The catalog gives the selected variant its own module.
-        callee_key = node.variant_key
-        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
-    elif callee_key is None and node.qualified_path and node.qualified_name:
-        # The caller records a path (a `<vilib>` or `<extravilib>` VI with no
-        # configured root): the absent VI is named by its qualified name, the
-        # identity its stub is keyed by.
-        callee_name = node.qualified_name
+    callee_name, callee_key = called_vi(node)
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
     stmt = ast.Assign(
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
@@ -124,6 +106,20 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         bindings=parts.bindings,
         runs_on_error=True,
     )
+
+
+def called_vi(node: VINode) -> tuple[str, str | None]:
+    """The name and identity of the VI whose function a call node runs: for a
+    polymorphic call, the variant its caller records (by the name recorded for
+    it); else the VI it calls. A call whose VI the caller records only by path
+    (a ``<vilib>`` or ``<extravilib>`` VI with no configured root) names the
+    absent VI by its qualified name, the identity its stub is keyed by."""
+    name = node.name or ""
+    if node.variant_key is not None:
+        return (node.qualified_name or name).rsplit(":", 1)[-1], node.variant_key
+    if node.callee_key is None and node.qualified_path and node.qualified_name:
+        return node.qualified_name, None
+    return name, node.callee_key
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
@@ -162,7 +158,9 @@ def build_call(
     func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
     prelude: list[ast.stmt] = []
-    args, keywords = _build_arguments(node, ctx, vilib_vi, prelude)
+    args, keywords = _build_arguments(
+        node, ctx, callee_name, callee_key, vilib_vi, prelude
+    )
     if keywords:
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
@@ -459,12 +457,15 @@ def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int, str]:
 def _build_arguments(
     node: VINode,
     ctx: CodeGenContext,
+    callee_name: str,
+    callee_key: str | None,
     vilib_vi: VIEntry | None,
     prelude: list[ast.stmt],
 ) -> tuple[list[str], dict[str, str]]:
     """Build input arguments, using vilib names if available. An argument that is
     a class object or named cluster the callee may change is copied first (into
-    ``prelude``) when something else can still read it."""
+    ``prelude``) when something else can still read it. An enum value is named
+    from the module of the VI the call runs (``callee_name``, ``callee_key``)."""
     subvi_name = node.name or ""
 
     vilib_inputs = _build_vilib_terminal_map(
@@ -521,7 +522,7 @@ def _build_arguments(
 
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = (
-            _resolve_enum_value(value, term, vilib_vi, subvi_name, node.callee_key, ctx)
+            _resolve_enum_value(value, term, vilib_vi, callee_name, callee_key, ctx)
             if vilib_vi and wired
             else value
         )
