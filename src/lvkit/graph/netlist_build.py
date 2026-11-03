@@ -838,7 +838,7 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
 # (codegen still resolves it however it already does, untouched) -- so this
 # widening lives here, netlist-build-local, rather than in the shared
 # ``_OPERATION_KINDS`` constant every other consumer (``operations.py``,
-# ``analysis.py``, ``queries.py``'s own top-level scan) relies on. Used by
+# ``queries.py``'s own top-level scan) relies on. Used by
 # ``_owning_node_gn`` (a local-variable node becomes a resolvable WIRE-SOURCE
 # owner, so a downstream reader's ``NetRef`` points at the read node itself --
 # never hops through to the tapped control) and ``_resolve_op_nodes_gn`` (a

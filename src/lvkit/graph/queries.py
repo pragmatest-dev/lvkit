@@ -119,7 +119,6 @@ class QueryMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
-        def has_parallel_branches(self, vi_name: str) -> bool: ...
         def get_class_fields(
             self,
             classname: str,
@@ -1428,7 +1427,6 @@ class QueryMixin:
             data_flow=data_flow,
             subvi_calls=subvi_calls,
             poly_variants=self.get_poly_variants(vi_name),
-            has_parallel_branches=self.has_parallel_branches(vi_name),
             properties=self._vi_properties.get(vi_name, VIProperties()),
             health=self._vi_health.get(vi_name, VIHealth()),
             connector_pattern_id=pattern_id,

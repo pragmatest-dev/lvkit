@@ -1092,7 +1092,6 @@ class VIContext(BaseModel):
     off_pane_outputs: list[Terminal] = []
     constants: list[Constant] = []
     labels: list[Label] = []
-    has_parallel_branches: bool = False
     terminals: list[TerminalRef] = []
     data_flow: list[Wire] = []
     subvi_calls: list[SubVICall] = []
@@ -1206,32 +1205,6 @@ class StubVIInfo:
     outputs: list[StubTerminalInfo] = field(default_factory=list)
     input_types: list[str] = field(default_factory=list)
     output_types: list[str] = field(default_factory=list)
-
-
-# ============================================================
-# Error handling types
-# ============================================================
-
-
-@dataclass
-class BranchPoint:
-    """A point where one output feeds multiple inputs (fork)."""
-
-    source_terminal: str
-    source_operation: str | None
-    destinations: list[str]
-    vi_name: str | None = None
-
-
-@dataclass
-class ParallelBranch:
-    """A single branch from a branch point to a merge point."""
-
-    branch_id: int
-    source_terminal: str
-    operation_ids: list[str]
-    merge_terminal: str | None
-    merge_operation: str | None
 
 
 # ============================================================
