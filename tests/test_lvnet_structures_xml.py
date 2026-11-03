@@ -10,9 +10,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from lvkit.codegen.builder import build_module
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.run_report import ProblemKind, ProblemStage
 from tests import structure_xml_cases as cases
 from tests.structure_diagrams import Views, front_panel_xml, load
 from tests.test_lvnet_identity import _assert_graph_identity
@@ -227,7 +231,45 @@ def test_a_conditional_disable_label_is_one_string_literal(tmp_path: Path) -> No
     )
     labels = [f["label"] for f in views.json["body"][0]["frames"]]
     assert labels == ['TARGET==a"b', "Default"]
+    assert 'Frame "TARGET==a"b" (default):' in views.describe
+    assert views.graph.problems() == []
     _round_trips(views)
+
+
+def test_a_condition_operator_lvkit_cannot_read_shows_and_is_reported(
+    tmp_path: Path,
+) -> None:
+    views = load(tmp_path, cases.conditional_disable_xml(operator="FC"))
+    assert views.diagram.startswith(
+        "    conditional-disable (id 3000) :\n"
+        '      frame "TARGET ? a\\"b", default :\n'
+    )
+    labels = [f["label"] for f in views.json["body"][0]["frames"]]
+    assert labels == ['TARGET ? a"b', "Default"]
+    assert 'Frame "TARGET ? a"b" (default):' in views.describe
+    (problem,) = views.graph.problems()
+    assert (problem.stage, problem.kind, problem.reason) == (
+        ProblemStage.LOAD,
+        ProblemKind.VALUE_NOT_READ,
+        "Conditional Disable structure 3000 frame 0: lvkit could not read the "
+        "operator of its condition (code 0xFC)",
+    )
+    _round_trips(views)
+
+
+@pytest.mark.parametrize("operator", ["FD", "FC"])
+def test_generate_runs_the_enabled_frame_of_a_conditional_disable(
+    tmp_path: Path, operator: str
+) -> None:
+    views = load(tmp_path, cases.conditional_disable_xml(operator=operator))
+    source = build_module(
+        views.graph.get_vi_context(views.vi), views.vi, graph=views.graph
+    )
+    namespace: dict[str, object] = {}
+    exec(compile(source, "t.py", "exec"), namespace)  # noqa: S102
+    function = namespace["t"]
+    assert callable(function)
+    assert function() is None
 
 
 def test_a_type_specialization_drives_its_output_like_the_other_disables(

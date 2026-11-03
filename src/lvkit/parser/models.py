@@ -339,6 +339,10 @@ class ParsedDisableStructure:
     # Which disable-family structure this is (detected from stored fields) --
     # drives the per-kind render styling.
     kind: DisableStructureKind = DisableStructureKind.DIAGRAM
+    # Each Conditional Disable frame whose condition lvkit could not read in
+    # full: (frame position, why). Its label shows the symbols and values it
+    # read, with ``?`` for an operator it could not read.
+    unread_conditions: list[tuple[int, str]] = field(default_factory=list)
 
 
 @dataclass

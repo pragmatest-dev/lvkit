@@ -408,7 +408,8 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   `position` in the scope's `frames`; `lvnet_drives.frame_drives` matches on
   it, never on the label.
 - **Two frames for one value is a reading problem on the VI.** LabVIEW gives
-  each frame of a case or Diagram Disable structure its own value, so when the
+  each frame of a case or disable-family structure its own value (the message
+  names the structure by `DisableStructureKind.structure_name`), so when the
   parsed structure has two frames showing one value, `load_vi`
   (`graph/loading.py`, next to the unlabeled-control notes) records one
   `ProblemKind.VALUE_NOT_READ` problem per repeated value at stage `load`

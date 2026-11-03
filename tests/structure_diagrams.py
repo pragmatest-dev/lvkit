@@ -309,28 +309,50 @@ def stacked_sequence(uid: int, border: list[str], frames: list[str]) -> str:
     )
 
 
+def condition_tree(operator: str = "FD") -> str:
+    """The expression tree of a ``SYMBOL <operator> VALUE`` condition, as every
+    corpus condition stores it: the operator node (code ``operator``; ``FD`` is
+    ``==``) over the two strings."""
+    nodes = "".join(
+        f'<SL__arrayElement class="TreeElt"><Tag0000>{kind}</Tag0000>'
+        f"<activeDiag>{left}</activeDiag><activeMarker>{right}</activeMarker>"
+        f"<activePlot>{plot}</activePlot></SL__arrayElement>"
+        for kind, left, right, plot in (
+            ("FF", "01", "2", operator),
+            ("00", "FF", "-1", "00"),
+            ("00", "FF", "-1", "01"),
+        )
+    )
+    return f'<activeDiag elements="3">{nodes}</activeDiag>'
+
+
 def disable_structure(
     uid: int,
     border: list[str],
     frames: list[str],
     *,
     conditions: list[list[str]] | None = None,
+    operators: list[str] | None = None,
     type_specialization: bool = False,
 ) -> str:
     """A Diagram Disable Structure (a ``commentNode`` with subdiagrams); with
     ``conditions`` (the symbol and value of each frame, empty for the Default
-    frame) a Conditional Disable Structure; with ``type_specialization`` a Type
-    Specialization Structure."""
+    frame) a Conditional Disable Structure, each condition's operator code from
+    ``operators`` (``FD``, ``==``, when not given); with ``type_specialization``
+    a Type Specialization Structure."""
     selectors = ""
     if conditions is not None:
+        codes = operators or ["FD"] * len(conditions)
         infos = "".join(
             '<SL__arrayElement class="SelectorInfoElement"><activeDiag><Tag0000>'
             + "".join(
                 f"<SL__arrayElement>{token.encode().hex().upper()}</SL__arrayElement>"
                 for token in tokens
             )
-            + "</Tag0000></activeDiag></SL__arrayElement>"
-            for tokens in conditions
+            + "</Tag0000>"
+            + (condition_tree(code) if tokens else "")
+            + "</activeDiag></SL__arrayElement>"
+            for tokens, code in zip(conditions, codes, strict=True)
         )
         selectors = f"<commentSelInfoArray>{infos}</commentSelInfoArray>"
     marker = "<Tag0273>00</Tag0273>" if type_specialization else ""

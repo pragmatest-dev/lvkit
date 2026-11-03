@@ -246,10 +246,12 @@ def event_xml() -> str:
     )
 
 
-def conditional_disable_xml(*, type_specialization: bool = False) -> str:
+def conditional_disable_xml(
+    *, type_specialization: bool = False, operator: str = "FD"
+) -> str:
     """The Disable Structure of ``disable_xml`` as a Conditional Disable (frame 0
-    is ``TARGET==a"b``, frame 1 the Default) or, with ``type_specialization``, a
-    Type Specialization Structure."""
+    is ``TARGET <operator> a"b``, ``FD`` being ``==``; frame 1 the Default) or,
+    with ``type_specialization``, a Type Specialization Structure."""
     border = [
         tunnel("commentTun", 3020, 3023, [3021, 3022]),
     ]
@@ -260,6 +262,7 @@ def conditional_disable_xml(*, type_specialization: bool = False) -> str:
         border,
         [first, default],
         conditions=None if type_specialization else [["TARGET", 'a"b'], []],
+        operators=None if type_specialization else [operator, operator],
         type_specialization=type_specialization,
     )
     return root_diagram(

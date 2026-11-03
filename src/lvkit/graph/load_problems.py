@@ -36,15 +36,16 @@ PROBLEMS_ATTR = "problems"
 
 
 def repeated_frame_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
-    """One problem for each value two frames of one case or Diagram Disable
-    structure show. LabVIEW gives every frame of such a structure its own
-    value, so two frames with one value mean lvkit did not read their values.
-    Both frames still keep their own nodes in every view (a node's frame is its
-    position, ``operations.frame_key``). ``vi`` is the VI as the user sees it."""
+    """One problem for each value two frames of one case, Diagram Disable,
+    Conditional Disable or Type Specialization structure show. LabVIEW gives
+    every frame of such a structure its own value, so two frames with one value
+    mean lvkit did not read their values. Both frames still keep their own nodes
+    in every view (a node's frame is its position, ``operations.frame_key``).
+    ``vi`` is the VI as the user sees it."""
     structures: list[tuple[str, str, list[CaseFrame]]] = [
         *(("case structure", cs.uid, cs.frames) for cs in bd.case_structures),
         *(
-            ("Diagram Disable structure", ds.uid, ds.frames)
+            (ds.kind.structure_name, ds.uid, ds.frames)
             for ds in bd.disable_structures
         ),
     ]
@@ -69,6 +70,22 @@ def repeated_frame_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
                 )
             seen.add(value)
     return problems
+
+
+def unread_condition_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
+    """One problem for each Conditional Disable frame whose condition lvkit
+    could not read in full (``ParsedDisableStructure.unread_conditions``); the
+    frame's label shows what it read. ``vi`` is the VI as the user sees it."""
+    return [
+        Problem(
+            vi=vi,
+            stage=ProblemStage.LOAD,
+            kind=ProblemKind.VALUE_NOT_READ,
+            reason=f"{ds.kind.structure_name} {ds.uid} frame {position}: {why}",
+        )
+        for ds in bd.disable_structures
+        for position, why in ds.unread_conditions
+    ]
 
 
 class LoadProblemsMixin:

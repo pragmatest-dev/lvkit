@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.graph import InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph, loading
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.diff import diff_to_dict, format_diff
 from lvkit.graph.load_problems import repeated_frame_problems
@@ -21,13 +21,20 @@ from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.netlist_json import netlist_to_dict
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.load_mode import LoadMode
-from lvkit.models import CaseFrame
+from lvkit.models import CaseFrame, DisableStructureKind
 from lvkit.parser.models import ParsedCaseStructure, SelectorKind, SelectorTable
 from lvkit.parser.nodes.case import _apply_one_table
 from lvkit.parser.vi import parse_vi
 from lvkit.pipeline import generate_python
 from lvkit.render import render_vi
-from lvkit.run_report import EXIT_PARTIAL, ProblemKind, ProblemStage, RunReport
+from lvkit.run_report import (
+    EXIT_PARTIAL,
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunProblems,
+    RunReport,
+)
 from tests.test_disable_graph import _BD_XML as _DISABLE_BD_XML
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -469,21 +476,52 @@ def test_frames_with_their_own_values_are_no_problem(tmp_path: Path) -> None:
     assert graph.problems() == []
 
 
-def test_two_disable_frames_for_one_value_name_the_disable_structure(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("kind", "name"),
+    [
+        (DisableStructureKind.DIAGRAM, "Diagram Disable structure"),
+        (DisableStructureKind.CONDITIONAL, "Conditional Disable structure"),
+        (DisableStructureKind.TYPE_SPEC, "Type Specialization structure"),
+    ],
+)
+def test_two_disable_frames_for_one_value_name_the_structure(
+    tmp_path: Path, kind: DisableStructureKind, name: str
 ) -> None:
     bd_xml = tmp_path / "Disable_BDHb.xml"
     bd_xml.write_text(_DISABLE_BD_XML)
     bd = parse_vi(bd_xml=bd_xml).block_diagram
     (disable,) = bd.disable_structures
     assert repeated_frame_problems(bd, "Disable.vi") == []
+    disable.kind = kind
     for frame in disable.frames:
         frame.selector_value = "Enabled"
     (problem,) = repeated_frame_problems(bd, "Disable.vi")
     assert problem.reason == (
-        'Diagram Disable structure 100 has two frames for "Enabled"; '
-        "lvkit could not read their values"
+        f'{name} 100 has two frames for "Enabled"; lvkit could not read their values'
     )
+
+
+def test_generate_counts_a_problem_found_twice_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The same unreadable file found at two stages is one problem in the run's
+    # summary; generate's own summary line counts it the same way.
+    def twice(bd: object, vi: str) -> list[Problem]:
+        return [
+            Problem(vi, stage, ProblemKind.UNREADABLE, "cannot be read")
+            for stage in (ProblemStage.EXTRACT, ProblemStage.LOAD)
+        ]
+
+    monkeypatch.setattr(loading, "repeated_frame_problems", twice)
+    bd_xml = tmp_path / "SameName_BDHb.xml"
+    bd_xml.write_text(_bd_xml(2))
+    run = RunProblems()
+    generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE, run=run)
+    out = capsys.readouterr().out
+    assert "1 other problem(s)" in out
+    assert run.report().summary_lines()[0] == "Partial: 1 problem(s)"
 
 
 def _error_case() -> ParsedCaseStructure:

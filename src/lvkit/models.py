@@ -965,6 +965,15 @@ class DisableStructureKind(str, Enum):
     CONDITIONAL = "conditional"
     TYPE_SPEC = "type_spec"
 
+    @property
+    def structure_name(self) -> str:
+        """LabVIEW's name for this structure, as a message names it."""
+        if self is DisableStructureKind.CONDITIONAL:
+            return "Conditional Disable structure"
+        if self is DisableStructureKind.TYPE_SPEC:
+            return "Type Specialization structure"
+        return "Diagram Disable structure"
+
 
 class TunnelMode(str, Enum):
     """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a

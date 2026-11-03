@@ -649,6 +649,40 @@ Value Change. To extend: add confirmed type codes to `_CONFIRMED_EVENT_TYPES` as
 Related: [[reference_case_selector_dataspace]] (case selector values live in dataspace DFDS, a
 DIFFERENT mechanism — event labels are in the BD heap EventSpec, not the dataspace).
 
+## A Conditional Disable condition is an expression tree; its operator is the operator node's `activePlot` (only `FD` = `==` is known)
+
+Each frame of a Conditional Disable structure (`class="commentNode"`) has one
+`SelectorInfoElement` in `commentSelInfoArray`, in frame order. Its
+`activeDiag class="ExpressionInfo"` holds two lists:
+
+- `Tag0000`: the condition's strings, hex-encoded (`[TARGET_TYPE, Windows]`). An empty
+  list is the Default frame.
+- `activeDiag`: the tree, one `TreeElt` per node, the root first. Every corpus condition
+  is the same three nodes:
+
+  | node | `Tag0000` | `activeDiag` | `activeMarker` | `activePlot` |
+  |---|---|---|---|---|
+  | 0 (root) | `FF` | `01` | `2` | `FD` |
+  | 1 | `00` | `FF` | `-1` | `00` |
+  | 2 | `00` | `FF` | `-1` | `01` |
+
+  Read as: `Tag0000` is the node kind (`FF` an operator, `00` a string); an operator's
+  `activeDiag` (hex) and `activeMarker` (decimal) are its two operands' node indexes
+  (`FF`/`-1` = none); a string node's `activePlot` is its index in the string list; the
+  operator node's `activePlot` is the operator code.
+
+Evidence (2026-11-03, a scan of all 5719 extracted `*_BDHb.xml` in the user cache after
+`scripts/extract_corpus.py` over the whole samples corpus): 113 conditions, every one this
+exact shape, operator code `FD`. **`FD` is `==`** by deduction: structures whose frames are
+`TARGET_TYPE` Unix / Windows / Mac (no Default) only work if each frame tests equality,
+since NI's docs say the first frame whose condition is TRUE is enabled
+(https://docs-be.ni.com/api/bundle/labview/page/configuring-conditions-for-conditional-disable-structures.html).
+That page also says conditions can be joined with AND/OR; no corpus VI does, and no other
+operator code (a `!=`, AND, OR) occurs, so none is decoded. `parser/nodes/disable_condition.py`
+reads the tree generically; an unknown code shows as `?` in the label
+(`TARGET_TYPE ? Windows`) and is reported as a `value not read` problem on the VI. Before
+this, the parser ignored the tree and always wrote `==`.
+
 ## "BD <compressedWireTable> = LabVIEW's real routed wire geometry — DECODED + rendered by default (FAITHFUL_WIRE_TABLE=True, task #84 DONE); auto-router is the fallback"
 <!-- was memory: reference_compressed_wire_table -->
 

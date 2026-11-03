@@ -1599,12 +1599,18 @@ function applyPane(pane){
     if(t && st.sel[u]!==undefined) t.textContent=frameLabel(pane, u, st.sel[u]);});
 }
 // What a person sees for a frame: its label as the renderer drew it in the
-// structure's dropdown menu, never the internal frame token (which carries a
+// selector's own text zone (the frame's "lv-label" group, already fitted to
+// that zone, left of the ▼), never the internal frame token (which carries a
 // "#<position>" suffix when two frames show one value).
 function frameLabel(pane, u, token){
-  const o=pane.querySelector('.lv-menu[data-lv-struct="'+CSS.escape(u)+
-    '"] .lv-option[data-lv-value="'+CSS.escape(token)+'"] text');
-  return o ? o.textContent : token;
+  const leaf=u+'='+token;
+  for(const g of pane.querySelectorAll('.lv-frame.lv-label')){
+    if((g.dataset.path||'').split(';').pop()===leaf){
+      const t=g.querySelector('text');
+      if(t) return t.textContent;
+    }
+  }
+  return token;
 }
 function applyFrames(){ applyPane(beforePane); applyPane(afterPane); updateParkState(); }
 

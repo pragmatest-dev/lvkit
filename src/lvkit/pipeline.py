@@ -48,6 +48,7 @@ from lvkit.run_report import (
     ProblemKind,
     ProblemStage,
     RunProblems,
+    RunReport,
     RunSettings,
     RunStopped,
     problem_for_exception,
@@ -1019,9 +1020,12 @@ def generate_python(
     print(f"  gaps:  {len(all_gaps)}")
     gap_vis = len({gap.vi for gap in all_gaps})
     # Problems besides gaps (a load problem on a VI): the run is partial even
-    # when every VI converts with no gap.
+    # when every VI converts with no gap. Counted the way the run's summary
+    # counts them (``RunReport.of``: each once, notes apart).
     others = [
-        p for p in graph.problems() if not p.is_note and p.kind is not ProblemKind.GAP
+        p
+        for p in RunReport.of(graph.problems()).problems
+        if p.kind is not ProblemKind.GAP
     ]
     if error_count or failed_count:
         print(
