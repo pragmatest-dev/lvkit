@@ -12,6 +12,7 @@ from lvkit.graph.diff import diff_to_dict, diff_uid, format_diff
 from lvkit.graph.diff_frames import FramePairs
 from tests.case_structure_fixture import FrameSpec, _default_xml, _selector_xml
 from tests.structure_diagrams import (
+    BOOL,
     EVENT_TIMEOUT,
     EVENT_VALUE_CHANGE,
     I32,
@@ -219,3 +220,34 @@ def test_a_diagram_disable_frame_change_in_json_and_text(tmp_path: Path) -> None
     assert change["location_after"] == [step]
     text = format_diff(before.graph, after.graph, before.vi, after.vi)
     assert text.splitlines()[:2] == ["  disabled:", '    "Disabled":']
+
+
+def test_a_constant_only_frame_that_becomes_the_default_is_the_same_frame(
+    tmp_path: Path,
+) -> None:
+    """A constant keeps its uid across saves, so a frame holding only constant
+    640 is matched by its contents when its value changes to Default."""
+    before, after = _two(
+        tmp_path,
+        _case_vi(600, [(ONE, []), (TWO, [constant(640, I32, 5)])]),
+        _case_vi(600, [(ONE, []), (FrameSpec(), [constant(640, I32, 5)])], None, 1),
+    )
+    data = _diff(before, after)
+    assert data["frame_pairs"] == [
+        {"before": "600", "after": "600", "pairs": [[0, 0], [1, 1]]}
+    ]
+    assert [(c["kind"], c["change"], c["detail"]) for c in data["changes"]] == [
+        ("value", "modified", "2 → Default")
+    ]
+
+
+def test_a_constant_that_keeps_its_uid_and_changes_type_is_modified(
+    tmp_path: Path,
+) -> None:
+    before, after = _two(
+        tmp_path,
+        root_diagram([], [srn(800, [constant(703, I32, 1)])], []),
+        root_diagram([], [srn(800, [constant(703, BOOL, "True")])], []),
+    )
+    data = _diff(before, after)
+    assert _changes(data) == [("703", "constant", "modified")]

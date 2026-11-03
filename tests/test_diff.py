@@ -556,12 +556,13 @@ class TestModifiedConstant:
         gb = _real_graph([_const("100", 5)])
         assert diff_uid(ga, gb, "vi", "vi").changes == []
 
-    def test_type_change_is_not_a_modification(self):
-        # Same UID but a different type is a LabVIEW UID recycle, not an in-place
-        # edit — must NOT be reported as modified.
+    def test_type_change_is_a_modification(self):
+        # A constant keeps its UID across saves, so the same UID with a new
+        # type is one modified constant.
         ga = _real_graph([_const("100", 5, "NumInt32")])
         gb = _real_graph([_const("100", "hi", "String")])
-        assert diff_uid(ga, gb, "vi", "vi").changes == []
+        (c,) = diff_uid(ga, gb, "vi", "vi").changes
+        assert (c.uid, c.kind, c.change) == ("100", "constant", "modified")
 
     def test_string_detail_has_no_repr_quotes(self):
         # A string value change's detail shows the strings as-is (no repr quote
@@ -721,21 +722,15 @@ class TestFrameSetChanges:
         assert value_by_fallback.change == "modified"
         assert value_by_fallback.detail == "2 → 2, 3"
         assert value_by_fallback.container_uid == "500"
-        assert value_by_fallback.location_after == (
-            FrameStep("500", 0, ("2", "3")),
-        )
-        assert value_by_fallback.location_before == (
-            FrameStep("500", 1, ("2",)),
-        )
+        assert value_by_fallback.location_after == (FrameStep("500", 0, ("2", "3")),)
+        assert value_by_fallback.location_before == (FrameStep("500", 1, ("2",)),)
 
         value_by_uid = frame_changes["900"]
         assert value_by_uid.kind == "value"
         assert value_by_uid.change == "modified"
         assert value_by_uid.detail == "2 → Default"
         assert value_by_uid.container_uid == "500"
-        assert value_by_uid.location_after == (
-            FrameStep("500", 1, ("Default",)),
-        )
+        assert value_by_uid.location_after == (FrameStep("500", 1, ("Default",)),)
         assert value_by_uid.location_before == (FrameStep("500", 2, ("2",)),)
         # Frames 1 and 2 of the before version are frames 0 and 1 after.
         assert cmap.frame_pairs == [FramePairs("500", "500", [(1, 0), (2, 1)])]
@@ -1497,3 +1492,35 @@ def test_unchanged_conditional_tunnel_reports_nothing():
     ga, va = _load(_FORCE_UNLOAD_VI, layout=True)
     gb, vb = _load(_FORCE_UNLOAD_VI, layout=True)
     assert diff_uid(ga, gb, va, vb).changes == []
+
+
+class TestConstantTypeChange:
+    """A constant that keeps its uid but changes type is one modified constant:
+    in Build VI Tester Project Provider.vi, constant 890 goes from a Boolean to
+    an error cluster."""
+
+    REPO = ".lvkit/cache/samples/JKI-VI-Tester"
+    FILE_PATH = "source/LabVIEW Project Plugin/Build VI Tester Project Provider.vi"
+    HEAD_REF = "83bdadf"
+    BASE_REF = "83bdadf~1"
+
+    def _extract(self, tmp_path: Path, ref: str, name: str) -> Path:
+        if not (Path(self.REPO) / ".git").exists():
+            pytest.skip("JKI-VI-Tester sample repo not present")
+        r = subprocess.run(
+            ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not r.stdout:
+            pytest.skip(f"ref {ref} unavailable")
+        p = tmp_path / name
+        p.write_bytes(r.stdout)
+        return p
+
+    def test_the_constant_is_reported_modified(self, tmp_path: Path):
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "a.vi"), layout=False)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "b.vi"), layout=False)
+        cmap = diff_uid(ga, gb, na, nb)
+        found = [(c.kind, c.change) for c in cmap.changes if c.uid == "890"]
+        assert found == [("constant", "modified")]
+        assert [c["uid"] for c in cmap.to_dict()["changes"]].count("890") == 1

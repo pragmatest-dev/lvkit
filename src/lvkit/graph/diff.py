@@ -1180,26 +1180,37 @@ def _frame_element_label(op: AnyGraphNode) -> str:
     return "frame"
 
 
-def _frame_node_uids(
+def _frame_content_uids(
     graph: InMemoryVIGraph,
     struct_node: AnyGraphNode,
     position: int,
     vi_name: str,
 ) -> set[str]:
-    """Every node UID contained anywhere in frame ``position`` of
+    """Every node and constant UID contained anywhere in frame ``position`` of
     ``struct_node`` — recursing into nested structures' frames AND loop/IPES
     bodies via :func:`_collect_elements` (its child-locating pass, minus the
-    locality bookkeeping), matching how the diff tree itself is built. This
-    set is the frame's CONTENT identity: a frame whose value changed but
-    whose contents stayed keeps (most of) this set, letting two frames be
-    recognised as the-same-frame-renamed."""
-    frame = (frames_of(struct_node) or [])[position]
+    locality bookkeeping), matching how the diff tree itself is built, plus the
+    constants on those diagrams. This set is the frame's CONTENT identity: a
+    frame whose value changed but whose contents stayed keeps (most of) this
+    set, letting two frames be recognised as the-same-frame-renamed."""
+    frames = frames_of(struct_node) or []
+    frame = frames[position]
     children = _frame_child_nodes(graph, struct_node, vi_name).get(
         frame_key(frame, position), []
     )
     tmp: dict[str, _ElemInfo] = {}
     _collect_elements(graph, vi_name, children, tmp)
-    return set(tmp.keys())
+    uids = set(tmp.keys())
+    struct_uid = uid_of(struct_node.id)
+    for c in graph.get_constants(vi_name):
+        if c.parent is None:
+            continue
+        parent = uid_of(c.parent)
+        if parent in tmp or (
+            parent == struct_uid and frame_position(frames, c.frame) == position
+        ):
+            uids.add(uid_of(c.id))
+    return uids
 
 
 def _mk_frame_change(
@@ -1258,8 +1269,8 @@ def _struct_frame_changes(
     match = match_frames(
         frames_a,
         frames_b,
-        lambda pa: _frame_node_uids(graph_a, op_a, pa, va),
-        lambda pb: _frame_node_uids(graph_b, op_b, pb, vb),
+        lambda pa: _frame_content_uids(graph_a, op_a, pa, va),
+        lambda pb: _frame_content_uids(graph_b, op_b, pb, vb),
         matchmap,
     )
 
@@ -1391,9 +1402,8 @@ def _condition_key(
 ) -> tuple[object, str] | None:
     """What drives a Conditional tunnel's condition terminal, comparable across
     versions: a key and the name to show (``not_x``, ``True``). The key is the
-    feeding node (via ``to_head``) and name; a constant, which LabVIEW re-keys
-    on save, is keyed by its value alone. None when the tunnel isn't
-    Conditional."""
+    feeding node (via ``to_head``) and name; a constant is keyed by its value
+    alone. None when the tunnel isn't Conditional."""
     if t.condition_terminal is None:
         return None
     wire = condition_source(wires, t)
@@ -1538,10 +1548,12 @@ def _struct_tunnel_changes(
 # CHANGES/JSON with a count, and places in the netlist tree at its true
 # containment, exactly like a node change.
 #
-# A constant carries no stable UID (LabVIEW re-keys it), so identity is
-# reconstructed like the node fuzzy-matcher: exact-UID first, then leftovers
-# paired by NAME, by CONNECTION (the canonical consumer terminals it feeds — the
-# only cross-version anchor a constant has), and by LOCALITY (location). VALUE
+# A constant keeps its UID across saves (measured over 25 consecutive revision
+# pairs of JKI VI Tester VIs: 333 of 334 constants kept theirs; the other was
+# deleted), so the same UID is the same constant, whatever its value or type.
+# For the rare constant that does get a new UID, leftovers are paired by NAME,
+# by CONNECTION (the canonical consumer terminals it feeds), and by LOCALITY
+# (location). VALUE
 # is the CLASSIFIER (paired + equal → unchanged/collapsed; paired + differing →
 # modified), never the identity, so a value edit reads as one modified constant
 # rather than a remove+add.
@@ -1550,8 +1562,8 @@ def _struct_tunnel_changes(
 # terminal pass does): its final tier is a value+type+locality MULTISET
 # CANCELLATION (identical unnamed constants in the same frame simply annihilate,
 # emitting nothing), not the 1:1 bucket-pop-then-classify the helper models — plus
-# a tier-0 cross-type-recycle skip and a tier-1 "anchored" gate that the helper
-# has no notion of. Forcing it through the shared ladder would contort both, so it
+# a tier-1 "anchored" gate that the helper has no notion of. Forcing it through
+# the shared ladder would contort both, so it
 # stays bespoke; the shared helper is for kinds with a plain key ladder.
 
 
@@ -1574,7 +1586,7 @@ def _const_consumers(
     ``dest`` ends. Consumer node uids are canonicalized to BASE space (head uids
     mapped back through the node matching ``b_of_h``) and the VI's own
     connector-pane self node to the fixed ``__self__`` sentinel, so a constant's
-    connection identity survives a re-key/requalification. The consumer TERMINAL
+    connection identity survives a new UID or requalification. The consumer TERMINAL
     (index when known, else its trailing uid) distinguishes two constants feeding
     different inputs of the SAME node."""
     out: dict[str, set[tuple[str, object]]] = {}
@@ -1678,12 +1690,10 @@ def _constant_changes(
 
     changes: list[ElementChange] = []
 
-    # ── Tier 0: same UID kept by LabVIEW — same constant. ──
+    # ── Tier 0: same UID — same constant; a value or type change is modified. ──
     for uid in sorted(consts_a.keys() & consts_b.keys(), key=uid_sort):
         ca, cb = consts_a[uid], consts_b[uid]
-        if _const_type(ca) != _const_type(cb):
-            continue  # UID recycle across types — not a constant edit (skip).
-        if repr(ca.value) != repr(cb.value):
+        if _const_type(ca) != _const_type(cb) or repr(ca.value) != repr(cb.value):
             changes.append(modified(ca, cb))
 
     left_a = [
@@ -1704,7 +1714,7 @@ def _constant_changes(
 
     # ── Tier 1: pair leftovers by reconstructed identity (name + connection +
     # locality), 1:1. VALUE is NOT in the key, so a value-only edit still pairs
-    # (→ modified); equal value collapses to unchanged (pure re-key). ──
+    # (→ modified); equal value collapses to unchanged (only the UID changed). ──
     def ident(
         c: Constant,
         cons: dict[str, set[tuple[str, object]]],
@@ -1731,7 +1741,7 @@ def _constant_changes(
         paired_b.add(uid_of(cb.id))
         if _const_type(ca) != _const_type(cb) or repr(ca.value) != repr(cb.value):
             changes.append(modified(ca, cb))
-        # else: identical re-key → unchanged (collapse, emit nothing).
+        # else: only the UID changed → unchanged (collapse, emit nothing).
 
     rem_a = [c for c in left_a if uid_of(c.id) not in paired_a]
     rem_b = [c for c in left_b if uid_of(c.id) not in paired_b]

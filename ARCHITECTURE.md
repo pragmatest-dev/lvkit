@@ -411,11 +411,14 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   structure's before and after uid -- they differ when LabVIEW gave the
   structure a new uid and the diff matched it by its wiring -- and its pairs)
   per matched structure, with no pairs when none of its frames match; the
-  viewer addresses each pane by that pane's uid. `diff_uid` runs the frame
-  matching BEFORE the constants, and constants are matched across versions by
-  location through that pairing (`FrameMatching.before_key`/`after_key`), so
-  a constant whose frame changed its value, became the Default, or sits in a
-  structure with a new uid is still the same constant. The
+  viewer addresses each pane by that pane's uid. A frame's contents, for that
+  matching, are its node AND constant uids (`_frame_content_uids`). A constant
+  keeps its uid across saves (25 consecutive revision pairs of JKI VI Tester
+  VIs: 333 of 334 kept theirs; the other was deleted), so `_constant_changes`
+  reports the same uid with a new value or type as one modified constant. The
+  rare constant with a new uid is paired by name, connection and location,
+  the location compared through the frame pairing (`diff_uid` runs the frame
+  matching BEFORE the constants; `FrameMatching.before_key`/`after_key`). The
   viewer (`render/templates/diff_viewer.html`: `setFrame`/`partner`/
   `sideLocation`/`revealFrame`, deep link `#frame=uid:pos`) moves the other pane
   to a frame's partner and leaves it where it is when there is none; the text

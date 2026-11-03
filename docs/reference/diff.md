@@ -171,7 +171,7 @@ losing or gaining a connection, with no node add/remove alongside it — still
 renders its own `sink = source` line, and a REMOVED wire always renders even
 when nothing else at that containment depth changed; see [Netlist: Diff
 annotations](netlist.md#diff-annotations) for a worked example. (A constant
-edited IN PLACE — same UID, new value — reads as its own instance line like
+edited IN PLACE — same UID, new value or type — reads as its own instance line like
 any other modified node, since it's tracked in the UID-keyed change map by
 its stable UID; only an ADDED or REMOVED constant, which has no UID of its
 own to key on, goes through the separate name/value-matched list and keeps
