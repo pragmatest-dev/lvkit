@@ -434,8 +434,8 @@ if {stem}.lower().endswith((".vi", ".vim", ".vit")):
 {reference} = getattr({module}, _function_name({stem}), None)
 if {reference} is None:
     raise LookupError(
-        f"{{{stem}!r}} is a polymorphic VI: it has no function of its own, only "
-        "its variants have one"
+        f"the module of {{{stem}!r}} has no function for it (a polymorphic VI "
+        "has none: only its variants do)"
     )
 """
 
