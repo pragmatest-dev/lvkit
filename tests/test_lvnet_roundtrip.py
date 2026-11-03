@@ -66,12 +66,19 @@ from lvkit.graph.netlist import (
     NetlistModule,
     build_netlist_from_graph,
 )
+from lvkit.graph.netlist_models import (
+    ConnectorPane,
+    ConnectorPaneTerminal,
+    NetlistBoundaryInput,
+    WiringRequirement,
+)
 from lvkit.graph.render_lvnet import (
     _lvnet_ambiguous_named_types,
     _lvnet_const_value_str,
     lvnet_literal_token,
     render_lvnet,
 )
+from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.corpus_graphs import load_corpus_vi
 from tests.helpers import error_cluster_type
 
@@ -437,3 +444,38 @@ def test_ambiguous_named_type_footnote_re_renders_identically(vi_path: Path) -> 
         reconstruct_module(parse_lvnet(text)), display_name=vi_path.name, verbose=True
     )
     assert again == text
+
+
+def test_a_typedef_field_named_with_a_semicolon_reads_back() -> None:
+    """#239: the ``types :`` footnote's ``; <file>`` is found outside quotes, so
+    a field named ``a ; b`` in a typedef is not cut there."""
+    named = LVType(
+        LVTypeKind.CLUSTER,
+        typedef_name="Cfg.ctl",
+        typedef_path="Cfg.ctl",
+        fields=[ClusterField("a ; b", LVType(LVTypeKind.PRIMITIVE, "NumInt32"))],
+    )
+    module = NetlistModule(
+        vi_name="Synthetic.vi",
+        inputs=[
+            NetlistBoundaryInput(name="settings", type_descriptor="Cfg", lv_type=named)
+        ],
+        outputs=[],
+        connector_pane=ConnectorPane(
+            pattern_id=None,
+            terminals=[
+                ConnectorPaneTerminal(
+                    name="settings",
+                    type="Cfg",
+                    direction="input",
+                    index=0,
+                    wiring_requirement=WiringRequirement.UNKNOWN,
+                    default=None,
+                    lv_type=named,
+                )
+            ],
+        ),
+    )
+    text = render_lvnet(module, verbose=True)
+    assert '    Cfg = Cluster{ "a ; b" : I32 } ; ./Cfg.ctl' in text
+    assert render_lvnet(reconstruct_module(parse_lvnet(text)), verbose=True) == text
