@@ -19,6 +19,7 @@ from typing import Any
 
 from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
+from lvkit.codegen.ast_optimizer import remove_unused_imports
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
     to_function_name,
@@ -592,8 +593,8 @@ def _generate_polymorphic_module(
     else:
         lines.append("    pass")
 
-    lines.append("")
-    return "\n".join(lines)
+    module = remove_unused_imports(ast.parse("\n".join(lines)))
+    return ast.unparse(module) + "\n"
 
 
 # ---------------------------------------------------------------------------

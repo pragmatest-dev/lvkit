@@ -165,3 +165,14 @@ def test_a_polymorphic_call_resolves_to_the_variant_its_record_names(
     assert graph.poly_call_choices() == {
         key("wrap.vi"): {key("main.vi"): {key("One/array.vi")}}
     }
+
+
+def test_a_polymorphic_module_imports_only_what_it_reads(
+    poly: _Tree, tmp_path: Path
+) -> None:
+    """Its variants use no path: the module does not import ``Path``."""
+    out = tmp_path / "gen"
+    generate_python(poly.root / "main.vi", out)
+    source = next(out.rglob("wrap.py")).read_text()
+    assert "from pathlib import Path" not in source
+    assert "import inspect" in source  # the dispatch helper's own import stays
