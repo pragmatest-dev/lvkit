@@ -354,6 +354,11 @@ _AWKWARD_LABELS = [
     pytest.param("x = y?", id="equals"),
     pytest.param("Image : Type", id="colon"),
     pytest.param("tab\there", id="tab"),
+    # #239: two spaces in a row, a backslash before a quote, a trailing " :".
+    pytest.param("triggeredAt  Index (Total)", id="two-spaces"),
+    pytest.param('expand paths relative to "<base>:\\" (FALSE)', id="backslash"),
+    pytest.param("Sort devices by :", id="trailing-colon"),
+    pytest.param(": leading colon", id="leading-colon"),
 ]
 
 

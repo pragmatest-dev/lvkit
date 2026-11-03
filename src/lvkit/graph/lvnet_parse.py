@@ -274,6 +274,28 @@ def _scan_quoted_literal(text: str, start: int) -> int:
     raise LvnetParseError(f"unterminated quoted literal: {text[start:]!r}")
 
 
+def _collapse_padding(text: str) -> str:
+    """``text`` with each run of spaces outside a quoted name or literal made
+    one space and the ends stripped: the column-alignment padding goes, and a
+    quoted name keeps its own spaces (``"triggeredAt  Index (Total)"``)."""
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        ch = text[i]
+        if ch == '"':
+            end = _scan_quoted_literal(text, i)
+            out.append(text[i:end])
+            i = end
+        elif ch.isspace():
+            while i < n and text[i].isspace():
+                i += 1
+            out.append(" ")
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out).strip()
+
+
 def _unescape_lvnet_string(token: str) -> str:
     """Reverse ``render_lvnet.lvnet_literal_token``'s string escaping: a
     double-quoted token (``'"foo\\\\nbar"'``) -> its real value (a genuine
@@ -547,18 +569,19 @@ def _split_type_requirement_default(
             default = rest[len(_LVNET_DEFAULT_KEYWORD) + 1 :]
             _validate_if_quoted(default, line_no)
 
-    words = raw.split()
+    type_str = _collapse_padding(raw)
     requirement: str | None = None
-    if words and words[-1] in _REQUIREMENT_WORDS:
-        requirement = words.pop()
+    head, _, last = type_str.rpartition(" ")
+    if last in _REQUIREMENT_WORDS:
+        requirement, type_str = last, head
 
-    if not words:
+    if not type_str:
         raise LvnetParseError(
             f"line {line_no}: empty type after stripping requirement/default "
             f"keywords: {line!r}"
         )
     return _BoundaryTail(
-        " ".join(words), requirement, default, caption, caption_visible, index
+        type_str, requirement, default, caption, caption_visible, index
     )
 
 
@@ -597,17 +620,16 @@ def _split_node_terminal_tail(
     default_sep = f" {_LVNET_DEFAULT_KEYWORD}"
     def_pos = _find_top_level_sep(text, default_sep)
     if eq_pos != -1:
-        # Type before the operator is normalized (``" ".join(split())``
-        # collapses the column-ALIGNMENT padding ``_render_term_group`` inserts
-        # -- a type carries only single internal spaces); the driver value
-        # after it is raw.
-        type_str = " ".join(text[:eq_pos].split())
+        # The type before the operator loses the column-ALIGNMENT padding
+        # ``_render_term_group`` inserts (``_collapse_padding``; a quoted name
+        # in it keeps its spaces); the driver value after it is raw.
+        type_str = _collapse_padding(text[:eq_pos])
         driver = text[eq_pos + len(_LVNET_DRIVER_OP) :]
         if not driver:
             raise LvnetParseError(f"line {line_no}: '=' with no driver value: {line!r}")
         _validate_if_quoted(driver, line_no)
     elif def_pos != -1:
-        type_str = " ".join(text[:def_pos].split())
+        type_str = _collapse_padding(text[:def_pos])
         rest = text[def_pos + 1 :]  # drop the single separating space
         if rest == _LVNET_DEFAULT_KEYWORD:
             default = _LVNET_DEFAULT_KEYWORD
@@ -615,7 +637,7 @@ def _split_node_terminal_tail(
             default = rest[len(_LVNET_DEFAULT_KEYWORD) + 1 :]
             _validate_if_quoted(default, line_no)
     else:
-        type_str = " ".join(text.split())
+        type_str = _collapse_padding(text)
 
     if not type_str:
         raise LvnetParseError(
@@ -2333,19 +2355,20 @@ TypeShape = tuple[Any, ...]
 
 
 def _split_top_level_commas(text: str) -> list[str]:
-    """Split ``text`` on ``,`` at brace/bracket DEPTH ZERO and OUTSIDE any
+    """Split ``text`` on ``, `` at brace/bracket DEPTH ZERO and OUTSIDE any
     quoted token -- separates an ``enum{...}``'s members or a ``Cluster{...}``'s
     fields (§10) without breaking on a comma inside a NESTED structural type
-    (a cluster field whose own type is another ``Cluster{...}``/array) NOR on a
+    (a cluster field whose own type is another ``Cluster{...}``/array), on a
     comma inside a QUOTED member/field NAME (a real LabVIEW name like
     ``"big-endian, network order"`` -- ``lvnet_name_token`` quotes+escapes
-    such names, honoring ``\\``-escapes)."""
+    such names, honoring ``\\``-escapes), NOR on a comma with no space after it,
+    which a bare name may hold (a decimal comma: ``ring{0,625, 1,25}``)."""
     parts: list[str] = []
     depth = 0
     in_quote = False
     escaped = False
     current: list[str] = []
-    for ch in text:
+    for i, ch in enumerate(text):
         current.append(ch)
         if in_quote:
             if escaped:
@@ -2361,7 +2384,7 @@ def _split_top_level_commas(text: str) -> list[str]:
             depth += 1
         elif ch in "}]":
             depth -= 1
-        elif ch == "," and depth == 0:
+        elif ch == "," and depth == 0 and text[i + 1 : i + 2] == " ":
             current.pop()  # drop the comma we just appended
             parts.append("".join(current).strip())
             current = []

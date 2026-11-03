@@ -60,6 +60,7 @@ from lvkit.graph.lvnet_parse import (
     parse_lvnet,
 )
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
+from lvkit.graph.models import Constant
 from lvkit.graph.netlist import (
     NetlistConstant,
     NetlistModule,
@@ -67,10 +68,12 @@ from lvkit.graph.netlist import (
 )
 from lvkit.graph.render_lvnet import (
     _lvnet_ambiguous_named_types,
+    _lvnet_const_value_str,
     lvnet_literal_token,
     render_lvnet,
 )
 from tests.corpus_graphs import load_corpus_vi
+from tests.helpers import error_cluster_type
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
@@ -311,6 +314,31 @@ def test_control_char_string_constant_round_trips_on_one_physical_line() -> None
     parsed = parse_lvnet(text)
     assert netlist_signature(module) == netlist_signature(parsed)
 
+
+
+def test_an_error_constant_with_a_two_line_message_stays_on_one_line() -> None:
+    """#239: an error cluster constant whose source text has a line break is
+    written on one line (the break escaped) and reads back to the same text."""
+    error = Constant(
+        id="vi::1",
+        value="{'status': True, 'code': 5300, 'source': 'first line\\nsecond line'}",
+        lv_type=error_cluster_type(),
+    )
+    text_value = _lvnet_const_value_str(error)
+    assert text_value == 'code 5300: "first line\\nsecond line"'
+    const = NetlistConstant(
+        uid="const_1",
+        name="Failure",
+        occurrence=None,
+        type="Error",
+        value=text_value,
+        lvnet_value=text_value,
+    )
+    module = NetlistModule(vi_name="Synthetic.vi", inputs=[], outputs=[], body=[const])
+    text = render_lvnet(module, verbose=True)
+    parsed = parse_lvnet(text)
+    assert netlist_signature(module) == netlist_signature(parsed)
+    assert render_lvnet(reconstruct_module(parsed), verbose=True) == text
 
 @pytest.mark.parametrize(
     "value",

@@ -1783,14 +1783,19 @@ def _lvnet_name_is_safe_bare(name: str) -> bool:
     ("runTest")``) stays bare, since the tracking still lands on the real
     separator. A name that OPENS with a quote would read as a quoted token, and
     one that ENDS with `` (id <digits>)`` as a terminal's identity suffix, so both
-    are quoted."""
+    are quoted. A delimiter is looked for with the spaces the columns around the
+    name add (``Sort devices by :`` ends in one), a backslash would read as an
+    escape, and a run of spaces would read back as one."""
+    padded = f" {name} "
     return bool(
         name
         and name == name.strip()
         and not name.startswith('"')
         and not _LVNET_ID_SUFFIX_RE.search(name)
         and not any(ord(ch) < 0x20 for ch in name)
-        and not any(seq in name for seq in _LVNET_NAME_UNSAFE_SEQS)
+        and not any(seq in padded for seq in _LVNET_NAME_UNSAFE_SEQS)
+        and "\\" not in name
+        and "  " not in name
         and name.count('"') % 2 == 0
         and name.count("{") == name.count("}")
         and name.count("[") == name.count("]")
@@ -1860,7 +1865,7 @@ def _lvnet_const_value_str(c: Constant) -> str:
     OPEN, never invented here as a side effect of the scalar-string fix.
     """
     if c.lv_type and _is_error_cluster(c.lv_type):
-        return _format_error_cluster(c.value)
+        return _lvnet_escape_controls(_format_error_cluster(c.value))
     formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
     if formatted is not None:
         text = formatted
