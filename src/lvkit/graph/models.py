@@ -1289,10 +1289,14 @@ class MethodAccessInfo:
     scope: str
     # ``is_accessor``: the class lists the VI in a property folder (named
     # ``accessor_field``); ``accessor_type`` is "getter" or "setter" from the
-    # VI's own connector pane, None when the pane is neither.
+    # VI's own connector pane, None when the pane is neither. ``accessor_path``
+    # is the property's path in the class's project tree
+    # (``structure.LVMethod.property_path``), the name a class Property Node row
+    # gives it.
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None
+    accessor_path: str | None = None
     is_static: bool = False
     must_override: bool = False
     must_call_parent: bool = False

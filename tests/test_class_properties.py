@@ -113,6 +113,14 @@ def test_property_folders_list_their_vis_and_nothing_else_is_a_property(
         "Read Name": ("Label", "protected"),
         "Get Config": (None, "public"),
     }
+    # A property's path is its folders and its Property Definition item, as a
+    # class Property Node row names it.
+    assert {n: m.property_path for n, m in methods.items()} == {
+        "Read Count": "Accessor:Count",
+        "Write Count": "Accessor:Count",
+        "Read Name": "Accessor:Name",
+        "Get Config": None,
+    }
 
 
 def test_a_pane_decides_which_accessor_a_property_vi_is() -> None:

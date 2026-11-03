@@ -321,6 +321,9 @@ class ClassFact:
     # that property's name.
     is_accessor: bool = False
     accessor_field: str | None = None
+    # That property's path in the class's project tree (folders and the
+    # property, ``:``-separated): the name a class Property Node row gives it.
+    accessor_path: str | None = None
     # The owning class's private-data fields (incl. inherited), each rendered
     # FAITHFULLY as "name: <type_descriptor>" — e.g. "testName: String". Empty for a
     # class with no resolvable private data.

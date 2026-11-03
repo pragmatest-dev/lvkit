@@ -1032,6 +1032,7 @@ class LoadingMixin:
                         is_accessor=method.property_name is not None,
                         accessor_type=role.value if role else None,
                         accessor_field=method.property_name,
+                        accessor_path=method.property_path,
                         is_static=method.is_static,
                         must_override=method.must_override,
                         must_call_parent=method.must_call_parent,

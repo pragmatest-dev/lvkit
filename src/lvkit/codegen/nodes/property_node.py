@@ -14,7 +14,7 @@ from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from . import vi_reference
+from . import class_property_node, vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -106,7 +106,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "Implicit property reference requires a binding model", node
         )
-    fixed = [term for term in node.terminals if term.id not in value_ids]
+    if ctx.graph is not None and class_property_node.is_class_property_node(node):
+        return class_property_node.generate(node, ctx)
+    fixed =[term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
 

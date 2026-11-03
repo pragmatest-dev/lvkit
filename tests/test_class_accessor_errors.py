@@ -11,10 +11,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from lvkit.codegen.class_model import class_model
 from lvkit.graph.error_behaviour import ErrorBehaviour
-from lvkit.graph.models import CaseFrame, CaseStructureNode, GraphNode, VIContext
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
+from lvkit.graph.models import (
+    CaseFrame,
+    CaseStructureNode,
+    ConstantNode,
+    GraphNode,
+    PrimitiveNode,
+    VIContext,
+)
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    PropertyDef,
+    PropertySegment,
+    Terminal,
+    TunnelTerminal,
+)
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
@@ -503,3 +520,230 @@ def test_a_family_with_one_reader_that_can_fail_is_methods_throughout(
     assert package.gaps == []
     assert "def read_count(self, *, error_in" in package.sources["base"]
     assert "def read_count(self, *, error_in" in package.sources["child"]
+
+
+# --- a Property Node on a class wire ---------------------------------------------
+
+BOOLEAN = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+
+
+def erroring_reader(owner: LVType) -> Recipe:
+    """A getter that reads the field and reports an error whose code is the
+    field (a Bundle By Name of status True and the code into its error in)."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        errors_in, errors_out = _error_pane(vi)
+        bundle = PrimitiveNode(
+            id=f"{vi}:b",
+            vi_path=vi,
+            name="Bundle By Name",
+            node_type="nMux",
+            terminals=[
+                Terminal(
+                    id=f"{vi}:b.agg",
+                    index=0,
+                    direction="input",
+                    lv_type=ERROR,
+                    nmux_role="agg",
+                ),
+                Terminal(
+                    id=f"{vi}:b.status",
+                    index=2,
+                    direction="input",
+                    lv_type=BOOLEAN,
+                    nmux_role="list",
+                    nmux_field_index=0,
+                ),
+                Terminal(
+                    id=f"{vi}:b.code",
+                    index=3,
+                    direction="input",
+                    lv_type=INT,
+                    nmux_role="list",
+                    nmux_field_index=1,
+                ),
+                Terminal(
+                    id=f"{vi}:b.agg_out",
+                    index=1,
+                    direction="output",
+                    lv_type=ERROR,
+                    nmux_role="agg",
+                ),
+            ],
+        )
+        true = ConstantNode(
+            id=f"{vi}:t",
+            vi_path=vi,
+            value="True",
+            lv_type=BOOLEAN,
+            terminals=[
+                Terminal(id=f"{vi}:t", index=0, direction="output", lv_type=BOOLEAN)
+            ],
+        )
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "in", owner, "Self", 11), *errors_in],
+                outputs=[
+                    pane(vi, "output", "out", owner, "Self out", 3),
+                    pane(vi, "output", "value", INT, "value", 2),
+                    *errors_out,
+                ],
+                data_flow=[
+                    wire(vi, "in", "get.agg"),
+                    wire(vi, "in", "out"),
+                    wire(vi, "get.field", "value"),
+                    wire(vi, "err_in", "b.agg"),
+                    wire(vi, "t", "b.status"),
+                    wire(vi, "get.field", "b.code"),
+                    wire(vi, "b.agg_out", "err_out"),
+                ],
+            ),
+            [mux(vi, "get", False, owner, INT, 0), bundle, true],
+        )
+
+    return build
+
+
+def property_node_vi(owner: LVType, rows: list[tuple[str, bool]]) -> Recipe:
+    """A VI with one Property Node on its ``obj`` wire: each row ``(path, reads)``
+    reads the property into the indicator ``r<i>`` or writes the control ``w<i>``
+    to it; the node's error in and error out are the VI's."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        errors_in, errors_out = _error_pane(vi)
+        terminals = [
+            Terminal(id=f"{vi}:p.ref", index=0, direction="input", lv_type=owner),
+            Terminal(id=f"{vi}:p.ref_out", index=1, direction="output", lv_type=owner),
+            Terminal(id=f"{vi}:p.err", index=2, direction="input", lv_type=ERROR),
+            Terminal(id=f"{vi}:p.err_out", index=3, direction="output", lv_type=ERROR),
+        ]
+        inputs = [pane(vi, "input", "obj", owner, "obj", 11), *errors_in]
+        outputs = list(errors_out)
+        wires = [
+            wire(vi, "obj", "p.ref"),
+            wire(vi, "err_in", "p.err"),
+            wire(vi, "p.err_out", "err_out"),
+        ]
+        properties, value_ids = [], []
+        for i, (path, reads) in enumerate(rows):
+            tag = f"p.row{i}"
+            terminals.append(
+                Terminal(
+                    id=f"{vi}:{tag}",
+                    index=4 + i,
+                    direction="output" if reads else "input",
+                    lv_type=INT,
+                    name=path,
+                )
+            )
+            properties.append(
+                PropertyDef(segments=[PropertySegment(name=path, code=34)])
+            )
+            value_ids.append(f"{vi}:{tag}")
+            if reads:
+                outputs.append(pane(vi, "output", f"r{i}", INT, f"r{i}", 2 + i))
+                wires.append(wire(vi, tag, f"r{i}"))
+            else:
+                inputs.append(pane(vi, "input", f"w{i}", INT, f"w{i}", 5 + i))
+                wires.append(wire(vi, f"w{i}", tag))
+        node = PrimitiveNode(
+            id=f"{vi}:p",
+            vi_path=vi,
+            name="Property Node",
+            node_type="propNode",
+            terminals=terminals,
+            properties=properties,
+            property_value_terminal_ids=value_ids,
+        )
+        return (
+            VIContext(name=vi, inputs=inputs, outputs=outputs, data_flow=wires),
+            [node],
+        )
+
+    return build
+
+
+def _property_node_project(tmp_path: Path, rows: list[tuple[str, bool]]) -> Project:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    folder = ("Accessor",)
+    project.add_method(
+        "Base",
+        "Read Count",
+        guarded_reader(BASE),
+        property_name="Count",
+        folders=folder,
+    )
+    project.add_method(
+        "Base",
+        "Write Count",
+        guarded_writer(BASE),
+        property_name="Count",
+        folders=folder,
+    )
+    project.add_method(
+        "Base",
+        "Read Check",
+        erroring_reader(BASE),
+        property_name="Check",
+        folders=folder,
+    )
+    project.add_vi("Probe", property_node_vi(BASE, rows))
+    return project
+
+
+def test_a_property_node_row_after_an_error_does_not_run(tmp_path: Path) -> None:
+    project = _property_node_project(
+        tmp_path, [("Accessor:Check", True), ("Accessor:Count", True)]
+    )
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["probe"]
+    assert ".read_check(error_in=" in source
+    with package.use() as module:
+        errors, base = module("errors"), module("base").Base()
+        base._Base__count = 7
+        probe = module("probe").probe
+        result = probe(obj=base)
+        # The first row reports its error: the second does not run.
+        assert (result.r0, result.r1) == (7, 0)
+        assert (result.error_out.status, result.error_out.code) == (True, 7)
+        # An error that came in skips the whole node.
+        error = errors.LabVIEWError(status=True, code=42, source="before")
+        result = probe(obj=base, error_in=error)
+        assert (result.r0, result.r1, result.error_out) == (0, 0, error)
+
+
+def test_property_node_rows_of_python_properties_use_their_python_names(
+    tmp_path: Path,
+) -> None:
+    project = _property_node_project(
+        tmp_path, [("Accessor:Count", False), ("Accessor:Count", True)]
+    )
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["probe"]
+    assert "obj.count = w0" in source and "= obj.count" in source
+    assert "accessor" not in source
+    with package.use() as module:
+        base = module("base").Base()
+        result = module("probe").probe(obj=base, w0=5)
+        assert (result.r1, result.error_out, base.count) == (5, None, 5)
+
+
+def test_a_property_node_on_a_class_that_is_not_loaded_is_a_gap(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_vi(
+        "Probe", property_node_vi(class_type("Missing"), [("Accessor:Count", True)])
+    )
+    package = project.generate()
+    assert len(package.gaps) == 1
+    assert "'Missing.lvclass'" in package.gaps[0].message
+    assert "is not loaded" in package.gaps[0].message
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="is not loaded"):
+            module("probe").probe(obj=None)

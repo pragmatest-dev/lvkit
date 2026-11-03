@@ -202,6 +202,28 @@ def accessor_of(
     return accessor, accessor_pane(graph, class_key, vi_key)
 
 
+def property_accessor_vi(
+    graph: InMemoryVIGraph, class_key: str, path: str, role: PropertyRole
+) -> str | None:
+    """The accessor VI that reads (``GETTER``) or writes (``SETTER``) the class
+    property at ``path`` in the project tree of the class at ``class_key`` or of
+    the nearest class it descends from that lists one, as a class Property Node
+    row names it; None when none of them does."""
+    key: str | None = class_key
+    while key is not None:
+        for member in graph.class_member_keys(key):
+            access = graph.get_method_access(member)
+            if (
+                access is not None
+                and access.is_accessor
+                and access.accessor_path == path
+                and access.accessor_type == role.value
+            ):
+                return member
+        key = graph.class_parent_key(key)
+    return None
+
+
 def member_shape(graph: InMemoryVIGraph, vi_key: str) -> MethodShape | None:
     """The shape of the VI ``vi_key`` as a method of the class that lists it; None
     for a VI no class lists."""

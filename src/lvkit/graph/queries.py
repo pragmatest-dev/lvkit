@@ -1714,6 +1714,7 @@ class QueryMixin:
             is_accessor=bool(edata.get("is_accessor")),
             accessor_type=edata.get("accessor_type"),
             accessor_field=edata.get("accessor_field"),
+            accessor_path=edata.get("accessor_path"),
             is_static=bool(edata.get("is_static")),
             must_override=bool(edata.get("must_override")),
             must_call_parent=bool(edata.get("must_call_parent")),

@@ -28,6 +28,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from lvkit.pipeline import create_import_resolver
+from lvkit.structure import PROPERTY_PATH_SEPARATOR
 from tests.helpers import build_graph
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
@@ -261,10 +262,12 @@ class Project:
         scope: str = "public",
         static: bool = False,
         property_name: str | None = None,
+        folders: tuple[str, ...] = (),
     ) -> str:
         """The method VI ``vi`` of the class ``cls``. ``static`` is a static
         (not dynamic-dispatch) VI; ``property_name`` lists it in the Property
-        Definition folder of that property."""
+        Definition folder of that property, which sits in the class's virtual
+        ``folders``."""
         key = self.key_of(cls, vi)
         class_key = self.classes[cls]
         context = self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
@@ -287,6 +290,11 @@ class Project:
             is_accessor=property_name is not None,
             accessor_type=role.value if role else None,
             accessor_field=property_name,
+            accessor_path=(
+                PROPERTY_PATH_SEPARATOR.join((*folders, property_name))
+                if property_name is not None
+                else None
+            ),
             is_static=static,
             must_override=False,
             must_call_parent=False,
