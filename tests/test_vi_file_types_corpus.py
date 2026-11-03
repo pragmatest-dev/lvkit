@@ -225,7 +225,6 @@ def test_generate_python_from_a_cluster_control(tmp_path: Path) -> None:
     [module] = tmp_path.rglob("paramsctl.py")
     assert module.read_text(encoding="utf-8") == (
         "from __future__ import annotations\n"
-        "from pathlib import Path\n"
         "from types import SimpleNamespace\n"
         "from typing import Any\n"
         "\n"

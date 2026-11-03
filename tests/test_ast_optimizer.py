@@ -245,7 +245,7 @@ def test_func():
     assert "from module import" not in result
 
 
-def test_keep_always_needed_imports():
+def test_the_future_import_and_read_typing_names_are_kept():
     """The future import and the typing names a module reads are kept."""
     code = """
 from __future__ import annotations

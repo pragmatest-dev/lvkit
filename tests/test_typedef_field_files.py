@@ -46,3 +46,26 @@ def test_a_typedef_field_typedef_is_typed_and_imported(tmp_path: Path) -> None:
         in source
     )
     assert "import NiMeasurementlinkSessionmanagementV1SessionInformation" in source
+
+
+_IECOLOR = (
+    SAMPLES_ROOT
+    / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon/Controls/IEColor.ctl"
+)
+
+
+@pytest.mark.needs_samples
+@pytest.mark.slow
+@pytest.mark.skipif(not _IECOLOR.exists(), reason="icon editor sample absent")
+def test_a_typedef_module_imports_only_what_it_reads(tmp_path: Path) -> None:
+    """IEColor is a typedef of a U32: its module is the alias alone, with no
+    unread ``Any`` or ``Path`` import."""
+    graph = InMemoryVIGraph()
+    key = graph.load_typedef(_IECOLOR)
+    out = tmp_path / "pkg"
+    paths = {k: out / f"{Path(k).stem.lower()}.py" for k in graph.list_typedefs()}
+    resolver = create_import_resolver(
+        "pkg", out, paths, paths[key], caller_key=key, graph=graph
+    )
+    source = build_type_module(graph, key, resolver)
+    assert source == "from __future__ import annotations\nIEColor = int"
