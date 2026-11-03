@@ -246,7 +246,7 @@ def test_func():
 
 
 def test_keep_always_needed_imports():
-    """Test that annotations, Any, NamedTuple are always kept."""
+    """The future import and the typing names a module reads are kept."""
     code = """
 from __future__ import annotations
 from typing import Any, NamedTuple
@@ -258,7 +258,22 @@ class Result(NamedTuple):
     optimized = remove_unused_imports(module)
     result = ast.unparse(optimized)
 
-    # These should always be kept
-    assert "annotations" in result
-    assert "Any" in result
-    assert "NamedTuple" in result
+    assert "from __future__ import annotations" in result
+    assert "from typing import Any, NamedTuple" in result
+
+
+def test_an_unread_any_is_not_imported():
+    """A module whose annotations name no `Any` does not import it."""
+    code = """
+from __future__ import annotations
+from typing import Any, NamedTuple
+
+class Result(NamedTuple):
+    grpc_id: int
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    assert "from typing import NamedTuple" in result
+    assert "Any" not in result

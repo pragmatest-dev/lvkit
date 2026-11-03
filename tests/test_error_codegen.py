@@ -221,7 +221,7 @@ def test_error_wires_between_subvis_are_plain_calls() -> None:
     assert _chain() == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .step_a import step_a
         from .step_b import step_b
 
@@ -277,7 +277,6 @@ def test_error_cluster_from_a_computed_code_raises_when_it_is_not_zero(
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
         from .errors import LabVIEWError
 
         def caller(code: int=0):
@@ -303,7 +302,6 @@ def test_error_cluster_from_a_constant_code_writes_nis_description() -> None:
     assert source == textwrap.dedent(
         f"""\
         from __future__ import annotations
-        from typing import Any, NamedTuple
         from .errors import LabVIEWError
 
         def caller():
@@ -377,7 +375,7 @@ def test_clear_errors_catches_the_errors_of_the_code_on_its_wire() -> None:
     assert _clear_chain() == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .errors import LabVIEWError
         from .step_a import step_a
         from .step_b import step_b
@@ -450,7 +448,7 @@ def test_parallel_branches_with_errors_hold_their_errors_to_the_merge() -> None:
     assert _merge_fan_out() == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .errors import LabVIEWError
         from .step_a import step_a
         from .step_b import step_b
@@ -535,7 +533,6 @@ def test_a_vi_with_only_error_out_returns_none(package) -> None:
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
         from .step_a import step_a
 
         def caller(x: int=0):
@@ -623,7 +620,6 @@ def test_bundling_a_true_status_into_an_error_raises_it() -> None:
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
         from .errors import LabVIEWError
 
         def caller(code: int=0, src: str=''):
@@ -721,7 +717,7 @@ def test_status_of_an_error_from_the_caller_is_false() -> None:
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
 
         class CallerResult(NamedTuple):
             failed: bool
@@ -861,7 +857,7 @@ def test_error_frame_that_does_work_is_the_handler_of_the_producers() -> None:
     assert _error_case(error_frame_work=True) == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .errors import LabVIEWError
         from .open_ import open_
         from .report import report
@@ -935,7 +931,7 @@ def test_error_case_with_an_empty_error_frame_is_straight_line_code(package) -> 
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .open_ import open_
         from .use import use
 
@@ -1059,7 +1055,7 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
     assert source == textwrap.dedent(
         """\
         from __future__ import annotations
-        from typing import Any, NamedTuple
+        from typing import NamedTuple
         from .errors import LabVIEWError
         from .step_a import step_a
         from .step_b import step_b
