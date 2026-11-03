@@ -22,6 +22,7 @@ from lvkit.graph.models import (
     ConstantNode,
     DestinationInfo,
     PrimitiveNode,
+    Reentrancy,
     SourceInfo,
     VIContext,
     VINode,
@@ -64,6 +65,10 @@ from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .references import REFERENCE_KINDS, generated_nodes
 
+PREALLOCATED_CLONE_NOTE = (
+    "A preallocated clone keeps this value for each call site in LabVIEW; "
+    "here every call shares it."
+)
 
 @dataclass
 class VISignature:
@@ -148,8 +153,11 @@ class CodeGenContext:
     # formula_helpers) since a loop nested inside a structure still needs
     # to register on the one VI-wide list. The builder emits these ABOVE
     # the VI function, sorted by name — dict/set iteration order is not
-    # a name, so insertion order alone would not be byte-reproducible.
-    module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # a name, so insertion order alone would not be byte-reproducible. Each
+    # name has its statements: its assignment, after a note when it has one.
+    module_globals: dict[str, list[ast.stmt]] = field(
+        default_factory=dict, repr=False
+    )
     # Nodes that lie on a cycle of the wires of one structure level, found by
     # the dependency sort, with why. One dict per module, shared by child contexts.
     circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
@@ -756,10 +764,30 @@ class CodeGenContext:
         name (see ``module_globals`` docstring for why).
         """
         if name not in self.module_globals:
-            self.module_globals[name] = ast.Assign(
-                targets=[ast.Name(id=name, ctx=ast.Store())],
-                value=value,
+            self.module_globals[name] = [
+                ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
+            ]
+
+    def add_state_global(self, name: str, value: ast.expr) -> None:
+        """Register a module-level variable holding a value the VI keeps between
+        calls (an uninitialized shift register, First Call?, an indicator a
+        Local Variable reads), seeded to ``value``. Every call of the function
+        shares it, as every call of a non-reentrant VI shares its data space. A
+        preallocated clone keeps one per call site in LabVIEW, so the variable
+        of such a VI gets a note saying so, a string statement above it (the
+        way this generator writes notes into code: an AST has no comments)."""
+        fresh = name not in self.module_globals
+        self.add_module_global(name, value)
+        if fresh and self._is_preallocated_clone():
+            self.module_globals[name].insert(
+                0, ast.Expr(value=ast.Constant(value=PREALLOCATED_CLONE_NOTE))
             )
+
+    def _is_preallocated_clone(self) -> bool:
+        if self.graph is None or not self.vi_name:
+            return False
+        reentrancy = self.graph.get_vi_properties(self.vi_name).execution.reentrancy
+        return reentrancy is Reentrancy.PREALLOCATED_CLONE
 
     def add_module_function(self, func_def: ast.FunctionDef) -> None:
         """Register a module-level helper function, emitted above the VI function.

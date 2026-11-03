@@ -864,6 +864,8 @@ class ExecutionProps:
     auto_error_handling: bool = False  # DefaultErrorHandling (<Execution2>)
     allow_debugging: bool = False  # DebugCapable (<Instrument>)
     always_calls_parent: bool = False  # AlwaysCallsParent (<Execution2>)
+    # "Clear indicators when called": ClearIndMask (<Execution2>)
+    clear_indicators_when_called: bool = False
     print_after_exec: bool = False  # PrintAfterExec (<Instrument>)
 
 

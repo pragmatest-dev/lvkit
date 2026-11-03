@@ -160,6 +160,10 @@ class Vi:
     links: list[str] = field(default_factory=list)
     fp_terms: dict[int, int] = field(default_factory=dict)  # pane uid -> terminal
     placed: set[int] = field(default_factory=set)  # panes inside a structure frame
+    # Attributes of the VI's <Execution> and <Execution2> settings, e.g.
+    # {"IsReentrant": "1"} or {"ClearIndMask": "1"}.
+    execution: dict[str, str] = field(default_factory=dict)
+    execution2: dict[str, str] = field(default_factory=dict)
     extra_types: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -646,7 +650,25 @@ class Vi:
             f'<LIvi><Section><LVIN Unk1="{self.name}" /></Section></LIvi>\n'
             f'<LIbd><Section Index="0"><BDHP Unk1="{self.name}">{"".join(self.links)}'
             "</BDHP></Section></LIbd>\n"
+            f"{self._lvsr_xml()}"
             "</RSRC>\n"
+        )
+
+    def _lvsr_xml(self) -> str:
+        """The VI's execution settings (``Vi.execution`` / ``Vi.execution2``
+        attributes), when any is set."""
+        if not (self.execution or self.execution2):
+            return ""
+
+        def element(tag: str, attrs: dict[str, str]) -> str:
+            text = "".join(f' {k}="{v}"' for k, v in sorted(attrs.items()))
+            return f"<{tag}{text} />"
+
+        return (
+            "<LVSR><Section>"
+            f"{element('Execution', self.execution)}"
+            f"{element('Execution2', self.execution2)}"
+            "</Section></LVSR>\n"
         )
 
     def files(self) -> tuple[str, str, str]:

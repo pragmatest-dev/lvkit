@@ -160,12 +160,13 @@ def function_body(
     parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
     body.extend(build_array_input_normalization(parameters, names))
 
-    # An indicator a Local Variable reads is a variable set to its default here.
-    ctx.local_indicators, indicator_defaults = LocalIndicators.declare(ctx, vi_name)
-    body.extend(indicator_defaults)
+    # The indicators held in variables start here (``LocalIndicators``).
+    ctx.local_indicators, indicator_starts = LocalIndicators.declare(ctx, vi_name)
+    body.extend(indicator_starts)
 
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
+    body.extend(ctx.local_indicators.statements_at_end())
 
     # Add return statement
     final = (
@@ -414,7 +415,7 @@ def build_module_ast(
     # deterministic output — dict iteration order is insertion order, but
     # sorting removes any dependence on traversal order across the graph.
     for name in sorted(ctx.module_globals):
-        module_body.append(ctx.module_globals[name])
+        module_body.extend(ctx.module_globals[name])
 
     # Function definition
     func_def = build_function_def(vi_context, vi_name, body, spell)

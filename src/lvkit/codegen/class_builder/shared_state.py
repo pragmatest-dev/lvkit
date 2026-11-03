@@ -22,7 +22,7 @@ class ModuleParts:
     annotation_imports: set[str] = field(default_factory=set)
     declarations: ModuleDeclarations = field(default_factory=ModuleDeclarations)
     helpers: list[ast.stmt] = field(default_factory=list)
-    globals: dict[str, ast.stmt] = field(default_factory=dict)
+    globals: dict[str, list[ast.stmt]] = field(default_factory=dict)
     flat_functions: dict[tuple[Any, ...], str] = field(default_factory=dict)
 
     def share_with(self, ctx: CodeGenContext) -> None:
@@ -42,5 +42,5 @@ class ModuleParts:
         return [
             *self.helpers,
             *self.declarations.statements,
-            *(self.globals[name] for name in sorted(self.globals)),
+            *(stmt for name in sorted(self.globals) for stmt in self.globals[name]),
         ]

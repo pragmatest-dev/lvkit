@@ -166,6 +166,14 @@ class WireQueriesMixin:
                 found[term.id] = term
         return found
 
+    def indicator_written_on_vi_diagram(self, indicator_id: str) -> bool:
+        """Whether something on the VI's own diagram (outside every structure
+        frame) writes the indicator, so every call writes it."""
+        return any(
+            not self._inside_a_frame(source)
+            for source in self.indicator_sources(indicator_id)
+        )
+
     def _inside_a_frame(self, terminal_id: str) -> bool:
         """Whether the terminal is on the diagram of a structure frame: a
         terminal of a node inside a structure, or a tunnel's inside face."""

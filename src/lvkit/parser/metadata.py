@@ -354,6 +354,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "auto_error_handling": _bool_attr(execution2, "DefaultErrorHandling"),
         "allow_debugging": _bool_attr(instrument, "DebugCapable"),
         "always_calls_parent": _bool_attr(execution2, "AlwaysCallsParent"),
+        "clear_indicators_when_called": _bool_attr(execution2, "ClearIndMask"),
         "print_after_exec": _bool_attr(instrument, "PrintAfterExec"),
     }
 

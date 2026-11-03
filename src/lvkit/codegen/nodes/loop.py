@@ -134,7 +134,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     sr_lv_type = outer_sr_term.lv_type
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
-                ctx.add_module_global(global_name, type_default_expr(sr_lv_type))
+                ctx.add_state_global(global_name, type_default_expr(sr_lv_type))
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
                 pre_loop_stmts.append(ast.Global(names=[global_name]))

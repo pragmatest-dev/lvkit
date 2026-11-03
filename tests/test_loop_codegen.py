@@ -964,7 +964,7 @@ class TestUninitializedShiftRegister:
         assert len(ctx.module_globals) == 1
         name = next(iter(ctx.module_globals))
         assert name.startswith("_lv_state_")
-        stmt = ctx.module_globals[name]
+        [stmt] = ctx.module_globals[name]
         code = ast.unparse(ast.fix_missing_locations(stmt))
         assert code == f"{name} = 0"
 
@@ -1048,7 +1048,7 @@ class TestUninitializedShiftRegister:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[ctx.module_globals[global_name], func_def],
+            body=[*ctx.module_globals[global_name], func_def],
             type_ignores=[],
         )
         ast.fix_missing_locations(module)

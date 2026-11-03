@@ -421,7 +421,7 @@ def test_a_gap_takes_back_what_the_node_added_to_the_module() -> None:
         ctx.add_import("import ctypes")
         ctx.module_declarations.declare(("library", "x"), "_lib", lambda n: f"{n} = 1")
         ctx.formula_helpers.append(ast.parse("x = 1").body[0])
-        ctx.module_globals["g"] = ast.parse("g = 0").body[0]
+        ctx.module_globals["g"] = [ast.parse("g = 0").body[0]]
         ctx.flat_functions[("k",)] = "f"
         ctx.data_files = {"a.bin": b"1"}
         raise ConversionGap("no way", node)
