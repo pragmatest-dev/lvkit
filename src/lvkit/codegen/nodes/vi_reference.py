@@ -37,6 +37,7 @@ from enum import IntEnum
 from pathlib import Path
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
 from lvkit.graph.vi_reference import (
     CALL_REFERENCE_IN,
@@ -575,9 +576,8 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     name and its method's name."""
     assert ctx.graph is not None and ctx.vi_name is not None
     resolver = ctx.import_resolver
-    # The module being generated sits in the folder of its class file (a method)
-    # or of its VI; a path computed when the code runs is read from that folder.
-    module_key = ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
+    # A path computed when the code runs is read from the module's folder.
+    module_key = written_module_key(ctx.graph, ctx.vi_name)
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)
@@ -609,6 +609,14 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
                 for name in sorted(entries)
             ],
         ),
+    )
+
+
+def written_module_key(graph: InMemoryVIGraph, vi_key: str) -> str:
+    """The key of the file whose module the VI at ``vi_key`` is written into:
+    its class (a method), its polymorphic VI (a variant), else the VI itself."""
+    return graph.owning_class_key(vi_key) or graph.get_poly_variant_wrappers().get(
+        vi_key, vi_key
     )
 
 
