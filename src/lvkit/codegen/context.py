@@ -49,9 +49,9 @@ from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
-    distinct_names,
     field_attribute_names,
     interface_names,
+    numbered_name,
     to_function_name,
     to_var_name,
 )
@@ -645,25 +645,33 @@ class CodeGenContext:
         A name a Python function assigns is its local everywhere in it, so a
         variable named like a function it calls would be called instead. A
         function whose name a parameter, control or variable of this VI already
-        holds is imported under a name of its own (``from .fill import fill as
-        fill_2``), and the name it is called by is taken, so no variable named
-        later takes it."""
+        holds (``_holds``) is imported under a name of its own, one no
+        top-level name of the module has (``from .fill import fill as fill_2``),
+        and the name it is called by is taken, so no variable named later takes
+        it."""
         imported = self.function_import(vi_name, callee_key)
         known = self._function_imports.get(imported.statement)
         if known is None:
             known = imported
-            taken = self._allocated_vars | set(self._parameter_names())
-            if imported.statement and imported.name in taken:
-                known = imported.aliased(distinct_names(taken, [imported.name])[0])
+            if imported.statement and self._holds(imported.name):
+                known = imported.aliased(self._alias_name(imported.name))
             self._allocated_vars.add(known.name)
             self._function_imports[imported.statement] = known
         self.add_import(known.statement)
         return known.name
 
-    def _parameter_names(self) -> list[str]:
-        """The names of this VI's parameters and off-pane control variables."""
-        inputs = [t for t in self.vi_inputs if t.id]
-        return list(interface_names(inputs, [], []).parameters.values())
+    def _alias_name(self, derived: str) -> str:
+        """A name of its own for an import of ``derived``, which a variable of
+        this function holds: free here and, with a resolver, at module level."""
+        if isinstance(self.import_resolver, ImportResolver):
+            return self.import_resolver.alias_name(derived, self._holds)
+        return numbered_name(
+            derived, lambda n: n == self.function_name or self._holds(n)
+        )
+
+    def _holds(self, name: str) -> bool:
+        """Whether a parameter or variable of this function has ``name``."""
+        return self.var_name_in_use(name) or name in self.parameter_var_names()
 
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for

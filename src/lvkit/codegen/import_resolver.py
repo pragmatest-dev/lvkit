@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode
 
+from .ast_utils import numbered_name
 from .errors import CodeGenError
 
 if TYPE_CHECKING:
@@ -74,6 +75,7 @@ class ImportResolver:
         project_file: Callable[[Path, Path], str | None] | None = None,
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
+        module_names: set[str] | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -87,6 +89,18 @@ class ImportResolver:
         self._scope: str | None = None
         self._display_path = display_path
         self._names_import = names_import
+        # The names the generated module binds at its top level: what it
+        # defines and every name its imports are spelled as.
+        self._module_names = module_names if module_names is not None else set()
+
+    def alias_name(self, derived: str, in_use: Callable[[str], bool]) -> str:
+        """A name of its own for an import whose ``derived`` name ``in_use``
+        says a function already holds: ``derived_2``, ``derived_3``…, the first
+        that is neither in use there nor a top-level name of the module, which
+        it becomes."""
+        name = numbered_name(derived, lambda n: n in self._module_names or in_use(n))
+        self._module_names.add(name)
+        return name
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;

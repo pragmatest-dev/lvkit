@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from lvkit.lv_type_codes import (
@@ -405,6 +405,14 @@ def result_field_names(outputs: list[Terminal]) -> dict[str, str]:
         [result_field_name(python_label(t) or "output") for t in outputs]
     )
     return {t.id: name for t, name in zip(outputs, names, strict=True)}
+
+
+def numbered_name(name: str, taken: Callable[[str], bool]) -> str:
+    """``name_2``, ``name_3``…: the first that ``taken`` says is free."""
+    n = 2
+    while taken(f"{name}_{n}"):
+        n += 1
+    return f"{name}_{n}"
 
 
 def distinct_names(taken: Iterable[str], wanted: Iterable[str]) -> list[str]:
