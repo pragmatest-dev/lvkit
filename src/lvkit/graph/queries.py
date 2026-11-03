@@ -66,6 +66,22 @@ def _off_pane(terminal: Terminal) -> bool:
     return isinstance(terminal, FPTerminal) and not terminal.is_public
 
 
+def _pane_slots(
+    terminals: Iterable[Terminal],
+) -> list[tuple[int, TerminalDirection, LVType | None]]:
+    """The connector-pane slots ``terminals`` fill, in slot order: each one's
+    index, direction and type; an unused slot (``Terminal.is_void_slot``) is
+    left out."""
+    return sorted(
+        (
+            (t.index, t.direction, t.lv_type)
+            for t in terminals
+            if t.index is not None and not t.is_void_slot
+        ),
+        key=lambda slot: (slot[0], slot[1]),
+    )
+
+
 def _real_member_path(path: Path) -> Path | None:
     """The on-disk FILE path for a dependency's intended path, or None when it
     denotes no standalone file. A ``.lvclass``/``.lvlib`` is a container FILE,
@@ -1460,17 +1476,38 @@ class QueryMixin:
 
     def poly_call_choices(self) -> dict[str, dict[str, set[str | None]]]:
         """For each polymorphic VI some node calls: the VIs that call it, each with
-        the variants its calls record (``None`` for a call that records none).
-        One pass over every node of every VI."""
+        the variants its calls run (``call_variant``; ``None`` for a call that
+        runs no single one). One pass over every node of every VI."""
         calls: dict[str, dict[str, set[str | None]]] = {}
         for caller, uids in self._vi_nodes.items():
             for uid in uids:
                 node = self._get_typed_node(uid)
                 if isinstance(node, VINode) and node.callee_key in self._poly_info:
                     calls.setdefault(node.callee_key, {}).setdefault(caller, set()).add(
-                        node.variant_key
+                        self.call_variant(node)
                     )
         return calls
+
+    def call_variant(self, node: VINode) -> str | None:
+        """The key of the variant a call of a polymorphic VI runs: the one its
+        caller records (``VINode.variant_key``), else the one loaded variant whose
+        connector pane is the call's own recorded terminals, slot by slot (index,
+        direction and type, exactly equal; the slots the caller records as unused
+        are left out). None when the call is of no polymorphic VI, or no variant
+        or several match."""
+        if node.variant_key is not None:
+            return node.variant_key
+        if node.callee_key is None or node.callee_key not in self._poly_info:
+            return None
+        recorded = _pane_slots(node.terminals)
+        matches = []
+        for variant in self.get_poly_variants(node.callee_key):
+            if variant not in self._vi_nodes:
+                continue
+            inputs, _, outputs, _ = self.vi_interface(variant)
+            if _pane_slots([*inputs, *outputs]) == recorded:
+                matches.append(variant)
+        return matches[0] if len(matches) == 1 else None
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
         """The key of each variant mapped to the key of its wrapper VI."""

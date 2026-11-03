@@ -1199,12 +1199,12 @@ def _is_real_terminal(t: Terminal) -> bool:
     parameter (never wired, never named -- e.g. a big class-method VI's
     spare/reserved pane slots). The SAME signal ``render/draw.py``'s
     ``_terminal_is_informative`` checks ("A Void terminal is a dead pane
-    slot with no data"), reproduced here via ``Terminal.type_descriptor()``
-    directly (never a new import -- ``graph/`` does not depend on
+    slot with no data"), read here through ``Terminal.is_void_slot``
+    (never a new import -- ``graph/`` does not depend on
     ``render/``) so Phase A's "keep every terminal" doesn't surface pane
     geometry noise that was never a genuine terminal.
     """
-    return not (t.lv_type is not None and t.lv_type.type_descriptor() == "Void")
+    return not t.is_void_slot
 
 
 def _ordered_real_terminals_gn(

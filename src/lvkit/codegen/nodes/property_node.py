@@ -47,7 +47,7 @@ def _callees(ctx: CodeGenContext) -> str:
         for other in ctx.graph.iter_nodes(ctx.vi_name):
             if not isinstance(other, VINode):
                 continue
-            callee_name, callee_key = called_vi(other)
+            callee_name, callee_key = called_vi(other, ctx.graph)
             if callee_key is not None:
                 name = ctx.import_function(callee_name, callee_key)
                 if name != ctx.function_name and name not in names:
