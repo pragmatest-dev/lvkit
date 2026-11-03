@@ -1740,7 +1740,7 @@ def _build_case_outputs_gn(
                 outer,
             )
             label = "default" if nl_frame.is_default else nl_frame.label
-            cases.append(GammaCase(frame_key=label, source=source))
+            cases.append(GammaCase(frame_key=label, source=source, position=i))
         gammas.append(
             GammaMerge(net=f"case_{case_uid}.out{k}", selector=selector, cases=cases)
         )
@@ -1948,6 +1948,7 @@ def _build_sequence_scope_gn(
                     net=f"sequence_{seq_uid}.local{k}",
                     frame=frames[link.unreadable_frame].value,
                     reason=link.unreadable,
+                    position=link.unreadable_frame,
                 )
             )
             continue
@@ -1960,6 +1961,7 @@ def _build_sequence_scope_gn(
                     net=f"sequence_{seq_uid}.local{k}",
                     frame=frames[link.write_frame].value,
                     value=value,
+                    position=link.write_frame,
                 )
             )
     wires = _wires_gn(graph, ctx, vi_name, build_ctx)

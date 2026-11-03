@@ -29,8 +29,9 @@ from ..graph.models import (
     WireEnd,
 )
 from ..graph.op_walk import _selector_label
-from ..graph.operations import shown_frame_value
+from ..graph.operations import frame_token, frame_tokens, structure_frames
 from ..models import (
+    CaseFrame,
     FPTerminal,
     LVType,
     LVTypeKind,
@@ -376,11 +377,14 @@ def _frame_path(
 def _frame_token(
     struct: AnyGraphNode, item: AnyGraphNode | FPTerminal | TunnelTerminal
 ) -> str:
-    """The token a frame-path segment names ``item``'s frame of ``struct``
-    by: the value that frame shows (``operations.shown_frame_value`` of the
-    frame key ``item`` carries) -- a case or disable frame's selector value,
-    a sequence or event frame's key."""
-    return str(shown_frame_value(getattr(struct, "frames", None) or [], item.frame))
+    """The token a frame-path segment names ``item``'s frame of ``struct`` by
+    (``operations.frame_token`` of the frame key ``item`` carries)."""
+    return frame_token(structure_frames(struct), item.frame)
+
+
+def _token_of(frames: list[CaseFrame], tokens: list[str], frame: CaseFrame) -> str:
+    """The token (``tokens``, by position in ``frames``) of ``frame`` itself."""
+    return next(t for t, f in zip(tokens, frames, strict=True) if f is frame)
 
 
 def _fp_terminal_frame_path(
@@ -490,7 +494,8 @@ def _frame_info(
     for node in nodes:
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
-            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            tokens = frame_tokens(node.frames)
+            frame_values[raw] = tokens
             sel_t = (
                 graph.get_terminal(node.selector_terminal)
                 if node.selector_terminal
@@ -517,26 +522,31 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = str(shown.selector_value)
+            default_frame[raw] = _token_of(node.frames, tokens, shown)
             frame_labels[raw] = {
-                str(f.selector_value): _selector_label(f, lv_type, is_error)
-                for f in node.frames
+                token: _selector_label(f, lv_type, is_error)
+                for token, f in zip(tokens, node.frames, strict=True)
             }
             if is_error:
                 # The No-Error (green) frame is the status==False case; every
                 # other frame — the "Error" frame, including when it
                 # is the structure's default — is red.
                 error_no_error[raw] = {
-                    str(f.selector_value): f.is_no_error for f in node.frames
+                    token: f.is_no_error
+                    for token, f in zip(tokens, node.frames, strict=True)
                 }
         elif isinstance(node, DisableStructureNode) and node.frames:
             # Disable structure: no runtime selector / no lv_type to derive a
             # faithful display label from — CaseFrame.selector_value already
             # IS the display text ("Enabled"/"Disabled"/a symbol condition/
-            # "Frame N"), so frame_labels is left unpopulated and
-            # _frame_display's raw-value fallback (draw.py) handles it.
+            # "Frame N"), so each frame's label is that value.
             raw = _strip_prefix(node.id, vi_name)
-            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            tokens = frame_tokens(node.frames)
+            frame_values[raw] = tokens
+            frame_labels[raw] = {
+                token: str(f.selector_value)
+                for token, f in zip(tokens, node.frames, strict=True)
+            }
             # Prefer the SAVED VISIBLE frame (heap ``dIdx``, range-checked) — the
             # frame the user had open when the VI was saved. For a Conditional
             # Disable this can differ from the ENABLED subdiagram: you can save
@@ -561,7 +571,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = str(shown.selector_value)
+            default_frame[raw] = _token_of(node.frames, tokens, shown)
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"

@@ -374,3 +374,41 @@ def shown_frame_value(
         if frame_key(frame, position) == key:
             return frame.selector_value if isinstance(frame, CaseFrame) else key
     return key
+
+
+def structure_frames(node: object | None) -> Sequence[Frame]:
+    """The frames of a frame-bearing structure node; empty for any other node
+    (a loop, an In Place Element) and for ``None``."""
+    return getattr(node, "frames", None) or []
+
+
+def frame_tokens(frames: Sequence[Frame]) -> list[str]:
+    """Each frame's token, by position: the text naming it in a rendered
+    diagram's frame paths and selector, and in a diff's frame paths. It is the
+    value the frame shows (:func:`shown_frame_value`); a frame showing the same
+    value as an earlier frame of the structure gets ``#<position>`` after it,
+    so every frame keeps its own token (``"1"``, ``"1#1"``)."""
+    tokens: list[str] = []
+    for position, frame in enumerate(frames):
+        shown = (
+            frame.selector_value
+            if isinstance(frame, CaseFrame)
+            else frame_key(frame, position)
+        )
+        token = str(shown)
+        if token in tokens:
+            token = f"{token}#{position}"
+        while token in tokens:  # a selector value that itself reads "1#1"
+            token = f"{token}#"
+        tokens.append(token)
+    return tokens
+
+
+def frame_token(frames: Sequence[Frame], key: str | int | None) -> str:
+    """The token (:func:`frame_tokens`) of the frame of ``frames`` whose
+    :func:`frame_key` is ``key``; ``str(key)`` when no frame has that key."""
+    tokens = frame_tokens(frames)
+    for position, frame in enumerate(frames):
+        if frame_key(frame, position) == key:
+            return tokens[position]
+    return str(key)

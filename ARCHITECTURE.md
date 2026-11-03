@@ -391,9 +391,16 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   netlist, codegen `frame_children`, diff element correlation) compares against
   it, so two frames with one name keep their own nodes (#238). The name is only
   shown: `shown_frame_value(frames, key)` turns a key back into the selector
-  value for the render's frame-path tokens (`render/scene.py:_frame_token`), the
-  index `node.frame` column (`index/build.py:_shown_frame`) and diff frame paths.
-  `graph.diff` still matches frames ACROSS two versions by name (`_frame_key`).
+  value for the index `node.frame` column (`index/build.py:_shown_frame`).
+  `frame_tokens(frames)` gives each frame the token the render's frame paths and
+  selector (`render/scene.py:_frame_info`, `_frame_token`) and diff's frame
+  paths (`graph/diff.py:_frame_token`) use: the shown value, with `#<position>`
+  added to a frame that repeats an earlier frame's value (`"1"`, `"1#1"`), so
+  unique names render unchanged. `graph.diff` still matches frames ACROSS two
+  versions by that token (`_frame_key`), i.e. by name. In the netlist, every
+  per-frame drive (`GammaCase`, `FrameOutputDrive`, `SequenceLocalDrive`,
+  `SequenceLocalUnreadable`) carries its frame's `position` in the scope's
+  `frames`; `lvnet_drives.frame_drives` matches on it, never on the label.
 
 **Why:** The user re-derived this hard under pressure while reviewing the #35/#39
 render-tree plan — first "z-order is a draw concern, keep it out of the graph,"

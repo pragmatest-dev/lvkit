@@ -55,7 +55,7 @@ from .op_walk import (
     _selector_label,
     _terminal_display_name,
 )
-from .operations import frame_key, shown_frame_value
+from .operations import frame_key, frame_token, frame_tokens
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -355,22 +355,15 @@ def _extend_frame_path(
     return f"{frame_path};{seg}" if frame_path else seg
 
 
-def _frame_value(frame: Frame) -> object:
-    """The raw selector/index value identifying ``frame`` —
-    ``CaseFrame.selector_value`` for a case, ``SequenceFrame.index`` for a
-    sequence (flat or stacked), ``EventFrame.index`` for an event frame
-    (positional — the active frame is runtime-chosen, so it has no selector).
-    Matches exactly the token render/scene.py::_frame_path writes for the
-    same frame (``operations.shown_frame_value`` of a child's frame key), so
-    ``str()``-ing it here reproduces the identical token and diff frame-paths
-    correlate with the SVG ``data-path``."""
-    if isinstance(frame, CaseFrame):
-        return frame.selector_value
-    if isinstance(frame, SequenceFrame):
-        return frame.index
-    if isinstance(frame, EventFrame):
-        return frame.index
-    return None
+def _frame_token(op: AnyGraphNode, frame: Frame) -> str:
+    """The token naming ``frame`` of the structure ``op`` in a frame path --
+    ``operations.frame_tokens``, the same token render/scene.py writes into the
+    SVG ``data-path``, so diff frame paths correlate with it. It is the frame's
+    selector value or index, made unique within the structure when two frames
+    show the same value. ``frame`` is found in ``op``'s frames by identity."""
+    frames = _frames_of(op) or []
+    tokens = frame_tokens(frames)
+    return next(t for t, f in zip(tokens, frames, strict=True) if f is frame)
 
 
 def _collect_elements(
@@ -404,11 +397,11 @@ def _collect_elements(
             struct_uid = uid_of(op.id)
             interactive = _is_interactive_struct(op)
             frame_children = _frame_child_nodes(graph, op, vi_name)
+            tokens = frame_tokens(frames)
             for i, frame in enumerate(frames):
                 if interactive:
-                    value = _frame_value(frame)
                     child_container = struct_uid
-                    child_path = _extend_frame_path(frame_path, struct_uid, value)
+                    child_path = _extend_frame_path(frame_path, struct_uid, tokens[i])
                 else:
                     child_container, child_path = container_uid, frame_path
                 _collect_elements(
@@ -1195,7 +1188,7 @@ def _constant_locality(
     if entry is None:
         return None, None
     if _is_interactive_struct(entry.op):
-        value = shown_frame_value(_frames_of(entry.op) or [], c.frame)
+        value = frame_token(_frames_of(entry.op) or [], c.frame)
         return struct_uid, _extend_frame_path(entry.frame_path, struct_uid, value)
     return entry.container_uid, entry.frame_path
 
@@ -1253,16 +1246,17 @@ def _frame_element_label(op: AnyGraphNode) -> str:
     return "frame"
 
 
-def _frame_key(frame: Frame) -> str:
-    """Stable key for matching a frame across versions: LabVIEW's own frame
-    ``uid`` when the parser recorded one (currently only ``SequenceFrame`` —
-    see parser/nodes/sequence.py; a ``CaseFrame``'s heap format carries no
-    per-frame uid, so the parser never sets one — always None today). Falls
-    back to the frame's selector/index VALUE, which DEGRADES a genuine
-    in-place value edit (e.g. LabVIEW's "add value to this case") into a
-    remove+add, because the frame's identity is then indistinguishable from
-    its value. Documented, not hidden — a real frame uid always wins when
-    present.
+def _frame_key(op: AnyGraphNode, frame: Frame) -> str:
+    """Stable key for matching a frame of the structure ``op`` across versions:
+    LabVIEW's own frame ``uid`` when the parser recorded one (currently only
+    ``SequenceFrame`` — see parser/nodes/sequence.py; a ``CaseFrame``'s heap
+    format carries no per-frame uid, so the parser never sets one — always None
+    today). Falls back to the frame's selector/index VALUE (its
+    ``_frame_token``, so a second frame showing the same value keeps a key of
+    its own), which DEGRADES a genuine in-place value edit (e.g. LabVIEW's "add
+    value to this case") into a remove+add, because the frame's identity is
+    then indistinguishable from its value. Documented, not hidden — a real
+    frame uid always wins when present.
 
     An ``EventFrame`` has no uid AND a RESOLUTION-dependent label (the displayed
     frame reconstructs faithfully; others degrade to ``<unknown event ...>``), so
@@ -1277,7 +1271,7 @@ def _frame_key(frame: Frame) -> str:
             if idx.isdigit():
                 return f"~[{idx}]"
         return f"~{frame.event_label}"
-    return f"~{_frame_value(frame)}"
+    return f"~{_frame_token(op, frame)}"
 
 
 def _frame_value_changed(fa: Frame, fb: Frame) -> bool:
@@ -1361,12 +1355,12 @@ def _mk_frame_change(
     across every frame-bearing structure kind. ``frame_path_before`` is the
     before-side addressing of a value change (see the field doc); None for
     add/remove and same-value changes."""
-    key = _frame_key(frame)
+    key = _frame_key(op, frame)
     container_uid, frame_path = _frame_locality(
         struct_uid,
         op,
         entry.frame_path,
-        _frame_value(frame),
+        _frame_token(op, frame),
     )
     return ElementChange(
         key,
@@ -1383,8 +1377,8 @@ def _mk_frame_change(
 
 
 def _pair_frames_by_content(
-    only_a: list[tuple[Frame, set[str]]],
-    only_b: list[tuple[Frame, set[str]]],
+    only_a: list[tuple[Frame, str, set[str]]],
+    only_b: list[tuple[Frame, str, set[str]]],
     matchmap: dict[str, str],
 ) -> list[tuple[Frame, Frame]]:
     """Pair leftover before/after frames that are the SAME frame with a changed
@@ -1392,17 +1386,16 @@ def _pair_frames_by_content(
     by the caller via :func:`_frame_node_uids`), mapped through the dataflow
     match map (``base->head``; identity when a node kept its UID — the common
     case), overlapping an after-frame's node UIDs. Greedy by most shared nodes
-    with a deterministic tiebreak; each frame used at most once. Zero overlap ⇒
-    not paired here (a genuine add/remove)."""
+    with a deterministic tiebreak (each frame's ``_frame_token``, the middle of
+    each tuple); each frame used at most once. Zero overlap ⇒ not paired here
+    (a genuine add/remove)."""
     scored: list[tuple[int, str, str, Frame, Frame]] = []
-    for fa, a_uids_raw in only_a:
+    for fa, token_a, a_uids_raw in only_a:
         a_uids = {matchmap.get(u, u) for u in a_uids_raw}
-        for fb, b_uids in only_b:
+        for fb, token_b, b_uids in only_b:
             shared = len(a_uids & b_uids)
             if shared:
-                scored.append(
-                    (shared, str(_frame_value(fa)), str(_frame_value(fb)), fa, fb),
-                )
+                scored.append((shared, token_a, token_b, fa, fb))
     scored.sort(key=lambda s: (-s[0], s[1], s[2]))
     used: set[int] = set()
     pairs: list[tuple[Frame, Frame]] = []
@@ -1441,8 +1434,8 @@ def _struct_frame_changes(
         return []
 
     base_uid, head_uid = uid_of(op_a.id), uid_of(op_b.id)
-    map_a: dict[str, Frame] = {_frame_key(f): f for f in frames_a}
-    map_b: dict[str, Frame] = {_frame_key(f): f for f in frames_b}
+    map_a: dict[str, Frame] = {_frame_key(op_a, f): f for f in frames_a}
+    map_b: dict[str, Frame] = {_frame_key(op_b, f): f for f in frames_b}
     # Frame -> its graph-child-lookup key (``frame_key``: case/disable/event
     # str(list position), sequence str(index)) -- needed to fetch each
     # leftover frame's contained-node identity via _frame_node_uids below.
@@ -1457,7 +1450,7 @@ def _struct_frame_changes(
             base_uid,
             op_a,
             entry_a.frame_path,
-            _frame_value(fa),
+            _frame_token(op_a, fa),
         )
         return _mk_frame_change(
             op_b,
@@ -1486,10 +1479,20 @@ def _struct_frame_changes(
         map_b[k] for k in sorted(map_b.keys() - map_a.keys(), key=_uid_sort)
     ]
     only_a_sig = [
-        (fa, _frame_node_uids(graph_a, op_a, keys_a[id(fa)], va)) for fa in only_a
+        (
+            fa,
+            _frame_token(op_a, fa),
+            _frame_node_uids(graph_a, op_a, keys_a[id(fa)], va),
+        )
+        for fa in only_a
     ]
     only_b_sig = [
-        (fb, _frame_node_uids(graph_b, op_b, keys_b[id(fb)], vb)) for fb in only_b
+        (
+            fb,
+            _frame_token(op_b, fb),
+            _frame_node_uids(graph_b, op_b, keys_b[id(fb)], vb),
+        )
+        for fb in only_b
     ]
     pairs = _pair_frames_by_content(only_a_sig, only_b_sig, matchmap)
     paired = {id(f) for pair in pairs for f in pair}

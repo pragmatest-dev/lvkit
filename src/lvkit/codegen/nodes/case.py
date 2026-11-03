@@ -94,6 +94,9 @@ def _resolve_output_tunnels(
     bindings: dict[str, str] = {}
     divergent: dict[str, str] = {}  # outer_uid -> merge var (needs pre-declare)
     n_frames = len(node.frames)
+    # ``frame_bodies`` is in the order the branches are written (a Boolean case
+    # writes True first), not frame order, so a frame's key comes from its
+    # place in ``node.frames``.
     position = {id(frame): i for i, frame in enumerate(node.frames)}
     body_by_frame: dict[object, list[ast.stmt]] = {
         frame_key(frame, position[id(frame)]): body for frame, body in frame_bodies

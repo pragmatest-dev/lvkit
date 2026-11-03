@@ -4,6 +4,7 @@ own nodes (#238); and the table rule that names the frames of an error case."""
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from lvkit.codegen.builder import build_module
@@ -18,16 +19,41 @@ from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import CaseFrame
 from lvkit.parser.models import ParsedCaseStructure, SelectorKind, SelectorTable
 from lvkit.parser.nodes.case import _apply_one_table
+from lvkit.render import render_vi
+from tests.test_lvnet_identity import _assert_graph_identity
 
 # Frame 0 waits for a Random Number (0-1), frame 1 for a Tick Count (ms); a
-# Random Number on the VI's diagram feeds the selector.
+# Random Number on the VI's diagram feeds the selector. With the output tunnel,
+# frame 0 sends its Random Number out and frame 1 its Tick Count, and a Wait
+# (ms) on the VI's diagram reads the tunnel.
 _RANDOM, _TICK, _SELECTOR_SOURCE = "500", "510", "400"
-_WAIT_0, _WAIT_1 = "520", "530"
+_WAIT_0, _WAIT_1, _WAIT_OUT = "520", "530", "700"
+_TUNNEL_OUTER, _TUNNEL_DCO = "640", "641"
+_TUNNEL_INNER = ("650", "660")
 _WIRES = [
     (f"{_SELECTOR_SOURCE}1", "601"),
     (f"{_RANDOM}1", f"{_WAIT_0}2"),
     (f"{_TICK}1", f"{_WAIT_1}2"),
 ]
+_TUNNEL_WIRES = [
+    (f"{_RANDOM}1", _TUNNEL_INNER[0]),
+    (f"{_TICK}1", _TUNNEL_INNER[1]),
+    (_TUNNEL_OUTER, f"{_WAIT_OUT}2"),
+]
+# Where each node sits on the diagram: (top, left) of a 32x32 box.
+_AT = {
+    _SELECTOR_SOURCE: (20, 20),
+    _RANDOM: (80, 120),
+    _WAIT_0: (80, 180),
+    _TICK: (80, 120),
+    _WAIT_1: (80, 180),
+    _WAIT_OUT: (80, 320),
+}
+
+
+def _box(uid: str) -> str:
+    top, left = _AT[uid]
+    return f"<bounds>({top}, {left}, {top + 32}, {left + 32})</bounds>"
 
 
 def _prim(uid: str, prim_id: int, n_terms: int = 1) -> str:
@@ -48,6 +74,7 @@ def _prim(uid: str, prim_id: int, n_terms: int = 1) -> str:
                 <primResID>{prim_id}</primResID>
                 <termList elements="{n_terms}">{terms}
                 </termList>
+                {_box(uid)}
               </SL__arrayElement>"""
 
 
@@ -60,23 +87,8 @@ def _range(value: int, diagram: int) -> str:
           </SL__arrayElement>"""
 
 
-def _bd_xml(second_value: int) -> str:
-    """A two-frame Case structure on the VI's diagram: frame 0 matches 1 and
-    holds a Random Number, frame 1 matches ``second_value`` and holds a Tick
-    Count. ``second_value=1`` gives both frames the name "1"."""
-    frames = "".join(
-        f"""
-          <SL__arrayElement class="diag" uid="{610 + i}">
-            <zPlaneList elements="0" />
-            <nodeList elements="2">{_prim(uid, prim_id)}{_prim(wait, 1302, 2)}
-            </nodeList>
-            <signalList elements="0" />
-          </SL__arrayElement>"""
-        for i, (uid, prim_id, wait) in enumerate(
-            ((_RANDOM, 1070, _WAIT_0), (_TICK, 1300, _WAIT_1))
-        )
-    )
-    signals = "".join(
+def _signals(wires: list[tuple[str, str]]) -> str:
+    return "".join(
         f"""
       <SL__arrayElement class="signal" uid="{900 + i}">
         <termList elements="2">
@@ -84,14 +96,58 @@ def _bd_xml(second_value: int) -> str:
           <SL__arrayElement uid="{dst}" />
         </termList>
       </SL__arrayElement>"""
-        for i, (src, dst) in enumerate(_WIRES)
+        for i, (src, dst) in enumerate(wires)
     )
+
+
+def _tunnel_srn(frame: int) -> str:
+    """The node holding the output tunnel's inner terminal in ``frame``."""
+    return f"""
+              <SL__arrayElement class="sRN" uid="{670 + frame}">
+                <termList elements="1">
+                  <SL__arrayElement class="term" uid="{_TUNNEL_INNER[frame]}">
+                    <dco uid="{_TUNNEL_DCO}" />
+                  </SL__arrayElement>
+                </termList>
+              </SL__arrayElement>"""
+
+
+def _bd_xml(second_value: int, *, tunnel: bool = False) -> str:
+    """A two-frame Case structure on the VI's diagram: frame 0 matches 1 and
+    holds a Random Number, frame 1 matches ``second_value`` and holds a Tick
+    Count. ``second_value=1`` gives both frames the name "1"; ``tunnel`` adds the
+    output tunnel."""
+    frames = "".join(
+        f"""
+          <SL__arrayElement class="diag" uid="{610 + i}">
+            <zPlaneList elements="0" />
+            <nodeList>{_prim(uid, prim_id)}{_prim(wait, 1302, 2)}
+              {_tunnel_srn(i) if tunnel else ""}
+            </nodeList>
+            <signalList elements="0" />
+          </SL__arrayElement>"""
+        for i, (uid, prim_id, wait) in enumerate(
+            ((_RANDOM, 1070, _WAIT_0), (_TICK, 1300, _WAIT_1))
+        )
+    )
+    tunnel_term = f"""
+          <SL__arrayElement class="term" uid="{_TUNNEL_OUTER}">
+            <dco class="selTun" uid="{_TUNNEL_DCO}">
+              <termList elements="3">
+                <SL__arrayElement uid="{_TUNNEL_INNER[0]}" />
+                <SL__arrayElement uid="{_TUNNEL_INNER[1]}" />
+                <SL__arrayElement uid="{_TUNNEL_OUTER}" />
+              </termList>
+              <objFlags>1</objFlags>
+            </dco>
+          </SL__arrayElement>"""
+    wires = _WIRES + (_TUNNEL_WIRES if tunnel else [])
     return f"""<?xml version='1.0' encoding='utf-8'?>
 <SL__rootObject class="oHExt" uid="1">
   <root class="diag" uid="2">
     <zPlaneList elements="1">
       <SL__arrayElement class="select" uid="600">
-        <termList elements="1">
+        <termList>
           <SL__arrayElement class="term" uid="601">
             <dco class="caseSel" uid="602">
               <termList elements="1">
@@ -99,8 +155,9 @@ def _bd_xml(second_value: int) -> str:
               </termList>
               <typeDesc>TypeID(1)</typeDesc>
             </dco>
-          </SL__arrayElement>
+          </SL__arrayElement>{tunnel_term if tunnel else ""}
         </termList>
+        <bounds>(60, 100, 140, 240)</bounds>
         <diagramList elements="2">{frames}
         </diagramList>
         <caseSelDCO uid="602" />
@@ -108,21 +165,24 @@ def _bd_xml(second_value: int) -> str:
         </SelectRangeArray32>
       </SL__arrayElement>
     </zPlaneList>
-    <nodeList elements="2">{_prim(_SELECTOR_SOURCE, 1070)}
+    <nodeList>{_prim(_SELECTOR_SOURCE, 1070)}
       <SL__arrayElement uid="600" />
+      {_prim(_WAIT_OUT, 1302, 2) if tunnel else ""}
     </nodeList>
-    <signalList elements="{len(_WIRES)}">{signals}
+    <signalList elements="{len(wires)}">{_signals(wires)}
     </signalList>
   </root>
 </SL__rootObject>
 """
 
 
-def _load(tmp_path: Path, second_value: int) -> tuple[InMemoryVIGraph, str]:
+def _load(
+    tmp_path: Path, second_value: int, *, tunnel: bool = False, layout: bool = False
+) -> tuple[InMemoryVIGraph, str]:
     bd_xml = tmp_path / "SameName_BDHb.xml"
-    bd_xml.write_text(_bd_xml(second_value))
+    bd_xml.write_text(_bd_xml(second_value, tunnel=tunnel))
     graph = InMemoryVIGraph()
-    graph.load_vi(bd_xml)
+    graph.load_vi(bd_xml, layout=layout)
     return graph, graph.list_vis()[0]
 
 
@@ -246,6 +306,88 @@ def test_frames_with_different_names_keep_their_names(tmp_path: Path) -> None:
             "        case 1:\n            milli", "        case 2:\n            milli"
         )
     )
+
+
+_LVNET_TUNNEL_CASE = """\
+      frame "1" :
+        function Random_Number_(0-1)_500 : Random Number (0-1)
+          out  number : ?
+        function Wait_(ms)_520 : Wait (ms)
+          in   milliseconds_to_wait    : ? = Random_Number_(0-1)_500::number
+          out  millisecond_timer_value : ?
+        case_600::out0 = Random_Number_(0-1)_500::number
+      frame "1" :
+        function Tick_Count_(ms)_510 : Tick Count (ms)
+          out  millisecond_timer_value : ?
+        function Wait_(ms)_530 : Wait (ms)
+          in   milliseconds_to_wait    : ? = Tick_Count_(ms)_510::millisecond_timer_value
+          out  millisecond_timer_value : ?
+        case_600::out0 = Tick_Count_(ms)_510::millisecond_timer_value
+    function Wait_(ms)_700 : Wait (ms)
+      in   milliseconds_to_wait    : ? = case_600::out0
+      out  millisecond_timer_value : ?
+"""  # noqa: E501 (the lvnet line is one long line)
+
+
+def test_lvnet_each_frame_drives_its_own_value_onto_an_output_tunnel(
+    tmp_path: Path,
+) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1, tunnel=True)
+    module = build_netlist_from_graph(graph, vi_name)
+    for verbose in (False, True):
+        text = render_lvnet(module, verbose=verbose)
+        if not verbose:
+            assert f"{text}\n".endswith(_LVNET_TUNNEL_CASE)
+        read_back = reconstruct_module(parse_lvnet(text))
+        _assert_graph_identity(module, read_back, "SameName")
+        assert render_lvnet(read_back, verbose=verbose) == text
+
+
+def test_generate_merges_each_frames_own_value_on_an_output_tunnel(
+    tmp_path: Path,
+) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1, tunnel=True)
+    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    assert "            case_output = number_500\n" in source
+    assert "            case_output = millisecond_timer_value\n" in source
+    assert source.rstrip().endswith("    time.sleep(case_output / 1000)")
+
+
+def _frame_groups(svg: str) -> dict[str, list[str]]:
+    """Each frame group's ``data-path`` and the nodes drawn inside it."""
+    groups: dict[str, list[str]] = {}
+    for g in ET.fromstring(svg).iter("{http://www.w3.org/2000/svg}g"):
+        classes = (g.get("class") or "").split()
+        if "lv-frame" in classes and "lv-label" not in classes:
+            groups[g.get("data-path", "")] = sorted(
+                n.get("data-node", "") for n in g.iter() if n.get("data-node")
+            )
+    return groups
+
+
+def test_render_draws_each_frame_with_only_its_own_nodes(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1, layout=True)
+    svg = render_vi(graph, vi_name)
+    assert svg is not None
+    assert _frame_groups(svg) == {
+        "600=1": [_RANDOM, _WAIT_0],
+        "600=1#1": [_TICK, _WAIT_1],
+    }
+    assert 'data-lv-frames="1;1#1"' in svg
+    assert 'data-lv-default="1"' in svg
+
+
+def test_render_names_frames_by_their_values_when_they_differ(
+    tmp_path: Path,
+) -> None:
+    graph, vi_name = _load(tmp_path, second_value=2, layout=True)
+    svg = render_vi(graph, vi_name)
+    assert svg is not None
+    assert _frame_groups(svg) == {
+        "600=1": [_RANDOM, _WAIT_0],
+        "600=2": [_TICK, _WAIT_1],
+    }
+    assert 'data-lv-frames="1;2"' in svg
 
 
 def _error_case() -> ParsedCaseStructure:

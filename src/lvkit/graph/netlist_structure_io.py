@@ -196,7 +196,10 @@ def build_frame_output_drives(
             if value is not None:
                 drives.append(
                     FrameOutputDrive(
-                        net=f"{prefix}_{uid}.out{k}", frame=frame.value, value=value
+                        net=f"{prefix}_{uid}.out{k}",
+                        frame=frame.value,
+                        value=value,
+                        position=i,
                     )
                 )
     return drives
@@ -220,7 +223,7 @@ def build_gamma_outputs(
                 inner.id if inner is not None else None, inner, outer
             )
             key = "default" if frame.is_default else frame.label
-            cases.append(GammaCase(frame_key=key, source=source))
+            cases.append(GammaCase(frame_key=key, source=source, position=i))
         outputs.append(
             GammaMerge(net=f"{prefix}_{uid}.out{k}", selector=None, cases=cases)
         )
@@ -243,7 +246,10 @@ def build_event_outputs(
             if value is not None:
                 outputs.append(
                     FrameOutputDrive(
-                        net=f"event_{uid}.dynamic", frame=frame.value, value=value
+                        net=f"event_{uid}.dynamic",
+                        frame=frame.value,
+                        value=value,
+                        position=i,
                     )
                 )
     return outputs

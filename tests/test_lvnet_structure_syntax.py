@@ -372,8 +372,8 @@ def test_every_unwired_drive_position_says_default_and_its_type() -> None:
         net="case_5.out0",
         selector=None,
         cases=[
-            GammaCase("A", wired_false),
-            GammaCase("B", DefaultValue("False", "TF")),
+            GammaCase("A", wired_false, 0),
+            GammaCase("B", DefaultValue("False", "TF"), 1),
         ],
     )
     scope = NetlistScope(
@@ -399,12 +399,12 @@ def test_event_frames_drive_their_tunnels_and_the_dynamic_pair() -> None:
         net="event_70.out0",
         selector=None,
         cases=[
-            GammaCase(labels[0], DefaultValue("False", "TF")),
-            GammaCase(labels[1], _control_ref("v")),
+            GammaCase(labels[0], DefaultValue("False", "TF"), 0),
+            GammaCase(labels[1], _control_ref("v"), 1),
         ],
     )
     dynamic = FrameOutputDrive(
-        net="event_70.dynamic", frame=labels[1], value=_control_ref("w")
+        net="event_70.dynamic", frame=labels[1], value=_control_ref("w"), position=1
     )
     scope = NetlistScope(
         uid="70",
@@ -438,7 +438,7 @@ def test_a_sequence_drives_a_tunnel_only_in_the_frame_that_wires_it() -> None:
         kind="sequence",
         selector=None,
         frames=frames,
-        outputs=[FrameOutputDrive("sequence_9.out0", "1", _control_ref("v"))],
+        outputs=[FrameOutputDrive("sequence_9.out0", "1", _control_ref("v"), 1)],
         inputs=[StructureInput("sequence_9.in0", _control_ref("u"))],
         sequence_is_flat=True,
     )
