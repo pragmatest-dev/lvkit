@@ -16,6 +16,7 @@ from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import GraphNode, PolyInfo, VIContext
 from lvkit.load_mode import LoadMode
+from lvkit.models import LVType, LVTypeKind
 from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
 from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
@@ -356,3 +357,131 @@ def test_a_call_passes_its_values_by_the_recorded_variants_pane(
     assert "array_result.total" in source
     with package.use() as module:
         assert module("caller").caller(n=4).r == 8
+
+
+PATH = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+VOID = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Void")
+
+
+def _array(element: LVType) -> LVType:
+    return LVType(kind=LVTypeKind.ARRAY, element_type=element, dimensions=1)
+
+
+def _file_exists(path_type: LVType, flag_type: LVType) -> Recipe:
+    """A File Exists variant: ``file path`` (2) in, ``is directory`` (6) and
+    ``exists`` (7) out, both the input passed through."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "in", path_type, "file path", 2)],
+                outputs=[
+                    pane(vi, "output", "dir", flag_type, "is directory", 6),
+                    pane(vi, "output", "ok", flag_type, "exists", 7),
+                ],
+                data_flow=[wire(vi, "in", "dir"), wire(vi, "in", "ok")],
+            ),
+            [],
+        )
+
+    return build
+
+
+def _empty(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    return VIContext(name=vi), []
+
+
+def _plain_call(wrap: str, path_type: LVType) -> Recipe:
+    """A VI whose plain subVI call of ``wrap`` records no variant, only the
+    types of its terminals: an unused slot (0), ``file path`` (2) of
+    ``path_type``, and two Boolean outputs (6, 7)."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        node = call(
+            vi,
+            "w",
+            wrap,
+            "iUse",
+            [("unused", 0, VOID), ("file path", 2, path_type)],
+            [("is directory", 6, BOOL), ("exists", 7, BOOL)],
+        )
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "p", path_type, "p", 0)],
+                outputs=[pane(vi, "output", "r", BOOL, "r", 1)],
+                data_flow=[wire(vi, "p", "w.file path"), wire(vi, "w.exists", "r")],
+            ),
+            [node],
+        )
+
+    return build
+
+
+def _file_exists_project(tmp_path: Path, variants: dict[str, Recipe]) -> Project:
+    """The polymorphic VI ``Wrap.vi`` with ``variants`` and ``Caller.vi``, whose
+    plain call of it records a scalar Path and two Booleans."""
+    project = Project(tmp_path)
+    keys = [project.add_vi(name, recipe) for name, recipe in variants.items()]
+    wrap = project.add_vi("Wrap", _empty)
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=keys)  # noqa: SLF001
+    project.add_vi("Caller", _plain_call(wrap, PATH))
+    return project
+
+
+def test_a_call_that_records_no_variant_runs_the_one_its_types_match(
+    tmp_path: Path,
+) -> None:
+    """The File Exists shape: the call records a scalar Path and Booleans, which
+    is the Scalar variant's pane and not the Array one's."""
+    project = _file_exists_project(
+        tmp_path,
+        {
+            "Scalar": _file_exists(PATH, BOOL),
+            "Array": _file_exists(_array(PATH), _array(BOOL)),
+        },
+    )
+    caller, scalar = project.vis["Caller"], project.vis["Scalar"]
+    assert project.graph.poly_call_choices() == {
+        project.vis["Wrap"]: {caller: {scalar}}
+    }
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["caller"]
+    assert "from .scalar import scalar\n" in source
+    assert "scalar_result = scalar(file_path=p)" in source
+    with package.use() as module:
+        assert module("caller").caller(p="here").r == "here"
+
+
+def _gap_reasons(project: Project) -> list[str]:
+    return [gap.reason for gap in project.generate().gaps]
+
+
+def test_types_that_match_two_variants_are_a_gap_naming_both(
+    tmp_path: Path,
+) -> None:
+    project = _file_exists_project(
+        tmp_path,
+        {"First": _file_exists(PATH, BOOL), "Second": _file_exists(PATH, BOOL)},
+    )
+    assert _gap_reasons(project) == [
+        "This use of the polymorphic VI Wrap.vi records no variant, so which one "
+        "it runs is not known; its variants: First.vi, Second.vi"
+    ]
+
+
+def test_types_that_match_no_variant_are_a_gap(tmp_path: Path) -> None:
+    project = _file_exists_project(
+        tmp_path,
+        {
+            "Paths": _file_exists(_array(PATH), _array(BOOL)),
+            "Numbers": _file_exists(INT, BOOL),
+        },
+    )
+    assert _gap_reasons(project) == [
+        "This use of the polymorphic VI Wrap.vi records no variant, so which one "
+        "it runs is not known; its variants: Paths.vi, Numbers.vi"
+    ]

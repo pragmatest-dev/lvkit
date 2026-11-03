@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import NoReturn
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver import TerminalResolutionNeeded
@@ -47,6 +48,8 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "A VI node has no name, so the VI it calls is unknown", node
         )
+    callee_name, callee_key = called_vi(node, ctx.graph)
+    node = _as_run(node, ctx)
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
@@ -88,7 +91,6 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
         return _generate_inline(node, ctx, vilib_vi)
 
-    callee_name, callee_key = called_vi(node)
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
     stmt = ast.Assign(
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
@@ -97,18 +99,38 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     return CodeFragment(statements=[*parts.prelude, stmt], bindings=parts.bindings)
 
 
-def called_vi(node: VINode) -> tuple[str, str | None]:
+def called_vi(node: VINode, graph: InMemoryVIGraph | None) -> tuple[str, str | None]:
     """The name and identity of the VI whose function a call node runs: for a
-    polymorphic call, the variant its caller records (by the name recorded for
-    it); else the VI it calls. A call whose VI the caller records only by path
-    (a ``<vilib>`` or ``<extravilib>`` VI with no configured root) names the
-    absent VI by its qualified name, the identity its stub is keyed by."""
+    call of a polymorphic VI, the variant it runs (``call_variant``: the one its
+    caller records, by the name recorded for it, else the one whose connector
+    pane the call's recorded types match, by its own name); else the VI it
+    calls. A call whose VI the caller records only by path (a ``<vilib>`` or
+    ``<extravilib>`` VI with no configured root) names the absent VI by its
+    qualified name, the identity its stub is keyed by."""
     name = node.name or ""
     if node.variant_key is not None:
         return (node.qualified_name or name).rsplit(":", 1)[-1], node.variant_key
+    variant = graph.call_variant(node) if graph is not None else None
+    if variant is not None:
+        assert graph is not None
+        return graph.vi_display_name(variant).rsplit(":", 1)[-1], variant
     if node.callee_key is None and node.qualified_path and node.qualified_name:
         return node.qualified_name, None
     return name, node.callee_key
+
+
+def _as_run(node: VINode, ctx: CodeGenContext) -> VINode:
+    """``node`` as its code is written: a call of a polymorphic VI that records
+    no variant but whose recorded types match one variant's connector pane
+    (``call_variant``) is generated as a call of that variant, so its catalog
+    entry and parameter names are the variant's. A copy: the graph keeps the
+    call as its caller records it."""
+    if node.variant_key is not None or ctx.graph is None:
+        return node
+    variant = ctx.graph.call_variant(node)
+    if variant is None:
+        return node
+    return node.model_copy(update={"variant_key": variant})
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:

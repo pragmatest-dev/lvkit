@@ -37,7 +37,8 @@ A `polyIUse` call records the variant it runs (`VINode.variant_key`, from the
 caller's `IUVI` record); the call imports and calls that variant directly, and
 the polymorphic VI's module holds only its variants. A call that records no
 variant (in the samples, an `iUse` node whose record names the polymorphic VI
-itself) is a gap. Original finding below for context:
+itself) runs the one variant whose connector pane equals the types it records
+(`call_variant`), else is a gap. Original finding below for context:
 
 Filter 1D Array (I32) still crashes: it calls the Remove Duplicates poly wrapper,
 which dispatches on `isinstance(_vals[0], (list, tuple))` and so picks the FIRST
