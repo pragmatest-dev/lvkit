@@ -191,7 +191,7 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 ```
 
 Prints the diff engine's `ChangeMap` as JSON: `{"changes": [...], "common_nodes":
-N, "frame_pairs": {...}, "before": {...}, "after": {...}}` (`before`/`after` name
+N, "frame_pairs": [...], "before": {...}, "after": {...}}` (`before`/`after` name
 and locate the two VIs) — no other top-level keys. `changes` has one entry per added/removed/
 modified node, wire, structure, constant, FP control/indicator (`kind:
 "terminal"`), or VI-level facet (`kind: "property"`/`"connector_pane"` — the
@@ -211,8 +211,11 @@ is inside as `{"structure": "<uid>", "frame": <position>, "value": ...}` —
 `frame` is the frame's position in its structure (0 for the first), `value`
 the frame's shown value, or a list when it shows several. `[]` means the VI's
 own diagram; `null` means the element is not in that version (an added element
-has no `location_before`, a removed one no `location_after`). `frame_pairs`
-maps each structure (by its uid in the after version) to the frames that are
+has no `location_before`, a removed one no `location_after`). `frame_pairs` is a
+list with one `{"before": "<uid>", "after": "<uid>", "pairs": [...]}` per
+structure matched across the versions (its uid in each version; they differ
+when LabVIEW re-keyed the structure and the diff matched it by its wiring);
+`pairs` lists the frames that are
 the same frame in both versions, as `[before position, after position]` —
 matched by value, then by contents; an added or removed frame has no pair. **VI health is never diffed** — it's
 an emergent characteristic, not an authored change (`describe`/the index

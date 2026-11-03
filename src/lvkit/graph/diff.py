@@ -187,6 +187,19 @@ class ElementChange:
     structure_uid: str | None = None
 
 
+@dataclass(frozen=True)
+class FramePairs:
+    """The frames of one structure that are the same frame in both versions:
+    the structure's uid in each version (they differ when LabVIEW re-keyed it
+    and the diff matched it by dataflow) and every pair as ``(before position,
+    after position)`` -- matched by value, then by content
+    (``_struct_frame_changes``). An added or removed frame has no pair."""
+
+    before: str
+    after: str
+    pairs: list[tuple[int, int]]
+
+
 @dataclass
 class ChangeMap:
     """UID-keyed change-map — the single source of truth for the visual overlay
@@ -197,12 +210,10 @@ class ChangeMap:
 
     changes: list[ElementChange] = field(default_factory=list)
     common_node_uids: list[str] = field(default_factory=list)
-    # For each frame-bearing structure matched across the versions (keyed by
-    # its after-side uid): the frames that are the same frame, as
-    # ``(before position, after position)`` -- matched by value, then by
-    # content (``_struct_frame_changes``). An added or removed frame has no
-    # pair. The viewer moves the other pane to a frame's partner with these.
-    frame_pairs: dict[str, list[tuple[int, int]]] = field(default_factory=dict)
+    # One ``FramePairs`` per frame-bearing structure matched across the
+    # versions, in after-uid order. The viewer moves the other pane to a
+    # frame's partner with these.
+    frame_pairs: list[FramePairs] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         def _poly(pts: list[Point] | None) -> list[list[float]] | None:
@@ -236,10 +247,14 @@ class ChangeMap:
                 for c in self.changes
             ],
             "common_nodes": len(self.common_node_uids),
-            "frame_pairs": {
-                uid: [list(pair) for pair in pairs]
-                for uid, pairs in sorted(self.frame_pairs.items(), key=_uid_sort_item)
-            },
+            "frame_pairs": [
+                {
+                    "before": fp.before,
+                    "after": fp.after,
+                    "pairs": [list(pair) for pair in fp.pairs],
+                }
+                for fp in self.frame_pairs
+            ],
         }
 
 
@@ -275,11 +290,6 @@ def _frames_of(op: AnyGraphNode) -> Sequence[Frame] | None:
 
 def _uid_sort(uid: str) -> tuple[int, object]:
     return (0, int(uid)) if uid.isdigit() else (1, uid)
-
-
-def _uid_sort_item(item: tuple[str, object]) -> tuple[int, object]:
-    """``_uid_sort`` of a ``(uid, value)`` item."""
-    return _uid_sort(item[0])
 
 
 def _struct_label(op: AnyGraphNode) -> str:
@@ -2498,7 +2508,10 @@ def diff_uid(
         )
         cmap.changes.extend(frame_changes)
         if frame_pairs:
-            cmap.frame_pairs[uid_of(entry_b.op.id)] = frame_pairs
+            cmap.frame_pairs.append(
+                FramePairs(uid_of(entry_a.op.id), uid_of(entry_b.op.id), frame_pairs)
+            )
+    cmap.frame_pairs.sort(key=lambda fp: _uid_sort(fp.after))
 
     # Border-terminal changes on every matched structure (loops included): a
     # tunnel turned shift register, indexing toggled, a tunnel added/removed —
@@ -2657,21 +2670,22 @@ _CONST_GLYPH = "○"
 
 
 def _segments(
-    c: ElementChange, before_to_after: dict[str, dict[int, int]]
+    c: ElementChange, before_to_after: dict[str, tuple[str, dict[int, int]]]
 ) -> tuple[Segment, ...]:
     """The frames ``c`` sits in, as tree segments — the containment chain
     ``_netlist_diff`` recurses by, for every change kind (node/wire/structure/
     frame/value) alike. A change is placed by its after location; a removed one
-    by its before location, each frame moved to its after partner
-    (``ChangeMap.frame_pairs``) when it has one. ``()`` on the VI's own
-    diagram."""
+    by its before location, each frame moved to its after structure and partner
+    frame (``ChangeMap.frame_pairs``, keyed by the before uid) when it has one.
+    ``()`` on the VI's own diagram."""
     if c.location_after is not None:
         return tuple((s.structure, "after", s.frame) for s in c.location_after)
     segs: list[Segment] = []
     for s in c.location_before or ():
-        partner = before_to_after.get(s.structure, {}).get(s.frame)
+        after_uid, pairs = before_to_after.get(s.structure, (s.structure, {}))
+        partner = pairs.get(s.frame)
         segs.append(
-            (s.structure, "after", partner)
+            (after_uid, "after", partner)
             if partner is not None
             else (s.structure, "before", s.frame)
         )
@@ -2904,7 +2918,7 @@ def _netlist_diff(
     elems = [c for c in cmap.changes if c.kind in _TREE_KINDS]
     frame_elems = [c for c in cmap.changes if c.kind in _FRAME_KINDS]
     before_to_after = {
-        uid: {pa: pb for pa, pb in pairs} for uid, pairs in cmap.frame_pairs.items()
+        fp.before: (fp.after, dict(fp.pairs)) for fp in cmap.frame_pairs
     }
     by_path: dict[tuple[Segment, ...], list[ElementChange]] = {}
     for c in elems:

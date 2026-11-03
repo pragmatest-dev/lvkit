@@ -63,6 +63,9 @@ _DIFF_STEPS_JS = """
   setFrame('600', '1', true); out.pickBefore1=lvkitSnap();
   setFrame('600', '0', false); out.pickAfterAdded=lvkitSnap();
   stepFrame(afterPane, '600', 1); out.stepAfter=lvkitSnap();
+  setFrame('600', '1', true);
+  setFrame('650', '0', true); out.nestedBefore=lvkitSnap();
+  setFrame('655', '1', false); out.nestedAfter=lvkitSnap();
   jump(CHANGES.findIndex(c=>c.uid==='680')); out.reveal=lvkitSnap();
   lvkitReport(out);
 })();
@@ -114,7 +117,7 @@ def steps(tmp_path_factory: pytest.TempPathFactory) -> dict:
 
 def test_the_panes_open_on_their_first_frames(steps: dict) -> None:
     assert steps["initial"]["before"] == {"600": "0", "650": "0"}
-    assert steps["initial"]["after"] == {"600": "0", "650": "0"}
+    assert steps["initial"]["after"] == {"600": "0", "655": "0"}
     assert steps["optionValue"] == "0"
 
 
@@ -146,11 +149,22 @@ def test_an_added_frame_leaves_the_other_pane_where_it_is(steps: dict) -> None:
     assert steps["stepAfter"]["before"]["600"] == "0"
 
 
+def test_a_re_keyed_structure_syncs_both_ways(steps: dict) -> None:
+    # The nested case is 650 in the before version and 655 in the after
+    # version; the diff matched it, so each pane addresses it by its own uid.
+    assert steps["nestedBefore"]["before"]["650"] == "0"
+    assert steps["nestedBefore"]["after"]["655"] == "0"
+    assert steps["nestedAfter"]["after"]["655"] == "1"
+    assert steps["nestedAfter"]["before"]["650"] == "1"
+    assert "7" in steps["nestedBefore"]["afterLabels"]
+    assert "8" in steps["nestedAfter"]["beforeLabels"]
+
+
 def test_revealing_a_change_in_a_nested_case_opens_both_panes(steps: dict) -> None:
     reveal = steps["reveal"]
-    assert (reveal["after"]["600"], reveal["after"]["650"]) == ("2", "1")
+    assert (reveal["after"]["600"], reveal["after"]["655"]) == ("2", "1")
     assert (reveal["before"]["600"], reveal["before"]["650"]) == ("1", "1")
-    assert "600:2;650:1" in reveal["afterShown"]
+    assert "600:2;655:1" in reveal["afterShown"]
     assert "600:1;650:1" in reveal["beforeShown"]
     assert {"3", "8"} <= set(reveal["afterLabels"])
     assert {"2", "8"} <= set(reveal["beforeLabels"])

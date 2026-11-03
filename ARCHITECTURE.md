@@ -406,7 +406,10 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   `_struct_frame_changes` matches frames ACROSS versions by value (`_frame_key`,
   plus an occurrence number so two same-valued frames still pair in order), then
   by contents, and returns every pair as `(before position, after position)`:
-  `ChangeMap.frame_pairs`, keyed by the after-side structure uid. Constants are
+  `ChangeMap.frame_pairs`, one `FramePairs` (the structure's before and after
+  uid -- they differ when the diff matched a re-keyed structure by dataflow --
+  and its pairs) per matched structure; the viewer addresses each pane by that
+  pane's uid. Constants are
   matched across versions by location VALUE (`_by_value`), never position. The
   viewer (`render/templates/diff_viewer.html`: `setFrame`/`partner`/
   `sideLocation`/`revealFrame`, deep link `#frame=uid:pos`) moves the other pane

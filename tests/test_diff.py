@@ -11,6 +11,7 @@ import pytest
 
 from lvkit.graph.core import InMemoryVIGraph, _node_order_key
 from lvkit.graph.diff import (
+    FramePairs,
     FrameStep,
     diff_to_dict,
     diff_uid,
@@ -738,7 +739,7 @@ class TestFrameSetChanges:
         )
         assert value_by_uid.location_before == (FrameStep("500", 2, ("2",)),)
         # Frames 1 and 2 of the before version are frames 0 and 1 after.
-        assert cmap.frame_pairs == {"500": [(1, 0), (2, 1)]}
+        assert cmap.frame_pairs == [FramePairs("500", "500", [(1, 0), (2, 1)])]
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
         case_a = CaseStructureNode(
@@ -818,7 +819,7 @@ class TestFrameSetChanges:
         # drives each pane from its own side so both reveal the frame.
         assert c.location_after == (FrameStep("500", 0, ("0",)),)
         assert c.location_before == (FrameStep("500", 0, ("1",)),)
-        assert cmap.frame_pairs == {"500": [(0, 0)]}
+        assert cmap.frame_pairs == [FramePairs("500", "500", [(0, 0)])]
 
     def test_stacked_sequence_frame_reorder_by_real_uid(self):
         # SequenceFrame DOES get a real, stable uid from the parser (see

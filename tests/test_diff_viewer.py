@@ -385,7 +385,7 @@ class TestPaneRegistrationAndBlendReveal:
         ``FRAME_PAIRS`` (``ChangeMap.frame_pairs``); the behaviour itself is
         driven in a real browser by ``tests/test_diff_viewer_browser.py``."""
         html = self._html()
-        assert "const FRAME_PAIRS = {};" in html
+        assert "const FRAME_PAIRS = [];" in html
 
     def test_zoom_buttons_disable_at_the_limits(self):
         """+ is disabled at ZMAX; − is disabled at the dynamic fit-both floor

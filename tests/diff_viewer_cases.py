@@ -1,8 +1,10 @@
 """Two versions of a handmade VI for driving the diff viewer: a case structure
 (uid 600) whose before version has frames ``1`` and ``2`` and whose after
 version gains a frame ``5`` in front and renames ``2`` to ``3`` (same
-contents); frame ``2``/``3`` holds a nested case (uid 650) whose frame ``8``
-gains a Random Number (uid 680) in the after version."""
+contents). Frame ``2``/``3`` holds a nested case whose selector the frame's
+Tick Count (uid 510) feeds; LabVIEW re-keyed it (uid 650 before, 655 after),
+so the diff matches it by that wiring. Its frame ``8`` gains a Random Number
+(uid 680) in the after version."""
 
 from __future__ import annotations
 
@@ -19,6 +21,8 @@ class Case:
     left: int
     frames: list[tuple[int, list[tuple[int, int]]]]  # (value, [(uid, prim id)])
     nested: dict[int, Case] = field(default_factory=dict)  # frame position -> case
+    # The node whose output feeds the selector, or None for an unwired one.
+    selector_source: int | None = None
 
 
 def _prim(uid: int, prim_id: int, top: int, left: int) -> str:
@@ -78,21 +82,44 @@ def _case(case: Case) -> str:
 </SL__arrayElement>"""
 
 
+def _wires(case: Case) -> list[tuple[str, str]]:
+    """Every (source terminal, sink terminal) wire of ``case`` and its nested
+    cases."""
+    own = (
+        [(f"{case.selector_source}1", f"{case.uid}1")]
+        if case.selector_source is not None
+        else []
+    )
+    return [*own, *(w for nested in case.nested.values() for w in _wires(nested))]
+
+
 def bd_xml(case: Case) -> str:
+    wires = _wires(case)
+    signals = "".join(
+        f"""
+<SL__arrayElement class="signal" uid="{900 + i}">
+  <termList elements="2">
+    <SL__arrayElement uid="{src}" /><SL__arrayElement uid="{dst}" />
+  </termList>
+</SL__arrayElement>"""
+        for i, (src, dst) in enumerate(wires)
+    )
     return f"""<?xml version='1.0' encoding='utf-8'?>
 <SL__rootObject class="oHExt" uid="1">
   <root class="diag" uid="2">
     <zPlaneList elements="1">{_case(case)}</zPlaneList>
     <nodeList elements="1"><SL__arrayElement uid="{case.uid}" /></nodeList>
-    <signalList elements="0" />
+    <signalList elements="{len(wires)}">{signals}</signalList>
   </root>
 </SL__rootObject>
 """
 
 
-def _nested(*, added: bool) -> Case:
+def _nested(uid: int, *, added: bool) -> Case:
     frame_8 = [(670, TICK), *([(680, RANDOM)] if added else [])]
-    return Case(650, 120, 140, [(7, [(660, RANDOM)]), (8, frame_8)])
+    return Case(
+        uid, 120, 140, [(7, [(660, RANDOM)]), (8, frame_8)], selector_source=510
+    )
 
 
 BEFORE = Case(
@@ -100,14 +127,14 @@ BEFORE = Case(
     60,
     100,
     [(1, [(500, RANDOM)]), (2, [(510, TICK)])],
-    {1: _nested(added=False)},
+    {1: _nested(650, added=False)},
 )
 AFTER = Case(
     600,
     60,
     100,
     [(5, [(520, TICK)]), (1, [(500, RANDOM)]), (3, [(510, TICK)])],
-    {2: _nested(added=True)},
+    {2: _nested(655, added=True)},
 )
 
 

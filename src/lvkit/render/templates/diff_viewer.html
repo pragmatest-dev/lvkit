@@ -466,8 +466,9 @@ __THEME_SCRIPT__
 
 <script>
 const CHANGES = __CHANGES__;
-// diff.py's ChangeMap.frame_pairs: after-side structure uid -> [[before position,
-// after position], ...], the frames that are the same frame in both versions.
+// diff.py's ChangeMap.frame_pairs: one {before: uid, after: uid, pairs: [[before
+// position, after position], ...]} per structure matched across the versions
+// (its uid can differ between them) -- the frames that are the same frame.
 const FRAME_PAIRS = __FRAME_PAIRS__;
 // Structured netlist-diff rows (diff.py's NetlistDiffRow, JSON via
 // rows_to_json()) -- the SAME rows format_diff renders to text, so the Tree
@@ -1621,17 +1622,22 @@ function frameLabel(pane, u, pos){
 }
 function applyFrames(){ applyPane(beforePane); applyPane(afterPane); updateParkState(); }
 
-// The frame pairing, both ways: struct uid -> {position: partner position}.
+// The frame pairing, both ways: a structure's uid in one pane -> {uid: its uid
+// in the other pane, frames: {position: partner position}}.
 const PAIR_B2A={}, PAIR_A2B={};
-Object.keys(FRAME_PAIRS).forEach(u=>FRAME_PAIRS[u].forEach(([b,a])=>{
-  (PAIR_B2A[u]=PAIR_B2A[u]||{})[String(b)]=String(a);
-  (PAIR_A2B[u]=PAIR_A2B[u]||{})[String(a)]=String(b);
-}));
-// The other pane's frame of `u` that is the same frame as `pos` in the pane
-// `fromBefore` names; undefined when it has none (an added or removed frame).
+FRAME_PAIRS.forEach(fp=>{
+  const b2a={}, a2b={};
+  fp.pairs.forEach(([b,a])=>{ b2a[String(b)]=String(a); a2b[String(a)]=String(b); });
+  PAIR_B2A[fp.before]={uid:fp.after, frames:b2a};
+  PAIR_A2B[fp.after]={uid:fp.before, frames:a2b};
+});
+// The other pane's frame that is the same frame as `pos` of structure `u` in the
+// pane `fromBefore` names, as {uid, pos} (the structure's uid can differ between
+// the versions); undefined when it has none (an added or removed frame).
 function partner(u, pos, fromBefore){
   const m=(fromBefore?PAIR_B2A:PAIR_A2B)[u];
-  return m ? m[String(pos)] : undefined;
+  const p=m ? m.frames[String(pos)] : undefined;
+  return p===undefined ? undefined : {uid:m.uid, pos:p};
 }
 // Show frame `pos` of structure `u` in the pane it was picked in (`fromBefore`)
 // and its partner in the other pane, which keeps its selection when the frame
@@ -1640,7 +1646,7 @@ function setFrame(u, pos, fromBefore){
   const own=fromBefore?PST.before:PST.after, other=fromBefore?PST.after:PST.before;
   if(own.toggleable.has(u)) own.sel[u]=String(pos);
   const p=partner(u, pos, fromBefore);
-  if(p!==undefined && other.toggleable.has(u)) other.sel[u]=p;
+  if(p!==undefined && other.toggleable.has(p.uid)) other.sel[p.uid]=p.pos;
   applyFrames();
 }
 function stepFrame(pane, u, dir){
@@ -1660,7 +1666,7 @@ function sideLocation(c, isBefore){
   for(const s of other){
     const p=partner(s.structure, s.frame, !isBefore);
     if(p===undefined) break;
-    out.push({structure:s.structure, frame:+p, value:s.value});
+    out.push({structure:p.uid, frame:+p.pos, value:s.value});
   }
   return out;
 }
@@ -1818,9 +1824,15 @@ function decorateMenus(){
   [beforePane,afterPane].forEach(pane=>{
     CHANGES.forEach(c=>{
       if(!c.container_uid || selfAddRem.has(String(c.container_uid))) return;
+      // The change's innermost frame must be its container's own frame (its own
+      // side names the container's uid); in each pane, that frame is the leaf
+      // of the pane's side of its location, wherever the frame sits there.
+      const own=ownLocation(c);
+      const ownLeaf=own && own.length ? own[own.length-1] : null;
+      if(!ownLeaf || String(ownLeaf.structure)!==String(c.container_uid)) return;
       const loc=sideLocation(c, pane===beforePane);
-      const leaf=loc && loc.length ? loc[loc.length-1] : null;
-      if(!leaf || String(leaf.structure)!==String(c.container_uid)) return;
+      if(!loc || loc.length!==own.length) return;   // no partner frame in this pane
+      const leaf=loc[loc.length-1];
       const uid=leaf.structure, cls=c.change;
       const opt=pane.querySelector(
         '.lv-menu[data-lv-struct="'+uid+'"] .lv-option[data-lv-value="'+leaf.frame+'"]');

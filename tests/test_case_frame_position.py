@@ -494,7 +494,9 @@ def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
     assert change["location_before"] == [
         {"structure": "600", "frame": 1, "value": "1"}
     ]
-    assert data["frame_pairs"] == {"600": [[0, 0], [1, 1]]}
+    assert data["frame_pairs"] == [
+        {"before": "600", "after": "600", "pairs": [[0, 0], [1, 1]]}
+    ]
 
 
 def test_frames_with_their_own_values_are_no_problem(tmp_path: Path) -> None:
@@ -583,9 +585,12 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
     assert body is not None
     data = json.loads(body.body)
     # Before frames "1", "2" are after frames "1" (moved to position 1 by the
-    # new frame "5") and "3" (renamed, same contents); the nested case's
-    # frames keep their places.
-    assert data["frame_pairs"] == {"600": [[0, 1], [1, 2]], "650": [[0, 0], [1, 1]]}
+    # new frame "5") and "3" (renamed, same contents); the nested case, re-keyed
+    # 650 -> 655 and matched by the wire into its selector, keeps its frames.
+    assert data["frame_pairs"] == [
+        {"before": "600", "after": "600", "pairs": [[0, 1], [1, 2]]},
+        {"before": "650", "after": "655", "pairs": [[0, 0], [1, 1]]},
+    ]
     located = {
         (c["uid"], c["change"]): (c["location_before"], c["location_after"])
         for c in data["changes"]
@@ -601,7 +606,7 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
             None,
             [
                 {"structure": "600", "frame": 2, "value": "3"},
-                {"structure": "650", "frame": 1, "value": "8"},
+                {"structure": "655", "frame": 1, "value": "8"},
             ],
         ),
     }
@@ -612,7 +617,7 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
         '+   "5":',
         "+     Tick Count (ms)#1() -> millisecond_timer_value",
         '~   "3": 2 -> 3',
-        "      case:",
+        "      case (Tick Count (ms)#2.millisecond_timer_value):",
         '        "8":',
         "+         Random Number (0-1)#3() -> number",
     ]
