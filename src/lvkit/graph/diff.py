@@ -55,7 +55,14 @@ from .op_walk import (
     _selector_label,
     _terminal_display_name,
 )
-from .operations import frame_key, frame_token, frame_tokens
+from .operations import (
+    frame_key,
+    frame_token,
+    frame_tokens,
+    structure_frames,
+    token_of,
+    token_position,
+)
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -360,10 +367,8 @@ def _frame_token(op: AnyGraphNode, frame: Frame) -> str:
     ``operations.frame_tokens``, the same token render/scene.py writes into the
     SVG ``data-path``, so diff frame paths correlate with it. It is the frame's
     selector value or index, made unique within the structure when two frames
-    show the same value. ``frame`` is found in ``op``'s frames by identity."""
-    frames = _frames_of(op) or []
-    tokens = frame_tokens(frames)
-    return next(t for t, f in zip(tokens, frames, strict=True) if f is frame)
+    show the same value (``operations.token_of``)."""
+    return token_of(_frames_of(op) or [], frame)
 
 
 def _collect_elements(
@@ -2870,23 +2875,33 @@ def _netlist_diff(
         struct_c = next((c for c in elems if c.uid == uid), None)
         return struct_c.label if struct_c is not None else uid
 
-    def frame_label(struct_uid: str, value: str) -> str:
-        """The faithful DISPLAY text for one case/disable frame, keyed by its
-        RAW selector value (``value`` -- the same token ``_extend_frame_path``
-        bakes into ``frame_path``/the SVG ``data-path``, so identity stays
-        stable regardless of display label). Looked up from whichever side's
-        netlist has this structure -- both sides carry the SAME label for an
-        unchanged frame; an added/removed frame only exists on one side.
-        Falls back to the raw value (never crashes) if neither side's
-        ``NetlistScope`` has it, e.g. a stale/mismatched uid."""
-        for scopes in (scope_b, scope_a):
+    def frame_position(struct_uid: str, token: str) -> tuple[NetlistScope, int] | None:
+        """The netlist scope of ``struct_uid`` and the position in its frames
+        of the frame whose token (``operations.frame_tokens``, the one
+        ``_extend_frame_path`` bakes into ``frame_path``/the SVG ``data-path``)
+        is ``token``, from whichever side has the structure (head first). The
+        netlist lists a structure's frames in the graph's frame order."""
+        for graph, vi, scopes in ((graph_b, vb, scope_b), (graph_a, va, scope_a)):
             scope = scopes.get(struct_uid)
-            if scope is None:
+            node = graph.get_graph_node(f"{vi}::{struct_uid}")
+            if scope is None or node is None:
                 continue
-            for frame in scope.frames:
-                if frame.value == value:
-                    return frame.label
-        return value
+            position = token_position(structure_frames(node), token)
+            if position is not None and position < len(scope.frames):
+                return scope, position
+        return None
+
+    def frame_label(struct_uid: str, token: str) -> str:
+        """The faithful DISPLAY text for one frame, keyed by its token: the
+        frame's own netlist label (both sides carry the SAME label for an
+        unchanged frame; an added/removed frame only exists on one side).
+        Falls back to the token (never crashes) if neither side has it, e.g. a
+        stale/mismatched uid."""
+        found = frame_position(struct_uid, token)
+        if found is None:
+            return token
+        scope, position = found
+        return scope.frames[position].label
 
     def wire_content(c: ElementChange, siblings: list[ElementChange]) -> str | None:
         """ASCII connectivity line for a standalone wire change, or ``None``
@@ -2925,14 +2940,14 @@ def _netlist_diff(
         return sorted(uids, key=_sort_key)
 
     def _frame_order(struct_uid: str) -> dict[str, int]:
-        """VALUE -> position map for a structure's frames, in the VI's own
-        frame order (from whichever side's ``NetlistScope`` has it). Independent
-        of which frames happen to carry changes, so ordering ``values_of`` by it
-        stays stable under ``_reorder_by_tree`` re-runs."""
-        for scopes in (scope_b, scope_a):
-            scope = scopes.get(struct_uid)
-            if scope is not None:
-                return {f.value: i for i, f in enumerate(scope.frames)}
+        """Token -> position map for a structure's frames, in the VI's own
+        frame order (from whichever side's graph has it, head first).
+        Independent of which frames happen to carry changes, so ordering
+        ``values_of`` by it stays stable under ``_reorder_by_tree`` re-runs."""
+        for graph, vi in ((graph_b, vb), (graph_a, va)):
+            frames = structure_frames(graph.get_graph_node(f"{vi}::{struct_uid}"))
+            if frames:
+                return {t: i for i, t in enumerate(frame_tokens(frames))}
         return {}
 
     def values_of(path: tuple[Segment, ...], struct_uid: str) -> list[str]:

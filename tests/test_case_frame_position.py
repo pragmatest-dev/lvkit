@@ -7,19 +7,28 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
+from lvkit.graph.diff import diff_to_dict, format_diff
+from lvkit.graph.load_problems import repeated_frame_problems
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import CaseStructureNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.netlist_json import netlist_to_dict
 from lvkit.graph.render_lvnet import render_lvnet
+from lvkit.load_mode import LoadMode
 from lvkit.models import CaseFrame
 from lvkit.parser.models import ParsedCaseStructure, SelectorKind, SelectorTable
 from lvkit.parser.nodes.case import _apply_one_table
+from lvkit.parser.vi import parse_vi
+from lvkit.pipeline import generate_python
 from lvkit.render import render_vi
+from lvkit.run_report import EXIT_PARTIAL, ProblemKind, ProblemStage, RunReport
+from tests.test_disable_graph import _BD_XML as _DISABLE_BD_XML
 from tests.test_lvnet_identity import _assert_graph_identity
 
 # Frame 0 waits for a Random Number (0-1), frame 1 for a Tick Count (ms); a
@@ -388,6 +397,93 @@ def test_render_names_frames_by_their_values_when_they_differ(
         "600=2": [_TICK, _WAIT_1],
     }
     assert 'data-lv-frames="1;2"' in svg
+
+
+_REPEATED = (
+    'case structure 600 has two frames for "1"; lvkit could not read their values'
+)
+
+
+def test_two_frames_for_one_value_is_one_load_problem(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path, second_value=1)
+    (problem,) = graph.problems()
+    assert (problem.stage, problem.kind, problem.reason) == (
+        ProblemStage.LOAD,
+        ProblemKind.VALUE_NOT_READ,
+        _REPEATED,
+    )
+    assert problem.line == (
+        f"warning: {graph.vi_label(tmp_path / 'SameName_BDHb.xml')}: load: {_REPEATED}"
+    )
+    assert not problem.is_note
+    assert RunReport.of(graph.problems()).exit_code() == EXIT_PARTIAL
+
+
+def test_generate_with_a_load_problem_says_partial(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bd_xml = tmp_path / "SameName_BDHb.xml"
+    bd_xml.write_text(_bd_xml(1))
+    generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE)
+    out = capsys.readouterr().out
+    assert (
+        "Partial: 1 VIs generated, 0 with gaps (0 gaps), 1 other problem(s) "
+        "— see warnings"
+    ) in out
+    assert "Complete:" not in out
+
+
+def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
+    graphs = []
+    for side in ("before", "after"):
+        bd_xml = tmp_path / side / "SameName_BDHb.xml"
+        bd_xml.parent.mkdir()
+        text = _bd_xml(1)
+        if side == "after":  # the second frame's Wait (ms) is deleted
+            start = text.index(f'<SL__arrayElement class="prim" uid="{_WAIT_1}">')
+            end = text.index("</SL__arrayElement>", text.index("<bounds>", start))
+            text = text[:start] + text[end + len("</SL__arrayElement>") :]
+        bd_xml.write_text(text)
+        graph = InMemoryVIGraph()
+        graph.load_vi(bd_xml)
+        graphs.append((graph, graph.list_vis()[0]))
+    (graph_a, vi_a), (graph_b, vi_b) = graphs
+    assert format_diff(graph_a, graph_b, vi_a, vi_b).splitlines()[:3] == [
+        "  case (Random Number (0-1)#1.number):",
+        '    "1":',
+        "-     Wait (ms)#2(milliseconds_to_wait="
+        "Tick Count (ms).millisecond_timer_value)"
+        " -> millisecond_timer_value",
+    ]
+    (change,) = diff_to_dict(graph_a, graph_b, vi_a, vi_b)["changes"]
+    # The frame path addresses the frame for the viewer; the label is shown.
+    assert (change["uid"], change["label"], change["frame_path"]) == (
+        _WAIT_1,
+        "Wait (ms)",
+        "600=1#1",
+    )
+
+
+def test_frames_with_their_own_values_are_no_problem(tmp_path: Path) -> None:
+    graph, _ = _load(tmp_path, second_value=2)
+    assert graph.problems() == []
+
+
+def test_two_disable_frames_for_one_value_name_the_disable_structure(
+    tmp_path: Path,
+) -> None:
+    bd_xml = tmp_path / "Disable_BDHb.xml"
+    bd_xml.write_text(_DISABLE_BD_XML)
+    bd = parse_vi(bd_xml=bd_xml).block_diagram
+    (disable,) = bd.disable_structures
+    assert repeated_frame_problems(bd, "Disable.vi") == []
+    for frame in disable.frames:
+        frame.selector_value = "Enabled"
+    (problem,) = repeated_frame_problems(bd, "Disable.vi")
+    assert problem.reason == (
+        'Diagram Disable structure 100 has two frames for "Enabled"; '
+        "lvkit could not read their values"
+    )
 
 
 def _error_case() -> ParsedCaseStructure:

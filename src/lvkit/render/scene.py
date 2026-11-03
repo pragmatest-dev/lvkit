@@ -29,9 +29,13 @@ from ..graph.models import (
     WireEnd,
 )
 from ..graph.op_walk import _selector_label
-from ..graph.operations import frame_token, frame_tokens, structure_frames
+from ..graph.operations import (
+    frame_token,
+    frame_tokens,
+    structure_frames,
+    token_of,
+)
 from ..models import (
-    CaseFrame,
     FPTerminal,
     LVType,
     LVTypeKind,
@@ -382,11 +386,6 @@ def _frame_token(
     return frame_token(structure_frames(struct), item.frame)
 
 
-def _token_of(frames: list[CaseFrame], tokens: list[str], frame: CaseFrame) -> str:
-    """The token (``tokens``, by position in ``frames``) of ``frame`` itself."""
-    return next(t for t, f in zip(tokens, frames, strict=True) if f is frame)
-
-
 def _fp_terminal_frame_path(
     t: FPTerminal,
     by_id: dict[str, AnyGraphNode],
@@ -522,7 +521,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = _token_of(node.frames, tokens, shown)
+            default_frame[raw] = token_of(node.frames, shown)
             frame_labels[raw] = {
                 token: _selector_label(f, lv_type, is_error)
                 for token, f in zip(tokens, node.frames, strict=True)
@@ -571,7 +570,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = _token_of(node.frames, tokens, shown)
+            default_frame[raw] = token_of(node.frames, shown)
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"

@@ -68,6 +68,10 @@ class ProblemKind(str, Enum):
     GAP = "gap"
     # The VI's module could not be written (it has no file and no recorded path).
     UNWRITABLE = "unwritable"
+    # lvkit read the VI but not a value it stores: two frames of one case or
+    # Diagram Disable structure show one value. The VI is read and every view
+    # shows it; those frames show the value lvkit read.
+    VALUE_NOT_READ = "value not read"
     # A dependency was not at the path its caller records, and was loaded from
     # the VI search path instead (LabVIEW warns of the same). A note, not a
     # problem: the run is still complete (``Problem.is_note``).

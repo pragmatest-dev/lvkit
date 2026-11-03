@@ -396,11 +396,25 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   selector (`render/scene.py:_frame_info`, `_frame_token`) and diff's frame
   paths (`graph/diff.py:_frame_token`) use: the shown value, with `#<position>`
   added to a frame that repeats an earlier frame's value (`"1"`, `"1#1"`), so
-  unique names render unchanged. `graph.diff` still matches frames ACROSS two
-  versions by that token (`_frame_key`), i.e. by name. In the netlist, every
-  per-frame drive (`GammaCase`, `FrameOutputDrive`, `SequenceLocalDrive`,
-  `SequenceLocalUnreadable`) carries its frame's `position` in the scope's
-  `frames`; `lvnet_drives.frame_drives` matches on it, never on the label.
+  unique names render unchanged. The token is an internal key only (SVG
+  `data-path`/`data-lv-frames`/`data-lv-value`, diff `frame_path` and `~` frame
+  keys); what a person sees is the frame's own label (the render's selector and
+  menu from `frame_labels`, the diff text tree's `frame_label` via
+  `token_position`, the diff viewer's `frameLabel` from the menu option text).
+  `token_of(frames, frame)` finds a frame's token by identity. `graph.diff`
+  still matches frames ACROSS two versions by that token (`_frame_key`), i.e. by
+  name. In the netlist, every per-frame drive (`GammaCase`, `FrameOutputDrive`,
+  `SequenceLocalDrive`, `SequenceLocalUnreadable`) carries its frame's
+  `position` in the scope's `frames`; `lvnet_drives.frame_drives` matches on
+  it, never on the label.
+- **Two frames for one value is a reading problem on the VI.** LabVIEW gives
+  each frame of a case or Diagram Disable structure its own value, so when the
+  parsed structure has two frames showing one value, `load_vi`
+  (`graph/loading.py`, next to the unlabeled-control notes) records one
+  `ProblemKind.VALUE_NOT_READ` problem per repeated value at stage `load`
+  (`graph/load_problems.py:repeated_frame_problems`); every command's run
+  report then ends Partial (exit 3). Nothing is dropped: both frames keep
+  their own nodes in every view.
 
 **Why:** The user re-derived this hard under pressure while reviewing the #35/#39
 render-tree plan — first "z-order is a draw concern, keep it out of the graph,"
