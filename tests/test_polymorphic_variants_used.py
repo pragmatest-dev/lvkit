@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import pipeline
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.load_mode import LoadMode
@@ -165,3 +166,23 @@ def test_a_polymorphic_call_resolves_to_the_variant_its_record_names(
     assert graph.poly_call_choices() == {
         key("wrap.vi"): {key("main.vi"): {key("One/array.vi")}}
     }
+
+
+def test_a_variants_module_level_code_is_kept_and_paths_are_project_relative(
+    poly: _Tree, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A variant's module-level statements (a stored-state global, Call Library
+    Function code) go into the polymorphic module with its function, and the
+    wrapper's docstring names the VI by its project-relative path."""
+    real = pipeline.build_module
+
+    def with_state(*args: object, **kwargs: object) -> str:
+        return real(*args, **kwargs) + "\n_lv_state_kept = None\n"  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pipeline, "build_module", with_state)
+    out = tmp_path / "gen"
+    generate_python(poly.root / "main.vi", out)
+    source = next(out.rglob("wrap.py")).read_text()
+    assert "_lv_state_kept = None" in source
+    assert str(poly.root) not in source
+    assert "Polymorphic wrapper for " in source
