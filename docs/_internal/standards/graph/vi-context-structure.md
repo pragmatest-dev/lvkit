@@ -24,4 +24,3 @@
 - Values are **dataclasses** from `graph_types.py`, not raw dicts
 - `operations` is already in execution order (topologically sorted)
 - Inner loop/case operations are nested in `Operation.inner_nodes`, not at top level
-- `has_parallel_branches` enables held error model in codegen

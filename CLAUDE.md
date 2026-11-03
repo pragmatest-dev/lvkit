@@ -52,7 +52,7 @@ This is not "try harder." It is a hard gate: unverified → unsaid; unwritten co
 
 ## ⛔ GENERATED PYTHON IS NATIVE PYTHON — NO LABVIEW IN IT (READ THIS FIRST)
 
-The output of `generate` is a Python port, not LabVIEW running in Python. **It is a one-way conversion:** the generated code will never run with LabVIEW or lvkit again, so it is standalone Python. **The generator transliterates.** Each LabVIEW construct maps to Python by one simple, uniform rule that preserves its behaviour exactly: a VI is a multi-output function returning one result object read by name; error wires are values; the connector pane is the signature. Idiomatic Python (single-value returns, exceptions, dropped plumbing) is a later conversion from that base, never a guess the generator makes (maintainer, 2026-11-01). **Every connection is made at generation time and the generated code uses Python's own constructs:** a VI is a function; a subVI call or VI reference is an `import` and a direct call with keyword arguments; Open VI Reference resolved at generation time is an `import`; asynchronous calls are `concurrent.futures`; VI properties are reflection (`ref.__name__`, `inspect.getfile(ref)`); a LabVIEW class is a plain class; a queue is `queue.Queue`; array math is comprehensions/indexing/`len`/slices; flatten and Type Cast are `struct` calls with the types written out; a constant pattern is an `re` pattern; errors are values on the wire, `error_in` in and `error_out` out (`docs/_internal/design/errors-as-values.md`, approved 2026-11-01, being implemented on `feat/errors-as-values`); a call into a DLL is `ctypes` code written out in the module, every parameter packed into the C type the DLL takes the way Python does it (a LabVIEW string/array handle or Adapt to Type cluster is just a C layout: a `ctypes.Structure` and pointers, defined in the generated module); a call to LabVIEW's own functions (`LabVIEW:` FGetInfo …) is the Python equivalent (`os.stat` …).
+The output of `generate` is a Python port, not LabVIEW running in Python. **It is a one-way conversion:** the generated code will never run with LabVIEW or lvkit again, so it is standalone Python. **The generator transliterates.** Each LabVIEW construct maps to Python by one simple, uniform rule that preserves its behaviour exactly: a VI is a multi-output function returning one result object read by name; error wires are values; the connector pane is the signature. Idiomatic Python (single-value returns, exceptions, dropped plumbing) is a later conversion from that base, never a guess the generator makes (maintainer, 2026-11-01). **Every connection is made at generation time and the generated code uses Python's own constructs:** a VI is a function; a subVI call or VI reference is an `import` and a direct call with keyword arguments; Open VI Reference resolved at generation time is an `import`; asynchronous calls are `concurrent.futures`; VI properties are reflection (`ref.__name__`, `inspect.getfile(ref)`); a LabVIEW class is a plain class; a queue is `queue.Queue`; array math is comprehensions/indexing/`len`/slices; flatten and Type Cast are `struct` calls with the types written out; a constant pattern is an `re` pattern; errors are values on the wire, `error_in` in and `error_out` out (`docs/_internal/design/errors-as-values.md`, approved 2026-11-01; "Error Handling Strategy" below); a call into a DLL is `ctypes` code written out in the module, every parameter packed into the C type the DLL takes the way Python does it (a LabVIEW string/array handle or Adapt to Type cluster is just a C layout: a `ctypes.Structure` and pointers, defined in the generated module); a call to LabVIEW's own functions (`LabVIEW:` FGetInfo …) is the Python equivalent (`os.stat` …).
 
 - **The generated package mirrors the project's folder hierarchy.** A VI's module path is its project-relative file path (each folder a package, the file stem the module, one fixed string transform). Paths are unique, so modules are unique: no flat output, no collision numbering. Generated code that computes a VI path at run time imports it with `importlib` by the same transform.
 - **Generated code imports nothing from `lvkit`.** No `lvkit.runtime`, no `lvkit.labview_error`, no `LabVIEWObject`, no `labview_queue`, no registry or table that re-implements LabVIEW at run time. A count of `lvkit` imports in the generated sample corpus only ever goes down.
@@ -121,7 +121,7 @@ The conversion pipeline:
 - `src/lvkit/parser/` — XML → `ParsedVI` dataclasses (nodes, wires, constants, types)
 - `src/lvkit/graph/` — `InMemoryVIGraph`, graph construction, queries, operations
 - `src/lvkit/models.py` — shared type definitions used by parser, graph, and codegen (`LVType`, `Operation`, `Frame`, `Terminal`, `Tunnel`, etc.)
-- `src/lvkit/graph/models.py` — graph/codegen-only types (`GraphNode` hierarchy, `VIContext`, `Wire`, query/info types, `BranchPoint`)
+- `src/lvkit/graph/models.py` — graph/codegen-only types (`GraphNode` hierarchy, `VIContext`, `Wire`, query/info types)
 - `src/lvkit/codegen/builder.py` — `build_module()` entry point for AST generation
 - `src/lvkit/pipeline.py` — orchestrates multi-VI generation
 - `src/lvkit/cli.py` — command-line interface
@@ -145,48 +145,13 @@ python scripts/generate_python.py "path/to/vi_folder/" -o outputs --userlib ".lv
 
 ## Error Handling Strategy
 
-LabVIEW uses error clusters passed through wires. Python uses exceptions. The conversion strategy:
+**Errors are values on the wire, as in LabVIEW** (`docs/_internal/design/errors-as-values.md`, approved 2026-11-01/02). An error cluster is `None` (no error) or a `LabVIEWError` (`status`, `code`, `source`, `message`), generated once into the package (`errors.py`) and imported from there; generated code imports nothing from lvkit.
 
-1. **No error clusters → Natural Python exceptions** - Just let exceptions propagate
-2. **Error clusters + parallel branches → Held error model**
-
-### Held Error Model
-
-When a VI has parallel branches AND error terminals, we use this pattern:
-
-```python
-def my_vi(input_data):
-    _held_error = None  # Track errors from branches
-
-    # Parallel branch 0
-    try:
-        branch_0_result = branch_0_operations()
-    except LabVIEWError as e:
-        _held_error = _held_error or e
-        branch_0_result = None
-
-    # Parallel branch 1
-    try:
-        branch_1_result = branch_1_operations()
-    except LabVIEWError as e:
-        _held_error = _held_error or e
-        branch_1_result = None
-
-    # Merge point - raise first error
-    if _held_error:
-        raise _held_error
-
-    return result
-```
-
-This preserves LabVIEW's semantics where:
-- Branches continue executing even if one errors
-- First error is preserved and raised at merge point
-- All branches get a chance to clean up
-
-`LabVIEWError` is generated once into the package (`errors.py`) and imported from there; generated code imports nothing from lvkit.
-
-Implementation: `src/lvkit/codegen/error_handler.py`. Where try/except goes: `ARCHITECTURE.md` "try/except wrapping goes at Clear/Merge/error-case nodes". Parallel tiers: `src/lvkit/codegen/README.md` "Tiered Topological Sort".
+- A VI with error terminals takes `error_in` and returns its result object with `error_out`. A call passes the error in and the called function decides.
+- A node is skipped when an error occurred on its error in: `if err is None or not err.status:`. A warning (status False, code set) does not skip. Its outputs then take their defaults and its error out is the incoming error (`codegen/error_flow.py`, `guard`). A node NI says runs despite an error runs always, and its error out is the incoming error, else its own (first error wins).
+- A native Python failure becomes the node's error out with the code its catalog entry names, else NI's generic code 42 (`codegen/native_failure.py`). With no error out wired, it stays a Python exception.
+- Error case structures, Merge Errors, Clear Errors, Simple Error Handler, Bundle / Unbundle of an error and a loop stopped on an error all read and write the value. Parallel branches are plain sequential code with their own error variables.
+- Decisions and their sources (Call By Reference's own error terminals, an error cluster wired to a Boolean input, accessors, indicators kept between calls, …): the "Decisions" list in the design doc.
 
 ## Searching for Code in VIs
 

@@ -1830,3 +1830,15 @@ Every link record starts with its name parts then its path (`_read_basic_head`, 
 ## A call's connector pane records an unused position as a `Void` slot
 
 The Function type a call's `<connectorTM>` names lists one child per pane position; a position the called VI does not use is `TypeID` of the `Void` type with `Flags="0x0000"`. Example: DCAF-DAQModule `module/execution/output.vi`, the Function type of `DAQmx Write (Analog 1D DBL NChan 1Samp).vi` (pattern `0x108`, 16 positions): positions 2, 3, 5, 6, 8, 12, 13 and 14 are `TypeID="4"` (`Void`), the others are `task/channels in`, `auto start`, `task out`, `data`, `timeout`, `number of samples written per channel`, `error in` and `error out`.
+
+## "Clear indicators when called" is bit 24 of the VI's second flag word (`ClearIndMask`)
+
+pylabview names it in `VI_FLAGS2` (`LVinstrument.py`): `ClearIndMask = 1 << 24  # Clear charts etc on call. in LV14: Execution -> Clear indicators when called`. Every extracted VI's main XML carries it as the attribute `ClearIndMask="0"` or `"1"` (in `<Execution2>`); lvkit parses it into `ExecutionProps.clear_indicators_when_called` (`parser/metadata.py`, `graph/models.py`). About a dozen distinct corpus VIs set it, among them the icon editor's `lv_icon`. What the flag means for generated code is decision 15 of `errors-as-values.md`.
+
+## A class Property Node row names its property by its project-tree path: folders and item, joined by `:`
+
+The row's `PropItemName` is the virtual folders the property sits in, then its Property Definition item, joined with `:` — `"Accessor:Pin Map Context"` in the measurement-plugin VIs that read Measure Call Context (folder `Accessor`, item `Pin Map Context`), `Customize:Properties:Rate` for a DCAF property nested two folders deep. The class file records the same folders and item (`structure.py:_parse_items`), so lvkit records each property's `accessor_path` in that form and matches a row to its accessor VI by it; `NI.ClassItem.Property.LongName` is the display name.
+
+## "Ignore Errors Inside Node" on a Property Node: not decoded
+
+pylabview names no field for it. A tally of the `objFlags` of every `propNode` in 20,000 extracted block diagrams finds about 35 distinct values that differ in several bits (`0x1000`, `0x10000`, `0x40000`, `0x200000`, `0x400000`, `0x2000000`, `0x8000000`, `0x10000000`), and no node is known to have the option set, so no bit can be tied to it. lvkit generates every Property Node with NI's default (stop at the first row's error).

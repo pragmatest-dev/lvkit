@@ -238,11 +238,11 @@ undiscoverable.
 
 27. **Convert `<pick a VI with a For loop + an auto-indexing tunnel>` to Python — is it behaviorally faithful?**
     - *Answered by:* `/lvkit-convert` — understand via `read_vi`, write Python, verify vs the `lvkit generate` oracle (execute both, diff outputs).
-    - *Watch for:* a manual list-append where the tunnel auto-indexes (should be `enumerate`/indexed); serializing independent branches; ignoring the `N`-terminal iteration cap.
+    - *Watch for:* a manual list-append where the tunnel auto-indexes (should be `enumerate`/indexed); ignoring the `N`-terminal iteration cap.
 
-28. **Convert a VI that has error clusters AND parallel branches — is the held-error model preserved?**
+28. **Convert a VI that has error clusters AND parallel branches — does every branch still run, and does Merge Errors give the first error?**
     - *Answered by:* `/lvkit-convert`.
-    - *Watch for:* one `try/except` around everything (short-circuits branches that still run); dropping the first-error-at-merge semantics.
+    - *Watch for:* one `try/except` around everything (short-circuits branches that still run); a warning treated as an error (it must not skip a node); dropping the first-error-in-input-order semantics of Merge Errors.
 
 29. **Convert a VI whose array wire branches into an in-place-mutating op — does the port avoid the aliasing bug?**
     - *Answered by:* `/lvkit-convert`; execute — mutate one consumer, assert the other's copy is unchanged.

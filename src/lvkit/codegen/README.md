@@ -4,14 +4,14 @@ Deterministic Python code generator for LabVIEW VIs. No LLM — pure dataflow an
 
 ## The Big Idea
 
-LabVIEW is a dataflow language: operations execute when their inputs arrive, independent operations run in parallel. This generator:
+LabVIEW is a dataflow language: operations execute when their inputs arrive. This generator:
 
 1. Builds a **unified graph** of all VIs with typed edges between terminals
-2. Performs **tiered topological sort** to discover natural parallelism
+2. Performs a **tiered topological sort**: each tier's nodes do not depend on each other
 3. Generates **Python AST nodes** directly (not strings), guaranteeing valid syntax
-4. Emits `concurrent.futures.ThreadPoolExecutor` for genuinely parallel operations
+4. Writes each tier's nodes one after another: any order of independent nodes is one LabVIEW could run them in, and errors are values on the wire (`docs/_internal/design/errors-as-values.md`), so a failing branch does not stop the others
 
-The output is working Python that preserves LabVIEW's execution semantics — including parallelism that most "converters" would serialize away.
+The output is working Python that preserves LabVIEW's behaviour. Only Start Asynchronous Call runs code on another thread (`concurrent.futures`).
 
 ## Pipeline
 
@@ -39,13 +39,12 @@ VI file
 │  build_module()                 │  Entry point
 │    → CodeGenContext.from_graph() │  Bind inputs + constants
 │    → generate_body()            │  Walk operations
-│      → topological_sort_tiered()│  Discover parallel tiers
-│      → for each tier:           │
-│          if 1 op: emit directly │
-│          if N ops: ThreadPool   │
-│        → get_codegen(op)        │  Dispatch to handler
+│      → topological_sort_tiered()│  Dependency tiers
+│      → for each node of a tier: │
+│        → nodes.generate(node)   │  Dispatch to handler
 │          → handler.generate()   │  Emit AST nodes
-│    → build_return_stmt()        │  NamedTuple result
+│          → error_flow.guard()   │  Skip on an incoming error
+│    → build_return_stmt()        │  Frozen result dataclass
 │    → build_module_ast()         │  Wrap in module
 │    → optimize_module()          │  Dead code, unused imports
 │    → ast.unparse()              │  AST → Python source
@@ -62,10 +61,12 @@ VI file
 | `ast_utils.py` | Helper functions: `parse_expr()`, `to_var_name()`, `build_assign()` |
 | `ast_optimizer.py` | Post-processing: remove duplicate/unused imports, eliminate dead code |
 | `dataflow.py` | `DataFlowTracer` — trace wires to find producing operations |
-| `error_handler.py` | Held-error model for parallel branches with error clusters |
-| `error_path.py` | Which nodes handle an error wire, and the nodes upstream of it |
+| `error_flow.py` | Errors as values: a node's own error terminals, the guard that skips it on an error, Merge Errors, an input that reads an error cluster's status |
+| `native_failure.py` | A node's Python failure becomes its error out, with the code its catalog entry names |
+| `output_binding.py` | Whether a node's output goes straight into its reader or into a variable |
+| `local_indicators.py` | Indicators held in variables: read by a Local Variable, kept between calls, written inside a frame |
+| `error_path.py` | Which nodes handle an error wire: the vi.lib error VIs a call site generates itself, Merge Errors, the error case selector |
 | `gaps.py` | `Gap`, `catch_gap`: a node that cannot be converted raises `NotImplementedError(<reason>)` where it would run, and is recorded as a gap |
-| `error_wires.py` | `try`/`except` around the code that raises the error a Clear Errors / error case handles |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
 | `package_modules.py` | `PackageModules` — the package-root modules for state VIs share, from graph queries over the package's VIs (`graph/package_queries.py`) |
 | `queue_module.py` | `queues.py`: one `queue.Queue` per constant queue name, plus `by_name` for names computed at run time |
@@ -143,30 +144,18 @@ the node's setup is loaded when the module is imported and a library wired to
 
 ## Tiered Topological Sort
 
-The core insight: LabVIEW operations execute when inputs are ready. Independent operations run in parallel. The tiered sort groups operations by dependency depth:
+LabVIEW operations execute when their inputs are ready. The tiered sort groups operations by dependency depth:
 
 ```
 Tier 0: [Create Task]           ← no dependencies, runs first
 Tier 1: [Add Channel]           ← depends on Create Task
 Tier 2: [Start Task]            ← depends on Add Channel
-Tier 3: [Write, Wait]           ← both depend on Start, independent of each other → PARALLEL
+Tier 3: [Write, Wait]           ← both depend on Start, independent of each other
 Tier 4: [Stop Task]             ← depends on Write
 Tier 5: [Clear Task]            ← depends on Stop
 ```
 
-Single-operation tiers emit sequential code. Multi-operation tiers emit:
-```python
-with concurrent.futures.ThreadPoolExecutor() as _executor:
-    def _branch_0():
-        task.write(False)
-        return task
-    _f0 = _executor.submit(_branch_0)
-
-    def _branch_1():
-        time.sleep(0.5)
-    _executor.submit(_branch_1)
-task = _f0.result()
-```
+Every tier's nodes are written one after another, in a deterministic order. Nodes of one tier do not depend on each other, so this is an order LabVIEW could run them in. Each branch carries its own error value, so a failure on one branch does not stop the other; consecutive nodes skipped on the same error share one `if` (`error_flow.share_guards`).
 
 ## Variable Resolution
 

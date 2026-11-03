@@ -98,29 +98,22 @@ stop_task(task)
 
 The parallelism comes from the graph, not from heuristics. If two operations have no data path between them, they're in the same tier. Period.
 
-## Error Handling: Cluster-to-Exception Translation
+## Error Handling: Errors Stay Values on the Wire
 
-LabVIEW passes error clusters through wires. Python uses exceptions. lvkit translates between the two models based on what the graph actually does with errors:
+LabVIEW passes error clusters through wires, and the generated Python does the same: each VI takes `error_in` and returns `error_out`, a node skips its work when an error came in, and a warning flows on without skipping.
 
-**Error case structures** (case selector wired to an error cluster): lvkit emits only the no-error frame. In the TestCase class, 45 of 47 error-case structures have empty error frames — they just re-wire the cluster. Python's exception propagation handles this naturally.
+**Error case structures** (case selector wired to an error cluster) become `if err is None or not err.status: … else: …`, with every frame's work kept, including an Error frame that cleans up or retries.
 
-**Merge Errors at parallel join points**: When parallel branches can independently fail, lvkit wraps `future.result()` in try/except with a held-error pattern:
+**Merge Errors** is the first error in input order, else the first warning:
 
 ```python
-_held_error = None
-try:
-    result_0 = _f0.result()
-except LabVIEWError as e:
-    _held_error = _held_error or e
-    result_0 = None
-# ... each branch ...
-if _held_error:
-    raise _held_error  # First error wins
+merged_error = next((e for e in (a.error_out, b.error_out) if e is not None and e.status),
+                    next((e for e in (a.error_out, b.error_out) if e is not None), None))
 ```
 
-This preserves LabVIEW's semantics: all branches get to finish, the first error is re-raised at the merge point.
+Each branch carries its own error value, so a failure on one branch never stops another, the same as LabVIEW.
 
-**The placement is graph-driven**, not pattern-matched. lvkit traces error wires backward through the graph to determine scope. Only the operations actually on the error path get wrapped.
+**A Python failure becomes LabVIEW's error code**: a file that is not there is error 7, a queue released while a node waits on it is 1122, and a failure no catalog entry names is 42.
 
 ## Polymorphic VI Resolution
 

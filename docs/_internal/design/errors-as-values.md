@@ -169,12 +169,70 @@ Every commit's diff is reviewed by me (a stronger model than its author).
     → `enable` when its default is TRUE); any other parenthetical, such as a unit,
     stays (`timeout (ms)` → `timeout_ms`). Repeats are numbered
     (`codegen/label_names.py`).
-9. **Open:** class property accessors stay Python properties (`obj.x`,
-   `obj.x = v`; maintainer 2026-11-01: they need not be special method calls
-   as long as they behave like LabVIEW). A LabVIEW class Property Node has
-   error in / error out and the accessor VI runs with them; `obj.x` cannot
-   return an error beside the value. Decide how a property read/write carries
-   its error under this model before step 3 reaches Property Nodes.
+9. **Decided 2026-11-02** (extends the 2026-11-01 note that accessors "need not be
+   special method calls as long as they behave like LabVIEW"; maintainer: "use the
+   accessor selectively… usually it's the exact shape you described"): an accessor
+   stays a Python property (`obj.x`, `obj.x = v`) when every VI of its
+   dynamic-dispatch family has one error behaviour that is either "runs whatever
+   error comes in" or "skips all its work on an error"; a skipping property is
+   guarded at the call (a read gives its default, a write does not happen, error
+   out is the incoming error). Any other accessor (it can produce an error of its
+   own, or the family mixes behaviours) is an ordinary method taking `error_in`
+   and returning its result with `error_out`. The behaviour is read from each
+   VI's diagram (`graph/error_behaviour.py`, `vi_error_behaviour`). Corpus: 25
+   accessor VIs in 7 classes: 14 skip on error, 6 run regardless, 5 can fail.
+   A class Property Node (NI, Property Node page: "The Property Node does not
+   execute if an error occurs before it executes… If an error occurs in a
+   property, LabVIEW ignores the remaining properties and returns an error")
+   resolves each row to its accessor by the property's project-tree path
+   (`folders:…:item`, recorded as `accessor_path`), runs rows top to bottom and
+   skips the rest after a row's error. A Property Node on a class that is not
+   loaded is a gap. **Not read:** "Ignore Errors Inside Node" — pylabview names no
+   field for it, and the Property Node's `objFlags` vary in several bits across
+   the corpus with no node known to set it; every node is generated with NI's
+   default (stop at the first row error).
 7. A later pass that turns a VI back into plain exceptions where provably the
    same (a VI that only passes its error along). **Recommend: decide after step
-   7 reports how many VIs qualify; not part of this change.**
+   7 reports how many VIs qualify; not part of this change.** Step 7 (39 VIs,
+   top VI only): 3 of 38 have no error construct at all; 8 of 38 if the
+   standard panel-fed "skip on error" case structure counts as passing along.
+12. **Decided 2026-11-02:** Call By Reference and Start Asynchronous Call have
+    their own error in and error out (frame terminals -3 / -4) beside the called
+    VI's connector pane, whose error terminals (if its pane has any) are ordinary
+    parameters and results of the call. An error on the node's own error in skips
+    the call and passes through. The node's own error out reports a call that
+    could not be made: a reference only known at run time that is Not a Refnum
+    gives error 1026, "VI Reference is invalid." (NI, General LabVIEW Error
+    Codes), when that error out is wired; an incoming error wins.
+13. **Decided 2026-11-02:** an error cluster wired to an input NI says takes only
+    its status (And, Or, Exclusive Or, Not, Not And, Not Or, Not Exclusive Or,
+    Implies, Boolean To (0,1), Select's `s`, Compound Arithmetic; each NI page:
+    "If x is an error cluster, only the status parameter of the error cluster
+    passes to the input terminal") reads whether an error occurred
+    (`error_flow.status_read`); a warning is False there. The catalog marks the
+    input (`error_cluster_status`, or `inputs_error_cluster_status` on Compound
+    Arithmetic, whose inputs grow with the node). And/Or Array Elements and
+    Boolean Array To Number do not say it and are not marked.
+14. **Decided 2026-11-02:** one rule for every node's output: it is written
+    straight into its reader when exactly one terminal reads it on the node's own
+    diagram (the same frame), its expression calls nothing, and nothing can
+    change what it reads before the reader runs (a variable set again, a shift
+    register's next value, an array or cluster changed in place); otherwise it is
+    a variable named after its wire (`codegen/output_binding.py`). It changes how
+    the code looks, never what it does.
+15. **Decided 2026-11-02** (sources: NI's Greg McKaskle on NI's forum,
+    td-p/81009: "these 'conditional indicators' should return a default value if
+    they weren't written to… If still clear at subVI completion, the default is
+    written to the indicator"; NI, Reentrancy page, "Choosing Which Type of
+    Reentrant Execution to Use"; pylabview `ClearIndMask`): an indicator keeps its
+    value from one call to the next unless the VI has "Clear indicators when
+    called"; a Local Variable reads and writes that value; a connector-pane
+    indicator a call does not write ends the call at its default, which is
+    returned and kept. A connector-pane indicator no Local Variable reads simply
+    starts each call at its default. Every value a VI keeps between calls (such an
+    indicator, an uninitialized shift register, First Call?) is one module
+    variable, whatever the VI's reentrancy (maintainer: "I want it to work… mark
+    it in notes"): exact for a non-reentrant VI, one of LabVIEW's outcomes for a
+    shared clone (NI: "Does not maintain state"), and different for a
+    preallocated clone called from several places (NI: "Maintains state for each
+    call site"), which the generated module notes above the variable.
