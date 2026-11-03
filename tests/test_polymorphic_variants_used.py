@@ -14,13 +14,15 @@ import pytest
 from lvkit import cli, pipeline
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import GraphNode, PolyInfo, VIContext
+from lvkit.graph.models import GraphNode, PolyInfo, VIContext, VINode
 from lvkit.load_mode import LoadMode
 from lvkit.models import LVType, LVTypeKind
 from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
 from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
+from tests.corpus_graphs import OPENG_USERLIB
 from tests.test_call_identity import _Call, _record, _run, _static, _Tree
+from tests.test_run_vi import runner
 
 
 class _Graph:
@@ -159,7 +161,6 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 _WRAP_MODULE = [
     "'The variants of the polymorphic VI wrap.vi.'",
     "from __future__ import annotations",
-    "from pathlib import Path",
     "from typing import Any",
     "",
     "",
@@ -233,8 +234,8 @@ def test_one_caller_of_two_variants_imports_each_by_its_own_name(
 
 
 _NO_VARIANT = (
-    "This use of the polymorphic VI wrap.vi records no variant, so which one it "
-    "runs is not known; its variants: One/array.vi, Two/scalar.vi"
+    "The call of the polymorphic VI wrap.vi records no variant, and the connector "
+    "panes of several of its variants match this call: One/array.vi, Two/scalar.vi"
 )
 
 
@@ -460,17 +461,28 @@ def _gap_reasons(project: Project) -> list[str]:
     return [gap.reason for gap in project.generate().gaps]
 
 
-def test_types_that_match_two_variants_are_a_gap_naming_both(
+def test_types_that_match_two_variants_are_a_gap_naming_those_two(
     tmp_path: Path,
 ) -> None:
     project = _file_exists_project(
         tmp_path,
-        {"First": _file_exists(PATH, BOOL), "Second": _file_exists(PATH, BOOL)},
+        {
+            "First": _file_exists(PATH, BOOL),
+            "Paths": _file_exists(_array(PATH), _array(BOOL)),
+            "Second": _file_exists(PATH, BOOL),
+        },
     )
     assert _gap_reasons(project) == [
-        "This use of the polymorphic VI Wrap.vi records no variant, so which one "
-        "it runs is not known; its variants: First.vi, Second.vi"
+        "The call of the polymorphic VI Wrap.vi records no variant, and the "
+        "connector panes of several of its variants match this call: First.vi, "
+        "Second.vi"
     ]
+
+
+_NO_MATCH = (
+    "The call of the polymorphic VI Wrap.vi records no variant, and no variant's "
+    "connector pane matches this call; its variants: "
+)
 
 
 def test_types_that_match_no_variant_are_a_gap(tmp_path: Path) -> None:
@@ -481,7 +493,64 @@ def test_types_that_match_no_variant_are_a_gap(tmp_path: Path) -> None:
             "Numbers": _file_exists(INT, BOOL),
         },
     )
-    assert _gap_reasons(project) == [
+    assert _gap_reasons(project) == [_NO_MATCH + "Paths.vi, Numbers.vi"]
+
+
+def test_a_variant_that_is_not_loaded_matches_nothing(tmp_path: Path) -> None:
+    """The variant whose pane would match is not loaded: its pane is unknown, so
+    the call is a gap."""
+    project = Project(tmp_path)
+    paths = project.add_vi("Paths", _file_exists(_array(PATH), _array(BOOL)))
+    absent = str((tmp_path / "src" / "Scalar.vi").resolve())
+    wrap = project.add_vi("Wrap", _empty)
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=[absent, paths])  # noqa: SLF001
+    project.add_vi("Caller", _plain_call(wrap, PATH))
+    assert _gap_reasons(project) == [_NO_MATCH + "Scalar.vi, Paths.vi"]
+
+
+def test_a_class_owned_polymorphic_vi_is_the_same_gap(tmp_path: Path) -> None:
+    """A polymorphic VI a class lists is no method: a call that runs none of its
+    variants is the polymorphic VI's gap, not a method's."""
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    paths = project.add_vi("Paths", _file_exists(_array(PATH), _array(BOOL)))
+    wrap = project.add_method("Cls", "Wrap", _empty, static=True)
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=[paths])  # noqa: SLF001
+    project.add_vi("Caller", _plain_call(wrap, PATH))
+    assert _gap_reasons(project) == [_NO_MATCH + "Paths.vi"]
+
+
+def test_a_static_reference_to_a_polymorphic_vi_is_a_gap(tmp_path: Path) -> None:
+    """A VI reference names the polymorphic VI, which has no function of its
+    own."""
+    project = Project(tmp_path)
+    scalar = project.add_vi("Scalar", _file_exists(PATH, BOOL))
+    wrap = project.add_vi("Wrap", _empty)
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=[scalar])  # noqa: SLF001
+    project.add_vi("Runner", runner(wrap, "True"))
+    assert set(_gap_reasons(project)) == {
         "This use of the polymorphic VI Wrap.vi records no variant, so which one "
-        "it runs is not known; its variants: Paths.vi, Numbers.vi"
+        "it runs is not known; its variants: Scalar.vi"
+    }
+
+
+_EASYXML = Path(".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML File.vi")
+
+
+@pytest.mark.needs_samples
+def test_easy_write_xml_file_runs_the_scalar_file_exists(tmp_path: Path) -> None:
+    """The plain call of the polymorphic ``File Exists__ogtk.vi`` records a scalar
+    path: it runs the Scalar variant, a catalog template, written through the
+    copy of the call that carries the variant."""
+    result = generate_python(_EASYXML, tmp_path / "gen", userlib_root=OPENG_USERLIB)
+    graph = result["graph"]
+    calls = [
+        node
+        for node in graph.iter_nodes(str(_EASYXML.resolve()))
+        if isinstance(node, VINode) and (node.name or "") == "File Exists__ogtk.vi"
     ]
+    assert len(calls) == 1 and calls[0].variant_key is None
+    assert Path(graph.call_variant(calls[0])).name == "File Exists - Scalar__ogtk.vi"
+    source = next((tmp_path / "gen").rglob("easy_write_xml_file.py")).read_text()
+    assert "Path(xml_file_path).exists()" in source
+    assert not [g for g in result["gaps"] if "File Exists" in g.reason]

@@ -447,8 +447,6 @@ def _generate_polymorphic_module(
     lines = [
         repr(f"The variants of the polymorphic VI {shown}."),
         "from __future__ import annotations",
-        "from pathlib import Path",
-        "from typing import Any",
         "",
     ]
 
@@ -540,16 +538,16 @@ def _generate_polymorphic_module(
     variant_imports = {i for i in variant_imports if not _imports_inline_sibling(i)}
 
     # Hoist any imports the variant bodies referenced into the shared header
-    # (after the fixed imports, before the blank line separating header/body).
+    # (after `from __future__`, before the blank line separating header/body).
     type_checking_block = [
         ast.unparse(stmt)
         for stmt in build_type_checking_block(variant_annotation_imports)
     ]
     variant_imports.difference_update(type_checking_block)
     if variant_imports:
-        lines[4:4] = sorted(variant_imports)
+        lines[2:2] = sorted(variant_imports)
     if variant_annotation_imports:
-        lines[4:4] = type_checking_block
+        lines[2:2] = type_checking_block
 
     lines.append("")
     return "\n".join(lines)
