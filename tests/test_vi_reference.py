@@ -346,7 +346,7 @@ def test_a_computed_path_to_a_polymorphic_vi_says_it_has_no_function(
     loaded = _computed(tmp_path, _PATH_TYPE)
     variants = "def wrap_scalar():\n    pass\n"
     for refs in _package(tmp_path, _source(loaded), variants, module="wrap"):
-        with pytest.raises(LookupError, match="'Wrap' is a polymorphic VI"):
+        with pytest.raises(LookupError, match="module of 'Wrap' has no function"):
             refs.refs(Path("Wrap.vi"))  # type: ignore[attr-defined]
 
 
