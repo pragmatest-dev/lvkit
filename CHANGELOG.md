@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A copy of a case structure gets its own frame names and diagrams** — two case structures with the same values (one in each frame of a Diagram Disable structure) no longer share one stored value table, so neither shows two `default` frames holding both diagrams (#238).
 - **A generated module imports on a machine without the DLL a Call Library Function Node names** — the library is loaded the first time the node runs (`OSError` naming it, `AttributeError` for a missing function), by `functools.cache` loaders in the module.
 - **A Property Node row saved with a Void type shows the property's declared type** — DAQmx Task `NumChans` in `Setup AI.vi` is `U32`, not `Void` (#181).
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.

@@ -656,29 +656,26 @@ def parse_selector_tables(main_root: ET.Element) -> list[SelectorTable]:
 
     LabVIEW stores each case structure's per-frame selector values once, in the
     default-data space (the main ``*.xml``), as a ``DataFill`` with the
-    :class:`SelectorTable` cluster shape. pylabview emits each such default
-    twice (an edit-time and a run-time copy); we deduplicate by content and
-    return the surviving tables sorted by ``DataFill`` ``TypeID`` — the order in
-    which LabVIEW assigned them, matching the case structures' selector-type
-    VCTP order (see :func:`_apply_selector_tables`).
+    :class:`SelectorTable` cluster shape. Every table is kept, by its
+    ``DataFill`` ``TypeID``, sorted in the order LabVIEW assigned them: two case
+    structures with the same values (a copy of a case) each have their own
+    table, which their ``tdOffset`` names (see :func:`_apply_selector_tables`).
     """
     tables: list[SelectorTable] = []
-    seen: set[tuple[object, ...]] = set()
     for df in main_root.iter("DataFill"):
         tid = df.get("TypeID")
         cluster = df.find("Cluster")
         if tid is None or cluster is None:
             continue
         table = _decode_selector_table(int(tid), cluster)
-        if table is None:
-            continue
-        key = (tuple(table.ranges), tuple(table.strings))
-        if key in seen:
-            continue
-        seen.add(key)
-        tables.append(table)
+        if table is not None:
+            tables.append(table)
     tables.sort(key=lambda t: t.type_id)
     return tables
+
+
+def _table_content(table: SelectorTable) -> tuple[object, ...]:
+    return (tuple(table.ranges), tuple(table.strings))
 
 
 def _decode_selector_table(
@@ -762,7 +759,15 @@ def _apply_selector_tables(
             used_type_ids.add(table.type_id)
 
     leftover_cases = [c for c in cases if id(c) not in applied]
-    leftover_tables = [t for t in tables if t.type_id not in used_type_ids]
+    # pylabview can emit a table twice (an edit-time and a run-time copy): an
+    # unlinked table with the content of another table is not a case's own.
+    seen = {_table_content(t) for t in tables if t.type_id in used_type_ids}
+    leftover_tables: list[SelectorTable] = []
+    for table in tables:
+        content = _table_content(table)
+        if table.type_id not in used_type_ids and content not in seen:
+            seen.add(content)
+            leftover_tables.append(table)
     if not leftover_cases or not leftover_tables:
         return
     with_vctp = [c for c in leftover_cases if c.selector_vctp_index is not None]
