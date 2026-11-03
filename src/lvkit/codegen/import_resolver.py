@@ -77,6 +77,7 @@ class ImportResolver:
         names_import: Callable[[str, Collection[str]], str] | None = None,
         module_names: set[str] | None = None,
         own_function_import: Callable[[str], NameImport] | None = None,
+        module_key: str | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -94,6 +95,9 @@ class ImportResolver:
         # defines and every name its imports are spelled as.
         self._module_names = module_names if module_names is not None else set()
         self._own_function_import = own_function_import
+        # The file whose module is being generated (a class, a polymorphic VI or
+        # the VI itself): the code reads a path it computes from that folder.
+        self.module_key = module_key
 
     def alias_name(self, derived: str, in_use: Callable[[str], bool]) -> str:
         """A name of its own for an import whose ``derived`` name ``in_use``

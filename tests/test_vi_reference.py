@@ -28,6 +28,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import LVType, LVTypeKind
+from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
 
 _X = d.Constant(200, "5", "NumInt32", 41)
@@ -724,29 +725,21 @@ def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
         assert callee.calls[0][0] == "refs"
 
 
-class _ModuleGraph:
-    """A graph that knows one class method and one polymorphic variant."""
-
-    def owning_class_key(self, key: str) -> str | None:
-        return "/p/Cls/Cls.lvclass" if key == "/p/Cls/Do.vi" else None
-
-    def get_poly_variant_wrappers(self) -> dict[str, str]:
-        return {"/p/Two/scalar.vi": "/p/wrap.vi"}
-
-
-@pytest.mark.parametrize(
-    ("vi", "module"),
-    [
-        ("/p/Cls/Do.vi", "/p/Cls/Cls.lvclass"),
-        ("/p/Two/scalar.vi", "/p/wrap.vi"),
-        ("/p/Main.vi", "/p/Main.vi"),
-    ],
-    ids=["method", "polymorphic-variant", "vi"],
-)
-def test_a_path_computed_at_run_time_is_read_from_the_written_module(
-    vi: str, module: str
-) -> None:
-    """A path a diagram computes is read from the folder of the module the VI
-    is written into: its class, its polymorphic VI, or itself."""
-    graph = _ModuleGraph()
-    assert vi_reference.written_module_key(graph, vi) == module  # type: ignore[arg-type]
+def test_the_resolver_names_the_module_it_writes_into(tmp_path: Path) -> None:
+    """A path a diagram computes is read from the folder of the module being
+    written, which the pipeline names when it makes the resolver (a variant's
+    polymorphic VI, a class); by default the file the resolver is made for."""
+    out = tmp_path / "pkg"
+    variant = create_import_resolver(
+        "pkg",
+        out,
+        {},
+        out / "wrap.py",
+        caller_key="/p/Two/scalar.vi",
+        module_key="/p/wrap.vi",
+    )
+    own = create_import_resolver(
+        "pkg", out, {}, out / "main.py", caller_key="/p/Main.vi"
+    )
+    assert variant.module_key == "/p/wrap.vi"
+    assert own.module_key == "/p/Main.vi"
