@@ -156,7 +156,8 @@ def test_a_value_read_inside_a_case_frame_is_computed_before_the_case(
 def test_a_value_for_an_indicator_inside_a_case_frame_is_set_in_the_frame(
     project: Project,  # noqa: F811
 ) -> None:
-    """The indicator is read where the VI returns, outside the frame."""
+    """The indicator is a variable set to its default when the function starts
+    and written in the frame, right after the value is made."""
     vi = Vi(NAME)
     x = vi.control("x", I32, REQUIRED)
     flag = vi.control("flag", BOOL, REQUIRED)
@@ -179,11 +180,13 @@ def test_a_value_for_an_indicator_inside_a_case_frame_is_set_in_the_frame(
     package = project.generate(NAME)
     assert _body(package) == textwrap.dedent(
         """\
+        out = 0
         if flag:
-            x1 = x + 1
-        return BindResult(out=x1)"""
+            out = x + 1
+        return BindResult(out=out)"""
     )
     assert package.function(x=1, flag=True).out == 2
+    assert package.function(x=1, flag=False).out == 0
 
 
 def test_a_stop_value_that_reads_a_shift_register_reads_this_iterations_value(

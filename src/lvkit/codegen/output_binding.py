@@ -57,7 +57,11 @@ def written_into_reader(
     if isinstance(expr, ast.Constant) and expr.value is None:
         return False
     readers = ctx.graph.wire_readers(terminal_id)
-    if len(readers) != 1 or not ctx.graph.read_in_frame_of(readers[0], node):
+    if len(readers) != 1:
+        return False
+    # An indicator held in a variable is set right after the node, where it is.
+    held = readers[0].terminal_id in ctx.local_indicators.variables
+    if not held and not ctx.graph.read_in_frame_of(readers[0], node):
         return False
     read = _names(expr)
     if read & _set_again_before(readers[0], ctx):

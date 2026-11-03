@@ -143,6 +143,31 @@ class WireQueriesMixin:
                     found[control.id] = control
         return found
 
+    def indicators_written_in_a_frame(self, vi_name: str) -> dict[str, FPTerminal]:
+        """The connector-pane indicators of a VI that something inside a
+        structure frame writes, by terminal id: a call of the VI may finish
+        without writing them (the frame does not run, the loop runs zero
+        times)."""
+        vi = self.get_graph_node(vi_name)
+        found: dict[str, FPTerminal] = {}
+        for term in vi.terminals if vi is not None else []:
+            if not (
+                isinstance(term, FPTerminal) and term.is_indicator and term.is_public
+            ):
+                continue
+            if any(self._inside_a_frame(s) for s in self.indicator_sources(term.id)):
+                found[term.id] = term
+        return found
+
+    def _inside_a_frame(self, terminal_id: str) -> bool:
+        """Whether the terminal is on the diagram of a structure frame: a
+        terminal of a node inside a structure, or a tunnel's inside face."""
+        term = self.get_terminal(terminal_id)
+        if isinstance(term, TunnelTerminal) and term.boundary == "inner":
+            return True
+        node = self.get_graph_node(self.terminal_node_id(terminal_id))
+        return node is not None and node.parent is not None
+
     def indicators_written_by(self, terminal_id: str, tracked: set[str]) -> list[str]:
         """The ids among ``tracked`` that a wire from ``terminal_id`` writes: the
         indicator it is wired to, or the one a Local Variable write it is wired
