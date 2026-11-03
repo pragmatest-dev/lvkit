@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from collections import deque
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import networkx as nx
 
@@ -42,6 +43,9 @@ from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .references import REFERENCE_KINDS, generated_nodes
 
+if TYPE_CHECKING:
+    from .class_builder.shared_state import ModuleParts
+
 
 def build_module(
     vi_context: VIContext,
@@ -50,6 +54,7 @@ def build_module(
     graph: InMemoryVIGraph | None = None,
     data_files: dict[str, bytes] | None = None,
     gaps: list[Gap] | None = None,
+    shared: ModuleParts | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -65,6 +70,9 @@ def build_module(
             one fails with an error saying so.
         gaps: When a list, every gap found in the VI (see ``gaps.py``) is added
             to it; the caller prints them as warnings.
+        shared: The module-level parts of a module that holds several VIs (the
+            variants of a polymorphic VI): their helpers, declarations and
+            globals are named against one another, never twice.
 
     Returns:
         Python source code as string
@@ -99,12 +107,10 @@ def build_module(
     )
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
+    if shared is not None:
+        shared.share_with(ctx)
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
-    body = with_statements_after_docstring(
-        [stmt for imp in sorted(ctx.inside_imports) for stmt in ast.parse(imp).body],
-        body,
-    )
     if graph is not None and in_import_cycle(graph, vi_name):
         body, ctx.imports = imports_inside(body, ctx.imports)
 
@@ -183,7 +189,11 @@ def function_body(
     # Final pass: write numeric operators over array-valued operands that were
     # inlined (single-use) into a consumer as comprehensions.
     arrayify_module(body, ctx.array_vars)
-    return body
+    # The imports the function makes inside its body (``inside_imports``).
+    return with_statements_after_docstring(
+        [stmt for imp in sorted(ctx.inside_imports) for stmt in ast.parse(imp).body],
+        body,
+    )
 
 
 def generate_body(

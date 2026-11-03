@@ -11,6 +11,7 @@ import ast
 
 import pytest
 
+from lvkit.codegen.class_builder.shared_state import ModuleParts
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import formula
 from lvkit.graph.models import FormulaNode
@@ -57,10 +58,10 @@ def test_generate_injects_helper_and_binds_output():
     assert len(ctx.formula_helpers) == 1
     helper = ctx.formula_helpers[0]
     assert isinstance(helper, ast.FunctionDef)
-    assert helper.name == "_formula_42"
+    assert helper.name == "_formula_my_vi_vi_42"
 
     src = "\n".join(ast.unparse(s) for s in frag.statements)
-    assert "_formula_42(a=" in src  # call with resolved input
+    assert "_formula_my_vi_vi_42(a=" in src  # call with resolved input
     # output terminal bound to a fresh variable read out of the result dict
     assert frag.bindings.get("t_y")
     assert f"{frag.bindings['t_y']} = " in src
@@ -78,7 +79,7 @@ def test_injected_helper_is_valid_runnable_python():
     ast.fix_missing_locations(mod)
     ns: dict = {}
     exec(ast.unparse(mod), ns)
-    assert ns["_formula_42"](a=5.0)["y"] == 13.0
+    assert ns["_formula_my_vi_vi_42"](a=5.0)["y"] == 13.0
 
 
 def test_int_output_pulls_in_ctypes_import():
@@ -140,3 +141,24 @@ def test_unknown_function_in_script_fails_loud():
 
     with pytest.raises(FormulaTranspileError):
         formula.generate(op, ctx)
+
+
+def test_two_vis_in_one_module_get_their_own_formula_helpers():
+    """The variants of a polymorphic VI share one module and are often copies
+    of one diagram: two Formula Nodes with the same raw uid in two VIs are two
+    helpers, each running its own script."""
+    shared = ModuleParts(module_stem="wrap")
+    for vi, script in (("a.vi", "y = a + 1;"), ("b.vi", "y = a * 10;")):
+        node = _op(script).model_copy(update={"id": f"{vi}::42", "vi_path": vi})
+        ctx = CodeGenContext(vi_name=vi)
+        shared.share_with(ctx)
+        formula.generate(node, ctx)
+    helpers = [h.name for h in shared.helpers if isinstance(h, ast.FunctionDef)]
+    assert helpers == ["_formula_a_vi_42", "_formula_b_vi_42"]
+    namespace: dict = {}
+    exec(
+        ast.unparse(ast.fix_missing_locations(ast.Module(shared.helpers, []))),
+        namespace,
+    )
+    assert namespace["_formula_a_vi_42"](a=2.0)["y"] == 3.0
+    assert namespace["_formula_b_vi_42"](a=2.0)["y"] == 20.0
