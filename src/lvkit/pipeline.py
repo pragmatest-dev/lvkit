@@ -130,6 +130,7 @@ def create_import_resolver(
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
     module_names: set[str] | None = None,
+    module_key: str | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -155,6 +156,8 @@ def create_import_resolver(
         module_names: The top-level names of the module, shared by every
             resolver that writes into it (the variants of a polymorphic VI);
             each name an import is spelled as is added to it.
+        module_key: The file whose module ``caller_path`` is (a class, a
+            polymorphic VI); ``caller_key`` when omitted.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -323,6 +326,7 @@ def create_import_resolver(
         names_import,
         taken,
         own_function_import,
+        module_key if module_key is not None else caller_key,
     )
 
 
@@ -473,6 +477,7 @@ def _generate_polymorphic_module(
             package_modules=package_modules,
             layout=layout,
             module_names=module_names,
+            module_key=wrapper_name,
         )
         code = build_module(
             vi_context,
@@ -899,6 +904,7 @@ def generate_python(
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             package_modules=package_modules,
                             layout=layout,
+                            module_key=vi_name,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
