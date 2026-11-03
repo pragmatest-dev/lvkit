@@ -359,6 +359,7 @@ _AWKWARD_LABELS = [
     pytest.param('expand paths relative to "<base>:\\" (FALSE)', id="backslash"),
     pytest.param("Sort devices by :", id="trailing-colon"),
     pytest.param(": leading colon", id="leading-colon"),
+    pytest.param("a ; b", id="semicolon"),
 ]
 
 

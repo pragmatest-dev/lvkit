@@ -526,11 +526,12 @@ def _split_type_requirement_default(
 
     The ``default`` VALUE is taken as a RAW substring (never
     ``" ".join(split())``) so a multi-space UI status literal survives
-    verbatim; the TYPE (and the requirement keyword) carry only single spaces
-    and are normalized to collapse ``_render_term_group``'s column-alignment
-    padding. Columns are peeled right-to-left in ``render_lvnet``'s own append
-    order: ``@<index>`` (outermost) first, then the ``caption`` clause, then the
-    ``default`` clause at brace
+    verbatim; the TYPE (and the requirement keyword) lose
+    ``_render_term_group``'s column-alignment padding (``_collapse_padding``),
+    and a quoted name inside the type keeps its own spaces. Columns are peeled
+    right-to-left in ``render_lvnet``'s own append order: ``@<index>``
+    (outermost) first, then the ``caption`` clause, then the ``default`` clause
+    at brace
     DEPTH ZERO -- a ``<Type>`` never contains the bare word ``default`` (it is
     LVType descriptor syntax, never LabVIEW vocabulary), and a quoted VALUE's
     own ``default``/``@N`` text is shielded by its surrounding quotes.
@@ -2271,9 +2272,11 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
                 f"'<Name> = <def>' (§10), got {line!r}"
             )
         name = content[:eq_idx]
-        def_text, _, path_suffix = content[eq_idx + len(_LVNET_DRIVER_OP) :].partition(
-            _LVNET_ANNOTATION_SEP
-        )
+        rest = content[eq_idx + len(_LVNET_DRIVER_OP) :]
+        # The path follows the first " ; " outside a quoted name or a brace.
+        sep = _find_first_top_level(rest, _LVNET_ANNOTATION_SEP)
+        def_text = rest if sep == -1 else rest[:sep]
+        path_suffix = "" if sep == -1 else rest[sep + len(_LVNET_ANNOTATION_SEP) :]
         # render emits the nav suffix as ``; ./{typedef_path}`` (netlist.py
         # _render_lvnet_types), so strip the leading ``./`` back off to recover
         # the raw typedef_path -- reconstruct_module re-adds ``./``.

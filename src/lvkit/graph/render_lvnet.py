@@ -1760,7 +1760,8 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
 # What makes a NAME (a terminal, enum/ring member, or cluster field) unsafe to
 # render BARE in the lvnet grammar. The real collisions are the delimiter
 # SEQUENCES that separate the surrounding columns -- `` : `` (name/type,
-# name/ordinal), ``, `` (member/field), `` = `` (ordinal) -- NOT a bare
+# name/ordinal), ``, `` (member/field), `` = `` (ordinal), `` ; `` (a
+# ``types :`` entry's file) -- NOT a bare
 # ``:``/``,``/``=`` a name may legitimately carry with no surrounding spaces
 # (``TestResult in (None: Create New)``, ``getData(a,b)``): keying on the
 # sequences avoids needlessly quoting those. A structural brace/bracket or the
@@ -1768,14 +1769,14 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
 # whitespace. An unsafe name is quoted + backslash-escaped exactly like a
 # string literal, so e.g. ``big-endian, network order`` and a control named
 # ``Image Parameters : Image Type`` round-trip.
-_LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ")
+_LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ", " ; ")
 
 
 def _lvnet_name_is_safe_bare(name: str) -> bool:
     """Whether a NAME can render BARE without breaking the parser. It is safe
     unless it (a) is empty, has leading/trailing whitespace or contains a
     control character (U+0000-U+001F, e.g. a line break), (b) contains a
-    column-delimiter SEQUENCE (`` : `` / ``, `` / `` = ``) at all -- a bare
+    column-delimiter SEQUENCE (`` : `` / ``, `` / `` = `` / `` ; ``) at all -- a bare
     ``:``/``,``/``=`` with no surrounding spaces is fine, e.g. ``(None: Create
     New)`` -- or (c) carries an UNBALANCED quote or brace/bracket, which would
     desync ``_find_first_top_level`` / ``_split_top_level_commas``'s quote/depth
@@ -1865,7 +1866,9 @@ def _lvnet_const_value_str(c: Constant) -> str:
     OPEN, never invented here as a side effect of the scalar-string fix.
     """
     if c.lv_type and _is_error_cluster(c.lv_type):
-        return _lvnet_escape_controls(_format_error_cluster(c.value))
+        return _lvnet_escape_controls(
+            _format_error_cluster(c.value, quote=lvnet_literal_token)
+        )
     formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
     if formatted is not None:
         text = formatted

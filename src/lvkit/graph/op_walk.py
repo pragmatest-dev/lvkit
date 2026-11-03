@@ -321,8 +321,15 @@ def stamp_property_value_names(graph: InMemoryVIGraph) -> None:
                     term.display_name = name
 
 
-def _format_error_cluster(value: object) -> str:
-    """Render an error-cluster value as ``code N: "source"``."""
+def _quoted(text: str) -> str:
+    return f'"{text}"'
+
+
+def _format_error_cluster(
+    value: object, quote: Callable[[str], str] = _quoted
+) -> str:
+    """Render an error-cluster value as ``code N: "source"``, the source quoted
+    by ``quote`` (lvnet passes its string-literal quoting, which escapes)."""
     data = value
     if isinstance(value, str):
         try:
@@ -336,7 +343,7 @@ def _format_error_cluster(value: object) -> str:
         if not status and not code:
             return "no error"
         if source:
-            return f'code {code}: "{source}"'
+            return f"code {code}: {quote(source)}"
         return f"code {code}"
     return str(value)
 

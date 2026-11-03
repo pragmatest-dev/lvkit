@@ -315,7 +315,6 @@ def test_control_char_string_constant_round_trips_on_one_physical_line() -> None
     assert netlist_signature(module) == netlist_signature(parsed)
 
 
-
 def test_an_error_constant_with_a_two_line_message_stays_on_one_line() -> None:
     """#239: an error cluster constant whose source text has a line break is
     written on one line (the break escaped) and reads back to the same text."""
@@ -339,6 +338,18 @@ def test_an_error_constant_with_a_two_line_message_stays_on_one_line() -> None:
     parsed = parse_lvnet(text)
     assert netlist_signature(module) == netlist_signature(parsed)
     assert render_lvnet(reconstruct_module(parsed), verbose=True) == text
+
+
+def test_an_error_constant_message_is_quoted_as_a_string_literal() -> None:
+    """A real backslash in the message is escaped, so ``C:\\new`` never reads
+    as a line break, and a quote in it never ends the literal."""
+    error = Constant(
+        id="vi::1",
+        value="{'status': True, 'code': 7, 'source': 'C:\\\\new \"x\"'}",
+        lv_type=error_cluster_type(),
+    )
+    assert _lvnet_const_value_str(error) == 'code 7: "C:\\\\new \\"x\\""'
+
 
 @pytest.mark.parametrize(
     "value",
