@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import copy
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
@@ -37,6 +38,14 @@ class NameImport:
 
     statement: str
     name: str
+
+    def aliased(self, name: str) -> NameImport:
+        """This import, binding the imported name as ``name``."""
+        (stmt,) = ast.parse(self.statement).body
+        if not isinstance(stmt, ast.ImportFrom) or len(stmt.names) != 1:
+            raise CodeGenError(f"Cannot alias the import {self.statement!r}")
+        stmt.names[0].asname = name
+        return NameImport(ast.unparse(stmt), name)
 
 
 class ImportResolver:

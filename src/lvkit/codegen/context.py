@@ -49,6 +49,7 @@ from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
+    distinct_names,
     field_attribute_names,
     interface_names,
     to_function_name,
@@ -126,6 +127,11 @@ class CodeGenContext:
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
     module_stem: str = ""
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
+    # The import statement of each subVI function this function calls -> the
+    # import it is made under (see ``import_function``).
+    _function_imports: dict[str, NameImport] = field(
+        default_factory=dict, repr=False
+    )
     # Output tunnel (outer terminal id) -> the variable that is its merge.
     _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
     # Variable names bound to array-typed values, with each array's dimension
@@ -583,6 +589,7 @@ class CodeGenContext:
             module_stem=self.module_stem,
             function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            _function_imports=self._function_imports,  # Shared — same scope
             _tunnel_var_names=self._tunnel_var_names,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
@@ -633,10 +640,30 @@ class CodeGenContext:
 
     def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
         """Import the function of a VI at the top of the module and return the
-        name this module calls it by."""
+        name this function calls it by.
+
+        A name a Python function assigns is its local everywhere in it, so a
+        variable named like a function it calls would be called instead. A
+        function whose name a parameter, control or variable of this VI already
+        holds is imported under a name of its own (``from .fill import fill as
+        fill_2``), and the name it is called by is taken, so no variable named
+        later takes it."""
         imported = self.function_import(vi_name, callee_key)
-        self.add_import(imported.statement)
-        return imported.name
+        known = self._function_imports.get(imported.statement)
+        if known is None:
+            known = imported
+            taken = self._allocated_vars | set(self._parameter_names())
+            if imported.statement and imported.name in taken:
+                known = imported.aliased(distinct_names(taken, [imported.name])[0])
+            self._allocated_vars.add(known.name)
+            self._function_imports[imported.statement] = known
+        self.add_import(known.statement)
+        return known.name
+
+    def _parameter_names(self) -> list[str]:
+        """The names of this VI's parameters and off-pane control variables."""
+        inputs = [t for t in self.vi_inputs if t.id]
+        return list(interface_names(inputs, [], []).parameters.values())
 
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for

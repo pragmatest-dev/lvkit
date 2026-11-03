@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.class_model import member_shape
+from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import GraphNode, LocalVariableNode, LoopNode, VIContext
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
@@ -541,3 +542,68 @@ def test_a_repeated_output_name_is_numbered_never_named_by_the_node_id() -> None
     node_id = "C:\\Users\\x\\Scale.vi:s3"
     names = [ctx.make_output_var("total", node_id) for _ in range(3)]
     assert names == ["total", "total_2", "total_3"]
+
+
+def named_like_mix(mix_key: str, on_pane: bool) -> Recipe:
+    """A VI whose control is labelled ``mix`` (6), on the connector pane or
+    off it, wired to ``a`` of a call to ``Mix.vi``, whose function is ``mix``;
+    it returns the call's ``out``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        control = (
+            pane(vi, "input", "m", INT, "mix", 0)
+            if on_pane
+            else off_pane(vi, "input", "m", "mix", "6")
+        )
+        return (
+            VIContext(
+                name=vi,
+                inputs=[control] if on_pane else [],
+                off_pane_inputs=[] if on_pane else [control],
+                outputs=[pane(vi, "output", "total", INT, "total", 1)],
+                data_flow=[wire(vi, "m", "mix.a"), wire(vi, "mix.out", "total")],
+            ),
+            [
+                call(
+                    vi,
+                    "mix",
+                    mix_key,
+                    "iUse",
+                    [("a", 0, INT), ("b", 1, INT), ("c", 2, INT)],
+                    [("out", 3, INT)],
+                )
+            ],
+        )
+
+    return build
+
+
+@pytest.mark.parametrize("on_pane", [False, True], ids=["off-pane", "on-pane"])
+def test_a_control_named_like_a_called_vi_leaves_the_call_to_the_vi(
+    tmp_path: Path, on_pane: bool
+) -> None:
+    """A name a Python function assigns is its local everywhere in it: the
+    function of the called VI is imported under a name of its own, so the call
+    reaches the VI and the control keeps its name."""
+    project = Project(tmp_path)
+    mix_key = project.add_vi("Mix", mix)
+    project.add_vi("Caller", named_like_mix(mix_key, on_pane))
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["caller"]
+    assert "from .mix import mix as mix_2\n" in source
+    assert "mix_2(a=mix)" in source
+    with package.use() as module:
+        caller_fn = module("caller").caller
+        result = caller_fn(6) if on_pane else caller_fn()
+        assert result.total == 6 + 0 + 4 + 9
+
+
+def test_a_variable_named_after_a_call_never_takes_the_called_function() -> None:
+    """Once a function calls ``mix``, a value it names ``mix`` later is
+    ``mix_2``, and a second call to the VI reuses the first import."""
+    ctx = CodeGenContext()
+    assert ctx.import_function("Mix.vi") == "mix"
+    assert ctx.make_output_var("mix", "node") == "mix_2"
+    assert ctx.import_function("Mix.vi") == "mix"
+    assert ctx.imports == {"from .mix import mix"}
