@@ -225,7 +225,7 @@ def _generate_if_else(
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     if_body: list[ast.stmt] = []
     if true_frame:
-        inner_fragment = _generate_frame_body(ops_by_frame.get(id(true_frame), []), ctx)
+        inner_fragment = _generate_frame_body(node, true_frame, ops_by_frame, ctx)
         if_body = inner_fragment.statements
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((true_frame, if_body))
@@ -233,7 +233,7 @@ def _generate_if_else(
     else_body: list[ast.stmt] = []
     else_frame = false_frame or default_frame
     if else_frame:
-        inner_fragment = _generate_frame_body(ops_by_frame.get(id(else_frame), []), ctx)
+        inner_fragment = _generate_frame_body(node, else_frame, ops_by_frame, ctx)
         else_body = inner_fragment.statements
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((else_frame, else_body))
@@ -303,7 +303,7 @@ def _generate_match_case(
             pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
         patterns.append((pattern, guard))
 
-        inner_fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
+        inner_fragment = _generate_frame_body(node, frame, ops_by_frame, ctx)
         frame_bodies.append((frame, inner_fragment.statements))
         all_imports.update(inner_fragment.imports)
 
@@ -413,11 +413,14 @@ def _build_frame_pattern(
 
 
 def _generate_frame_body(
-    operations: list[AnyGraphNode],
+    node: CaseStructureNode,
+    frame: CaseFrame,
+    ops_by_frame: _OpsByFrame,
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Generate code for a single case frame's contained operations."""
-    body = ctx.generate_body(operations)
+    operations = ops_by_frame.get(id(frame), [])
+    body = ctx.generate_body(operations, (node.id, frame.selector_value))
 
     bindings: dict[str, str] = {}
     for op in operations:
@@ -474,7 +477,7 @@ def _generate_error_case(
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     imports: set[str] = set()
     for frame in node.frames:
-        fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
+        fragment = _generate_frame_body(node, frame, ops_by_frame, ctx)
         frame_bodies.append((frame, fragment.statements))
         imports.update(fragment.imports)
     bindings, pre_decls = _resolve_output_tunnels(node, frame_bodies, ctx)

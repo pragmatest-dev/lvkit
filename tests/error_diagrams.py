@@ -499,6 +499,43 @@ class Vi:
         self.structures.append(structure)
         return structure
 
+    def flat_sequence(self, tunnels: list[list[int]]) -> Structure:
+        """A Flat Sequence with one frame per entry of ``tunnels``, each the type
+        ids of that frame's input tunnels (``Structure.tunnels`` in frame
+        order)."""
+        uid = self.next_uid()
+        scopes = [self._new_scope() for _ in tunnels]
+        frame_uids = [self.next_uid() for _ in tunnels]
+        made: list[Tunnel] = []
+        edges: list[tuple[int, str]] = []
+        for scope, types in zip(scopes, tunnels, strict=True):
+            edge = ""
+            for type_id in types:
+                tun, xml = self.tunnel_terminal("seqTun", type_id, [scope])
+                made.append(tun)
+                edge += xml
+            edges.append((len(types), edge))
+
+        def xml() -> str:
+            frames = "".join(
+                f'<SL__arrayElement class="sequenceFrame" uid="{fid}">'
+                f'<termList elements="{count}">{edge}</termList>'
+                f'<diagramList elements="1">{self._diagram_xml(scope)}'
+                "</diagramList></SL__arrayElement>"
+                for fid, scope, (count, edge) in zip(
+                    frame_uids, scopes, edges, strict=True
+                )
+            )
+            return (
+                f'<SL__arrayElement class="flatSequence" uid="{uid}">'
+                f'<sequenceList elements="{len(scopes)}">{frames}</sequenceList>'
+                "</SL__arrayElement>"
+            )
+
+        structure = Structure(0, [], scopes, made, xml=xml)
+        self.structures.append(structure)
+        return structure
+
     def loop(
         self,
         kind: str,

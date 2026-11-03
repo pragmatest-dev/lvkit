@@ -118,7 +118,7 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
         ctx.merge(error_flow.guard(tile.op, CodeFragment(), ctx).bindings)
 
     # --- Body (regular inner ops only) ---
-    body_stmts = ctx.generate_body(inner_nodes)
+    body_stmts = ctx.generate_body(inner_nodes, (node.id, None))
     for stmt in body_stmts:
         ast.fix_missing_locations(stmt)
     all_stmts.extend(body_stmts)

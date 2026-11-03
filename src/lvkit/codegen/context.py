@@ -65,6 +65,10 @@ from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .references import REFERENCE_KINDS, generated_nodes
 
+# A structure frame: the structure's node id and the frame's key
+# (``graph.operations.frame_key``; ``None`` for a loop's one diagram).
+StructureFrame = tuple[str, str | int | None]
+
 PREALLOCATED_CLONE_NOTE = (
     "A preallocated clone keeps this value for each call site in LabVIEW; "
     "here every call shares it."
@@ -170,7 +174,11 @@ class CodeGenContext:
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
     _body_generator: (
-        Callable[[list[AnyGraphNode], CodeGenContext], list[ast.stmt]] | None
+        Callable[
+            [list[AnyGraphNode], CodeGenContext, StructureFrame | None],
+            list[ast.stmt],
+        ]
+        | None
     ) = field(default=None, repr=False)
 
     def parameter_var_names(self) -> set[str]:
@@ -181,8 +189,14 @@ class CodeGenContext:
             names.add(var or to_var_name(python_label(inp) or "input"))
         return names
 
-    def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:
-        """Generate code for a list of operations.
+    def generate_body(
+        self,
+        operations: list[AnyGraphNode],
+        frame: StructureFrame | None = None,
+    ) -> list[ast.stmt]:
+        """Generate code for a list of operations: the diagram of the structure
+        ``frame`` (``StructureFrame``), which starts with the writes of the
+        indicators the frame's inside faces are wired to.
 
         Delegates to the registered body generator (set by builder.py).
         Used by case/loop/sequence codegen for recursive inner-node
@@ -194,12 +208,14 @@ class CodeGenContext:
         only reference CodeGenContext inside TYPE_CHECKING guards.
         """
         if self._body_generator is not None:
-            return self._body_generator(operations, self)
+            return self._body_generator(operations, self, frame)
 
         # Fallback: sequential dispatch (no parallel tiers)
         from .nodes import generate as generate_node
 
         stmts: list[ast.stmt] = []
+        if frame is not None:
+            stmts.extend(self.local_indicators.writes_in_frame(frame, self))
         for node in operations:
             fragment = generate_node(node, self)
             stmts.extend(fragment.statements)

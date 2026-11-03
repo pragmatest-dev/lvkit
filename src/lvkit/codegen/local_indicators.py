@@ -73,10 +73,14 @@ class LocalIndicators:
         clears = ctx.graph.get_vi_properties(
             vi_name
         ).execution.clear_indicators_when_called
+        # An indicator's variable never takes the name of a parameter (a control
+        # may share the indicator's label).
+        parameters = ctx.parameter_var_names()
         for terminal_id, control in sorted(held.items()):
-            variable = ctx.make_output_var(
-                control.name or "indicator", ctx.graph.terminal_node_id(terminal_id)
-            )
+            owner = ctx.graph.terminal_node_id(terminal_id)
+            variable = ctx.make_output_var(control.name or "indicator", owner)
+            while variable in parameters:
+                variable = ctx.make_output_var(control.name or "indicator", owner)
             ctx.bind(terminal_id, variable)
             found.variables[terminal_id] = variable
             if terminal_id in read and not clears:
@@ -90,9 +94,12 @@ class LocalIndicators:
                     )
             else:
                 statements.append(build_assign(variable, control_default_expr(control)))
-            # A control or constant wired straight to the indicator has no node
-            # to assign it after: it sets the variable here.
+            # A control or constant on the VI's own diagram wired straight to
+            # the indicator has no node to assign it after: it sets the variable
+            # here. A frame's inside face writes it in the frame.
             for source in ctx.graph.indicator_sources(terminal_id):
+                if ctx.graph.inside_a_frame(source):
+                    continue
                 value = ctx.resolve(source, allow_none=True)
                 if value is not None and value != variable:
                     statements.extend(found._write(terminal_id, _expression(value)))
@@ -133,16 +140,51 @@ class LocalIndicators:
         self, node: AnyGraphNode, ctx: CodeGenContext
     ) -> list[ast.stmt]:
         """The assignments of the indicators ``node``'s outputs write, from the
-        values the node produced."""
+        values the node produced. An inside face of a structure writes inside
+        its frame (``writes_in_frame``), not after the structure."""
         if not self.variables or ctx.graph is None:
             return []
+        return self._writes_from(
+            [
+                t.id
+                for t in node.terminals
+                if t.direction == "output" and ctx.graph.inside_face(t.id) is None
+            ],
+            ctx,
+        )
+
+    def writes_in_frame(
+        self, frame: tuple[str, str | int | None], ctx: CodeGenContext
+    ) -> list[ast.stmt]:
+        """The assignments that start the frame ``frame`` (a structure and its
+        frame key): the indicators an inside face of that frame, or a constant
+        in it, writes (``InMemoryVIGraph.written_in_frame``)."""
+        if not self.variables or ctx.graph is None:
+            return []
+        graph = ctx.graph
+        sources = sorted(
+            {
+                source
+                for indicator in self.variables
+                for source in graph.indicator_sources(indicator)
+                if graph.written_in_frame(source, frame)
+            }
+        )
+        return self._writes_from(sources, ctx)
+
+    def _writes_from(
+        self, terminal_ids: list[str], ctx: CodeGenContext
+    ) -> list[ast.stmt]:
+        """The assignments of the indicators the output terminals
+        ``terminal_ids`` write."""
+        assert ctx.graph is not None
         tracked = set(self.variables)
         statements: list[ast.stmt] = []
-        for term in node.terminals:
-            value = ctx.resolve(term.id) if term.direction == "output" else None
+        for terminal_id in terminal_ids:
+            value = ctx.resolve(terminal_id)
             if value is None:
                 continue
-            for indicator in ctx.graph.indicators_written_by(term.id, tracked):
+            for indicator in ctx.graph.indicators_written_by(terminal_id, tracked):
                 written = (
                     None if value == self.variables[indicator] else _expression(value)
                 )

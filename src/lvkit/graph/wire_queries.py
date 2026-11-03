@@ -9,7 +9,14 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..models import FPTerminal, Terminal, TunnelTerminal
-from .models import AnyGraphNode, LocalVariableNode, LoopNode, StructureNode, WireEnd
+from .models import (
+    AnyGraphNode,
+    ConstantNode,
+    LocalVariableNode,
+    LoopNode,
+    StructureNode,
+    WireEnd,
+)
 
 
 class WireQueriesMixin:
@@ -162,7 +169,7 @@ class WireQueriesMixin:
                 isinstance(term, FPTerminal) and term.is_indicator and term.is_public
             ):
                 continue
-            if any(self._inside_a_frame(s) for s in self.indicator_sources(term.id)):
+            if any(self.inside_a_frame(s) for s in self.indicator_sources(term.id)):
                 found[term.id] = term
         return found
 
@@ -170,18 +177,62 @@ class WireQueriesMixin:
         """Whether something on the VI's own diagram (outside every structure
         frame) writes the indicator, so every call writes it."""
         return any(
-            not self._inside_a_frame(source)
+            not self.inside_a_frame(source)
             for source in self.indicator_sources(indicator_id)
         )
 
-    def _inside_a_frame(self, terminal_id: str) -> bool:
+    def inside_a_frame(self, terminal_id: str) -> bool:
         """Whether the terminal is on the diagram of a structure frame: a
-        terminal of a node inside a structure, or a tunnel's inside face."""
-        term = self.get_terminal(terminal_id)
-        if isinstance(term, TunnelTerminal) and term.boundary == "inner":
+        terminal of a node inside a structure, or an inside face of a
+        structure's border."""
+        if self.inside_face(terminal_id) is not None:
             return True
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         return node is not None and node.parent is not None
+
+    def written_in_frame(
+        self, terminal_id: str, frame: tuple[str, str | int | None]
+    ) -> bool:
+        """Whether the source ``terminal_id`` gives its value on the diagram of
+        the structure frame ``frame`` (a structure id and frame key; key
+        ``None`` for any frame of the structure) without a node of that diagram
+        producing it: an inside face of the frame, or a constant in it."""
+        structure, key = frame
+        face = self.inside_face(terminal_id)
+        if face is not None:
+            return face[0] == structure and (key is None or face[1] == key)
+        node = self.get_graph_node(self.terminal_node_id(terminal_id))
+        return (
+            isinstance(node, ConstantNode)
+            and node.parent == structure
+            and (key is None or node.frame == key)
+        )
+
+    def inside_face(self, terminal_id: str) -> tuple[str, str | int | None] | None:
+        """The structure and frame whose diagram the terminal is an inside face
+        on: a tunnel's (shift register's, case selector's, count terminal's)
+        inside face, or a loop's iteration terminal. The frame is keyed as the
+        structure's children are (``graph.operations.frame_key``): a case
+        frame's selector value, a sequence frame's position as text, ``None``
+        for a loop's one diagram. ``None`` for any other terminal."""
+        term = self.get_terminal(terminal_id)
+        node = self.get_graph_node(self.terminal_node_id(terminal_id))
+        if not isinstance(node, StructureNode) or term is None:
+            return None
+        if isinstance(term, TunnelTerminal):
+            if term.boundary != "inner":
+                return None
+            if term.frame is not None:
+                return node.id, term.frame
+            if term.frame_position is not None:
+                return node.id, str(term.frame_position)
+            return node.id, None
+        # A loop's one plain output is its iteration terminal, inside the loop;
+        # another structure's plain terminals (an In Place Element's ports) are
+        # on its outside.
+        if isinstance(node, LoopNode) and term.direction == "output":
+            return node.id, None
+        return None
 
     def indicators_written_by(self, terminal_id: str, tracked: set[str]) -> list[str]:
         """The ids among ``tracked`` that a wire from ``terminal_id`` writes: the

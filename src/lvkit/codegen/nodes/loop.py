@@ -6,7 +6,7 @@ import ast
 import keyword
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, ConstantNode, LoopNode
+from lvkit.graph.models import ConstantNode, LoopNode
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -378,7 +378,10 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             )
 
     # 4. Generate inner node code
-    inner_stmts = [*element_stmts, *_generate_inner(inner_nodes, inner_ctx)]
+    inner_stmts = [
+        *element_stmts,
+        *inner_ctx.generate_body(inner_nodes, (node.id, None)),
+    ]
 
     # 4. Add output-tunnel writes at end of loop body: append for indexed
     # accumulators, plain assignment for last-value (indexing-disabled) tunnels.
@@ -827,13 +830,6 @@ def _get_terminal_type(
             return _get_terminal_type(flow_info.src_terminal, ctx, visited)
 
     return None
-
-
-def _generate_inner(
-    inner_nodes: list[AnyGraphNode], ctx: CodeGenContext
-) -> list[ast.stmt]:
-    """Generate code for inner loop nodes."""
-    return ctx.generate_body(inner_nodes)
 
 
 def _iteration_terminal(node: LoopNode) -> Terminal | None:

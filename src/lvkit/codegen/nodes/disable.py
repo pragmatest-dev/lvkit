@@ -44,7 +44,9 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
             if outer_var:
                 ctx.bind(tunnel.inner_terminal_uid, outer_var)
 
-    statements: list[ast.stmt] = ctx.generate_body(operations)
+    statements: list[ast.stmt] = ctx.generate_body(
+        operations, (node.id, frame.selector_value)
+    )
     for stmt in statements:
         ast.fix_missing_locations(stmt)
 

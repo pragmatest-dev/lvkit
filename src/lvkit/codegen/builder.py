@@ -182,16 +182,21 @@ def function_body(
 
 
 def generate_body(
-    operations: list[AnyGraphNode], ctx: CodeGenContext
+    operations: list[AnyGraphNode],
+    ctx: CodeGenContext,
+    frame: tuple[str, str | int | None] | None = None,
 ) -> list[ast.stmt]:
     """The statements of ``operations`` (the nodes of one diagram), in dataflow
     order: each tier of the dependency sort, its nodes one after another. Nodes
     of one tier do not depend on each other, so any order is LabVIEW's; the
     nodes skipped on one error share one ``if`` (``error_flow.share_guards``).
+    The diagram of a structure ``frame`` (the structure and its frame key)
+    starts with the writes of the indicators its inside faces are wired to.
 
     Args:
         operations: List of graph nodes to generate code for
         ctx: Code generation context
+        frame: The structure frame the diagram is, ``None`` for the VI's own
 
     Returns:
         List of AST statements
@@ -201,6 +206,8 @@ def generate_body(
     ctx._body_generator = generate_body
 
     statements: list[ast.stmt] = []
+    if frame is not None:
+        statements.extend(ctx.local_indicators.writes_in_frame(frame, ctx))
     for tier in topological_sort_tiered(operations, ctx):
         for node in tier:
             fragment = generate_node(node, ctx)
