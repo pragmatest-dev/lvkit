@@ -16,18 +16,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from lvkit.graph.pane_shape import slots_shape, vi_shape
+
 from .ast_utils import interface_names
 from .class_attributes import is_private
 from .class_model import MethodKind, MethodShape, member_shape, not_a_method
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
-    from lvkit.models import LVType, PaneSlot, Terminal
-
-_CLASS_REF_TYPE = "UDClassInst"
-
-# A type as the pane matches it: what it is, never a label or a name.
-TypeShape = tuple[object, ...]
+    from lvkit.models import PaneSlot, Terminal
 
 
 class ResultStyle(Enum):
@@ -89,46 +86,6 @@ class Candidates:
         return None
 
 
-def type_shape(
-    graph: InMemoryVIGraph, lv_type: LVType | None, vi_key: str
-) -> TypeShape:
-    """What ``lv_type`` is, as seen from the VI ``vi_key``: its kind, its
-    underlying and refnum types, the class a class wire carries, and the shapes
-    of its elements and fields."""
-    if lv_type is None:
-        return ()
-    if lv_type.ref_type == _CLASS_REF_TYPE:
-        return ("class", graph.class_type_key(lv_type, vi_key) or lv_type.classname)
-    return (
-        lv_type.kind,
-        lv_type.underlying_type,
-        lv_type.ref_type,
-        lv_type.dimensions,
-        type_shape(graph, lv_type.element_type, vi_key),
-        type_shape(graph, lv_type.value_type, vi_key),
-        tuple(type_shape(graph, f.type, vi_key) for f in lv_type.fields or []),
-    )
-
-
-def _pane_shape(
-    graph: InMemoryVIGraph, pane: tuple[PaneSlot, ...], vi_key: str
-) -> frozenset[tuple[int, bool, TypeShape]]:
-    return frozenset(
-        (slot.index, slot.is_output, type_shape(graph, slot.type, vi_key))
-        for slot in pane
-    )
-
-
-def _vi_shape(
-    graph: InMemoryVIGraph, key: str
-) -> frozenset[tuple[int, bool, TypeShape]]:
-    inputs, _, outputs, _ = graph.vi_interface(key)
-    return frozenset(
-        (t.index, t.direction == "output", type_shape(graph, t.lv_type, key))
-        for t in [*inputs, *outputs]
-    )
-
-
 def _function_form(graph: InMemoryVIGraph, key: str) -> CallForm:
     inputs, off_inputs, outputs, _ = graph.vi_interface(key)
     names = interface_names(inputs, off_inputs, outputs)
@@ -171,11 +128,11 @@ def candidates(
     that is dynamic dispatch (Call By Reference cannot call one), or that is
     private to a class the caller is not a VI of (only its own class's VIs call
     a private VI), is left out."""
-    wanted = _pane_shape(graph, pane, caller_key)
+    wanted = slots_shape(graph, pane, caller_key)
     caller_class = graph.owning_class_key(caller_key)
     forms: dict[str, CallForm] = {}
     for key in sorted(graph.list_vis()):
-        if graph.is_stub(key) or _vi_shape(graph, key) != wanted:
+        if graph.is_stub(key) or vi_shape(graph, key) != wanted:
             continue
         shape = member_shape(graph, key)
         if shape is None:

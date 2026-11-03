@@ -431,7 +431,12 @@ _IMPORT_MODULE = """\
 if {stem}.lower().endswith((".vi", ".vim", ".vit")):
     {stem} = {stem}.rsplit(".", 1)[0]
 {module} = importlib.import_module({package} + _module_part({stem}), __package__)
-{reference} = getattr({module}, _function_name({stem}))
+{reference} = getattr({module}, _function_name({stem}), None)
+if {reference} is None:
+    raise LookupError(
+        f"{{{stem}!r}} is a polymorphic VI: it has no function of its own, only "
+        "its variants have one"
+    )
 """
 
 

@@ -338,6 +338,17 @@ def test_a_computed_path_opens_and_calls_the_vi_at_that_path(tmp_path: Path) -> 
         assert len(callee.calls) == 2
 
 
+def test_a_computed_path_to_a_polymorphic_vi_says_it_has_no_function(
+    tmp_path: Path,
+) -> None:
+    """The module of a polymorphic VI holds only its variants' functions."""
+    loaded = _computed(tmp_path, _PATH_TYPE)
+    variants = "def wrap_scalar():\n    pass\n"
+    for refs in _package(tmp_path, _source(loaded), variants, module="wrap"):
+        with pytest.raises(LookupError, match="'Wrap' is a polymorphic VI"):
+            refs.refs(Path("Wrap.vi"))  # type: ignore[attr-defined]
+
+
 def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
     loaded = _computed(tmp_path, _PATH_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
     d.type_terminal(loaded, 21, d.typed_vi_reference())

@@ -10,6 +10,7 @@ from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import Terminal
 
 from ..ast_utils import parse_expr, to_var_name
+from ..called_vi import run_call
 from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
@@ -20,7 +21,6 @@ from .base import (
     resolve_ref_input,
     unwired_ref_class,
 )
-from .subvi import called_vi
 
 
 def _attribute_chain(
@@ -47,9 +47,10 @@ def _callees(ctx: CodeGenContext) -> str:
         for other in ctx.graph.iter_nodes(ctx.vi_name):
             if not isinstance(other, VINode):
                 continue
-            callee_name, callee_key = called_vi(other, ctx.graph)
-            if callee_key is not None:
-                name = ctx.import_function(callee_name, callee_key)
+            run = run_call(other, ctx)
+            # A call that runs no variant carries its own gap.
+            if run.key is not None and run.gap is None:
+                name = ctx.import_function(run.name, run.key)
                 if name != ctx.function_name and name not in names:
                     names.append(name)
     tail = "," if len(names) == 1 else ""
