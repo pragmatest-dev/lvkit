@@ -3,6 +3,7 @@ Variables of one VI."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 import networkx as nx
@@ -50,28 +51,34 @@ class WireQueriesMixin:
 
     def value_read_elsewhere(self, terminal_id: str) -> bool:
         """Whether the value that reaches the input ``terminal_id`` is also wired
-        to another terminal. The wire is followed back through structure tunnels;
-        the inside faces of one tunnel (one per case frame) are one reader."""
-        return self._read_elsewhere(terminal_id, set())
+        to another terminal. The wire is followed back through structure tunnels
+        (``_wire_back``); the inside faces of one tunnel (one per case frame) are
+        one reader."""
+        return any(
+            dest.terminal_id != current
+            and not (
+                isinstance(self.get_terminal(src.terminal_id), TunnelTerminal)
+                and dest.node_id == src.node_id
+            )
+            for current, src in self._wire_back(terminal_id)
+            for dest in self.wire_readers(src.terminal_id)
+        )
 
-    def _read_elsewhere(self, terminal_id: str, seen: set[str]) -> bool:
-        if terminal_id in seen:
-            return False
-        seen.add(terminal_id)
+    def _wire_back(self, terminal_id: str) -> Iterator[tuple[str, WireEnd]]:
+        """Each step of the wire into ``terminal_id`` followed back to its
+        producer through structure tunnels: the terminal reached and the source
+        of the VI's own diagram that feeds it."""
         home = self.terminal_vi(terminal_id)
-        for src in self.incoming_edges(terminal_id):
-            if self.terminal_vi(src.terminal_id) != home:
+        todo, seen = [terminal_id], set()
+        while todo:
+            current = todo.pop()
+            if current in seen:
                 continue
-            tunnel = isinstance(self.get_terminal(src.terminal_id), TunnelTerminal)
-            others = [
-                dest
-                for dest in self.wire_readers(src.terminal_id)
-                if dest.terminal_id != terminal_id
-                and not (tunnel and dest.node_id == src.node_id)
-            ]
-            if others or (tunnel and self._read_elsewhere(src.terminal_id, seen)):
-                return True
-        return False
+            seen.add(current)
+            for src in self.incoming_edges(current):
+                if self.terminal_vi(src.terminal_id) == home:
+                    yield current, src
+                    todo.append(src.terminal_id)
 
     def read_in_frame_of(self, reader: WireEnd, node: AnyGraphNode) -> bool:
         """Whether the terminal ``reader``, wired from an output of ``node``,
@@ -208,48 +215,51 @@ class WireQueriesMixin:
         source on the way feeds another terminal whose node the node of
         ``terminal_id`` does not wait for, or the wire enters a loop through an
         input tunnel (each iteration reads the same value). A value that comes
-        from the VI's own control is the caller's to copy."""
+        from the VI's own control is the caller's to copy. A reader off the
+        diagram (an indicator of the VI, read when the VI returns) runs after
+        every node."""
         home = self.terminal_vi(terminal_id)
-        return self._shared_from(
-            terminal_id, self.terminal_node_id(terminal_id), home, set()
-        )
-
-    def _shared_from(
-        self, terminal_id: str, changer: str, home: str | None, seen: set[str]
-    ) -> bool:
-        if terminal_id in seen:
-            return False
-        seen.add(terminal_id)
-        current = self.get_terminal(terminal_id)
-        for src in self.incoming_edges(terminal_id):
-            if self.terminal_vi(src.terminal_id) != home:
-                continue
+        changer = self.terminal_node_id(terminal_id)
+        diagram = self._diagram_of(home)
+        for current, src in self._wire_back(terminal_id):
             if self._is_field_of_container(src.terminal_id):
                 return True
-            for dest in self.outgoing_edges(src.terminal_id):
-                if dest.terminal_id == terminal_id or (
-                    self.terminal_vi(dest.terminal_id) != home
-                ):
+            for dest in self.wire_readers(src.terminal_id):
+                if dest.terminal_id == current:
                     continue
                 if any(
-                    reader != changer and not nx.has_path(self._graph, reader, changer)
+                    reader != changer
+                    and (
+                        reader not in diagram
+                        or not nx.has_path(diagram, reader, changer)
+                    )
                     for reader in self._readers(dest, changer)
                 ):
                     return True
+            term = self.get_terminal(current)
             if (
-                isinstance(current, TunnelTerminal)
-                and current.boundary == "inner"
-                and current.tunnel_type == "lpTun"
-                and current.paired_id == src.terminal_id
+                isinstance(term, TunnelTerminal)
+                and term.boundary == "inner"
+                and term.tunnel_type == "lpTun"
+                and term.paired_id == src.terminal_id
                 and isinstance(
-                    self.get_graph_node(self.terminal_node_id(terminal_id)),
-                    LoopNode,
+                    self.get_graph_node(self.terminal_node_id(current)), LoopNode
                 )
             ):
                 return True
-            if self._shared_from(src.terminal_id, changer, home, seen):
-                return True
         return False
+
+    def _diagram_of(self, vi: str | None) -> nx.MultiDiGraph:
+        """The wires between the nodes of the VI's diagram: without the VI's own
+        node, whose controls feed the diagram and whose indicators it feeds, and
+        without the definitions of the VIs it calls. A path through either is
+        not an order the diagram sets."""
+
+        def on_diagram(node_id: str) -> bool:
+            node = self.get_graph_node(node_id)
+            return node_id != vi and node is not None and node.vi_path == vi
+
+        return nx.subgraph_view(self._graph, filter_node=on_diagram)
 
     def _is_field_of_container(self, terminal_id: str) -> bool:
         """Whether the terminal gives a field of a cluster or class (an Unbundle
