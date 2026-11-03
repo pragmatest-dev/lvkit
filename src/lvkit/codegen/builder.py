@@ -27,6 +27,7 @@ from .ast_utils import (
     result_class_def,
     terminal_annotation,
     to_function_name,
+    with_statements_after_docstring,
 )
 from .context import CodeGenContext
 from .elementwise import arrayify_module
@@ -100,6 +101,10 @@ def build_module(
     ctx.qualified_vi_name = vi_context.qualified_name
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
+    body = with_statements_after_docstring(
+        [stmt for imp in sorted(ctx.inside_imports) for stmt in ast.parse(imp).body],
+        body,
+    )
     if graph is not None and in_import_cycle(graph, vi_name):
         body, ctx.imports = imports_inside(body, ctx.imports)
 

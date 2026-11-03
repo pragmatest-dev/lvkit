@@ -244,6 +244,11 @@ def create_import_resolver(
         alias = "" if name == derived else f" as {name}"
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
+    def own_function_import(name: str) -> NameImport:
+        dots, package, module = relative(caller_path)
+        dotted = f"{package}.{module}" if package else module
+        return NameImport(f"from {dots}{dotted} import {name}", name)
+
     def module_import(global_vi_name: str) -> ModuleImport:
         dots, package, module = relative(locate_by_name(global_vi_name))
         alias = f"{module}_global"
@@ -316,6 +321,7 @@ def create_import_resolver(
         shown,
         names_import,
         taken,
+        own_function_import,
     )
 
 
