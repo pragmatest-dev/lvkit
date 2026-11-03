@@ -11,6 +11,7 @@ import pytest
 
 from lvkit.graph.core import InMemoryVIGraph, _node_order_key
 from lvkit.graph.diff import (
+    FrameStep,
     diff_to_dict,
     diff_uid,
     format_diff,
@@ -575,14 +576,13 @@ class TestModifiedConstant:
         assert c.label == "String constant"
 
 
-# ── Locality stamping: container_uid / frame_path ───────────────────────
+# ── Locality stamping: container_uid / location_after / location_before ─
 #
 # Every ElementChange records WHERE it lives: the innermost enclosing Case/
-# stacked-Sequence structure (container_uid) and the full frame-addressing
-# chain (frame_path), formatted exactly like render/draw.py's
-# ``encode_frame_path`` token baked into the SVG's ``<g class="lv-frame"
-# data-path="...">`` attribute, so a downstream viewer can correlate a change
-# straight onto the rendered frame group with no reconciliation.
+# stacked-Sequence structure (container_uid) and, for each version it is in,
+# every frame it is inside (structure uid, frame position, shown value) --
+# the position is what the SVG's ``<g class="lv-frame" data-path="...">``
+# attribute addresses, so a viewer can find the rendered frame group.
 
 
 class TestLocalityStamping:
@@ -598,8 +598,10 @@ class TestLocalityStamping:
         by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
         inside_new_case = by_uid["4117"]
         assert inside_new_case.container_uid == "3870"
-        assert inside_new_case.frame_path is not None
-        assert inside_new_case.frame_path.endswith("3870=True")
+        assert inside_new_case.location_after is not None
+        leaf = inside_new_case.location_after[-1]
+        assert (leaf.structure, leaf.values) == ("3870", ("True",))
+        assert inside_new_case.location_before is None
 
         # A DIFFERENT added node (1065) sits in an existing, UNRELATED case
         # (753) -- not the new one -- proving container_uid is the actual
@@ -622,7 +624,8 @@ class TestLocalityStamping:
         top_level = by_uid["509"]
         assert top_level.label == "Tick Count (ms)"
         assert top_level.container_uid is None
-        assert top_level.frame_path is None
+        assert top_level.location_after == ()
+        assert top_level.location_before is None
 
     def test_to_dict_serializes_locality_fields(self, vi_diff_pair):
         ga, na = _load(vi_diff_pair.base, layout=True)
@@ -631,7 +634,9 @@ class TestLocalityStamping:
 
         entry = next(c for c in d["changes"] if c["uid"] == "4117")
         assert entry["container_uid"] == "3870"
-        assert entry["frame_path"] is not None
+        assert entry["location_after"][-1]["structure"] == "3870"
+        assert entry["location_after"][-1]["value"] == "True"
+        assert entry["location_before"] is None
 
 
 # ── Frame set diff: added/removed/value-changed frames ──────────────────
@@ -700,28 +705,40 @@ class TestFrameSetChanges:
         assert removed.change == "removed"
         assert removed.label == "1"
         assert removed.container_uid == "500"
-        assert removed.frame_path == "500=1"
+        assert removed.location_before == (FrameStep("500", 0, ("1",)),)
+        assert removed.location_after is None
 
         added = frame_changes["~4"]
         assert added.kind == "frame"
         assert added.change == "added"
         assert added.label == "4"
         assert added.container_uid == "500"
-        assert added.frame_path == "500=4"
+        assert added.location_after == (FrameStep("500", 2, ("4",)),)
+        assert added.location_before is None
 
         value_by_fallback = frame_changes["~2"]
         assert value_by_fallback.kind == "value"
         assert value_by_fallback.change == "modified"
         assert value_by_fallback.detail == "2 → 2, 3"
         assert value_by_fallback.container_uid == "500"
-        assert value_by_fallback.frame_path == "500=2"
+        assert value_by_fallback.location_after == (
+            FrameStep("500", 0, ("2", "3")),
+        )
+        assert value_by_fallback.location_before == (
+            FrameStep("500", 1, ("2",)),
+        )
 
         value_by_uid = frame_changes["900"]
         assert value_by_uid.kind == "value"
         assert value_by_uid.change == "modified"
         assert value_by_uid.detail == "2 → Default"
         assert value_by_uid.container_uid == "500"
-        assert value_by_uid.frame_path == "500=Default"
+        assert value_by_uid.location_after == (
+            FrameStep("500", 1, ("Default",)),
+        )
+        assert value_by_uid.location_before == (FrameStep("500", 2, ("2",)),)
+        # Frames 1 and 2 of the before version are frames 0 and 1 after.
+        assert cmap.frame_pairs == {"500": [(1, 0), (2, 1)]}
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
         case_a = CaseStructureNode(
@@ -797,17 +814,18 @@ class TestFrameSetChanges:
         assert (c.kind, c.change) == ("value", "modified")
         assert c.detail == "1 → 0"
         assert c.container_uid == "500"
-        # after pane addresses the frame as 500=0; before pane as 500=1 — the
-        # viewer drives each pane from its own side so both reveal the frame.
-        assert c.frame_path == "500=0"
-        assert c.frame_path_before == "500=1"
+        # Each side's location names the frame by its own value; the viewer
+        # drives each pane from its own side so both reveal the frame.
+        assert c.location_after == (FrameStep("500", 0, ("0",)),)
+        assert c.location_before == (FrameStep("500", 0, ("1",)),)
+        assert cmap.frame_pairs == {"500": [(0, 0)]}
 
     def test_stacked_sequence_frame_reorder_by_real_uid(self):
         # SequenceFrame DOES get a real, stable uid from the parser (see
         # parser/nodes/sequence.py) -- unlike CaseFrame. A stacked sequence
         # (node_type != "flatSequence") is INTERACTIVE (render/scene.py wraps
         # it in a togglable lv-frame group), so its frame changes extend the
-        # frame_path with their own segment.
+        # location with their own step.
         # A stacked sequence's real parser class is "seq"/"sequence" (is_flat
         # False), NOT "flatSequence" — that's what makes it interactive
         # (_is_interactive_struct: a SequenceNode with node_type !=
@@ -850,14 +868,15 @@ class TestFrameSetChanges:
         assert reordered.change == "modified"
         assert reordered.detail == "1 → 0"
         assert reordered.container_uid == "700"
-        assert reordered.frame_path == "700=0"
+        assert reordered.location_after == (FrameStep("700", 0, ("0",)),)
+        assert reordered.location_before == (FrameStep("700", 1, ("1",)),)
 
-    def test_flat_sequence_frame_change_gets_no_new_frame_path_segment(self):
+    def test_flat_sequence_frame_change_gets_no_new_location_step(self):
         # A FLAT sequence shows every frame simultaneously (film-strip) --
         # never hidden -- so render/scene.py never wraps it in a togglable
         # lv-frame group (_is_interactive_struct is False for it). Its frame
         # changes still get a real container_uid (the structure exists) but
-        # must NOT gain a frame_path segment nothing in the SVG would match.
+        # must NOT gain a location step nothing in the SVG would match.
         seq_a = SequenceNode(
             id="vi::800",
             vi_path="vi",
@@ -887,7 +906,8 @@ class TestFrameSetChanges:
         assert added.uid == "21"
         assert added.change == "added"
         assert added.container_uid == "800"
-        assert added.frame_path is None  # non-interactive: no new segment
+        assert added.location_after == ()  # non-interactive: no new step
+        assert added.location_before is None
 
 
 # ── Wire endpoint diff (#10) ────────────────────────────────────────────
@@ -942,7 +962,7 @@ class TestWireChanges:
     def test_run_vi_removed_wire_endpoints_translated_to_other_pane(self, vi_diff_pair):
         # The viewer's revealFrame(c) needs to open the case frame in the
         # OTHER (head/after) pane that contains this removed wire's
-        # surviving endpoint -- its own frame_path only ever addresses the
+        # surviving endpoint -- its own location only ever addresses the
         # BASE pane it lives in. ``endpoints`` carries the wire's source +
         # sink node uids, resolved as they'd appear in HEAD's SVG:
         #   - sink (the "Not" node, uid 1781) keeps the SAME uid in both

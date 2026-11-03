@@ -460,6 +460,18 @@ def selector_frame_values(
     return (sv,)  # an already-display token
 
 
+def selector_shown_values(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> tuple[str, ...]:
+    """The parts of a case frame's label (``_selector_label``), unquoted and in
+    order: its values, then ``Default`` when the label marks the frame so."""
+    values = selector_frame_values(frame, lv_type, is_error)
+    described = bool(values) and (is_error or frame.boolean_value is not None)
+    if frame.is_default and not described:
+        return (*values, _DEFAULT_LABEL)
+    return values
+
+
 def _double_quote(text: str) -> str:
     """Plain double quoting of one selector value (no escaping)."""
     return f'"{text}"'

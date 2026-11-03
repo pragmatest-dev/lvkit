@@ -349,10 +349,8 @@ class NetlistFrame:
     # raw index for a sequence frame. What ``render_lvnet`` prints.
     label: str
     # The raw selector value (case) / index (sequence), always ``str()``.
-    # Kept SEPARATE from ``label`` because ``diff.py`` keys frames across two
-    # VI versions, and encodes ``data-path`` for the SVG (``_extend_frame_path``/
-    # ``render/scene.py::encode_frame_path``) by this raw token -- identity
-    # must stay stable even when the display label is enum-name-aware.
+    # Kept SEPARATE from ``label``, which is enum-name-aware; the lvnet text
+    # and JSON write both.
     value: str
     is_default: bool
     body: list[NetlistItem]

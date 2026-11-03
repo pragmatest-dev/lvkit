@@ -392,18 +392,29 @@ The render composite then asks the graph *"what's inside X?"* and the layout
   it, so two frames with one name keep their own nodes (#238). The name is only
   shown: `shown_frame_value(frames, key)` turns a key back into the selector
   value for the index `node.frame` column (`index/build.py:_shown_frame`).
-  `frame_tokens(frames)` gives each frame the token the render's frame paths and
-  selector (`render/scene.py:_frame_info`, `_frame_token`) and diff's frame
-  paths (`graph/diff.py:_frame_token`) use: the shown value, with `#<position>`
-  added to a frame that repeats an earlier frame's value (`"1"`, `"1#1"`), so
-  unique names render unchanged. The token is an internal key only (SVG
-  `data-path`/`data-lv-frames`/`data-lv-value`, diff `frame_path` and `~` frame
-  keys); what a person sees is the frame's own label (the render's selector and
-  menu from `frame_labels`, the diff text tree's `frame_label` via
-  `token_position`, the diff viewer's `frameLabel` from the menu option text).
-  `token_of(frames, frame)` finds a frame's token by identity. `graph.diff`
-  still matches frames ACROSS two versions by that token (`_frame_key`), i.e. by
-  name. In the netlist, every per-frame drive (`GammaCase`, `FrameOutputDrive`,
+- **Within one VI a frame is addressed by structure + position; a person only
+  reads its label.** The rendered SVG's `data-path` is `<struct uid>:<position>`
+  segments (`render/scene.py:encode_frame_path`, `_frame_address` via
+  `operations.frame_position`); `data-lv-frames`/`data-lv-default`/`data-lv-value`
+  are positions; labels come only from `Scene.frame_labels` (the selector's
+  label groups and menu). Both the render's own toggle script
+  (`render/__init__.py:_FRAME_CONTROLLER_JS`) and the diff viewer read positions.
+- **diff locates every change per side and pairs every frame.** An
+  `ElementChange` carries `location_after`/`location_before` (`graph/diff.py`
+  `FrameStep`: structure uid, frame position, shown values; `None` for the side
+  the element is not in) built by `_collect_elements`/`_frame_location`.
+  `_struct_frame_changes` matches frames ACROSS versions by value (`_frame_key`,
+  plus an occurrence number so two same-valued frames still pair in order), then
+  by contents, and returns every pair as `(before position, after position)`:
+  `ChangeMap.frame_pairs`, keyed by the after-side structure uid. Constants are
+  matched across versions by location VALUE (`_by_value`), never position. The
+  viewer (`render/templates/diff_viewer.html`: `setFrame`/`partner`/
+  `sideLocation`/`revealFrame`, deep link `#frame=uid:pos`) moves the other pane
+  to a frame's partner and leaves it where it is when there is none; the text
+  tree (`_netlist_diff`, `_segments`) places each change on the after side's
+  frames, a removed one through the pairing, and prints the netlist labels.
+  `tests/test_diff_viewer_browser.py` drives this in headless Chrome. In the
+  netlist, every per-frame drive (`GammaCase`, `FrameOutputDrive`,
   `SequenceLocalDrive`, `SequenceLocalUnreadable`) carries its frame's
   `position` in the scope's `frames`; `lvnet_drives.frame_drives` matches on
   it, never on the label.

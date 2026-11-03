@@ -4,6 +4,8 @@ own nodes (#238); and the table rule that names the frames of an error case."""
 
 from __future__ import annotations
 
+import json
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -35,6 +37,8 @@ from lvkit.run_report import (
     RunProblems,
     RunReport,
 )
+from lvkit.vi_diff import diff_vi_files
+from tests.diff_viewer_cases import write_versions
 from tests.test_disable_graph import _BD_XML as _DISABLE_BD_XML
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -369,6 +373,19 @@ def test_generate_merges_each_frames_own_value_on_an_output_tunnel(
     assert source.rstrip().endswith("    time.sleep(case_output / 1000)")
 
 
+def _frame_label_texts(svg: str) -> dict[str, str]:
+    """Each frame's selector label group's ``data-path`` and its text."""
+    texts: dict[str, str] = {}
+    for g in ET.fromstring(svg).iter("{http://www.w3.org/2000/svg}g"):
+        classes = (g.get("class") or "").split()
+        if "lv-label" in classes:
+            texts[g.get("data-path", "")] = "".join(
+                t.text or ""
+                for t in g.iter("{http://www.w3.org/2000/svg}text")
+            )
+    return texts
+
+
 def _frame_groups(svg: str) -> dict[str, list[str]]:
     """Each frame group's ``data-path`` and the nodes drawn inside it."""
     groups: dict[str, list[str]] = {}
@@ -386,11 +403,14 @@ def test_render_draws_each_frame_with_only_its_own_nodes(tmp_path: Path) -> None
     svg = render_vi(graph, vi_name)
     assert svg is not None
     assert _frame_groups(svg) == {
-        "600=1": [_RANDOM, _WAIT_0],
-        "600=1#1": [_TICK, _WAIT_1],
+        "600:0": [_RANDOM, _WAIT_0],
+        "600:1": [_TICK, _WAIT_1],
     }
-    assert 'data-lv-frames="1;1#1"' in svg
-    assert 'data-lv-default="1"' in svg
+    assert 'data-lv-frames="0;1"' in svg
+    assert 'data-lv-default="0"' in svg
+    # A person reads each frame's value; the position is never shown.
+    assert _frame_label_texts(svg) == {"600:0": "1", "600:1": "1"}
+    assert not re.findall(r'data-(?:path|lv-frames|lv-default|lv-value)="[^"]*#', svg)
 
 
 def test_render_names_frames_by_their_values_when_they_differ(
@@ -400,10 +420,11 @@ def test_render_names_frames_by_their_values_when_they_differ(
     svg = render_vi(graph, vi_name)
     assert svg is not None
     assert _frame_groups(svg) == {
-        "600=1": [_RANDOM, _WAIT_0],
-        "600=2": [_TICK, _WAIT_1],
+        "600:0": [_RANDOM, _WAIT_0],
+        "600:1": [_TICK, _WAIT_1],
     }
-    assert 'data-lv-frames="1;2"' in svg
+    assert _frame_label_texts(svg) == {"600:0": "1", "600:1": "2"}
+    assert 'data-lv-frames="0;1"' in svg
 
 
 _REPEATED = (
@@ -462,13 +483,18 @@ def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
         "Tick Count (ms).millisecond_timer_value)"
         " -> millisecond_timer_value",
     ]
-    (change,) = diff_to_dict(graph_a, graph_b, vi_a, vi_b)["changes"]
-    # The frame path addresses the frame for the viewer; the label is shown.
-    assert (change["uid"], change["label"], change["frame_path"]) == (
+    data = diff_to_dict(graph_a, graph_b, vi_a, vi_b)
+    (change,) = data["changes"]
+    # Each side's location names the frame by position and value.
+    assert (change["uid"], change["label"], change["location_after"]) == (
         _WAIT_1,
         "Wait (ms)",
-        "600=1#1",
+        None,
     )
+    assert change["location_before"] == [
+        {"structure": "600", "frame": 1, "value": "1"}
+    ]
+    assert data["frame_pairs"] == {"600": [[0, 0], [1, 1]]}
 
 
 def test_frames_with_their_own_values_are_no_problem(tmp_path: Path) -> None:
@@ -549,3 +575,44 @@ def test_an_error_table_listing_only_the_no_error_frame() -> None:
 
 def test_an_error_table_listing_the_error_frame_first() -> None:
     assert _statuses([(1, 1, 0)]) == [("1", False), ("0", True)]
+
+
+def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
+    before, after = write_versions(tmp_path)
+    body = diff_vi_files(before, after, fmt="json", warm_index=False)
+    assert body is not None
+    data = json.loads(body.body)
+    # Before frames "1", "2" are after frames "1" (moved to position 1 by the
+    # new frame "5") and "3" (renamed, same contents); the nested case's
+    # frames keep their places.
+    assert data["frame_pairs"] == {"600": [[0, 1], [1, 2]], "650": [[0, 0], [1, 1]]}
+    located = {
+        (c["uid"], c["change"]): (c["location_before"], c["location_after"])
+        for c in data["changes"]
+    }
+    assert located == {
+        ("~5", "added"): (None, [{"structure": "600", "frame": 0, "value": "5"}]),
+        ("520", "added"): (None, [{"structure": "600", "frame": 0, "value": "5"}]),
+        ("~3", "modified"): (
+            [{"structure": "600", "frame": 1, "value": "2"}],
+            [{"structure": "600", "frame": 2, "value": "3"}],
+        ),
+        ("680", "added"): (
+            None,
+            [
+                {"structure": "600", "frame": 2, "value": "3"},
+                {"structure": "650", "frame": 1, "value": "8"},
+            ],
+        ),
+    }
+    text = diff_vi_files(before, after, fmt="text", warm_index=False)
+    assert text is not None
+    assert text.body.splitlines() == [
+        "  case:",
+        '+   "5":',
+        "+     Tick Count (ms)#1() -> millisecond_timer_value",
+        '~   "3": 2 -> 3',
+        "      case:",
+        '        "8":',
+        "+         Random Number (0-1)#3() -> number",
+    ]

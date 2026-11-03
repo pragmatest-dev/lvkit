@@ -342,10 +342,10 @@ class TestJsonDiff:
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         d = diff_to_dict(ga, gb, na, nb)
         # No separate top-level sections for property/health/signature changes
-        # -- those live in "changes". "before"/"after" (#114) are the only
-        # other top-level keys, carrying which VI pair this is, not a change
-        # section.
-        assert set(d) == {"changes", "common_nodes", "before", "after"}
+        # -- those live in "changes". The other top-level keys say which frames
+        # are the same frame in both versions ("frame_pairs") and which VI pair
+        # this is ("before"/"after", #114); none is a change section.
+        assert set(d) == {"changes", "common_nodes", "frame_pairs", "before", "after"}
 
         lock_change = next(c for c in d["changes"] if c["uid"] == "property:lock_state")
         assert lock_change["kind"] == "property"

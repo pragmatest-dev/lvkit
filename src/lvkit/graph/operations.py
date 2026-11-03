@@ -382,50 +382,12 @@ def structure_frames(node: object | None) -> Sequence[Frame]:
     return getattr(node, "frames", None) or []
 
 
-def frame_tokens(frames: Sequence[Frame]) -> list[str]:
-    """Each frame's token, by position: the internal key naming it in a
-    rendered diagram's frame paths and selector data, and in a diff's frame
-    paths and frame keys. It is the value the frame shows
-    (:func:`shown_frame_value`); a frame showing the same value as an earlier
-    frame of the structure gets ``#<position>`` after it, so every frame keeps
-    its own token (``"1"``, ``"1#1"``). A token is never shown to a person:
-    every view shows the frame's own value or label."""
-    tokens: list[str] = []
-    for position, frame in enumerate(frames):
-        shown = (
-            frame.selector_value
-            if isinstance(frame, CaseFrame)
-            else frame_key(frame, position)
-        )
-        token = str(shown)
-        if token in tokens:
-            token = f"{token}#{position}"
-        while token in tokens:  # a selector value that itself reads "1#1"
-            token = f"{token}#"
-        tokens.append(token)
-    return tokens
 
-
-def frame_token(frames: Sequence[Frame], key: str | int | None) -> str:
-    """The token (:func:`frame_tokens`) of the frame of ``frames`` whose
-    :func:`frame_key` is ``key``; ``str(key)`` when no frame has that key."""
-    tokens = frame_tokens(frames)
+def frame_position(frames: Sequence[Frame], key: str | int | None) -> int | None:
+    """The position in ``frames`` of the frame whose :func:`frame_key` is
+    ``key`` -- how a view addresses a frame within one VI; ``None`` when no
+    frame has that key (a node in no frame)."""
     for position, frame in enumerate(frames):
         if frame_key(frame, position) == key:
-            return tokens[position]
-    return str(key)
-
-
-def token_of(frames: Sequence[Frame], frame: Frame) -> str:
-    """The token (:func:`frame_tokens`) of ``frame`` itself, found in
-    ``frames`` by identity."""
-    return next(
-        t for t, f in zip(frame_tokens(frames), frames, strict=True) if f is frame
-    )
-
-
-def token_position(frames: Sequence[Frame], token: str) -> int | None:
-    """The position in ``frames`` of the frame whose token is ``token``;
-    ``None`` when no frame has it."""
-    tokens = frame_tokens(frames)
-    return tokens.index(token) if token in tokens else None
+            return position
+    return None

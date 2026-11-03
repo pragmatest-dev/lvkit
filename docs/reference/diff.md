@@ -191,7 +191,8 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 ```
 
 Prints the diff engine's `ChangeMap` as JSON: `{"changes": [...], "common_nodes":
-N}` — no other top-level keys. `changes` has one entry per added/removed/
+N, "frame_pairs": {...}, "before": {...}, "after": {...}}` (`before`/`after` name
+and locate the two VIs) — no other top-level keys. `changes` has one entry per added/removed/
 modified node, wire, structure, constant, FP control/indicator (`kind:
 "terminal"`), or VI-level facet (`kind: "property"`/`"connector_pane"` — the
 VI's own Properties/connector-pane interface, rendered as ordinary entries
@@ -203,7 +204,17 @@ always `null` for a property/connector_pane entry, which has no diagram
 element of its own). A property entry's `uid` is `property:{raw_field}` (the
 underlying `VIProperties`/`KindProps` field name, e.g. `property:lock_state`
 — not its curated `label`, e.g. `"lock"`); `common_nodes` is the count of
-nodes matched unchanged across both VIs. **VI health is never diffed** — it's
+nodes matched unchanged across both VIs. An entry inside a case, Diagram
+Disable, event or stacked-sequence frame says where it is in each version:
+`location_after` and `location_before` list, outermost first, every frame it
+is inside as `{"structure": "<uid>", "frame": <position>, "value": ...}` —
+`frame` is the frame's position in its structure (0 for the first), `value`
+the frame's shown value, or a list when it shows several. `[]` means the VI's
+own diagram; `null` means the element is not in that version (an added element
+has no `location_before`, a removed one no `location_after`). `frame_pairs`
+maps each structure (by its uid in the after version) to the frames that are
+the same frame in both versions, as `[before position, after position]` —
+matched by value, then by contents; an added or removed frame has no pair. **VI health is never diffed** — it's
 an emergent characteristic, not an authored change (`describe`/the index
 still surface it) — so no `kind: "health"` entry, and no `health:`-prefixed
 `uid`, ever appears in this JSON. This is the same change map `--format html`
@@ -241,16 +252,16 @@ in a review, or hosted as a static CI artifact.
   shared across all four view modes.
 - The URL fragment encodes the selected change, view mode, change-list mode,
   and per-structure frame selection
-  (`#c=N&view=overlay&list=tree&frame=UID=VALUE`), so a link into the viewer
-  can deep-link straight to a specific change.
+  (`#c=N&view=overlay&list=tree&frame=UID:POSITION`, a frame of the after
+  version by its position; the before pane shows the same frame), so a link
+  into the viewer can deep-link straight to a specific change.
 
 ### Flat vs. tree change list
 
 A **Flat / Tree** toggle sits above the change list. **Flat** (the default)
 is the numbered list in engine order, one row per change. **Tree** regroups
-the SAME list by containment — client-side, from the `container_uid`/
-`frame_path` every entry already carries, no extra data and no second engine
-call — into exactly the structure the `text` containment tree above prints:
+the SAME list by containment into exactly the structure the `text`
+containment tree above prints (the same rows, computed with it):
 a structure is a recursion point, its frames are quoted sub-headers, and
 contained changes nest beneath them. Every row keeps its number badge and
 click-to-select behavior in either mode — switching modes only changes how
