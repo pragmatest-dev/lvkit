@@ -17,6 +17,7 @@ Every construct has two kinds of test:
 from __future__ import annotations
 
 import dataclasses
+import errno
 import inspect
 import os
 import stat
@@ -431,11 +432,19 @@ def test_a_file_without_permission_is_error_8(
 def test_another_file_failure_is_the_generic_file_error_6(
     project: Project,  # noqa: F811
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Opening a folder as a file fails with an ``OSError`` no listed subclass
-    matches."""
+    """An ``OSError`` no listed subclass matches (a device error) is the generic
+    file error. The module's ``open`` raises it, so every platform fails the same
+    way (opening a folder is ``IsADirectoryError`` on Linux but
+    ``PermissionError`` on Windows)."""
     package = generate(project, C.native_failure)
-    assert _native_failure(package, tmp_path).code == 6
+
+    def device_error(*_args: Any) -> Any:
+        raise OSError(errno.EIO, "I/O error")
+
+    monkeypatch.setattr(package.module, "open", device_error, raising=False)
+    assert _native_failure(package, tmp_path / "a.bin").code == 6
 
 
 def test_a_failure_after_a_warning_is_the_error_out(
