@@ -129,6 +129,7 @@ def create_import_resolver(
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
     module_names: set[str] | None = None,
+    spellings: dict[str, str] | None = None,
     module_key: str | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
@@ -155,6 +156,9 @@ def create_import_resolver(
         module_names: The top-level names of the module, shared by every
             resolver that writes into it (the variants of a polymorphic VI);
             each name an import is spelled as is added to it.
+        spellings: The name each import of the module is spelled as, by its
+            identity, shared like ``module_names``: every variant spells one
+            import the same way, so the module imports it once.
         module_key: The file whose module ``caller_path`` is (a class, a
             polymorphic VI); ``caller_key`` when omitted.
 
@@ -234,8 +238,8 @@ def create_import_resolver(
     # module, by the identity of its node (its file path). Two with the same
     # derived name, or one with the name of what the module defines, are told
     # apart by an alias.
-    spelled: dict[str, str] = {}
-    taken = module_names if module_names is not None else set()
+    spelled = spellings if spellings is not None else {}
+    taken =module_names if module_names is not None else set()
     taken.update(defined_names)
     if caller_key is not None:
         taken.add(to_function_name(Path(caller_key).name))
@@ -462,6 +466,7 @@ def _generate_polymorphic_module(
     # One module holds every variant: their imports are spelled against one set
     # of the module's names, which starts with every function it defines.
     module_names = {to_function_name(Path(name).name) for name in variants}
+    spellings: dict[str, str] = {}
     # Their module-level code (helpers, ctypes declarations, globals) is named
     # against one another, and each statement goes into the module once.
     shared = ModuleParts(module_stem=to_function_name(Path(wrapper_name).name))
@@ -484,6 +489,7 @@ def _generate_polymorphic_module(
             package_modules=package_modules,
             layout=layout,
             module_names=module_names,
+            spellings=spellings,
             module_key=wrapper_name,
         )
         code = build_module(

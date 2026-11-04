@@ -104,21 +104,29 @@ def _poly_tree(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     callers: dict[str, list[str | None]],
+    both_call_helper: bool = False,
 ) -> _Tree:
     """The wrapper ``wrap.vi`` with the variants ``One/array.vi`` (which calls
     ``Two/scalar.vi`` by name) and ``Two/scalar.vi``; each of ``callers`` (a VI
     file name to the variant each of its calls records, or None for none) calls
-    the wrapper."""
+    the wrapper. ``both_call_helper``: each variant instead calls
+    ``Shared/helper.vi``."""
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
-    built.vi("Two/scalar.vi", "scalar.vi", [])
-    built.vi(
-        "One/array.vi",
-        "array.vi",
-        [],
-        [_static(["scalar.vi"], ["", "..", "Two", "scalar.vi"])],
-    )
+    if both_call_helper:
+        built.vi("Shared/helper.vi", "helper.vi", [])
+        helper = [_static(["helper.vi"], ["", "..", "Shared", "helper.vi"])]
+        built.vi("Two/scalar.vi", "scalar.vi", [], helper)
+        built.vi("One/array.vi", "array.vi", [], helper)
+    else:
+        built.vi("Two/scalar.vi", "scalar.vi", [])
+        built.vi(
+            "One/array.vi",
+            "array.vi",
+            [],
+            [_static(["scalar.vi"], ["", "..", "Two", "scalar.vi"])],
+        )
     variants = list(_VARIANTS.values())
     wrapper = built.vi(
         "wrap.vi",
@@ -230,6 +238,34 @@ def test_one_caller_of_two_variants_imports_each_by_its_own_name(
     lines = (package / "main.py").read_text().splitlines()
     assert lines[2:4] == ["from .wrap import array", "from .wrap import scalar"]
     assert lines[4:] == ["", "def main():", "    array()", "    scalar()"]
+    _run(package, "main").main()
+
+
+def test_variants_that_call_one_subvi_import_it_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both variants call ``Shared/helper.vi``: the polymorphic VI's module
+    imports ``helper`` once, by its own name, and both variants call it so."""
+    built = _poly_tree(
+        tmp_path, monkeypatch, {"main.vi": ["array", "scalar"]}, both_call_helper=True
+    )
+    out = tmp_path / "gen"
+    result = generate_python(built.root / "main.vi", out)
+    assert not result["gaps"]
+    package = out / "main"
+    assert (package / "wrap.py").read_text().splitlines() == [
+        "'The variants of the polymorphic VI wrap.vi.'",
+        "from __future__ import annotations",
+        "from .shared.helper import helper",
+        "from typing import Any, NamedTuple",
+        "",
+        "",
+        "def array():",
+        "    helper()",
+        "",
+        "def scalar():",
+        "    helper()",
+    ]
     _run(package, "main").main()
 
 

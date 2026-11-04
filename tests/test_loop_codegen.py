@@ -957,13 +957,15 @@ class TestUninitializedShiftRegister:
     def test_registers_module_global_seeded_to_type_default(self):
         lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
+        ctx.function_name = "counter"
         loop_op = self._loop_op(terminals)
 
         loop.generate(loop_op, ctx)
 
         assert len(ctx.module_globals) == 1
         name = next(iter(ctx.module_globals))
-        assert name.startswith("_lv_state_")
+        # The VI's function name and the shift register's outer terminal uid.
+        assert name == "_lv_state_counter_lsr_outer"
         stmt = ctx.module_globals[name]
         code = ast.unparse(ast.fix_missing_locations(stmt))
         assert code == f"{name} = 0"

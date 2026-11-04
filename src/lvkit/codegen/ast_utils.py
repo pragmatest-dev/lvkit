@@ -8,6 +8,7 @@ import keyword
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from lvkit.graph.core import uid_of
 from lvkit.lv_type_codes import (
     INTEGER_TYPE_NAMES,
     is_boolean_type_name,
@@ -398,22 +399,27 @@ GENERATED_MODULE_NAMES = frozenset(
 RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
 
 
-def sanitize_state_var_suffix(uid: str) -> str:
-    """Turn an arbitrary terminal/node uid into a valid identifier suffix.
+def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
+    """The name of module-level code one node of a VI owns: an uninitialized
+    shift register's global (codegen/nodes/loop.py), First Call?'s flag
+    (codegen/nodes/first_call.py), a Formula Node's function
+    (codegen/nodes/formula.py).
 
-    Used for module-level persistent-state variable names: uninitialized
-    shift-register globals (see codegen/nodes/loop.py) and stateful
-    primitives like First Call? (codegen/nodes/first_call.py). Graph uids
-    are already qualified as ``"<vi_name>::<raw_uid>"`` (see
-    ``InMemoryVIGraph._qid``), so the sanitized result stays unique and
-    stable across regenerations of the same VI -- unlike ``to_var_name``,
-    which strips non-alnum characters entirely, this replaces runs of them
-    with a single ``_`` so the ``vi_name`` and ``raw_uid`` portions don't
-    collapse into each other.
+    ``<prefix>_<function>_<uid>``: the VI's function name and the node's or
+    terminal's uid within its VI (``node_id`` is ``<vi path>::<uid>``, see
+    ``InMemoryVIGraph._qid``). A module's functions have names of their own,
+    so the name is unique in a module that holds several VIs (the variants of a
+    polymorphic VI), and it is the same wherever the project sits on disk.
     """
+    return f"{prefix}_{_identifier_suffix(f'{function_name}_{uid_of(node_id)}')}"
+
+
+def _identifier_suffix(text: str) -> str:
+    """``text`` as a valid identifier suffix: each run of characters that are
+    not letters or digits becomes one ``_``."""
     chars: list[str] = []
     prev_underscore = False
-    for ch in uid:
+    for ch in text:
         if ch.isalnum():
             chars.append(ch.lower())
             prev_underscore = False

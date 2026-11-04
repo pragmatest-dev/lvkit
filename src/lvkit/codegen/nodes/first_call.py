@@ -20,7 +20,7 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 
-from ..ast_utils import sanitize_state_var_suffix
+from ..ast_utils import node_owned_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
@@ -29,7 +29,7 @@ FIRST_CALL_PRIM_ID = 1083
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Lower a First Call? call site to a module-global-backed flag read."""
-    flag_name = f"_lv_first_call_{sanitize_state_var_suffix(node.id)}"
+    flag_name = node_owned_name("_lv_first_call", ctx.function_name, node.id)
     ctx.add_module_global(flag_name, ast.Constant(value=True))
 
     statements: list[ast.stmt] = [ast.Global(names=[flag_name])]

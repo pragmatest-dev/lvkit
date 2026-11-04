@@ -19,8 +19,8 @@ from lvkit.models import (
 from ..ast_utils import (
     build_assign,
     default_value_expr,
+    node_owned_name,
     parse_expr,
-    sanitize_state_var_suffix,
     to_var_name,
 )
 from ..context import CodeGenContext
@@ -124,7 +124,9 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # ACROSS CALLS to the VI. Lower to a module-level global,
                 # seeded to the SR's type default, that this call site
                 # reads at loop entry and writes back after the loop.
-                global_name = f"_lv_state_{sanitize_state_var_suffix(outer_term)}"
+                global_name = node_owned_name(
+                    "_lv_state", ctx.function_name, outer_term
+                )
                 sr_lv_type = None
                 outer_sr_term = term_by_id.get(outer_term)
                 inner_sr_term = term_by_id.get(inner_term)
