@@ -1845,7 +1845,7 @@ pylabview names no field for it. A tally of the `objFlags` of every `propNode` i
 
 ## An Error Ring XNode keeps its code, description, error/warning and call-chain choices in its `<StateData>`; the diagram inside it builds the error from them
 
-An Error Ring is a `class="xNode"` whose `<displayName>` is hex ASCII for `Error Ring` (`4572726F722052696E67`). NI's public page (`https://docs-be.ni.com/api/bundle/labview-api-ref/page/vi-lib/errorring/error-ring-xnode.html`) names its parts: an error/warning toggle, an include/exclude call chain toggle, the code and its description; the description takes Format Into String specifiers (`%s`, `%T`), and the ring grows one input per specifier (`https://docs-be.ni.com/api/bundle/labview/page/defining-a-custom-error-code-from-the-error-ring.html`).
+An Error Ring is a `class="xNode"` of the XNode library `<vilib>/ErrorRing/Error Ring.xnode`, which the VI's link table names (next section); its `<displayName>` is hex ASCII for `Error Ring` (`4572726F722052696E67`), a display name lvkit does not identify it by. NI's public page (`https://docs-be.ni.com/api/bundle/labview-api-ref/page/vi-lib/errorring/error-ring-xnode.html`) names its parts: an error/warning toggle, an include/exclude call chain toggle, the code and its description; the description takes Format Into String specifiers (`%s`, `%T`), and the ring grows one input per specifier (`https://docs-be.ni.com/api/bundle/labview/page/defining-a-custom-error-code-from-the-error-ring.html`).
 
 `<StateData>` is hex of big-endian fields; a string is a u32 byte count then its bytes (`parser/error_ring.py`):
 
@@ -1858,16 +1858,20 @@ An Error Ring is a `class="xNode"` whose `<displayName>` is hex ASCII for `Error
 | string: description | `Attributes don't match VI prototype.` (empty for a `LabVIEW` code) |
 | u8: 1 = error, 0 = warning | `00` |
 | u32: format inputs | `00000000` |
-| one record per format input | (not decoded; holds the input's type and name) |
+| one record per format input | not decoded (see below) |
 | u8: 1 = include the call chain | `01` |
 | u8: not decoded | `01` |
 
-Receipts, all from the actor-framework, configurable-dqmh-example and measurement-plugin-labview samples, 29 distinct rings in 52 cached block diagrams:
+Receipts, all from the actor-framework, configurable-dqmh-example and measurement-plugin-labview samples, 30 distinct rings in 52 cached block diagrams:
 
-- **Error / warning byte:** every ring has `01` except 6005 above, whose inside diagram wires `is warning? (False)` = TRUE into Error Cluster From Error Code.
-- **Format inputs:** the count equals the node's input terminals (0, 1 or 2: the ring of code 1639 in `Testing Support/Test Launch For Nested Actor Without Caller.vi` has two, `parameter 0` and `parameter 1`, in the order of the description's two `%s`); its records name each input (`class name`, `Debug Alias ("")`).
+- **Error / warning byte:** every ring has `01` except 6005 above, whose inside diagram wires `is warning? (False)` = TRUE into Error Cluster From Error Code. This rests on that one warning sample.
+- **Format inputs:** the count equals the node's input terminals (0, 1 or 2: the ring of code 1639 in `Testing Support/Test Launch For Nested Actor Without Caller.vi` has two, `parameter 0` and `parameter 1`, in the order of the description's two `%s`); its records name each input (`class name`, `Debug Alias ("")`). The records are not decoded: each holds a flattened type descriptor (`0008 0030 FFFFFFFF`, a String; `0014 4030 FFFFFFFF 0A "class name"`, a labelled String) after an 8-byte head whose first byte is `0x14` or `0x20` and is not the record's length (it is `0x20` for descriptors of 20 and of 26 bytes), and the 1639 ring has `01`, the string `wired` and a second copy of the record after each input where the DQMH rings have none. So for a ring with format inputs the two closing bytes are read from the end of the blob; for one without, the blob must end right after them.
 - **Call-chain byte:** where it is `00` (codes 6007 and 6011 in `MessageRescripter/Support/Find Target Actor.vi`, 1602 in `Tools/run_diff.vi`) the inside diagram is one error cluster constant, status TRUE, the code, source `<err>` + the description (`"<err>Rescripting failed. ..."`, empty when there is no description); where it is `01` the inside diagram is a call of Error Cluster From Error Code.vi with constants `show call chain? (False)` = TRUE, `error code (0)` = the code, `error message ("")` = the description (absent for a `LabVIEW` code) and `is warning? (False)`; with format inputs the description is the `format string` of a Format Into String node whose result is the error message.
 - **Last byte:** `00` or `01` with the same inside diagram either way (codes 21, 20, 1003, 6010 have `00`), so it does not change the error; not decoded.
 - **Code 0** (`No Error`): the inside diagram is an all-zero error cluster constant.
 
 Codegen (`codegen/nodes/error_ring.py`) writes what the inside diagram computes: with the call chain, `LabVIEWError(code, message=<description, formatted from the inputs; or NI's text for the code>, status)`, as Error Cluster From Error Code is generated; without it, `LabVIEWError(code, source="<err>" + description, status)`; code 0 is `None`. A ring whose blob does not read as these fields, a specifier other than `%s`, a non-string input, or format inputs with the call chain excluded (no sample) is a gap.
+
+## An XNode's library is named by an `XNXI` record of the block-diagram link table, found by the node's uid
+
+Every XNode library a block diagram uses has one `XNXI` ("XNode To XInterface") record in `LIbd` under `BDHP`: `LinkSaveQualName` is the `.xnode` file name, `LinkSavePathRef` its recorded path and `LinkOffsetList` the heap uid of each XNode of it. Receipt: `actor-framework` `vi-8c56194222b659ce/vi.xml` (code 0 ring), `LinkSaveQualName` `Error Ring.xnode`, `LinkSavePathRef` `<vilib>` / `ErrorRing` / `Error Ring.xnode`, `Offset` `0x024E` = uid 590, the ring's uid. pylabview reads it as `LinkObjXNodeToXInterface`: `parseOffsetLinkSaveInfo` (the typed link head an `IUVI` record starts with, then the uid list), then the generic link info (8.6.0.2 and later). For 8 of the 52 ring diagrams the link table stays the raw `_LIbd.bin` sidecar; `link_table.decode_xnode_links` reads the same fields there (e.g. `vi-29d48b8434b61e4c`, uids 497 and 1008). All 52 ring diagrams' rings, and the 8 diagrams with a Match Regular Expression XNode (`<vilib>/regexp/Match Regular Expression.xnode`), are named by their record (`parser/xnode_links.py`). The code generator picks an XNode's generator by this path (`codegen/nodes/xnode.py`).

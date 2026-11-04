@@ -42,7 +42,6 @@ from . import (
     compound,
     constant,
     disable,
-    error_ring,
     event,
     ext_func,
     first_call,
@@ -62,6 +61,7 @@ from . import (
     shared_variable,
     subvi,
     vi_reference,
+    xnode,
 )
 
 
@@ -156,7 +156,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "demux": nmux.generate,
     "printf": printf.generate,
     "extFunc": ext_func.generate,
-    "xNode": error_ring.generate,
+    "xNode": xnode.generate,
 }
 
 

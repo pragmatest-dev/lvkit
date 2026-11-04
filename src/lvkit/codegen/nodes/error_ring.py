@@ -25,24 +25,21 @@ import re
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVTypeKind
-from lvkit.parser.error_ring import ERROR_RING_CLASS, ErrorRing
+from lvkit.parser.error_ring import ErrorRing
 
 from ..ast_utils import build_assign, parse_expr, type_default_expr
 from ..context import CodeGenContext
 from ..error_codes import describe_error_code
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
-from . import primitive
 
 # A Format Into String specifier: ``%%`` or ``%`` up to its conversion letter.
 _SPECIFIER = re.compile(r"%(%|[^a-zA-Z%]*[a-zA-Z])")
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """An XNode: an Error Ring's error value; any other XNode is generated as a
-    primitive is."""
-    if node.object_name != ERROR_RING_CLASS:
-        return primitive.generate(node, ctx)
+    """An Error Ring's error value (``nodes/xnode.py`` dispatches here by the
+    ring's library path)."""
     ring = node.error_ring
     if ring is None:
         raise ConversionGap(

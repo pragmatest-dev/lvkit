@@ -12,11 +12,16 @@ every view and runs the generated Python.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 
-from lvkit.parser.error_ring import ErrorRing, decode_error_ring
+from lvkit.graph import load_vi_by_path
+from lvkit.graph.models import PrimitiveNode
+from lvkit.load_mode import LoadMode
+from lvkit.parser.error_ring import ERROR_RING_PATH, ErrorRing, decode_error_ring
 from tests.error_diagrams import (
+    I32,
     REQUIRED,
     STR,
     ErrorViews,
@@ -141,60 +146,130 @@ def test_the_views_show_the_ring_as_one_node(project: Project) -> None:  # noqa:
     )
 
 
-def test_a_custom_error_with_a_format_input(project: Project) -> None:  # noqa: F811
-    _, error, source = _views_and_run(project, _FORMAT_RING, "Mod")
-    assert "'%s Module was unable to synchronize events.' % (name_0,)" in source
-    assert (error.status, error.code, error.source) == (True, 5002, "")  # type: ignore[attr-defined]
-    assert error.message == "Mod Module was unable to synchronize events."  # type: ignore[attr-defined]
+def _statement(source: str) -> str:
+    """The one statement of the generated function that sets the ring's error."""
+    [line] = [
+        text.strip() for text in source.splitlines() if text.startswith("    error = ")
+    ]
+    return line
 
 
-def test_a_warning(project: Project) -> None:  # noqa: F811
-    _, error, _ = _views_and_run(project, _WARNING_RING)
-    assert (error.status, error.code) == (False, 6005)  # type: ignore[attr-defined]
-    assert error.message == "Attributes don't match VI prototype."  # type: ignore[attr-defined]
+_TWO_INPUTS = _state(5000, "%s and %s", inputs=2)
+
+
+@pytest.mark.parametrize(
+    ("state", "args", "statement", "expected"),
+    [
+        (
+            _FORMAT_RING,
+            ("Mod",),
+            "error = LabVIEWError(code=5002, message='%s Module was unable to "
+            "synchronize events.' % (name_0,), status=True)",
+            (True, 5002, "", "Mod Module was unable to synchronize events."),
+        ),
+        (
+            _TWO_INPUTS,
+            ("a", "b"),
+            "error = LabVIEWError(code=5000, message='%s and %s' % (name_0, name_1),"
+            " status=True)",
+            (True, 5000, "", "a and b"),
+        ),
+        (
+            _WARNING_RING,
+            (),
+            "error = LabVIEWError(code=6005, message=\"Attributes don't match VI "
+            "prototype.\", status=False)",
+            (False, 6005, "", "Attributes don't match VI prototype."),
+        ),
+        (
+            _state(6007, "No class.", call_chain=False),
+            (),
+            "error = LabVIEWError(code=6007, source='<err>No class.', status=True)",
+            (True, 6007, "<err>No class.", ""),
+        ),
+    ],
+    ids=["one-input", "two-inputs", "warning", "call-chain-excluded"],
+)
+def test_the_ring_is_its_error(
+    project: Project,  # noqa: F811
+    state: str,
+    args: tuple[str, ...],
+    statement: str,
+    expected: tuple[bool, int, str, str],
+) -> None:
+    _, error, source = _views_and_run(project, state, *args)
+    assert _statement(source) == statement
+    assert (error.status, error.code, error.source, error.message) == expected  # type: ignore[attr-defined]
 
 
 def test_an_ni_code_takes_nis_text(project: Project) -> None:  # noqa: F811
-    _, error, _ = _views_and_run(project, _state(7, "", category="LabVIEW"))
+    _, error, source = _views_and_run(project, _state(7, "", category="LabVIEW"))
+    assert _statement(source).startswith(
+        "error = LabVIEWError(code=7, message='File not found."
+    )
     assert (error.status, error.code) == (True, 7)  # type: ignore[attr-defined]
     assert error.message.startswith("File not found.")  # type: ignore[attr-defined]
 
 
-def test_with_the_call_chain_excluded_the_description_is_in_the_source(
-    project: Project,  # noqa: F811
-) -> None:
-    _, error, _ = _views_and_run(project, _state(6007, "No class.", call_chain=False))
-    assert (error.status, error.code) == (True, 6007)  # type: ignore[attr-defined]
-    assert (error.source, error.message) == ("<err>No class.", "")  # type: ignore[attr-defined]
-
-
 def test_code_zero_is_no_error(project: Project) -> None:  # noqa: F811
-    _, error, _ = _views_and_run(project, _state(0, "", category="No Error"))
+    _, error, source = _views_and_run(project, _state(0, "", category="No Error"))
+    assert _statement(source) == "error = None"
     assert error is None
 
 
 @pytest.mark.parametrize(
-    ("state", "inputs", "reason"),
+    ("state", "inputs", "input_type", "reason"),
     [
-        ("0000", 0, "Error Ring whose configuration (its StateData) does not decode"),
+        (
+            "0000",
+            0,
+            STR,
+            "Error Ring whose configuration (its StateData) does not decode",
+        ),
         (
             _state(5000, "At %T", inputs=1),
             1,
+            STR,
             "Error Ring description uses format specifier %T; only %s is converted",
         ),
+        (
+            _state(5000, "count %s", inputs=1),
+            1,
+            I32,
+            "Error Ring input 1 is not a string",
+        ),
+        (
+            _state(5000, "%s and %s", inputs=1),
+            1,
+            STR,
+            "Error Ring has 1 inputs for 2 %s specifiers and 1 recorded format inputs",
+        ),
+        (
+            _state(5000, "%s", inputs=1, call_chain=False),
+            1,
+            STR,
+            "Error Ring with format inputs and the call chain excluded",
+        ),
     ],
-    ids=["undecodable", "timestamp-specifier"],
+    ids=[
+        "undecodable",
+        "timestamp-specifier",
+        "number-input",
+        "input-count",
+        "inputs-without-call-chain",
+    ],
 )
 def test_a_ring_that_cannot_be_converted_is_a_gap(
     project: Project,  # noqa: F811
     state: str,
     inputs: int,
+    input_type: int,
     reason: str,
 ) -> None:
     """Warned at generation, raised where the ring runs (its inputs unwired)."""
     vi = Vi(NAME)
     out = vi.error_out()
-    ring = vi.error_ring(state, inputs)
+    ring = vi.error_ring(state, inputs, input_type)
     vi.wire(ring["error out"], out)
     project.add(vi)
     package = project.generate(NAME)
@@ -221,3 +296,24 @@ def test_the_format_records_decode() -> None:
     # Bytes left over after the fields do not decode.
     assert decode_error_ring(_state(1, "x") + "00") is None
     assert decode_error_ring(None) is None
+
+
+_MAKE_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/"
+    "_Message Maker/_Maker Classes/Concrete Message Scripter/Make.vi"
+)
+
+
+@pytest.mark.needs_samples
+def test_a_ring_whose_link_record_is_in_the_raw_link_table() -> None:
+    """Make.vi's XNXI record stays in the raw ``_LIbd.bin`` sidecar; both of its
+    rings are named by it."""
+    if not _MAKE_VI.exists():
+        pytest.skip(f"sample corpus VI not present: {_MAKE_VI}")
+    graph, vi_name = load_vi_by_path(_MAKE_VI, LoadMode.MINIMAL, layout=False)
+    rings = sorted(
+        (node.error_ring.code, node.xnode_library_path)
+        for node in graph.iter_nodes(vi_name)
+        if isinstance(node, PrimitiveNode) and node.error_ring is not None
+    )
+    assert rings == [(6001, ERROR_RING_PATH), (6002, ERROR_RING_PATH)]

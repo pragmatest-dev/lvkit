@@ -17,7 +17,7 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
-from .error_ring import ERROR_RING_CLASS, ErrorRing, decode_error_ring
+from .error_ring import ErrorRing
 from .extfunc import (
     ExtFuncRow,
     extfunc_call,
@@ -916,6 +916,12 @@ class XNodeNode(ParsedNode):
     # visibly misaligns every row against its own real wire. (0.0, 0.0) for
     # a terminal whose termBounds couldn't be read.
     terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
+    # The node's ``<StateData>`` hex, which its library reads.
+    state_data: str | None = None
+    # The recorded path of the XNode's library file
+    # (``<vilib>/ErrorRing/Error Ring.xnode``), from its ``XNXI`` link record
+    # (``parser/xnode_links.py``); "" when no record names the node.
+    library_path: str = ""
     # An Error Ring's configuration (``parser/error_ring.py``); ``None`` for
     # another XNode and for an Error Ring whose ``<StateData>`` does not decode.
     error_ring: ErrorRing | None = None
@@ -1318,11 +1324,7 @@ class XNodeHandler(NodeTypeHandler):
             state_row_names=row_names,
             resource_name=resource_name,
             terminal_y_fracs=_xnode_terminal_y_fracs(elem),
-            error_ring=(
-                decode_error_ring(state_data)
-                if class_name == ERROR_RING_CLASS
-                else None
-            ),
+            state_data=state_data,
         )
 
 

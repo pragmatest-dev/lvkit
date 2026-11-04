@@ -167,6 +167,7 @@ from .utils import (
     strip_surrounding_quotes,
 )
 from .xml_trees import parsed_xml, xml_scope
+from .xnode_links import resolve_xnode_libraries
 
 # A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
 # bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
@@ -524,6 +525,7 @@ def _parse_block_diagram(
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
     resolve_ext_func_calls(nodes, main_xml, type_map)
+    resolve_xnode_libraries(nodes, main_xml)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)

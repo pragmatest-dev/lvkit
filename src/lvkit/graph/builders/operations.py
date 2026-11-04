@@ -235,6 +235,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             prim_kwargs["xnode_row_names"] = node.state_row_names
             prim_kwargs["xnode_resource_name"] = node.resource_name
             prim_kwargs["xnode_terminal_y_fracs"] = node.terminal_y_fracs
+            prim_kwargs["xnode_library_path"] = node.library_path
             prim_kwargs["error_ring"] = node.error_ring
 
         return GraphPrimitiveNode(

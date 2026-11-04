@@ -1,7 +1,7 @@
 """The configuration of an Error Ring XNode, decoded from its ``<StateData>``.
 
-An Error Ring (``class="xNode"`` whose ``<displayName>`` is "Error Ring") keeps
-its configuration as one blob of big-endian fields
+An Error Ring (an XNode whose recorded library, ``parser/xnode_links.py``, is
+``ERROR_RING_PATH``) keeps its configuration as one blob of big-endian fields
 (``docs/_internal/design/labview-binary-format.md``, "Error Ring"):
 
     string  the ring's short label         ("6005: Attributes don't match ...")
@@ -11,13 +11,16 @@ its configuration as one blob of big-endian fields
     string  the description typed for it  ("" for a code with NI's own text)
     uint8   1 = error, 0 = warning
     uint32  how many format inputs the description takes
-    ...     one record per format input
+    ...     one record per format input (not decoded)
     uint8   1 = include the call chain
     uint8   (not read)
 
-A string is a uint32 byte count and that many bytes. A blob that does not read
-as these fields gives no configuration; the code generator reports that ring as
-a gap.
+A string is a uint32 byte count and that many bytes. The format-input records
+are not decoded (their layout is not known from the corpus samples), so the two
+closing bytes are read from the end of a ring that has format inputs; a ring
+without them must end right after its count and two closing bytes. A blob that
+does not read as these fields gives no configuration; the code generator
+reports that ring as a gap.
 """
 
 from __future__ import annotations
@@ -26,7 +29,8 @@ from dataclasses import dataclass
 
 from ..text_encoding import decode_labview_text
 
-ERROR_RING_CLASS = "Error Ring"
+# The recorded path of the Error Ring's XNode library.
+ERROR_RING_PATH = "<vilib>/ErrorRing/Error Ring.xnode"
 
 
 @dataclass(frozen=True)

@@ -204,6 +204,9 @@ class PrimitiveNode(GraphNode):
     # uniform, so the drawer glyph positions each row at its own real
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
+    # XNode only: the recorded path of its library file, from its XNXI link
+    # record (parser/xnode_links.py); "" when no record names the node.
+    xnode_library_path: str = ""
     # Error Ring XNode only: its configuration (parser/error_ring.py); None
     # when its StateData does not decode.
     error_ring: ErrorRing | None = None

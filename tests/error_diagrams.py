@@ -261,16 +261,19 @@ class Vi:
     def error_constant(self, kind: str) -> int:
         return self.constant(ERR, ERROR_CONSTANT_HEX[kind])
 
-    def error_ring(self, state_data: str, inputs: int = 0) -> dict[str, int]:
+    def error_ring(
+        self, state_data: str, inputs: int = 0, input_type: int = STR
+    ) -> dict[str, int]:
         """An Error Ring XNode with the ``<StateData>`` hex ``state_data`` and
-        ``inputs`` string inputs, in the layout a real file records: the error
-        out terminal first, then the inputs ``parameter 0``, ``parameter 1``, ...
+        ``inputs`` inputs of type ``input_type``, in the layout a real file
+        records: the error out terminal first, then the inputs ``parameter 0``,
+        ``parameter 1``, ..., and the ``XNXI`` link record naming its library.
         Returns terminal uids by name."""
         output = ("error out", ERR, "<objFlags>513</objFlags>", "")
         slots = [output] + [
             (
                 f"parameter {i}",
-                STR,
+                input_type,
                 "<objFlags>128</objFlags>",
                 "<objFlags>32768</objFlags>",
             )
@@ -296,6 +299,14 @@ class Vi:
             f'<tunnelList elements="{len(slots)}">{tunnels}</tunnelList>'
             f"<displayName>{b'Error Ring'.hex().upper()}</displayName>"
             f"<StateData>{state_data}</StateData></SL__arrayElement>"
+        )
+        # The block diagram's link record naming the ring's library file.
+        self.links.append(
+            "<XNXI><LinkSaveQualName><String>Error Ring.xnode</String>"
+            '</LinkSaveQualName><LinkSavePathRef Ident="PTH0" TpVal="0">'
+            "<String>&lt;vilib&gt;</String><String>ErrorRing</String>"
+            "<String>Error Ring.xnode</String></LinkSavePathRef>"
+            f"<LinkOffsetList><Offset>0x{uid:04X}</Offset></LinkOffsetList></XNXI>"
         )
         return uids
 
