@@ -322,13 +322,18 @@ class Vi:
         return xml, uids
 
     def primitive(
-        self, prim_res_id: int, slots: list[tuple[str, int, int, bool]]
+        self,
+        prim_res_id: int,
+        slots: list[tuple[str, int, int, bool]],
+        obj_flags: int = 0,
     ) -> dict[str, int]:
-        """A primitive with the given terminals; returns terminal uids by name."""
+        """A primitive with the given terminals and the node's ``objFlags``;
+        returns terminal uids by name."""
         terms, uids = self.terminals("parm", slots, "parmIndex")
         uid = self.next_uid()
+        flags = f"<objFlags>{obj_flags}</objFlags>" if obj_flags else ""
         self.scope.nodes.append(
-            f'<SL__arrayElement class="prim" uid="{uid}">'
+            f'<SL__arrayElement class="prim" uid="{uid}">{flags}'
             f'<termList elements="{len(slots)}">{terms}</termList>'
             f"<primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
             "</SL__arrayElement>"

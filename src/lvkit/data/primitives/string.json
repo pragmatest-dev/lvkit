@@ -407,6 +407,12 @@
     "3914": {
       "name": "Search and Replace String",
       "op": "SEARCH_AND_REPLACE_STRING",
+      "errors": [
+        {
+          "exception": "error",
+          "module": "re"
+        }
+      ],
       "terminals": [
         {
           "index": 0,
