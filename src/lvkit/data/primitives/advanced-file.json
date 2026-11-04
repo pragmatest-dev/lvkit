@@ -158,6 +158,26 @@
     },
     "1417": {
       "name": "Delete",
+      "op": "DELETE",
+      "errors": [
+        {
+          "exception": "ValueError",
+          "code": 1430
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "terminals": [
         {
           "index": 0,
@@ -185,7 +205,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "no instance in the corpus; its pane's types (Path in, Path out, error in/out) name each terminal"
     },
     "1418": {
       "name": "List Folder",
@@ -412,6 +433,25 @@
     },
     "8056": {
       "name": "Delete",
+      "op": "DELETE",
+      "errors": [
+        {
+          "exception": "ValueError",
+          "code": 1430
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "terminals": [
         {
@@ -430,14 +470,14 @@
         {
           "index": 9,
           "direction": "input",
-          "name": "entire_hierarchy",
+          "name": "confirm",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "confirm",
+          "name": "entire_hierarchy",
           "type": "Boolean",
           "default": false
         },
@@ -466,13 +506,8 @@
           "type": "Path"
         }
       ],
-      "python_code": {
-        "path_out": "in_11",
-        "cancelled": "False",
-        "error_out": "in_8"
-      },
-      "note": "Delete (NI Delete doc; renamed from a mislabelled 'File Dialog'). in#9/in#10 Boolean order (entire-hierarchy vs confirm) not disambiguated. python_code is a no-op placeholder, not execution-verified.",
-      "verified": false
+      "verified": false,
+      "note": "in 9 = confirm, in 10 = entire hierarchy: a constant labelled 'entire hierarchy' feeds in 10 (measurement-plugin Cleanup Client If Error.vi), and unattended install VIs that delete folders wire TRUE to in 10"
     },
     "8057": {
       "name": "Deny Access",

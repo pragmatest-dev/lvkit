@@ -1261,6 +1261,7 @@
   "1387": "The specified .NET assembly is not available in LabVIEW.",
   "1393": "The LabVIEW class is not in memory. This dynamic subVI cannot execute.",
   "1403": "Attempted to read flattened data of a LabVIEW class. The data is corrupt. LabVIEW could not",
+  "1430": "The path is empty or relative. You must use an absolute path.",
   "1437": "This application menu item has been removed. Menu item tags that existed in previous",
   "1446": "The class of object in did not match the class of target object at run-time.",
   "1448": "Bad type cast. LabVIEW cannot treat the run-time value of this LabVIEW class as an instance",

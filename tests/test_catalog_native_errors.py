@@ -25,6 +25,7 @@ COPY_MOVE = [
     ("OSError", 6),
 ]
 RELEASED_QUEUE = [("ShutDown", 1122)]
+DELETE = [("ValueError", 1430), *COPY_MOVE[:2], ("OSError", 6)]
 
 PRIMITIVES = {
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
@@ -48,6 +49,8 @@ PRIMITIVES = {
     "9114:Flush Queue": [("ShutDown", None)],
     "9129:Enqueue Element At Opposite End": RELEASED_QUEUE,
     "3914:Search and Replace String": [("error", None)],
+    "8056:Delete": DELETE,
+    "1417:Delete": DELETE,
 }
 
 
