@@ -334,7 +334,9 @@ def _used_names(nodes: list[ast.stmt] | list[ast.Module]) -> set[str]:
 
 
 def _rebound_names(body: list[ast.stmt]) -> set[str]:
-    """The names `body` assigns, deletes, or declares `global`/`nonlocal`."""
+    """The names `body` binds other than by import (assigns, deletes, defines
+    with `def`/`class`, catches with `except ... as`, captures in a `match`
+    pattern) or declares `global`/`nonlocal`."""
     rebound: set[str] = set()
     for root in body:
         for child in ast.walk(root):
@@ -344,6 +346,15 @@ def _rebound_names(body: list[ast.stmt]) -> set[str]:
                 child.ctx, ast.Store | ast.Del
             ):
                 rebound.add(child.id)
+            elif isinstance(
+                child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+            ):
+                rebound.add(child.name)
+            elif isinstance(child, ast.ExceptHandler | ast.MatchAs | ast.MatchStar):
+                if child.name:
+                    rebound.add(child.name)
+            elif isinstance(child, ast.MatchMapping) and child.rest:
+                rebound.add(child.rest)
     return rebound
 
 

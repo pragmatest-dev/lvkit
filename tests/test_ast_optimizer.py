@@ -433,6 +433,12 @@ def test_a_function_import_of_a_name_it_rebinds_is_kept():
         ("pass", "E = 2"),
         ("pass", "del E"),
         ("pass", "for E in (): pass"),
+        ("pass", "def E(): pass"),
+        ("pass", "class E: pass"),
+        ("pass", "try: pass\n    except Exception as E: pass"),
+        ("pass", "match 1:\n        case E: pass"),
+        ("pass", "match 1:\n        case [*E]: pass"),
+        ("pass", "match {}:\n        case {**E}: pass"),
     ):
         result = _optimized(f"""
 from .errors import E
