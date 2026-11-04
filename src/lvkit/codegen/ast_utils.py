@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -405,33 +406,15 @@ def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
     (codegen/nodes/first_call.py), a Formula Node's function
     (codegen/nodes/formula.py).
 
-    ``<prefix>_<function>_<uid>``: the VI's function name and the node's or
-    terminal's uid within its VI (``node_id`` is ``<vi path>::<uid>``, see
-    ``InMemoryVIGraph._qid``). A module's functions have names of their own,
-    so the name is unique in a module that holds several VIs (the variants of a
+    ``<prefix>_<function>_<uid>``: the VI's function name, unchanged, and the
+    node's or terminal's uid within its VI (``node_id`` is ``<vi path>::<uid>``,
+    see ``InMemoryVIGraph._qid``), each run of characters that cannot be in a
+    name made one ``_``. A module's functions have names of their own, so the
+    name is unique in a module that holds several VIs (the variants of a
     polymorphic VI), and it is the same wherever the project sits on disk.
     """
-    return f"{prefix}_{_identifier_suffix(f'{function_name}_{uid_of(node_id)}')}"
-
-
-def _identifier_suffix(text: str) -> str:
-    """``text`` as a valid identifier suffix: each run of characters that are
-    not letters or digits becomes one ``_``."""
-    chars: list[str] = []
-    prev_underscore = False
-    for ch in text:
-        if ch.isalnum():
-            chars.append(ch.lower())
-            prev_underscore = False
-        elif not prev_underscore:
-            chars.append("_")
-            prev_underscore = True
-    ident = "".join(chars).strip("_")
-    if not ident:
-        ident = "x"
-    if ident[0].isdigit():
-        ident = "_" + ident
-    return ident
+    uid = re.sub(r"\W+", "_", uid_of(node_id))
+    return f"{prefix}_{function_name}_{uid}"
 
 
 def to_function_name(vi_name: str) -> str:

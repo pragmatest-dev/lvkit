@@ -128,9 +128,7 @@ class CodeGenContext:
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     # The import statement of each subVI function this function calls -> the
     # import it is made under (see ``import_function``).
-    _function_imports: dict[str, NameImport] = field(
-        default_factory=dict, repr=False
-    )
+    _function_imports: dict[str, NameImport] = field(default_factory=dict, repr=False)
     # Imports the function makes inside its body, after its docstring (a VI
     # that calls itself while a variable holds its name).
     inside_imports: set[str] = field(default_factory=set, repr=False)
@@ -791,25 +789,24 @@ class CodeGenContext:
     def add_module_global(self, name: str, value: ast.expr) -> None:
         """Register a module-level global variable, seeded to ``value``.
 
-        Idempotent by name: a second registration for the same name is a
-        no-op (the same call site is only lowered once per generation
-        pass). The builder emits these above the VI function, sorted by
-        name (see ``module_globals`` docstring for why).
+        Idempotent: registering the same name with the same value again is a
+        no-op (one call site lowered again); the same name with another value
+        is two pieces of state given one name, a bug in lvkit. The builder
+        emits these above the VI function, sorted by name (see
+        ``module_globals`` docstring for why).
         """
-        if name not in self.module_globals:
-            self.module_globals[name] = ast.Assign(
-                targets=[ast.Name(id=name, ctx=ast.Store())],
-                value=value,
-            )
+        assign = ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
+        held = self.module_globals.setdefault(name, assign)
+        _require_same_definition(name, held, assign)
 
     def add_module_function(self, func_def: ast.FunctionDef) -> None:
         """Register a module-level helper function, emitted above the VI function.
-        Idempotent by name."""
-        if not any(
-            isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name
-            for stmt in self.formula_helpers
-        ):
-            self.formula_helpers.append(func_def)
+        Idempotent like ``add_module_global``."""
+        for stmt in self.formula_helpers:
+            if isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name:
+                _require_same_definition(func_def.name, stmt, func_def)
+                return
+        self.formula_helpers.append(func_def)
 
     @classmethod
     def from_graph(
@@ -1315,3 +1312,12 @@ def _format_constant(
             return str(ord(value))
         return repr(value)
     return repr(value)
+
+
+def _require_same_definition(name: str, held: ast.stmt, new: ast.stmt) -> None:
+    """A module-level name registered twice must be one definition; two
+    different ones under one name would silently share it."""
+    if ast.dump(held) != ast.dump(new):
+        raise CodeGenError(
+            f"Two different module-level definitions were given one name, {name}"
+        )

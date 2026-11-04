@@ -15,8 +15,10 @@ from lvkit import cli, pipeline
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import GraphNode, PolyInfo, VIContext, VINode
+from lvkit.graph.node_kinds import NodeType
 from lvkit.load_mode import LoadMode
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
 from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
@@ -267,6 +269,50 @@ def test_variants_that_call_one_subvi_import_it_once(
         "    helper()",
     ]
     _run(package, "main").main()
+
+
+def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
+    """Both variants of ``Wrap.vi`` take the typedef ``Shape.ctl``: the
+    polymorphic VI's module imports ``Shape`` once, with no alias, and both
+    annotations name it so."""
+    project = Project(tmp_path)
+    ctl = str((tmp_path / "src" / "Shape.ctl").resolve())
+    project.graph._dep_graph.add_node(  # noqa: SLF001
+        ctl, node_type=NodeType.TYPEDEF, name="Shape.ctl", qname="Shape.ctl"
+    )
+    shape = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Shape.ctl",
+        fields=[ClusterField(name="w", type=INT)],
+    )
+
+    def takes_shape(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return VIContext(name=vi, inputs=[pane(vi, "input", "s", shape, "s", 0)]), []
+
+    variants = [project.add_vi(name, takes_shape) for name in ("Scalar", "Array")]
+    wrap = project.add_vi("Wrap", _empty)
+    for variant in variants:
+        project.graph._dep_graph.add_edge(variant, ctl)  # noqa: SLF001
+    project.graph._poly_info[wrap] = PolyInfo(variant_keys=variants)  # noqa: SLF001
+    out = tmp_path / "pkg"
+    module = out / "wrap.py"
+    paths = {ctl: out / "shape.py", wrap: module, **dict.fromkeys(variants, module)}
+    layout = ModuleLayout(project.graph, [wrap], tmp_path / "src")
+    source = pipeline._generate_polymorphic_module(  # noqa: SLF001
+        wrap, variants, project.graph, None, "pkg", out, paths, layout
+    )
+    imports = [line.strip() for line in source.splitlines() if "import" in line]
+    assert imports == [
+        "from __future__ import annotations",
+        "from typing import TYPE_CHECKING",
+        "from .shape import Shape",
+        "from typing import Any, NamedTuple",
+    ]
+    assert "def scalar(s: Shape)" in source
+    assert "def array(s: Shape)" in source
+    namespace: dict[str, object] = {}
+    exec(compile(source, str(module), "exec"), namespace)  # noqa: S102
+    assert "scalar" in namespace and "array" in namespace
 
 
 _NO_VARIANT = (

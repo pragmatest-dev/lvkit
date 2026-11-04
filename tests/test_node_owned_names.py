@@ -4,8 +4,14 @@ wherever the project sits on disk."""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
+import pytest
+
+from lvkit.codegen.ast_utils import node_owned_name
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import first_call
 from lvkit.graph.models import (
     FormulaNode,
@@ -88,3 +94,32 @@ def test_names_hold_the_function_and_uid_not_the_project_folder(
     assert "_lv_first_call_step_rate_43 = True" in here
     assert str(tmp_path) not in here
     assert here == moved
+
+
+def test_functions_that_differ_only_in_underscores_get_their_own_names() -> None:
+    """The function name is used as it is: ``read`` and ``__read`` keep two
+    globals for one uid."""
+    assert node_owned_name("_lv_state", "read", "a.vi::7") == "_lv_state_read_7"
+    assert node_owned_name("_lv_state", "__read", "b.vi::7") == "_lv_state___read_7"
+    assert node_owned_name("_lv_state", "get__value", "c.vi::7.x y") == (
+        "_lv_state_get__value_7_x_y"
+    )
+
+
+def test_one_name_given_two_different_globals_is_an_lvkit_error() -> None:
+    ctx = CodeGenContext()
+    ctx.add_module_global("_lv_state_read_7", ast.Constant(value=0))
+    ctx.add_module_global("_lv_state_read_7", ast.Constant(value=0))
+    with pytest.raises(CodeGenError, match="one name"):
+        ctx.add_module_global("_lv_state_read_7", ast.Constant(value=1))
+
+
+def test_one_name_given_two_different_functions_is_an_lvkit_error() -> None:
+    ctx = CodeGenContext()
+    (one,) = ast.parse("def _helper():\n    return 1").body
+    (two,) = ast.parse("def _helper():\n    return 2").body
+    assert isinstance(one, ast.FunctionDef) and isinstance(two, ast.FunctionDef)
+    ctx.add_module_function(one)
+    ctx.add_module_function(one)
+    with pytest.raises(CodeGenError, match="one name"):
+        ctx.add_module_function(two)

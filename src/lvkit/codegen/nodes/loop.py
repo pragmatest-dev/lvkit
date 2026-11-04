@@ -532,9 +532,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # assignment target)
     if stop_condition_var:
         param_names = ctx.parameter_var_names()
-        is_identifier = (
-            stop_condition_var.isidentifier()
-            and not keyword.iskeyword(stop_condition_var)
+        is_identifier = stop_condition_var.isidentifier() and not keyword.iskeyword(
+            stop_condition_var
         )
         if is_identifier and stop_condition_var not in param_names:
             pre_loop_stmts.append(
