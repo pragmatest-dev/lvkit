@@ -51,17 +51,17 @@ def _op(
 
 def test_generate_injects_helper_and_binds_output():
     op = _op()
-    ctx = CodeGenContext(vi_name="my_vi.vi")
+    ctx = CodeGenContext(vi_name="my_vi.vi", function_name="my_vi")
     frag = formula.generate(op, ctx)
 
     # A module-level helper function was injected (no C artifact).
     assert len(ctx.formula_helpers) == 1
     helper = ctx.formula_helpers[0]
     assert isinstance(helper, ast.FunctionDef)
-    assert helper.name == "_formula_my_vi_vi_42"
+    assert helper.name == "_formula_my_vi_42"
 
     src = "\n".join(ast.unparse(s) for s in frag.statements)
-    assert "_formula_my_vi_vi_42(a=" in src  # call with resolved input
+    assert "_formula_my_vi_42(a=" in src  # call with resolved input
     # output terminal bound to a fresh variable read out of the result dict
     assert frag.bindings.get("t_y")
     assert f"{frag.bindings['t_y']} = " in src
@@ -71,7 +71,7 @@ def test_generate_injects_helper_and_binds_output():
 
 def test_injected_helper_is_valid_runnable_python():
     op = _op()
-    ctx = CodeGenContext(vi_name="my_vi.vi")
+    ctx = CodeGenContext(vi_name="my_vi.vi", function_name="my_vi")
     formula.generate(op, ctx)
     helper = ctx.formula_helpers[0]
 
@@ -79,13 +79,13 @@ def test_injected_helper_is_valid_runnable_python():
     ast.fix_missing_locations(mod)
     ns: dict = {}
     exec(ast.unparse(mod), ns)
-    assert ns["_formula_my_vi_vi_42"](a=5.0)["y"] == 13.0
+    assert ns["_formula_my_vi_42"](a=5.0)["y"] == 13.0
 
 
 def test_int_output_pulls_in_ctypes_import():
     # An integer-typed output wraps to its width with ctypes, so it is imported.
     op = _op(script="y = a;", y_type=_i16())
-    ctx = CodeGenContext(vi_name="my_vi.vi")
+    ctx = CodeGenContext(vi_name="my_vi.vi", function_name="my_vi")
     frag = formula.generate(op, ctx)
     assert "import ctypes" in frag.imports
     assert not any("lvkit" in statement for statement in frag.imports)
@@ -136,7 +136,7 @@ def test_formula_does_not_mutate_callers_array():
 
 def test_unknown_function_in_script_fails_loud():
     op = _op(script="y = mystery(a);")
-    ctx = CodeGenContext(vi_name="my_vi.vi")
+    ctx = CodeGenContext(vi_name="my_vi.vi", function_name="my_vi")
     from lvkit.formula import FormulaTranspileError
 
     with pytest.raises(FormulaTranspileError):
@@ -150,15 +150,15 @@ def test_two_vis_in_one_module_get_their_own_formula_helpers():
     shared = ModuleParts(module_stem="wrap")
     for vi, script in (("a.vi", "y = a + 1;"), ("b.vi", "y = a * 10;")):
         node = _op(script).model_copy(update={"id": f"{vi}::42", "vi_path": vi})
-        ctx = CodeGenContext(vi_name=vi)
+        ctx = CodeGenContext(vi_name=vi, function_name=vi[:-3])
         shared.share_with(ctx)
         formula.generate(node, ctx)
     helpers = [h.name for h in shared.helpers if isinstance(h, ast.FunctionDef)]
-    assert helpers == ["_formula_a_vi_42", "_formula_b_vi_42"]
+    assert helpers == ["_formula_a_42", "_formula_b_42"]
     namespace: dict = {}
     exec(
         ast.unparse(ast.fix_missing_locations(ast.Module(shared.helpers, []))),
         namespace,
     )
-    assert namespace["_formula_a_vi_42"](a=2.0)["y"] == 3.0
-    assert namespace["_formula_b_vi_42"](a=2.0)["y"] == 20.0
+    assert namespace["_formula_a_42"](a=2.0)["y"] == 3.0
+    assert namespace["_formula_b_42"](a=2.0)["y"] == 20.0

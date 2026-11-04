@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 from lvkit.graph.models import AnyGraphNode
 from lvkit.models import FPTerminal
 
-from .ast_utils import build_assign, control_default_expr, sanitize_state_var_suffix
+from .ast_utils import build_assign, control_default_expr, node_owned_name
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -113,7 +113,7 @@ class LocalIndicators:
         variable: str,
     ) -> _Kept:
         assert ctx.graph is not None
-        module_name = f"_lv_indicator_{sanitize_state_var_suffix(terminal_id)}"
+        module_name = node_owned_name("_lv_indicator", ctx.function_name, terminal_id)
         ctx.add_state_global(module_name, control_default_expr(control))
         flag = (
             ctx.make_output_var(f"{variable}_written", terminal_id)

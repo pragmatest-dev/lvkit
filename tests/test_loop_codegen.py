@@ -6,7 +6,7 @@ import ast
 
 import pytest
 
-from lvkit.codegen.ast_utils import parse_stmt, sanitize_state_var_suffix
+from lvkit.codegen.ast_utils import node_owned_name, parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
@@ -957,13 +957,15 @@ class TestUninitializedShiftRegister:
     def test_registers_module_global_seeded_to_type_default(self):
         lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
         ctx, terminals = self._ctx_and_terminals(lv_type)
+        ctx.function_name = "counter"
         loop_op = self._loop_op(terminals)
 
         loop.generate(loop_op, ctx)
 
         assert len(ctx.module_globals) == 1
         name = next(iter(ctx.module_globals))
-        assert name.startswith("_lv_state_")
+        # The VI's function name and the shift register's outer terminal uid.
+        assert name == "_lv_state_counter_lsr_outer"
         [stmt] = ctx.module_globals[name]
         code = ast.unparse(ast.fix_missing_locations(stmt))
         assert code == f"{name} = 0"
@@ -1287,8 +1289,9 @@ def test_a_constant_stop_condition_is_not_assigned_to():
         "sub/Shift Thing.vi::1010",
     ],
 )
-def test_a_state_variable_names_the_vi_file_not_its_folders(uid: str) -> None:
-    """The name of an uninitialized shift register's module variable keeps the
-    VI's file name and the node's uid; it names no folder of the machine that
-    generated it, so it is the same wherever the code is generated."""
-    assert sanitize_state_var_suffix(uid) == "shift_thing_vi_1010"
+def test_a_state_variable_names_no_folder_of_the_machine(uid: str) -> None:
+    """The name of an uninitialized shift register's module variable is the
+    VI's function name and the node's uid; it names no folder of the machine
+    that generated it, so it is the same wherever the code is generated."""
+    name = node_owned_name("_lv_state", "shift_thing", uid)
+    assert name == "_lv_state_shift_thing_1010"

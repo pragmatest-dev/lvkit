@@ -17,6 +17,7 @@ import pytest
 from lvkit.codegen.class_model import member_shape
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.import_resolver import NameImport
 from lvkit.graph.models import GraphNode, LocalVariableNode, LoopNode, VIContext
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
@@ -646,6 +647,30 @@ def test_resolvers_of_one_module_share_its_names(tmp_path: Path) -> None:
     )
     assert first.alias_name("mix", lambda n: False) == "mix_3"
     assert second.alias_name("mix", lambda n: False) == "mix_4"
+
+
+def test_resolvers_of_one_module_spell_one_import_alike(tmp_path: Path) -> None:
+    """The variants of a polymorphic VI that name one typedef import it under one
+    name: the module imports it once."""
+    out = tmp_path / "pkg"
+    typedef = str(tmp_path / "src" / "Shape.ctl")
+    paths = {typedef: out / "shape.py"}
+    names: set[str] = set()
+    spellings: dict[str, str] = {}
+    first, second = (
+        create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            out / "poly.py",
+            module_names=names,
+            spellings=spellings,
+        )
+        for _ in range(2)
+    )
+    expected = NameImport("from .shape import Shape", "Shape")
+    assert first.node_import(typedef) == expected
+    assert second.node_import(typedef) == expected
 
 
 def calls_itself(vi: str) -> tuple[VIContext, list[GraphNode]]:
