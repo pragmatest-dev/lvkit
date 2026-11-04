@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 from . import __version__, cache_paths, staging
 from .build_options import BuildOptions
 from .cli_run import add_fail_fast_arg, command_run, finish, run_command, stop_on
-from .console import use_utf8_output
+from .console import use_utf8_output, write_whole_lines
 from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
@@ -288,6 +288,7 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
 def main() -> int:
     """Main CLI entry point."""
     use_utf8_output()
+    write_whole_lines()
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
@@ -1965,7 +1966,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             search_path=search_path,
             run=run,
         )
-        return finish(run, bool(result["error"] or result["failed"]))
+        return finish(run, result["stopped"])
 
     except (ModuleCollisionError, ConversionGap) as e:
         # A collision stops the package; a gap found while loading the graph

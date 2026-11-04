@@ -386,6 +386,57 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
         traceback.print_exception(exc)
 
 
+# What happened to a VI with no module, by the kind of its generate problem.
+_FAILURE_PHRASES = {
+    ProblemKind.UNWRITABLE: "could not be written",
+    ProblemKind.LVKIT_ERROR: "failed with an lvkit error",
+    ProblemKind.UNREADABLE: "could not be read",
+    ProblemKind.ENVIRONMENT: "failed on an environment problem",
+}
+
+
+def _failures(
+    graph: InMemoryVIGraph, generated: list[tuple[str, Path | None, str]]
+) -> dict[ProblemKind, int]:
+    """How many VIs got no module, by the kind of the problem generating each
+    recorded, in ``_FAILURE_PHRASES`` order."""
+    kinds: list[ProblemKind] = []
+    for vi_name, _, status in generated:
+        if status not in ("error", "failed"):
+            continue
+        found = [
+            p.kind
+            for p in graph.problems([vi_name])
+            if p.stage is ProblemStage.GENERATE and p.kind in _FAILURE_PHRASES
+        ]
+        if found:
+            kinds.append(found[0])
+    return {kind: kinds.count(kind) for kind in _FAILURE_PHRASES if kind in kinds}
+
+
+def _summary_line(
+    stopped: bool,
+    generated: int,
+    failures: dict[ProblemKind, int],
+    gaps: list[Gap],
+) -> str:
+    """The closing line of ``generate``: Stopped (a fail-fast stop, or a VI the
+    package has no place for), Partial (a VI with no module, or a gap) or
+    Complete, with what was generated and what happened to the rest."""
+    parts = [f"{generated} VIs generated"]
+    parts += [f"{n} VI(s) {_FAILURE_PHRASES[kind]}" for kind, n in failures.items()]
+    if gaps:
+        gap_vis = len({gap.vi for gap in gaps})
+        parts.append(f"{gap_vis} with gaps ({len(gaps)} gaps) — see warnings")
+    if stopped:
+        head = "Stopped"
+    elif failures or gaps:
+        head = "Partial"
+    else:
+        return f"Complete: {generated} VIs generated, no gaps"
+    return f"{head}: {', '.join(parts)}"
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -609,8 +660,9 @@ def generate_python(
             it; with ``fail_fast`` on, the run ends at the first problem.
 
     Returns:
-        Summary dict with keys: vilib, ast, error, failed counts and
-        ``gaps``, the list of ``Gap`` records.
+        Summary dict with keys: vilib, ast, error, failed counts,
+        ``stopped`` (the run stopped: a fail-fast stop, or a VI the package has
+        no place for) and ``gaps``, the list of ``Gap`` records.
         ``output_dir``, ``vi_paths`` and ``generated`` are in the form the
         caller gave ``output_dir``. On Windows with long paths off, open a file
         deeper than 260 characters through ``lvkit.long_paths.extended_length``.
@@ -772,6 +824,7 @@ def generate_python(
 
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
+    fail_fast_stop = False
 
     try:
         for i, vi_name in enumerate(order, 1):
@@ -999,6 +1052,7 @@ def generate_python(
     except RunStopped as stop:
         print("Stopped at the first problem (--fail-fast): the output is incomplete.")
         generated.append((stop.problem.vi, None, "failed"))
+        fail_fast_stop = True
 
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
@@ -1017,19 +1071,9 @@ def generate_python(
     print(f"  error: {error_count}")
     print(f"  failed: {failed_count}")
     print(f"  gaps:  {len(all_gaps)}")
-    gap_vis = len({gap.vi for gap in all_gaps})
-    if error_count or failed_count:
-        print(
-            f"Stopped: {error_count + failed_count} VI(s) could not be written"
-            f" ({ast_count} generated, {gap_vis} with gaps)"
-        )
-    elif all_gaps:
-        print(
-            f"Partial: {ast_count} VIs generated, {gap_vis} with gaps"
-            f" ({len(all_gaps)} gaps) — see warnings"
-        )
-    else:
-        print(f"Complete: {ast_count} VIs generated, no gaps")
+    failures = _failures(graph, generated)
+    stopped = fail_fast_stop or ProblemKind.UNWRITABLE in failures
+    print(_summary_line(stopped, ast_count, failures, all_gaps))
 
     if error_count > 0:
         store = find_project_store()
@@ -1056,6 +1100,7 @@ def generate_python(
         "ast": ast_count,
         "error": error_count,
         "failed": failed_count,
+        "stopped": stopped,
         "gaps": all_gaps,
         "generated": [
             (

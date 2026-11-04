@@ -33,7 +33,9 @@ def generate(
     assert ctx.graph is not None
     class_key = ctx.graph.owning_class_key(accessor.key)
     assert class_key is not None
-    check_private_access(ctx.graph, accessor.python_name, class_key, ctx.vi_name)
+    check_private_access(
+        ctx.graph, accessor.python_name, accessor.key, class_key, ctx.vi_name
+    )
     terminals = ctx.enriched_terminals(node)
 
     def terminal(direction: str, index: int | None) -> Terminal | None:

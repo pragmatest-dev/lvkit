@@ -64,7 +64,7 @@ def _generate(args: argparse.Namespace) -> int:
         instrlib_root=Path(args.instrlib) if args.instrlib else None,
         run=run,
     )
-    return finish(run, bool(result["error"] or result["failed"]))
+    return finish(run, result["stopped"])
 
 
 if __name__ == "__main__":

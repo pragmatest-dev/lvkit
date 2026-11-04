@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a VI its class does not list that reaches the class's private data or calls its private VI is a gap, not an lvkit error** — the reason says the VI is broken in LabVIEW (and when the VI names the class as its owner); `generate`'s closing line says how each VI failed instead of `Stopped` for a run that went on, and progress and warnings no longer interleave mid-line in one pipe.
 - **A generated module imports on a machine without the DLL a Call Library Function Node names** — the library is loaded the first time the node runs (`OSError` naming it, `AttributeError` for a missing function), by `functools.cache` loaders in the module.
 - **A Property Node row saved with a Void type shows the property's declared type** — DAQmx Task `NumChans` in `Setup AI.vi` is `U32`, not `Void` (#181).
 - **Reading a VI with a PNG image no longer uses a Pillow call Pillow is removing** — pylabview's `Image.getdata()` is read with `Image.load()`, so VIs still read under Pillow 14; the test suite's 1,144 deprecation warnings are gone.

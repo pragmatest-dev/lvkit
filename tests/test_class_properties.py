@@ -18,7 +18,7 @@ from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.class_attributes import ClassAttributes
 from lvkit.codegen.class_model import class_model
-from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
@@ -521,12 +521,21 @@ def test_a_private_property_is_spelled_private_and_its_storage_kept_apart(
     assert obj._C__count == 4 and obj._C__count_value == 4 and obj.peek() == 4
 
 
-def test_a_private_property_read_outside_its_class_is_an_lvkit_error(
+def test_a_private_property_read_outside_its_class_is_a_gap(
     tmp_path: Path,
 ) -> None:
+    """LabVIEW lets only the class's own VIs call a private VI, so a caller of no
+    class is broken in LabVIEW: the call is a gap that raises where it runs."""
     built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
-    with pytest.raises(CodeGenError, match="private member '__count'"):
-        build_module(_reading_caller(built), "caller", graph=built.graph)
+    gaps: list[Gap] = []
+    code = build_module(_reading_caller(built), "caller", graph=built.graph, gaps=gaps)
+    reason = (
+        "A call of the private VI Read Count.vi of class C, but "
+        "C.lvclass does not list this VI, so the VI is broken in LabVIEW"
+    )
+    assert [g.reason for g in gaps] == [reason]
+    message = f"{reason}\ngap kind: unsupported_node\nVI: caller\nnode: Read Count.vi"
+    assert f"raise NotImplementedError({message!r})" in code
 
 
 def test_read_and_write_vis_of_two_levels_are_spelled_by_the_wider(

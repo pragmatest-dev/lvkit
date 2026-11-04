@@ -137,19 +137,20 @@ def test_a_module_collision_prints_its_message_and_exits_nonzero(
 
 
 @pytest.mark.parametrize(
-    "result,code",
+    "kinds,stopped,code",
     [
-        ({"error": 0, "failed": 0, "gaps": 0}, 0),
-        ({"error": 0, "failed": 0, "gaps": 1}, 3),
-        ({"error": 1, "failed": 0, "gaps": 0}, 1),
-        ({"error": 0, "failed": 1, "gaps": 0}, 1),
-        ({"error": 1, "failed": 0, "gaps": 1}, 1),
+        ([], False, 0),
+        ([ProblemKind.GAP], False, 3),
+        ([ProblemKind.LVKIT_ERROR], False, 1),
+        ([ProblemKind.UNWRITABLE], True, 1),
+        ([ProblemKind.LVKIT_ERROR, ProblemKind.GAP], False, 1),
     ],
 )
 def test_exit_code_is_0_for_complete_3_for_partial_1_for_a_stopped_vi(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    result: dict,
+    kinds: list[ProblemKind],
+    stopped: bool,
     code: int,
 ) -> None:
     vi = tmp_path / "Any.vi"
@@ -157,13 +158,13 @@ def test_exit_code_is_0_for_complete_3_for_partial_1_for_a_stopped_vi(
 
     def fake(*args: object, run: RunProblems, **kwargs: object) -> dict:
         graph = run.new_graph()
-        for n in range(result["gaps"]):
+        for n, kind in enumerate(kinds):
             graph.record_problem(
                 f"/p/V{n}.vi",
-                Problem(f"V{n}.vi", ProblemStage.GENERATE, ProblemKind.GAP, "gap"),
+                Problem(f"V{n}.vi", ProblemStage.GENERATE, kind, "why"),
             )
         run.collect(graph)
-        return result
+        return {"stopped": stopped}
 
     monkeypatch.setattr("lvkit.pipeline.generate_python", fake)
     assert _lvkit(monkeypatch, "generate", str(vi), "-o", str(tmp_path)) == code

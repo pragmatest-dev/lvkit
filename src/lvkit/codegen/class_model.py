@@ -45,7 +45,6 @@ from .class_attributes import (
     property_accessors,
     storage_names,
 )
-from .errors import CodeGenError
 from .receiver_flow import carries_receiver
 from .value_copy import holds_refnum
 
@@ -156,19 +155,24 @@ def class_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
 
 
 def type_attributes(
-    graph: InMemoryVIGraph, lv_type: LVType | None, caller_vi_key: str | None
+    graph: InMemoryVIGraph,
+    lv_type: LVType | None,
+    caller_vi_key: str | None,
+    node_label: str,
 ) -> ClassAttributes | None:
     """The attributes of the class a wire of type ``lv_type`` carries, found among
-    the calling VI's own links, for a Bundle/Unbundle By Name or In Place Element
-    on its private data; ``None`` for a wire that is not a loaded class. Only the
-    class's own VIs reach its private data (its storage is private), so a node
-    in any other VI is an lvkit error."""
+    the calling VI's own links, for the ``node_label`` node (a Bundle/Unbundle By
+    Name or In Place Element) on its private data; ``None`` for a wire that is
+    not a loaded class. Only the class's own VIs reach its private data, so the
+    node in any other VI is a gap: that VI is broken in LabVIEW."""
     if lv_type is None:
         return None
     key = graph.class_type_key(lv_type, caller_vi_key)
     if key is None:
         return None
-    _require_own_class(graph, key, caller_vi_key, "Its private data")
+    _require_own_class(
+        graph, key, caller_vi_key, f"{node_label} on the private data"
+    )
     return class_model(graph, key).attributes
 
 
@@ -177,13 +181,25 @@ def _require_own_class(
 ) -> None:
     """``what`` of the class at ``class_key`` is reached from ``caller_key``,
     which must be one of the class's own VIs (written in its body, where Python
-    finds a private name); anything else is an lvkit error."""
+    finds a private name). LabVIEW lets no other VI reach it, so anything else
+    is a VI broken in LabVIEW: a gap. When the VI's own file names the class as
+    its owner, the class file and the VI disagree, and the reason says so."""
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
-    if caller_class != class_key:
-        raise CodeGenError(
-            f"{what} of {python_class_name(class_key)} is reached from outside "
-            "the class"
+    if caller_class == class_key:
+        return
+    class_file = Path(class_key).name
+    owners = graph.recorded_owners(caller_key) if caller_key else []
+    if owners and owners[-1].casefold() == class_file.casefold():
+        why = (
+            f"the VI names {class_file} as its owner while {class_file} does not "
+            "list it"
         )
+    else:
+        why = f"{class_file} does not list this VI"
+    raise ConversionGap(
+        f"{what} of class {Path(class_key).stem}, but {why}, so the VI is broken "
+        "in LabVIEW"
+    )
 
 
 def accessor_of(
@@ -473,15 +489,22 @@ def not_a_method(graph: InMemoryVIGraph, vi_key: str) -> str | None:
 
 
 def check_private_access(
-    graph: InMemoryVIGraph, name: str, class_key: str, caller_key: str | None
+    graph: InMemoryVIGraph,
+    name: str,
+    member_key: str,
+    class_key: str,
+    caller_key: str | None,
 ) -> None:
-    """A private member ``name`` of the class at ``class_key`` is reached only
-    from that class's own VIs (LabVIEW lets no other VI call it), which are
-    written in the class body where Python finds the name; anything else is an
-    lvkit error."""
+    """A private member ``name`` (the VI ``member_key``) of the class at
+    ``class_key`` is reached only from that class's own VIs (LabVIEW lets no
+    other VI call it), which are written in the class body where Python finds
+    the name; a call from anything else is a gap."""
     if is_private(name):
         _require_own_class(
-            graph, class_key, caller_key, f"The private member '{name}'"
+            graph,
+            class_key,
+            caller_key,
+            f"A call of the private VI {graph.vi_display_name(member_key)}",
         )
 
 
@@ -501,9 +524,13 @@ def member_reference(
     imported = class_import(graph, shape.class_key, resolver)
     accessor = class_model(graph, shape.class_key).attributes.accessors.get(shape.key)
     if accessor is None:
-        check_private_access(graph, shape.name, shape.class_key, caller_key)
+        check_private_access(
+            graph, shape.name, shape.key, shape.class_key, caller_key
+        )
         return f"{imported.name}.{shape.name}", imported.statement
-    check_private_access(graph, accessor.python_name, shape.class_key, caller_key)
+    check_private_access(
+        graph, accessor.python_name, shape.key, shape.class_key, caller_key
+    )
     side = "fget" if accessor.role is PropertyRole.GETTER else "fset"
     return f"{imported.name}.{accessor.python_name}.{side}", imported.statement
 
