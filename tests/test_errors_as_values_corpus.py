@@ -340,3 +340,26 @@ def test_a_catalog_function_returns_a_dataclass_result(tmp_path: Path) -> None:
     exec(compile(source, str(module), "exec"), scope)  # noqa: S102
     found = scope["get_system_directory"](0)  # type: ignore[operator]
     assert found.system_directory_path == Path.home()
+
+
+XML_LOOP_STACK = "JKI-EasyXML/Source/Fast Parser/XML Loop Stack Recursion.vi"
+
+
+@pytest.mark.needs_samples
+def test_an_inline_template_input_that_holds_braces_is_written_as_it_is(
+    tmp_path: Path,
+) -> None:
+    """Toolkit Error Handling - Error Cluster From Error Code.vi feeds Trim
+    Whitespace an f-string; the template's placeholders are read from the
+    catalog template, so the f-string's own braces are no missing input."""
+    result = generate_python(SAMPLES / XML_LOOP_STACK, tmp_path / "gen")
+    assert not [g for g in result["gaps"] if "Trim Whitespace" in str(g)]
+    module = next(
+        Path(result["output_dir"]).rglob(
+            "toolkit_error_handling___error_cluster_from_error_code.py"
+        )
+    )
+    assert (
+        "trim_whitespace_trimmed_string = f'<ERR>\\\\n{error_message}"
+        in module.read_text(encoding="utf-8")
+    )

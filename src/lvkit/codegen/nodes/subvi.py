@@ -210,40 +210,30 @@ def _generate_inline(
             param_key = vt.python_param or to_var_name(vt.name)
             vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
-    # Substitute input placeholders with wired values
+    # The value of each input placeholder: the wired value, else the default.
+    # The placeholders are read from the catalog template only, never from a
+    # value written into it (a value can hold braces of its own, an f-string).
+    values: dict[str, str] = {}
     for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
+        if term.direction != "input" or term.index not in vilib_inputs:
             continue
-
-        term_index = term.index
-        term_id = term.id
-        value = ctx.wired_input(term_id, node)
-
-        if term_index in vilib_inputs:
-            param_key = vilib_inputs[term_index]
-            placeholder = "{" + param_key + "}"
-            if not value and template_reads(template, placeholder):
-                if term.is_error_cluster:
-                    value = "None"
-                elif param_key in vilib_defaults:
-                    value = vilib_defaults[param_key]
-                else:
-                    raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
-            template = template.replace(placeholder, value or "None")
-
-    # Substitute any remaining unresolved input placeholders with defaults
+        param_key = vilib_inputs[term.index]
+        value = ctx.wired_input(term.id, node)
+        if not value and template_reads(template, "{" + param_key + "}"):
+            if term.is_error_cluster:
+                value = "None"
+            elif param_key in vilib_defaults:
+                value = vilib_defaults[param_key]
+            else:
+                raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
+        values[param_key] = value or "None"
     for param_key, default in vilib_defaults.items():
-        placeholder = "{" + param_key + "}"
-        if placeholder in template:
-            template = template.replace(placeholder, default)
+        values.setdefault(param_key, default)
 
-    # Check for unresolved input placeholders — same as vilib resolution
-    unresolved_inputs = {
-        m
-        for m in re.findall(r"\{(\w+)\}", template)
-        if m not in set(vilib_outputs.values())
-    }
-    if unresolved_inputs:
+    # A placeholder that is neither an input with a value nor an output is
+    # unresolved — same as vilib resolution.
+    placeholders = set(re.findall(r"\{(\w+)\}", template))
+    if placeholders - values.keys() - set(vilib_outputs.values()):
         _raise_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
@@ -295,10 +285,11 @@ def _generate_inline(
             # Output not in vilib definition - bind to None
             bindings[term_id] = "None"
 
-    # Replace output placeholders in template
-    for param_key, var_name in output_var_map.items():
-        placeholder = "{" + param_key + "}"
-        template = template.replace(placeholder, var_name)
+    # Write every placeholder in one pass over the catalog template.
+    names = {**values, **output_var_map}
+    template = re.sub(
+        r"\{(\w+)\}", lambda m: names.get(m.group(1), m.group(0)), template
+    )
 
     # Parse as statement(s) - supports multi-line
     try:
