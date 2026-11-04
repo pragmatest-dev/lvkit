@@ -8,6 +8,7 @@ field is ``self.__<field>``, which Python stores as ``_<Class>__<field>``."""
 
 from __future__ import annotations
 
+import ast
 import copy
 import queue
 from pathlib import Path
@@ -1845,3 +1846,50 @@ def test_a_private_member_of_another_class_is_no_candidate(tmp_path: Path) -> No
     assert package.gaps == []
     with package.use() as module:
         assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
+
+
+def test_a_lazy_class_module_keeps_only_the_method_imports_each_method_reads(
+    tmp_path: Path,
+) -> None:
+    """A class in an import cycle imports a generated module inside the method
+    that runs it; the method that reads the import keeps it, and no method holds
+    an import it never reads."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    helper = project.add_vi("Helper", static_make)
+
+    def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "x", INT, "x", 0)],
+                outputs=[pane(vi, "output", "y", INT, "y", 1)],
+                data_flow=[wire(vi, "x", "c.seed"), wire(vi, "c.value", "y")],
+            ),
+            [call(vi, "c", helper, "iUse", [("seed", 0, INT)], [("value", 1, INT)])],
+        )
+
+    method = project.add_method("Base", "Twice", twice, static=True)
+    project.add_method("Base", "Probe", passthrough(BASE))
+    graph = project.graph
+    graph._dep_graph.add_edge(method, helper)  # noqa: SLF001
+    graph._dep_graph.add_edge(helper, project.classes["Base"])  # noqa: SLF001
+    package = project.generate()
+    source = package.sources["base"]
+    from lvkit.codegen.class_model import lazy_imports
+
+    assert lazy_imports(project.graph, project.classes["Base"])
+    module_ast = ast.parse(source)
+    methods = {
+        node.name: node
+        for node in ast.walk(module_ast)
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert isinstance(methods["twice"].body[0], ast.ImportFrom)
+    for method in methods.values():
+        read = {n.id for n in ast.walk(method) if isinstance(n, ast.Name)}
+        for stmt in method.body:
+            if isinstance(stmt, ast.ImportFrom):
+                assert {a.asname or a.name for a in stmt.names} <= read, source
+    with package.use() as module:
+        assert module("base").Base.twice(x=5) == 5

@@ -277,3 +277,86 @@ class Result(NamedTuple):
 
     assert "from typing import NamedTuple" in result
     assert "Any" not in result
+
+
+def _optimized(code: str) -> str:
+    return ast.unparse(remove_unused_imports(ast.parse(code)))
+
+
+def test_a_method_import_it_never_reads_is_removed():
+    """An import inside a method body that the method never reads goes."""
+    result = _optimized("""
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        return 1
+""")
+    assert "LabVIEWError" not in result
+    assert "return 1" in result
+
+
+def test_a_method_import_it_reads_is_kept():
+    """An import inside a method body that the method reads stays there."""
+    result = _optimized("""
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        from .other import unused
+        raise LabVIEWError(1)
+""")
+    assert "from .errors import LabVIEWError" in result
+    assert "unused" not in result
+
+
+def test_a_method_import_of_a_type_checking_only_typedef():
+    """A typedef imported under TYPE_CHECKING for an annotation and again in a
+    method that never reads it: the method's import goes, the annotation's
+    stays. A method that reads it keeps its own import, since the
+    TYPE_CHECKING import binds nothing at run time."""
+    result = _optimized("""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .typedefs import Annotation
+
+class Result:
+    annotations: list[Annotation]
+
+class Service:
+    def details(self):
+        from .typedefs import Annotation
+        return Result()
+
+    def build(self):
+        from .typedefs import Annotation
+        return Annotation()
+""")
+    assert result.count("from .typedefs import Annotation") == 2
+    assert "def details(self):\n        return Result()" in result
+    assert "def build(self):\n        from .typedefs import Annotation" in result
+
+
+def test_a_method_import_the_module_already_binds_is_removed():
+    """A method import that repeats a top-level run-time import goes."""
+    result = _optimized("""
+from .errors import LabVIEWError
+
+def check():
+    raise LabVIEWError(1)
+
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        raise LabVIEWError(2)
+""")
+    assert result.count("from .errors import LabVIEWError") == 1
+    assert result.startswith("from .errors import LabVIEWError")
+
+
+def test_a_function_left_with_no_statements_gets_pass():
+    """A body that held only unread imports still parses."""
+    result = _optimized("""
+def f():
+    from .errors import LabVIEWError
+""")
+    assert "def f():\n    pass" in result

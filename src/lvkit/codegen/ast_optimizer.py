@@ -214,7 +214,10 @@ class UnusedImportRemover(ast.NodeTransformer):
     """Remove unused imports from AST.
 
     Identifies imports where the imported name is never used in the code
-    and removes them.
+    and removes them. A module-level import is judged by the names the whole
+    module reads; an import at the top of a function or method body is judged
+    by the names that function reads, and goes when the module already binds
+    the same name from the same import at run time.
 
     Example:
         # Before:
@@ -232,9 +235,6 @@ class UnusedImportRemover(ast.NodeTransformer):
     # `from __future__ import annotations` is never read by name.
     ALWAYS_KEEP = {"annotations"}
 
-    def __init__(self) -> None:
-        self.used_names: set[str] = set()
-
     def optimize(self, module: ast.Module) -> ast.Module:
         """Remove unused imports from module.
 
@@ -244,73 +244,45 @@ class UnusedImportRemover(ast.NodeTransformer):
         Returns:
             Module with unused imports removed
         """
-        # First pass: collect all used names
-        self._collect_used_names(module)
-
-        # Second pass: filter imports
-        new_body = []
-        for stmt in module.body:
-            if isinstance(stmt, ast.ImportFrom):
-                # Keep only used names
-                new_names = []
-                for alias in stmt.names:
-                    name = alias.asname or alias.name
-                    if name in self.used_names or name in self.ALWAYS_KEEP:
-                        new_names.append(alias)
-
-                if new_names:
-                    stmt.names = new_names
-                    new_body.append(stmt)
-                # else: all names unused, skip entire import
-
-            elif isinstance(stmt, ast.Import):
-                # Keep only used modules
-                # For dotted imports like `import concurrent.futures`,
-                # check if the top-level name (e.g. "concurrent") is used
-                new_names = []
-                for alias in stmt.names:
-                    name = alias.asname or alias.name
-                    top_level = name.split(".")[0]
-                    if (
-                        name in self.used_names
-                        or top_level in self.used_names
-                        or name in self.ALWAYS_KEEP
-                    ):
-                        new_names.append(alias)
-
-                if new_names:
-                    stmt.names = new_names
-                    new_body.append(stmt)
-
-            else:
-                new_body.append(stmt)
-
-        module.body = new_body
+        module.body = self._keep_used(module.body, _used_names(module), set())
+        # What the module's own top-level imports bind at run time (an import
+        # under `if TYPE_CHECKING:` is not top level, so it binds nothing).
+        bound = {
+            _binding(stmt, alias)
+            for stmt in module.body
+            if isinstance(stmt, ast.Import | ast.ImportFrom)
+            for alias in stmt.names
+        }
+        for node in ast.walk(module):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                node.body = self._keep_used(node.body, _used_names(node), bound) or [
+                    ast.Pass()
+                ]
         return module
 
-    def _collect_used_names(self, node: ast.AST) -> None:
-        """Collect all names used in Load context (excluding imports)."""
-        for child in ast.walk(node):
-            # Skip imports themselves
-            if isinstance(child, ast.Import | ast.ImportFrom):
+    def _keep_used(
+        self,
+        body: list[ast.stmt],
+        used: set[str],
+        bound: set[tuple[str, int, str, str]],
+    ) -> list[ast.stmt]:
+        """`body` with each import kept only for the names `used` reads that
+        `bound` does not already bind from the same import."""
+        new_body: list[ast.stmt] = []
+        for stmt in body:
+            if not isinstance(stmt, ast.Import | ast.ImportFrom):
+                new_body.append(stmt)
                 continue
-
-            # Track name references
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
-                self.used_names.add(child.id)
-                # Dotted names like "Enum.MEMBER" in keyword args —
-                # also track the prefix as a used name
-                if "." in child.id:
-                    self.used_names.add(child.id.split(".")[0])
-
-            # Track attribute access (e.g., module.func)
-            elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
-                # Get root name of attribute chain
-                value = child.value
-                while isinstance(value, ast.Attribute):
-                    value = value.value
-                if isinstance(value, ast.Name):
-                    self.used_names.add(value.id)
+            names = [
+                alias
+                for alias in stmt.names
+                if _binding(stmt, alias) not in bound
+                and (_is_read(stmt, alias, used) or alias.name in self.ALWAYS_KEEP)
+            ]
+            if names:
+                stmt.names = names
+                new_body.append(stmt)
+        return new_body
 
 
 def remove_unused_imports(module: ast.Module) -> ast.Module:
@@ -324,6 +296,46 @@ def remove_unused_imports(module: ast.Module) -> ast.Module:
     """
     remover = UnusedImportRemover()
     return remover.optimize(module)
+
+
+def _binding(
+    stmt: ast.Import | ast.ImportFrom, alias: ast.alias
+) -> tuple[str, int, str, str]:
+    """What one imported name binds: (source module, level, name, bound as)."""
+    if isinstance(stmt, ast.ImportFrom):
+        source, level = stmt.module or "", stmt.level
+    else:
+        source, level = "", 0
+    return (source, level, alias.name, alias.asname or alias.name)
+
+
+def _is_read(
+    stmt: ast.Import | ast.ImportFrom, alias: ast.alias, used: set[str]
+) -> bool:
+    """Whether the name `alias` binds is among the names `used`; for a dotted
+    `import concurrent.futures`, its top-level name."""
+    name = alias.asname or alias.name
+    if isinstance(stmt, ast.Import):
+        return name in used or name.split(".")[0] in used
+    return name in used
+
+
+def _used_names(node: ast.AST) -> set[str]:
+    """Every name `node` reads (Load context), imports excluded."""
+    used: set[str] = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+            used.add(child.id)
+            # Dotted names like "Enum.MEMBER" in keyword args: the prefix is read
+            if "." in child.id:
+                used.add(child.id.split(".")[0])
+        elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
+            value = child.value
+            while isinstance(value, ast.Attribute):
+                value = value.value
+            if isinstance(value, ast.Name):
+                used.add(value.id)
+    return used
 
 
 def eliminate_dead_code(module: ast.Module) -> ast.Module:
