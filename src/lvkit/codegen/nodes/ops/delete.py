@@ -76,7 +76,10 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     bindings: dict[str, str] = {}
     deleted = terminal(node, "output", pane["deleted"])
     if deleted is not None:
-        bindings[deleted.id] = path
+        # A variable of its own, so a failed delete gives it its default.
+        var = ctx.make_output_var("deleted_path", node.id, terminal_id=deleted.id)
+        statements.append(build_assign(var, parse_expr(path)))
+        bindings[deleted.id] = var
     cancelled = terminal(node, "output", 1) if node.prim_id == 8056 else None
     if cancelled is not None:
         var = ctx.make_output_var("cancelled", node.id, terminal_id=cancelled.id)

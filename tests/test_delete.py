@@ -168,3 +168,12 @@ def test_the_delete_with_no_hierarchy_input(
     assert (result.error_out, result.deleted) == (None, file)
     assert not file.exists()
     assert package.function(file).error_out.code == 7
+
+
+def test_a_failed_delete_gives_the_empty_path(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = _delete(project, hierarchy=False)
+    # The Path type's default, the empty path (plan decision 1).
+    assert package.function(tmp_path / "missing").deleted == Path("")

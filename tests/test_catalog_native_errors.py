@@ -51,6 +51,7 @@ PRIMITIVES = {
     "3914:Search and Replace String": [("error", None)],
     "8056:Delete": DELETE,
     "1417:Delete": DELETE,
+    "8016:To More Specific Class": [("TypeError", 1448)],
 }
 
 

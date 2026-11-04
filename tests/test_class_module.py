@@ -65,13 +65,13 @@ def test_root_class_is_plain_and_child_descends_from_parent_only(
             del sys.modules[name]
 
 
-def test_class_casts_pass_the_object_through() -> None:
+def test_class_casts_are_native_python() -> None:
+    """Preserve Run-Time Class passes the object through; To More Specific Class
+    is its own op (``nodes/ops/to_more_specific_class.py``, tested in
+    ``test_to_more_specific_class.py``)."""
     resolver = get_resolver()
     preserve = resolver.resolve(prim_id=8018)
     specific = resolver.resolve(prim_id=8016)
     assert preserve is not None and specific is not None
-    assert specific.python_code == {
-        "specific class reference": "in_3",
-        "error out": "in_4",
-    }
+    assert specific.op == "TO_MORE_SPECIFIC_CLASS"
     assert "lvkit" not in str(preserve.python_code)

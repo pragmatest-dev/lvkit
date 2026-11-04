@@ -726,12 +726,17 @@ class CodeGenContext:
 
     def _class_object(self, lv_type: LVType) -> str:
         """A new object of the class a class constant holds, the class imported:
-        a class constant is the class's default object. LabVIEW Object, the
-        class every class descends from, is Python's ``object`` (a generated
-        class with no parent has no base). A class that is not loaded, or has no
-        module, is a gap."""
+        a class constant is the class's default object."""
+        return f"{self.class_expression(lv_type, 'The class constant of')}()"
+
+    def class_expression(self, lv_type: LVType, what: str) -> str:
+        """The Python class of the LabVIEW class ``lv_type`` names, imported.
+        LabVIEW Object, the class every class descends from, is Python's
+        ``object`` (a generated class with no parent has no base). A class that
+        is not loaded, or has no module, is a gap whose reason starts with
+        ``what`` (the node it is for)."""
         if lv_type.classname == ROOT_CLASS:
-            return "object()"
+            return "object"
         class_key = (
             self.graph.class_type_key(lv_type, self.vi_name)
             if self.graph is not None
@@ -739,13 +744,13 @@ class CodeGenContext:
         )
         if class_key is None or not isinstance(self.import_resolver, ImportResolver):
             raise ConversionGap(
-                f"The class constant of {lv_type.classname} names a class that is "
+                f"{what} {lv_type.classname} names a class that is "
                 "not loaded; add it to the project or a --search-path"
             )
         assert self.graph is not None
         imported = class_import(self.graph, class_key, self.import_resolver)
         self.add_import(imported.statement)
-        return f"{imported.name}()"
+        return imported.name
 
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
