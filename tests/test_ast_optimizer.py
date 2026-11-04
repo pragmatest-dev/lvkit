@@ -5,6 +5,7 @@ import ast
 from lvkit.codegen.ast_optimizer import (
     DeadCodeEliminator,
     eliminate_dead_code,
+    remove_duplicate_imports,
     remove_unused_imports,
 )
 
@@ -360,3 +361,107 @@ def f():
     from .errors import LabVIEWError
 """)
     assert "def f():\n    pass" in result
+
+
+def test_an_import_read_only_by_a_nested_function_or_lambda_is_kept():
+    result = _optimized("""
+def outer():
+    from .a import A
+    from .b import B
+    def inner():
+        return A()
+    return inner, lambda: B()
+""")
+    assert "from .a import A" in result
+    assert "from .b import B" in result
+
+
+def test_an_aliased_method_import_beside_an_unaliased_module_import_is_kept():
+    result = _optimized("""
+import json
+
+def dump(x):
+    import json as js
+    return js.dumps(x) + json.dumps(x)
+""")
+    assert "import json as js" in result
+    assert result.startswith("import json\n")
+
+
+def test_a_dotted_import_in_a_function_read_through_its_path_is_kept():
+    result = _optimized("""
+def run():
+    import concurrent.futures
+    return concurrent.futures.ThreadPoolExecutor
+""")
+    assert "import concurrent.futures" in result
+
+
+def test_a_future_import_is_kept_and_another_annotations_name_is_not():
+    result = _optimized("""
+from __future__ import annotations
+from typing_extensions import annotations as unused
+
+def f():
+    return 1
+""")
+    assert "from __future__ import annotations" in result
+    assert "typing_extensions" not in result
+
+
+def test_reads_outside_the_body_and_local_annotations_do_not_keep_an_import():
+    """Decorators, defaults and annotations are not read in the function's own
+    body, and a local variable annotation is never evaluated."""
+    result = _optimized("""
+from __future__ import annotations
+
+def f(x: T = D) -> T:
+    from .t import T
+    from .d import D
+    from .l import L
+    y: L = 1
+    return y
+""")
+    assert "from .t" not in result
+    assert "from .d" not in result
+    assert "from .l" not in result
+
+
+def test_a_function_import_of_a_name_it_rebinds_is_kept():
+    for before, after in (
+        ("global E", "pass"),
+        ("pass", "E = 2"),
+        ("pass", "del E"),
+        ("pass", "for E in (): pass"),
+    ):
+        result = _optimized(f"""
+from .errors import E
+
+def g():
+    return E
+
+def f():
+    {before}
+    from .errors import E
+    {after}
+""")
+        compile(result, "<test>", "exec")
+        assert result.count("from .errors import E") == 2, (before, after)
+    nested = _optimized("""
+def outer():
+    from .errors import E
+    def inner():
+        nonlocal E
+        E = 3
+    return inner
+""")
+    assert "from .errors import E" in nested
+
+
+def test_relative_imports_at_different_levels_are_not_duplicates():
+    result = ast.unparse(
+        remove_duplicate_imports(
+            ast.parse("from .x import A\nfrom ..x import A\nfrom .x import A\n")
+        )
+    )
+    assert result == "from .x import A\nfrom ..x import A"

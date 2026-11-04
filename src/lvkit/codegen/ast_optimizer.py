@@ -124,16 +124,23 @@ class DeadCodeEliminator(ast.NodeTransformer):
         return False
 
 
+ImportStmt = ast.Import | ast.ImportFrom
+
+
+def _binding(stmt: ImportStmt, alias: ast.alias) -> tuple[str, int, str, str]:
+    """What one imported name binds: (source module, level, name, bound as).
+    Two imports with the same binding are the same import."""
+    if isinstance(stmt, ast.ImportFrom):
+        source, level = stmt.module or "", stmt.level
+    else:
+        source, level = "", 0
+    return (source, level, alias.name, alias.asname or alias.name)
+
+
 class DuplicateImportRemover(ast.NodeTransformer):
-    """Remove duplicate import statements from AST.
+    """Remove duplicate top-level import statements from AST.
 
-    Tracks imported names and removes duplicate imports, keeping only the first
-    occurrence of each import.
-
-    Handles:
-    - `import X` statements
-    - `from X import Y` statements
-    - `from X import Y as Z` statements
+    Keeps only the first occurrence of each import (by `_binding`).
 
     Example:
         # Before:
@@ -146,12 +153,6 @@ class DuplicateImportRemover(ast.NodeTransformer):
         from .module import func
     """
 
-    def __init__(self) -> None:
-        # Track (module, name, asname) tuples for ImportFrom
-        self.seen_from_imports: set[tuple[str | None, str, str | None]] = set()
-        # Track module names for plain imports
-        self.seen_imports: set[tuple[str, str | None]] = set()
-
     def optimize(self, module: ast.Module) -> ast.Module:
         """Remove duplicate imports from module.
 
@@ -161,38 +162,21 @@ class DuplicateImportRemover(ast.NodeTransformer):
         Returns:
             Module with duplicate imports removed
         """
-        new_body = []
+        seen: set[tuple[str, int, str, str]] = set()
+        new_body: list[ast.stmt] = []
         for stmt in module.body:
-            if isinstance(stmt, ast.ImportFrom):
-                # Filter out already-seen names
+            if isinstance(stmt, ast.Import | ast.ImportFrom):
                 new_names = []
                 for alias in stmt.names:
-                    key = (stmt.module, alias.name, alias.asname)
-                    if key not in self.seen_from_imports:
-                        self.seen_from_imports.add(key)
+                    key = _binding(stmt, alias)
+                    if key not in seen:
+                        seen.add(key)
                         new_names.append(alias)
-
                 if new_names:
                     stmt.names = new_names
                     new_body.append(stmt)
-                # else: entire import was duplicates, skip it
-
-            elif isinstance(stmt, ast.Import):
-                # Filter out already-seen modules
-                new_names = []
-                for alias in stmt.names:
-                    key = (alias.name, alias.asname)
-                    if key not in self.seen_imports:
-                        self.seen_imports.add(key)
-                        new_names.append(alias)
-
-                if new_names:
-                    stmt.names = new_names
-                    new_body.append(stmt)
-
             else:
                 new_body.append(stmt)
-
         module.body = new_body
         return module
 
@@ -216,8 +200,10 @@ class UnusedImportRemover(ast.NodeTransformer):
     Identifies imports where the imported name is never used in the code
     and removes them. A module-level import is judged by the names the whole
     module reads; an import at the top of a function or method body is judged
-    by the names that function reads, and goes when the module already binds
-    the same name from the same import at run time.
+    by the names that function's body reads, and goes when the module already
+    makes the same import at run time. A function import of a name the function
+    also rebinds (assigns, deletes, or declares `global`/`nonlocal`) is kept.
+    `from __future__` imports are always kept.
 
     Example:
         # Before:
@@ -232,9 +218,6 @@ class UnusedImportRemover(ast.NodeTransformer):
             return Path(".")
     """
 
-    # `from __future__ import annotations` is never read by name.
-    ALWAYS_KEEP = {"annotations"}
-
     def optimize(self, module: ast.Module) -> ast.Module:
         """Remove unused imports from module.
 
@@ -244,7 +227,7 @@ class UnusedImportRemover(ast.NodeTransformer):
         Returns:
             Module with unused imports removed
         """
-        module.body = self._keep_used(module.body, _used_names(module), set())
+        module.body = _keep_used(module.body, _used_names([module]), set(), set())
         # What the module's own top-level imports bind at run time (an import
         # under `if TYPE_CHECKING:` is not top level, so it binds nothing).
         bound = {
@@ -255,34 +238,13 @@ class UnusedImportRemover(ast.NodeTransformer):
         }
         for node in ast.walk(module):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                node.body = self._keep_used(node.body, _used_names(node), bound) or [
-                    ast.Pass()
-                ]
+                node.body = _keep_used(
+                    node.body,
+                    _used_names(node.body),
+                    bound,
+                    _rebound_names(node.body),
+                ) or [ast.Pass()]
         return module
-
-    def _keep_used(
-        self,
-        body: list[ast.stmt],
-        used: set[str],
-        bound: set[tuple[str, int, str, str]],
-    ) -> list[ast.stmt]:
-        """`body` with each import kept only for the names `used` reads that
-        `bound` does not already bind from the same import."""
-        new_body: list[ast.stmt] = []
-        for stmt in body:
-            if not isinstance(stmt, ast.Import | ast.ImportFrom):
-                new_body.append(stmt)
-                continue
-            names = [
-                alias
-                for alias in stmt.names
-                if _binding(stmt, alias) not in bound
-                and (_is_read(stmt, alias, used) or alias.name in self.ALWAYS_KEEP)
-            ]
-            if names:
-                stmt.names = names
-                new_body.append(stmt)
-        return new_body
 
 
 def remove_unused_imports(module: ast.Module) -> ast.Module:
@@ -298,20 +260,40 @@ def remove_unused_imports(module: ast.Module) -> ast.Module:
     return remover.optimize(module)
 
 
-def _binding(
-    stmt: ast.Import | ast.ImportFrom, alias: ast.alias
-) -> tuple[str, int, str, str]:
-    """What one imported name binds: (source module, level, name, bound as)."""
-    if isinstance(stmt, ast.ImportFrom):
-        source, level = stmt.module or "", stmt.level
-    else:
-        source, level = "", 0
-    return (source, level, alias.name, alias.asname or alias.name)
+def _keep_used(
+    body: list[ast.stmt],
+    used: set[str],
+    bound: set[tuple[str, int, str, str]],
+    rebound: set[str],
+) -> list[ast.stmt]:
+    """`body` with each import kept only for a name that is rebound, or that is
+    read (`used`) and not already imported the same way (`bound`)."""
+    new_body: list[ast.stmt] = []
+    for stmt in body:
+        if not isinstance(stmt, ast.Import | ast.ImportFrom):
+            new_body.append(stmt)
+            continue
+        if isinstance(stmt, ast.ImportFrom) and stmt.module == "__future__":
+            new_body.append(stmt)
+            continue
+        names = [
+            alias
+            for alias in stmt.names
+            if _bound_name(alias) in rebound
+            or (_binding(stmt, alias) not in bound and _is_read(stmt, alias, used))
+        ]
+        if names:
+            stmt.names = names
+            new_body.append(stmt)
+    return new_body
 
 
-def _is_read(
-    stmt: ast.Import | ast.ImportFrom, alias: ast.alias, used: set[str]
-) -> bool:
+def _bound_name(alias: ast.alias) -> str:
+    """The name an import binds (`import a.b` binds `a`)."""
+    return alias.asname or alias.name.split(".")[0]
+
+
+def _is_read(stmt: ImportStmt, alias: ast.alias, used: set[str]) -> bool:
     """Whether the name `alias` binds is among the names `used`; for a dotted
     `import concurrent.futures`, its top-level name."""
     name = alias.asname or alias.name
@@ -320,22 +302,49 @@ def _is_read(
     return name in used
 
 
-def _used_names(node: ast.AST) -> set[str]:
-    """Every name `node` reads (Load context), imports excluded."""
+def _used_names(nodes: list[ast.stmt] | list[ast.Module]) -> set[str]:
+    """Every name `nodes` read (Load context), imports and the annotations of
+    annotated assignments in a function body excluded (those are never
+    evaluated)."""
+    skipped: set[int] = set()
+    for root in nodes:
+        if isinstance(root, ast.Module):
+            continue
+        for child in ast.walk(root):
+            if isinstance(child, ast.AnnAssign):
+                skipped.update(id(n) for n in ast.walk(child.annotation))
     used: set[str] = set()
-    for child in ast.walk(node):
-        if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
-            used.add(child.id)
-            # Dotted names like "Enum.MEMBER" in keyword args: the prefix is read
-            if "." in child.id:
-                used.add(child.id.split(".")[0])
-        elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
-            value = child.value
-            while isinstance(value, ast.Attribute):
-                value = value.value
-            if isinstance(value, ast.Name):
-                used.add(value.id)
+    for root in nodes:
+        for child in ast.walk(root):
+            if id(child) in skipped:
+                continue
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                used.add(child.id)
+                # Dotted names like "Enum.MEMBER" in keyword args: the prefix is
+                # read
+                if "." in child.id:
+                    used.add(child.id.split(".")[0])
+            elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
+                value = child.value
+                while isinstance(value, ast.Attribute):
+                    value = value.value
+                if isinstance(value, ast.Name):
+                    used.add(value.id)
     return used
+
+
+def _rebound_names(body: list[ast.stmt]) -> set[str]:
+    """The names `body` assigns, deletes, or declares `global`/`nonlocal`."""
+    rebound: set[str] = set()
+    for root in body:
+        for child in ast.walk(root):
+            if isinstance(child, ast.Global | ast.Nonlocal):
+                rebound.update(child.names)
+            elif isinstance(child, ast.Name) and isinstance(
+                child.ctx, ast.Store | ast.Del
+            ):
+                rebound.add(child.id)
+    return rebound
 
 
 def eliminate_dead_code(module: ast.Module) -> ast.Module:
