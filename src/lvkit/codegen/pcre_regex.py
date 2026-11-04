@@ -7,7 +7,10 @@ self-contained function that needs only ``re``: code generation calls it to
 translate a constant pattern, and ``module_function.function_source`` writes its
 source into a generated module when the pattern is computed at run time.
 
-A construct Python ``re`` cannot express raises ``ValueError`` naming it.
+A pattern PCRE itself rejects raises ``re.error`` naming the fault, as Python
+``re`` rejects its own (LabVIEW reports it on error out: NI, "Regular Expression
+Error Codes"); a PCRE construct Python ``re`` cannot express raises
+``NotImplementedError`` naming it (a gap: the conversion cannot run it).
 """
 
 from __future__ import annotations
@@ -34,13 +37,17 @@ def pcre_to_python_regex(pattern: str) -> str:
       two characters and ``\\``.
     """
     named = "bBdDwWsSnrtfa"
+    # PCRE escapes Python re has no form of; any other letter or digit after a
+    # backslash is no PCRE escape (NI, -4603: "An unrecognized character follows
+    # a '\\'.").
+    pcre_only = "hHvVRKQEGXCpPNgko"
     n = len(pattern)
 
     def escape(i: int) -> tuple[str, str | None, int]:
         # The pattern text for the escape at pattern[i], the single character it
         # stands for (None for a set or an anchor), and the index after it.
         if i + 1 >= n:
-            raise ValueError("a backslash at the end of the pattern")
+            raise re.error("a backslash at the end of the pattern")
         c = pattern[i + 1]
         if c in named:
             single = {"n": "\n", "r": "\r", "t": "\t", "f": "\f", "a": "\a"}.get(c)
@@ -69,8 +76,10 @@ def pcre_to_python_regex(pattern: str) -> str:
             digits = re.findall(r"^[0-9A-Fa-f]{0,2}", pattern[i + 2 :])[0]
             ch = chr(int(digits or "0", 16))
             return re.escape(ch), ch, i + 2 + len(digits)
+        if c in pcre_only:
+            raise NotImplementedError(f"the PCRE escape \\{c} has no Python re form")
         if c.isalnum() or c == "_":
-            raise ValueError(f"the escape \\{c}")
+            raise re.error(f"the escape \\{c} is no PCRE escape")
         return re.escape(c), c, i + 2
 
     def read_class(i: int) -> tuple[str, int]:
@@ -88,7 +97,7 @@ def pcre_to_python_regex(pattern: str) -> str:
                 items.append((re.escape(pattern[j]), pattern[j], pattern[j] == "-"))
                 j += 1
         if j >= n:
-            raise ValueError("a [ with no closing ]")
+            raise re.error("a [ with no closing ]")
         out: list[str] = []
         k = 0
         while k < len(items):
@@ -102,7 +111,7 @@ def pcre_to_python_regex(pattern: str) -> str:
             ):
                 high = items[k + 2][1]
                 if high is not None and high < ch:
-                    raise ValueError("a range whose end is before its start")
+                    raise re.error("a range whose end is before its start")
                 out.append(f"{text}-{items[k + 2][0]}")
                 k += 3
                 continue

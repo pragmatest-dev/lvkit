@@ -1,6 +1,8 @@
 """Code generator dispatch for an XNode, by the recorded path of its library file
 (``PrimitiveNode.xnode_library_path``, from the VI's ``XNXI`` link record). An
-XNode of a library with no generator here is generated as a primitive is."""
+XNode of a library with no generator here is generated as a primitive is, and so
+is an XNode no link record names (its path is ""), an Error Ring among them:
+without the record nothing says which library it is."""
 
 from __future__ import annotations
 

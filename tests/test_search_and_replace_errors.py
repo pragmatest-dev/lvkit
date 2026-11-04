@@ -9,6 +9,8 @@ code (``native_failure``, plan decision 2), with the exception's text as message
 
 from __future__ import annotations
 
+import pytest
+
 from lvkit.codegen.nodes.ops.search_and_replace import REGULAR_EXPRESSION_MODE
 from tests.error_diagrams import (
     BOOL,
@@ -26,8 +28,9 @@ NAME = "Replace.vi"
 SEARCH_AND_REPLACE = 3914
 
 
-def _replace(project: Project) -> Package:  # noqa: F811
-    """result = Search and Replace String(text, pattern -> "X"), error out wired."""
+def _replace(project: Project, replace: str = "X") -> Package:  # noqa: F811
+    """result = Search and Replace String(text, pattern -> ``replace``), error out
+    wired."""
     vi = Vi(NAME)
     text = vi.control("text", STR, REQUIRED)
     pattern = vi.control("pattern", STR, REQUIRED)
@@ -49,7 +52,8 @@ def _replace(project: Project) -> Package:  # noqa: F811
     )
     vi.wire(text, node["input string"])
     vi.wire(pattern, node["search string"])
-    vi.wire(vi.constant(STR, "0000000158"), node["replace string"])
+    hex_replace = f"{len(replace):08X}{replace.encode().hex().upper()}"
+    vi.wire(vi.constant(STR, hex_replace), node["replace string"])
     vi.wire(node["result string"], result)
     vi.wire(node["error out"], out)
     project.add(vi)
@@ -77,3 +81,31 @@ def test_a_pattern_re_cannot_compile_is_the_error_out(
     )
     assert "missing )" in error.message
     assert result.result == ""
+
+
+def test_a_pattern_pcre_rejects_is_the_error_out(project: Project) -> None:  # noqa: F811
+    """A trailing backslash is no PCRE pattern (NI, -4601); LabVIEW reports it on
+    error out, so the translator raises ``re.error``: error 42."""
+    error = _replace(project).function("abc", "b\\").error_out
+    assert (error.code, error.message) == (42, "a backslash at the end of the pattern")
+
+
+def test_pcre_python_cannot_express_raises_at_run_time(
+    project: Project,  # noqa: F811
+) -> None:
+    """``\\h`` is PCRE (horizontal space) Python re has no form of: a gap, raised
+    where the node runs."""
+    package = _replace(project)
+    with pytest.raises(NotImplementedError, match="has no Python re form"):
+        package.function("a b", "\\h")
+
+
+def test_a_replace_string_naming_a_missing_submatch_raises_at_run_time(
+    project: Project,  # noqa: F811
+) -> None:
+    """NI does not say what ``$2`` gives for a pattern with one submatch: a gap,
+    as it is for a constant pattern."""
+    package = _replace(project, "<$2>")
+    assert package.function("abc", "(b)(c)").result == "a<c>"
+    with pytest.raises(NotImplementedError, match="does not have"):
+        package.function("abc", "(b)")

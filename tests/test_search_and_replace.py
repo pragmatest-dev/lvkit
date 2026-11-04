@@ -235,8 +235,11 @@ class TestRegularExpressionMode:
         assert run.source.count("def _pcre_template(replacement: str) -> str:") == 1
         assert "re.subn" not in run.source
         assert (
-            "    result_string = re.sub(_pcre_regex(search), _pcre_template(repl), s, "
-            "flags=re.ASCII)\n"
+            "    pattern = _pcre_regex(search)\n"
+            "    template = _pcre_template(repl)\n"
+        ) in body(run)
+        assert (
+            "    result_string = re.sub(pattern, template, s, flags=re.ASCII)\n"
         ) in body(run)
         assert "lvkit" not in run.source
         assert run.function("a1b22", "(\\d+)", "<$1>").r == "a<1>b<22>"
@@ -257,7 +260,7 @@ class TestRegularExpressionMode:
         gaps: list[Gap] = []
         run = build({"search": "a\\h", "repl": "x"}, regex=True, gaps=gaps)
         (gap,) = gaps
-        assert "the escape \\h" in gap.reason
+        assert "the PCRE escape \\h has no Python re form" in gap.reason
         with pytest.raises(NotImplementedError):
             run.function("a")
 
@@ -265,7 +268,8 @@ class TestRegularExpressionMode:
         gaps: list[Gap] = []
         build({"search": "(a)", "repl": "$2"}, regex=True, gaps=gaps)
         (gap,) = gaps
-        assert "invalid group reference 2" in gap.reason
+        assert "refers to a submatch the regular expression does not have" in gap.reason
+        assert gap.reason.endswith(": $2")
 
 
 def test_unwired_outputs_make_no_code() -> None:

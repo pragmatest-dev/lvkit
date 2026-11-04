@@ -146,13 +146,17 @@ class TestBackslash:
         assert match("ab\n", r"b\Z") == "b"
 
     def test_an_escape_python_cannot_express_raises_naming_it(self) -> None:
-        with pytest.raises(ValueError, match=r"the escape \\h"):
+        with pytest.raises(NotImplementedError, match=r"the PCRE escape \\h"):
             pcre_to_python_regex(r"a\h")
 
+    def test_a_letter_escape_pcre_does_not_have_is_a_pattern_error(self) -> None:
+        with pytest.raises(re.error, match=r"the escape \\y is no PCRE escape"):
+            pcre_to_python_regex(r"a\y")
+
     def test_unclosed_class_and_trailing_backslash_raise(self) -> None:
-        with pytest.raises(ValueError, match="no closing"):
+        with pytest.raises(re.error, match="no closing"):
             pcre_to_python_regex("[ab")
-        with pytest.raises(ValueError, match="backslash at the end"):
+        with pytest.raises(re.error, match="backslash at the end"):
             pcre_to_python_regex("ab\\")
 
 

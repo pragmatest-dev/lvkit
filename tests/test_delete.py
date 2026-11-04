@@ -177,3 +177,19 @@ def test_a_failed_delete_gives_the_empty_path(
     package = _delete(project, hierarchy=False)
     # The Path type's default, the empty path (plan decision 1).
     assert package.function(tmp_path / "missing").deleted == Path("")
+
+
+@pytest.mark.parametrize("hierarchy", [True, None], ids=["constant", "run-time"])
+def test_entire_hierarchy_deletes_a_file_too(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+    hierarchy: bool | None,
+) -> None:
+    """Entire hierarchy matters only for a folder with contents; a file is
+    deleted as it is without it."""
+    package = _delete(project, hierarchy=hierarchy)
+    file = tmp_path / "f.txt"
+    file.write_text("x")
+    args = (file,) if hierarchy else (file, True)
+    assert package.function(*args).error_out is None
+    assert not file.exists()

@@ -44,7 +44,7 @@ def to_more_specific_class(
     target = terminal(node, "input", 2)
     statements: list[ast.stmt] = []
     reference = string_variable(
-        ctx, node, input_expression(ctx, node, 3) or "None", statements
+        ctx, node, input_expression(ctx, node, 3) or "None", statements, "reference"
     )
     target_type = target.lv_type if target is not None else None
     if target_type is not None and target_type.ref_type == "UDClassInst":

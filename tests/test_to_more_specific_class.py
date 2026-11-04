@@ -126,3 +126,24 @@ def test_a_vi_server_reference_cast_passes_through(tmp_path: Path) -> None:
         reference = object()
         result = module("cast").cast(obj=reference)
         assert (result.specific, result.error_out) == (reference, None)
+
+
+def test_the_parent_class_casts_to_its_child(tmp_path: Path) -> None:
+    """A Base method casts to Child, whose module imports Base as its parent: the
+    two modules import each other, so the cast imports Child when it runs."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [COUNT], parent="Base")
+    project.add_method("Base", "Cast", _cast(CHILD), static=True)
+    package = project.generate()
+    assert package.gaps == []
+    base = package.sources["base"]
+    assert "\nfrom .child import Child\n" not in base
+    assert (
+        "    def cast(self, *, target: Child=None) -> CastResult:\n"
+        "        from .child import Child\n" in base
+    )
+    with package.use() as module:
+        child = module("child").Child()
+        assert child.cast().specific is child
+        assert module("base").Base().cast().error_out.code == 1448

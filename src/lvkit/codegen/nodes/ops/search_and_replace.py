@@ -87,20 +87,42 @@ def _constant_pattern(node: PrimitiveNode, pattern: str) -> str:
     try:
         translated = pcre_to_python_regex(pattern)
         re.compile(translated, re.ASCII)
-    except (ValueError, re.error) as error:
+    except (NotImplementedError, re.error) as error:
         raise _gap(node, "regular expression", error) from error
     return translated
 
 
+# NI's pages do not say what a ``$n`` beyond the submatches of the regular
+# expression gives, so it is a gap: at generation for a constant pair, at run
+# time (``NotImplementedError``) when either is computed.
+MISSING_SUBMATCH = (
+    "Search and Replace String's replace string refers to a submatch the regular "
+    "expression does not have (NI does not say what LabVIEW gives)"
+)
+
+
+def _missing_submatch_check(
+    pattern: str, template: str, flags: str
+) -> list[ast.stmt]:
+    """The run-time check that the translated ``template`` names no submatch
+    ``pattern`` lacks (a pattern that does not compile is ``re.error``, the
+    node's error out)."""
+    return ast.parse(
+        f"if any(int(n) > re.compile({pattern}, {flags or 0}).groups"
+        f" for n in re.findall(r'\\\\g<(\\d+)>', {template})):\n"
+        f"    raise NotImplementedError({MISSING_SUBMATCH!r})"
+    ).body
+
+
 def _constant_template(node: PrimitiveNode, pattern: str, replacement: str) -> str:
     translated = pcre_to_python_template(replacement)
+    compiled = re.compile(_constant_pattern(node, pattern), re.ASCII)
+    for reference in re.findall(r"\\g<(\d+)>", translated):
+        if int(reference) > compiled.groups:
+            raise ConversionGap(f"{MISSING_SUBMATCH}: ${reference}", node)
     try:
-        compiled = re.compile(_constant_pattern(node, pattern), re.ASCII)
         compiled.sub(translated, "")
-        for reference in re.findall(r"\\g<(\d+)>", translated):
-            if int(reference) > compiled.groups:
-                raise ValueError(f"the submatch {reference} does not exist")
-    except (ValueError, re.error) as error:
+    except re.error as error:
         raise _gap(node, "replace string", error) from error
     return translated
 
@@ -185,7 +207,11 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
                     ctx, _TEMPLATE_TRANSLATOR, pcre_to_python_template
                 )
                 template = f"{translate}({replace_text})"
-            replacement = template
+            pattern = string_variable(ctx, node, pattern, statements, "pattern")
+            replacement = string_variable(ctx, node, template, statements, "template")
+            statements.extend(
+                _missing_submatch_check(pattern, replacement, " | ".join(flags))
+            )
     else:
         pattern = (
             repr(re.escape(search_value))

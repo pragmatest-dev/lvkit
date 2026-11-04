@@ -57,20 +57,24 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         input_expression(ctx, node, pane["hierarchy"]) if "hierarchy" in pane else None
     )
     statements: list[ast.stmt] = []
-    path = string_variable(ctx, node, path_text, statements)
-    removal = "if os.path.isdir(PATH):\n    os.rmdir(PATH)\nelse:\n    os.remove(PATH)"
+    path = string_variable(ctx, node, path_text, statements, "path")
+    # A folder: os.rmdir, or shutil.rmtree when entire hierarchy is TRUE; a
+    # file is os.remove whatever entire hierarchy says (it matters only for a
+    # folder with contents).
+    folder = f"os.rmdir({path})"
     if hierarchy is not None and literal(hierarchy) is not False:
-        whole = f"shutil.rmtree({path})"
         ctx.imports.add("import shutil")
-        removal = (
+        whole = f"shutil.rmtree({path})"
+        folder = (
             whole
             if literal(hierarchy) is True
-            else f"if {hierarchy}:\n    {whole}\nel" + removal
+            else f"if {hierarchy}:\n        {whole}\n    else:\n        {folder}"
         )
     source = (
         f"if {path} is None or not os.path.isabs({path}):\n"
         f"    raise ValueError({EMPTY_OR_RELATIVE!r})\n"
-        + removal.replace("PATH", path)
+        f"if os.path.isdir({path}):\n    {folder}\n"
+        f"else:\n    os.remove({path})"
     )
     statements.extend(ast.parse(source).body)
     bindings: dict[str, str] = {}
