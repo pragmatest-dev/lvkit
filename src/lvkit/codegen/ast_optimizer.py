@@ -242,7 +242,7 @@ class UnusedImportRemover(ast.NodeTransformer):
                     node.body,
                     _used_names(node.body),
                     bound,
-                    _rebound_names(node.body),
+                    _rebound_names(node.body) | _parameter_names(node.args),
                 ) or [ast.Pass()]
         return module
 
@@ -331,6 +331,13 @@ def _used_names(nodes: list[ast.stmt] | list[ast.Module]) -> set[str]:
                 if isinstance(value, ast.Name):
                     used.add(value.id)
     return used
+
+
+def _parameter_names(args: ast.arguments) -> set[str]:
+    """The names a function's own parameters bind."""
+    names = {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    names.update(a.arg for a in (args.vararg, args.kwarg) if a is not None)
+    return names
 
 
 def _rebound_names(body: list[ast.stmt]) -> set[str]:

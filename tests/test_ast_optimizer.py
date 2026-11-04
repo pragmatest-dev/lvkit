@@ -462,6 +462,18 @@ def outer():
     return inner
 """)
     assert "from .errors import E" in nested
+    for params in ("E", "*E", "**E", "*, E", "E, /"):
+        result = _optimized(f"""
+from .errors import E
+
+def g():
+    return E
+
+def f({params}):
+    from .errors import E
+    return E
+""")
+        assert result.count("from .errors import E") == 2, params
 
 
 def test_relative_imports_at_different_levels_are_not_duplicates():
