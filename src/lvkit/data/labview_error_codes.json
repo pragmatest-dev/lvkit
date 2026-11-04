@@ -1186,6 +1186,7 @@
   "-602": "Invalid registry refnum.",
   "-601": "Incorrect data type specified.",
   "-600": "Undetermined Windows registry error.",
+  "1": "An input parameter is invalid.",
   "6": "Generic file I/O error.",
   "7": "File not found.",
   "8": "File permission error.",

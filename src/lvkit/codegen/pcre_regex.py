@@ -146,9 +146,10 @@ def pcre_to_python_regex(pattern: str) -> str:
     return "".join(units)
 
 
-def pcre_to_python_template(replacement: str) -> str:
+def pcre_to_python_template(replacement: str) -> tuple[str, tuple[int, ...]]:
     """Translate the ``replace string`` of Search and Replace String in Regular
-    Expression mode into a Python ``re`` replacement template.
+    Expression mode into a Python ``re`` replacement template, and the numbers of
+    the submatches it inserts, in order.
 
     ``$n`` (one digit) and ``${n}`` insert submatch ``n`` (NI: ``$12`` inserts
     submatch 1 followed by ``2``; ``${12}`` inserts submatch 12), ``\\$`` is a
@@ -156,6 +157,7 @@ def pcre_to_python_template(replacement: str) -> str:
     other ``$`` stand for themselves.
     """
     out: list[str] = []
+    submatches: list[int] = []
     i = 0
     n = len(replacement)
     while i < n:
@@ -169,11 +171,13 @@ def pcre_to_python_template(replacement: str) -> str:
             i += 2 if following == "\\" else 1
         elif c == "$" and "0" <= following <= "9" and following:
             out.append(f"\\g<{following}>")
+            submatches.append(int(following))
             i += 2
         elif c == "$" and following == "{":
             braced = re.match(r"\{(\d+)\}", replacement[i + 1 :])
             if braced:
                 out.append(f"\\g<{braced.group(1)}>")
+                submatches.append(int(braced.group(1)))
                 i += 1 + len(braced.group())
             else:
                 out.append(c)
@@ -181,4 +185,4 @@ def pcre_to_python_template(replacement: str) -> str:
         else:
             out.append(c)
             i += 1
-    return "".join(out)
+    return "".join(out), tuple(submatches)

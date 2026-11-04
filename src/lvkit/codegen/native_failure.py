@@ -94,6 +94,14 @@ def catch_failures(
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
     _, outputs = own_error_terminals(node)
+    # A class of the operation's own is raised whether or not it is caught.
+    for failure in catalog.failures:
+        if failure.base is not None:
+            fragment.imports.add(
+                f"class {failure.exception}({failure.base}):\n"
+                f'    """A failure of {catalog.source} (LabVIEW error '
+                f'{failure.code})."""'
+            )
     if (
         not catalog.failures
         or not fragment.statements

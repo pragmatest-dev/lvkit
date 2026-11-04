@@ -68,12 +68,15 @@ class NativeError(BaseModel):
     from ``module`` (``None`` for a built-in one), and the code from NI's public
     error-code list (``None`` for the generic code). ``since_python`` is the
     Python version the module has the class from, when it is not every version
-    lvkit's generated code runs on."""
+    lvkit's generated code runs on. ``base`` makes ``exception`` a class of the
+    operation's own, which only its generated code raises: the generated module
+    defines it as a subclass of the built-in ``base``."""
 
     exception: str
     module: str | None = None
     code: int | None = None
     since_python: str | None = None
+    base: str | None = None
 
 
 class PrimitiveEntry(BaseModel):

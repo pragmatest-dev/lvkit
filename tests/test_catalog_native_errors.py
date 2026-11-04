@@ -25,7 +25,12 @@ COPY_MOVE = [
     ("OSError", 6),
 ]
 RELEASED_QUEUE = [("ShutDown", 1122)]
-DELETE = [("ValueError", 1430), *COPY_MOVE[:2], ("OSError", 6)]
+DELETE = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    *COPY_MOVE[:2],
+    ("OSError", 6),
+]
 
 PRIMITIVES = {
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
@@ -84,7 +89,10 @@ def _exception_class(failure: NativeError) -> type[BaseException] | None:
         int(part) for part in failure.since_python.split(".")
     ):
         return None
-    if failure.module is None:
+    if failure.base is not None:
+        # A class of the operation's own, defined in the generated module.
+        cls = type(failure.exception, (getattr(builtins, failure.base),), {})
+    elif failure.module is None:
         cls = getattr(builtins, failure.exception)
     else:
         cls = getattr(importlib.import_module(failure.module), failure.exception)

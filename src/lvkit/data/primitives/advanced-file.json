@@ -161,8 +161,14 @@
       "op": "DELETE",
       "errors": [
         {
-          "exception": "ValueError",
-          "code": 1430
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
         },
         {
           "exception": "FileNotFoundError",
@@ -436,8 +442,14 @@
       "op": "DELETE",
       "errors": [
         {
-          "exception": "ValueError",
-          "code": 1430
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
         },
         {
           "exception": "FileNotFoundError",

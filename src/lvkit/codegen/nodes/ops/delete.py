@@ -8,7 +8,8 @@ relative path, this function returns an error", error 1430 (NI, General LabVIEW
 Error Codes: "The path is empty or relative. You must use an absolute path.").
 ``confirm`` TRUE shows a dialog: a gap unless it is unwired or a constant FALSE.
 The failures of the operation are the node's error out through the catalog
-entry's ``errors`` (``native_failure``): 1430, then 7, 8 and 6 as Copy's are.
+entry's ``errors`` (``native_failure``): 1430, 1 for a path with a null
+character, then 7, 8 and 6 as Copy's are.
 ``cancelled`` is FALSE (no dialog is shown); ``deleted path`` is ``path``.
 
 Terminals (from the primitives entries; 9 and 10 from the callers' wiring, see
@@ -32,8 +33,12 @@ from . import register_op_fragment
 from ._flat_node import terminal
 from ._regex_node import input_expression, literal, string_variable
 
-# NI, General LabVIEW Error Codes, 1430.
+# NI, General LabVIEW Error Codes, 1430, and 1 ("An input parameter is invalid.
+# For example if the input is a path, the path might contain a character not
+# allowed by the OS"): raised as the classes of Delete's own the catalog entry
+# names (``base``), so no other ValueError is taken for them.
 EMPTY_OR_RELATIVE = "The path is empty or relative. You must use an absolute path."
+INVALID_PATH = "An input parameter is invalid: the path contains a null character."
 
 # Input and output terminal indices of each Delete primitive.
 _PANES = {
@@ -72,7 +77,9 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         )
     source = (
         f"if {path} is None or not os.path.isabs({path}):\n"
-        f"    raise ValueError({EMPTY_OR_RELATIVE!r})\n"
+        f"    raise EmptyOrRelativePathError({EMPTY_OR_RELATIVE!r})\n"
+        f"if '\\0' in os.fspath({path}):\n"
+        f"    raise InvalidPathError({INVALID_PATH!r})\n"
         f"if os.path.isdir({path}):\n    {folder}\n"
         f"else:\n    os.remove({path})"
     )

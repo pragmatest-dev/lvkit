@@ -236,3 +236,20 @@ Every commit's diff is reviewed by me (a stronger model than its author).
     shared clone (NI: "Does not maintain state"), and different for a
     preallocated clone called from several places (NI: "Maintains state for each
     call site"), which the generated module notes above the variable.
+
+## Open points for the maintainer
+
+- **A gap that only a run-time value shows has no warning at generation.** For
+  Search and Replace String with a pattern or replace string computed at run
+  time, a PCRE escape Python `re` has no form of (`\h`, `\K`, `\Q`, …) and a
+  `$n` beyond the pattern's submatches (NI does not say what LabVIEW gives) can
+  only be known when the code runs: the generated code raises
+  `NotImplementedError("<reason>")` there, with no warning at generation. The gap
+  rule's "warn at generation" cannot apply when the value exists only at run
+  time; a constant pattern or replace string is warned at generation as before.
+- **To More Specific Class on a VI Server reference** passes the reference
+  through; only a LabVIEW class wire is checked (`isinstance`, error 1448).
+- **XNode views**: describe, lvnet and JSON show every XNode as `xNode` with
+  numbered terminals. Decided 2026-11-04: name each XNode by its library
+  (`XNXI` record) with its recorded terminal names, as its own commit after the
+  review talk, listing the Match Regular Expression view changes line by line.

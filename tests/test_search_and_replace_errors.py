@@ -109,3 +109,10 @@ def test_a_replace_string_naming_a_missing_submatch_raises_at_run_time(
     assert package.function("abc", "(b)(c)").result == "a<c>"
     with pytest.raises(NotImplementedError, match="does not have"):
         package.function("abc", "(b)")
+
+
+def test_a_literal_backslash_g_is_no_submatch(project: Project) -> None:  # noqa: F811
+    """A backslash before ``g<5>`` in the replace string is a literal backslash,
+    not a reference to submatch 5: no gap for a pattern with one submatch."""
+    package = _replace(project, "\\g<5>")
+    assert package.function("abc", "(b)").result == "a\\g<5>c"

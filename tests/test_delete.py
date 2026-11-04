@@ -193,3 +193,17 @@ def test_entire_hierarchy_deletes_a_file_too(
     args = (file,) if hierarchy else (file, True)
     assert package.function(*args).error_out is None
     assert not file.exists()
+
+
+def test_a_path_with_a_null_character_is_error_1(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """NI, General LabVIEW Error Codes, 1: "An input parameter is invalid. For
+    example if the input is a path, the path might contain a character not
+    allowed by the OS"; checked on the path before the delete."""
+    package = _delete(project, hierarchy=False)
+    assert "class InvalidPathError(ValueError):" in package.source
+    error = package.function(tmp_path / "a\0b").error_out
+    assert (error.code, error.source) == (1, "Delete")
+    assert package.function(Path("relative")).error_out.code == 1430

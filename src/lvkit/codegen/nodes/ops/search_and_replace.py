@@ -102,23 +102,23 @@ MISSING_SUBMATCH = (
 
 
 def _missing_submatch_check(
-    pattern: str, template: str, flags: str
+    pattern: str, submatches: str, flags: str
 ) -> list[ast.stmt]:
-    """The run-time check that the translated ``template`` names no submatch
-    ``pattern`` lacks (a pattern that does not compile is ``re.error``, the
-    node's error out)."""
+    """The run-time check that ``pattern`` has every submatch the replace string
+    inserts (``submatches``, from ``pcre_to_python_template``); a pattern that
+    does not compile is ``re.error``, the node's error out."""
     return ast.parse(
-        f"if any(int(n) > re.compile({pattern}, {flags or 0}).groups"
-        f" for n in re.findall(r'\\\\g<(\\d+)>', {template})):\n"
+        f"if any(n > re.compile({pattern}, {flags or 0}).groups"
+        f" for n in {submatches}):\n"
         f"    raise NotImplementedError({MISSING_SUBMATCH!r})"
     ).body
 
 
 def _constant_template(node: PrimitiveNode, pattern: str, replacement: str) -> str:
-    translated = pcre_to_python_template(replacement)
+    translated, submatches = pcre_to_python_template(replacement)
     compiled = re.compile(_constant_pattern(node, pattern), re.ASCII)
-    for reference in re.findall(r"\\g<(\d+)>", translated):
-        if int(reference) > compiled.groups:
+    for reference in submatches:
+        if reference > compiled.groups:
             raise ConversionGap(f"{MISSING_SUBMATCH}: ${reference}", node)
     try:
         compiled.sub(translated, "")
@@ -200,18 +200,25 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
             else:
                 regex = declare_translator(ctx, _REGEX_TRANSLATOR, pcre_to_python_regex)
                 pattern = f"{regex}({search_text})"
+            pattern = string_variable(ctx, node, pattern, statements, "pattern")
             if isinstance(replace_value, str):
-                template = repr(pcre_to_python_template(replace_value))
+                translated, numbers = pcre_to_python_template(replace_value)
+                replacement, submatches = repr(translated), repr(numbers)
             else:
                 translate = declare_translator(
                     ctx, _TEMPLATE_TRANSLATOR, pcre_to_python_template
                 )
-                template = f"{translate}({replace_text})"
-            pattern = string_variable(ctx, node, pattern, statements, "pattern")
-            replacement = string_variable(ctx, node, template, statements, "template")
-            statements.extend(
-                _missing_submatch_check(pattern, replacement, " | ".join(flags))
-            )
+                replacement = ctx.make_output_var("template", node.id)
+                submatches = ctx.make_output_var("submatches", node.id)
+                statements.extend(
+                    ast.parse(
+                        f"{replacement}, {submatches} = {translate}({replace_text})"
+                    ).body
+                )
+            if submatches != "()":
+                statements.extend(
+                    _missing_submatch_check(pattern, submatches, " | ".join(flags))
+                )
     else:
         pattern = (
             repr(re.escape(search_value))

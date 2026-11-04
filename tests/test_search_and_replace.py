@@ -232,11 +232,16 @@ class TestRegularExpressionMode:
     def test_pattern_computed_at_run_time_writes_the_translators_once(self) -> None:
         run = build({"search": "ctl", "repl": "ctl", "ra": "True"}, regex=True)
         assert run.source.count("def _pcre_regex(pattern: str) -> str:") == 1
-        assert run.source.count("def _pcre_template(replacement: str) -> str:") == 1
+        assert (
+            run.source.count(
+                "def _pcre_template(replacement: str) -> tuple[str, tuple[int, ...]]:"
+            )
+            == 1
+        )
         assert "re.subn" not in run.source
         assert (
             "    pattern = _pcre_regex(search)\n"
-            "    template = _pcre_template(repl)\n"
+            "    template, submatches = _pcre_template(repl)\n"
         ) in body(run)
         assert (
             "    result_string = re.sub(pattern, template, s, flags=re.ASCII)\n"
