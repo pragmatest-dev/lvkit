@@ -94,14 +94,17 @@ def catch_failures(
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
     _, outputs = own_error_terminals(node)
-    # A class of the operation's own is raised whether or not it is caught.
+    # A class of the operation's own is raised whether or not it is caught; it
+    # is registered with the module's other helpers, one definition per name.
     for failure in catalog.failures:
         if failure.base is not None:
-            fragment.imports.add(
+            [definition] = ast.parse(
                 f"class {failure.exception}({failure.base}):\n"
                 f'    """A failure of {catalog.source} (LabVIEW error '
                 f'{failure.code})."""'
-            )
+            ).body
+            assert isinstance(definition, ast.ClassDef)
+            ctx.add_module_function(definition)
     if (
         not catalog.failures
         or not fragment.statements

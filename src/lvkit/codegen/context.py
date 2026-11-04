@@ -868,11 +868,14 @@ class CodeGenContext:
         reentrancy = self.graph.get_vi_properties(self.vi_name).execution.reentrancy
         return reentrancy is Reentrancy.PREALLOCATED_CLONE
 
-    def add_module_function(self, func_def: ast.FunctionDef) -> None:
-        """Register a module-level helper function, emitted above the VI function.
-        Idempotent like ``add_module_global``."""
+    def add_module_function(self, func_def: ast.FunctionDef | ast.ClassDef) -> None:
+        """Register a module-level helper function or class, emitted above the VI
+        function. Idempotent like ``add_module_global``."""
         for stmt in self.formula_helpers:
-            if isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name:
+            if (
+                isinstance(stmt, (ast.FunctionDef, ast.ClassDef))
+                and stmt.name == func_def.name
+            ):
                 _require_same_definition(func_def.name, stmt, func_def)
                 return
         self.formula_helpers.append(func_def)

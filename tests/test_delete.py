@@ -207,3 +207,25 @@ def test_a_path_with_a_null_character_is_error_1(
     error = package.function(tmp_path / "a\0b").error_out
     assert (error.code, error.source) == (1, "Delete")
     assert package.function(Path("relative")).error_out.code == 1430
+
+
+def test_the_path_classes_are_written_with_error_out_unwired(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """With nowhere to put the error, a path with a null character stays a
+    Python exception, of the class the module defines."""
+    vi = Vi(NAME)
+    target = vi.control("target", PATH, REQUIRED)
+    node = vi.primitive(
+        8056,
+        [("error out", 0, ERR, True), ("path", 11, PATH, False)],
+    )
+    vi.wire(target, node["path"])
+    project.add(vi)
+    package = project.generate(NAME)
+    assert "class InvalidPathError(ValueError):" in package.source
+    assert "class EmptyOrRelativePathError(ValueError):" in package.source
+    with pytest.raises(ValueError, match="null character") as raised:
+        package.function(tmp_path / "a\0b")
+    assert type(raised.value).__name__ == "InvalidPathError"

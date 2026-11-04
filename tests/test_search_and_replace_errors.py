@@ -116,3 +116,11 @@ def test_a_literal_backslash_g_is_no_submatch(project: Project) -> None:  # noqa
     not a reference to submatch 5: no gap for a pattern with one submatch."""
     package = _replace(project, "\\g<5>")
     assert package.function("abc", "(b)").result == "a\\g<5>c"
+
+
+def test_a_constant_replace_string_with_no_submatch_gets_no_check(
+    project: Project,  # noqa: F811
+) -> None:
+    package = _replace(project, "X")
+    assert "does not have" not in package.source
+    assert package.function("abc", "(b)").result == "aXc"
