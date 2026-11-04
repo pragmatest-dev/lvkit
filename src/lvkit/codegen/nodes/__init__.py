@@ -42,6 +42,7 @@ from . import (
     compound,
     constant,
     disable,
+    error_ring,
     event,
     ext_func,
     first_call,
@@ -155,6 +156,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "demux": nmux.generate,
     "printf": printf.generate,
     "extFunc": ext_func.generate,
+    "xNode": error_ring.generate,
 }
 
 

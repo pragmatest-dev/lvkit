@@ -261,6 +261,44 @@ class Vi:
     def error_constant(self, kind: str) -> int:
         return self.constant(ERR, ERROR_CONSTANT_HEX[kind])
 
+    def error_ring(self, state_data: str, inputs: int = 0) -> dict[str, int]:
+        """An Error Ring XNode with the ``<StateData>`` hex ``state_data`` and
+        ``inputs`` string inputs, in the layout a real file records: the error
+        out terminal first, then the inputs ``parameter 0``, ``parameter 1``, ...
+        Returns terminal uids by name."""
+        output = ("error out", ERR, "<objFlags>513</objFlags>", "")
+        slots = [output] + [
+            (
+                f"parameter {i}",
+                STR,
+                "<objFlags>128</objFlags>",
+                "<objFlags>32768</objFlags>",
+            )
+            for i in range(inputs)
+        ]
+        xml = ""
+        uids: dict[str, int] = {}
+        for name, type_id, dco_flags, term_flags in slots:
+            uid = self.next_uid(2)
+            xml += (
+                f'<SL__arrayElement class="term" uid="{uid}">{term_flags}'
+                f'<dco class="xTunnel" uid="{uid + 1}">{dco_flags}'
+                f"<typeDesc>TypeID({type_id})</typeDesc>"
+                f"<id>{name.encode().hex().upper()}</id></dco></SL__arrayElement>"
+            )
+            uids[name] = uid
+        tunnels = "".join(_ref(term + 1) for term in uids.values())
+        uid = self.next_uid()
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="xNode" uid="{uid}">'
+            f'<termList elements="{len(slots)}">{xml}</termList>'
+            "<bounds>(20, 60, 58, 311)</bounds>"
+            f'<tunnelList elements="{len(slots)}">{tunnels}</tunnelList>'
+            f"<displayName>{b'Error Ring'.hex().upper()}</displayName>"
+            f"<StateData>{state_data}</StateData></SL__arrayElement>"
+        )
+        return uids
+
     def terminals(
         self,
         dco_class: str,

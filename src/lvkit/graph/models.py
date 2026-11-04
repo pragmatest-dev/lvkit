@@ -30,6 +30,7 @@ from ..models import (
     UnwritableValue,
     VIKind,
 )
+from ..parser.error_ring import ErrorRing
 from ..parser.extfunc_prototype import ExtFuncCall
 from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
@@ -203,6 +204,9 @@ class PrimitiveNode(GraphNode):
     # uniform, so the drawer glyph positions each row at its own real
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
+    # Error Ring XNode only: its configuration (parser/error_ring.py); None
+    # when its StateData does not decode.
+    error_ring: ErrorRing | None = None
     # Call Library Function Node only: its drawn rows top to bottom, each
     # ``(top, bottom, has_input, has_output, fixed)`` with the span as a fraction
     # of the node's height (parser.extfunc.ExtFuncRow); ``fixed`` marks the path

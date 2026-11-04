@@ -7,6 +7,7 @@ lvkit follows semantic versioning.
 - **A Python failure becomes LabVIEW's error code** — a missing file is 7, no permission 8, a released queue 1122, Variant To Data 91, Unflatten From String 116, anything else the entry names or 42.
 - **A VI's results are a frozen dataclass read by name**, not a `NamedTuple`; an output wired to nothing returns its indicator's default.
 - **Call By Reference skips on its own error in**, and a run-time reference that is Not a Refnum gives error 1026; the called VI's error terminals are ordinary parameters and results.
+- **An Error Ring generates the error it is configured with** — its code, description (formatted from its `%s` inputs) or NI's text for the code, and error or warning; a ring whose configuration does not decode is a gap.
 - **An error cluster wired to And, Or, Not, Select's `s`, Compound Arithmetic and the other Boolean functions reads its status**, so a warning counts as no error.
 - **A class property stays `obj.x` only when its accessor VIs skip on an error or run regardless**; one that can fail is a method with `error_in` / `error_out`, and a class Property Node finds each row's accessor by its folder path and stops at the first row's error.
 - **An indicator keeps its value between calls as LabVIEW does** — a Local Variable reads it, "Clear indicators when called" is honoured, an unwritten connector-pane indicator returns its default, and one inside a frame that does not run returns its default instead of failing.
