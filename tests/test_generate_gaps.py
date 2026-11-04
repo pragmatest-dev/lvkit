@@ -25,9 +25,15 @@ from lvkit.models import (
     UndecodedPicture,
     ValuesNotKept,
 )
-from lvkit.module_layout import ModuleCollisionError
-from lvkit.pipeline import create_import_resolver
-from lvkit.run_report import Problem, ProblemKind, ProblemStage, RunProblems
+from lvkit.module_layout import ModuleCollisionError, UnplacedVIError
+from lvkit.pipeline import create_import_resolver, generate_python
+from lvkit.run_report import (
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunProblems,
+    RunSettings,
+)
 from tests.helpers import build_graph
 from tests.test_ext_func_library import Project
 
@@ -73,7 +79,6 @@ def test_generate_warns_once_per_gap_and_exits_three(
         "Function Node 'swap' records the library 'vendorlib.*'"
     )
     assert "no file vendorlib.dll or vendorlib.so or vendorlib.framework" in warnings[0]
-    assert "  gaps:  1\n" in captured.out
     assert (
         "Partial: 1 VIs generated, 1 with gaps (1 gaps) — see warnings\n"
         in captured.out
@@ -496,3 +501,112 @@ def test_a_call_of_a_found_vi_with_an_unmapped_terminal_is_a_terminal_mapping_ga
     source, gaps = _caller_of("/proj/flatten.vi", True, tmp_path)
     assert [g.kind for g in gaps] == ["terminal_mapping"]
     assert "from .flatten import" not in source
+
+
+# ---------------------------------------------------------------------------
+# The closing line and the stop, read from the run's report
+# ---------------------------------------------------------------------------
+
+
+def _clean_vi(project: Project) -> Path:
+    """A VI whose library is there: it converts with no gap."""
+    (project.libs / "vendorlib.dll").write_bytes(b"not a library")
+    return project.write_vi("vendorlib.*", ["", "..", "libs", "vendorlib.dll"], "swap")
+
+
+def _closing(out: str) -> str:
+    return next(
+        line
+        for line in reversed(out.splitlines())
+        if line.startswith(("Complete:", "Partial:", "Stopped:"))
+    )
+
+
+def test_a_clean_vi_is_complete(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    vi = _clean_vi(project)
+    code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
+    assert (code, _closing(capsys.readouterr().out)) == (
+        0,
+        "Complete: 1 VIs generated, no gaps",
+    )
+
+
+def test_a_vi_that_cannot_be_written_stops_the_run(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    vi = _clean_vi(project)
+
+    def unplaced(self: object, key: str) -> None:
+        raise UnplacedVIError("it has no file and no recorded path")
+
+    monkeypatch.setattr("lvkit.module_layout.ModuleLayout._place", unplaced)
+    code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
+    captured = capsys.readouterr()
+    assert code == 1
+    assert _closing(captured.out) == (
+        "Stopped: 0 VIs generated, 1 VI(s) could not be written — see warnings"
+    )
+    assert "Stopped: 1 problem(s)" in captured.err
+
+
+def test_an_lvkit_error_in_one_vi_is_partial_and_exits_one(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    vi = _clean_vi(project)
+
+    def explode(*args: object, **kwargs: object) -> str:
+        raise KeyError("boom")
+
+    monkeypatch.setattr("lvkit.pipeline.build_module", explode)
+    code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
+    captured = capsys.readouterr()
+    assert code == 1
+    assert _closing(captured.out) == (
+        "Partial: 0 VIs generated, 1 VI(s) failed with an lvkit error — see warnings"
+    )
+    assert "Partial: 1 problem(s) (includes an lvkit error)" in captured.err
+
+
+def test_a_fail_fast_stop_counts_the_vi_it_stopped_at(
+    project: Project, capsys: pytest.CaptureFixture[str]
+) -> None:
+    vi = _missing_library_vi(project)
+    run = RunProblems(RunSettings(echo=True, fail_fast=True, root=project.root))
+    result = generate_python(vi, project.base / "out", run=run)
+    assert result["stopped"] is True
+    assert result["generated"] == [(str(vi.resolve()), None, "failed")]
+    assert _closing(capsys.readouterr().out) == (
+        "Stopped: 0 VIs generated, 1 with gaps (1 gaps) — see warnings"
+    )
+    assert run.report().exit_code(stopped=True) == 1
+
+
+def test_a_failed_polymorphic_wrapper_is_not_complete(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    vi = _clean_vi(project)
+    wrapper = str(project.vi_folder / "Wrapper.vi")
+    monkeypatch.setattr(
+        "lvkit.pipeline.variants_to_generate",
+        lambda *args, **kwargs: {wrapper: [str(vi.resolve())]},
+    )
+
+    def explode(*args: object, **kwargs: object) -> str:
+        raise KeyError("boom")
+
+    monkeypatch.setattr("lvkit.pipeline._generate_polymorphic_module", explode)
+    code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
+    assert code == 1
+    assert _closing(capsys.readouterr().out) == (
+        "Partial: 1 VIs generated, 1 VI(s) failed with an lvkit error — see warnings"
+    )

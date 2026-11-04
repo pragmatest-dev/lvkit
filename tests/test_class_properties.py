@@ -26,6 +26,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
+from tests.class_graphs import run_to_gap
 from tests.helpers import build_graph
 
 _CLASS_TYPE = LVType(
@@ -530,12 +531,18 @@ def test_a_private_property_read_outside_its_class_is_a_gap(
     gaps: list[Gap] = []
     code = build_module(_reading_caller(built), "caller", graph=built.graph, gaps=gaps)
     reason = (
-        "A call of the private VI Read Count.vi of class C, but "
-        "C.lvclass does not list this VI, so the VI is broken in LabVIEW"
+        "A call of the private VI Read Count.vi of the class C.lvclass, but the "
+        "class does not list this VI, so the VI is broken in LabVIEW"
     )
     assert [g.reason for g in gaps] == [reason]
     message = f"{reason}\ngap kind: unsupported_node\nVI: caller\nnode: Read Count.vi"
     assert f"raise NotImplementedError({message!r})" in code
+    namespace: dict[str, Any] = {}
+    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    ran = run_to_gap(namespace["caller"], obj=built.instance())
+    assert ran.message == message
+    outputs = ran.outputs("obj")
+    assert outputs and set(outputs.values()) == {None}
 
 
 def test_read_and_write_vis_of_two_levels_are_spelled_by_the_wider(

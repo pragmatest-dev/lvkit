@@ -1514,12 +1514,21 @@ class QueryMixin:
         graph)."""
         return self._owning_class_key(self.resolve_vi_name(vi_name))
 
-    def recorded_owners(self, vi_name: str) -> list[str]:
-        """The owner chain the VI's own file records (its ``LIBN`` block, the
-        owning .lvlib/.lvclass, outermost first), whether or not that class or
-        library lists the VI."""
+    def records_owner(self, vi_name: str, owner_key: str) -> bool:
+        """The VI's own file names the class or library at ``owner_key`` as its
+        owner, whether or not that file lists the VI: the whole owner chain the
+        VI records (its ``LIBN`` block, outermost first) is the owner's qualified
+        name (its own chain and file name)."""
         meta = self._vi_metadata.get(self.resolve_vi_name(vi_name))
-        return list(meta.owning_libraries) if meta else []
+        if meta is None or not meta.owning_libraries:
+            return False
+        qname = (
+            self._dep_graph.nodes[owner_key].get("qname")
+            if owner_key in self._dep_graph
+            else None
+        )
+        chain = ":".join(meta.owning_libraries)
+        return qname is not None and chain.casefold() == str(qname).casefold()
 
     def _owner_key(self, key: str, owner_type: NodeType) -> str | None:
         """PATH key of the ``owner_type`` node that owns ``key`` via an "owns"

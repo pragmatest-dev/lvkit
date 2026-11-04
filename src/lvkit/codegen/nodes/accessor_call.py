@@ -34,7 +34,12 @@ def generate(
     class_key = ctx.graph.owning_class_key(accessor.key)
     assert class_key is not None
     check_private_access(
-        ctx.graph, accessor.python_name, accessor.key, class_key, ctx.vi_name
+        ctx.graph,
+        accessor.python_name,
+        accessor.key,
+        class_key,
+        ctx.vi_name,
+        "A call of",
     )
     terminals = ctx.enriched_terminals(node)
 

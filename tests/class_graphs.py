@@ -328,3 +328,28 @@ class Project:
         for module, source in sources.items():
             (out / f"{module}.py").write_text(source, encoding="utf-8")
         return Package(out, sources, gaps)
+
+
+def run_to_gap(function: Callable[..., object], **kwargs: object) -> GapRun:
+    """Call a generated ``function`` that reaches a gap: the message it raises and
+    the local variables of its frame when it raised (a gap node binds its outputs
+    to ``None`` before the ``raise``)."""
+    try:
+        function(**kwargs)
+    except NotImplementedError as raised:
+        tb = raised.__traceback__
+        while tb is not None and tb.tb_next is not None:
+            tb = tb.tb_next
+        assert tb is not None
+        return GapRun(str(raised), dict(tb.tb_frame.f_locals))
+    raise AssertionError("the function did not raise NotImplementedError")
+
+
+@dataclass
+class GapRun:
+    message: str
+    locals: dict[str, object]
+
+    def outputs(self, *inputs: str) -> dict[str, object]:
+        """The locals other than the function's ``inputs``: what the gap bound."""
+        return {k: v for k, v in self.locals.items() if k not in inputs}

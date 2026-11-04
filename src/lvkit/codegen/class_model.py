@@ -187,18 +187,13 @@ def _require_own_class(
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
     if caller_class == class_key:
         return
-    class_file = Path(class_key).name
-    owners = graph.recorded_owners(caller_key) if caller_key else []
-    if owners and owners[-1].casefold() == class_file.casefold():
-        why = (
-            f"the VI names {class_file} as its owner while {class_file} does not "
-            "list it"
-        )
+    if caller_key and graph.records_owner(caller_key, class_key):
+        why = "the VI names that class as its owner while the class does not list it"
     else:
-        why = f"{class_file} does not list this VI"
+        why = "the class does not list this VI"
     raise ConversionGap(
-        f"{what} of class {Path(class_key).stem}, but {why}, so the VI is broken "
-        "in LabVIEW"
+        f"{what} of the class {graph.key_label(class_key)}, but {why}, so the VI "
+        "is broken in LabVIEW"
     )
 
 
@@ -494,17 +489,19 @@ def check_private_access(
     member_key: str,
     class_key: str,
     caller_key: str | None,
+    use: str,
 ) -> None:
     """A private member ``name`` (the VI ``member_key``) of the class at
     ``class_key`` is reached only from that class's own VIs (LabVIEW lets no
-    other VI call it), which are written in the class body where Python finds
-    the name; a call from anything else is a gap."""
+    other VI reach it), which are written in the class body where Python finds
+    the name; ``use`` of it ("A call of", "A reference to") from anything else is
+    a gap."""
     if is_private(name):
         _require_own_class(
             graph,
             class_key,
             caller_key,
-            f"A call of the private VI {graph.vi_display_name(member_key)}",
+            f"{use} the private VI {graph.vi_display_name(member_key)}",
         )
 
 
@@ -523,16 +520,15 @@ def member_reference(
         raise ConversionGap(reason)
     imported = class_import(graph, shape.class_key, resolver)
     accessor = class_model(graph, shape.class_key).attributes.accessors.get(shape.key)
-    if accessor is None:
-        check_private_access(
-            graph, shape.name, shape.key, shape.class_key, caller_key
-        )
-        return f"{imported.name}.{shape.name}", imported.statement
+    name = shape.name if accessor is None else accessor.python_name
     check_private_access(
-        graph, accessor.python_name, shape.key, shape.class_key, caller_key
+        graph, name, shape.key, shape.class_key, caller_key, "A reference to"
     )
+    if accessor is None:
+        return f"{imported.name}.{name}", imported.statement
     side = "fget" if accessor.role is PropertyRole.GETTER else "fset"
-    return f"{imported.name}.{accessor.python_name}.{side}", imported.statement
+    return f"{imported.name}.{name}.{side}", imported.statement
+
 
 
 def result_class_imports(
