@@ -182,9 +182,7 @@ def counter(vi: str) -> tuple[VIContext, list[GraphNode]]:
         stop_condition_terminal=f"{vi}:loop.stop",
         terminals=[
             Terminal(id=f"{vi}:loop.i", index=0, direction="output", lv_type=INT),
-            Terminal(
-                id=f"{vi}:loop.stop", index=1, direction="input", lv_type=boolean
-            ),
+            Terminal(id=f"{vi}:loop.stop", index=1, direction="input", lv_type=boolean),
         ],
     )
     return (
@@ -427,8 +425,9 @@ def test_an_override_whose_declaration_was_not_loaded_is_called_with_its_inputs(
     project.add_vi("Run", run)
     package = project.generate()
     assert package.gaps == []
-    assert "def scale(self, req: int, *, opt: int=10) -> ScaleResult:" in (
-        package.sources["child"]
+    assert (
+        "def scale(self, req: int, *, opt: int=10) -> ScaleResult:"
+        in (package.sources["child"])
     )
     assert ".scale(req=x)" in package.sources["run"]
     with package.use() as module:
@@ -640,9 +639,7 @@ def test_resolvers_of_one_module_share_its_names(tmp_path: Path) -> None:
     names = {"mix_2"}
     out = tmp_path / "pkg"
     first, second = (
-        create_import_resolver(
-            "pkg", out, {}, out / "poly.py", module_names=names
-        )
+        create_import_resolver("pkg", out, {}, out / "poly.py", module_names=names)
         for _ in range(2)
     )
     assert first.alias_name("mix", lambda n: False) == "mix_3"

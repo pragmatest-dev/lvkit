@@ -239,7 +239,7 @@ def create_import_resolver(
     # derived name, or one with the name of what the module defines, are told
     # apart by an alias.
     spelled = spellings if spellings is not None else {}
-    taken =module_names if module_names is not None else set()
+    taken = module_names if module_names is not None else set()
     taken.update(defined_names)
     if caller_key is not None:
         taken.add(to_function_name(Path(caller_key).name))
@@ -545,15 +545,15 @@ def _generate_polymorphic_module(
 
     # Hoist any imports the variant bodies referenced into the shared header
     # (after `from __future__`, before the blank line separating header/body).
-    type_checking_block = [
-        ast.unparse(stmt)
-        for stmt in build_type_checking_block(variant_annotation_imports)
-    ]
-    variant_imports.difference_update(type_checking_block)
-    if variant_imports:
-        lines[2:2] = sorted(variant_imports)
-    if variant_annotation_imports:
-        lines[2:2] = type_checking_block
+    # The annotation block carries its own `TYPE_CHECKING` import, which each
+    # variant's module also had: it is written once.
+    annotation_block = (
+        [ast.unparse(s) for s in build_type_checking_block(variant_annotation_imports)]
+        if variant_annotation_imports
+        else []
+    )
+    variant_imports -= set(annotation_block)
+    lines[2:2] = annotation_block + sorted(variant_imports)
 
     lines.append("")
     return "\n".join(lines)
