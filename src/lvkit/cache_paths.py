@@ -284,25 +284,54 @@ def store_root(path: Path | str) -> Path:
 
 def project_root(path: Path | str) -> Path:
     """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
-    it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project store;
-    the folder itself when there is none. The base of every project-relative name
-    a user sees: a generated module's path, a documentation page, a warning's VI.
+    it holding a ``.lvproj`` file, a ``.git`` repository or a ``.lvkit`` project
+    store; the folder itself when there is none. A ``.git`` in the user's home
+    folder or above it does not count: a home folder kept in git is not a project,
+    and its name is the user's. The base of every project-relative name a user
+    sees: a generated module's path, a documentation page, a warning's VI.
     (``store_root`` answers a different question: where lvkit keeps what it
     caches.)"""
+    own = _own_folder(path)
+    return next((f for f in [own, *own.parents] if _project_marker(f)), own)
+
+
+def own_project_folder(path: Path | str) -> Path:
+    """The project a file OUTSIDE the generated project belongs to, which places
+    it under ``external`` and names its documentation page: the nearest git
+    repository above it (one ``.lvproj`` folder inside it is not the whole tree a
+    file belongs to), else the nearest folder holding a ``.lvproj`` file or a
+    ``.lvkit`` project store, else the file's own folder. A ``.git`` in the user's
+    home folder or above it does not count, as for ``project_root``."""
+    own = _own_folder(path)
+    folders = [own, *own.parents]
+    repository = next((f for f in folders if _git_repository(f)), None)
+    return repository or next((f for f in folders if _project_marker(f)), own)
+
+
+def _own_folder(path: Path | str) -> Path:
+    resolved = Path(path).resolve()
+    return resolved if resolved.is_dir() else resolved.parent
+
+
+def _git_repository(folder: Path) -> bool:
+    """Whether ``folder`` is a git repository that can be a project: one in the
+    user's home folder or above it is not."""
+    home = Path.home().resolve()
+    return not home.is_relative_to(folder) and (folder / ".git").exists()
+
+
+def _project_marker(folder: Path) -> bool:
+    """Whether ``folder`` holds a ``.lvproj`` file, a git repository that can be a
+    project (``_git_repository``) or a ``.lvkit`` project store (never the global
+    ``~/.lvkit``)."""
     from lvkit.project_store import PROJECT_STORE_DIR, global_home
 
-    resolved = Path(path).resolve()
-    own = resolved if resolved.is_dir() else resolved.parent
-    home = global_home().resolve()
-    for folder in [own, *own.parents]:
-        store = folder / PROJECT_STORE_DIR
-        if (
-            any(folder.glob("*.lvproj"))
-            or (folder / ".git").exists()
-            or (store.is_dir() and store.resolve() != home)
-        ):
-            return folder
-    return own
+    store = folder / PROJECT_STORE_DIR
+    return (
+        any(folder.glob("*.lvproj"))
+        or _git_repository(folder)
+        or (store.is_dir() and store.resolve() != global_home().resolve())
+    )
 
 
 def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
 from .cache_paths import project_root
+from .library_folders import library_location
 from .llb_origin import llb_container_of
 
 if TYPE_CHECKING:
@@ -272,19 +273,23 @@ class RunSettings:
     _roots: dict[Path, Path] = field(default_factory=dict, repr=False)
 
     def label(self, path: Path | str) -> str:
-        """How a user sees the file at ``path``: relative to its project, the
-        ``<vilib>/...`` path below a library folder (likewise ``<userlib>``,
-        ``<instrlib>``), or, for a VI inside an ``.llb``, the archive's label plus
-        its name. Never an absolute path; a project folder itself is its name."""
+        """How a user sees the file at ``path``: its library path below a library
+        folder (``<vilib>/...``, likewise ``<userlib>``, ``<instrlib>``;
+        ``library_location``), else relative to its project, or, for a VI inside
+        an ``.llb``, the archive's label plus its name. Never an absolute path; a
+        project folder itself is its name."""
         resolved = Path(path).resolve()
         container = llb_container_of(resolved)
         if container is not None:
             return f"{self.label(container)}/{resolved.name}"
-        for token, libraries in self.library_roots.items():
-            for library in libraries:
-                if resolved.is_relative_to(library.resolve()):
-                    rel = resolved.relative_to(library.resolve()).as_posix()
-                    return f"{token}/{rel}"
+        roots = [
+            (token, library)
+            for token, libraries in self.library_roots.items()
+            for library in libraries
+        ]
+        library_path = library_location(resolved, roots)
+        if library_path is not None:
+            return "/".join(library_path)
         base = self.root.resolve() if self.root is not None else None
         if base is None or not resolved.is_relative_to(base):
             folder = resolved.parent

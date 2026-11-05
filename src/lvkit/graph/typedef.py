@@ -79,11 +79,13 @@ class TypedefRef:
     """A file this typedef uses, is owned by, or is used by. ``node_type`` is
     the kind of node it is in the graph (a VI, a class, a library, a typedef);
     ``path`` is None for a stub (a file that isn't on disk) -- never a guessed
-    path."""
+    path; ``library`` is its library path (``library_location``: ``<vilib>``,
+    ``<userlib>``, ... and the parts below) when it is a library file."""
 
     node_type: NodeType
     qualified: str
     path: str | None
+    library: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -262,6 +264,10 @@ class TypedefMixin:
     if TYPE_CHECKING:
         # Resolved via MRO from QueryMixin.
         def is_stub(self, key: str) -> bool: ...
+        def recorded_path(self, key: str) -> str | None: ...
+        def library_location(
+            self, path: Path | str | None, recorded: str | None = None
+        ) -> tuple[str, ...] | None: ...
         def _owner_key(self, key: str, owner_type: NodeType) -> str | None: ...
 
     def _typedef_node(self, key: str) -> Mapping[str, Any]:
@@ -286,10 +292,12 @@ class TypedefMixin:
 
     def _typedef_ref(self, other: str) -> TypedefRef:
         data = self._dep_graph.nodes[other]
+        path = None if self.is_stub(other) else other
         return TypedefRef(
             node_type_of(data),
             data.get("qname") or Path(other).name,
-            None if self.is_stub(other) else other,
+            path,
+            self.library_location(path, self.recorded_path(other)),
         )
 
     def is_typedef(self, key: str) -> bool:

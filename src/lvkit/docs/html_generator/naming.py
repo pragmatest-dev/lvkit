@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from lvkit.docs.page_names import LIBRARY_GROUPS, PROJECT_GROUP, PageName
-from lvkit.parser.models import is_symbolic_root
+from lvkit.library_folders import is_symbolic_root
 from lvkit.vi_files import strip_vi_extension
 
 

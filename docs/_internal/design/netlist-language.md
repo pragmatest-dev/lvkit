@@ -393,7 +393,7 @@ sites is verbose-only nuance (terse may omit it there).
 
 | Annotation | Meaning |
 |---|---|
-| `; ./path` | a file-backed node's project-relative path (click-to-jump nav), e.g. on a `subVI`/typedef-constant header |
+| `; ./path` | a file-backed node's project-relative path (click-to-jump nav), e.g. on a `subVI`/typedef-constant header; a library file (vi.lib, user.lib, instr.lib, inside or outside the project) shows its library path instead, `; <vilib>/Utility/error.llb/Clear Errors.vi` (`library_location`, `library_folders.py`), the same on every machine |
 | `; inverted` | a Boolean input wired through inversion |
 | `; unconnected` | an unwired **node output** — net declared, no reader |
 | `; unread` | an unread **control** — a source with no sink |
@@ -516,7 +516,12 @@ uses :
   corrupts the `class:member` identity and splits this `uses :` line.
 - **`; ./path`** — the §6 project-relative nav annotation, omitted (not
   fabricated as an empty/guessed value) when the dependency's recorded or
-  searched reference doesn't resolve to a real on-disk file.
+  searched reference doesn't resolve to a real on-disk file. A library file is
+  the exception: it shows its library path (`; <userlib>/_OpenG.lib/...`), from
+  the path its caller recorded from an installation folder whether or not the
+  file is on this machine, else from the configured library folder it is in,
+  so the text is the same on a machine with or without the libraries (it is
+  also the git diff text).
 - **Sorted by qualified identity** for byte-reproducibility.
 - **Verbose-only: each `subVI` entry inlines its own connector-pane
   interface** right under its line — the later element the bullet above used
@@ -792,7 +797,8 @@ needs the FULL structure of every NAMED type, once, somewhere. That's the
 one `<Name> = <lossless-def>` line per NAMED enum/ring/cluster/typedef
 reachable anywhere in the VI (boundary, every node's own terminals, `uses :`
 dependency interfaces), sorted by name, carrying a `; ./path` nav suffix when
-the type's own file is known. **Terse never emits this section.** Anonymous
+the type's own file is known (`; <vilib>/...` when it was recorded from an
+installation folder, §6). **Terse never emits this section.** Anonymous
 types stay inline everywhere (there's no name to hang a footnote off) — a
 named type's *inline* occurrence (a terminal line, a cluster field) still
 renders by bare name (§10 above); its footnote entry is the ONE place its

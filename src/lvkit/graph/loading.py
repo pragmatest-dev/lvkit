@@ -35,6 +35,7 @@ from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
+from ..library_folders import is_symbolic_root
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType, Terminal
 from ..parser import (
@@ -48,7 +49,7 @@ from ..parser import (
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
-from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
+from ..parser.models import ABSOLUTE_PATH_TYPE
 from ..run_report import (
     CacheWriteError,
     Problem,
@@ -449,6 +450,9 @@ class LoadingMixin:
         def recorded_candidates(
             self, ref: ParsedDependencyRef, caller_file: Path
         ) -> list[Path]: ...
+        def library_location(
+            self, path: Path | str | None, recorded: str | None = None
+        ) -> tuple[str, ...] | None: ...
         def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]: ...
         def record_problem(
             self,
@@ -2524,9 +2528,13 @@ class LoadingMixin:
         )
 
     def _display_path(self, path: Path, caller_file: Path) -> str:
-        """``path`` as a ``./``-prefixed, forward-slash path relative to the
-        project of ``caller_file`` (``project_root``); the file name alone when
-        no relative path exists."""
+        """``path`` as a message shows it: its library path (``<userlib>/...``,
+        ``library_location``) for a library file, else a ``./``-prefixed,
+        forward-slash path relative to the project of ``caller_file``
+        (``project_root``); the file name alone when no relative path exists."""
+        library = self.library_location(path)
+        if library is not None:
+            return "/".join(library)
         base = project_root(caller_file)
         try:
             rel = os.path.relpath(path.resolve(), base.resolve())

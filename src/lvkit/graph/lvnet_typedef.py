@@ -30,12 +30,12 @@ from .lvnet_grammar import (
 from .netlist_models import DependencyKind, NetlistDependency
 from .render_lvnet import (
     iter_named_subtypes,
+    lvnet_file_path,
     lvnet_literal_token,
     lvnet_name_token,
     lvnet_named_stem,
     lvnet_type_lossless_def,
     lvnet_type_ref,
-    project_relative_display,
     render_lvnet_named_types,
     render_lvnet_uses,
 )
@@ -50,10 +50,11 @@ from .typedef import (
 
 
 def _dependency(ref: TypedefRef, control_dir: Path) -> NetlistDependency:
-    """``ref`` as a ``uses :`` entry, its path relative to the control's own
-    directory; no path for a stub, which has no file to point at."""
-    path = None if ref.path is None else project_relative_display(
-        Path(ref.path), control_dir
+    """``ref`` as a ``uses :`` entry, its library path for a library file, else
+    its path relative to the control's own directory; no path for a stub that is
+    not a library file, which has no file to point at."""
+    path = lvnet_file_path(
+        None if ref.path is None else Path(ref.path), control_dir, ref.library
     )
     return NetlistDependency(
         DependencyKind.for_node_type(ref.node_type), ref.qualified, path

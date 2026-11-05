@@ -62,8 +62,11 @@ def test_library_call_named_like_the_caller_is_not_the_caller() -> None:
         ("Run Service.vi", "Run Service.vi"),
     ):
         decls = _declarations(template / rel)
-        # The SDK VI the body calls is absent from the project: no path.
-        assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] is None
+        # The SDK VI the body calls is absent from this machine: it shows the
+        # vi.lib path its caller recorded, the same on every machine.
+        assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] == (
+            f"<vilib>/Plug-In SDKs/Measurements/{rel}"
+        )
         assert f"Measurement Plugin Template.lvclass:{name}" not in decls
         assert name not in decls
 
@@ -83,7 +86,10 @@ def test_text_views_declare_the_library_call_not_the_caller() -> None:
         for ln in lvnet.splitlines()
         if ln.startswith("    subVI") and " : " not in ln
     ]
-    assert uses == ["subVI NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi"]
+    assert [" ".join(u.split()) for u in uses] == [
+        "subVI NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi ; "
+        "<vilib>/Plug-In SDKs/Measurements/Build Assets/Post-Build Action.vi"
+    ]
     described = describe_vi(graph, key)
     assert "NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi" in described
     assert "Measurement Plugin Template.lvclass:Post-Build Action.vi" not in described

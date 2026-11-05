@@ -10,11 +10,15 @@ supported symbolic path resolves to"
 
 The VI Search Path is an ordered list of folders and pseudo paths searched for a
 file that is not at its recorded path (LabVIEW.ini ``viSearchPath``; default
-``<topvi>\\*;<foundvi>\\;<vilib>\\*;<userlib>\\*;<instrlib>\\*``)."""
+``<topvi>\\*;<foundvi>\\;<vilib>\\*;<userlib>\\*;<instrlib>\\*``).
+
+Where a library file is (``library_location``) is decided here, once, for every
+view: module paths, docs pages, messages and lvnet ``uses`` paths."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import re
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 TOP_VI = "<topvi>"
@@ -55,3 +59,42 @@ def search_path_entries(entries: SearchEntries) -> tuple[str, ...]:
     if not entries:
         return DEFAULT_SEARCH_PATH
     return tuple(search_entry(e) for e in entries)
+
+
+def is_symbolic_root(token: str) -> bool:
+    """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
+    LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
+    calling file."""
+    return len(token) > 2 and token.startswith("<") and token.endswith(">")
+
+
+def path_tokens(path: str) -> list[str]:
+    """The folders and file name of a recorded or on-disk path, split at either
+    separator."""
+    return [t for t in re.split(r"[\\/]", path) if t]
+
+
+def library_location(
+    path: Path | str | None,
+    roots: Iterable[tuple[str, Path]],
+    recorded: str | None = None,
+) -> tuple[str, ...] | None:
+    """Where a library file is, the same for every view and every machine: the
+    path its caller recorded when that path starts at an installation folder
+    (``<vilib>/Utility/error.llb/X.vi``), whether or not the file is here; else,
+    for a file ``path`` under one of the library folders ``roots`` (pseudo path,
+    folder; tried in order), that pseudo path and the parts below the folder
+    (``<userlib>/_OpenG.lib/...``); None for any other file. A library file
+    inside a project is still a library file."""
+    if recorded is not None:
+        tokens = path_tokens(recorded)
+        if tokens and is_symbolic_root(tokens[0]):
+            return tuple(tokens)
+    if path is None:
+        return None
+    resolved = Path(path).resolve()
+    for token, root in roots:
+        folder = root.resolve()
+        if resolved.is_relative_to(folder):
+            return (token, *resolved.relative_to(folder).parts)
+    return None

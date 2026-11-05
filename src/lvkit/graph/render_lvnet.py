@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 
+from ..library_folders import library_location
 from ..models import (
     DisableStructureKind,
     LVType,
@@ -587,12 +588,18 @@ def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
     return dict(sorted(seen.items()))
 
 
-def project_relative_display(resolved: Path | None, base: Path) -> str | None:
-    """A ``./``-prefixed, forward-slash project-relative display path for the
-    lvnet §6 ``; ./path`` annotation. Best-effort, never fabricated: ``None``
-    when ``resolved`` is ``None`` or ``os.path.relpath`` itself fails (e.g. a
-    cross-drive path on Windows).
+def lvnet_file_path(
+    resolved: Path | None, base: Path, library: tuple[str, ...] | None
+) -> str | None:
+    """The lvnet §6 ``; path`` annotation of a file: its library path
+    (``library``, from ``library_location``: ``<userlib>/...``), the same on
+    every machine, for a library file; else a ``./``-prefixed, forward-slash
+    path relative to ``base``. Best-effort, never fabricated: ``None`` when
+    there is no library path and ``resolved`` is ``None`` or
+    ``os.path.relpath`` itself fails (e.g. a cross-drive path on Windows).
     """
+    if library is not None:
+        return "/".join(library)
     if resolved is None:
         return None
     try:
@@ -600,6 +607,16 @@ def project_relative_display(resolved: Path | None, base: Path) -> str | None:
     except (OSError, ValueError):
         return None
     return _LVNET_TYPEDEF_NAV_PREFIX + rel.replace(os.sep, "/")
+
+
+def _typedef_nav(typedef_path: str) -> str:
+    """A typedef's recorded path as the ``types :`` footnote shows it: its
+    library path when it was recorded from an installation folder
+    (``<vilib>/...``), else ``./`` and the path as recorded."""
+    library = library_location(None, (), typedef_path)
+    if library is not None:
+        return "/".join(library)
+    return _LVNET_TYPEDEF_NAV_PREFIX + typedef_path
 
 
 def render_lvnet_named_types(named: dict[str, LVType], lines: list[str]) -> None:
@@ -613,7 +630,7 @@ def render_lvnet_named_types(named: dict[str, LVType], lines: list[str]) -> None
     for name, lv_type in named.items():
         body = lvnet_type_lossless_def(lv_type)
         path = (
-            f"{_LVNET_ANNOTATION_SEP}{_LVNET_TYPEDEF_NAV_PREFIX}{lv_type.typedef_path}"
+            f"{_LVNET_ANNOTATION_SEP}{_typedef_nav(lv_type.typedef_path)}"
             if lv_type.typedef_path
             else ""
         )

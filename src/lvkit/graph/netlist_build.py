@@ -135,8 +135,8 @@ from .queries import ClassContext, collect_class_context
 from .reference_target import is_reference_constant, reference_target
 from .render_lvnet import (
     _lvnet_const_value_str,
+    lvnet_file_path,
     lvnet_literal_token,
-    project_relative_display,
 )
 from .unwired_default import instance_default, pane_default
 
@@ -2551,6 +2551,8 @@ def _build_dependency_manifest(
     for key in dep_keys:
         node = graph._dep_graph.nodes.get(key, {})
         resolved = graph._dependency_file_path(key)
+        library = graph.library_location(resolved, graph.recorded_path(key))
+        path = lvnet_file_path(resolved, rel_base, library)
         if key in variable_dep_by_key:
             variable_kind, qname = variable_dep_by_key[key]
             if qname not in seen:
@@ -2559,7 +2561,7 @@ def _build_dependency_manifest(
                     NetlistDependency(
                         kind=variable_kind,
                         qualified=qname,
-                        path=project_relative_display(resolved, rel_base),
+                        path=path,
                     )
                 )
             continue
@@ -2586,7 +2588,7 @@ def _build_dependency_manifest(
             NetlistDependency(
                 kind=kind,
                 qualified=qname,
-                path=project_relative_display(resolved, rel_base),
+                path=path,
                 interface=_dependency_interface(graph, kind, key),
             )
         )

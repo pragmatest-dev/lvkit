@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..class_property import property_role
+from ..library_folders import library_location
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
@@ -275,6 +276,16 @@ class QueryMixin:
             if resolved.is_relative_to(root.resolve()):
                 return token, root
         return None
+
+    def library_location(
+        self, path: Path | str | None, recorded: str | None = None
+    ) -> tuple[str, ...] | None:
+        """Where the library file at ``path`` is (``library_location`` in
+        ``library_folders.py``, over this graph's library folders): its recorded
+        installation path (``recorded``), else its library folder's pseudo path
+        and the parts below it; None when it is not a library file (or there is
+        no ``path`` and no installation path)."""
+        return library_location(path, self.library_roots(), recorded)
 
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib

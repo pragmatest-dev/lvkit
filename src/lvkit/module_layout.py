@@ -6,30 +6,35 @@ into a Python name. The project is the one the generated VI belongs to (its
 ``.lvproj``, ``.git`` or ``.lvkit`` folder, else the VI's own folder), so the layout
 never depends on what else was loaded.
 
-A file outside the project is placed by the path its caller recorded for it when
-that path starts at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi``
-is ``vilib.utility.errorllb.x``), which names the same file for every caller; one
-under a configured vi.lib / user.lib / instr.lib folder with no such path, by its
-path in that folder as if recorded (``<userlib>/...``); any other under
-``external``, by its path from the folder it shares with the project. A VI with no
-file is placed by the path its caller recorded, whatever it starts at; one with
-neither a file nor a recorded path cannot be imported and stops generation, naming
-it. Paths are unique, so modules are unique: no collision numbering. Two files
-whose parts transform to the same name stop generation, naming both.
+A library file, inside or outside the project, is placed by its library path
+(``library_location``): the path its caller recorded for it when that path starts
+at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi`` is
+``vilib.utility.errorllb.x``), which names the same file for every caller; else,
+under a configured vi.lib / user.lib / instr.lib folder, its path in that folder
+as if recorded (``<userlib>/...``). Any other file in the project is placed by its
+project-relative path; any other outside it under ``external``, by the name of its
+own project folder (``own_project_folder``) and its path below that folder, so no
+folder above its own tree (a user name, this machine's layout) is in the module
+path. A VI with no file is placed by the path its caller recorded, whatever it
+starts at; one with neither a file nor a recorded path cannot be imported and
+stops generation, naming it. Paths are unique, so modules are unique: no
+collision numbering. Two files whose parts transform to the same name (two
+outside trees whose project folders share a name and hold the same file) stop
+generation, naming both.
 """
 
 from __future__ import annotations
 
 import os
-import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.cache_paths import own_project_folder
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
-from lvkit.parser.models import is_symbolic_root
+from lvkit.library_folders import path_tokens
 from lvkit.vi_files import class_stem, strip_vi_extension
 
 # The package a file outside the project and every library folder is placed in.
@@ -58,21 +63,12 @@ class ModulePlace:
         return (*self.packages, self.module)
 
 
-def _tokens(path: str) -> list[str]:
-    return [t for t in re.split(r"[\\/]", path) if t]
-
-
-def _beside_project(key: str, root: str) -> tuple[str, ...]:
-    """The parts of ``key`` below the folder it shares with the project (all of
-    them, drive aside, when it shares none)."""
-    own, project = Path(key).parent.parts, Path(root).parts
-    shared = 0
-    while shared < min(len(own), len(project)) and own[shared] == project[shared]:
-        shared += 1
-    parts = Path(key).parts
-    return (
-        parts[shared:] if shared else tuple(p for p in parts if p != Path(key).anchor)
-    )
+def _outside_project(key: str) -> tuple[str, ...]:
+    """The name of the project folder ``key`` belongs to and its parts below that
+    folder (the file's own folder name and its name when it has none)."""
+    folder = own_project_folder(key)
+    below = Path(key).resolve().relative_to(folder).parts
+    return (folder.name, *below) if folder.name else below
 
 
 def _packages(folders: Sequence[str]) -> tuple[str, ...]:
@@ -80,15 +76,8 @@ def _packages(folders: Sequence[str]) -> tuple[str, ...]:
     return tuple(module_part(f) for f in folders if f != ".")
 
 
-def _in_installation_folder(recorded: str) -> bool:
-    """Whether a recorded path starts at a LabVIEW installation folder
-    (``<vilib>/...``), which names the same file for every caller; any other
-    recorded path is relative to the caller that recorded it."""
-    return is_symbolic_root(_tokens(recorded)[0]) if _tokens(recorded) else False
-
-
 def _is_path(key: str) -> bool:
-    return os.path.isabs(key) or len(_tokens(key)) > 1
+    return os.path.isabs(key) or len(path_tokens(key)) > 1
 
 
 def _below(key: str, folder: str) -> tuple[str, ...] | None:
@@ -134,8 +123,12 @@ class ModuleLayout:
         self._check_unique()
 
     def placed_folder(self, folder: Path) -> tuple[str, ...] | None:
-        """The packages a project ``folder`` is generated as (the ones its VI
-        modules sit in); None when it is not inside the project."""
+        """The packages a ``folder`` is generated as (the ones its VI modules sit
+        in): by its library path for a folder in a library folder, else by its
+        path below the project; None when it is in neither."""
+        library = self._graph.library_location(folder)
+        if library is not None:
+            return _packages(library)
         inside = _below(str(folder.resolve()), self._root)
         return None if inside is None else _packages(inside)
 
@@ -155,21 +148,18 @@ class ModuleLayout:
                     f"The VI {key!r} has neither a file nor a path its caller "
                     "recorded, so there is no module to import it from."
                 )
-            return _tokens(recorded)
+            return path_tokens(recorded)
         if not os.path.isabs(key):
-            return _tokens(key)
+            return path_tokens(key)
+        library = self._graph.library_location(key, recorded)
+        if library is not None:
+            return list(library)
         inside = _below(key, self._root)
         if inside is not None:
             return list(inside)
-        if recorded is not None and (
-            self._graph.is_stub(key) or _in_installation_folder(recorded)
-        ):
-            return _tokens(recorded)
-        for token, library_root in self._graph.library_roots():
-            inside = _below(key, str(library_root.resolve()))
-            if inside is not None:
-                return [token, *inside]
-        return [EXTERNAL_PACKAGE, *_beside_project(key, self._root)]
+        if recorded is not None and self._graph.is_stub(key):
+            return path_tokens(recorded)
+        return [EXTERNAL_PACKAGE, *_outside_project(key)]
 
     def _place(self, key: str) -> ModulePlace:
         *folders, name = self._tokens_of(key)
@@ -207,20 +197,19 @@ class ModuleLayout:
         return self._place(name)
 
     def folders_of(self, key: str) -> tuple[str, ...]:
-        """The folders that hold ``key``'s file, as raw tokens: the path below the
-        project for a project file; the path its caller recorded (``<vilib>``,
-        ``<userlib>``, ...) for a file outside it that was recorded from an
-        installation folder, else the library folder's token (``<userlib>``) or
-        ``external`` and the path below it. The same tokens that place its module.
-        Raises
-        ``UnplacedVIError`` when nothing says where it is."""
+        """The folders that hold ``key``'s file, as raw tokens: its library path
+        (``<vilib>``, ``<userlib>``, ...) for a library file; the path below the
+        project for any other project file; ``external``, its own project
+        folder's name and the path below it for any other. The same tokens that
+        place its module. Raises ``UnplacedVIError`` when nothing says where it
+        is."""
         return tuple(self._tokens_of(key)[:-1])
 
     def display_path(self, key: str) -> str:
-        """The path a message shows for ``key``: the one that places it
-        (project-relative, the path its caller recorded from an installation
-        folder such as ``<userlib>/...``, or below a library folder's token),
-        never an absolute path; the file name alone when nothing places it."""
+        """The path a message shows for ``key``: the one that places it (its
+        library path such as ``<userlib>/...``, project-relative, or below
+        ``external``), never an absolute path; the file name alone when nothing
+        places it."""
         try:
             return "/".join(self._tokens_of(key))
         except UnplacedVIError:

@@ -1,10 +1,11 @@
 """Where each VI's documentation page goes.
 
 A page is named from where its VI lives, never from the absolute path of the file
-on this machine: a project VI by its project-relative path (folder ``Project``), a
-VI in a LabVIEW library folder by its recorded ``<vilib>/...`` path (folder
-``vi.lib``, ``user.lib`` or ``instr.lib``), any other VI outside the project (found
-through a search path) by its path below its own project folder, under that
+on this machine: a library VI, inside or outside the project, by its library path
+(``library_location``: ``<vilib>/...`` in folder ``vi.lib``, likewise ``user.lib``
+and ``instr.lib``), any other project VI by its project-relative path (folder
+``Project``), any other VI outside the project (found through a search path) by
+its path below its own project folder (``own_project_folder``), under that
 folder's name. A VI inside an ``.llb`` is named by the archive's path plus its own
 name. A VI owned by a library or class keeps its qualified name and that library's
 or class's folder. Names are fixed by the VIs given (sorted), short enough for
@@ -18,7 +19,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import project_root
+from lvkit.cache_paths import own_project_folder
 from lvkit.graph import InMemoryVIGraph
 from lvkit.llb_origin import llb_container_of
 from lvkit.vi_files import strip_vi_extension
@@ -64,18 +65,18 @@ def _path_name(graph: InMemoryVIGraph, source: Path, root: Path) -> PageName:
     origin = (container or source).resolve()
     member = f"/{source.name}" if container is not None else ""
 
-    def named(group: str, base: Path, path: Path) -> PageName:
-        rel = path.relative_to(base.resolve()).as_posix()
+    def named(group: str, parts: tuple[str, ...]) -> PageName:
+        rel = "/".join(parts)
         return PageName(group, _bounded(_safe(strip_vi_extension(rel + member))))
 
-    if origin.is_relative_to(root.resolve()):
-        return named(PROJECT_GROUP, root, origin)
-    library = graph.library_root_of(origin)
+    library = graph.library_location(origin)
     if library is not None:
-        token, library_root = library
-        return named(LIBRARY_GROUPS[token], library_root, origin)
-    outside = project_root(origin)
-    return named(outside.name, outside, origin)
+        token, *below = library
+        return named(LIBRARY_GROUPS[token], tuple(below))
+    if origin.is_relative_to(root.resolve()):
+        return named(PROJECT_GROUP, origin.relative_to(root.resolve()).parts)
+    outside = own_project_folder(origin)
+    return named(outside.name, origin.relative_to(outside).parts)
 
 
 def page_names(

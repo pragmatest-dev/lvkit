@@ -336,7 +336,10 @@ def test_names_that_differ_only_in_case_do_not_share_a_page(tmp_path: Path) -> N
     naming function must still tell them apart (the output folder may be one)."""
     project = tmp_path / "proj"
     keys = [str(project / "sub" / "A.vi"), str(project / "sub" / "a.vi")]
-    graph = SimpleNamespace(get_vi_source_path=lambda key: Path(key))
+    graph = SimpleNamespace(
+        get_vi_source_path=lambda key: Path(key),
+        library_location=lambda path, recorded=None: None,
+    )
     found = page_names(graph, keys, project)  # type: ignore[arg-type]
     stems = [found[key].stem for key in keys]
     assert len({stem.casefold() for stem in stems}) == 2

@@ -28,11 +28,8 @@ from pathlib import Path
 
 import networkx as nx
 
-from ..parser.models import (
-    ABSOLUTE_PATH_TYPE,
-    ParsedDependencyRef,
-    is_symbolic_root,
-)
+from ..library_folders import is_symbolic_root
+from ..parser.models import ABSOLUTE_PATH_TYPE, ParsedDependencyRef
 from .node_kinds import EdgeRel
 
 _CONTAINER_SUFFIXES = (".lvclass", ".lvlib")
