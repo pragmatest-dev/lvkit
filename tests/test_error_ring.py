@@ -287,6 +287,7 @@ def test_the_format_records_decode() -> None:
         is_warning=False,
         include_call_chain=True,
         format_inputs=1,
+        label="5002: %s Module was unable to synchr...",
     )
     assert decode_error_ring(_WARNING_RING) == ErrorRing(
         code=6005,
@@ -294,6 +295,7 @@ def test_the_format_records_decode() -> None:
         is_warning=True,
         include_call_chain=True,
         format_inputs=0,
+        label="6005: Attributes don't match VI prototy...",
     )
     # Bytes left over after the fields do not decode.
     assert decode_error_ring(_state(1, "x") + "00") is None
@@ -330,7 +332,7 @@ _SAMPLES = Path(".lvkit/cache/samples")
     [
         (
             "actor-framework/Providers/MessageRescripter/Support/Find Target Actor.vi",
-            [">Error Ring<", ">error out<"],
+            ["#b4ab00", ">6007: Rescripting failed"],
         ),
         (
             "measurement-plugin-labview/Source/Runtime/Measurements/"
@@ -341,8 +343,9 @@ _SAMPLES = Path(".lvkit/cache/samples")
     ids=["error-ring", "match-regular-expression"],
 )
 def test_the_render_names_an_xnode_by_its_library(vi: str, texts: list[str]) -> None:
-    """The render draws an XNode with its library's name and its terminals'
-    recorded names, not ``xNode``."""
+    """The render draws an Error Ring as the ring LabVIEW shows (its border and
+    its stored label, ``test_error_ring_render.py``), and any other XNode with
+    its displayName and its terminals' recorded names; never ``xNode``."""
     path = _SAMPLES / vi
     if not path.exists():
         pytest.skip(f"sample corpus VI not present: {path}")

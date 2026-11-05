@@ -916,6 +916,10 @@ class XNodeNode(ParsedNode):
     # visibly misaligns every row against its own real wire. (0.0, 0.0) for
     # a terminal whose termBounds couldn't be read.
     terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
+    # Each terminal's own (x1, x2) span as a fraction of the node's
+    # ``<bounds>`` width, in termList order (``_xnode_terminal_x_fracs``):
+    # where an Error Ring's body ends and its error out terminal begins.
+    terminal_x_fracs: list[tuple[float, float]] = field(default_factory=list)
     # The node's ``<StateData>`` hex, which its library reads.
     state_data: str | None = None
     # The recorded path of the XNode's library file
@@ -1247,6 +1251,26 @@ def _xnode_class_method_name(class_name: str, state_data_hex: str | None) -> str
     return candidate if candidate in strings else ""
 
 
+def _xnode_terminal_x_fracs(elem: ET.Element) -> list[tuple[float, float]]:
+    """Each terminal's own ``(x1, x2)`` span as a fraction of the node's
+    ``<bounds>`` width, in ``termList`` order. A terminal's ``termBounds`` is
+    relative to the node's own origin (a heap-format fact; an Error Ring's
+    ``error out`` is ``(0, 245, 22, 254)`` in a 254-wide node: its last nine
+    units). ``(0.0, 0.0)`` for a terminal whose termBounds can't be read."""
+    bounds = _rect(elem, "bounds")
+    term_list = elem.find("termList")
+    if bounds is None or term_list is None:
+        return []
+    width = bounds[2] - bounds[0]
+    if width <= 0:
+        return []
+    fracs: list[tuple[float, float]] = []
+    for term in term_list.findall("SL__arrayElement"):
+        tb = _rect(term, ".//termBounds")
+        fracs.append((0.0, 0.0) if tb is None else (tb[0] / width, tb[2] / width))
+    return fracs
+
+
 def _xnode_terminal_y_fracs(elem: ET.Element) -> list[tuple[float, float]]:
     """Each real terminal's own ``(y1, y2)`` vertical span, as a fraction of
     the node's own VISUAL height, in ``termList`` order -- the same order
@@ -1329,6 +1353,7 @@ class XNodeHandler(NodeTypeHandler):
             state_row_names=row_names,
             resource_name=resource_name,
             terminal_y_fracs=_xnode_terminal_y_fracs(elem),
+            terminal_x_fracs=_xnode_terminal_x_fracs(elem),
             state_data=state_data,
         )
 

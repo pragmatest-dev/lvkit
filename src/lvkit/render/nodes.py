@@ -62,6 +62,7 @@ from ..models import (
 )
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.error_ring import ERROR_RING_PATH, ErrorRing
 from ..parser.layout import ClusterGeom, Rect, RefnumPayload
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
@@ -90,6 +91,7 @@ from .glyph import (
     ConvertGlyph,
     DimmedGlyph,
     ErrorClusterGlyph,
+    ErrorRingGlyph,
     EventDataGlyph,
     EventRegNodeGlyph,
     ExtFuncGlyph,
@@ -1019,6 +1021,23 @@ def _is_xnode_passthrough(term: Terminal) -> bool:
     return lt is not None and lt.underlying_type == "Refnum"
 
 
+def _error_ring_glyph(node: PrimitiveNode, ring: ErrorRing) -> ErrorRingGlyph:
+    """An Error Ring (``glyphs/nodes/error_ring.py``): its stored label, its
+    error / warning and call-chain choices, and its body ending where its
+    output terminal (the error out) begins."""
+    outputs = [
+        x1
+        for term, (x1, _) in zip(node.terminals, node.xnode_terminal_x_fracs)
+        if term.direction == "output" and x1 > 0
+    ]
+    return ErrorRingGlyph(
+        label=ring.label,
+        is_warning=ring.is_warning,
+        call_chain=ring.include_call_chain,
+        body_right=min(outputs, default=1.0),
+    )
+
+
 def _xnode_glyph(node: PrimitiveNode) -> XNodeGlyph:
     """An FPGA Interface XNode glyph (#107): header = the node's own bound
     resource/module identifier (``xnode_resource_name``, e.g. "Mod4",
@@ -1230,6 +1249,8 @@ class OriginalGlyphResolver:
         if node.node_type == "eventRegNode":
             return _event_reg_node_glyph(node)
         if node.node_type == "xNode":
+            if node.xnode_library_path == ERROR_RING_PATH and node.error_ring:
+                return _error_ring_glyph(node, node.error_ring)
             return _xnode_glyph(node)
         if node.node_type == "hiddenFBNode":
             return _feedback_node_glyph(node, ctx)

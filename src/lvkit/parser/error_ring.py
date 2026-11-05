@@ -37,13 +37,17 @@ ERROR_RING_PATH = "<vilib>/ErrorRing/Error Ring.xnode"
 class ErrorRing:
     """What an Error Ring's error out holds: ``code``; ``description`` (the
     custom text, a Format Into String format when ``format_inputs`` > 0, or ""
-    for a code whose text is NI's own); ``is_warning``; ``include_call_chain``."""
+    for a code whose text is NI's own); ``is_warning``; ``include_call_chain``;
+    and ``label``, the text the ring shows."""
 
     code: int
     description: str
     is_warning: bool
     include_call_chain: bool
     format_inputs: int
+    # The text the ring shows, as LabVIEW stores it (cut with "..." when long):
+    # "6005: Attributes don't match VI prototy...".
+    label: str = ""
 
 
 class _Reader:
@@ -78,7 +82,7 @@ def decode_error_ring(state_data_hex: str | None) -> ErrorRing | None:
         return None
     try:
         reader = _Reader(bytes.fromhex(state_data_hex))
-        reader.string()
+        label = reader.string()
         reader.string()
         code = int.from_bytes(reader.take(4), "big", signed=True)
         reader.string()
@@ -99,4 +103,5 @@ def decode_error_ring(state_data_hex: str | None) -> ErrorRing | None:
         is_warning=not is_error,
         include_call_chain=include_call_chain,
         format_inputs=format_inputs,
+        label=label,
     )
