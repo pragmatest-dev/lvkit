@@ -738,17 +738,17 @@ HARD GATE: scan every output segment, assert zero diagonals (both dx,dy nonzero)
 ## "LabVIEW Formula Node numeric oracle (issue #8) — source of the locked semantics test + the open ~/negative-bitwise anomaly and still-unsupported funcs"
 <!-- was memory: reference_formula_node_oracle_issue8 -->
 
-**Oracle source:** github.com/pragmatest-dev/lvkit **issue #8** — @Himmelt ran `docs/formula_semantics_probe.md` (Script 1 main, Script 2 edge) in a real LabVIEW Formula Node and pasted RI (int32) / RF (double) / RX (edge) results in the comments. This is the ground truth the NI docs leave underspecified. The understood, consistent rows are locked as executing assertions in `tests/test_formula_semantics.py`. The repo holds the semantics; this note holds what is deliberately NOT locked (the open questions).
+**Oracle source:** github.com/pragmatest-dev/lvkit **issue #8** — an outside tester ran `docs/formula_semantics_probe.md` (Script 1 main, Script 2 edge) in a real LabVIEW Formula Node and pasted RI (int32) / RF (double) / RX (edge) results in the comments. This is the ground truth the NI docs leave underspecified. The understood, consistent rows are locked as executing assertions in `tests/test_formula_semantics.py`. The repo holds the semantics; this note holds what is deliberately NOT locked (the open questions).
 
-**Open anomaly — needs rfried/Himmelt interpretation, do NOT guess a fix:** LV returned **2147483647 (INT32_MAX)** for `~0`, `~5`, and `-1 & 255`, while ordinary bitwise is normal (`12&10=8`, `12|10=14`, `12^10=6`, `1<<31=-2147483648` wraps, `-8>>1=-4`). So bitwise-complement and a negative `&` operand behave unlike two's complement (our Python `~` gives -1/-6, `&` gives 255). Inconsistent with both pure-wrap and pure-saturate (since `1<<31` wrapped to MIN, not MAX). Likely a probe/indicator artifact or a real LV quirk — excluded from the locked test until clarified. See [[feedback_no_heuristics]].
+**Open anomaly — needs the maintainer's or the issue #8 tester's interpretation, do NOT guess a fix:** LV returned **2147483647 (INT32_MAX)** for `~0`, `~5`, and `-1 & 255`, while ordinary bitwise is normal (`12&10=8`, `12|10=14`, `12^10=6`, `1<<31=-2147483648` wraps, `-8>>1=-4`). So bitwise-complement and a negative `&` operand behave unlike two's complement (our Python `~` gives -1/-6, `&` gives 255). Inconsistent with both pure-wrap and pure-saturate (since `1<<31` wrapped to MIN, not MAX). Likely a probe/indicator artifact or a real LV quirk — excluded from the locked test until clarified. See [[feedback_no_heuristics]].
 
 **getexp/getman — DONE (2026-06-22):** added `_lv.getexp`/`_lv.getman` (frexp-based, mantissa ∈ [1,2)).
 
-**rand / sizeOfDim / N-D indexing — DONE (2026-06-23):** `rand()`→`_lv.rand` (`random.random()`; runtime-nondeterministic by design, codegen stable). `sizeOfDim`→`_lv.size_of_dim(arr, dim)` (natural nested convention: dim 0 = `len(arr)`, deeper dims descend; oracle `sizeOfDim(A,0)=5` ✓). N-D indexing: AST `Index.name:str`→`Index.base:Expr` + parser chained-subscript loop, so `a[i][j]` reads and writes emit native nested Python indexing. The oracle's apparent 2-D dim *reversal* dissolved — `sizeOfDim(B,0)=3` means Himmelt's B was entered 3×2, so the natural convention is correct (not a guess). **Still a known divergence (not implemented):** LabVIEW array index OOB → element default (0); lvkit raises `IndexError` for ALL dimensions — orthogonal, would require routing every `a[i]` through a safe-index helper.
+**rand / sizeOfDim / N-D indexing — DONE (2026-06-23):** `rand()`→`_lv.rand` (`random.random()`; runtime-nondeterministic by design, codegen stable). `sizeOfDim`→`_lv.size_of_dim(arr, dim)` (natural nested convention: dim 0 = `len(arr)`, deeper dims descend; oracle `sizeOfDim(A,0)=5` ✓). N-D indexing: AST `Index.name:str`→`Index.base:Expr` + parser chained-subscript loop, so `a[i][j]` reads and writes emit native nested Python indexing. The oracle's apparent 2-D dim *reversal* dissolved — `sizeOfDim(B,0)=3` means the tester's B was entered 3×2, so the natural convention is correct (not a guess). **Still a known divergence (not implemented):** LabVIEW array index OOB → element default (0); lvkit raises `IndexError` for ALL dimensions — orthogonal, would require routing every `a[i]` through a safe-index helper.
 
 Still UNSUPPORTED (fail loud): nothing from the probe remains except the `~`/negative-bitwise anomaly below.
 
-**Script 2 edges (div0 / sqrt(-1) / domain) — DONE (2026-06-22):** rfried confirmed the rationale — *a Formula Node has no error terminal, so LV coerces to IEEE `inf`/`nan` instead of trapping*. Implemented non-raising `_lv` wrappers (`div`, `powf`, `sqrt`, `ln`, `log10`, `log2`, `asin`, `acos`, `acosh`, `atanh`; `rem`/`lvmod` guard zero divisor). Emitter routes domain funcs through them; `/` wraps to `_lv.div` unless the divisor is a nonzero literal; `**` wraps to `_lv.powf` unless the base is a non-negative literal (so `2**n` stays the plain operator, no churn). Locked in `tests/test_formula_semantics.py`. Matches oracle: `1/0→inf`, `0/0→nan`, `sqrt(-1)→nan`, `ln(0)→-inf`, `(-8)**(1/3)→nan` (was a Python *complex*, a latent bug), `0**0→1`. See [[project_formula_node_rc1]].
+**Script 2 edges (div0 / sqrt(-1) / domain) — DONE (2026-06-22):** the maintainer confirmed the rationale — *a Formula Node has no error terminal, so LV coerces to IEEE `inf`/`nan` instead of trapping*. Implemented non-raising `_lv` wrappers (`div`, `powf`, `sqrt`, `ln`, `log10`, `log2`, `asin`, `acos`, `acosh`, `atanh`; `rem`/`lvmod` guard zero divisor). Emitter routes domain funcs through them; `/` wraps to `_lv.div` unless the divisor is a nonzero literal; `**` wraps to `_lv.powf` unless the base is a non-negative literal (so `2**n` stays the plain operator, no churn). Locked in `tests/test_formula_semantics.py`. Matches oracle: `1/0→inf`, `0/0→nan`, `sqrt(-1)→nan`, `ln(0)→-inf`, `(-8)**(1/3)→nan` (was a Python *complex*, a latent bug), `0**0→1`. See [[project_formula_node_rc1]].
 
 **Pre-existing non-determinism — FIXED (2026-06-23, branch `deterministic-codegen-ordering`, commit `ebc6daa`).** Codegen output varied with `PYTHONHASHSEED`: per-VI node UIDs live in sets, and ordering-sensitive steps iterated them, so independent parallel ops (and their collision-suffix names `output_array_696`↔`_999`) swapped between runs. Root: `get_operation_order` / `_sort_inner_uids` did `add_nodes_from(set)` + `nx.topological_sort` (hash-tied), plus `_get_children_of` and the `get_operations` disconnected-append iterated sets. Fix: shared `_node_order_key` (VI base, then numeric object id) in `graph/core.py`, applied at every order-materializing site + `nx.lexicographical_topological_sort(key=...)`. Regression guard: `tests/test_determinism.py` generates `samples/DAQmx-Digital-IO/In.vi` (a parallel-tier VI) under 3 hash seeds and asserts byte-identical output. See [[project_parallel_execution_gap]].
 
@@ -1293,6 +1293,38 @@ the `propItem` is the `<dco class="propItem">` inside a `termList` term.
 Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
 the node, the term's `<dco uid=...>` only references it, and its
 `propItemInfo` carries no `PropItemName` (the name is empty).
+
+## A Property Node row's `propItemInfo` carries `dataTypeDesc`, the property's declared type; a row saved with a `Void` terminal type keeps it there (issue #181)
+
+Each `propItemInfo` of a row's `propList` has a `<dataTypeDesc>` (a
+`TypeID(n)` into the VI's type table) next to its `<omidTypeDesc>`, `PropItemName`
+and `PropItemCode`. The terminal's own type is the row dco's `<typeDesc>`.
+Across the 1,681 `propItem` rows with a `propList` in the pre-extracted corpus
+the two types are the same in all but 6:
+
+- 2 rows have a `Void` terminal `typeDesc` while `dataTypeDesc` is `NumUInt32`:
+  `NumChans` (code 8577) on a DAQmx Task Property Node in
+  `LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/Setup AI.vi` (terminal
+  `TypeID(238)`, `dataTypeDesc` `TypeID(240)`, `omidTypeDesc` `TypeID(239)` =
+  `VoidBlock`) and the same row in `.../Digital Input/DI_class/Setup DI.vi`.
+  Both VIs are saved broken: their main `.xml` has `<Execution ...
+  BadSignal="1" BadNode="1">`. The sibling `.../Digital Output/DO_class/Setup
+  DO.vi` has the same property, is saved working (every `Bad*` is `0`), and its
+  terminal `typeDesc` is `NumUInt32`. So a `Void` terminal type on a row is not
+  the property's type; `dataTypeDesc` is.
+- 4 rows have a terminal `UnitUInt8` (the U8 an enum or ring is stored as) and a plain `NumUInt8`
+  `dataTypeDesc`. The terminal is the more exact type there.
+
+lvkit types a row's terminal from its own `typeDesc`, and only when that is
+`Void` uses `dataTypeDesc` (`parser/vi.py`, `_process_element_terminals`;
+`PropertySegment.data_type_desc`). For a two-segment row (`Image Parameters :
+Image Type`) the type is the last segment's: of the 52 two-segment rows in the
+corpus with a non-`Void` terminal type, the last segment's `dataTypeDesc` equals
+the terminal type in 52 and the first segment's in none.
+
+The dco `<objFlags>` of those 2 `Void` rows is 65537: bit 0x10000 is set. No
+other of the 1,681 rows has that bit. Its meaning is not decoded; lvkit does not
+read it.
 
 ## A reentrant VI is recorded with EITHER the `IsReentrant` OR the `SaveParallel` Execution flag; `PooledReentrancy` then picks shared vs preallocated clones (issue #132)
 

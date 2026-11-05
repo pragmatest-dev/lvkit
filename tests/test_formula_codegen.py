@@ -96,7 +96,7 @@ def test_formula_does_not_mutate_callers_array():
     copies arrays at a wire branch. Built + executed end to end, so it survives
     ANY future copy mechanism (formula-call copy OR value-copy-at-branch): if a
     branching change re-introduces aliasing, the caller's list gets mutated and
-    this fails. This is the exact failure mode that corrupted Himmelt's VI."""
+    this fails: the failure that corrupted the issue #8 tester's VI."""
     arr = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=_dbl())
     op = FormulaNode(
         id="vi::9",

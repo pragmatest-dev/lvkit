@@ -89,11 +89,13 @@ def test_a_control_named_like_a_number_and_item_is_quoted() -> None:
     assert lvnet_control_name_token("verify") == "verify"
 
 
-def _ring_control(tmp_path: Path, default: int) -> Views:
+def _ring_control(
+    tmp_path: Path, default: int, items: list[str] = _ITEMS
+) -> Views:
     """A Ring control ``mode`` on the connector pane, read by an Increment."""
     (tmp_path / "T_FPHb.xml").write_text(
         front_panel_xml(
-            {20: "mode"}, {}, pane={0: 20}, rings={20: (default, _ITEMS, [2, 3, 4])}
+            {20: "mode"}, {}, pane={0: 20}, rings={20: (default, items, [2, 3, 4])}
         )
     )
     xml = root_diagram(
@@ -116,4 +118,23 @@ def test_a_ring_control_default_that_is_no_item_has_no_name(tmp_path: Path) -> N
     views = _ring_control(tmp_path, 9)
     assert " default 9 @0\n" in views.lvnet
     assert "= 9 (" not in views.describe and "= \"9\"" not in views.describe
+    _round_trips(views)
+
+
+def test_ring_items_with_decimal_commas_read_back(tmp_path: Path) -> None:
+    """#239: an item may hold a comma with no space after it (``0,625``); the
+    items are separated by ``, `` and the default keeps its item's name."""
+    views = _ring_control(tmp_path, 3, ["0,625", "1,25", "2,5"])
+    assert (
+        "    in   mode : ring{0,625 = 2, 1,25 = 3, 2,5 = 4} default 3 (1,25) @0\n"
+    ) in views.lvnet
+    _round_trips(views)
+
+
+def test_a_ring_item_with_two_spaces_keeps_them(tmp_path: Path) -> None:
+    """#239: ``1  kS/s`` (two spaces) is quoted and reads back with both."""
+    views = _ring_control(tmp_path, 3, ["2 kS/s", "1  kS/s", "500 S/s"])
+    assert 'ring{2 kS/s = 2, "1  kS/s" = 3, 500 S/s = 4} default 3 ("1  kS/s")' in (
+        views.lvnet
+    )
     _round_trips(views)

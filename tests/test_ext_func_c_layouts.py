@@ -112,7 +112,7 @@ def test_string_handle_is_read_and_written_in_place(library: str) -> None:
         "class _LStr(ctypes.Structure):\n"
         "    _fields_ = [('cnt', ctypes.c_int32), ('str', ctypes.c_ubyte * 0)]"
     ) in source
-    assert "_upper.argtypes = [ctypes.POINTER(ctypes.POINTER(_LStr))]" in source
+    assert "function.argtypes = [ctypes.POINTER(ctypes.POINTER(_LStr))]" in source
 
 
 def test_string_with_a_null_character_keeps_its_length(library: str) -> None:
@@ -139,8 +139,7 @@ def test_string_handle_pointer_is_a_pointer_to_the_handle(library: str) -> None:
     )
     assert run("abc").shouted == "ABC"
     assert (
-        "_upper_through_pointer.argtypes = "
-        "[ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(_LStr)))]"
+        "function.argtypes = [ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(_LStr)))]"
     ) in source
     assert "ctypes.byref(_upper_through_pointer_1_handle)" in source
 
