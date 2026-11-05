@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **`lvnet -v` text reads back the same for names with two spaces, a backslash, a trailing ` :`, ring items with decimal commas, and an error constant whose message has a line break** (#239).
 - **A generated module imports on a machine without the DLL a Call Library Function Node names** — the library is loaded the first time the node runs (`OSError` naming it, `AttributeError` for a missing function), by `functools.cache` loaders in the module.
 - **A Property Node row saved with a Void type shows the property's declared type** — DAQmx Task `NumChans` in `Setup AI.vi` is `U32`, not `Void` (#181).
 - **Reading a VI with a PNG image no longer uses a Pillow call Pillow is removing** — pylabview's `Image.getdata()` is read with `Image.load()`, so VIs still read under Pillow 14; the test suite's 1,144 deprecation warnings are gone.
