@@ -2277,9 +2277,10 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
         sep = _find_first_top_level(rest, _LVNET_ANNOTATION_SEP)
         def_text = rest if sep == -1 else rest[:sep]
         path_suffix = "" if sep == -1 else rest[sep + len(_LVNET_ANNOTATION_SEP) :]
-        # render emits the nav suffix as ``; ./{typedef_path}`` (netlist.py
-        # _render_lvnet_types), so strip the leading ``./`` back off to recover
-        # the raw typedef_path -- reconstruct_module re-adds ``./``.
+        # The nav suffix is the typedef's recorded path: ``./`` and the path as
+        # recorded, or its library path (``<vilib>/...``) as it is
+        # (``render_lvnet._typedef_nav``). Strip a leading ``./`` to recover the
+        # recorded path; a library path is the recorded path already.
         path = (
             path_suffix[len(_LVNET_TYPEDEF_NAV_PREFIX) :]
             if path_suffix.startswith(_LVNET_TYPEDEF_NAV_PREFIX)

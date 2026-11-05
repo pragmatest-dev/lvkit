@@ -45,7 +45,7 @@ import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-from lvkit import staging
+from lvkit import project_store, staging
 
 # ── Cache root ──────────────────────────────────────────────────────────────
 
@@ -60,9 +60,7 @@ def global_cache_root() -> Path:
     env = os.environ.get("LVKIT_CACHE_DIR")
     if env:
         return Path(env)
-    from lvkit.project_store import global_home
-
-    return global_home() / "cache"
+    return project_store.global_home() / "cache"
 
 
 # ── Run-scoped extraction roots ─────────────────────────────────────────────
@@ -245,13 +243,11 @@ def _project_root_for(vi_path: Path) -> Path | None:
     passes through it to the enclosing project, so the cache/scope covers the
     whole project rather than one class.
     """
-    from lvkit.project_store import global_home
-
     start = vi_path if vi_path.is_dir() else vi_path.parent
     ancestors = (start, *start.parents)
     # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
     # every VI under $HOME collapses into one hash($HOME) bucket.
-    home = global_home().resolve()
+    home = project_store.global_home().resolve()
     # An EXISTING .lvkit/ store wins even when a NEARER ancestor is its own git
     # repo: vendored corpora (each carrying a .git) share the outer project's
     # cache instead of sprouting a .lvkit/ inside every clone.
@@ -324,13 +320,12 @@ def _project_marker(folder: Path) -> bool:
     """Whether ``folder`` holds a ``.lvproj`` file, a git repository that can be a
     project (``_git_repository``) or a ``.lvkit`` project store (never the global
     ``~/.lvkit``)."""
-    from lvkit.project_store import PROJECT_STORE_DIR, global_home
-
-    store = folder / PROJECT_STORE_DIR
+    store = folder / project_store.PROJECT_STORE_DIR
+    global_store = project_store.global_home().resolve()
     return (
         any(folder.glob("*.lvproj"))
         or _git_repository(folder)
-        or (store.is_dir() and store.resolve() != global_home().resolve())
+        or (store.is_dir() and store.resolve() != global_store)
     )
 
 

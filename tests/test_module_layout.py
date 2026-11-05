@@ -37,7 +37,10 @@ class _Tree:
 
 
 @pytest.fixture
-def tree(tmp_path: Path) -> _Tree:
+def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
+    """The tree is the home folder, so no ``.git`` above it is a project."""
+    home = tmp_path.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     return _Tree(tmp_path)
 
 
@@ -194,8 +197,15 @@ def test_a_library_folder_inside_the_project_places_its_files_as_library_files(
     )
     assert layout.places[tree.key("a.vi")] == ModulePlace((), "a")
     assert layout.display_path(key) == "<userlib>/_OpenG.lib/file/file.llb/Delete.vi"
-    assert layout.placed_folder(userlib / "_OpenG.lib") == ("userlib", "_openglib")
-    assert layout.placed_folder(tree.proj / "sub") == ("sub",)
+    # A folder the VI names relative to itself is placed beside its module, never
+    # above its library folder.
+    library = ("userlib", "_openglib", "file", "filellb")
+    assert layout.placed_beside(key, 0, ()) == library
+    assert layout.placed_beside(key, 3, ("libs",)) == ("userlib", "libs")
+    assert layout.placed_beside(key, 4, ()) is None
+    own = tree.key("a.vi")
+    assert layout.placed_beside(own, 0, ("sub",)) == ("sub",)
+    assert layout.placed_beside(own, 1, ()) is None
 
 
 def test_a_recorded_installation_path_places_a_file_inside_the_project(
@@ -210,6 +220,10 @@ def test_a_recorded_installation_path_places_a_file_inside_the_project(
     )
     assert layout.places[key] == ModulePlace(
         ("userlib", "_openglib", "file", "filellb"), "build_path__ogtk"
+    )
+    # A file beside it follows its module, not the folder the copy sits in.
+    assert layout.placed_beside(key, 0, ("libs",)) == (
+        "userlib", "_openglib", "file", "filellb", "libs"
     )
 
 
@@ -326,12 +340,13 @@ def test_a_git_repo_at_or_above_the_home_folder_is_not_the_project(
     (home / ".git").mkdir(parents=True)
     (tmp_path / ".git").mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    vi = home / "Documents" / "proj" / "x.vi"
+    vi = home / "Documents" / "proj" / "src" / "x.vi"
     vi.parent.mkdir(parents=True)
     vi.write_text("")
     assert project_root(vi) == vi.parent
-    (vi.parent / ".git").mkdir()
-    assert project_root(vi) == vi.parent
+    repo = home / "Documents" / "proj"
+    (repo / ".git").mkdir()
+    assert project_root(vi) == repo
 
 
 def test_with_no_marker_the_project_is_the_vis_own_folder(tmp_path: Path) -> None:

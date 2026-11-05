@@ -393,7 +393,7 @@ sites is verbose-only nuance (terse may omit it there).
 
 | Annotation | Meaning |
 |---|---|
-| `; ./path` | a file-backed node's project-relative path (click-to-jump nav), e.g. on a `subVI`/typedef-constant header; a library file (vi.lib, user.lib, instr.lib, inside or outside the project) shows its library path instead, `; <vilib>/Utility/error.llb/Clear Errors.vi` (`library_location`, `library_folders.py`), the same on every machine |
+| `; ./path` | a file-backed node's project-relative path (click-to-jump nav), e.g. on a `subVI`/typedef-constant header; a library file, inside or outside the project, shows its library path instead, `; <vilib>/Utility/error.llb/Clear Errors.vi` (`library_location`, `library_folders.py`): the path its caller recorded from an installation folder, which is any recorded `<…>` token (`<vilib>`, `<userlib>`, `<instrlib>`, `<extravilib>`, `<resource>`, …), else its path below a configured vi.lib / user.lib / instr.lib folder; the same on every machine |
 | `; inverted` | a Boolean input wired through inversion |
 | `; unconnected` | an unwired **node output** — net declared, no reader |
 | `; unread` | an unread **control** — a source with no sink |

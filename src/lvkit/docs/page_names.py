@@ -36,6 +36,13 @@ LIBRARY_GROUPS = {
 }
 
 
+def library_group_name(token: str) -> str:
+    """The folder and index section of an installation folder's pages: ``vi.lib``,
+    ``user.lib``, ``instr.lib``; any other ``<name>`` (``<resource>``,
+    ``<extravilib>``) by its own name."""
+    return LIBRARY_GROUPS.get(token, token[1:-1])
+
+
 @dataclass(frozen=True)
 class PageName:
     """A page's group (its folder, and the index heading) and file stem."""
@@ -58,25 +65,36 @@ def _bounded(stem: str) -> str:
     return f"{cut}-{digest}"
 
 
-def _path_name(graph: InMemoryVIGraph, source: Path, root: Path) -> PageName:
-    """The page of a VI that is a file. A VI inside an ``.llb`` is named by the
-    archive's path and its own file name, never by where it was extracted."""
+def vi_file_path(source: Path) -> Path:
+    """The path that names the VI whose file is ``source``: a member of an
+    ``.llb`` below its archive (``.../file.llb/X.vi``), never where it was
+    extracted; any other file as it is."""
     container = llb_container_of(source)
-    origin = (container or source).resolve()
-    member = f"/{source.name}" if container is not None else ""
+    return container.resolve() / source.name if container else source.resolve()
+
+
+def _path_name(
+    graph: InMemoryVIGraph, vi_name: str, source: Path, root: Path
+) -> PageName:
+    """The page of a VI that is a file: by its library path (the installation
+    path its callers recorded, else its path below a library folder), else
+    project-relative, else below its own project folder. A VI inside an ``.llb``
+    is named by the archive's path and its own file name, never by where it was
+    extracted."""
+    own = vi_file_path(source)
 
     def named(group: str, parts: tuple[str, ...]) -> PageName:
         rel = "/".join(parts)
-        return PageName(group, _bounded(_safe(strip_vi_extension(rel + member))))
+        return PageName(group, _bounded(_safe(strip_vi_extension(rel))))
 
-    library = graph.library_location(origin)
+    library = graph.library_location(own, graph.recorded_path(vi_name))
     if library is not None:
         token, *below = library
-        return named(LIBRARY_GROUPS[token], tuple(below))
-    if origin.is_relative_to(root.resolve()):
-        return named(PROJECT_GROUP, origin.relative_to(root.resolve()).parts)
-    outside = own_project_folder(origin)
-    return named(outside.name, origin.relative_to(outside).parts)
+        return named(library_group_name(token), tuple(below))
+    if own.is_relative_to(root.resolve()):
+        return named(PROJECT_GROUP, own.relative_to(root.resolve()).parts)
+    outside = own_project_folder(own)
+    return named(outside.name, own.relative_to(outside).parts)
 
 
 def page_names(
@@ -92,7 +110,7 @@ def page_names(
             continue
         source = graph.get_vi_source_path(vi_name)
         if source is not None and Path(vi_name).is_absolute():
-            named[vi_name] = _path_name(graph, source, root)
+            named[vi_name] = _path_name(graph, vi_name, source, root)
     taken: set[tuple[str, str]] = set()
     unique: dict[str, PageName] = {}
     for vi_name, name in named.items():

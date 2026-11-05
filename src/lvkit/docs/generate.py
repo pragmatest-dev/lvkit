@@ -11,10 +11,10 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from lvkit.cache_paths import project_root
+from lvkit.cache_paths import own_project_folder, project_root
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
-from lvkit.docs.page_names import page_names
+from lvkit.docs.page_names import page_names, vi_file_path
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.errors import DependencyFileError
@@ -150,26 +150,23 @@ def _index_sections(
     graph: InMemoryVIGraph, vi_names: list[str], project: Path
 ) -> dict[str, str]:
     """The section the index page lists each VI under (``library_group``): its
-    owning class or library; else the installation folder (``vi.lib``,
-    ``user.lib``) its caller recorded, or the configured library folder it is in;
-    else its folder in the project; else, for a file outside the project, its own
-    project folder's name. The section never names a page."""
+    owning class or library; else the installation folder of its library path
+    (``library_location``: ``vi.lib``, ``user.lib``, ...); else its folder in the
+    project; else, for a file outside the project, its own project folder's name
+    (``own_project_folder``). The section never names a page."""
     sections: dict[str, str] = {}
     for name in vi_names:
         owner = graph.get_owning_class(name) or graph.get_owning_library(name)
-        recorded = graph.recorded_path(name)
         source = graph.get_vi_source_path(name)
-        library = graph.library_root_of(source) if source is not None else None
-        if owner is not None or recorded is not None:
-            folders = recorded.split("/")[:-1] if recorded is not None else []
-            sections[name] = library_group(owner, folders)
-        elif library is not None:
-            sections[name] = library_group(None, [library[0]])
-        elif source is not None and source.resolve().is_relative_to(project.resolve()):
-            below = source.resolve().relative_to(project.resolve()).parent.parts
+        own = vi_file_path(source) if source is not None else None
+        library = graph.library_location(own, graph.recorded_path(name))
+        if owner is not None or library is not None:
+            sections[name] = library_group(owner, list(library or ())[:-1])
+        elif own is not None and own.is_relative_to(project.resolve()):
+            below = own.relative_to(project.resolve()).parent.parts
             sections[name] = library_group(None, below)
-        elif source is not None:
-            sections[name] = project_root(source).name
+        elif own is not None:
+            sections[name] = own_project_folder(own).name
     return sections
 
 

@@ -40,6 +40,7 @@ class LoadProblemsMixin:
 
     if TYPE_CHECKING:
 
+        def recorded_path(self, key: str) -> str | None: ...
         def load_vi(
             self,
             vi_path: Path | str,
@@ -59,8 +60,9 @@ class LoadProblemsMixin:
         ) -> None: ...
 
     def vi_label(self, path: Path | str) -> str:
-        """How a user sees a VI file (see ``RunSettings.label``)."""
-        return self.run_settings.label(path)
+        """How a user sees a VI file (see ``RunSettings.label``), by the
+        installation path its callers recorded when they did."""
+        return self.run_settings.label(path, self.recorded_path(str(path)))
 
     def key_label(self, key: str) -> str:
         """How a user sees a graph key: a file path as ``vi_label`` shows it; a

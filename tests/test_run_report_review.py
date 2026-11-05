@@ -339,6 +339,7 @@ def test_names_that_differ_only_in_case_do_not_share_a_page(tmp_path: Path) -> N
     graph = SimpleNamespace(
         get_vi_source_path=lambda key: Path(key),
         library_location=lambda path, recorded=None: None,
+        recorded_path=lambda key: None,
     )
     found = page_names(graph, keys, project)  # type: ignore[arg-type]
     stems = [found[key].stem for key in keys]

@@ -80,17 +80,19 @@ def library_location(
     recorded: str | None = None,
 ) -> tuple[str, ...] | None:
     """Where a library file is, the same for every view and every machine: the
-    path its caller recorded when that path starts at an installation folder
-    (``<vilib>/Utility/error.llb/X.vi``), whether or not the file is here; else,
+    path its caller recorded when that path starts at an installation folder,
+    any ``<…>`` token (``is_symbolic_root``: ``<vilib>/Utility/error.llb/X.vi``,
+    ``<extravilib>/...``, ``<resource>/...``), whether or not the file is here; else,
     for a file ``path`` under one of the library folders ``roots`` (pseudo path,
     folder; tried in order), that pseudo path and the parts below the folder
-    (``<userlib>/_OpenG.lib/...``); None for any other file. A library file
-    inside a project is still a library file."""
+    (``<userlib>/_OpenG.lib/...``); None for any other file, and for a ``path``
+    that is not absolute (no folder to compare). A library file inside a project
+    is still a library file."""
     if recorded is not None:
         tokens = path_tokens(recorded)
         if tokens and is_symbolic_root(tokens[0]):
             return tuple(tokens)
-    if path is None:
+    if path is None or not Path(path).is_absolute():
         return None
     resolved = Path(path).resolve()
     for token, root in roots:

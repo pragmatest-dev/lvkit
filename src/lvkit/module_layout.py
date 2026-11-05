@@ -63,12 +63,28 @@ class ModulePlace:
         return (*self.packages, self.module)
 
 
-def _outside_project(key: str) -> tuple[str, ...]:
-    """The name of the project folder ``key`` belongs to and its parts below that
-    folder (the file's own folder name and its name when it has none)."""
+@dataclass(frozen=True)
+class _Location:
+    """The tokens that place a file: ``tree``, which names the folder tree it is
+    in (``()`` for the project, ``("<userlib>",)`` for a library folder,
+    ``("external", <its own project folder>)`` for any other file), then its
+    folders and file name ``below`` that tree."""
+
+    tree: tuple[str, ...]
+    below: tuple[str, ...]
+
+    @property
+    def tokens(self) -> list[str]:
+        return [*self.tree, *self.below]
+
+
+def _outside_project(key: str) -> _Location:
+    """``key`` below ``external`` and the name of the project folder it belongs
+    to (nothing when that folder has no name, a drive root)."""
     folder = own_project_folder(key)
     below = Path(key).resolve().relative_to(folder).parts
-    return (folder.name, *below) if folder.name else below
+    tree = (EXTERNAL_PACKAGE, folder.name) if folder.name else (EXTERNAL_PACKAGE,)
+    return _Location(tree, below)
 
 
 def _packages(folders: Sequence[str]) -> tuple[str, ...]:
@@ -122,15 +138,20 @@ class ModuleLayout:
                 self.unplaced[key] = unplaced
         self._check_unique()
 
-    def placed_folder(self, folder: Path) -> tuple[str, ...] | None:
-        """The packages a ``folder`` is generated as (the ones its VI modules sit
-        in): by its library path for a folder in a library folder, else by its
-        path below the project; None when it is in neither."""
-        library = self._graph.library_location(folder)
-        if library is not None:
-            return _packages(library)
-        inside = _below(str(folder.resolve()), self._root)
-        return None if inside is None else _packages(inside)
+    def placed_beside(
+        self, key: str, up: int, folders: Sequence[str]
+    ) -> tuple[str, ...] | None:
+        """The packages of a folder the VI ``key`` names relative to its own file
+        (``up`` folders above the VI's folder, then ``folders``): the same moves
+        from the package of the VI's own module, so a file beside a VI is
+        generated beside its module wherever the module is placed; None when the
+        folder leaves the VI's tree (above its project, its library folder or
+        its own outside project)."""
+        location = self._location(key)
+        own = location.below[:-1]
+        if up > len(own):
+            return None
+        return _packages([*location.tree, *own[: len(own) - up], *folders])
 
     def _recorded_path(self, key: str) -> str | None:
         """The path a caller recorded for ``key`` (``recorded`` when given, else
@@ -141,6 +162,12 @@ class ModuleLayout:
 
     def _tokens_of(self, key: str) -> list[str]:
         """The folders and the file name that place ``key``."""
+        return self._location(key).tokens
+
+    def _location(self, key: str) -> _Location:
+        """Where ``key`` is placed: its library path, else its path below the
+        project, else (a VI with no file) the path its caller recorded, else
+        below ``external``."""
         recorded = self._recorded_path(key)
         if not _is_path(key):
             if recorded is None:
@@ -148,18 +175,18 @@ class ModuleLayout:
                     f"The VI {key!r} has neither a file nor a path its caller "
                     "recorded, so there is no module to import it from."
                 )
-            return path_tokens(recorded)
+            return _Location((), tuple(path_tokens(recorded)))
         if not os.path.isabs(key):
-            return path_tokens(key)
+            return _Location((), tuple(path_tokens(key)))
         library = self._graph.library_location(key, recorded)
         if library is not None:
-            return list(library)
+            return _Location(library[:1], library[1:])
         inside = _below(key, self._root)
         if inside is not None:
-            return list(inside)
+            return _Location((), inside)
         if recorded is not None and self._graph.is_stub(key):
-            return path_tokens(recorded)
-        return [EXTERNAL_PACKAGE, *_outside_project(key)]
+            return _Location((), tuple(path_tokens(recorded)))
+        return _outside_project(key)
 
     def _place(self, key: str) -> ModulePlace:
         *folders, name = self._tokens_of(key)

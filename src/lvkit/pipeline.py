@@ -12,7 +12,7 @@ import re
 import shutil
 import sys
 import traceback
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -300,14 +300,17 @@ def create_import_resolver(
         below_root = folder.relative_to(output_dir).parts
         return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
 
-    def project_file(folder: Path, source: Path) -> str | None:
-        """Where ``source``, a file at or below the project ``folder``, sits from
-        the calling module's folder once copied into the package: below the
-        package ``folder`` is generated as, under its own names."""
-        placed = layout.placed_folder(folder) if layout else None
+    def beside_vi(
+        vi_key: str, up: int, folders: Sequence[str], below: Sequence[str]
+    ) -> str | None:
+        """Where a file the VI ``vi_key`` names relative to its own file sits
+        from the calling module's folder once copied into the package: in the
+        package ``ModuleLayout.placed_beside`` gives, under its own names
+        ``below``; None when the folder leaves the VI's tree."""
+        placed = layout.placed_beside(vi_key, up, folders) if layout else None
         if placed is None:
             return None
-        target = output_dir.joinpath(*placed, *source.relative_to(folder).parts)
+        target = output_dir.joinpath(*placed, *below)
         return Path(os.path.relpath(target, caller_dir)).as_posix()
 
     def error_import() -> str:
@@ -327,7 +330,7 @@ def create_import_resolver(
         package_spec,
         package_modules,
         root_module_import,
-        project_file,
+        beside_vi,
         shown,
         names_import,
     )

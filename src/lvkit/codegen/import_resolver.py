@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -63,7 +63,8 @@ class ImportResolver:
         package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
-        project_file: Callable[[Path, Path], str | None] | None = None,
+        beside_vi: Callable[[str, int, Sequence[str], Sequence[str]], str | None]
+        | None = None,
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
     ) -> None:
@@ -75,7 +76,7 @@ class ImportResolver:
         self._package_spec = package_spec
         self._package_modules = package_modules
         self._root_module_import = root_module_import
-        self._project_file = project_file
+        self._beside_vi = beside_vi
         self._scope: str | None = None
         self._display_path = display_path
         self._names_import = names_import
@@ -174,13 +175,19 @@ class ImportResolver:
             attributes,
         )
 
-    def project_file(self, folder: Path, source: Path) -> str | None:
-        """Where the file ``source`` at or below the project ``folder`` sits from
-        the folder of the module being generated once it is copied into the
-        package: in the package ``folder`` is generated as, under the file's own
-        names (a ``/`` path, ``..`` for each folder up); None when ``folder`` is
-        not inside the project."""
-        return self._project_file(folder, source) if self._project_file else None
+    def beside_vi(
+        self, vi_key: str, up: int, folders: Sequence[str], below: Sequence[str]
+    ) -> str | None:
+        """Where a file the VI ``vi_key`` names relative to its own file (``up``
+        folders above the VI's folder, then ``folders``, then the file's own
+        names ``below``, empty for the folder itself) sits from the folder of
+        the module being generated once it is copied into the package: beside
+        the VI's own module, by the same moves (``ModuleLayout.placed_beside``;
+        a ``/`` path, ``..`` for each folder up); None when the folder leaves
+        the VI's tree (its project, library folder or own outside project)."""
+        if self._beside_vi is None:
+            return None
+        return self._beside_vi(vi_key, up, folders, below)
 
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding

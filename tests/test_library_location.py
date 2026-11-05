@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.docs.generate import _index_sections
 from lvkit.docs.page_names import PageName, page_names
 from lvkit.graph import InMemoryVIGraph, NodeType
 from lvkit.graph.lvnet_typedef import render_lvnet_typedef
@@ -71,8 +72,10 @@ def test_a_library_vi_inside_the_project_has_a_user_lib_page(project: Path) -> N
 
 
 def test_an_outside_vi_page_is_under_its_own_project_folder(
-    project: Path, tmp_path: Path
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    home = tmp_path.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     libs = tmp_path.resolve() / "elsewhere" / "libs"
     libs.mkdir(parents=True)
     (libs / "Libs.lvproj").write_text("")
@@ -143,3 +146,58 @@ def test_an_ambiguous_dependency_names_a_library_candidate_by_its_library_path(
     shown = graph._display_path  # noqa: SLF001
     assert shown(lib_vi, caller) == "<userlib>/_OpenG.lib/file/Delete.vi"
     assert shown(project / "sub" / "Own.vi", caller) == "./sub/Own.vi"
+
+
+def _record(graph: InMemoryVIGraph, key: str, recorded: str) -> None:
+    graph._dep_graph.add_node(key)  # noqa: SLF001
+    graph._recorded.record(key, None, recorded.split("/"))  # noqa: SLF001
+
+
+def test_a_copy_inside_the_project_is_shown_by_its_recorded_library_path(
+    project: Path,
+) -> None:
+    """The installation path its callers recorded places a copy kept in the
+    project, in every view: module, page, index section and message."""
+    copy = project / "copies" / "x.llb"
+    copy.parent.mkdir()
+    copy.write_bytes(b"")
+    member = copy / "Build Path__ogtk.vi"
+    resource = project / "copies" / "Res.vi"
+    graph = _graph(project, str(member), str(resource))
+    graph._source_paths.update({str(member): member, str(resource): resource})  # noqa: SLF001
+    _record(graph, str(member), "<userlib>/_OpenG.lib/file/x.llb/Build Path__ogtk.vi")
+    _record(graph, str(resource), "<resource>/dialog/Res.vi")
+    names = page_names(graph, [str(member), str(resource)], project)
+    assert names[str(member)] == PageName(
+        "user.lib", "OpenG.lib_file_x.llb_Build_Path_ogtk"
+    )
+    assert names[str(resource)] == PageName("resource", "dialog_Res")
+    assert graph.vi_label(member) == (
+        "<userlib>/_OpenG.lib/file/x.llb/Build Path__ogtk.vi"
+    )
+    sections = _index_sections(graph, [str(member), str(resource)], project)
+    assert sections == {str(member): "user.lib", str(resource): "resource"}
+
+
+def test_an_outside_vi_index_section_is_its_repository(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    repo = tmp_path.resolve() / "plugin"
+    v1 = repo / "gRPC" / "v1"
+    v1.mkdir(parents=True)
+    (repo / ".git").mkdir()
+    (v1 / "v1.lvproj").write_text("")
+    vi = v1 / "Create Client.vi"
+    graph = _graph(project, str(vi))
+    graph._source_paths[str(vi)] = vi  # noqa: SLF001
+    assert _index_sections(graph, [str(vi)], project) == {str(vi): "plugin"}
+    assert page_names(graph, [str(vi)], project)[str(vi)] == PageName(
+        "plugin", "gRPC_v1_Create_Client"
+    )
+
+
+def test_a_relative_path_is_not_a_library_file(tmp_path: Path) -> None:
+    roots = [("<userlib>", Path("user.lib").resolve())]
+    assert library_location(Path("user.lib/a/X.vi"), roots) is None

@@ -403,6 +403,34 @@ def test_a_project_library_that_is_not_on_disk_is_a_gap(
         function()
 
 
+def test_a_library_beside_a_user_lib_vi_is_copied_beside_its_module(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A VI in a user.lib folder is placed under ``userlib``; the library it names
+    relative to itself is copied by the same moves from its module, so the
+    module's path to it holds in the package."""
+    home = project.base.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    userlib = project.base / "user.lib"
+    project.vi_folder = userlib / "Vendor" / "sub"
+    project.libs = userlib / "Vendor" / "libs"
+    project.vi_folder.mkdir(parents=True)
+    project.libs.mkdir(parents=True)
+    (project.libs / "vendorlib.so").write_bytes(b"not a library")
+    vi = project.write_vi("vendorlib.so", ["", "..", "libs", "vendorlib.so"], "f")
+
+    project.result = generate_python(vi, project.base / "out", userlib_root=userlib)
+    out = Path(project.result["output_dir"])
+
+    assert "userlib/vendor/libs/vendorlib.so" in _tree(out)
+    source = (out / "userlib/vendor/sub/clfn_bdhbxml.py").read_text()
+    assert (
+        "os.path.join(os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')"
+    ) in source
+    target = (out / "userlib/vendor/sub" / ".." / "libs" / "vendorlib.so").resolve()
+    assert target.is_file()
+
+
 def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> None:
     (project.base / "outside.so").write_bytes(b"x")
     vi = project.write_vi("outside.so", ["", "..", "..", "..", "..", "outside.so"], "f")

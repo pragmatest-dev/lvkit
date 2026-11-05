@@ -27,6 +27,7 @@ def test_a_page_is_the_file_page_names_gives_it(tmp_path: Path) -> None:
     graph = SimpleNamespace(
         get_vi_source_path=lambda key: Path(key),
         library_location=lambda path, recorded=None: None,
+        recorded_path=lambda key: None,
     )
     pages = page_names(graph, keys, project)  # type: ignore[arg-type]
     gen = _generator(tmp_path, pages)

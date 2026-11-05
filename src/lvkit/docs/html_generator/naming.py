@@ -17,7 +17,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
-from lvkit.docs.page_names import LIBRARY_GROUPS, PROJECT_GROUP, PageName
+from lvkit.docs.page_names import PROJECT_GROUP, PageName, library_group_name
 from lvkit.library_folders import is_symbolic_root
 from lvkit.vi_files import strip_vi_extension
 
@@ -31,7 +31,7 @@ def library_group(owner: str | None, folders: Sequence[str]) -> str:
     if owner is not None:
         return owner
     if folders and is_symbolic_root(folders[0]):
-        return LIBRARY_GROUPS.get(folders[0], folders[0][1:-1])
+        return library_group_name(folders[0])
     return "/".join(folders) or PROJECT_GROUP
 
 

@@ -81,11 +81,14 @@ def expansions(name: str) -> list[str]:
 
 @dataclass(frozen=True)
 class LibraryLocation:
-    """Where the library a node recorded sits: the folder it is looked for in and
-    the typed file name."""
+    """Where the library a node recorded sits: the folder it is looked for in,
+    the typed file name, and that folder as the VI names it (``up`` folders
+    above the VI's own folder, then ``folders``)."""
 
     folder: Path
     name: str
+    up: int
+    folders: tuple[str, ...]
 
 
 def _fail(ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, why: str):
@@ -119,12 +122,23 @@ def _location(
     for _ in range(empties - 1):
         folder = folder.parent
     rest = tokens[empties:]
-    return LibraryLocation(folder.joinpath(*rest[:-1]), call.library or rest[-1])
+    up, folders = max(empties - 1, 0), []
+    for token in rest[:-1]:
+        if token == "..":
+            if folders:
+                folders.pop()
+            else:
+                up += 1
+        elif token != ".":
+            folders.append(token)
+    return LibraryLocation(
+        folder.joinpath(*rest[:-1]), call.library or rest[-1], up, tuple(folders)
+    )
 
 
 def _copied_files(candidates: list[Path]) -> list[Path]:
     """``candidates`` (a file, or a folder's files) and, recursively, the libraries
-    they need that sit beside them inside the project."""
+    they need that sit beside them."""
     ordered: list[Path] = []
     seen: set[Path] = set()
     pending = list(candidates)
@@ -150,14 +164,19 @@ def _copied_files(candidates: list[Path]) -> list[Path]:
 def _project_copy(
     ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall
 ) -> str | None:
-    """Copy the library into the package and return the expression of its path
-    from the module, or None when it lies outside the project."""
+    """Copy the library into the package beside the VI's own module, by the
+    path the VI records relative to itself, and return the expression of its
+    path from the module; None when that folder leaves the VI's tree (above its
+    project, its library folder or its own outside project)."""
     location = _location(ctx, node, call)
     resolver = ctx.import_resolver
+    vi_key = ctx.vi_name
     folder = (
-        resolver.project_file(location.folder, location.folder) if resolver else None
+        resolver.beside_vi(vi_key, location.up, location.folders, ())
+        if resolver is not None and vi_key
+        else None
     )
-    if resolver is None or folder is None:
+    if resolver is None or vi_key is None or folder is None:
         return None
     candidates = [
         location.folder / name
@@ -184,7 +203,8 @@ def _project_copy(
             "get the file",
         )
     for path in _copied_files(candidates):
-        target = resolver.project_file(location.folder, path)
+        below = path.relative_to(location.folder).parts
+        target = resolver.beside_vi(vi_key, location.up, location.folders, below)
         if target is not None:
             ctx.data_files[target] = path.read_bytes()
     parts = [p for p in folder.split("/") if p != "."]

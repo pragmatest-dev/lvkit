@@ -268,15 +268,6 @@ class QueryMixin:
                 found.append(candidate)
         return found
 
-    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
-        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
-        the file at ``path`` is in, with that folder, else None."""
-        resolved = path.resolve()
-        for token, root in self.library_roots():
-            if resolved.is_relative_to(root.resolve()):
-                return token, root
-        return None
-
     def library_location(
         self, path: Path | str | None, recorded: str | None = None
     ) -> tuple[str, ...] | None:
@@ -284,13 +275,13 @@ class QueryMixin:
         ``library_folders.py``, over this graph's library folders): its recorded
         installation path (``recorded``), else its library folder's pseudo path
         and the parts below it; None when it is not a library file (or there is
-        no ``path`` and no installation path)."""
+        no absolute ``path`` and no installation path)."""
         return library_location(path, self.library_roots(), recorded)
 
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
         root (the user's own library install, not their project)."""
-        return any(path.is_relative_to(root) for _, root in self.library_roots())
+        return self.library_location(path) is not None
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
