@@ -106,10 +106,12 @@ def test_a_catalog_only_dependency_shows_its_ports() -> None:
     graph, key = load_corpus_vi(vi.resolve())
     lines = describe_vi(graph, key).splitlines()
     assert (
-        "  DAQmx Clear Task.vi: (task in: Refnum) -> () -- Clears (closes) the task."
+        "  DAQmx Clear Task.vi: (task in: UsrDefndTag refnum{Tag}, error in: Error)"
+        " -> (error out: Error) -- Clears (closes) the task."
     ) in lines
     assert (
-        "  DAQmx Start Task.vi: (task in: Refnum) -> (task out: Refnum) -- Starts task."
+        "  DAQmx Start Task.vi: (task in: UsrDefndTag refnum{Tag}, error in: Error)"
+        " -> (task out: UsrDefndTag refnum{Tag}, error out: Error) -- Starts task."
     ) in lines
 
 

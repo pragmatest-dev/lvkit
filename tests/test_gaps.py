@@ -243,7 +243,7 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
     source, gaps = _build(context, [_mystery()])
     assert _with_the_raise_shown_as(source, "<raise>") == [
         "from __future__ import annotations",
-        "from typing import Any, NamedTuple",
+        "from typing import NamedTuple",
         "",
         "class GapResult(NamedTuple):",
         "    y: int",

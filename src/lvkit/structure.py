@@ -100,9 +100,17 @@ class LVClass:
     parent_link_path_type: int | None = None
     is_vilib_parent: bool = False
     private_data_ctl: str | None = None
-    # The URL the class records for its private-data control (relative to the
-    # class file, which LabVIEW treats as a folder for its members).
+    # The URL the class records for its private-data control.
     private_data_url: str | None = None
+    # Where that control is: inside the class (``<X.lvclass>/<ctl>``), at
+    # ``private_data_url`` read for the LabVIEW version the class was saved in
+    # (``member_url_base``). None when the class records none.
+    private_data_path: Path | None = None
+    # The qualified name of the library the class is in, as its own
+    # ``NI.Lib.ContainingLib`` string property records it
+    # (``"MyParentLibrary.lvlib:MyLibrary.lvlib"``); None for a class in no
+    # library.
+    containing_library: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
     private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
     # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
@@ -548,9 +556,12 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # NI.Lib.Version -- verbatim dotted-quad string, same convention as
     # parse_lvlib's version property below.
     version = None
+    containing_library = None
     for prop in root.findall("Property"):
         if prop.get("Name") == "NI.Lib.Version":
             version = prop.text
+        elif prop.get("Name") == "NI.Lib.ContainingLib" and prop.text:
+            containing_library = prop.text
 
     # The class's own record of its private-data control
     private_data_url = None
@@ -564,6 +575,10 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     _parse_items(root, methods, private_data_ctl)
 
     private_data_fields = _parse_private_data_fields(lvclass_path, private_data_ctl)
+    base = member_url_base(lvclass_path, root.get("LVVersion"))
+    private_data_path = (
+        (base / private_data_url).resolve() if private_data_url else None
+    )
 
     return LVClass(
         name=class_name,
@@ -575,6 +590,8 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
         private_data_url=private_data_url,
+        private_data_path=private_data_path,
+        containing_library=containing_library,
         methods=methods,
         private_data_fields=private_data_fields,
         version=version,
@@ -1008,6 +1025,18 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         version=version,
         members=members,
     )
+
+
+def member_url_base(container: Path, lv_version: str | None) -> Path:
+    """The folder a ``.lvlib`` or ``.lvclass`` saved by LabVIEW ``lv_version``
+    (its ``LVVersion``, e.g. ``8208000`` for 8.2, ``13008000`` for 2013) writes
+    its member URLs relative to: the container FILE treated as a folder for
+    LabVIEW 2010 and later, the container's folder for a LabVIEW 8.x save
+    (``docs/_internal/design/labview-binary-format.md``, member URLs). An
+    unreadable version is read as 2010 or later, as every corpus container
+    but the 8.2 ones is."""
+    major = int(lv_version) // 1_000_000 if lv_version and lv_version.isdigit() else 0
+    return container.parent if 0 < major < 10 else container
 
 
 def member_url_paths(container: Path, url: str) -> tuple[Path, Path]:

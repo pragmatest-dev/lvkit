@@ -36,6 +36,7 @@ from lvkit.render.backend import SvgBackend
 from lvkit.render.draw import _draw_border_terminal
 from lvkit.render.scene import RenderBorderTerminal, _structure_borders
 from lvkit.render.style import DEFAULT_THEME
+from tests.helpers import vi_key
 
 # ---------------------------------------------------------------------------
 # Corpus VI paths (all under .lvkit/cache/samples/, verified against the
@@ -71,7 +72,7 @@ def _skip_if_missing(path: Path) -> None:
 def _load(path: Path) -> tuple[InMemoryVIGraph, str]:
     g = InMemoryVIGraph()
     g.load_vi(str(path), mode=LoadMode.NONE)
-    vi_name = g.resolve_vi_name(path.name)
+    vi_name = vi_key(g, path.name)
     return g, vi_name
 
 
@@ -553,7 +554,7 @@ def test_render_draws_each_condition_terminal_under_its_tunnel(
     _skip_if_missing(vi_path)
     g = InMemoryVIGraph()
     g.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
-    vi_name = g.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(g, vi_path.name)
     layout = g.get_layout(vi_name)
     assert layout is not None
     op = _find_op(g, vi_name, g.top_level_nodes(vi_name), loop_uid)

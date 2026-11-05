@@ -21,6 +21,7 @@ from lvkit.parser.node_types import _build_nmux_dco_maps
 from lvkit.parser.td_pool import TdPool, read_td_list
 from lvkit.parser.vi import _inline_dco_definitions
 from lvkit.string_literal import quote_string
+from tests.helpers import vi_key
 
 
 def _td(type_code: int, body: bytes, flags: int = 0x40) -> bytes:
@@ -271,7 +272,7 @@ def test_lv82_case_selector_is_found_and_named_in_lvnet():
 
     graph = InMemoryVIGraph()
     graph.load_vi(str(_MASK), LoadMode.NONE, layout=False)
-    vi_name = graph.resolve_vi_name(_MASK.name)
+    vi_name = vi_key(graph, _MASK.name)
     text = render_lvnet(
         build_netlist_from_graph(graph, vi_name),
         display_name=graph.vi_display_name(vi_name),

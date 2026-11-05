@@ -99,7 +99,7 @@ def type_shape(
     if lv_type is None:
         return ()
     if lv_type.ref_type == _CLASS_REF_TYPE:
-        return ("class", graph.class_type_key(lv_type, vi_key) or lv_type.classname)
+        return ("class", graph.class_type_key(lv_type) or lv_type.classname)
     return (
         lv_type.kind,
         lv_type.underlying_type,
