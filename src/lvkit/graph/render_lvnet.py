@@ -279,8 +279,8 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
 # A NAMED enum/ring/cluster/typedef always renders by bare name inline
 # (above); its FULL structure -- enum ordinals, cluster field TYPES (not
 # just names), a refnum's inner type -- lives ONCE, here, in a bottom
-# appendix. Primitives (even one wrapped in its own scalar ``.ctl``
-# typedef) and class IDENTITIES never get an entry: a primitive has no
+# appendix. A scalar ``.ctl`` typedef gets an entry too (``IEColor = U32``);
+# an unwrapped primitive and class IDENTITIES never do: a primitive has no
 # structure beyond its own faithful token, and a class is identified by
 # ``classname``, never ``typedef_name`` -- see ``lvnet_named_stem``, the
 # single source of truth both this section and ``netlist_signature``'s
@@ -291,16 +291,16 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
 
 def lvnet_named_stem(lv_type: LVType) -> str | None:
     """This type's own bare stripped display name IFF it is one of §10's
-    NAMED kinds (enum/ring/cluster/typedef_ref) with a real ``typedef_name``
+    NAMED kinds (enum/ring/cluster/typedef_ref/scalar) with a real ``typedef_name``
     -- the SAME check ``LVType.type_descriptor(expand_named=False)`` already
     applies to decide when to collapse to a bare name (mirrored here rather
     than re-derived from that method's return value, since a bare "cluster"
     fallback for an UNNAMED-but-fieldless cluster would otherwise be
     ambiguous with a genuinely named one).
 
-    ``None`` for: an anonymous type; a PRIMITIVE (even one wrapped in its
-    own scalar ``.ctl`` typedef -- §10: "primitives ... get no [types:]
-    entry"); a CLASS identity (uses ``classname``, never ``typedef_name``);
+    A typedef of a single value (``LVType.is_named_scalar``) is named too.
+    ``None`` for: an anonymous type; an unwrapped PRIMITIVE; a CLASS identity
+    (uses ``classname``, never ``typedef_name``);
     and an error cluster (``type_descriptor`` renders ``"Error"`` for one
     unconditionally, never falling through to its ``typedef_name`` either).
     """
@@ -312,6 +312,8 @@ def lvnet_named_stem(lv_type: LVType) -> str | None:
         if not lv_type.typedef_name or _is_error_cluster(lv_type):
             return None
         return _strip_typedef_stem(lv_type.typedef_name)
+    if lv_type.is_named_scalar():
+        return _strip_typedef_stem(lv_type.typedef_name or "")
     return None
 
 
@@ -403,6 +405,8 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
                     )
                 return f"{lv_type.ref_type} refnum"
             return "refnum"
+        if lv_type.is_named_scalar():
+            return lv_type.scalar_descriptor()
         return lv_type.type_descriptor(expand_named=False)
     if lv_type.kind == LVTypeKind.CLASS:
         return lv_type.classname or "?"
@@ -794,7 +798,10 @@ def _lv_type_comparison_shape(
         return ("cluster", None)
     # PRIMITIVE / CLASS reached while full=True (e.g. a named cluster's own
     # field typed as a scalar or a class) -- still just its own faithful
-    # label, the SAME as ``_lvnet_type_label`` already renders.
+    # label, the SAME as ``_lvnet_type_label`` already renders. A scalar
+    # typedef compares by what its footnote entry defines it as.
+    if lv_type.is_named_scalar():
+        return ("leaf", lv_type.scalar_descriptor())
     return ("leaf", lv_type.type_descriptor(expand_named=False))
 
 

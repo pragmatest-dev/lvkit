@@ -21,6 +21,7 @@ from lvkit.graph.core import uid_of
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
 
+from .ast_optimizer import remove_unused_imports
 from .ast_utils import (
     build_type_checking_block,
     param_default_expr,
@@ -127,8 +128,7 @@ def build_global_module(
         needs_namespace = needs_namespace or namespace
         if isinstance(import_resolver, ImportResolver) and control.lv_type:
             for named in control.lv_type.named_types():
-                type_ref = named.type_ref()
-                imported = import_resolver.type_import(type_ref) if type_ref else None
+                imported = import_resolver.type_import(named)
                 if imported is not None:
                     annotation_imports.add(imported.statement)
         assignments.append(
@@ -144,6 +144,8 @@ def build_global_module(
     if needs_runtime:
         body.extend(ast.parse(DATA_FILE_IMPORTS).body)
     body.extend(build_type_checking_block(annotation_imports))
-    module = ast.Module(body=[*body, *assignments], type_ignores=[])
+    module = remove_unused_imports(
+        ast.Module(body=[*body, *assignments], type_ignores=[])
+    )
     ast.fix_missing_locations(module)
     return ast.unparse(module)

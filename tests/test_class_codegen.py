@@ -8,6 +8,7 @@ field is ``self.__<field>``, which Python stores as ``_<Class>__<field>``."""
 
 from __future__ import annotations
 
+import ast
 import copy
 import queue
 from pathlib import Path
@@ -33,6 +34,7 @@ from lvkit.graph.op_walk import stamp_nmux_lane_names
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
 from tests.class_graphs import (
     INT,
+    Package,
     Project,
     Recipe,
     add,
@@ -1845,3 +1847,129 @@ def test_a_private_member_of_another_class_is_no_candidate(tmp_path: Path) -> No
     assert package.gaps == []
     with package.use() as module:
         assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
+
+
+def test_a_lazy_class_module_keeps_only_the_method_imports_each_method_reads(
+    tmp_path: Path,
+) -> None:
+    """A class in an import cycle imports a generated module inside the method
+    that runs it; the method that reads the import keeps it, and no method holds
+    an import it never reads."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    helper = project.add_vi("Helper", static_make)
+
+    def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "x", INT, "x", 0)],
+                outputs=[pane(vi, "output", "y", INT, "y", 1)],
+                data_flow=[wire(vi, "x", "c.seed"), wire(vi, "c.value", "y")],
+            ),
+            [call(vi, "c", helper, "iUse", [("seed", 0, INT)], [("value", 1, INT)])],
+        )
+
+    method = project.add_method("Base", "Twice", twice, static=True)
+    project.add_method("Base", "Probe", passthrough(BASE))
+    graph = project.graph
+    graph._dep_graph.add_edge(method, helper)  # noqa: SLF001
+    graph._dep_graph.add_edge(helper, project.classes["Base"])  # noqa: SLF001
+    package = project.generate()
+    source = package.sources["base"]
+    from lvkit.codegen.class_model import lazy_imports
+
+    assert lazy_imports(project.graph, project.classes["Base"])
+    module_ast = ast.parse(source)
+    methods = {
+        node.name: node
+        for node in ast.walk(module_ast)
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert isinstance(methods["twice"].body[0], ast.ImportFrom)
+    assert_method_imports_are_read(source)
+    with package.use() as module:
+        assert module("base").Base.twice(x=5) == 5
+
+
+def assert_method_imports_are_read(source: str) -> None:
+    """Every import at the top of a method binds a name that method's body
+    reads."""
+    from lvkit.codegen.ast_optimizer import _used_names
+
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef):
+            read = _used_names(node.body)
+            for stmt in node.body:
+                if isinstance(stmt, ast.Import | ast.ImportFrom):
+                    names = {a.asname or a.name.split(".")[0] for a in stmt.names}
+                    assert names <= read, source
+
+
+def test_a_lazy_class_module_drops_the_method_imports_its_methods_never_read(
+    tmp_path: Path,
+) -> None:
+    """The two shapes the measurement-plugin classes had, through the pass the
+    class module goes through: a method import of `LabVIEWError` the method
+    never raises, beside one that repeats the module's own import; and a
+    method copy of a typedef the module imports under TYPE_CHECKING for a
+    result annotation only. A method that builds the typedef keeps its own
+    import."""
+    from lvkit.codegen.ast_optimizer import optimize_module
+
+    source = """
+from __future__ import annotations
+from typing import TYPE_CHECKING, NamedTuple
+from .errors import LabVIEWError
+if TYPE_CHECKING:
+    from .typedefs import Annotation
+
+class DetailsResult(NamedTuple):
+    annotations: list[Annotation]
+
+def check(code):
+    if code:
+        raise LabVIEWError(code)
+    return code
+
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        from .helper import helper
+        return helper(1)
+
+    def fail(self):
+        from .errors import LabVIEWError
+        raise LabVIEWError(2)
+
+    def details(self):
+        from .typedefs import Annotation
+        return DetailsResult(annotations=[])
+
+    def build(self):
+        from .typedefs import Annotation
+        return Annotation(name="a")
+"""
+    written = ast.unparse(optimize_module(ast.parse(source)))
+    assert written.count("from .errors import LabVIEWError") == 1
+    assert written.count("from .typedefs import Annotation") == 2
+    assert "def details(self):\n        return DetailsResult" in written
+    assert "from .helper import helper" in written
+    assert_method_imports_are_read(written)
+    out = tmp_path / "pkg"
+    out.mkdir()
+    (out / "__init__.py").write_text("")
+    (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
+    (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
+    (out / "typedefs.py").write_text(
+        "from typing import NamedTuple\n"
+        "class Annotation(NamedTuple):\n    name: str\n"
+    )
+    (out / "service.py").write_text(written + "\n")
+    with Package(out, {"service": written}, []).use() as module:
+        service = module("service").Service()
+        assert service.stop() == 2
+        assert service.details().annotations == []
+        assert service.build().name == "a"
+        with pytest.raises(module("errors").LabVIEWError):
+            service.fail()

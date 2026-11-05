@@ -3,6 +3,11 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Generated class methods import only what they read** — an import inside a method that the method never reads, or that the module already makes, is dropped (measurement-plugin classes: 8 unused imports gone).
+- **A class's methods are what its file lists, in every view** — describe's `## Class` appears for every method however the class was loaded, and lists its ancestors' public and protected methods as `inherited from <Ancestor>` and an override as `overrides <Ancestor>`.
+- **A VI that claims a class or library whose file does not list it is not a member, and is a note in LabVIEW's words (the run stays Complete)** — `this VI claims to be part of …, but that class does not claim to own this VI`; a dispatch call to it is a missing method.
+- **A class is named by the library chain its own file records** (`NI.Lib.ContainingLib`), never by how a caller spells it.
+- **A class's fields carry their full types** — its private-data control, kept inside the `.lvclass`, is read like any `.ctl`: JKI `TestResult` `Errors: [error{test, error}]`, not `[?]`; a class whose private data is a Data Value Reference shows that one field (`Data DVR`), as its Bundle/Unbundle By Name does.
 - **`lvnet -v` text reads back the same for names with two spaces, a backslash, a trailing ` :`, ring items with decimal commas, and an error constant whose message has a line break** (#239).
 - **A generated module imports on a machine without the DLL a Call Library Function Node names** — the library is loaded the first time the node runs (`OSError` naming it, `AttributeError` for a missing function), by `functools.cache` loaders in the module.
 - **A Property Node row saved with a Void type shows the property's declared type** — DAQmx Task `NumChans` in `Setup AI.vi` is `U32`, not `Void` (#181).

@@ -19,6 +19,7 @@ import pytest
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import (
     ClassFieldEntry,
     ClassHierarchyInfo,
@@ -26,6 +27,7 @@ from lvkit.graph.models import (
     MethodOverrideInfo,
 )
 from lvkit.models import ClusterField, LVType, LVTypeKind
+from tests.helpers import vi_key
 
 SAMPLE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 
@@ -51,6 +53,7 @@ def _add_class(
         node_type="class",
         fields=fields or [],
         parent_class=parent_class,
+        parent_key=f"{parent_class}.lvclass" if parent_class else None,
     )
 
 
@@ -61,25 +64,27 @@ def _add_method(
     *,
     scope: str = "public",
     is_accessor: bool = False,
-    accessor_type: str | None = None,
     accessor_field: str | None = None,
     documented: bool = True,
+    key: str | None = None,
 ) -> str:
-    """Add an "owns" edge from ``classname`` to a method VI, optionally
-    registering the method VI as a documented VI (in list_vis())."""
-    vi_name = f"{classname}:{method_name}"
+    """List a method VI in ``classname``'s file (its ``owns`` edge follows),
+    optionally registering the method VI as a documented VI (in list_vis()).
+    ``key`` is the method's key (a path in a real load)."""
+    vi_name = key or f"{classname}:{method_name}"
     if documented:
         graph._vi_nodes[vi_name] = set()
-    graph._dep_graph.add_node(vi_name)
-    graph._dep_graph.add_edge(
-        classname,
-        vi_name,
-        rel="owns",
+    graph._dep_graph.add_node(vi_name, name=method_name)
+    listed = graph.listed_members(classname)
+    listed[vi_name] = ListedMethod(
         scope=scope,
+        is_static=False,
         is_accessor=is_accessor,
-        accessor_type=accessor_type,
         accessor_field=accessor_field,
+        must_override=False,
+        must_call_parent=False,
     )
+    graph._record_members(classname, listed)
     return vi_name
 
 
@@ -117,7 +122,6 @@ def class_graph() -> InMemoryVIGraph:
         "Read label.vi",
         scope="private",
         is_accessor=True,
-        accessor_type="getter",
         accessor_field="label",
     )
     _add_method(g, "Leaf.lvclass", "onlyOnLeaf.vi", scope="protected")
@@ -226,11 +230,13 @@ class TestOwningClassAndAccess:
         )
 
     def test_get_method_access_accessor(self, class_graph: InMemoryVIGraph):
+        """What the class file records; the getter/setter role comes from the
+        method's connector pane, which a hand-built VI has none of."""
         access = class_graph.get_method_access("Mid.lvclass:Read label.vi")
         assert access is not None
         assert access.scope == "private"
         assert access.is_accessor is True
-        assert access.accessor_type == "getter"
+        assert access.accessor_type is None
         assert access.accessor_field == "label"
 
     def test_get_method_access_none_for_non_method(self, class_graph: InMemoryVIGraph):
@@ -419,31 +425,32 @@ class TestClassPageGeneration:
 class TestRealSampleHierarchy:
     def test_testrunner_texttestrunner_hierarchy(self):
         g = InMemoryVIGraph()
-        g.load_lvclass(
+        parent_key = g.load_lvclass(
             SAMPLE_ROOT / "Classes/TestRunner/TestRunner.lvclass",
             mode=LoadMode.FULL,
         )
-        g.load_lvclass(
+        child_key = g.load_lvclass(
             SAMPLE_ROOT / "Classes/TextTestRunner/TextTestRunner.lvclass",
             mode=LoadMode.FULL,
         )
 
-        parent_hierarchy = g.get_class_hierarchy("TestRunner.lvclass")
+        parent_hierarchy = g.get_class_hierarchy(parent_key)
         assert parent_hierarchy is not None
         assert "TextTestRunner.lvclass" in parent_hierarchy.child_classes
 
-        child_hierarchy = g.get_class_hierarchy("TextTestRunner.lvclass")
+        child_hierarchy = g.get_class_hierarchy(child_key)
         assert child_hierarchy is not None
         assert child_hierarchy.parent_class == "TestRunner.lvclass"
 
-        overrides = g.get_method_overrides("TextTestRunner.lvclass:makeResult.vi")
+        child_method = vi_key(g, "TextTestRunner.lvclass:makeResult.vi")
+        overrides = g.get_method_overrides(child_method)
         assert overrides is not None
         assert overrides.overrides is not None
         assert g.vi_display_name(overrides.overrides) == (
             "TestRunner.lvclass:makeResult.vi"
         )
 
-        reverse = g.get_method_overrides("TestRunner.lvclass:makeResult.vi")
+        reverse = g.get_method_overrides(vi_key(g, "TestRunner.lvclass:makeResult.vi"))
         assert reverse is not None
         assert "TextTestRunner.lvclass:makeResult.vi" in [
             g.vi_display_name(key) for key in reverse.overridden_by
@@ -462,13 +469,11 @@ class TestPathKeyedMethods:
             ("Base", "Base.lvclass:run.vi"),
             ("Child", "Child.lvclass:run.vi"),
         ):
-            key = f"/p/{cls}/run.vi"
-            g._vi_nodes[key] = set()
+            key = _add_method(g, f"{cls}.lvclass", "run.vi", key=f"/p/{cls}/run.vi")
             g._vi_display_names[key] = qname
-            g._dep_graph.add_node(key)
-            g._dep_graph.add_edge(f"{cls}.lvclass", key, rel="owns")
-        g._dep_graph.add_node("/p/Base/gone.vi")
-        g._dep_graph.add_edge("Base.lvclass", "/p/Base/gone.vi", rel="owns")
+        _add_method(
+            g, "Base.lvclass", "gone.vi", key="/p/Base/gone.vi", documented=False
+        )
         return g
 
     def test_class_page_methods_are_the_owned_loaded_vis(self):

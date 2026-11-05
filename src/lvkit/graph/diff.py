@@ -2265,8 +2265,7 @@ def diff_uid(
     TEXT report (both the concise default and ``--verbose`` -- see
     ``format_diff``/``_netlist_diff``).
     """
-    va = graph_a.resolve_vi_name(vi_name_a)
-    vb = graph_b.resolve_vi_name(vi_name_b)
+    va, vb = vi_name_a, vi_name_b
 
     a: dict[str, _ElemInfo] = {}
     b: dict[str, _ElemInfo] = {}
@@ -3172,8 +3171,7 @@ def format_diff(
     ``docs/reference/netlist.md``); Signature stays verbose-only, so its rows
     are filtered out of the concise tier here.
     """
-    va = graph_a.resolve_vi_name(vi_name_a)
-    vb = graph_b.resolve_vi_name(vi_name_b)
+    va, vb = vi_name_a, vi_name_b
     cmap = diff_uid(graph_a, graph_b, va, vb)
 
     rows = _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=verbose)
@@ -3220,8 +3218,7 @@ def diff_to_dict(
     a separate top-level ``"signature"``/``"properties"``/``"health"`` array
     (JSON always includes all three, unlike the text report's verbose-only
     gating of Signature)."""
-    va = graph_a.resolve_vi_name(vi_name_a)
-    vb = graph_b.resolve_vi_name(vi_name_b)
+    va, vb = vi_name_a, vi_name_b
     result = diff_uid(graph_a, graph_b, va, vb).to_dict()
     result["before"] = {"name": graph_a.vi_display_name(va), "path": va}
     result["after"] = {"name": graph_b.vi_display_name(vb), "path": vb}
@@ -3244,8 +3241,7 @@ def netlist_diff_rows(
     map exactly like ``format_diff`` does, then returns ``_netlist_diff``'s
     rows unrendered -- Property/Health/Signature rows included alongside
     every other kind (no separate metadata-rows pass any more)."""
-    va = graph_a.resolve_vi_name(vi_name_a)
-    vb = graph_b.resolve_vi_name(vi_name_b)
+    va, vb = vi_name_a, vi_name_b
     cmap = diff_uid(graph_a, graph_b, va, vb)
     return _netlist_diff(graph_a, graph_b, va, vb, cmap, detailed=detailed)
 

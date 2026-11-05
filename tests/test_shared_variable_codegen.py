@@ -19,6 +19,7 @@ from lvkit.graph.models import (
     VIContext,
     Wire,
 )
+from lvkit.graph.type_records import NamedRecord, TypeRecords
 from lvkit.models import FPTerminal, LVType, LVTypeKind, SharedVariableKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
@@ -97,9 +98,18 @@ def package_graph(vis) -> InMemoryVIGraph:
     """One graph holding all of ``vis``, with the library the nodes name loaded."""
     graph = InMemoryVIGraph()
     graph._dep_graph.add_node(LIBRARY_KEY)
-    graph._qname_to_keys[LIBRARY.qualified_name] = [LIBRARY_KEY]
     for name, context, node in vis:
         build_graph(context, name, [node], graph)
+        graph._dep_graph.add_node(
+            name,
+            type_records=TypeRecords(
+                owners=(),
+                records=(
+                    NamedRecord(LIBRARY.qualified_name, None, LIBRARY_KEY, True),
+                ),
+                nested=(),
+            ),
+        )
     return graph
 
 

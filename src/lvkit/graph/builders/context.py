@@ -49,9 +49,6 @@ class GraphBuildContext:
     def qid(self, uid: str) -> str:
         return self.mixin._qid(self.vi_name, uid)
 
-    def resolve_vi_name(self, name: str) -> str:
-        return self.mixin.resolve_vi_name(name)
-
     @property
     def graph(self) -> Any:
         return self.mixin._graph
@@ -72,4 +69,4 @@ class GraphBuildContext:
         )
 
     def enrich_type(self, parsed_type: Any) -> Any:
-        return self.mixin._enrich_type(parsed_type)
+        return self.mixin._enrich_type(parsed_type, self.vi_name)

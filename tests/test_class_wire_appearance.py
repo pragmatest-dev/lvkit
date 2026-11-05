@@ -18,9 +18,10 @@ import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import LVType, LVTypeKind, WireLineStyle
+from lvkit.models import WireLineStyle
 from lvkit.render import render_vi
 from lvkit.structure import parse_lvclass
+from tests.helpers import vi_key
 
 AF_ROOT = Path(".lvkit/cache/samples/actor-framework/Core/ActorFramework")
 JKI_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
@@ -67,15 +68,24 @@ def test_no_pen_is_none() -> None:
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), LoadMode.MINIMAL, layout=True)
-    return graph, graph.resolve_vi_name(vi_path.name)
+    return graph, vi_key(graph, vi_path.name)
 
 
 def test_graph_resolves_qualified_classname() -> None:
-    """get_class_wire_style resolves the library-qualified classname a wire
-    actually carries (``Actor Framework.lvlib:Actor.lvclass``) to the class's
-    own style."""
+    """The library-qualified classname a wire actually carries
+    (``Actor Framework.lvlib:Actor.lvclass``) is tied to the class file, whose
+    own style the wire has."""
     graph, vi_name = _load(ACTOR_METHOD)
-    style = graph.get_class_wire_style("Actor Framework.lvlib:Actor.lvclass", vi_name)
+    ctx = graph.get_vi_context(vi_name)
+    actor = next(
+        t.lv_type
+        for t in (*ctx.inputs, *ctx.outputs)
+        if t.lv_type is not None
+        and t.lv_type.classname == "Actor Framework.lvlib:Actor.lvclass"
+    )
+    class_key = graph.class_type_key(actor)
+    assert class_key is not None
+    style = graph.class_wire_style(class_key)
     assert style is not None
     assert style.color == "#006CFF"
 
@@ -129,23 +139,14 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
     prepend ConfigurableActor's own, and the wire style is Actor's own pen."""
     graph = InMemoryVIGraph()
     graph.set_library_roots(vilib_root=AF_ROOT.parent)
-    graph.load_lvclass(
+    key = graph.load_lvclass(
         CONFIG_ACTOR_CLASS,
         LoadMode.MINIMAL,
     )
 
     # A Bundle/Unbundle By Name counts the wire's own class's fields only.
-    own = graph.get_class_fields("ConfigurableActor.lvclass")
+    own = graph.get_class_fields(key)
     assert own is not None and len(own) == 6
-    key = graph.class_type_key(
-        LVType(
-            kind=LVTypeKind.PRIMITIVE,
-            underlying_type="Refnum",
-            ref_type="UDClassInst",
-            classname="ConfigurableActor.lvclass",
-        )
-    )
-    assert key is not None
     fields = graph.class_fields_with_inherited(key)
     field_names = [f.name for f in fields]
     own_fields = [
@@ -160,7 +161,7 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
     assert field_names[-len(own_fields) :] == own_fields  # own fields last
     assert field_names[: len(field_names) - len(own_fields)]  # parent fields prepended
 
-    style = graph.get_class_wire_style("ConfigurableActor.lvclass")
+    style = graph.class_wire_style(key)
     assert style is not None
     assert style.color == "#006CFF"  # Actor's own pen, inherited
 
@@ -173,12 +174,10 @@ def test_in_repo_same_tree_parent_still_resolves() -> None:
     Bundle/Unbundle By Name on its wire counts its own fields only."""
     lvclass_path = JKI_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
     graph = InMemoryVIGraph()
-    graph.load_lvclass(lvclass_path, LoadMode.MINIMAL)
-    own = graph.get_class_fields("TextTestRunner.lvclass")
+    key = graph.load_lvclass(lvclass_path, LoadMode.MINIMAL)
+    own = graph.get_class_fields(key)
     assert own is not None
     assert [f.name for f in own] == ["stream", "descriptions", "verbosity"]
-    key = graph._dep_key_for_ref("TextTestRunner.lvclass")  # noqa: SLF001
-    assert key is not None
     fields = graph.class_fields_with_inherited(key)
     assert [f.name for f in fields] == [
         "publicEvents",

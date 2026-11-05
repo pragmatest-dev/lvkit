@@ -19,6 +19,10 @@ from typing import Any
 
 from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
+from lvkit.codegen.ast_optimizer import (
+    remove_duplicate_imports,
+    remove_unused_imports,
+)
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
     to_function_name,
@@ -35,11 +39,12 @@ from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
-from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
+from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
@@ -160,30 +165,44 @@ def create_import_resolver(
 
     def shown(key: str) -> str | None:
         """The path a message names the VI at ``key`` by: the one that places its
-        module (project-relative, or the installation path its caller recorded)."""
+        module (project-relative, or the installation path its caller recorded);
+        a missing VI with no recorded path (a class method no class lists) as
+        ``key_label`` shows it."""
+        if (
+            graph is not None
+            and graph.is_stub(key)
+            and graph.recorded_path(key) is None
+        ):
+            return graph.key_label(key)
         if layout is not None:
             return layout.display_path(key)
         return graph.recorded_path(key) if graph is not None else None
+
+    def missing(name: str, key: str) -> MissingVIError:
+        """The gap for the VI at ``key`` that was not found. An instance saved
+        inside its caller has no file of its own: the message names the VI as the
+        caller labels it and says where it is kept, never the internal key."""
+        holder = graph.embedding_vi(key) if graph is not None else None
+        if holder is not None:
+            where = shown(holder) or Path(holder).name
+            return MissingVIError(
+                name,
+                None,
+                f"it is saved inside {where} (an Express VI or other "
+                "embedded instance) and has no file of its own",
+            )
+        return MissingVIError(
+            name, shown(key), graph.stub_reason(key) if graph is not None else None
+        )
 
     def locate_by_name(vi_name: str) -> Path:
         """The output file of a VI known only by name: a vi.lib VI, or a VI
         reference constant (which names its VI by name). A call of a project VI
         is never found this way -- it is found by its key, and a call that has
         none stops code generation first."""
-        qualified = vi_name
-        if graph is not None:
-            try:
-                qualified = graph.resolve_vi_name(vi_name) or vi_name
-            except AmbiguousVIReferenceError:
-                pass
-        for key in (qualified, vi_name):
-            if key in vi_paths:
-                return found(key, vi_name)
-        raise MissingVIError(
-            vi_name,
-            shown(qualified),
-            graph.stub_reason(qualified) if graph is not None else None,
-        )
+        if vi_name in vi_paths:
+            return found(vi_name, vi_name)
+        raise missing(vi_name, vi_name)
 
     def found(key: str, name: str) -> Path:
         """The output file of the VI at ``key``; a VI the graph holds only as a
@@ -194,14 +213,17 @@ def create_import_resolver(
             and vilib_resolver.has_python(graph.recorded_path(key))
         )
         if graph is not None and graph.is_stub(key) and not implemented:
-            raise MissingVIError(name, shown(key), graph.stub_reason(key))
+            raise missing(name, key)
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
         """The output file of the VI a call names: the one generated for
         ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
-        if callee_key is not None and callee_key in vi_paths:
-            return found(callee_key, subvi_name)
+        if callee_key is not None:
+            if callee_key in vi_paths:
+                return found(callee_key, subvi_name)
+            if graph is not None and graph.is_stub(callee_key):
+                raise missing(subvi_name, callee_key)
         return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
@@ -262,11 +284,10 @@ def create_import_resolver(
         dotted = f"{package}.{module}" if package else module
         return f"from {dots}{dotted} import {', '.join(sorted(names))}"
 
-    def type_import(type_ref: str, scope: str | None) -> NameImport | None:
-        lookup_key = scope or caller_key
-        if graph is None or lookup_key is None:
+    def type_import(lv_type: LVType) -> NameImport | None:
+        if graph is None:
             return None
-        key = graph.type_key(type_ref, lookup_key)
+        key = graph.type_key(lv_type)
         if key is None or key not in vi_paths:
             return None
         return node_import(key)
@@ -405,10 +426,10 @@ def _generate_polymorphic_module(
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
-        "from pathlib import Path",
-        "from typing import Any, NamedTuple",
         "",
     ]
+    # The header's imports end here; the variants' own imports go in at it.
+    header_end = 2
 
     # Generate each variant
     variant_funcs: list[str] = []
@@ -503,9 +524,9 @@ def _generate_polymorphic_module(
     # Hoist any imports the variant bodies referenced into the shared header
     # (after the fixed imports, before the blank line separating header/body).
     if variant_imports:
-        lines[4:4] = sorted(variant_imports)
+        lines[header_end:header_end] = sorted(variant_imports)
     if variant_annotation_imports:
-        lines[4:4] = [
+        lines[header_end:header_end] = [
             ast.unparse(stmt)
             for stmt in build_type_checking_block(variant_annotation_imports)
         ]
@@ -522,6 +543,7 @@ def _generate_polymorphic_module(
         returns = variant_result_classes[0]
     elif all_outputs:
         returns = "Any"
+        lines.insert(header_end, "from typing import Any")
     else:
         returns = "None"
 
@@ -575,8 +597,10 @@ def _generate_polymorphic_module(
     else:
         lines.append("    pass")
 
-    lines.append("")
-    return "\n".join(lines)
+    module = remove_unused_imports(
+        remove_duplicate_imports(ast.parse("\n".join(lines)))
+    )
+    return ast.unparse(module) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -690,10 +714,20 @@ def generate_python(
     reached = graph.keys_reached_without_entering(
         catalog_gives_python, graph.keys_loaded_from(input_path)
     )
+    # A class's private-data control is written as the class itself (its
+    # fields are the class's): it has no module of its own.
+    conversion_order = graph.get_conversion_order()
+    private_data = {
+        control
+        for key in conversion_order
+        if graph.is_class(key) and (control := graph.class_private_data_key(key))
+    }
     order = [
         key
-        for key in graph.get_conversion_order()
-        if graph.node_type(key) in _MODULE_NODE_TYPES and key in reached
+        for key in conversion_order
+        if graph.node_type(key) in _MODULE_NODE_TYPES
+        and key in reached
+        and key not in private_data
     ]
     print(f"\nConversion order ({len(order)} VIs):")
 

@@ -231,8 +231,8 @@ class TestResolveStaysInTheVI:
 
 
 class TestTypeReferenceResolution:
-    """A class or typedef a VI names is the one of its own dependencies with that
-    name, even where the graph also holds a placeholder keyed by the bare name."""
+    """A class or typedef is the file its type's ``file_key`` names, even where the
+    graph also holds a placeholder keyed by the bare name."""
 
     @staticmethod
     def _graph() -> InMemoryVIGraph:
@@ -251,19 +251,29 @@ class TestTypeReferenceResolution:
         graph._stubs.add("Lib.lvlib:Foo.lvclass")
         return graph
 
-    def test_the_class_is_the_callers_dependency_not_the_name_placeholder(self):
-        graph = self._graph()
-        key = graph.type_key("Lib.lvlib:Foo.lvclass", "/p/caller.vi")
-        assert key == "/p/Foo.lvclass"
+    @staticmethod
+    def _class_type(file_key: str | None) -> LVType:
+        return LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            ref_type="UDClassInst",
+            classname="Lib.lvlib:Foo.lvclass",
+            file_key=file_key,
+        )
 
-    def test_class_fields_come_from_the_callers_dependency(self):
+    def test_the_class_is_the_file_the_type_names_not_the_name_placeholder(self):
         graph = self._graph()
-        fields = graph.get_class_fields("Lib.lvlib:Foo.lvclass", "/p/caller.vi")
+        assert graph.type_key(self._class_type("/p/Foo.lvclass")) == "/p/Foo.lvclass"
+
+    def test_class_fields_come_from_the_file_the_type_names(self):
+        graph = self._graph()
+        fields = graph.get_type_fields(self._class_type("/p/Foo.lvclass"))
         assert [f.name for f in fields or []] == ["a"]
 
-    def test_a_name_no_dependency_carries_is_not_a_type(self):
+    def test_a_type_no_record_tied_to_a_file_is_not_a_type(self):
         graph = self._graph()
-        assert graph.type_key("Other.lvclass", "/p/caller.vi") is None
+        assert graph.type_key(self._class_type(None)) is None
+        assert graph.get_type_fields(self._class_type(None)) is None
 
 
 class TestSameDerivedName:
@@ -274,7 +284,9 @@ class TestSameDerivedName:
 
     @classmethod
     def _enum(cls, owner: str) -> LVType:
-        return _enum(f"{owner}:Method--enum.ctl", setUp=0, tearDown=1)
+        lv_type = _enum(f"{owner}:Method--enum.ctl", setUp=0, tearDown=1)
+        lv_type.file_key = f"/p/{owner}/Method--enum.ctl"
+        return lv_type
 
     @classmethod
     def _module(cls, tmp_path: Path) -> tuple[str, CodeGenContext]:
