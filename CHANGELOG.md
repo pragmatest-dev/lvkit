@@ -3,7 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **A vi.lib / user.lib file is placed and shown by its library path wherever it sits** — a user.lib inside a git repository or a project generates `userlib.*` modules, gets `user.lib` docs pages and shows `<userlib>/…` in lvnet `uses :` paths and messages; a file outside the project goes under `external.<its own repository or project folder>` with no folders above it, and a git repository at or above the home folder is never a project.
+- **A vi.lib / user.lib file is placed and shown by its library path wherever it sits** — a user.lib inside a git repository or a project generates `userlib.*` modules, gets `user.lib` docs pages and shows `<userlib>/…` in lvnet `uses :` paths and messages; a file outside the project goes under `external.<its own repository or project folder>` with no folders above it, and no project is looked for at the home folder or above it, whose name is never shown.
 - **Generated class methods import only what they read** — an import inside a method that the method never reads, or that the module already makes, is dropped (measurement-plugin classes: 8 unused imports gone).
 - **A class's methods are what its file lists, in every view** — describe's `## Class` appears for every method however the class was loaded, and lists its ancestors' public and protected methods as `inherited from <Ancestor>` and an override as `overrides <Ancestor>`.
 - **A VI that claims a class or library whose file does not list it is not a member, and is a note in LabVIEW's words (the run stays Complete)** — `this VI claims to be part of …, but that class does not claim to own this VI`; a dispatch call to it is a missing method.

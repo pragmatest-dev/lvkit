@@ -22,7 +22,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
-from .cache_paths import project_root
+from .cache_paths import folder_name, project_root
 from .library_folders import library_location
 from .llb_origin import llb_container_of
 
@@ -313,7 +313,7 @@ class RunSettings:
             base = self._roots[folder]
         if resolved.is_relative_to(base):
             rel = resolved.relative_to(base).as_posix()
-            return base.name if rel == "." else rel
+            return (folder_name(base) or rel) if rel == "." else rel
         return resolved.name
 
     def announce(self, problem: Problem, may_stop: bool = True) -> None:

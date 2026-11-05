@@ -43,12 +43,18 @@ def _file(path: Path, data: bytes) -> Path:
     return path
 
 
+@pytest.fixture(autouse=True)
+def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The test folder is the home folder: no folder above it is searched."""
+    home = tmp_path.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+
+
 def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     tmp_path: Path,
 ) -> None:
-    for copy in ("copy1", "copy2"):
-        (tmp_path / copy).mkdir()
-        (tmp_path / copy / f"{copy}.lvproj").write_text("")
+    """Two unmarked trees: both files are labelled ``x.dll`` (each its own
+    folder's), so the message numbers them in the order they were kept."""
     p = str(tmp_path / "copy1" / "A" / "P.vi")
     q = str(tmp_path / "copy2" / "A" / "Q.vi")
     copies, _ = _copies(tmp_path, {p: "<vilib>/A/P.vi", q: "<vilib>/A/Q.vi"}, p, q)
@@ -61,11 +67,9 @@ def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     message = str(caught.value)
     assert "'vilib/a/x.dll'" in message
     assert "P.vi" in message and "Q.vi" in message
-    # Equal labels (``A/x.dll``) are told apart by their own project folders,
-    # and no absolute path is shown.
-    assert "'copy1/A/x.dll'" in message
-    assert "'copy2/A/x.dll'" in message
-    assert str(tmp_path) not in message
+    assert "'x.dll' (1st copy, named by 'P.vi')" in message
+    assert "'x.dll' (2nd copy, named by 'Q.vi')" in message
+    assert str(tmp_path) not in message and tmp_path.name not in message
 
 
 def test_two_folders_whose_names_transform_alike_stop_generation(
@@ -130,6 +134,28 @@ def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
     assert "'<vilib>/A/x.dll'" in message and "'A/x.dll'" in message
     assert "someone" not in message and "opt" not in message
     assert str(tmp_path) not in message
+
+
+def test_a_vi_and_library_directly_in_the_home_folder_show_no_home_name(
+    tmp_path: Path,
+) -> None:
+    """Directly in the home folder, with no project marker: the module is
+    ``external.helper``, the library ``external/x.dll``, and a clash shows no
+    home folder name."""
+    home = tmp_path.resolve()
+    vi = str(home / "Helper.vi")
+    copies, _ = _copies(tmp_path, {}, vi)
+    assert copies.layout.places[vi].parts == ("external", "helper")
+    upper = _file(home / "X.dll", b"1")
+    lower = _file(home / "x.dll", b"2")
+    _module(copies, vi, ["", "X.dll"], ("X.dll",), upper)
+    _module(copies, vi, ["", "x.dll"], ("x.dll",), lower)
+    with pytest.raises(CopyCollisionError) as caught:
+        copies.check()
+    message = str(caught.value)
+    assert "'X.dll' (named by 'Helper.vi')" in message
+    assert "'external/x.dll'" in message
+    assert home.name not in message and str(home) not in message
 
 
 def test_a_module_that_is_not_written_copies_nothing(tmp_path: Path) -> None:

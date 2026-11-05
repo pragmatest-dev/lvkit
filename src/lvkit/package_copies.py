@@ -23,9 +23,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import own_project_folder
 from lvkit.graph import InMemoryVIGraph
-from lvkit.module_layout import ModuleCollisionError, ModuleLayout
+from lvkit.module_layout import ModuleCollisionError, ModuleLayout, ordinals
 
 
 class CopyCollisionError(ModuleCollisionError):
@@ -97,24 +96,21 @@ class PackageCopies:
                 self._clashes.append(self._clash(held, copy))
 
     def _clash(self, held: _Copy, copy: _Copy) -> str:
-        first, second = self._distinct(held.source, copy.source)
+        """Both files by the label every view gives a file (``vi_label``:
+        project-relative, or ``<vilib>/...``, never an absolute path), numbered
+        in the order they were kept when the labels are the same."""
+        labels = (self._graph.vi_label(held.source), self._graph.vi_label(copy.source))
+        numbers = ordinals(*labels, "copy")
+        said = [
+            f"{label!r} ({f'{number}, ' if number else ''}named by "
+            f"{self._graph.key_label(c.vi_key)!r})"
+            for label, number, c in zip(
+                labels, numbers or (None, None), (held, copy), strict=True
+            )
+        ]
         return (
-            f"{first!r} (named by {self._graph.key_label(held.vi_key)!r}) and "
-            f"{second!r} (named by {self._graph.key_label(copy.vi_key)!r}) are "
-            f"both copied to {'/'.join(copy.parts)!r} in the package."
-        )
-
-    def _distinct(self, first: Path, second: Path) -> tuple[str, str]:
-        """The two files as a message names them: each by the label every view
-        gives a file (``vi_label``: project-relative, or ``<vilib>/...``); when
-        the labels are the same, each after the name of its own project folder
-        (``own_project_folder``). Never an absolute path."""
-        labels = (self._graph.vi_label(first), self._graph.vi_label(second))
-        if labels[0] != labels[1]:
-            return labels
-        return (
-            f"{own_project_folder(first).name}/{labels[0]}",
-            f"{own_project_folder(second).name}/{labels[1]}",
+            f"{said[0]} and {said[1]} are both copied to "
+            f"{'/'.join(copy.parts)!r} in the package."
         )
 
     def write(self) -> None:

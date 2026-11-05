@@ -30,7 +30,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import own_project_folder
+from lvkit.cache_paths import folder_name, own_project_folder
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
@@ -81,11 +81,20 @@ class _Location:
 
 def _outside_project(key: str) -> _Location:
     """``key`` below ``external`` and the name of the project folder it belongs
-    to (nothing when that folder has no name, a drive root)."""
+    to (``folder_name``: nothing for the home folder or above it, or a drive
+    root, so ``external.helper``)."""
     folder = own_project_folder(key)
     below = Path(key).resolve().relative_to(folder).parts
-    tree = (EXTERNAL_PACKAGE, folder.name) if folder.name else (EXTERNAL_PACKAGE,)
+    name = folder_name(folder)
+    tree = (EXTERNAL_PACKAGE, name) if name else (EXTERNAL_PACKAGE,)
     return _Location(tree, below)
+
+
+def ordinals(first: str, second: str, what: str) -> tuple[str, str] | None:
+    """How a message tells apart two things it would name alike (``first`` and
+    ``second``, in the order they were found): ``1st <what>`` and ``2nd <what>``;
+    None when the names already differ."""
+    return (f"1st {what}", f"2nd {what}") if first == second else None
 
 
 def _packages(folders: Sequence[str]) -> tuple[str, ...]:
@@ -255,9 +264,22 @@ class ModuleLayout:
 
     def _shown(self, key: str) -> str:
         """A key as a message shows it: a file below the project by its
-        project-relative path, never an absolute one."""
+        project-relative path, any other as the graph labels it
+        (``key_label``), never by an absolute path."""
         parts = _below(key, self._root) if os.path.isabs(key) else None
-        return "/".join(parts) if parts else key
+        return "/".join(parts) if parts else self._graph.key_label(key)
+
+    def _pair(self, first: str, second: str) -> tuple[str, str]:
+        """Two keys as a message shows them side by side, numbered when they
+        would show alike (``ordinals``)."""
+        shown = (self._shown(first), self._shown(second))
+        numbers = ordinals(*shown, "file")
+        if numbers is None:
+            return repr(shown[0]), repr(shown[1])
+        return (
+            f"{shown[0]!r} ({numbers[0]})",
+            f"{shown[1]!r} ({numbers[1]})",
+        )
 
     def _check_unique(self) -> None:
         for key, place in self.places.items():
@@ -270,9 +292,9 @@ class ModuleLayout:
         owner: dict[tuple[str, ...], str] = {}
         for key, place in self.places.items():
             if place.parts in owner:
+                first, second = self._pair(owner[place.parts], key)
                 raise ModuleCollisionError(
-                    f"{self._shown(owner[place.parts])!r} and {self._shown(key)!r} "
-                    "both generate the module "
+                    f"{first} and {second} both generate the module "
                     f"{'.'.join(place.parts)}."
                 )
             owner[place.parts] = key
@@ -280,8 +302,9 @@ class ModuleLayout:
             for depth in range(1, len(place.parts)):
                 other = owner.get(place.parts[:depth])
                 if other is not None:
+                    first, second = self._pair(other, key)
                     raise ModuleCollisionError(
-                        f"{self._shown(other)!r} generates the module "
+                        f"{first} generates the module "
                         f"{'.'.join(place.parts[:depth])}, which is also the "
-                        f"package of {self._shown(key)!r}."
+                        f"package of {second}."
                     )

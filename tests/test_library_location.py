@@ -260,3 +260,18 @@ def test_a_method_stub_of_a_known_class_is_named_by_the_class(project: Path) -> 
         class_member=(str(cls), "Do.vi"),
     )  # fmt: skip
     assert graph.key_label(key) == "Classes/Thing.lvclass:Do.vi"
+
+
+def test_a_vi_directly_in_the_home_folder_has_a_page_with_no_home_name(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path.resolve()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    vi = home / "Helper.vi"
+    graph = _graph(project, str(vi))
+    graph._source_paths[str(vi)] = vi  # noqa: SLF001
+    assert page_names(graph, [str(vi)], project)[str(vi)] == PageName(
+        "external", "Helper"
+    )
+    assert _index_sections(graph, [str(vi)], project) == {str(vi): "external"}
+    assert graph.vi_label(vi) == "Helper.vi"

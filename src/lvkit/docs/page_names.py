@@ -19,9 +19,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import own_project_folder
+from lvkit.cache_paths import folder_name, own_project_folder
 from lvkit.graph import InMemoryVIGraph
 from lvkit.llb_origin import llb_container_of
+from lvkit.module_layout import EXTERNAL_PACKAGE
 from lvkit.vi_files import strip_vi_extension
 
 PROJECT_GROUP = "Project"
@@ -94,7 +95,8 @@ def _path_name(
     if own.is_relative_to(root.resolve()):
         return named(PROJECT_GROUP, own.relative_to(root.resolve()).parts)
     outside = own_project_folder(own)
-    return named(outside.name, own.relative_to(outside).parts)
+    group = folder_name(outside) or EXTERNAL_PACKAGE
+    return named(group, own.relative_to(outside).parts)
 
 
 def page_names(

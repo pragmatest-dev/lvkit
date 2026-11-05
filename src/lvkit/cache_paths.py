@@ -281,14 +281,14 @@ def store_root(path: Path | str) -> Path:
 def project_root(path: Path | str) -> Path:
     """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
     it holding a ``.lvproj`` file, a ``.git`` repository or a ``.lvkit`` project
-    store; the folder itself when there is none. A ``.git`` in the user's home
-    folder or above it does not count: a home folder kept in git is not a project,
-    and its name is the user's. The base of every project-relative name a user
-    sees: a generated module's path, a documentation page, a warning's VI.
-    (``store_root`` answers a different question: where lvkit keeps what it
-    caches.)"""
+    store; the folder itself when there is none. The search never reaches the
+    user's home folder or a folder above it (``_searched``): a home folder kept in
+    git, or holding a ``.lvproj``, is not a project, and its name is the user's.
+    The base of every project-relative name a user sees: a generated module's
+    path, a documentation page, a warning's VI. (``store_root`` answers a
+    different question: where lvkit keeps what it caches.)"""
     own = _own_folder(path)
-    return next((f for f in [own, *own.parents] if _project_marker(f)), own)
+    return next((f for f in _searched(own) if _project_marker(f)), own)
 
 
 def own_project_folder(path: Path | str) -> Path:
@@ -296,12 +296,24 @@ def own_project_folder(path: Path | str) -> Path:
     it under ``external`` and names its documentation page: the nearest git
     repository above it (one ``.lvproj`` folder inside it is not the whole tree a
     file belongs to), else the nearest folder holding a ``.lvproj`` file or a
-    ``.lvkit`` project store, else the file's own folder. A ``.git`` in the user's
-    home folder or above it does not count, as for ``project_root``."""
+    ``.lvkit`` project store, else the file's own folder; searched as for
+    ``project_root``, never at the home folder or above it. Its name is shown
+    only by ``folder_name``."""
     own = _own_folder(path)
-    folders = [own, *own.parents]
-    repository = next((f for f in folders if _git_repository(f)), None)
+    folders = _searched(own)
+    repository = next((f for f in folders if (f / ".git").exists()), None)
     return repository or next((f for f in folders if _project_marker(f)), own)
+
+
+def folder_name(folder: Path) -> str | None:
+    """The name ``folder`` is shown by (a module's package, a documentation page's
+    folder, a message): its own name; none for the user's home folder or a folder
+    above it, whose name is the user's or this machine's layout, nor for a drive's
+    root."""
+    resolved = folder.resolve()
+    if Path.home().resolve().is_relative_to(resolved):
+        return None
+    return resolved.name or None
 
 
 def _own_folder(path: Path | str) -> Path:
@@ -309,22 +321,22 @@ def _own_folder(path: Path | str) -> Path:
     return resolved if resolved.is_dir() else resolved.parent
 
 
-def _git_repository(folder: Path) -> bool:
-    """Whether ``folder`` is a git repository that can be a project: one in the
-    user's home folder or above it is not."""
+def _searched(own: Path) -> list[Path]:
+    """The folders a project is looked for in, nearest first: ``own`` and the
+    folders above it, up to and not including the user's home folder or any
+    folder above it."""
     home = Path.home().resolve()
-    return not home.is_relative_to(folder) and (folder / ".git").exists()
+    return [f for f in [own, *own.parents] if not home.is_relative_to(f)]
 
 
 def _project_marker(folder: Path) -> bool:
-    """Whether ``folder`` holds a ``.lvproj`` file, a git repository that can be a
-    project (``_git_repository``) or a ``.lvkit`` project store (never the global
-    ``~/.lvkit``)."""
+    """Whether ``folder`` holds a ``.lvproj`` file, a ``.git`` repository or a
+    ``.lvkit`` project store (never the global ``~/.lvkit``)."""
     store = folder / project_store.PROJECT_STORE_DIR
     global_store = project_store.global_home().resolve()
     return (
         any(folder.glob("*.lvproj"))
-        or _git_repository(folder)
+        or (folder / ".git").exists()
         or (store.is_dir() and store.resolve() != global_store)
     )
 

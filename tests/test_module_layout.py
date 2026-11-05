@@ -16,6 +16,7 @@ from lvkit.module_layout import (
     ModulePlace,
     UnplacedVIError,
 )
+from lvkit.run_report import RunSettings
 
 
 def _graph(*keys: str) -> InMemoryVIGraph:
@@ -384,3 +385,54 @@ def test_an_unplaceable_vi_fails_only_what_imports_it(tree: _Tree) -> None:
     assert list(layout.unplaced) == ["Missing.vi"]
     with pytest.raises(UnplacedVIError, match="Missing.vi"):
         layout.place_of_name("Missing.vi")
+
+
+def test_a_vi_directly_in_the_home_folder_is_placed_with_no_folder_name(
+    tree: _Tree,
+) -> None:
+    """``tree`` makes the test folder the home folder: a VI directly in it, with
+    no project marker, is ``external.helper``, its home folder never named."""
+    key = tree.key("Helper.vi", under=tree.base)
+    layout = _layout(tree.key("a.vi"), key, root=tree.proj)
+    assert layout.places[key] == ModulePlace(("external",), "helper")
+    assert tree.base.name not in layout.display_path(key)
+
+
+def test_two_unmarked_outside_files_alike_stop_generation_numbered(
+    tree: _Tree,
+) -> None:
+    first = tree.key("c1", "A", "P.vi", under=tree.base)
+    second = tree.key("c2", "A", "P.vi", under=tree.base)
+    with pytest.raises(ModuleCollisionError) as caught:
+        _layout(tree.key("x.vi"), first, second, root=tree.proj)
+    message = str(caught.value)
+    assert "'P.vi' (1st file) and 'P.vi' (2nd file)" in message
+    assert "external.a.p" in message
+    assert str(tree.base) not in message
+
+
+def test_two_files_directly_in_the_home_folder_alike_stop_generation(
+    tree: _Tree,
+) -> None:
+    first = tree.key("Helper.vi", under=tree.base)
+    second = tree.key("helper.vi", under=tree.base)
+    with pytest.raises(ModuleCollisionError) as caught:
+        _layout(tree.key("x.vi"), first, second, root=tree.proj)
+    message = str(caught.value)
+    assert "'Helper.vi' and 'helper.vi' both generate the module" in message
+    assert tree.base.name not in message
+
+
+def test_an_input_vi_directly_in_the_home_folder_shows_no_home_name(
+    tree: _Tree,
+) -> None:
+    """With no marker, its project is the home folder only as the base of paths:
+    the module is the VI's own name, and the folder is never named."""
+    vi = tree.base / "Helper.vi"
+    vi.write_text("")
+    assert project_root(vi) == tree.base
+    layout = _layout(str(vi), root=project_root(vi))
+    assert layout.places[str(vi)] == ModulePlace((), "helper")
+    settings = RunSettings(root=project_root(vi))
+    assert settings.label(vi) == "Helper.vi"
+    assert settings.label(tree.base) == "."
