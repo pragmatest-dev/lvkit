@@ -16,10 +16,8 @@ from .vi_files import VI_EXTENSIONS, is_vi_file
 class InputKinds:
     """The inputs a command takes besides a VI file (``.vi``, ``.vim``, ``.vit``):
     the other file ``extensions`` (lower case), a VI's block-diagram heap
-    (``*_BDHb.xml``) when ``heaps``, a folder when ``folders``; ``shown`` names
-    them in the usage message."""
+    (``*_BDHb.xml``) when ``heaps``, a folder when ``folders``."""
 
-    shown: str
     extensions: tuple[str, ...] = ()
     folders: bool = False
     heaps: bool = True
@@ -32,6 +30,19 @@ class InputKinds:
             or (self.heaps and path.name.endswith("_BDHb.xml"))
             or path.suffix.lower() in self.extensions
         )
+
+    @property
+    def shown(self) -> str:
+        """What the usage message names: every input the command takes."""
+        names = [
+            f"a VI file ({', '.join(VI_EXTENSIONS)})",
+            *(f"a {extension}" for extension in self.extensions),
+            *(["a block-diagram _BDHb.xml"] if self.heaps else []),
+            *(["a folder"] if self.folders else []),
+        ]
+        if len(names) == 1:
+            return names[0]
+        return ", ".join(names[:-1]) + f" or {names[-1]}"
 
 
 def input_usage_error(path: Path, kinds: InputKinds) -> int | None:
@@ -46,24 +57,11 @@ def input_usage_error(path: Path, kinds: InputKinds) -> int | None:
     return None
 
 
-_VI = f"a VI file ({', '.join(VI_EXTENSIONS)})"
-
 # The inputs of each command that takes a path.
-DESCRIBE_INPUTS = InputKinds(f"{_VI} or a .ctl", (".ctl",))
-DIFF_INPUTS = InputKinds(_VI)
-RENDER_INPUTS = InputKinds(f"{_VI}, a .ctl or a folder", (".ctl",), folders=True)
-VISUALIZE_INPUTS = InputKinds(
-    f"{_VI}, a .lvclass, a .lvlib or a folder", (".lvclass", ".lvlib"), folders=True
-)
-DOCS_INPUTS = InputKinds(
-    f"{_VI}, a .ctl, a .lvclass, a .lvlib or a folder",
-    (".ctl", ".lvclass", ".lvlib"),
-    folders=True,
-    heaps=False,
-)
+DESCRIBE_INPUTS = InputKinds((".ctl",))
+DIFF_INPUTS = InputKinds()
+RENDER_INPUTS = InputKinds((".ctl",), folders=True)
+VISUALIZE_INPUTS = InputKinds((".lvclass", ".lvlib"), folders=True)
+DOCS_INPUTS = InputKinds((".ctl", ".lvclass", ".lvlib"), folders=True, heaps=False)
 # generate, and unresolved (which runs generate).
-GENERATE_INPUTS = InputKinds(
-    f"{_VI}, a .ctl, a .lvclass, a .lvlib, a .llb or a folder",
-    (".ctl", ".lvclass", ".lvlib", ".llb"),
-    folders=True,
-)
+GENERATE_INPUTS = InputKinds((".ctl", ".lvclass", ".lvlib", ".llb"), folders=True)

@@ -10,17 +10,71 @@ from pathlib import Path
 import pytest
 
 from lvkit import cli
+from lvkit.cli_input import (
+    DESCRIBE_INPUTS,
+    DIFF_INPUTS,
+    DOCS_INPUTS,
+    GENERATE_INPUTS,
+    RENDER_INPUTS,
+    VISUALIZE_INPUTS,
+    input_usage_error,
+)
 
 _VI = "a VI file (.vi, .vim, .vit)"
+_HEAP = "a block-diagram _BDHb.xml"
 _TAKES = {
-    "describe": f"{_VI} or a .ctl",
-    "generate": f"{_VI}, a .ctl, a .lvclass, a .lvlib, a .llb or a folder",
-    "unresolved": f"{_VI}, a .ctl, a .lvclass, a .lvlib, a .llb or a folder",
+    "describe": f"{_VI}, a .ctl or {_HEAP}",
+    "generate": f"{_VI}, a .ctl, a .lvclass, a .lvlib, a .llb, {_HEAP} or a folder",
+    "unresolved": f"{_VI}, a .ctl, a .lvclass, a .lvlib, a .llb, {_HEAP} or a folder",
     "docs": f"{_VI}, a .ctl, a .lvclass, a .lvlib or a folder",
-    "render": f"{_VI}, a .ctl or a folder",
-    "visualize": f"{_VI}, a .lvclass, a .lvlib or a folder",
-    "diff": _VI,
+    "render": f"{_VI}, a .ctl, {_HEAP} or a folder",
+    "visualize": f"{_VI}, a .lvclass, a .lvlib, {_HEAP} or a folder",
+    "diff": f"{_VI} or {_HEAP}",
 }
+_KINDS = {
+    "describe": DESCRIBE_INPUTS,
+    "generate": GENERATE_INPUTS,
+    "unresolved": GENERATE_INPUTS,
+    "docs": DOCS_INPUTS,
+    "render": RENDER_INPUTS,
+    "visualize": VISUALIZE_INPUTS,
+    "diff": DIFF_INPUTS,
+}
+_FOLDERS = {"generate", "unresolved", "docs", "render", "visualize"}
+_ACCEPTED = [
+    *(
+        (command, name)
+        for command in sorted(_TAKES)
+        for name in ("X.vi", "X.VIM", "X.vit")
+    ),
+    *((command, "X_BDHb.xml") for command in sorted(_TAKES) if command != "docs"),
+    *((command, "X.ctl") for command in ("describe", "docs", "generate", "render")),
+    *(
+        (command, name)
+        for command in ("docs", "generate", "visualize")
+        for name in ("X.LVCLASS", "X.lvlib")
+    ),
+    *((command, "X.llb") for command in ("generate", "unresolved")),
+    *((command, "folder/") for command in sorted(_FOLDERS)),
+]
+
+
+@pytest.mark.parametrize(("command", "name"), _ACCEPTED)
+def test_an_input_the_command_takes_passes_the_check(
+    command: str, name: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / name.rstrip("/")
+    if name.endswith("/"):
+        path.mkdir()
+    else:
+        path.write_text("")
+    assert input_usage_error(path, _KINDS[command]) is None
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("command", sorted(_TAKES))
+def test_the_usage_message_names_every_input_the_command_takes(command: str) -> None:
+    assert _KINDS[command].shown == _TAKES[command]
 
 
 def _argv(command: str, path: Path, tmp_path: Path) -> list[str]:
