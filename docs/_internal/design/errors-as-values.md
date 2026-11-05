@@ -4,7 +4,7 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
 "Decisions" and the replacements in the table below). Branch
 `feat/errors-as-values` (from `main` 0ec53ddc).
 
-**Implementation status, 2026-11-04** (head 8299a6b5):
+**Implementation status, 2026-11-04** (head 9ade5dc5):
 
 - #237's 13 later commits (polymorphic variant choice, one import per name,
   node-owned names) are on the branch; the indicator a VI keeps between calls
@@ -12,19 +12,21 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
 - Error Ring (decision 6): generated when its configuration decodes, a gap
   otherwise; identified by its library's recorded path (`XNXI`).
 - Catalog failures: Search and Replace String (a pattern `re` cannot compile:
-  42), Delete (implemented: 1430, 1, 7, 8, 6), To More Specific Class on a class
-  wire (1448).
-- Step-7 before/after on the 39 VIs, since the last run (2026-11-02 12:41):
-  lvnet terse and `-v` unchanged except Delete Recursive__ogtk, whose two
-  Delete Boolean inputs swap places (input 9 is now `confirm`, 10
-  `entire_hierarchy`); describe gains `clear_indicators_when_called` in one VI
-  and JSON in all 39 (decision 15). Generated code: 9,911 changed lines across
-  40 commits, each pattern group traced to its commit; Error Rings remove 12
-  `xNode` gaps; class Property Nodes on classes that are not loaded add gaps
-  (decision 9). 34 VIs partial (exit 3), 5 complete.
-- Suites at 8299a6b5: Linux `pytest -q` 5394 passed, 23 skipped, 1 xfailed;
+  42; a null character in a wired string: -4702), Delete (implemented: 1430, 1,
+  7, 8, 6), To More Specific Class on a class wire (1448).
+- Views: an XNode is named by its library, its terminals by their recorded
+  names; every changed view line is in `outputs/xnode_views_diff.txt`.
+- Step-7 before/after on the 39 VIs, base dd7fed8c (the 2026-11-02 run):
+  lvnet terse and `-v` unchanged except Delete Recursive__ogtk (Delete's input 9
+  is now `confirm`, 10 `entire_hierarchy`) and the XNode VIs (Main.vi,
+  run_tests.vi); describe and JSON gain `clear_indicators_when_called`
+  (decision 15). Generated code: 10,049 changed lines, each attributed to the
+  commit whose step made it, from a run at every one of the 44 source commits
+  since the base (`outputs/s7_line_attribution.txt`; 0 unexplained); the run
+  found a regression of cd6c9fb6, fixed in 9ade5dc5.
+- Suites at 9ade5dc5: Linux `pytest -q` 5402 passed, 23 skipped, 1 xfailed;
   `-m slow -n 2` 30 passed, 1 xfailed. Windows (local `C:\` clone, `uv.exe`)
-  5362 passed, 55 skipped, 1 xfailed; slow 30 passed, 1 xfailed.
+  5370 passed, 55 skipped, 1 xfailed; slow 30 passed, 1 xfailed.
 
 ## Why
 
