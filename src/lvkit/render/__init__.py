@@ -688,12 +688,6 @@ def render_vi_file_report(
     """Like :func:`render_vi_file_titled`, but also returns the problems recorded
     on the nodes of the VIs the load reached (a SubVI that cannot be read)."""
     path = Path(path)
-    vi_name_hint = (
-        path.name.replace("_BDHb.xml", ".vi")
-        if path.name.endswith("_BDHb.xml")
-        else path.name
-    )
-
     # What a failed shallow load recorded about the VIs it reached: the retry
     # starts a new graph.
     failed_attempt: list[Problem] = []
@@ -729,12 +723,12 @@ def render_vi_file_report(
     if shallow_failure is not None:
         # The degraded render succeeded: say what it lost.
         graph.record_load_failure(path, shallow_failure, ProblemStage.RENDER)
-    # Use the exact vi_key that load_vi assigned to THIS file as the render
-    # identity. Never re-resolve by bare filename: several loaded VIs can share
-    # a name (e.g. every class's own run.vi under a MINIMAL SubVI load), so a
-    # bare-name lookup can resolve to — and render — the wrong VI. Fall back to
-    # the bare-name resolution only if load_vi couldn't key the file.
-    name = vi_key if vi_key is not None else graph.resolve_vi_name(vi_name_hint)
+    # The exact vi_key that load_vi assigned to THIS file is the render
+    # identity: several loaded VIs can share a file name (e.g. every class's own
+    # run.vi under a MINIMAL SubVI load).
+    if vi_key is None:
+        raise ValueError(f"{path} loads no single VI to render")
+    name = vi_key
     # Every command that parses a VI warms the index — a render parses this VI
     # (and, under MINIMAL, its SubVIs) into `graph`, so upsert their facts
     # (best-effort; never fails the render). A cache HIT never reaches here, so

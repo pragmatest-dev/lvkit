@@ -575,16 +575,16 @@ def generate_documents(
     # index can link class group headers to their landing page).
     print("[TIMING] Generating class landing pages...")
     t0 = time.time()
-    class_names = graph.list_classes()
-    # A class owns its private-data control: class qualified name -> its path key.
+    class_keys = graph.class_keys()
+    # A class owns its private-data control: class key -> the control's key.
     private_data = {
-        ref.qualified: info.key
+        ref.path: info.key
         for info in typedef_infos
         for ref in info.owned_by
-        if ref.node_type == NodeType.CLASS
+        if ref.node_type == NodeType.CLASS and ref.path is not None
     }
-    for classname in class_names:
-        hierarchy = graph.get_class_hierarchy(classname)
+    for class_key in class_keys:
+        hierarchy = graph.get_class_hierarchy(class_key)
         if hierarchy is None:
             continue
         method_access = {}
@@ -593,11 +593,11 @@ def generate_documents(
             if access is not None:
                 method_access[method_vi] = access
         generator.generate_class_page(
-            hierarchy, method_access, private_data.get(classname)
+            hierarchy, method_access, private_data.get(class_key)
         )
     print(
         f"[TIMING] Class page generation: {time.time() - t0:.2f}s"
-        f" - Generated {len(class_names)} class pages"
+        f" - Generated {len(class_keys)} class pages"
     )
 
     # Type-definition pages (their Used By links to the VI / class pages above).

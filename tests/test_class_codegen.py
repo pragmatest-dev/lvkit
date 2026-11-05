@@ -8,6 +8,7 @@ field is ``self.__<field>``, which Python stores as ``_<Class>__<field>``."""
 
 from __future__ import annotations
 
+import ast
 import copy
 import queue
 from pathlib import Path
@@ -34,6 +35,7 @@ from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTermi
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
+    Package,
     Project,
     Recipe,
     add,
@@ -63,9 +65,7 @@ def bump(owner: LVType, field_index: int, by_pane: bool) -> Recipe:
                 name=vi,
                 inputs=[
                     pane(vi, "input", "in", owner, "Self", 0),
-                    pane(
-                        vi, "input", "n", INT, "n", 2, ParsedWiringRule.RECOMMENDED
-                    ),
+                    pane(vi, "input", "n", INT, "n", 2, ParsedWiringRule.RECOMMENDED),
                 ],
                 outputs=[pane(vi, "output", "out", owner, "Self out", 1)],
                 data_flow=[
@@ -1558,9 +1558,7 @@ def _call_held(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
 
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
         terminals = [
-            Terminal(
-                id=f"{vi}:c.ref", index=-1, direction="input", lv_type=reference
-            ),
+            Terminal(id=f"{vi}:c.ref", index=-1, direction="input", lv_type=reference),
             *(
                 Terminal(
                     id=f"{vi}:c.{name}",
@@ -1607,9 +1605,7 @@ def _function(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
                 name=vi,
                 inputs=[pane(vi, "input", n, t, n, i) for i, _, t, n in ins],
                 outputs=[pane(vi, "output", n, t, n, i) for i, o, t, n in slots if o],
-                data_flow=[
-                    wire(vi, ins[0][3], n) for _, o, _, n in slots if o and ins
-                ],
+                data_flow=[wire(vi, ins[0][3], n) for _, o, _, n in slots if o and ins],
             ),
             [],
         )
@@ -1948,3 +1944,128 @@ def test_a_class_constant_of_a_class_not_loaded_is_a_gap(tmp_path: Path) -> None
     with package.use() as module:
         with pytest.raises(NotImplementedError, match="Gone.lvclass"):
             module("build").build()
+
+
+def test_a_lazy_class_module_keeps_only_the_method_imports_each_method_reads(
+    tmp_path: Path,
+) -> None:
+    """A class in an import cycle imports a generated module inside the method
+    that runs it; the method that reads the import keeps it, and no method holds
+    an import it never reads."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    helper = project.add_vi("Helper", static_make)
+
+    def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "x", INT, "x", 0)],
+                outputs=[pane(vi, "output", "y", INT, "y", 1)],
+                data_flow=[wire(vi, "x", "c.seed"), wire(vi, "c.value", "y")],
+            ),
+            [call(vi, "c", helper, "iUse", [("seed", 0, INT)], [("value", 1, INT)])],
+        )
+
+    method = project.add_method("Base", "Twice", twice, static=True)
+    project.add_method("Base", "Probe", passthrough(BASE))
+    graph = project.graph
+    graph._dep_graph.add_edge(method, helper)  # noqa: SLF001
+    graph._dep_graph.add_edge(helper, project.classes["Base"])  # noqa: SLF001
+    package = project.generate()
+    source = package.sources["base"]
+    from lvkit.codegen.import_cycles import in_import_cycle
+
+    assert in_import_cycle(project.graph, project.classes["Base"])
+    module_ast = ast.parse(source)
+    methods = {
+        node.name: node
+        for node in ast.walk(module_ast)
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert isinstance(methods["twice"].body[0], ast.ImportFrom)
+    assert_method_imports_are_read(source)
+    with package.use() as module:
+        assert module("base").Base.twice(x=5).y == 5
+
+
+def assert_method_imports_are_read(source: str) -> None:
+    """Every import at the top of a method binds a name that method's body
+    reads."""
+    from lvkit.codegen.ast_optimizer import _used_names
+
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef):
+            read = _used_names(node.body)
+            for stmt in node.body:
+                if isinstance(stmt, ast.Import | ast.ImportFrom):
+                    names = {a.asname or a.name.split(".")[0] for a in stmt.names}
+                    assert names <= read, source
+
+
+def test_a_lazy_class_module_drops_the_method_imports_its_methods_never_read(
+    tmp_path: Path,
+) -> None:
+    """The two shapes the measurement-plugin classes had, through the pass the
+    class module goes through: a method import of `LabVIEWError` the method
+    never raises, beside one that repeats the module's own import; and a
+    method copy of a typedef the module imports under TYPE_CHECKING for a
+    result annotation only. A method that builds the typedef keeps its own
+    import."""
+    from lvkit.codegen.ast_optimizer import optimize_module
+
+    source = """
+from __future__ import annotations
+from typing import TYPE_CHECKING, NamedTuple
+from .errors import LabVIEWError
+if TYPE_CHECKING:
+    from .typedefs import Annotation
+
+class DetailsResult(NamedTuple):
+    annotations: list[Annotation]
+
+def check(code):
+    if code:
+        raise LabVIEWError(code)
+    return code
+
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        from .helper import helper
+        return helper(1)
+
+    def fail(self):
+        from .errors import LabVIEWError
+        raise LabVIEWError(2)
+
+    def details(self):
+        from .typedefs import Annotation
+        return DetailsResult(annotations=[])
+
+    def build(self):
+        from .typedefs import Annotation
+        return Annotation(name="a")
+"""
+    written = ast.unparse(optimize_module(ast.parse(source)))
+    assert written.count("from .errors import LabVIEWError") == 1
+    assert written.count("from .typedefs import Annotation") == 2
+    assert "def details(self):\n        return DetailsResult" in written
+    assert "from .helper import helper" in written
+    assert_method_imports_are_read(written)
+    out = tmp_path / "pkg"
+    out.mkdir()
+    (out / "__init__.py").write_text("")
+    (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
+    (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
+    (out / "typedefs.py").write_text(
+        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n"
+    )
+    (out / "service.py").write_text(written + "\n")
+    with Package(out, {"service": written}, []).use() as module:
+        service = module("service").Service()
+        assert service.stop() == 2
+        assert service.details().annotations == []
+        assert service.build().name == "a"
+        with pytest.raises(module("errors").LabVIEWError):
+            service.fail()

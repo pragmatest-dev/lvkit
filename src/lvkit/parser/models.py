@@ -60,6 +60,7 @@ class ParsedType:
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
     pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
+    type_id: int | None = None  # The type's position in its VI's type table
 
 
 @dataclass
@@ -462,6 +463,21 @@ class ParsedDependencyRef:
     # The recorded path's type: 0 absolute (a machine path, outside any project),
     # 1 relative to the calling file; None when the record does not say.
     path_type: int | None = None
+    # The link record's kind (its four-letter ident: ``TDCC`` a typedef,
+    # ``FPPI`` a class on the panel, ``VILB`` the VI's own class or library,
+    # ...); None when the ref does not come from a link-table record.
+    record: str | None = None
+    # The record's link flag (``link_table._read_link_flag``): bit 2 marks a file
+    # in the caller's own library or class, whose ``qualified_name`` omits the
+    # owners the two share. None when the record's flag was not read.
+    link_flag: int | None = None
+    # The heap objects the record is for (``LinkOffsetList``: TDCC and IUVI
+    # records), and the link table section it is in (``LIfp``, ``LIbd``, ``LIvi``).
+    uids: tuple[int, ...] = ()
+    section: str | None = None
+    # A TDCC record's typedef: the flat type ids of the typedef instances its
+    # ``uids`` are (``typedef_ties.typedef_type_ids``).
+    type_ids: tuple[int, ...] = ()
 
     def get_relative_path(self) -> str:
         """Get a display string for the path tokens (display only).

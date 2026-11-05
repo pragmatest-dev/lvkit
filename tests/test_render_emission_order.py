@@ -24,6 +24,7 @@ from lvkit.render.composite import (
     StructureObject,
     build_render_tree,
 )
+from tests.helpers import vi_key
 
 _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 _ALL_VIS = sorted(_CORPUS.rglob("*.vi"))
@@ -32,7 +33,7 @@ _ALL_VIS = sorted(_CORPUS.rglob("*.vi"))
 def _load(vi: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(vi, mode=LoadMode.MINIMAL, layout=True)
-    return graph, graph.resolve_vi_name(vi.name)
+    return graph, vi_key(graph, vi.name)
 
 
 # ---- Pin 1: clipPath ids number by draw-call ARRIVAL order -------------------

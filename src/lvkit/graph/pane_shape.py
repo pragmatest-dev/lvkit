@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Protocol
 
+from .op_walk import is_void_slot
+
 if TYPE_CHECKING:
     from lvkit.models import LVType, PaneSlot, Terminal
 
@@ -16,9 +18,7 @@ class PaneGraph(Protocol):
     """What the shapes read from the graph: the class a class type resolves to,
     and a VI's connector pane."""
 
-    def class_type_key(
-        self, lv_type: LVType, caller_vi_key: str | None = None, /
-    ) -> str | None: ...
+    def class_type_key(self, lv_type: LVType, /) -> str | None: ...
 
     def vi_interface(
         self, vi_key: str, /
@@ -39,7 +39,7 @@ def type_shape(graph: PaneGraph, lv_type: LVType | None, vi_key: str) -> TypeSha
     if lv_type is None:
         return ()
     if lv_type.ref_type == _CLASS_REF_TYPE:
-        return ("class", graph.class_type_key(lv_type, vi_key) or lv_type.classname)
+        return ("class", graph.class_type_key(lv_type) or lv_type.classname)
     return (
         lv_type.kind,
         lv_type.underlying_type,
@@ -64,11 +64,11 @@ def terminals_shape(
 ) -> PaneShape:
     """The shape of the pane ``terminals`` fill (a VI's own pane, or the pane a
     call records), seen from the VI ``vi_key``; an unused slot
-    (``Terminal.is_void_slot``) is left out."""
+    (``op_walk.is_void_slot``) is left out."""
     return frozenset(
         (t.index, t.direction == "output", type_shape(graph, t.lv_type, vi_key))
         for t in terminals
-        if t.index is not None and not t.is_void_slot
+        if t.index is not None and not is_void_slot(t.lv_type)
     )
 
 

@@ -2,8 +2,9 @@
 
 A library is loaded by ``ctypes.WinDLL`` (a ``stdcall`` node, on Windows) or
 ``ctypes.CDLL`` (a C node; a ``stdcall`` node elsewhere), as LabVIEW does: a
-library typed in the node's setup is resolved when the module is imported, a
-library wired to ``path in`` when the node runs.
+library typed in the node's setup is loaded the first time a node that uses it
+runs (a missing library raises ``OSError`` there, not at import), a library wired
+to ``path in`` each time the node runs.
 
 The typed name may hold wildcards (NI LabVIEW User Manual, "Configuring the Call
 Library Function Node", docs-be.ni.com/bundle/labview, page 2113332):
@@ -219,8 +220,8 @@ def static_name(
     call: ExtFuncCall,
     module: ModuleDeclarations,
 ) -> tuple[str, set[str]]:
-    """The expression of the library a node's setup names, evaluated when the
-    module is imported, and the imports it needs."""
+    """The expression of the library a node's setup names, evaluated the first
+    time the node runs, and the imports it needs."""
     library = call.library or ""
     imports: set[str] = set()
     expression = None

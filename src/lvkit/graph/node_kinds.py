@@ -23,9 +23,9 @@ class EdgeRel(str, Enum):
     """The ``rel`` an ownership edge carries (a plain reference has none).
 
     ``OWNS``: a library owns its member VIs / controls / classes, and a class
-    owns its method VIs. ``PRIVATE_DATA``: a class -> the control that is its
-    private data -- kept apart from ``OWNS`` because a class's ``OWNS`` edges are
-    its method list."""
+    owns its method VIs: the container's file lists them, which is membership.
+    ``PRIVATE_DATA``: a class -> the control that is its private data -- kept
+    apart from ``OWNS`` because a class's ``OWNS`` edges are its method list."""
 
     OWNS = "owns"
     PRIVATE_DATA = "private_data"

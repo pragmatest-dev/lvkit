@@ -39,6 +39,7 @@ from lvkit.models import (
     TunnelTerminal,
 )
 from lvkit.parser.layout import Layout
+from tests.helpers import vi_key
 
 # Two structurally different, real permissively-licensed VIs (no relation to
 # each other) stand in for the old In.vi/Out.vi pair — genuinely different
@@ -64,7 +65,7 @@ def _load(vi_path: Path, *, layout: bool = False) -> tuple[InMemoryVIGraph, str]
         pytest.skip(f"{vi_path} not present on this machine")
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 
@@ -1390,7 +1391,7 @@ class TestQualifiedSubVINames:
             pytest.skip("measurement sample not present")
         g = InMemoryVIGraph()
         g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL)
-        vn = g.resolve_vi_name(self.SAMPLE.name)
+        vn = vi_key(g, self.SAMPLE.name)
         calls = [
             op
             for op in g.top_level_nodes(vn)

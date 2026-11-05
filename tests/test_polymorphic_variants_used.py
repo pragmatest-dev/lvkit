@@ -6,6 +6,7 @@ it. A call that records no variant is a gap."""
 
 from __future__ import annotations
 
+import ast
 import sys
 from pathlib import Path
 
@@ -169,10 +170,8 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 
 
 _WRAP_MODULE = [
-    "'The variants of the polymorphic VI wrap.vi.'",
+    '"""The variants of the polymorphic VI wrap.vi."""',
     "from __future__ import annotations",
-    "from typing import Any, NamedTuple",
-    "",
     "",
     "def array():",
     "    scalar()",
@@ -192,7 +191,7 @@ def test_a_call_runs_the_variant_its_caller_records(
     result = generate_python(poly.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    assert (package / "main.py").read_text().splitlines()[2:] == [
+    assert (package / "main.py").read_text().splitlines()[1:] == [
         "from .wrap import array",
         "",
         "def main():",
@@ -217,7 +216,7 @@ def test_two_callers_each_call_the_variant_they_record(
     assert not result["gaps"]
     package = out / built.root.name
     calls = {
-        caller: (package / f"{caller}.py").read_text().splitlines()[2:]
+        caller: (package / f"{caller}.py").read_text().splitlines()[1:]
         for caller in ("main", "other")
     }
     assert calls == {
@@ -238,8 +237,8 @@ def test_one_caller_of_two_variants_imports_each_by_its_own_name(
     assert not result["gaps"]
     package = out / "main"
     lines = (package / "main.py").read_text().splitlines()
-    assert lines[2:4] == ["from .wrap import array", "from .wrap import scalar"]
-    assert lines[4:] == ["", "def main():", "    array()", "    scalar()"]
+    assert lines[1:3] == ["from .wrap import array", "from .wrap import scalar"]
+    assert lines[3:] == ["", "def main():", "    array()", "    scalar()"]
     _run(package, "main").main()
 
 
@@ -256,11 +255,9 @@ def test_variants_that_call_one_subvi_import_it_once(
     assert not result["gaps"]
     package = out / "main"
     assert (package / "wrap.py").read_text().splitlines() == [
-        "'The variants of the polymorphic VI wrap.vi.'",
+        '"""The variants of the polymorphic VI wrap.vi."""',
         "from __future__ import annotations",
         "from .shared.helper import helper",
-        "from typing import Any, NamedTuple",
-        "",
         "",
         "def array():",
         "    helper()",
@@ -283,6 +280,7 @@ def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
     shape = LVType(
         kind=LVTypeKind.CLUSTER,
         typedef_name="Shape.ctl",
+        file_key=ctl,
         fields=[ClusterField(name="w", type=INT)],
     )
 
@@ -306,7 +304,6 @@ def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
         "from __future__ import annotations",
         "from typing import TYPE_CHECKING",
         "from .shape import Shape",
-        "from typing import Any, NamedTuple",
     ]
     assert "def scalar(s: Shape)" in source
     assert "def array(s: Shape)" in source
@@ -378,7 +375,7 @@ def test_a_variants_module_level_code_is_kept_and_paths_are_project_relative(
     source = next(out.rglob("wrap.py")).read_text()
     assert "_lv_state_kept = None" in source
     assert str(poly.root) not in source
-    assert source.startswith("'The variants of the polymorphic VI wrap.vi.'\n")
+    assert source.startswith('"""The variants of the polymorphic VI wrap.vi."""\n')
 
 
 def _variant(input_name: str, output_name: str) -> Recipe:
@@ -636,3 +633,20 @@ def test_easy_write_xml_file_runs_the_scalar_file_exists(tmp_path: Path) -> None
     source = next((tmp_path / "gen").rglob("easy_write_xml_file.py")).read_text()
     assert "Path(xml_file_path).exists()" in source
     assert not [g for g in result["gaps"] if "File Exists" in g.reason]
+
+
+def test_a_polymorphic_module_imports_only_what_it_reads(
+    poly: _Tree, tmp_path: Path
+) -> None:
+    """Its variants use no path: the module does not import ``Path``."""
+    out = tmp_path / "gen"
+    generate_python(poly.root / "main.vi", out)
+    source = next(out.rglob("wrap.py")).read_text()
+    assert "from pathlib import Path" not in source
+    bound = [
+        alias.asname or alias.name
+        for node in ast.parse(source).body
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    ]
+    assert len(bound) == len(set(bound))  # no name imported twice

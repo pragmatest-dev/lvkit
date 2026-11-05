@@ -280,9 +280,11 @@ def test_write_environment_variable(generated_vi, name: str, value: str) -> None
         / "Write Environment Variable.vi"
     )
     if not _WINDOWS:
-        # kernel32.dll is Windows only: the module loads it when it is imported.
+        # kernel32.dll is Windows only: the module imports, and the node loads
+        # the library when it first runs.
+        module = generated_vi(vi)
         with pytest.raises(OSError, match="kernel32.dll"):
-            generated_vi(vi)
+            module.write_environment_variable(name=name, value=value)
         return
     module = generated_vi(vi)
     # SetEnvironmentVariableA changes the process environment block, which
@@ -306,8 +308,9 @@ def test_get_client_machine_details(generated_vi) -> None:
         / "Get Client Machine Details.vi"
     )
     if not _WINDOWS:
+        module = generated_vi(vi)
         with pytest.raises(OSError, match="kernel32.dll"):
-            generated_vi(vi)
+            module.get_client_machine_details()
         return
     details = generated_vi(vi).get_client_machine_details()
     assert details.hostname.lower() == socket.gethostname().lower()[:15]

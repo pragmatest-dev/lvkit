@@ -1831,7 +1831,6 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     """Build a ``Scene`` for one VI by joining graph semantics to heap
     geometry. Returns None (fail-closed) if required geometry is missing —
     callers should fall back to a non-geometric rendering (e.g. Mermaid)."""
-    vi_name = graph.resolve_vi_name(vi_name)
     src_path = graph.get_vi_source_path(vi_name)
     if src_path is None:
         logger.warning("render: no source path for VI %r", vi_name)

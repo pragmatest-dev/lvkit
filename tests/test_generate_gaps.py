@@ -389,6 +389,7 @@ def _caller_of(callee_key: str, found: bool, tmp_path: Path):
     from lvkit.pipeline import create_import_resolver
 
     graph = InMemoryVIGraph()
+    graph._dep_graph.add_node("caller.vi")  # noqa: SLF001
     graph._dep_graph.add_node(callee_key, node_type="vi")  # noqa: SLF001
     graph._recorded.record(  # noqa: SLF001
         callee_key, None, ["<vilib>", "daqmx", "Flatten Channel String.vi"]
@@ -487,6 +488,24 @@ def test_a_call_of_a_vi_that_was_not_found_is_one_missing_vi_gap(
     assert "from .flatten" not in source
     assert source.index("raise NotImplementedError(") < source.index("return ")
     assert not list(tmp_path.rglob("flatten.py"))
+
+
+def test_a_missing_embedded_instance_is_named_not_shown_by_its_internal_key(
+    tmp_path: Path,
+) -> None:
+    """An Express VI instance is saved inside its caller (its key is a place in
+    the caller's file, ``caller.vi/0``): the message names the VI and says it
+    has no file of its own."""
+    source, gaps = _caller_of("caller.vi/0", False, tmp_path)
+    (gap,) = gaps
+    assert gap.kind == "missing_vi"
+    assert gap.reason == (
+        "The VI 'Flatten Channel String.vi' was not found: it is saved inside "
+        "caller.vi (an Express VI or other embedded instance) and has no file "
+        "of its own"
+    )
+    assert "/0" not in gap.reason
+    assert "raise NotImplementedError(" in source
 
 
 def test_a_call_of_a_found_vi_with_an_unmapped_terminal_is_a_terminal_mapping_gap(
