@@ -124,6 +124,11 @@ class Problem:
     hint: str | None = None
     # What the problem is, finer than ``kind`` (a gap's kind, ``unsupported_node``).
     code: str | None = None
+    # The graph key of the VI (or file) the problem is about, when it is one: the
+    # report names it from the graph's final state (``labelled``), so a VI whose
+    # callers record its installation path later is named the same everywhere.
+    # Never shown, never stored with a cached output.
+    key: str | None = field(default=None, compare=False, repr=False)
 
     @property
     def is_note(self) -> bool:
@@ -185,15 +190,19 @@ def problem_from_json(data: Mapping[str, Any]) -> Problem:
     )
 
 
-def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Problem:
+def problem_for_exception(
+    vi: str, stage: ProblemStage, exc: Exception, key: str | None = None
+) -> Problem:
     """The problem a VI's failure is: an ``UnreadableVIError`` says the file could
-    not be read; any other exception is lvkit's own failure on that VI."""
+    not be read; any other exception is lvkit's own failure on that VI. ``key``
+    is the VI's graph key (``Problem.key``)."""
     if isinstance(exc, CacheWriteError):
         return Problem(
             vi=vi,
             stage=ProblemStage.CACHE,
             kind=ProblemKind.ENVIRONMENT,
             reason=exc.reason,
+            key=key,
         )
     if isinstance(exc, UnreadableVIError):
         return Problem(
@@ -202,6 +211,7 @@ def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Probl
             kind=ProblemKind.UNREADABLE,
             reason=exc.reason,
             detail=exc.warnings,
+            key=key,
         )
     return Problem(
         vi=vi,
@@ -209,6 +219,7 @@ def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Probl
         kind=ProblemKind.LVKIT_ERROR,
         reason=f"{type(exc).__name__}: {exc}",
         hint=LVKIT_ERROR_HINT,
+        key=key,
     )
 
 
@@ -470,16 +481,30 @@ class RunProblems:
         if isinstance(exc, UnreadableVIError) and exc.path is not None:
             path = exc.path
         label = self.settings.label(path)
+        key = str(Path(path).resolve())
         problem = (
-            Problem(vi=label, stage=stage, kind=kind, reason=str(exc))
+            Problem(vi=label, stage=stage, kind=kind, reason=str(exc), key=key)
             if kind is not None
-            else problem_for_exception(label, stage, exc)
+            else problem_for_exception(label, stage, exc, key)
         )
         self._found.append(problem)
         self.settings.announce(problem, may_stop=may_stop)
         return problem
 
     def report(self) -> RunReport:
+        """Every problem of the run, each VI named from its graph's final state
+        (``InMemoryVIGraph.labelled``)."""
         return RunReport.of(
-            [*self._found, *(p for graph in self._graphs for p in graph.problems())]
+            [
+                *(self._labelled(p) for p in self._found),
+                *(p for graph in self._graphs for p in graph.problems()),
+            ]
         )
+
+    def _labelled(self, problem: Problem) -> Problem:
+        """``problem`` named by the first of the run's graphs that holds its VI;
+        as it is when none does."""
+        for graph in self._graphs:
+            if problem.key is not None and graph.has_key(problem.key):
+                return graph.labelled(problem)
+        return problem

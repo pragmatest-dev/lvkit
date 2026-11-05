@@ -96,6 +96,7 @@ def gap_problem(gap: Gap, graph: InMemoryVIGraph) -> Problem:
     vi = graph.key_label(gap.vi)
     return Problem(
         vi=vi,
+        key=gap.vi,
         stage=ProblemStage.GENERATE,
         kind=ProblemKind.GAP,
         reason=gap.reason,

@@ -258,7 +258,9 @@ def _warming_failed(
     lvkit error."""
     if isinstance(exc, (OSError, sqlite3.Error)):
         exc = index_write_error(root, exc)
-    problem = problem_for_exception(graph.vi_label(first), ProblemStage.INDEX, exc)
+    problem = problem_for_exception(
+        graph.vi_label(first), ProblemStage.INDEX, exc, str(Path(first).resolve())
+    )
     graph.record_file_problem(first, problem, node_type, may_stop=False)
 
 

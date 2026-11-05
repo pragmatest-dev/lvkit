@@ -63,10 +63,12 @@ class ImportResolver:
         package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
-        beside_vi: Callable[[str, int, Sequence[str], Sequence[str]], str | None]
+        beside_vi: Callable[[str, Sequence[str], Sequence[str]], str | None]
         | None = None,
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
+        copy_beside_vi: Callable[[str, Sequence[str], Sequence[str], Path], Path | None]
+        | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -80,6 +82,7 @@ class ImportResolver:
         self._scope: str | None = None
         self._display_path = display_path
         self._names_import = names_import
+        self._copy_beside_vi = copy_beside_vi
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;
@@ -176,18 +179,36 @@ class ImportResolver:
         )
 
     def beside_vi(
-        self, vi_key: str, up: int, folders: Sequence[str], below: Sequence[str]
+        self, vi_key: str, recorded: Sequence[str], below: Sequence[str]
     ) -> str | None:
-        """Where a file the VI ``vi_key`` names relative to its own file (``up``
-        folders above the VI's folder, then ``folders``, then the file's own
-        names ``below``, empty for the folder itself) sits from the folder of
-        the module being generated once it is copied into the package: beside
-        the VI's own module, by the same moves (``ModuleLayout.placed_beside``;
-        a ``/`` path, ``..`` for each folder up); None when the folder leaves
-        the VI's tree (its project, library folder or own outside project)."""
+        """Where a file at ``below`` in the folder of the file the VI ``vi_key``
+        records relative to itself (``recorded``) sits from the folder of the
+        module being generated once it is copied into the package: beside the
+        VI's own module, by the same walk (``ModuleLayout.placed_beside``; a
+        ``/`` path, ``..`` for each folder up); None when the walk leaves the
+        VI's tree (its project, library folder or own outside project)."""
         if self._beside_vi is None:
             return None
-        return self._beside_vi(vi_key, up, folders, below)
+        return self._beside_vi(vi_key, recorded, below)
+
+    @property
+    def copies_files(self) -> bool:
+        """Whether files named beside a VI are copied into the package (a whole
+        package is generated, not one module's text)."""
+        return self._copy_beside_vi is not None
+
+    def copy_beside_vi(
+        self,
+        vi_key: str,
+        recorded: Sequence[str],
+        below: Sequence[str],
+        source: Path,
+    ) -> None:
+        """Copy ``source`` into the package at the place ``beside_vi`` gives for
+        ``below`` (``PackageCopies.add``)."""
+        if self._copy_beside_vi is None:
+            raise CodeGenError("this resolver generates no package to copy into")
+        self._copy_beside_vi(vi_key, recorded, below, source)
 
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding

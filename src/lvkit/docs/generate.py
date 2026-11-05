@@ -58,6 +58,7 @@ def _member_file(
     run.add(
         Problem(
             vi=run.settings.label(container),
+            key=str(Path(container).resolve()),
             stage=ProblemStage.DOCUMENT,
             kind=ProblemKind.UNREADABLE,
             reason=reason,
@@ -125,7 +126,7 @@ def _generate_typedef_pages(
             graph.record_problem(
                 info.key,
                 problem_for_exception(
-                    graph.vi_label(info.key), ProblemStage.DOCUMENT, exc
+                    graph.vi_label(info.key), ProblemStage.DOCUMENT, exc, info.key
                 ),
             )
             svg, note = None, "Front panel unavailable: it could not be rendered."
@@ -325,9 +326,7 @@ def _prepare_vi_documentation_data(
         graph.record_problem(
             vi_name,
             problem_for_exception(
-                graph.key_label(vi_name),
-                ProblemStage.DOCUMENT,
-                exc,
+                graph.key_label(vi_name), ProblemStage.DOCUMENT, exc, vi_name
             ),
         )
         diagram_svg, subvi_nodes = None, {}
@@ -558,9 +557,7 @@ def generate_documents(
             graph.record_problem(
                 vi_name,
                 problem_for_exception(
-                    graph.key_label(vi_name),
-                    ProblemStage.DOCUMENT,
-                    e,
+                    graph.key_label(vi_name), ProblemStage.DOCUMENT, e, vi_name
                 ),
             )
     print(

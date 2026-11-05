@@ -46,6 +46,7 @@ from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
+from lvkit.package_copies import PackageCopies
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
@@ -132,6 +133,7 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
+    copies: PackageCopies | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -154,6 +156,9 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
+        copies: The files the package holds beside the VIs that name them (a
+            Call Library Function Node's library); without it a module's text is
+            generated and no file is copied.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -301,13 +306,13 @@ def create_import_resolver(
         return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
 
     def beside_vi(
-        vi_key: str, up: int, folders: Sequence[str], below: Sequence[str]
+        vi_key: str, recorded: Sequence[str], below: Sequence[str]
     ) -> str | None:
-        """Where a file the VI ``vi_key`` names relative to its own file sits
-        from the calling module's folder once copied into the package: in the
-        package ``ModuleLayout.placed_beside`` gives, under its own names
-        ``below``; None when the folder leaves the VI's tree."""
-        placed = layout.placed_beside(vi_key, up, folders) if layout else None
+        """Where a file at ``below`` in the folder of the file the VI ``vi_key``
+        records relative to itself sits from the calling module's folder once
+        copied into the package: in the package ``ModuleLayout.placed_beside``
+        gives; None when the walk leaves the VI's tree."""
+        placed = layout.placed_beside(vi_key, recorded) if layout else None
         if placed is None:
             return None
         target = output_dir.joinpath(*placed, *below)
@@ -333,6 +338,7 @@ def create_import_resolver(
         beside_vi,
         shown,
         names_import,
+        copies.add if copies is not None else None,
     )
 
 
@@ -403,7 +409,7 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
     """Record that generating ``vi_name`` failed with ``exc``; an lvkit error also
     prints its traceback, the same in every command."""
     problem = problem_for_exception(
-        graph.key_label(vi_name), ProblemStage.GENERATE, exc
+        graph.key_label(vi_name), ProblemStage.GENERATE, exc, vi_name
     )
     graph.record_problem(vi_name, problem)
     if problem.kind is ProblemKind.LVKIT_ERROR:
@@ -422,9 +428,11 @@ def _generate_polymorphic_module(
     data_files: dict[str, bytes] | None = None,
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
+    copies: PackageCopies | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
-    variants read at run time are added to ``data_files``, and the gaps found in
+    variants read at run time are added to ``data_files``, the files they name
+    beside them to ``copies``, and the gaps found in
     the variants to ``gaps``."""
     lines = [
         '"""Polymorphic VI module."""',
@@ -464,6 +472,7 @@ def _generate_polymorphic_module(
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
             layout=layout,
+            copies=copies,
         )
         code = build_module(
             vi_context,
@@ -790,6 +799,7 @@ def generate_python(
     package_modules = PackageModules.from_graph(
         graph, order, reserved={*layout.root_names, ERRORS_MODULE_NAME}
     )
+    copies = PackageCopies(graph, layout, output_dir_resolved)
     vi_paths: dict[str, Path] = {
         key: output_dir_resolved.joinpath(*place.packages) / f"{place.module}.py"
         for key, place in layout.places.items()
@@ -848,6 +858,7 @@ def generate_python(
                     vi_name,
                     Problem(
                         vi=graph.key_label(vi_name),
+                        key=vi_name,
                         stage=ProblemStage.GENERATE,
                         kind=ProblemKind.UNWRITABLE,
                         reason=str(layout.unplaced[vi_name]),
@@ -891,6 +902,7 @@ def generate_python(
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             package_modules=package_modules,
                             layout=layout,
+                            copies=copies,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
@@ -926,6 +938,7 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
+                        copies=copies,
                         gaps=vi_gaps,
                     )
                     ast.parse(code)  # Validate syntax
@@ -960,6 +973,7 @@ def generate_python(
                         vilib_resolver=vilib_resolver,
                         package_modules=package_modules,
                         layout=layout,
+                        copies=copies,
                     )
                     data_files: dict[str, bytes] = {}
                     code = build_module(
@@ -1017,6 +1031,7 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
+                        copies=copies,
                         gaps=wrapper_gaps,
                     )
                     ast.parse(code)
@@ -1027,6 +1042,11 @@ def generate_python(
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                     _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
+
+        # The files named beside the VIs, once every module has named its own:
+        # two different files for one place stop generation.
+        copies.check()
+        copies.write()
 
         # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"

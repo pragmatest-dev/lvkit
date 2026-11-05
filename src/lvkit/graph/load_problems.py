@@ -11,6 +11,7 @@ problems it had.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -116,13 +117,28 @@ class LoadProblemsMixin:
             self._dep_graph.nodes[vi_key].pop(PROBLEMS_ATTR, None)
 
     def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]:
-        """The problems on the nodes of ``vi_keys`` (every node when None)."""
+        """The problems on the nodes of ``vi_keys`` (every node when None), each
+        VI named from the graph as it is now (``labelled``)."""
         keys = list(self._dep_graph.nodes) if vi_keys is None else list(vi_keys)
         found: list[Problem] = []
         for key in keys:
             if key in self._dep_graph:
-                found.extend(self._dep_graph.nodes[key].get(PROBLEMS_ATTR, ()))
+                held = self._dep_graph.nodes[key].get(PROBLEMS_ATTR, ())
+                found.extend(self.labelled(p) for p in held)
         return found
+
+    def has_key(self, key: str) -> bool:
+        """Whether ``key`` is a node of the graph."""
+        return key in self._dep_graph
+
+    def labelled(self, problem: Problem) -> Problem:
+        """``problem`` with its VI named as the graph names its key now
+        (``key_label``): the one place a problem's VI gets the name every view
+        shows, once the callers that record its installation path are loaded.
+        A problem with no key keeps its name."""
+        if problem.key is None or problem.key not in self._dep_graph:
+            return problem
+        return replace(problem, vi=self.key_label(problem.key))
 
     def record_load_failure(
         self,
@@ -139,9 +155,10 @@ class LoadProblemsMixin:
                 if isinstance(exc, UnreadableVIError)
                 else ProblemStage.LOAD
             )
+        key = str(Path(vi_path).resolve())
         self.record_file_problem(
             vi_path,
-            problem_for_exception(self.vi_label(vi_path), stage, exc),
+            problem_for_exception(self.vi_label(vi_path), stage, exc, key),
             node_type,
         )
 

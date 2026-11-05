@@ -200,12 +200,13 @@ def test_a_library_folder_inside_the_project_places_its_files_as_library_files(
     # A folder the VI names relative to itself is placed beside its module, never
     # above its library folder.
     library = ("userlib", "_openglib", "file", "filellb")
-    assert layout.placed_beside(key, 0, ()) == library
-    assert layout.placed_beside(key, 3, ("libs",)) == ("userlib", "libs")
-    assert layout.placed_beside(key, 4, ()) is None
+    assert layout.placed_beside(key, ["", "x.dll"]) == library
+    up_three = ["", "..", "..", "..", "libs", "x.dll"]
+    assert layout.placed_beside(key, up_three) == ("userlib", "libs")
+    assert layout.placed_beside(key, ["", "", "", "", "", "x.dll"]) is None
     own = tree.key("a.vi")
-    assert layout.placed_beside(own, 0, ("sub",)) == ("sub",)
-    assert layout.placed_beside(own, 1, ()) is None
+    assert layout.placed_beside(own, ["", "sub", "a", "..", "x.dll"]) == ("sub",)
+    assert layout.placed_beside(own, ["", "..", "x.dll"]) is None
 
 
 def test_a_recorded_installation_path_places_a_file_inside_the_project(
@@ -222,7 +223,7 @@ def test_a_recorded_installation_path_places_a_file_inside_the_project(
         ("userlib", "_openglib", "file", "filellb"), "build_path__ogtk"
     )
     # A file beside it follows its module, not the folder the copy sits in.
-    assert layout.placed_beside(key, 0, ("libs",)) == (
+    assert layout.placed_beside(key, ["", "libs", "x.dll"]) == (
         "userlib", "_openglib", "file", "filellb", "libs"
     )
 

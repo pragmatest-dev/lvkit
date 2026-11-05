@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.nodes.ext_func_library import LIBRARY_FILE_SOURCE, expansions
+from lvkit.graph import InMemoryVIGraph
 from lvkit.parser.extfunc_prototype import (
     ExtFuncParam,
     LibraryPathKind,
@@ -429,6 +430,46 @@ def test_a_library_beside_a_user_lib_vi_is_copied_beside_its_module(
     ) in source
     target = (out / "userlib/vendor/sub" / ".." / "libs" / "vendorlib.so").resolve()
     assert target.is_file()
+
+
+def test_a_project_copy_placed_by_its_userlib_path_takes_its_library_along(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A VI kept in the project but recorded by its callers as ``<userlib>/...``
+    is generated under ``userlib``; the library beside it goes there too, so the
+    module's path to it holds in the package."""
+    (project.libs / "vendorlib.so").write_bytes(b"not a library")
+    vi = project.write_vi("vendorlib.so", ["", "..", "libs", "vendorlib.so"], "f")
+    recorded = "<userlib>/Vendor/sub/Clfn_BDHb.xml"
+    key = str(vi.resolve())
+    original = InMemoryVIGraph.recorded_path
+
+    def recorded_path(graph: InMemoryVIGraph, asked: str) -> str | None:
+        return recorded if asked == key else original(graph, asked)
+
+    monkeypatch.setattr(InMemoryVIGraph, "recorded_path", recorded_path)
+
+    out = project.generate(vi)
+
+    assert "userlib/vendor/libs/vendorlib.so" in _tree(out)
+    assert not [p for p in _tree(out) if p.startswith("vis/")]
+    module = out / "userlib/vendor/sub/clfn_bdhbxml.py"
+    assert (
+        "os.path.join(os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')"
+    ) in module.read_text()
+    assert (module.parent / ".." / "libs" / "vendorlib.so").resolve().is_file()
+
+
+def test_a_relative_path_through_a_folder_and_back_finds_the_library(
+    project: Project,
+) -> None:
+    (project.libs / "vendorlib.so").write_bytes(b"not a library")
+    tokens = ["", "nothere", "..", "..", "libs", "vendorlib.so"]
+    vi = project.write_vi("vendorlib.so", tokens, "f")
+    out = project.generate(vi)
+    assert "vis/libs/vendorlib.so" in _tree(out)
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    assert "os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')" in source
 
 
 def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> None:

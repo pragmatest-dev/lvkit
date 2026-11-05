@@ -883,6 +883,7 @@ class LoadingMixin:
                         lvlib_path,
                         Problem(
                             vi=self.vi_label(lvlib_path),
+                            key=str(Path(lvlib_path).resolve()),
                             stage=ProblemStage.LOAD,
                             kind=ProblemKind.UNREADABLE,
                             reason=(
@@ -1658,6 +1659,7 @@ class LoadingMixin:
                 vi_key,
                 Problem(
                     vi=self.vi_label(source_file),
+                    key=vi_key,
                     stage=ProblemStage.LOAD,
                     kind=ProblemKind.UNLABELED_CONTROL,
                     reason=(
@@ -2133,6 +2135,7 @@ class LoadingMixin:
             caller_file,
             Problem(
                 vi=self.vi_label(caller_file),
+                key=str(Path(caller_file).resolve()),
                 stage=ProblemStage.LOAD,
                 kind=ProblemKind.FOUND_ELSEWHERE,
                 reason=(

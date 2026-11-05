@@ -16,7 +16,12 @@ from lvkit.graph.render_lvnet import render_lvnet_named_types
 from lvkit.graph.typedef import TypedefInfo, TypedefRef
 from lvkit.library_folders import library_location
 from lvkit.models import LVType, LVTypeKind
-from lvkit.run_report import RunSettings
+from lvkit.run_report import (
+    ProblemStage,
+    RunProblems,
+    RunSettings,
+    UnreadableVIError,
+)
 
 
 @pytest.fixture
@@ -201,3 +206,20 @@ def test_an_outside_vi_index_section_is_its_repository(
 def test_a_relative_path_is_not_a_library_file(tmp_path: Path) -> None:
     roots = [("<userlib>", Path("user.lib").resolve())]
     assert library_location(Path("user.lib/a/X.vi"), roots) is None
+
+
+def test_a_problem_names_its_vi_from_the_final_graph(project: Path) -> None:
+    """A problem recorded before any caller records the copy's ``<userlib>`` path
+    and the same problem found after it are one entry, under one name."""
+    run = RunProblems(RunSettings(root=project))
+    graph = run.new_graph()
+    copy = project / "copies" / "Build Path__ogtk.vi"
+    key = str(copy)
+    graph._dep_graph.add_node(key)  # noqa: SLF001
+    error = UnreadableVIError("no block diagram")
+    graph.record_load_failure(copy, error)
+    assert graph._dep_graph.nodes[key]  # noqa: SLF001
+    _record(graph, key, "<userlib>/_OpenG.lib/file/file.llb/Build Path__ogtk.vi")
+    run.fail(copy, ProblemStage.EXTRACT, error)
+    (problem,) = run.report().problems
+    assert problem.vi == "<userlib>/_OpenG.lib/file/file.llb/Build Path__ogtk.vi"

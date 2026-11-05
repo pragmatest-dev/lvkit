@@ -34,6 +34,7 @@ from lvkit.cache_paths import own_project_folder
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
+from lvkit.graph.recorded_paths import walk_relative
 from lvkit.library_folders import path_tokens
 from lvkit.vi_files import class_stem, strip_vi_extension
 
@@ -139,19 +140,17 @@ class ModuleLayout:
         self._check_unique()
 
     def placed_beside(
-        self, key: str, up: int, folders: Sequence[str]
+        self, key: str, recorded: Sequence[str]
     ) -> tuple[str, ...] | None:
-        """The packages of a folder the VI ``key`` names relative to its own file
-        (``up`` folders above the VI's folder, then ``folders``): the same moves
-        from the package of the VI's own module, so a file beside a VI is
-        generated beside its module wherever the module is placed; None when the
-        folder leaves the VI's tree (above its project, its library folder or
-        its own outside project)."""
+        """The packages of the folder that holds a file the VI ``key`` records
+        relative to its own file (``recorded``, LabVIEW's tokens: leading empty
+        tokens and ``..`` go up): the same walk from the VI's own place
+        (``walk_relative``), so a file beside a VI is generated beside its module
+        wherever the module is placed; None when the walk leaves the VI's tree
+        (above its project, its library folder or its own outside project)."""
         location = self._location(key)
-        own = location.below[:-1]
-        if up > len(own):
-            return None
-        return _packages([*location.tree, *own[: len(own) - up], *folders])
+        walked = walk_relative(location.tokens, recorded, keep=len(location.tree))
+        return None if walked is None else _packages(walked[:-1])
 
     def _recorded_path(self, key: str) -> str | None:
         """The path a caller recorded for ``key`` (``recorded`` when given, else
