@@ -4,7 +4,7 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
 "Decisions" and the replacements in the table below). Branch
 `feat/errors-as-values` (from `main` 0ec53ddc).
 
-**Implementation status, 2026-11-04** (head 9ade5dc5):
+**Implementation status, 2026-11-04** (head b05a008b):
 
 - #237's 13 later commits (polymorphic variant choice, one import per name,
   node-owned names) are on the branch; the indicator a VI keeps between calls
@@ -24,9 +24,11 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
   commit whose step made it, from a run at every one of the 44 source commits
   since the base (`outputs/s7_line_attribution.txt`; 0 unexplained); the run
   found a regression of cd6c9fb6, fixed in 9ade5dc5.
-- Suites at 9ade5dc5: Linux `pytest -q` 5402 passed, 23 skipped, 1 xfailed;
+- Error Ring render: the ring LabVIEW shows (measured from NI's public image),
+  its stored label, its toggles and its dropdown arrow.
+- Suites at b05a008b: Linux `pytest -q` 5408 passed, 23 skipped, 1 xfailed;
   `-m slow -n 2` 30 passed, 1 xfailed. Windows (local `C:\` clone, `uv.exe`)
-  5370 passed, 55 skipped, 1 xfailed; slow 30 passed, 1 xfailed.
+  5376 passed, 55 skipped, 1 xfailed; slow 30 passed, 1 xfailed.
 
 ## Why
 
