@@ -19,9 +19,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import EXTERNAL_PACKAGE, folder_name, own_project_folder
 from lvkit.graph import InMemoryVIGraph
 from lvkit.llb_origin import vi_file_path
+from lvkit.project_folders import EXTERNAL_PACKAGE, folder_name, own_project_folder
 from lvkit.vi_files import strip_vi_extension
 
 PROJECT_GROUP = "Project"

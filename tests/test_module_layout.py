@@ -3,11 +3,11 @@ path below the project folder, each part put through one transform."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 
 import pytest
 
-from lvkit.cache_paths import project_root, store_root
+from lvkit.cache_paths import store_root
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.module_layout import (
@@ -16,6 +16,7 @@ from lvkit.module_layout import (
     ModulePlace,
     UnplacedVIError,
 )
+from lvkit.project_folders import is_home, project_root, searched
 from lvkit.run_report import RunSettings
 
 
@@ -436,3 +437,37 @@ def test_an_input_vi_directly_in_the_home_folder_shows_no_home_name(
     settings = RunSettings(root=project_root(vi))
     assert settings.label(vi) == "Helper.vi"
     assert settings.label(tree.base) == "the project folder"
+
+
+@pytest.mark.parametrize(
+    ("home", "folder", "a_home"),
+    [
+        (PurePosixPath("/home/me"), PurePosixPath("/home/me"), True),
+        (PurePosixPath("/home/me"), PurePosixPath("/home"), True),
+        (PurePosixPath("/home/me"), PurePosixPath("/home/bob"), True),  # beside
+        (PurePosixPath("/home/me"), PurePosixPath("/home/me/proj"), False),
+        # A home directly in a drive's root: the root's other folders are not homes.
+        (PurePosixPath("/root"), PurePosixPath("/app"), False),
+        (PurePosixPath("/root"), PurePosixPath("/workspace"), False),
+        (PurePosixPath("/root"), PurePosixPath("/"), True),
+        (PureWindowsPath("C:/Users/me"), PureWindowsPath("C:/Users/bob"), True),
+        (PureWindowsPath("C:/x"), PureWindowsPath("C:/proj"), False),
+    ],
+)
+def test_a_home_folder_is_found_by_its_place(
+    home: PurePath, folder: PurePath, a_home: bool
+) -> None:
+    assert is_home(folder, home) is a_home
+
+
+def test_a_project_beside_a_home_in_a_drives_root_is_searched() -> None:
+    """``/root`` as home (a container run as root): ``/app`` is searched, so its
+    ``.git`` makes it the project; ``/`` is not."""
+    own = PurePosixPath("/app/src")
+    assert searched(own, PurePosixPath("/root")) == [
+        PurePosixPath("/app/src"),
+        PurePosixPath("/app"),
+    ]
+    assert searched(PurePosixPath("/home/bob/x"), PurePosixPath("/home/me")) == [
+        PurePosixPath("/home/bob/x")
+    ]

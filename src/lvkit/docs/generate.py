@@ -11,12 +11,6 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from lvkit.cache_paths import (
-    EXTERNAL_PACKAGE,
-    folder_name,
-    own_project_folder,
-    project_root,
-)
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.page_names import page_names
@@ -29,6 +23,12 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
 from lvkit.library_folders import Folders, SearchEntries
 from lvkit.llb_origin import vi_file_path
+from lvkit.project_folders import (
+    EXTERNAL_PACKAGE,
+    folder_name,
+    own_project_folder,
+    project_root,
+)
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png

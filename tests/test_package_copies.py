@@ -3,6 +3,7 @@ twice is copied once, two different files for one place stop generation."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -113,16 +114,16 @@ def test_places_that_differ_only_in_case_are_one_place(tmp_path: Path) -> None:
 
 
 def test_one_file_named_two_ways_is_one_copy(tmp_path: Path) -> None:
-    """The same file reached by two spellings (a link here, a name in another
-    case on a file system that ignores case) is copied once, no clash."""
+    """One file reached by two names (a hard link here, a name in another case
+    on a file system that ignores case) is copied once, no clash."""
     vi = str(tmp_path / "proj" / "V.vi")
     copies, out = _copies(tmp_path, {}, vi)
     library = _file(tmp_path / "proj" / "x.dll", b"one")
     other = tmp_path / "proj" / "y.dll"
     try:
-        other.symlink_to(library)
+        os.link(library, other)
     except OSError:
-        pytest.skip("this file system makes no links")
+        pytest.skip("this file system makes no hard links")
     _module(copies, vi, ["", "x.dll"], ("x.dll",), library)
     module = copies.module()
     module.register(vi, ["", "x.dll"], ("x.dll",), other)

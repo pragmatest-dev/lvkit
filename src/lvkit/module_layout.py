@@ -31,12 +31,12 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import outside_place
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.recorded_paths import walk_relative
 from lvkit.library_folders import path_tokens
+from lvkit.project_folders import outside_place
 from lvkit.vi_files import class_stem, strip_vi_extension
 
 

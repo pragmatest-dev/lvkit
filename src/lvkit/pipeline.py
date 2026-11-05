@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
 from lvkit.codegen.ast_optimizer import (
     remove_duplicate_imports,
@@ -48,6 +47,7 @@ from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
 from lvkit.package_copies import ModuleCopies, PackageCopies
 from lvkit.polymorphic_variants import variants_to_generate
+from lvkit.project_folders import project_root
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
     Problem,

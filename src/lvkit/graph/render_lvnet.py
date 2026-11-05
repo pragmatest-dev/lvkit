@@ -19,7 +19,6 @@ from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 
-from ..cache_paths import shown_path
 from ..library_folders import library_location
 from ..models import (
     DisableStructureKind,
@@ -30,6 +29,7 @@ from ..models import (
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
+from ..project_folders import shown_path
 from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
 from .lvnet_drives import (
@@ -597,9 +597,9 @@ def lvnet_file_path(
     ``external/<its project folder>/...``. Never fabricated: ``None`` when there
     is no library path and no file (``resolved`` is ``None``).
     """
-    if library is None and resolved is None:
-        return None
-    return shown_path(resolved or base, base, library)
+    if library is not None:
+        return "/".join(library)
+    return None if resolved is None else shown_path(resolved, base, None)
 
 
 def _typedef_nav(typedef_path: str) -> str:

@@ -752,7 +752,7 @@ def test_two_roots_each_named_for_what_it_answers_and_no_copies(
 ) -> None:
     """The reviewer's probe: ``repo/.git`` + ``repo/LabVIEW/My.lvproj``. Labels and
     generated modules start at the ``.lvproj`` folder; the index is the repo's."""
-    from lvkit import cache_paths, module_layout, run_report
+    from lvkit import cache_paths, module_layout, project_folders, run_report
 
     assert not hasattr(module_layout, "project_root")
     assert not hasattr(run_report, "project_root_of")
@@ -762,7 +762,7 @@ def test_two_roots_each_named_for_what_it_answers_and_no_copies(
     (labview / "My.lvproj").write_text("<Project/>", encoding="utf-8")
     vi = labview / "sub" / "A.vi"
     shutil.copy(GOOD_VI, vi)
-    assert cache_paths.project_root(vi) == labview.resolve()
+    assert project_folders.project_root(vi) == labview.resolve()
     assert cache_paths.store_root(vi) == (tmp_path / "repo").resolve()
     assert RunSettings().label(vi) == "sub/A.vi"
     from lvkit.index.project import resolve_project_files

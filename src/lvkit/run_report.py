@@ -22,9 +22,9 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
-from .cache_paths import folder_name, project_root
 from .library_folders import library_location
 from .llb_origin import llb_container_of
+from .project_folders import folder_name, project_root
 
 if TYPE_CHECKING:
     from .graph.core import InMemoryVIGraph

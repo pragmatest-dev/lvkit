@@ -134,10 +134,7 @@ def _folded(parts: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _same_file(first: Path, second: Path) -> bool:
-    """Whether two paths name one file on disk (its device and file number), so
-    one file spelled two ways (``Lib.dll``, ``lib.dll`` on a file system that
-    ignores case) is one copy; paths with no file compare as paths."""
-    try:
-        return os.path.samefile(first, second)
-    except OSError:
-        return first == second
+    """Whether two registered files (each on disk) are one file (its device and
+    file number), so one file spelled two ways (a hard link, ``Lib.dll`` and
+    ``lib.dll`` on a file system that ignores case) is one copy."""
+    return os.path.samefile(first, second)

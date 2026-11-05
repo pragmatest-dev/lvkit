@@ -29,7 +29,6 @@ import networkx as nx
 
 from lvkit.library_folders import Folders, SearchEntries
 
-from ..cache_paths import project_root, shown_path
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
@@ -49,6 +48,7 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE
+from ..project_folders import project_root, shown_path
 from ..run_report import (
     CacheWriteError,
     Problem,
