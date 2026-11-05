@@ -65,8 +65,7 @@ def _generated(views: Views) -> str:
 # Generation reads the row as a Property of an object nothing opened; the text is
 # the same whatever the row's type, and must not change with it.
 _GENERATED = (
-    "from __future__ import annotations\n"
-    "from typing import Any, NamedTuple\n\n"
+    "from __future__ import annotations\n\n"
     "def t():\n"
     "    raise NotImplementedError("
     "\"Property 'NumChans' of the default Task object has no Python equivalent\\n"

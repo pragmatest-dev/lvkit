@@ -12,10 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.flattened_typedesc import private_data_from_lvclass_xml
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.describe import type_label
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import PrimitiveNode
+from tests.helpers import vi_key
 
 # A class member VI whose .lvclass sits one directory up (subfolder case).
 SUBFOLDER_VI = Path(
@@ -35,14 +36,13 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     g.load_vi(SUBFOLDER_VI, mode=LoadMode.MINIMAL)
 
     # The owning class resolves its private-data fields...
-    fields = g.get_class_fields("TextTestRunner.JUnitXML.lvclass")
+    class_key = vi_key(g, "TextTestRunner.JUnitXML.lvclass")
+    fields = g.get_class_fields(class_key)
     assert fields is not None
     assert [f.name for f in fields] == ["Report Path"]
 
     # ...and the field-only load is a placeholder, not a full class load. The
     # class node is keyed by PATH now — resolve the qname to its key first.
-    class_key = g._dep_key_for_ref("TextTestRunner.JUnitXML.lvclass")
-    assert class_key is not None
     node = g._dep_graph.nodes[class_key]
     assert node.get("fields_only") is True
     # The ONLY method VI of that class in the graph is the target VI itself
@@ -53,8 +53,9 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     # dep_graph qname-prefix scan.
     class_method_vis = [
         q
-        for q in g._qname_to_keys
-        if q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
+        for _key, q in g._dep_graph.nodes(data="qname")
+        if q
+        and q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
 
@@ -72,21 +73,16 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
                 )
 
 
-# Fix B: a class whose private data is a CONTROL (.ctl) typedef — NOT an inline
-# "class private data" cluster in a method VI's VCTP — has its fields read
-# straight from that control. The .ctl file may differ from the class's recorded
-# logical name (LabVIEW logical "<Class>.ctl" vs on-disk "Data.ctl").
+# A class whose private data is its CONTROL (``MeasurementContext.ctl``, kept
+# inside the source-only ``.lvclass``) has its fields read from that control.
+# Here the control holds one field, a Data Value Reference to ``Data.ctl``'s
+# cluster: the class's own field is the reference, as a Bundle/Unbundle By Name
+# on the class wire names it.
 _MC_REPO = ".lvkit/cache/samples/measurement-plugin-labview"
 _MC_DIR = "Source/Runtime/MeasurementLink Measurement Server/Classes/MeasurementContext"
 _MC_REF = "0577695d"
 _MC_CLASS = "MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass"
-_MC_FIELDS = [
-    "PinMapContext",
-    "gRPCServerId",
-    "IMeasurementService",
-    "MeasurementPluginService",
-    "reserved session infos",
-]
+_MC_FIELDS = ["DataDVR"]
 
 
 def _extract_class_dir(dest: Path, ref: str = _MC_REF) -> Path | None:
@@ -138,7 +134,7 @@ def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
     g = InMemoryVIGraph()
     g.load_vi(cdir / "Create.vi", mode=LoadMode.MINIMAL)
 
-    fields = g.get_class_fields(_MC_CLASS)
+    fields = g.get_class_fields(vi_key(g, _MC_CLASS))
     assert fields is not None
     assert [f.name for f in fields] == _MC_FIELDS_BEFORE
 
@@ -156,18 +152,36 @@ def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
     assert {"pin map context", "gRPC server call"} <= stamped
 
 
-def test_flattened_private_data_parser_direct(tmp_path: Path) -> None:
-    """`private_data_from_lvclass_xml` decodes the flattened-CTL property to the
-    ordered current-generation fields, with nested sub-fields, from the
-    `.lvclass` alone (no graph, no method VIs)."""
+def test_flattened_private_data_is_read_as_the_recorded_control(
+    tmp_path: Path,
+) -> None:
+    """The private-data control a source-only `.lvclass` keeps inside itself is
+    read as a control at its path inside the class (`<X.lvclass>/<url>`): the
+    class is edged to that path (not to the cache copy that was read), and its
+    fields carry the types the control's own type table gives them."""
     cdir = _extract_class_dir(tmp_path, ref=_MC_REF_BEFORE)
     if cdir is None:
         pytest.skip("measurement-plugin-labview sample repo not present")
 
-    fields = private_data_from_lvclass_xml(cdir / "MeasurementContext.lvclass")
-    assert [f.name for f in fields] == _MC_FIELDS_BEFORE
-    pin_map = fields[0]
-    assert [sf.name for sf in pin_map.sub_fields] == ["pin_map_id", "sites"]
+    g = InMemoryVIGraph()
+    g.load_vi(cdir / "Create.vi", mode=LoadMode.MINIMAL)
+
+    class_key = vi_key(g, _MC_CLASS)
+    controls = [
+        t
+        for _, t, e in g._dep_graph.out_edges(class_key, data=True)
+        if e.get("rel") == "private_data"
+    ]
+    inside = cdir.resolve() / "MeasurementContext.lvclass" / "MeasurementContext.ctl"
+    assert controls == [str(inside)]
+    fields = g.get_class_fields(class_key)
+    assert fields is not None
+    assert [(f.name, type_label(f.type)) for f in fields] == [
+        ("pin map context", "PinMapContext{pin_map_id, sites}"),
+        # The field is a typedef (grpcId) of a U64: a typedef of a single value
+        # keeps its name, so it reads grpcId and no longer the bare U64.
+        ("gRPC server call", "grpcId"),
+    ]
 
 
 def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
@@ -212,9 +226,8 @@ def test_ctl_private_data_class_fields_resolve(tmp_path: Path, mode) -> None:
     g = InMemoryVIGraph()
     g.load_vi(cdir / "Create.vi", mode=mode)
 
-    # The class's private data is the Data.ctl control — its fields resolve
-    # (previously 0, because the inline-VCTP hunt found nothing).
-    fields = g.get_class_fields(_MC_CLASS)
+    # The class's private data is its control's one field, the reference.
+    fields = g.get_class_fields(vi_key(g, _MC_CLASS))
     assert fields is not None
     assert [f.name for f in fields] == _MC_FIELDS
 

@@ -112,27 +112,21 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
         flat_descs = flat_type_descs(root)
 
         # Build flat -> typedef info from VCTP Section TypeDescs
-        flat_to_typedef: dict[int, tuple[str | None, str | None]] = {}
+        flat_to_typedef: dict[int, tuple[str | None, list[str]]] = {}
         for section in root.findall(".//VCTP/Section"):
             # Find TypeDefs and their FlatTypeID from preceding comment
             for i, type_desc in enumerate(section.findall("TypeDesc")):
                 if type_desc.get("Type") != "TypeDef":
                     continue
 
-                # Get the .ctl filename from Label element
-                typedef_name = None
-                for label in type_desc.findall("Label"):
-                    text = label.get("Text", "")
-                    if text.endswith(".ctl"):
-                        typedef_name = text
-                        break
+                typedef_names = _typedef_names(type_desc)
 
                 # Get nested underlying type
                 nested = type_desc.find("TypeDesc[@Nested='True']")
                 underlying_type = nested.get("Type") if nested is not None else None
 
                 # The FlatTypeID is the position in the section
-                flat_to_typedef[i] = (underlying_type, typedef_name)
+                flat_to_typedef[i] = (underlying_type, typedef_names)
 
         vicc_paths = _typedef_ctl_paths(root)
 
@@ -154,9 +148,11 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
 
             # Add typedef identity if this heap_id is a typedef
             if flat_id in flat_to_typedef:
-                _, ctl_filename = flat_to_typedef[flat_id]
-                if ctl_filename and heap_id in type_map:
-                    _apply_typedef_identity(type_map[heap_id], ctl_filename, vicc_paths)
+                _, typedef_names = flat_to_typedef[flat_id]
+                if typedef_names and heap_id in type_map:
+                    _apply_typedef_identity(
+                        type_map[heap_id], typedef_names, vicc_paths
+                    )
 
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
@@ -193,29 +189,46 @@ def _typedef_ctl_paths(root: ET.Element) -> dict[str, list[str]]:
     return vicc_paths
 
 
+def _typedef_names(type_desc: ET.Element) -> list[str]:
+    """The names a TypeDef descriptor records for its file (its ``Label``
+    parts): its owners (libraries, classes), outermost first, then the
+    ``.ctl``. Empty when no part is a ``.ctl``."""
+    names: list[str] = []
+    for label in type_desc.findall("Label"):
+        text = label.get("Text", "")
+        names.append(text)
+        if text.endswith(".ctl"):
+            return names
+    return []
+
+
+def typedef_qualified_name(type_desc: ET.Element) -> str | None:
+    """A TypeDef descriptor's qualified name (``_typedef_names`` joined), None
+    when it names no ``.ctl``."""
+    names = _typedef_names(type_desc)
+    return build_qualified_name(names[:-1], names[-1]) if names else None
+
+
 def _apply_typedef_identity(
     lv_type: LVType,
-    ctl_filename: str,
+    typedef_names: list[str],
     vicc_paths: dict[str, list[str]],
 ) -> None:
-    """Stamp a typedef's qualified name (and relative path, when its link record
+    """Stamp a typedef's qualified name -- the names the type records, its
+    owners then its ``.ctl`` file -- (and relative path, when its link record
     gives one) onto ``lv_type``."""
+    ctl_filename = typedef_names[-1]
     lv_type.typedef_file = ctl_filename
-    if ctl_filename not in vicc_paths:
-        lv_type.typedef_name = ctl_filename
-        return
-    path_tokens = vicc_paths[ctl_filename]
-    lv_type.typedef_path = build_relative_path(path_tokens)
-    owner_chain = [
-        t for t in path_tokens[:-1] if t.endswith((".llb", ".lvlib", ".lvclass"))
-    ]
-    lv_type.typedef_name = build_qualified_name(owner_chain, ctl_filename)
+    lv_type.typedef_name = build_qualified_name(typedef_names[:-1], ctl_filename)
+    if ctl_filename in vicc_paths:
+        lv_type.typedef_path = build_relative_path(vicc_paths[ctl_filename])
 
 
 def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
     """The heap ``TypeID`` map of a pre-LV9 VI, decoded from its ``DTHP`` sidecar
     (see ``heap_types``); empty when the VI has none. A typedef whose ``.ctl`` has
-    a link record gains the same qualified name / path an LV9+ typedef gets."""
+    a link record gains the same path an LV9+ typedef gets; its qualified name is
+    the one its type records (``td_pool``)."""
     sidecar = heap_sidecar_path(xml_path)
     if not sidecar.exists():
         return HeapTypes()
@@ -226,7 +239,7 @@ def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
         return heap
     for lv_type in heap.types.values():
         if lv_type.typedef_file is not None and lv_type.typedef_file in vicc_paths:
-            _apply_typedef_identity(lv_type, lv_type.typedef_file, vicc_paths)
+            lv_type.typedef_path = build_relative_path(vicc_paths[lv_type.typedef_file])
     return heap
 
 
@@ -363,24 +376,20 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             # dimensions, refnum kind and payload, ...) plus the typedef's
             # identity, the .ctl name.
             nested = td.find("TypeDesc[@Nested='True']")
-            typedef_name = None
-            for lbl in td.findall("Label"):
-                text = lbl.get("Text", "")
-                if text.endswith(".ctl"):
-                    typedef_name = text
-                    break
+            typedef_name = typedef_qualified_name(td)
+            typedef_file = typedef_name.rsplit(":", 1)[-1] if typedef_name else None
             if nested is None:
                 lv_type = LVType(
                     kind=LVTypeKind.PRIMITIVE,
                     underlying_type=None,
                     typedef_name=typedef_name,
-                    typedef_file=typedef_name,
+                    typedef_file=typedef_file,
                 )
             else:
                 lv_type = dataclasses.replace(
                     build_lvtype(nested, visited),
                     typedef_name=typedef_name,
-                    typedef_file=typedef_name,
+                    typedef_file=typedef_file,
                 )
 
         elif type_name in ("UnitUInt16", "UnitUInt32", "UnitUInt8") or (
@@ -528,6 +537,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             return None
 
         lv_type = build_lvtype(flat_types[fid], visited | {fid})
+        lv_type.type_id = fid
         resolved[fid] = lv_type
         return lv_type
 

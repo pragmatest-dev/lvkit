@@ -496,13 +496,16 @@ class LocalVariableNode(GraphNode):
 
 class GlobalVIRef(BaseModel):
     """The Global VI a global variable node refers to, as the calling VI's
-    block-diagram link table records it: the qualified name and the path
-    tokens (caller-relative, see ``ParsedDependencyRef.resolve_against``)."""
+    block-diagram link table records it: the qualified name, the path tokens
+    (caller-relative, see ``ParsedDependencyRef.resolve_against``) and the
+    dependency key (file path) the load gave that record (``None`` when the
+    dependencies were not loaded)."""
 
     model_config = {"frozen": True}
 
     qualified_name: str
     path_tokens: tuple[str, ...]
+    key: str | None = None
 
 
 class GlobalVariableNode(GraphNode):

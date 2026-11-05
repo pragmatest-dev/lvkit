@@ -42,6 +42,7 @@ from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
 from lvkit.vi_files import rglob_vi_files
 from tests.corpus_graphs import build_corpus_index
+from tests.helpers import vi_key
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -344,15 +345,18 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        # 194 (no static caller): dead code + top-level entry points + VIs
+        # 195 (no static caller): dead code + top-level entry points + VIs
         # reached only dynamically (Call-By-Reference / VI Server). Matches the
         # eval harness (q18). A call names its callee by file path, and a method
-        # called through a subclass names the ancestor's file. 194, not the 181
+        # called through a subclass names the ancestor's file. 195, not the 181
         # a search by file name gave: 13 methods are called only by VIs that
         # record them (or the parent class they inherit them from) at the
         # toolkit's installed <vilib>/addons/_JKI Toolkits/VI Tester/... path,
         # where the source copies are not, so those calls are to missing VIs.
-        assert total_uncalled == 194
+        # Prototype/.../MyNewVI.vi is uncalled: it claims MyClass.lvclass, but
+        # the class does not list it, so it is not the method testMyNewVI.vi's
+        # dispatch call names (that call is to a missing method).
+        assert total_uncalled == 195
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
@@ -510,7 +514,7 @@ class TestLoadLvlibClassMember:
         # The class's methods loaded as real VI nodes, owned by the class
         # (not left as a dead/unreachable member). The class node is keyed by
         # PATH now, so resolve the qname to its key before walking edges.
-        class_key = graph._dep_key_for_ref(_MYLIBRARY_CLASS_NAME)
+        class_key = vi_key(graph, _MYLIBRARY_CLASS_NAME)
         assert class_key is not None
         owned = {
             succ

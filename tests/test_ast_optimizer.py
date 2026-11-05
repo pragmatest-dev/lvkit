@@ -5,6 +5,7 @@ import ast
 from lvkit.codegen.ast_optimizer import (
     DeadCodeEliminator,
     eliminate_dead_code,
+    remove_duplicate_imports,
     remove_unused_imports,
 )
 
@@ -245,8 +246,8 @@ def test_func():
     assert "from module import" not in result
 
 
-def test_keep_always_needed_imports():
-    """Test that annotations, Any, NamedTuple are always kept."""
+def test_the_future_import_and_read_typing_names_are_kept():
+    """The future import and the typing names a module reads are kept."""
     code = """
 from __future__ import annotations
 from typing import Any, NamedTuple
@@ -258,7 +259,227 @@ class Result(NamedTuple):
     optimized = remove_unused_imports(module)
     result = ast.unparse(optimized)
 
-    # These should always be kept
-    assert "annotations" in result
-    assert "Any" in result
-    assert "NamedTuple" in result
+    assert "from __future__ import annotations" in result
+    assert "from typing import Any, NamedTuple" in result
+
+
+def test_an_unread_any_is_not_imported():
+    """A module whose annotations name no `Any` does not import it."""
+    code = """
+from __future__ import annotations
+from typing import Any, NamedTuple
+
+class Result(NamedTuple):
+    grpc_id: int
+"""
+    module = ast.parse(code)
+    optimized = remove_unused_imports(module)
+    result = ast.unparse(optimized)
+
+    assert "from typing import NamedTuple" in result
+    assert "Any" not in result
+
+
+def _optimized(code: str) -> str:
+    return ast.unparse(remove_unused_imports(ast.parse(code)))
+
+
+def test_a_method_import_it_never_reads_is_removed():
+    """An import inside a method body that the method never reads goes."""
+    result = _optimized("""
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        return 1
+""")
+    assert "LabVIEWError" not in result
+    assert "return 1" in result
+
+
+def test_a_method_import_it_reads_is_kept():
+    """An import inside a method body that the method reads stays there."""
+    result = _optimized("""
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        from .other import unused
+        raise LabVIEWError(1)
+""")
+    assert "from .errors import LabVIEWError" in result
+    assert "unused" not in result
+
+
+def test_a_method_import_of_a_type_checking_only_typedef():
+    """A typedef imported under TYPE_CHECKING for an annotation and again in a
+    method that never reads it: the method's import goes, the annotation's
+    stays. A method that reads it keeps its own import, since the
+    TYPE_CHECKING import binds nothing at run time."""
+    result = _optimized("""
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .typedefs import Annotation
+
+class Result:
+    annotations: list[Annotation]
+
+class Service:
+    def details(self):
+        from .typedefs import Annotation
+        return Result()
+
+    def build(self):
+        from .typedefs import Annotation
+        return Annotation()
+""")
+    assert result.count("from .typedefs import Annotation") == 2
+    assert "def details(self):\n        return Result()" in result
+    assert "def build(self):\n        from .typedefs import Annotation" in result
+
+
+def test_a_method_import_the_module_already_binds_is_removed():
+    """A method import that repeats a top-level run-time import goes."""
+    result = _optimized("""
+from .errors import LabVIEWError
+
+def check():
+    raise LabVIEWError(1)
+
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        raise LabVIEWError(2)
+""")
+    assert result.count("from .errors import LabVIEWError") == 1
+    assert result.startswith("from .errors import LabVIEWError")
+
+
+def test_a_function_left_with_no_statements_gets_pass():
+    """A body that held only unread imports still parses."""
+    result = _optimized("""
+def f():
+    from .errors import LabVIEWError
+""")
+    assert "def f():\n    pass" in result
+
+
+def test_an_import_read_only_by_a_nested_function_or_lambda_is_kept():
+    result = _optimized("""
+def outer():
+    from .a import A
+    from .b import B
+    def inner():
+        return A()
+    return inner, lambda: B()
+""")
+    assert "from .a import A" in result
+    assert "from .b import B" in result
+
+
+def test_an_aliased_method_import_beside_an_unaliased_module_import_is_kept():
+    result = _optimized("""
+import json
+
+def dump(x):
+    import json as js
+    return js.dumps(x) + json.dumps(x)
+""")
+    assert "import json as js" in result
+    assert result.startswith("import json\n")
+
+
+def test_a_dotted_import_in_a_function_read_through_its_path_is_kept():
+    result = _optimized("""
+def run():
+    import concurrent.futures
+    return concurrent.futures.ThreadPoolExecutor
+""")
+    assert "import concurrent.futures" in result
+
+
+def test_a_future_import_is_kept_and_another_annotations_name_is_not():
+    result = _optimized("""
+from __future__ import annotations
+from typing_extensions import annotations as unused
+
+def f():
+    return 1
+""")
+    assert "from __future__ import annotations" in result
+    assert "typing_extensions" not in result
+
+
+def test_reads_outside_the_body_and_local_annotations_do_not_keep_an_import():
+    """Decorators, defaults and annotations are not read in the function's own
+    body, and a local variable annotation is never evaluated."""
+    result = _optimized("""
+from __future__ import annotations
+
+def f(x: T = D) -> T:
+    from .t import T
+    from .d import D
+    from .l import L
+    y: L = 1
+    return y
+""")
+    assert "from .t" not in result
+    assert "from .d" not in result
+    assert "from .l" not in result
+
+
+def test_a_function_import_of_a_name_it_rebinds_is_kept():
+    for before, after in (
+        ("global E", "pass"),
+        ("pass", "E = 2"),
+        ("pass", "del E"),
+        ("pass", "for E in (): pass"),
+        ("pass", "def E(): pass"),
+        ("pass", "class E: pass"),
+        ("pass", "try: pass\n    except Exception as E: pass"),
+        ("pass", "match 1:\n        case E: pass"),
+        ("pass", "match 1:\n        case [*E]: pass"),
+        ("pass", "match {}:\n        case {**E}: pass"),
+    ):
+        result = _optimized(f"""
+from .errors import E
+
+def g():
+    return E
+
+def f():
+    {before}
+    from .errors import E
+    {after}
+""")
+        compile(result, "<test>", "exec")
+        assert result.count("from .errors import E") == 2, (before, after)
+    nested = _optimized("""
+def outer():
+    from .errors import E
+    def inner():
+        nonlocal E
+        E = 3
+    return inner
+""")
+    assert "from .errors import E" in nested
+    for params in ("E", "*E", "**E", "*, E", "E, /"):
+        result = _optimized(f"""
+from .errors import E
+
+def g():
+    return E
+
+def f({params}):
+    from .errors import E
+    return E
+""")
+        assert result.count("from .errors import E") == 2, params
+
+
+def test_relative_imports_at_different_levels_are_not_duplicates():
+    result = ast.unparse(
+        remove_duplicate_imports(
+            ast.parse("from .x import A\nfrom ..x import A\nfrom .x import A\n")
+        )
+    )
+    assert result == "from .x import A\nfrom ..x import A"

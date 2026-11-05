@@ -55,6 +55,7 @@ _NARROWEST = 2
 def _breadth(scope: str) -> int:
     return _BREADTH.get(scope, _NARROWEST)
 
+
 # What a field's storage takes after its name when a private member of the class
 # has the name the storage would have.
 _STORAGE_SUFFIX = "_value"
@@ -185,7 +186,7 @@ def _members(graph: InMemoryVIGraph, class_key: str) -> dict[str, list[_Member]]
         inputs, _, outputs, _ = graph.vi_interface(key)
 
         def is_class(t: Terminal, key: str = key) -> bool:
-            return graph.is_class_wire(t.lv_type, key, class_key)
+            return graph.is_class_wire(t.lv_type, class_key)
 
         if not _fits(role, inputs, outputs, is_class):
             continue
@@ -245,7 +246,7 @@ def accessor_pane(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> Access
     inputs, _, outputs, _ = graph.vi_interface(vi_key)
 
     def is_class(t: Terminal) -> bool:
-        return graph.is_class_wire(t.lv_type, vi_key, class_key)
+        return graph.is_class_wire(t.lv_type, class_key)
 
     def first(terminals: list[Terminal]) -> int | None:
         return terminals[0].index if terminals else None

@@ -12,12 +12,12 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.gaps import Gap, gap_problem
+from lvkit.graph.membership import CLAIM_ATTR
 from lvkit.graph.models import (
     GraphNode,
     InPlaceNode,
     PrimitiveNode,
     VIContext,
-    VIMetadata,
 )
 from lvkit.models import ClusterField, Terminal
 from lvkit.run_report import EXIT_PARTIAL, Outcome, ProblemKind, RunReport
@@ -118,9 +118,10 @@ def _project(
         # The tile's pairing id, which marks it a border tile of the structure.
         project.graph._graph.nodes[f"{orphan}:tile"]["poser_uid"] = "p1"  # noqa: SLF001
     if recorded_owner:
-        project.graph._vi_metadata[orphan] = VIMetadata(  # noqa: SLF001
-            owning_libraries=["Base.lvclass"]
-        )
+        # The VI's own record claims the class, by its path, as the loader keeps it.
+        project.graph._dep_graph.nodes[orphan][CLAIM_ATTR] = project.classes[  # noqa: SLF001
+            "Base"
+        ]
     return project, orphan
 
 

@@ -161,13 +161,13 @@ def type_attributes(
     node_label: str,
 ) -> ClassAttributes | None:
     """The attributes of the class a wire of type ``lv_type`` carries, found among
-    the calling VI's own links, for the ``node_label`` node (a Bundle/Unbundle By
+    the calling VI's own records, for the ``node_label`` node (a Bundle/Unbundle By
     Name or In Place Element) on its private data; ``None`` for a wire that is
     not a loaded class. Only the class's own VIs reach its private data, so the
     node in any other VI is a gap: that VI is broken in LabVIEW."""
     if lv_type is None:
         return None
-    key = graph.class_type_key(lv_type, caller_vi_key)
+    key = graph.class_type_key(lv_type)
     if key is None:
         return None
     _require_own_class(
@@ -182,12 +182,13 @@ def _require_own_class(
     """``what`` of the class at ``class_key`` is reached from ``caller_key``,
     which must be one of the class's own VIs (written in its body, where Python
     finds a private name). LabVIEW lets no other VI reach it, so anything else
-    is a VI broken in LabVIEW: a gap. When the VI's own file names the class as
-    its owner, the class file and the VI disagree, and the reason says so."""
+    is a VI broken in LabVIEW: a gap. When the VI's own record claims the class
+    (``claimed_owner``, by path), the class file and the VI disagree, and the
+    reason says so."""
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
     if caller_class == class_key:
         return
-    if caller_key and graph.records_owner(caller_key, class_key):
+    if caller_key and graph.claimed_owner(caller_key) == class_key:
         why = "the VI names that class as its owner while the class does not list it"
     else:
         why = "the class does not list this VI"
@@ -301,7 +302,7 @@ def _receivers(
     inputs, _, outputs, _ = graph.vi_interface(vi_key)
 
     def is_class(t: Terminal) -> bool:
-        return graph.is_class_wire(t.lv_type, vi_key, class_key)
+        return graph.is_class_wire(t.lv_type, class_key)
 
     return (
         next((t for t in inputs if is_class(t)), None),
