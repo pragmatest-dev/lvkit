@@ -189,7 +189,7 @@ def _copy_beside_vi(
         )
     for path in _copied_files(candidates):
         below = path.relative_to(location.folder).parts
-        resolver.copy_beside_vi(vi_key, recorded, below, path)
+        resolver.register_beside_vi(vi_key, recorded, below, path)
     parts = [p for p in folder.split("/") if p != "."]
     leaf = (
         f"{_LIBRARY_FILE_NAME}({location.name!r})"

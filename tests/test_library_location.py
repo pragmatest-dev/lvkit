@@ -17,6 +17,8 @@ from lvkit.graph.typedef import TypedefInfo, TypedefRef
 from lvkit.library_folders import library_location
 from lvkit.models import LVType, LVTypeKind
 from lvkit.run_report import (
+    Problem,
+    ProblemKind,
     ProblemStage,
     RunProblems,
     RunSettings,
@@ -223,3 +225,38 @@ def test_a_problem_names_its_vi_from_the_final_graph(project: Path) -> None:
     run.fail(copy, ProblemStage.EXTRACT, error)
     (problem,) = run.report().problems
     assert problem.vi == "<userlib>/_OpenG.lib/file/file.llb/Build Path__ogtk.vi"
+
+
+def test_a_stub_problem_is_named_from_the_final_graph(project: Path) -> None:
+    """A problem on a stub recorded with no key is stamped with its node's key,
+    so recorded before and after the stub's ``<userlib>`` path settles it is one
+    entry under one name."""
+    run = RunProblems(RunSettings(root=project))
+    graph = run.new_graph()
+    stub = str(project / "copies" / "Missing.vi")
+    graph._add_stub(stub, NodeType.VI, "Missing.vi", None, None)  # noqa: SLF001
+
+    def unreadable() -> Problem:
+        return Problem(
+            vi=graph.key_label(stub),
+            stage=ProblemStage.LOAD,
+            kind=ProblemKind.UNREADABLE,
+            reason="two files could be it",
+        )
+
+    graph.record_problem(stub, unreadable())
+    _record(graph, stub, "<userlib>/_OpenG.lib/Missing.vi")
+    graph.record_problem(stub, unreadable())
+    (problem,) = run.report().problems
+    assert problem.vi == "<userlib>/_OpenG.lib/Missing.vi"
+
+
+def test_a_method_stub_of_a_known_class_is_named_by_the_class(project: Path) -> None:
+    graph = _graph(project)
+    cls = project / "Classes" / "Thing.lvclass"
+    key = f"Thing.lvclass@{cls}:Do.vi"
+    graph._add_stub(  # noqa: SLF001
+        key, NodeType.VI, "Do.vi", "Thing.lvclass:Do.vi", None,
+        class_member=(str(cls), "Do.vi"),
+    )  # fmt: skip
+    assert graph.key_label(key) == "Classes/Thing.lvclass:Do.vi"

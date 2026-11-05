@@ -67,7 +67,7 @@ class ImportResolver:
         | None = None,
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
-        copy_beside_vi: Callable[[str, Sequence[str], Sequence[str], Path], Path | None]
+        register_beside_vi: Callable[[str, Sequence[str], Sequence[str], Path], None]
         | None = None,
     ) -> None:
         self._function_import = function_import
@@ -82,7 +82,7 @@ class ImportResolver:
         self._scope: str | None = None
         self._display_path = display_path
         self._names_import = names_import
-        self._copy_beside_vi = copy_beside_vi
+        self._register_beside_vi = register_beside_vi
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;
@@ -195,20 +195,21 @@ class ImportResolver:
     def copies_files(self) -> bool:
         """Whether files named beside a VI are copied into the package (a whole
         package is generated, not one module's text)."""
-        return self._copy_beside_vi is not None
+        return self._register_beside_vi is not None
 
-    def copy_beside_vi(
+    def register_beside_vi(
         self,
         vi_key: str,
         recorded: Sequence[str],
         below: Sequence[str],
         source: Path,
     ) -> None:
-        """Copy ``source`` into the package at the place ``beside_vi`` gives for
-        ``below`` (``PackageCopies.add``)."""
-        if self._copy_beside_vi is None:
+        """Register ``source`` to be copied into the package at the place
+        ``beside_vi`` gives for ``below`` (``PackageCopies.register``); it is
+        copied only when the module being generated is written."""
+        if self._register_beside_vi is None:
             raise CodeGenError("this resolver generates no package to copy into")
-        self._copy_beside_vi(vi_key, recorded, below, source)
+        self._register_beside_vi(vi_key, recorded, below, source)
 
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding

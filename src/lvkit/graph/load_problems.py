@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 
 # The dependency-node attribute holding a VI's problems: a tuple of ``Problem``.
 PROBLEMS_ATTR = "problems"
+# The dependency-node attribute of a method stub whose class file is known but the
+# method's own file is not determined: ``(class file, method file name)``.
+CLASS_MEMBER_ATTR = "class_member"
 
 
 class LoadProblemsMixin:
@@ -67,11 +70,17 @@ class LoadProblemsMixin:
 
     def key_label(self, key: str) -> str:
         """How a user sees a graph key: a file path as ``vi_label`` shows it; a
-        VI that is not a file (a class method no class lists) by the qualified
-        name recorded for it, else the key as it is."""
+        method of a class whose file is known but undetermined
+        (``CLASS_MEMBER_ATTR``) as the class's label and the method's file name;
+        another VI that is not a file (a class method no class lists) by the
+        qualified name recorded for it, else the key as it is."""
         if Path(key).is_absolute():
             return self.vi_label(key)
         if key in self._dep_graph:
+            member = self._dep_graph.nodes[key].get(CLASS_MEMBER_ATTR)
+            if member is not None:
+                class_file, leaf = member
+                return f"{self.vi_label(class_file)}:{leaf}"
             qname = self._dep_graph.nodes[key].get("qname")
             if qname:
                 return str(qname)
@@ -90,6 +99,8 @@ class LoadProblemsMixin:
         for work that is best-effort). ``vi_key`` is an identity: it is never
         resolved by name, so a problem never lands on another VI of the same
         file name."""
+        if problem.key is None:
+            problem = replace(problem, key=vi_key)
         if vi_key not in self._dep_graph:
             self._add_stub(vi_key, node_type, Path(vi_key).name, None, None, None)
         held: tuple[Problem, ...] = self._dep_graph.nodes[vi_key].get(

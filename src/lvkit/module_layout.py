@@ -140,17 +140,19 @@ class ModuleLayout:
         self._check_unique()
 
     def placed_beside(
-        self, key: str, recorded: Sequence[str]
+        self, key: str, recorded: Sequence[str], below: Sequence[str] = ()
     ) -> tuple[str, ...] | None:
-        """The packages of the folder that holds a file the VI ``key`` records
-        relative to its own file (``recorded``, LabVIEW's tokens: leading empty
-        tokens and ``..`` go up): the same walk from the VI's own place
-        (``walk_relative``), so a file beside a VI is generated beside its module
-        wherever the module is placed; None when the walk leaves the VI's tree
-        (above its project, its library folder or its own outside project)."""
+        """The place in the package (its parts) of a file at ``below`` in the
+        folder that holds a file the VI ``key`` records relative to its own file
+        (``recorded``, LabVIEW's tokens: leading empty tokens and ``..`` go up):
+        the packages the same walk from the VI's own place gives
+        (``walk_relative``), then ``below`` under its own names, so a file beside
+        a VI is generated beside its module wherever the module is placed; None
+        when the walk leaves the VI's tree (above its project, its library folder
+        or its own outside project)."""
         location = self._location(key)
         walked = walk_relative(location.tokens, recorded, keep=len(location.tree))
-        return None if walked is None else _packages(walked[:-1])
+        return None if walked is None else (*_packages(walked[:-1]), *below)
 
     def _recorded_path(self, key: str) -> str | None:
         """The path a caller recorded for ``key`` (``recorded`` when given, else

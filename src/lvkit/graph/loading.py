@@ -74,6 +74,7 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
+from .load_problems import CLASS_MEMBER_ATTR
 from .membership import ListedMethod
 from .models import (
     ExecSystem,
@@ -653,6 +654,7 @@ class LoadingMixin:
         caller: str | None,
         rel: EdgeRel | None = None,
         reason: str | None = None,
+        class_member: tuple[str, str] | None = None,
     ) -> None:
         """Add one path-keyed STUB node for a dependency whose file is absent
         (or unresolved) -- the single shape shared by every stub-creation site
@@ -670,13 +672,17 @@ class LoadingMixin:
         type reference); when None, no edge is added (a caller with no
         dep_graph node of its own, e.g. a ``.lvproj`` member, cannot be
         edged from). ``reason`` is why the dependency is missing when more than
-        its absence (``stub_reason``).
+        its absence (``stub_reason``). ``class_member`` is the file of the class a
+        method stub belongs to and the method's file name (``CLASS_MEMBER_ATTR``),
+        which name it (``key_label``).
         """
         if not self._dep_graph.has_node(key):
             self._dep_graph.add_node(key, node_type=node_type)
             self._stubs.add(key)
         if reason is not None and key in self._stubs:
             self._dep_graph.nodes[key]["stub_reason"] = reason
+        if class_member is not None and key in self._stubs:
+            self._dep_graph.nodes[key][CLASS_MEMBER_ATTR] = class_member
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
             if rel == EdgeRel.OWNS:
@@ -2574,14 +2580,12 @@ class LoadingMixin:
             stub_key = (
                 f"{owner_name}@{class_path}:{leaf}" if class_path else qualified_name
             )
-            label = (
-                f"{self.vi_label(class_path)}:{leaf}" if class_path else qualified_name
-            )
+            member = (str(class_path), leaf) if class_path else None
             identity = None
         else:
             intended = self._intended_dep_path(qualified_name, dep_ref, caller_file)
             stub_key = str(intended) if intended is not None else qualified_name
-            label = self.vi_label(intended) if intended is not None else qualified_name
+            member = None
             identity = str(intended) if intended is not None else None
             self._note_recorded_path(stub_key, dep_ref, qualified_name, caller_qname)
         node_type = (
@@ -2600,11 +2604,12 @@ class LoadingMixin:
             qualified_name,
             caller=caller_qname,
             reason=reason,
+            class_member=member,
         )
         self.record_problem(
             stub_key,
             Problem(
-                vi=label,
+                vi=self.key_label(stub_key),
                 stage=ProblemStage.LOAD,
                 kind=ProblemKind.UNREADABLE,
                 reason=reason,

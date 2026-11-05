@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import cli
 from lvkit.codegen.nodes.ext_func_library import LIBRARY_FILE_SOURCE, expansions
 from lvkit.graph import InMemoryVIGraph
 from lvkit.parser.extfunc_prototype import (
@@ -470,6 +471,34 @@ def test_a_relative_path_through_a_folder_and_back_finds_the_library(
     assert "vis/libs/vendorlib.so" in _tree(out)
     source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
     assert "os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')" in source
+
+
+@pytest.mark.skipif(
+    sys.platform in ("win32", "darwin"), reason="needs names that differ only in case"
+)
+def test_two_files_for_one_place_stop_generation_with_a_whole_package(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``vendorlib.so`` (the typed name's expansion) and ``VendorLib.so`` (the
+    recorded name) are one place on a Windows or macOS file system: generation
+    stops as unwritable (exit 1), and the package it wrote is whole."""
+    (project.libs / "vendorlib.so").write_bytes(b"one")
+    (project.libs / "VendorLib.so").write_bytes(b"two")
+    vi = project.write_vi("vendorlib.*", ["", "..", "libs", "VendorLib.so"], "f")
+    out = project.base / "out"
+    monkeypatch.setattr(sys, "argv", ["lvkit", "generate", str(vi), "-o", str(out)])
+
+    assert cli.main() == 1
+
+    err = capsys.readouterr().err
+    assert "'.../VendorLib.so'" in err and "'.../vendorlib.so'" in err
+    (package,) = [p for p in out.iterdir() if p.is_dir()]
+    assert (package / "__init__.py").is_file()
+    assert (package / "vis/sub/clfn_bdhbxml.py").is_file()
+    assert (package / "vis/libs/vendorlib.so").read_bytes() == b"one"
+    _import(package)  # every module written imports
 
 
 def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> None:

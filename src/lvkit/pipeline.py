@@ -312,10 +312,10 @@ def create_import_resolver(
         records relative to itself sits from the calling module's folder once
         copied into the package: in the package ``ModuleLayout.placed_beside``
         gives; None when the walk leaves the VI's tree."""
-        placed = layout.placed_beside(vi_key, recorded) if layout else None
+        placed = layout.placed_beside(vi_key, recorded, below) if layout else None
         if placed is None:
             return None
-        target = output_dir.joinpath(*placed, *below)
+        target = output_dir.joinpath(*placed)
         return Path(os.path.relpath(target, caller_dir)).as_posix()
 
     def error_import() -> str:
@@ -338,7 +338,7 @@ def create_import_resolver(
         beside_vi,
         shown,
         names_import,
-        copies.add if copies is not None else None,
+        copies.register if copies is not None else None,
     )
 
 
@@ -383,6 +383,15 @@ def _warn_unimportable_paths(package_root: Path) -> None:
             "output folder.",
             file=sys.stderr,
         )
+
+
+def _write_module_files(
+    folder: Path, data_files: dict[str, bytes], copies: PackageCopies
+) -> None:
+    """The module in ``folder`` was written: write the data files it reads at run
+    time, and keep the files it named beside its VIs (``PackageCopies.commit``)."""
+    _write_data_files(folder, data_files)
+    copies.commit()
 
 
 def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
@@ -822,6 +831,7 @@ def generate_python(
 
     try:
         for i, vi_name in enumerate(order, 1):
+            copies.begin_module()
             if vi_name in class_of_member:
                 print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (method of its class)")
@@ -909,7 +919,7 @@ def generate_python(
                     )
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path.parent, data_files, copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -943,7 +953,7 @@ def generate_python(
                     )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path.parent, data_files, copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(
                         f"         -> polymorphic: {output_path.name}"
@@ -988,7 +998,7 @@ def generate_python(
                     # Validate syntax
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path.parent, data_files, copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -1006,6 +1016,7 @@ def generate_python(
         # Generate polymorphic wrappers for structurally-detected groups
         # whose wrapper VI wasn't in the conversion order
         for wrapper_name, variants in poly_groups.items():
+            copies.begin_module()
             if not variants:
                 continue
             wrapper_path = vi_paths.get(wrapper_name)
@@ -1036,16 +1047,15 @@ def generate_python(
                     )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
-                    _write_data_files(wrapper_path.parent, data_files)
+                    _write_module_files(wrapper_path.parent, data_files, copies)
                     _report_gaps(wrapper_gaps, all_gaps, graph)
                     generated.append((wrapper_name, wrapper_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                     _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
 
-        # The files named beside the VIs, once every module has named its own:
-        # two different files for one place stop generation.
-        copies.check()
+        copies.begin_module()
+        # The files named beside the VIs, once every module has named its own.
         copies.write()
 
         # Generate minimal __init__.py (just makes it a package)
@@ -1060,6 +1070,9 @@ def generate_python(
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
+    # Two different files for one place stop generation, now that the package
+    # written is whole (its shared modules and copies are in place).
+    copies.check()
 
     _warn_unimportable_paths(output_dir_resolved)
     print(f"\nOutput: {display_path(output_dir_resolved)}")
