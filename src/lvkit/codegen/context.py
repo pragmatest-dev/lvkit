@@ -6,6 +6,7 @@ resolve() queries the graph directly. One graph. No copies.
 from __future__ import annotations
 
 import ast
+import copy as copy_module
 import math
 import warnings
 from collections import deque
@@ -149,6 +150,9 @@ class CodeGenContext:
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
     formula_helpers: list[ast.stmt] = field(default_factory=list)
+    # The name each helper in ``formula_helpers`` was asked for, to the name it
+    # is written under (``add_module_function``). Shared like the helpers.
+    helper_names: dict[str, str] = field(default_factory=dict)
     # The names of the flatten / unflatten / byte-swap functions generated for
     # this module (keyed by function kind, byte order and type), so a type that
     # recurs is written once. Shared across child contexts like formula_helpers.
@@ -597,6 +601,7 @@ class CodeGenContext:
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
+            helper_names=self.helper_names,  # Shared with the helpers
             flat_functions=self.flat_functions,  # Shared — one dict
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
@@ -868,17 +873,32 @@ class CodeGenContext:
         reentrancy = self.graph.get_vi_properties(self.vi_name).execution.reentrancy
         return reentrancy is Reentrancy.PREALLOCATED_CLONE
 
-    def add_module_function(self, func_def: ast.FunctionDef | ast.ClassDef) -> None:
+    def add_module_function(self, func_def: ast.FunctionDef | ast.ClassDef) -> str:
         """Register a module-level helper function or class, emitted above the VI
-        function. Idempotent like ``add_module_global``."""
-        for stmt in self.formula_helpers:
-            if (
-                isinstance(stmt, (ast.FunctionDef, ast.ClassDef))
-                and stmt.name == func_def.name
-            ):
-                _require_same_definition(func_def.name, stmt, func_def)
-                return
-        self.formula_helpers.append(func_def)
+        function, and return the name it is written under. Idempotent like
+        ``add_module_global``: the same definition again gives the same name, a
+        different one under that name is lvkit's error. A name the module
+        already holds (an import, a definition) is not taken: the helper is
+        written under the name the module's resolver gives it
+        (``ImportResolver.defined_name``, the alias rule of imports)."""
+        wanted = func_def.name
+        if wanted in self.helper_names:
+            written = self.helper_names[wanted]
+            held = next(
+                s
+                for s in self.formula_helpers
+                if isinstance(s, (ast.FunctionDef, ast.ClassDef)) and s.name == written
+            )
+            _require_same_definition(wanted, held, _renamed(func_def, written))
+            return written
+        written = (
+            self.import_resolver.defined_name(wanted)
+            if isinstance(self.import_resolver, ImportResolver)
+            else wanted
+        )
+        self.helper_names[wanted] = written
+        self.formula_helpers.append(_renamed(func_def, written))
+        return written
 
     @classmethod
     def from_graph(
@@ -1392,6 +1412,17 @@ def _format_constant(
             return str(ord(value))
         return repr(value)
     return repr(value)
+
+
+def _renamed(
+    definition: ast.FunctionDef | ast.ClassDef, name: str
+) -> ast.FunctionDef | ast.ClassDef:
+    """``definition`` under ``name`` (a copy when the name differs)."""
+    if definition.name == name:
+        return definition
+    renamed = copy_module.deepcopy(definition)
+    renamed.name = name
+    return renamed
 
 
 def _require_same_definition(name: str, held: ast.stmt, new: ast.stmt) -> None:

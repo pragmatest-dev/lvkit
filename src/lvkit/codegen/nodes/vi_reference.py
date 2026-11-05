@@ -557,7 +557,11 @@ def _generate_lookup(
     for helper in (MODULE_PART_SOURCE, FUNCTION_NAME_SOURCE):
         (func_def,) = ast.parse(helper).body
         assert isinstance(func_def, ast.FunctionDef)
-        ctx.add_module_function(func_def)
+        # These helpers call each other by name, so they cannot be renamed.
+        if ctx.add_module_function(func_def) != func_def.name:
+            raise CodeGenError(
+                f"The module-level name {func_def.name} is taken by an import"
+            )
     text = (locate + _IMPORT_MODULE).format(**names)
     if has_members:
         _class_members_table(node, ctx)

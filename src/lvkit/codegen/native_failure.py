@@ -95,7 +95,9 @@ def catch_failures(
     ``catalog`` lists caught and made its error out."""
     _, outputs = own_error_terminals(node)
     # A class of the operation's own is raised whether or not it is caught; it
-    # is registered with the module's other helpers, one definition per name.
+    # is registered with the module's other helpers, one definition per name,
+    # and written under the name the module gives it (``add_module_function``).
+    written: dict[str, str] = {}
     for failure in catalog.failures:
         if failure.base is not None:
             [definition] = ast.parse(
@@ -104,7 +106,10 @@ def catch_failures(
                 f'{failure.code})."""'
             ).body
             assert isinstance(definition, ast.ClassDef)
-            ctx.add_module_function(definition)
+            written[failure.exception] = ctx.add_module_function(definition)
+    renamed = {old: new for old, new in written.items() if old != new}
+    if renamed:
+        fragment.statements = [_rename(s, renamed) for s in fragment.statements]
     if (
         not catalog.failures
         or not fragment.statements
@@ -135,7 +140,10 @@ def catch_failures(
         error_value = _labview_error(failure, catalog.source, exception)
         handlers.append(
             ast.ExceptHandler(
-                type=ast.Name(id=exception_name(failure), ctx=ast.Load()),
+                type=ast.Name(
+                    id=written.get(failure.exception, exception_name(failure)),
+                    ctx=ast.Load(),
+                ),
                 name=exception,
                 body=[*defaults, build_assign(error, error_value)],
             )
@@ -150,6 +158,24 @@ def catch_failures(
         )
     ]
     return fragment
+
+
+class _Rename(ast.NodeTransformer):
+    """Every ``Name`` that is a key of ``names``, as its value."""
+
+    def __init__(self, names: dict[str, str]) -> None:
+        self.names = names
+
+    def visit_Name(self, node: ast.Name) -> ast.Name:
+        return ast.Name(id=self.names.get(node.id, node.id), ctx=node.ctx)
+
+
+def _rename(statement: ast.stmt, names: dict[str, str]) -> ast.stmt:
+    """``statement`` with the class names ``names`` maps written as their new
+    names (a class of the operation's own the module writes under another)."""
+    result = _Rename(names).visit(statement)
+    assert isinstance(result, ast.stmt)
+    return result
 
 
 def exception_name(failure: NativeError) -> str:
