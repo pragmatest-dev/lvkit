@@ -328,9 +328,9 @@ def test_a_condition_is_read_from_its_expression_tree() -> None:
 
 
 def test_an_unknown_operator_code_shows_as_a_question_mark() -> None:
-    assert read_condition(_selector_info(condition_tree("FC"))) == Condition(
+    assert read_condition(_selector_info(condition_tree("F0"))) == Condition(
         "TARGET ? Windows",
-        "lvkit could not read the operator of its condition (code 0xFC)",
+        "lvkit could not read the operator of its condition (code 0xF0)",
     )
 
 

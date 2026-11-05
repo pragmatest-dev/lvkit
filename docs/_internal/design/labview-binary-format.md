@@ -649,7 +649,7 @@ Value Change. To extend: add confirmed type codes to `_CONFIRMED_EVENT_TYPES` as
 Related: [[reference_case_selector_dataspace]] (case selector values live in dataspace DFDS, a
 DIFFERENT mechanism — event labels are in the BD heap EventSpec, not the dataspace).
 
-## A Conditional Disable condition is an expression tree; its operator is the operator node's `activePlot` (only `FD` = `==` is known)
+## A Conditional Disable condition is an expression tree; a node's `Tag0000` is its parent, an operator's `activePlot` its code (`FB` `||`, `FC` `&&`, `FD` `==`, `FE` `!=`)
 
 Each frame of a Conditional Disable structure (`class="commentNode"`) has one
 `SelectorInfoElement` in `commentSelInfoArray`, in frame order. Its
@@ -657,29 +657,46 @@ Each frame of a Conditional Disable structure (`class="commentNode"`) has one
 
 - `Tag0000`: the condition's strings, hex-encoded (`[TARGET_TYPE, Windows]`). An empty
   list is the Default frame.
-- `activeDiag`: the tree, one `TreeElt` per node, the root first. Every corpus condition
-  is the same three nodes:
+- `activeDiag`: the tree, one `TreeElt` per node. Frame 0 of an outside tester's VI
+  (`Conditional Disable OR.vi`, LabVIEW 2025, condition
+  `TARGET_TYPE == Windows OR TARGET_TYPE == Mac`, strings
+  `[TARGET_TYPE, Windows, Mac]`):
 
   | node | `Tag0000` | `activeDiag` | `activeMarker` | `activePlot` |
   |---|---|---|---|---|
-  | 0 (root) | `FF` | `01` | `2` | `FD` |
-  | 1 | `00` | `FF` | `-1` | `00` |
-  | 2 | `00` | `FF` | `-1` | `01` |
+  | 0 | `FF` | `03` | `4` | `FB` |
+  | 1 | `03` | `FF` | `-1` | `00` |
+  | 2 | `03` | `FF` | `-1` | `01` |
+  | 3 | `00` | `01` | `2` | `FD` |
+  | 4 | `00` | `05` | `6` | `FD` |
+  | 5 | `04` | `FF` | `-1` | `00` |
+  | 6 | `04` | `FF` | `-1` | `02` |
 
-  Read as: `Tag0000` is the node kind (`FF` an operator, `00` a string); an operator's
-  `activeDiag` (hex) and `activeMarker` (decimal) are its two operands' node indexes
-  (`FF`/`-1` = none); a string node's `activePlot` is its index in the string list; the
-  operator node's `activePlot` is the operator code.
+  Read as: `Tag0000` is the index of the node's PARENT (`FF` for the one root). A node
+  with no operands (`activeDiag` `FF`, `activeMarker` `-1`) is a string, and its
+  `activePlot` (hex) is its index in the string list. Every other node is an operator:
+  its `activeDiag` (hex) and `activeMarker` (decimal) are its two operands' node
+  indexes, and its `activePlot` is the operator code. A single comparison is three
+  nodes (root `FF`, two strings whose parent is `00`), so reading `Tag0000` as a node
+  kind only happens to work there.
 
-Evidence (2026-11-03, a scan of all 5719 extracted `*_BDHb.xml` in the user cache after
-`scripts/extract_corpus.py` over the whole samples corpus): 113 conditions, every one this
-exact shape, operator code `FD`. **`FD` is `==`** by deduction: structures whose frames are
-`TARGET_TYPE` Unix / Windows / Mac (no Default) only work if each frame tests equality,
-since NI's docs say the first frame whose condition is TRUE is enabled
-(https://docs-be.ni.com/api/bundle/labview/page/configuring-conditions-for-conditional-disable-structures.html).
-That page also says conditions can be joined with AND/OR; no corpus VI does, and no other
-operator code (a `!=`, AND, OR) occurs, so none is decoded. `parser/nodes/disable_condition.py`
-reads the tree generically; an unknown code shows as `?` in the label
+Evidence:
+- 2026-11-03, a scan of all 5719 extracted `*_BDHb.xml` in the user cache after
+  `scripts/extract_corpus.py` over the whole samples corpus: 113 conditions, every one a
+  single comparison with code `FD`. **`FD` is `==`** by deduction: structures whose
+  frames are `TARGET_TYPE` Unix / Windows / Mac (no Default) only work if each frame
+  tests equality, since NI's docs say the first frame whose condition is TRUE is enabled
+  (https://docs-be.ni.com/api/bundle/labview/page/configuring-conditions-for-conditional-disable-structures.html).
+- 2026-11-04, the outside tester's own VI (shared on PR #241, Apache 2.0) with four
+  frames: `TARGET_TYPE == Windows OR TARGET_TYPE == Mac`, `TARGET_TYPE == Unix`,
+  `TARGET_BITNESS == 64 AND TARGET_TYPE != Mac`, and Default. **`FB` is `||`, `FC` `&&`,
+  `FE` `!=`** from the tester's description of the conditions they entered. The parent
+  layout above was checked against that VI's own bytes (lvkit extraction): every tree
+  has exactly one node with parent `FF`, every leaf has `FF`/`-1` operands, and each
+  operand's `Tag0000` is its operator's index.
+
+`parser/nodes/disable_condition.py` reads the tree from its root by structure and checks
+each operand's parent; an unknown code shows as `?` in the label
 (`TARGET_TYPE ? Windows`) and is reported as a `value not read` problem on the VI.
 
 ## "BD <compressedWireTable> = LabVIEW's real routed wire geometry — DECODED + rendered by default (FAITHFUL_WIRE_TABLE=True, task #84 DONE); auto-router is the fallback"

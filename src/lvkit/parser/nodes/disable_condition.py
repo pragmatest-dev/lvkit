@@ -6,16 +6,19 @@ labview-binary-format.md``, "A Conditional Disable condition is an expression
 tree"):
 
 - ``Tag0000``: the condition's strings, hex-encoded (symbols and values).
-- ``activeDiag``: the tree, one ``TreeElt`` per node, the root first. A node's
-  ``Tag0000`` says what it is (``FF`` an operator, ``00`` a string); an
-  operator's ``activeDiag`` (hex) and ``activeMarker`` (decimal) are the indexes
-  of its two operands; its ``activePlot`` is the operator's code. A string's
-  ``activePlot`` (hex) is the index of its text in the string list.
+- ``activeDiag``: the tree, one ``TreeElt`` per node. A node's ``Tag0000`` is
+  the index of its parent (``FF`` for the root). A node with no operands
+  (``activeDiag`` ``FF`` and ``activeMarker`` ``-1``) is a string, and its
+  ``activePlot`` (hex) is the index of its text in the string list. Any other
+  node is an operator: its ``activeDiag`` (hex) and ``activeMarker`` (decimal)
+  are the indexes of its two operands, and its ``activePlot`` is the
+  operator's code.
 
-The only operator code in the corpus is ``FD``, which is ``==`` (deduced: a
-structure whose frames are ``TARGET_TYPE`` Unix, Windows and Mac only works if
-each frame tests equality). Any other code is an operator lvkit cannot read: the
-label shows ``?`` in its place and the frame is reported.
+The operator codes are ``FB`` ``||``, ``FC`` ``&&``, ``FD`` ``==`` and ``FE``
+``!=`` (as an outside tester described the VI they built with these conditions;
+see the format doc). Any other code is an operator lvkit cannot read: the label shows
+``?`` in its place and the frame is reported. A comparison binds tighter than
+``&&``/``||``; an ``&&`` inside an ``||`` (or the reverse) is parenthesised.
 """
 
 from __future__ import annotations
@@ -25,10 +28,10 @@ from dataclasses import dataclass
 
 from lvkit.text_encoding import decode_labview_text
 
-_OPERATOR_NODE = "FF"
-_STRING_NODE = "00"
+_ROOT_PARENT = "FF"
 # The operator code -> how a label writes it.
-_OPERATORS = {"FD": "=="}
+_OPERATORS = {"FB": "||", "FC": "&&", "FD": "==", "FE": "!="}
+_LOGICAL = {"||", "&&"}
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,15 @@ def _index(text: str | None, base: int) -> int | None:
     return None if value in (-1, 0xFF) else value
 
 
+@dataclass(frozen=True)
+class _Text:
+    """A node's label text, and the operator it is built with (``None`` for a
+    string), so a parent can decide whether it needs parentheses."""
+
+    text: str
+    operator: str | None = None
+
+
 class _Reader:
     """Reads one condition tree, collecting the operator codes it cannot read."""
 
@@ -75,31 +87,62 @@ class _Reader:
         self.nodes = nodes
         self.unknown: list[str] = []
 
-    def read(self, index: int | None, depth: int = 0) -> str | None:
-        """The text of node ``index``; ``None`` when the tree is malformed."""
+    def root(self) -> int | None:
+        """The one node whose parent is ``FF``; ``None`` unless there is
+        exactly one."""
+        roots = [
+            i
+            for i, node in enumerate(self.nodes)
+            if (node.findtext("Tag0000") or "").strip().upper() == _ROOT_PARENT
+        ]
+        return roots[0] if len(roots) == 1 else None
+
+    def read(self, index: int | None, parent: int | None = None) -> _Text | None:
+        """The text of node ``index``, whose parent is node ``parent`` (None
+        for the root); ``None`` when the tree is malformed."""
         if index is None or not 0 <= index < len(self.nodes):
             return None
-        if depth > len(self.nodes):  # a node that leads back to itself
-            return None
         node = self.nodes[index]
-        kind = (node.findtext("Tag0000") or "").strip().upper()
-        if kind == _STRING_NODE:
-            at = _index(node.findtext("activePlot"), 16)
+        if _index(node.findtext("Tag0000"), 16) != parent:
+            return None  # also stops a node that leads back to itself
+        left_at = _index(node.findtext("activeDiag"), 16)
+        right_at = _index(node.findtext("activeMarker"), 10)
+        code = (node.findtext("activePlot") or "").strip().upper()
+        if left_at is None and right_at is None:
+            at = _index(code, 16)
             if at is None or not 0 <= at < len(self.strings):
                 return None
-            return self.strings[at]
-        if kind != _OPERATOR_NODE:
-            return None
-        left = self.read(_index(node.findtext("activeDiag"), 16), depth + 1)
-        right = self.read(_index(node.findtext("activeMarker"), 10), depth + 1)
+            return _Text(self.strings[at])
+        left = self.read(left_at, index)
+        right = self.read(right_at, index)
         if left is None or right is None:
             return None
-        code = (node.findtext("activePlot") or "").strip().upper()
         operator = _OPERATORS.get(code)
         if operator is None:
             self.unknown.append(code)
-            return f"{left} ? {right}"
-        return f"{left}{operator}{right}"
+            return _Text(f"{_operand(left, '?')} ? {_operand(right, '?')}", "?")
+        if operator in _LOGICAL:
+            return _Text(
+                f"{_operand(left, operator)} {operator} {_operand(right, operator)}",
+                operator,
+            )
+        return _Text(
+            f"{_operand(left, operator)}{operator}{_operand(right, operator)}",
+            operator,
+        )
+
+
+def _operand(operand: _Text, operator: str) -> str:
+    """An operand's text inside ``operator``: bare when it is a string, a
+    comparison inside ``&&``/``||``, or the same ``&&``/``||``; otherwise
+    parenthesised (``&&`` inside ``||`` and the reverse, a comparison inside a
+    comparison, an operator lvkit could not read)."""
+    inner = operand.operator
+    if inner is None:
+        return operand.text
+    if operator in _LOGICAL and (inner == operator or inner in ("==", "!=")):
+        return operand.text
+    return f"({operand.text})"
 
 
 def read_condition(sel_info: ET.Element) -> Condition:
@@ -112,9 +155,10 @@ def read_condition(sel_info: ET.Element) -> Condition:
         return Condition("Default")
     nodes = sel_info.findall("activeDiag/activeDiag/SL__arrayElement")
     reader = _Reader(strings, nodes)
-    label = reader.read(0)
-    if label is None:
+    read = reader.read(reader.root())
+    if read is None:
         return Condition(" ".join(strings), "lvkit could not follow its condition")
+    label = read.text
     if reader.unknown:
         codes = ", ".join(f"0x{code}" if code else "none" for code in reader.unknown)
         return Condition(

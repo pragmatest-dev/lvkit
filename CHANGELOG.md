@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A Conditional Disable frame whose condition joins comparisons reads in full** — `TARGET_TYPE==Windows || TARGET_TYPE==Mac`; `&&`, `||`, `==` and `!=` are read, and the frame is no longer reported (#241).
 - **The diff viewer keeps both panes on the same frame when frames were added, removed or renamed** — `diff --format json` gives each change's frames per version (`location_after`/`location_before`) and each structure's frame matching (`frame_pairs`), replacing `frame_path` (#238).
 - **Two frames with one name each show only their own diagram** — a node in a case or Diagram Disable structure belongs to its frame by position, in describe, lvnet (including each frame's output tunnel value), JSON, the rendered diagram and generated code, and lvkit warns that it could not read their values (the run ends Partial); an old error case whose value table lists only its Error frame names the other frame No Error (#238).
 - **A copy of a case structure gets its own frame names and diagrams** — two case structures with the same values (one in each frame of a Diagram Disable structure) no longer share one stored value table, so neither shows two `default` frames holding both diagrams (#238).

@@ -18,7 +18,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.run_report import ProblemKind, ProblemStage
 from tests import structure_xml_cases as cases
-from tests.structure_diagrams import Views, front_panel_xml, load
+from tests.structure_diagrams import Views, expression_tree, front_panel_xml, load
 from tests.test_lvnet_identity import _assert_graph_identity
 
 
@@ -108,9 +108,7 @@ def test_a_for_loop_opens_with_its_unread_input_then_its_count(
 ) -> None:
     views = load(tmp_path, cases.loop_xml("forLoop"))
     assert views.diagram == (
-        "    for-loop (id 400) :\n"
-        "      loop_400::in0 = 7\n"
-        "      loop_400::N = 5"
+        "    for-loop (id 400) :\n      loop_400::in0 = 7\n      loop_400::N = 5"
     )
     assert views.json["body"][0]["count"]["terminal"] == "5"
     assert views.json["body"][0]["inputs"][0]["net"] == "loop_400.in0"
@@ -213,9 +211,10 @@ def test_an_event_structure_has_a_timeout_and_one_dynamic_net(tmp_path: Path) ->
     )
     inputs = views.json["body"][0]["inputs"]
     assert [i["net"] for i in inputs] == ["event_4000.timeout", "event_4000.dynamic"]
-    assert [
-        o["net"] for o in views.json["body"][0]["outputs"]
-    ] == ["event_4000.out0", "event_4000.dynamic"]
+    assert [o["net"] for o in views.json["body"][0]["outputs"]] == [
+        "event_4000.out0",
+        "event_4000.dynamic",
+    ]
     _round_trips(views)
 
 
@@ -239,10 +238,9 @@ def test_a_conditional_disable_label_is_one_string_literal(tmp_path: Path) -> No
 def test_a_condition_operator_lvkit_cannot_read_shows_and_is_reported(
     tmp_path: Path,
 ) -> None:
-    views = load(tmp_path, cases.conditional_disable_xml(operator="FC"))
+    views = load(tmp_path, cases.conditional_disable_xml(operator="F0"))
     assert views.diagram.startswith(
-        "    conditional-disable (id 3000) :\n"
-        '      frame "TARGET ? a\\"b", default :\n'
+        '    conditional-disable (id 3000) :\n      frame "TARGET ? a\\"b", default :\n'
     )
     labels = [f["label"] for f in views.json["body"][0]["frames"]]
     assert labels == ['TARGET ? a"b', "Default"]
@@ -252,12 +250,101 @@ def test_a_condition_operator_lvkit_cannot_read_shows_and_is_reported(
         ProblemStage.LOAD,
         ProblemKind.VALUE_NOT_READ,
         "Conditional Disable structure 3000 frame 0: lvkit could not read the "
-        "operator of its condition (code 0xFC)",
+        "operator of its condition (code 0xF0)",
     )
     _round_trips(views)
 
 
-@pytest.mark.parametrize("operator", ["FD", "FC"])
+# A comparison: ``SYMBOL <code> VALUE`` (strings 0 and 1).
+def _comparison(code: str) -> tuple[list[str], str]:
+    return ["TARGET", 'a"b'], expression_tree(
+        [("FF", "01", "2", code), ("00", "FF", "-1", "00"), ("00", "FF", "-1", "01")]
+    )
+
+
+# The trees of frames 0 and 2 of an outside tester's VI (Conditional Disable
+# OR.vi), as its bytes store them.
+_TESTER_OR = (
+    ["TARGET_TYPE", "Windows", "Mac"],
+    expression_tree(
+        [
+            ("FF", "03", "4", "FB"),
+            ("03", "FF", "-1", "00"),
+            ("03", "FF", "-1", "01"),
+            ("00", "01", "2", "FD"),
+            ("00", "05", "6", "FD"),
+            ("04", "FF", "-1", "00"),
+            ("04", "FF", "-1", "02"),
+        ]
+    ),
+)
+_TESTER_AND = (
+    ["TARGET_BITNESS", "64", "TARGET_TYPE", "Mac"],
+    expression_tree(
+        [
+            ("FF", "03", "4", "FC"),
+            ("03", "FF", "-1", "00"),
+            ("03", "FF", "-1", "01"),
+            ("00", "01", "2", "FD"),
+            ("00", "05", "6", "FE"),
+            ("04", "FF", "-1", "02"),
+            ("04", "FF", "-1", "03"),
+        ]
+    ),
+)
+# (A==1 || B!=2) && C==3: an || inside an &&.
+_NESTED = (
+    ["A", "1", "B", "2", "C", "3"],
+    expression_tree(
+        [
+            ("FF", "01", "8", "FC"),
+            ("00", "02", "5", "FB"),
+            ("01", "03", "4", "FD"),
+            ("02", "FF", "-1", "00"),
+            ("02", "FF", "-1", "01"),
+            ("01", "06", "7", "FE"),
+            ("05", "FF", "-1", "02"),
+            ("05", "FF", "-1", "03"),
+            ("00", "09", "10", "FD"),
+            ("08", "FF", "-1", "04"),
+            ("08", "FF", "-1", "05"),
+        ]
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("condition", "label"),
+    [
+        (_comparison("FD"), 'TARGET==a"b'),
+        (_comparison("FE"), 'TARGET!=a"b'),
+        (_TESTER_OR, "TARGET_TYPE==Windows || TARGET_TYPE==Mac"),
+        (_TESTER_AND, "TARGET_BITNESS==64 && TARGET_TYPE!=Mac"),
+        (_NESTED, "(A==1 || B!=2) && C==3"),
+    ],
+)
+def test_a_condition_reads_by_its_tree_in_every_view(
+    tmp_path: Path, condition: tuple[list[str], str], label: str
+) -> None:
+    views = load(tmp_path, cases.conditional_disable_xml(condition=condition))
+    escaped = label.replace('"', '\\"')
+    assert views.diagram.startswith(
+        f'    conditional-disable (id 3000) :\n      frame "{escaped}", default :\n'
+    )
+    labels = [f["label"] for f in views.json["body"][0]["frames"]]
+    assert labels == [label, "Default"]
+    assert f'Frame "{label}" (default):' in views.describe
+    assert views.graph.problems() == []
+    _round_trips(views)
+    source = build_module(
+        views.graph.get_vi_context(views.vi), views.vi, graph=views.graph
+    )
+    namespace: dict[str, object] = {}
+    exec(compile(source, "t.py", "exec"), namespace)  # noqa: S102
+    assert namespace["t"]() is None
+
+
+@pytest.mark.parametrize("operator", ["FD", "F0"])
 def test_generate_runs_the_enabled_frame_of_a_conditional_disable(
     tmp_path: Path, operator: str
 ) -> None:

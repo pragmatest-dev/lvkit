@@ -176,7 +176,7 @@ def test_an_llb_member_is_placed_under_the_archive(tmp_path: Path) -> None:
 
 def _describe_cli(vi: Path, *extra: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "lvkit", "describe", str(vi), *extra],
+        [sys.executable, "-m", "lvkit", "describe", str(vi), "--no-auto-vilib", *extra],
         capture_output=True,
         text=True,
         check=False,
