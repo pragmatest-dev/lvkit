@@ -28,7 +28,12 @@ NAME = "Replace.vi"
 SEARCH_AND_REPLACE = 3914
 
 
-def _replace(project: Project, replace: str = "X") -> Package:  # noqa: F811
+def _replace(
+    project: Project,  # noqa: F811
+    replace: str = "X",
+    *,
+    regex: bool = True,
+) -> Package:
     """result = Search and Replace String(text, pattern -> ``replace``), error out
     wired."""
     vi = Vi(NAME)
@@ -48,7 +53,7 @@ def _replace(project: Project, replace: str = "X") -> Package:  # noqa: F811
             ("error in", 11, ERR, False),
             ("error out", 15, ERR, True),
         ],
-        obj_flags=REGULAR_EXPRESSION_MODE,
+        obj_flags=REGULAR_EXPRESSION_MODE if regex else 0,
     )
     vi.wire(text, node["input string"])
     vi.wire(pattern, node["search string"])
@@ -142,3 +147,20 @@ def test_a_null_character_in_a_wired_string_is_error_4702(
     assert (error.code, error.source) == (-4702, "Search and Replace String")
     assert error.message.startswith("One of the string parameters contains a null")
     assert package.function("abc", "b").error_out is None
+
+
+@pytest.mark.parametrize(
+    ("text", "search"), [("a\0c", "b"), ("abc", "b\0")], ids=["input", "search"]
+)
+def test_plain_mode_with_a_null_character_is_error_4702(
+    project: Project,  # noqa: F811
+    text: str,
+    search: str,
+) -> None:
+    """NI's note on Search and Replace String names no mode: a null character in
+    a wired string is an error in plain mode too, -4702."""
+    package = _replace(project, regex=False)
+    error = package.function(text, search).error_out
+    assert (error.code, error.source) == (-4702, "Search and Replace String")
+    result = package.function("abc", "b")
+    assert (result.result, result.error_out) == ("aXc", None)

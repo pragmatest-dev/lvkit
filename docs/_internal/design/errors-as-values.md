@@ -12,7 +12,7 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
 - Error Ring (decision 6): generated when its configuration decodes, a gap
   otherwise; identified by its library's recorded path (`XNXI`).
 - Catalog failures: Search and Replace String (a pattern `re` cannot compile:
-  42; a null character in a wired string: -4702), Delete (implemented: 1430, 1,
+  42; a null character in a wired string, in either mode: -4702), Delete (1430, 1,
   7, 8, 6), To More Specific Class on a class wire (1448).
 - Views: an XNode is named by its library, its terminals by their recorded
   names; every changed view line is in `outputs/xnode_views_diff.txt`.

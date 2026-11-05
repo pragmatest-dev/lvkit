@@ -92,10 +92,10 @@ def _constant_pattern(node: PrimitiveNode, pattern: str) -> str:
     return translated
 
 
-# NI, Regular Expression Error Codes, -4702; the Search and Replace String page:
-# "If you include null characters in the strings you wire to this function,
-# LabVIEW returns an error". Raised as the class of the operation's own the
-# catalog entry names (``base``).
+# NI, Regular Expression Error Codes, -4702; the Search and Replace String page,
+# in its notes for every mode: "If you include null characters in the strings you
+# wire to this function, LabVIEW returns an error". Raised as the class of the
+# operation's own the catalog entry names (``base``).
 NULL_CHARACTER = (
     "One of the string parameters contains a null character. LabVIEW does not "
     "support null characters for regular expression matching."
@@ -181,6 +181,17 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
     string = string_variable(
         ctx, node, input_expression(ctx, node, 0) or "''", statements
     )
+    # A computed search or replace string is read once, into a variable, by
+    # the null-character check and the replacement alike.
+    if search is not None and not isinstance(literal(search), str):
+        search = string_variable(ctx, node, search, statements, "search")
+    if replace is not None and not isinstance(literal(replace), str):
+        replace = string_variable(ctx, node, replace, statements, "replace")
+    statements.extend(
+        _null_character_check(
+            ctx, node, [string, search or "''", replace or "''"], statements
+        )
+    )
     outputs = {
         index: terminal(node, "output", index)
         for index in wired
@@ -226,11 +237,6 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
     search_value = literal(search_text)
     replace_value = literal(replace_text)
     if regex_mode:
-        statements.extend(
-            _null_character_check(
-                ctx, node, [string, search_text, replace_text], statements
-            )
-        )
         if isinstance(search_value, str) and isinstance(replace_value, str):
             pattern = repr(_constant_pattern(node, search_value))
             replacement = repr(_constant_template(node, search_value, replace_value))

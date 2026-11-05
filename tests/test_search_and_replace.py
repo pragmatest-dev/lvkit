@@ -24,6 +24,16 @@ _INPUT_TERMINAL = {"ra": 1, "ic": 2, "ml": 3, "search": 5, "repl": 7, "o": 9}
 _OUTPUT_TERMINAL = {"r": 4, "n": 8, "p": 10}
 
 
+# The null-character check every Search and Replace String writes for a
+# computed input string (NI: -4702).
+NUL_CHECK = (
+    "    if any(('\\x00' in text for text in (s,))):\n"
+    "        raise NullCharacterError('One of the string parameters contains "
+    "a null character. LabVIEW does not support null characters for "
+    "regular expression matching.')\n"
+)
+
+
 def build(
     inputs: dict[str, object],
     regex: bool = False,
@@ -78,7 +88,7 @@ def body(generated: Generated) -> str:
 class TestPlainMode:
     def test_replace_all_is_str_replace(self) -> None:
         run = build({"search": "a", "repl": "b", "ra": "True"})
-        assert body(run) == (
+        assert body(run) == NUL_CHECK + (
             "    result_string = s.replace('a', 'b')\n"
             "    return NativeTestResult(r=result_string)"
         )
@@ -115,7 +125,7 @@ class TestPlainMode:
             {"search": "a", "repl": "x", "ic": "True", "ra": "True", "o": "ctl"},
             outs=("r", "n"),
         )
-        assert body(run) == (
+        assert body(run) == NUL_CHECK + (
             "    search_start = max(o, 0)\n"
             "    replaced, number_of_replacements = re.subn('a', lambda match: 'x', "
             "s[search_start:], flags=re.ASCII | re.IGNORECASE)\n"
@@ -144,7 +154,7 @@ class TestPlainMode:
 
     def test_offset_past_replacement(self) -> None:
         run = build({"search": "a", "repl": "xx", "o": "ctl"}, outs=("r", "n", "p"))
-        assert body(run) == (
+        assert body(run) == NUL_CHECK + (
             "    search_start = max(o, 0)\n"
             "    remainder = s[search_start:]\n"
             "    matches = list(re.finditer('a', remainder))[:1]\n"
