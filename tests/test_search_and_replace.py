@@ -189,6 +189,10 @@ class TestRegularExpressionMode:
             {"search": "(LabVIEW)", "repl": "to $1!"}, regex=True, outs=("r", "n")
         )
         assert body(run) == (
+            "    if any(('\\x00' in text for text in (s,))):\n"
+            "        raise NullCharacterError('One of the string parameters contains "
+            "a null character. LabVIEW does not support null characters for "
+            "regular expression matching.')\n"
             "    result_string, number_of_replacements = re.subn('(LabVIEW)', "
             "'to \\\\g<1>!', s, count=1, flags=re.ASCII)\n"
             "    return NativeTestResult(r=result_string, n=number_of_replacements)"

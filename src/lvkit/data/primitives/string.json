@@ -409,6 +409,11 @@
       "op": "SEARCH_AND_REPLACE_STRING",
       "errors": [
         {
+          "exception": "NullCharacterError",
+          "code": -4702,
+          "base": "ValueError"
+        },
+        {
           "exception": "error",
           "module": "re"
         }

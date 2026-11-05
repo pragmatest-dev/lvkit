@@ -124,3 +124,21 @@ def test_a_constant_replace_string_with_no_submatch_gets_no_check(
     package = _replace(project, "X")
     assert "does not have" not in package.source
     assert package.function("abc", "(b)").result == "aXc"
+
+
+@pytest.mark.parametrize(
+    ("text", "pattern"), [("a\0c", "b"), ("abc", "b\0")], ids=["input", "pattern"]
+)
+def test_a_null_character_in_a_wired_string_is_error_4702(
+    project: Project,  # noqa: F811
+    text: str,
+    pattern: str,
+) -> None:
+    """NI's Search and Replace String page: a null character in a string wired
+    to the function is an error; NI's Regular Expression Error Codes: -4702."""
+    package = _replace(project)
+    assert "class NullCharacterError(ValueError):" in package.source
+    error = package.function(text, pattern).error_out
+    assert (error.code, error.source) == (-4702, "Search and Replace String")
+    assert error.message.startswith("One of the string parameters contains a null")
+    assert package.function("abc", "b").error_out is None
