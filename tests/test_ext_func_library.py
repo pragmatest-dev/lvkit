@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit import cli
+from lvkit import cli, pipeline
 from lvkit.codegen.nodes.ext_func_library import LIBRARY_FILE_SOURCE, expansions
 from lvkit.graph import InMemoryVIGraph
 from lvkit.parser.extfunc_prototype import (
@@ -31,6 +31,7 @@ from lvkit.parser.extfunc_prototype import (
     ParamKind,
 )
 from lvkit.pipeline import generate_python
+from lvkit.run_report import Problem, ProblemKind, ProblemStage, RunStopped
 from tests.ext_func_vi import build_vi
 from tests.test_ext_func_c_layouts import library  # noqa: F401
 from tests.test_ext_func_terminals import _BD_XML, _MAIN_XML
@@ -493,12 +494,58 @@ def test_two_files_for_one_place_stop_generation_with_a_whole_package(
     assert cli.main() == 1
 
     err = capsys.readouterr().err
-    assert "'.../VendorLib.so'" in err and "'.../vendorlib.so'" in err
+    assert "'vis/libs/VendorLib.so'" in err and "'vis/libs/vendorlib.so'" in err
     (package,) = [p for p in out.iterdir() if p.is_dir()]
     assert (package / "__init__.py").is_file()
     assert (package / "vis/sub/clfn_bdhbxml.py").is_file()
     assert (package / "vis/libs/vendorlib.so").read_bytes() == b"one"
     _import(package)  # every module written imports
+
+
+def test_a_stopped_run_still_copies_the_libraries_of_the_modules_it_wrote(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fail-fast run that stops after a module is written (its gaps reported)
+    leaves the library that module loads beside it."""
+    (project.libs / "vendorlib.so").write_bytes(b"not a library")
+    vi = project.write_vi("vendorlib.so", ["", "..", "libs", "vendorlib.so"], "f")
+    stop = RunStopped(
+        Problem(
+            vi="vis/sub/Clfn.vi",
+            stage=ProblemStage.GENERATE,
+            kind=ProblemKind.GAP,
+            reason="a gap",
+        )
+    )
+
+    def report_gaps(*args: object) -> None:
+        raise stop
+
+    monkeypatch.setattr(pipeline, "_report_gaps", report_gaps)
+
+    out = project.generate(vi)
+
+    assert "vis/sub/clfn_bdhbxml.py" in _tree(out)
+    assert "vis/libs/vendorlib.so" in _tree(out)
+
+
+def test_a_module_whose_data_files_fail_is_not_written(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The data files go first: when they cannot be written, no module is left
+    that would read them, and its library is not copied."""
+    (project.libs / "vendorlib.so").write_bytes(b"not a library")
+    vi = project.write_vi("vendorlib.so", ["", "..", "libs", "vendorlib.so"], "f")
+
+    def unwritable(*args: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(pipeline, "_write_data_files", unwritable)
+
+    out = project.generate(vi)
+
+    assert "vis/sub/clfn_bdhbxml.py" not in _tree(out)
+    assert "vis/libs/vendorlib.so" not in _tree(out)
 
 
 def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> None:

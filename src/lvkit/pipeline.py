@@ -46,7 +46,7 @@ from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
-from lvkit.package_copies import PackageCopies
+from lvkit.package_copies import ModuleCopies, PackageCopies
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
@@ -133,7 +133,7 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
-    copies: PackageCopies | None = None,
+    copies: ModuleCopies | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -156,9 +156,10 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
-        copies: The files the package holds beside the VIs that name them (a
-            Call Library Function Node's library); without it a module's text is
-            generated and no file is copied.
+        copies: The files the module being generated names beside its VIs (a
+            Call Library Function Node's library), copied into the package when
+            the module is written; without it a module's text is generated and
+            no file is copied.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -386,11 +387,13 @@ def _warn_unimportable_paths(package_root: Path) -> None:
 
 
 def _write_module_files(
-    folder: Path, data_files: dict[str, bytes], copies: PackageCopies
+    module_path: Path, code: str, data_files: dict[str, bytes], copies: ModuleCopies
 ) -> None:
-    """The module in ``folder`` was written: write the data files it reads at run
-    time, and keep the files it named beside its VIs (``PackageCopies.commit``)."""
-    _write_data_files(folder, data_files)
+    """Write a generated module: the data files it reads at run time first, so a
+    module is never written without them, then its code; then keep the files it
+    named beside its VIs (``ModuleCopies.commit``)."""
+    _write_data_files(module_path.parent, data_files)
+    module_path.write_text(code, encoding="utf-8")
     copies.commit()
 
 
@@ -437,7 +440,7 @@ def _generate_polymorphic_module(
     data_files: dict[str, bytes] | None = None,
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
-    copies: PackageCopies | None = None,
+    copies: ModuleCopies | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
     variants read at run time are added to ``data_files``, the files they name
@@ -831,7 +834,6 @@ def generate_python(
 
     try:
         for i, vi_name in enumerate(order, 1):
-            copies.begin_module()
             if vi_name in class_of_member:
                 print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (method of its class)")
@@ -898,6 +900,7 @@ def generate_python(
             elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
                 try:
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     code = build_type_module(
                         graph,
                         vi_name,
@@ -912,14 +915,13 @@ def generate_python(
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             package_modules=package_modules,
                             layout=layout,
-                            copies=copies,
+                            copies=module_copies,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
                     )
                     ast.parse(code)
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_module_files(output_path.parent, data_files, copies)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -937,6 +939,7 @@ def generate_python(
                 code = ""
                 try:
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     code = _generate_polymorphic_module(
                         vi_name,
                         variants,
@@ -948,12 +951,11 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
-                        copies=copies,
+                        copies=module_copies,
                         gaps=vi_gaps,
                     )
                     ast.parse(code)  # Validate syntax
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_module_files(output_path.parent, data_files, copies)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(
                         f"         -> polymorphic: {output_path.name}"
@@ -973,6 +975,7 @@ def generate_python(
                 code = ""
 
                 try:
+                    module_copies = copies.module()
                     import_resolver = create_import_resolver(
                         vi_folder_name,
                         output_dir_resolved,
@@ -983,7 +986,7 @@ def generate_python(
                         vilib_resolver=vilib_resolver,
                         package_modules=package_modules,
                         layout=layout,
-                        copies=copies,
+                        copies=module_copies,
                     )
                     data_files: dict[str, bytes] = {}
                     code = build_module(
@@ -997,8 +1000,7 @@ def generate_python(
 
                     # Validate syntax
                     ast.parse(code)
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_module_files(output_path.parent, data_files, copies)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -1016,7 +1018,6 @@ def generate_python(
         # Generate polymorphic wrappers for structurally-detected groups
         # whose wrapper VI wasn't in the conversion order
         for wrapper_name, variants in poly_groups.items():
-            copies.begin_module()
             if not variants:
                 continue
             wrapper_path = vi_paths.get(wrapper_name)
@@ -1030,6 +1031,7 @@ def generate_python(
                 try:
                     _ensure_packages(wrapper_path, output_dir_resolved)
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     wrapper_gaps = GapLog(graph)
                     code = _generate_polymorphic_module(
                         wrapper_name,
@@ -1042,21 +1044,16 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
-                        copies=copies,
+                        copies=module_copies,
                         gaps=wrapper_gaps,
                     )
                     ast.parse(code)
-                    wrapper_path.write_text(code, encoding="utf-8")
-                    _write_module_files(wrapper_path.parent, data_files, copies)
+                    _write_module_files(wrapper_path, code, data_files, module_copies)
                     _report_gaps(wrapper_gaps, all_gaps, graph)
                     generated.append((wrapper_name, wrapper_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                     _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
-
-        copies.begin_module()
-        # The files named beside the VIs, once every module has named its own.
-        copies.write()
 
         # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
@@ -1067,11 +1064,14 @@ def generate_python(
         print("Stopped at the first problem (--fail-fast): the output is incomplete.")
         generated.append((stop.problem.vi, None, "failed"))
 
+    # What every written module needs, whether the run ended or stopped: the
+    # errors module, the shared modules and the files copied beside its VIs.
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
-    # Two different files for one place stop generation, now that the package
-    # written is whole (its shared modules and copies are in place).
+    copies.write()
+    # Two different files for one place stop generation, the package written
+    # whole.
     copies.check()
 
     _warn_unimportable_paths(output_dir_resolved)

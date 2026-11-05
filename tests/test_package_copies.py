@@ -32,9 +32,9 @@ def _module(
     source: Path,
 ) -> None:
     """One module that names ``source`` beside its VI and is written."""
-    copies.begin_module()
-    copies.register(vi, recorded, below, source)
-    copies.commit()
+    module = copies.module()
+    module.register(vi, recorded, below, source)
+    module.commit()
 
 
 def _file(path: Path, data: bytes) -> Path:
@@ -46,6 +46,9 @@ def _file(path: Path, data: bytes) -> Path:
 def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     tmp_path: Path,
 ) -> None:
+    for copy in ("copy1", "copy2"):
+        (tmp_path / copy).mkdir()
+        (tmp_path / copy / f"{copy}.lvproj").write_text("")
     p = str(tmp_path / "copy1" / "A" / "P.vi")
     q = str(tmp_path / "copy2" / "A" / "Q.vi")
     copies, _ = _copies(tmp_path, {p: "<vilib>/A/P.vi", q: "<vilib>/A/Q.vi"}, p, q)
@@ -58,9 +61,10 @@ def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     message = str(caught.value)
     assert "'vilib/a/x.dll'" in message
     assert "P.vi" in message and "Q.vi" in message
-    # The two files are told apart, and no absolute path is shown.
-    assert "'.../copy1/A/x.dll'" in message
-    assert "'.../copy2/A/x.dll'" in message
+    # Equal labels (``A/x.dll``) are told apart by their own project folders,
+    # and no absolute path is shown.
+    assert "'copy1/A/x.dll'" in message
+    assert "'copy2/A/x.dll'" in message
     assert str(tmp_path) not in message
 
 
@@ -98,8 +102,34 @@ def test_names_that_differ_only_in_case_are_one_place(tmp_path: Path) -> None:
     _module(copies, vi, ["", "lib.dll"], ("lib.dll",), lower)
     with pytest.raises(CopyCollisionError) as caught:
         copies.check()
-    assert "'.../Lib.dll'" in str(caught.value)
-    assert "'.../lib.dll'" in str(caught.value)
+    assert "'Lib.dll'" in str(caught.value) and "'lib.dll'" in str(caught.value)
+
+
+def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
+    tmp_path: Path,
+) -> None:
+    """A clash names each file by the label every view gives it: the vi.lib file
+    by its ``<vilib>`` path, the project's by its project-relative path; never
+    the folders above them."""
+    vilib = tmp_path / "opt" / "vi.lib"
+    proj = tmp_path / "home" / "someone" / "proj"
+    (proj / ".git").mkdir(parents=True)
+    p = str(vilib / "A" / "P.vi")
+    q = str(proj / "A" / "Q.vi")
+    graph = InMemoryVIGraph()
+    graph.set_library_roots(vilib_root=vilib)
+    for key in (p, q):
+        graph._vi_nodes[key] = set()  # noqa: SLF001
+    layout = ModuleLayout(graph, [p, q], proj, recorded={q: "<vilib>/A/Q.vi"})
+    copies = PackageCopies(graph, layout, tmp_path / "out")
+    _module(copies, p, ["", "x.dll"], ("x.dll",), _file(vilib / "A" / "x.dll", b"1"))
+    _module(copies, q, ["", "x.dll"], ("x.dll",), _file(proj / "A" / "x.dll", b"2"))
+    with pytest.raises(CopyCollisionError) as caught:
+        copies.check()
+    message = str(caught.value)
+    assert "'<vilib>/A/x.dll'" in message and "'A/x.dll'" in message
+    assert "someone" not in message and "opt" not in message
+    assert str(tmp_path) not in message
 
 
 def test_a_module_that_is_not_written_copies_nothing(tmp_path: Path) -> None:
@@ -110,9 +140,8 @@ def test_a_module_that_is_not_written_copies_nothing(tmp_path: Path) -> None:
     kept = _file(tmp_path / "proj" / "a" / "x.dll", b"one")
     failed = _file(tmp_path / "proj" / "b" / "x.dll", b"two")
     _module(copies, vi, ["", "a", "x.dll"], ("x.dll",), kept)
-    copies.begin_module()
-    copies.register(vi, ["", "a", "x.dll"], ("x.dll",), failed)
-    copies.begin_module()  # the next module starts; the failed one is dropped
+    # A module that fails is never committed: what it registered is dropped.
+    copies.module().register(vi, ["", "a", "x.dll"], ("x.dll",), failed)
     copies.check()
     copies.write()
     assert (out / "a" / "x.dll").read_bytes() == b"one"
