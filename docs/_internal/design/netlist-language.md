@@ -796,9 +796,13 @@ needs the FULL structure of every NAMED type, once, somewhere. That's the
 `types :` section — a bottom appendix (LAYOUT PROVISIONAL, trivial to move):
 one `<Name> = <lossless-def>` line per NAMED enum/ring/cluster/typedef
 reachable anywhere in the VI (boundary, every node's own terminals, `uses :`
-dependency interfaces), sorted by name, carrying a `; ./path` nav suffix when
-the type's own file is known (`; <vilib>/...` when it was recorded from an
-installation folder, §6). **Terse never emits this section.** Anonymous
+dependency interfaces), sorted by name, carrying a `; ./path` suffix when
+the VI records a path for the typedef (`; <vilib>/...` when it was recorded from
+an installation folder, §6). That suffix is the path the VI recorded for the
+typedef, kept as recorded so the footnote reads back losslessly
+(`LVType.typedef_path`), not where the typedef's file is: its `./` does not mean
+the typedef is in the project, and it is not the §6 `; ./path` of a `uses :`
+line, which shows where the file is. **Terse never emits this section.** Anonymous
 types stay inline everywhere (there's no name to hang a footnote off) — a
 named type's *inline* occurrence (a terminal line, a cluster field) still
 renders by bare name (§10 above); its footnote entry is the ONE place its
