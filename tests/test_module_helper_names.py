@@ -5,10 +5,14 @@ named ``InvalidPathError`` that the VI imports, and Delete's own
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
+from lvkit.codegen.class_builder.shared_state import ModuleParts
+from lvkit.codegen.context import CodeGenContext
 from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
+from lvkit.pipeline import create_import_resolver
 from tests.class_graphs import INT, Project, class_type, pane, wire
 
 PATH = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
@@ -100,3 +104,23 @@ def test_a_helper_class_and_an_imported_class_of_one_name(tmp_path: Path) -> Non
         assert result.specific is obj
         assert result.cast_error is None
         assert (result.delete_error.code, result.delete_error.source) == (1, "Delete")
+
+
+def test_two_functions_of_one_module_share_a_helper(tmp_path: Path) -> None:
+    """The methods of a class module (or the variants of a polymorphic VI) share
+    one module: the second to ask for a helper gets the one the first wrote,
+    not a numbered copy of it."""
+    out = tmp_path / "pkg"
+    resolver = create_import_resolver(
+        "pkg", out, {}, out / "cls.py", caller_key="/p/Cls/A.vi"
+    )
+    parts = ModuleParts(module_stem="cls")
+    names = []
+    for _ in range(2):
+        ctx = CodeGenContext(import_resolver=resolver)
+        parts.share_with(ctx)
+        [helper] = ast.parse("def _module_part(name):\n    return name").body
+        assert isinstance(helper, ast.FunctionDef)
+        names.append(ctx.add_module_function(helper))
+    assert names == ["_module_part", "_module_part"]
+    assert len(parts.helpers) == 1
