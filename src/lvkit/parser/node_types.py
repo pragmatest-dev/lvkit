@@ -1297,6 +1297,11 @@ class XNodeHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> XNodeNode:
         common = self._extract_common(elem)
         class_name = decode_hex_ascii(elem.findtext("displayName")) or ""
+        # The name the views show is the one LabVIEW shows, the recorded
+        # displayName ("Error Ring", "Invoke Method"); the node is identified
+        # by its library's path (``parser/xnode_links.py``), never by it.
+        if class_name and not common["label"]:
+            common["name"] = class_name
         state_data = elem.findtext("StateData")
         if class_name == "Invoke Method":
             method_name = _xnode_state_method_name(state_data)
