@@ -167,7 +167,7 @@ from .utils import (
     strip_surrounding_quotes,
 )
 from .xml_trees import parsed_xml, xml_scope
-from .xnode_links import resolve_xnode_libraries
+from .xnode_links import name_terminals_by_id, resolve_xnode_libraries
 
 # A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
 # bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
@@ -540,6 +540,7 @@ def _parse_block_diagram(
         type_map,
         srn_to_structure=srn_to_structure,
     )
+    name_terminals_by_id(root, nodes, terminal_info)
     loops = extract_loops(root)
     case_structures = extract_case_structures(
         root,

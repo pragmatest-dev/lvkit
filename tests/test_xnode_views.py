@@ -69,3 +69,22 @@ def test_a_match_regular_expression_xnode_is_named_by_its_library(
         '"node":"Match Regular Expression","terminal":"whole match"}],'
         '"qualified_name":"Match Regular Expression","uid":"112"}]'
     )
+
+
+def test_an_xnode_of_another_library_is_not_named_by_its_ids(
+    project: Project,  # noqa: F811
+) -> None:
+    """Only the libraries checked against the corpus (Error Ring, Match Regular
+    Expression) name a terminal by its xTunnel <id>; any other XNode, an FPGA
+    Interface node among them, keeps #107's names (here, none: the index)."""
+    vi = Vi(NAME)
+    text = vi.control("text", STR, REQUIRED)
+    node = vi.xnode(
+        ["<vilib>", "FPGA", "Invoke Method.xnode"],
+        [("input string", STR, False)],
+    )
+    vi.wire(text, node["input string"])
+    project.add(vi)
+    views = project.views(NAME)
+    assert "input string" not in views.diagram
+    assert "function Invoke_Method_" in views.diagram

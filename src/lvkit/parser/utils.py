@@ -282,15 +282,18 @@ def extract_xtunnel_name(elem: ET.Element) -> str | None:
     other dco class, so this is safe to try unconditionally wherever
     present, not just when the caller already knows the class is xTunnel).
     (#107)
-
-    An xTunnel whose ``<englishName>`` is unset (a single null byte) is named
-    by its hex ``<id>`` (an Error Ring's ``error out``, ``parameter 0``; a Match
-    Regular Expression XNode's ``input string``).
     """
-    name = decode_hex_ascii(elem.findtext("englishName"))
-    if name is None and elem.get("class") == "xTunnel":
-        name = decode_hex_ascii(elem.findtext("id"))
-    return name
+    return decode_hex_ascii(elem.findtext("englishName"))
+
+
+def extract_xtunnel_id(elem: ET.Element) -> str | None:
+    """A ``dco class="xTunnel"`` terminal's hex ``<id>``, decoded (an Error
+    Ring's ``error out``, ``parameter 0``; a Match Regular Expression XNode's
+    ``input string``); ``None`` for another dco or an unset id. Only the XNode
+    libraries ``xnode_links`` lists are named by it."""
+    if elem.get("class") != "xTunnel":
+        return None
+    return decode_hex_ascii(elem.findtext("id"))
 
 
 def _first_text(label: ET.Element) -> str | None:

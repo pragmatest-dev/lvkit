@@ -274,4 +274,8 @@ Every commit's diff is reviewed by me (a stronger model than its author).
   through; only a LabVIEW class wire is checked (`isinstance`, error 1448).
 - **XNode views** (done after the talk): every XNode is named by its library (`XNXI`)
   with the terminal names its xTunnels record (`<id>`); the Error Ring's code has
-  no slot in the views (lvnet shows no node detail), so it is not shown.
+  no slot in the views (lvnet shows no node detail), so it is not shown. A
+  terminal is named by its `<id>` only for the two libraries checked against
+  the corpus (Error Ring, Match Regular Expression, by their `XNXI` path); an
+  FPGA Interface XNode keeps #107's names (its `<englishName>`, its StateData
+  row names) until an FPGA sample with its link table can be checked.

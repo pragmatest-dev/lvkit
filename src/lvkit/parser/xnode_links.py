@@ -16,10 +16,19 @@ from pathlib import Path
 
 from .error_ring import ERROR_RING_PATH, decode_error_ring
 from .link_table import LinkTableVersion, decode_xnode_links
-from .models import ParsedNode
+from .models import ParsedNode, ParsedTerminalInfo
 from .naming import build_relative_path
 from .node_types import XNodeNode
+from .utils import extract_xtunnel_id
 from .xml_trees import parsed_xml
+
+# The XNode libraries whose terminals, with no <englishName>, are named by their
+# xTunnel <id>: the two checked against the corpus (every Error Ring and Match
+# Regular Expression xTunnel's <id> is its terminal's name). Any other XNode,
+# an FPGA Interface node among them, keeps the names #107 gives it.
+ID_NAMED_LIBRARIES = frozenset(
+    {ERROR_RING_PATH, "<vilib>/regexp/Match Regular Expression.xnode"}
+)
 
 
 def read_xnode_paths(root: ET.Element, main_xml: Path) -> dict[int, str]:
@@ -29,9 +38,7 @@ def read_xnode_paths(root: ET.Element, main_xml: Path) -> dict[int, str]:
     elements = root.findall(".//LIbd//BDHP/XNXI")
     if elements:
         for element in elements:
-            tokens = [
-                s.text or "" for s in element.findall("./LinkSavePathRef/String")
-            ]
+            tokens = [s.text or "" for s in element.findall("./LinkSavePathRef/String")]
             for offset in element.findall("./LinkOffsetList/Offset"):
                 if offset.text:
                     paths[int(offset.text, 0)] = build_relative_path(tokens)
@@ -58,3 +65,27 @@ def resolve_xnode_libraries(
         node.library_path = paths.get(int(node.uid), "") if node.uid.isdigit() else ""
         if node.library_path == ERROR_RING_PATH:
             node.error_ring = decode_error_ring(node.state_data)
+
+
+def name_terminals_by_id(
+    root: ET.Element,
+    nodes: list[ParsedNode],
+    terminal_info: dict[str, ParsedTerminalInfo],
+) -> None:
+    """Name each still-unnamed terminal of an XNode of an ``ID_NAMED_LIBRARIES``
+    library by its xTunnel ``<id>``, in place."""
+    named = {
+        n.uid
+        for n in nodes
+        if isinstance(n, XNodeNode) and n.library_path in ID_NAMED_LIBRARIES
+    }
+    if not named:
+        return
+    for elem in root.iter():
+        if elem.get("class") != "xNode" or elem.get("uid") not in named:
+            continue
+        for term in elem.findall("./termList/SL__arrayElement"):
+            info = terminal_info.get(term.get("uid") or "")
+            dco = term.find("dco")
+            if info is not None and info.name is None and dco is not None:
+                info.name = extract_xtunnel_id(dco)
