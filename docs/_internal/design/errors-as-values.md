@@ -12,8 +12,15 @@ Status: **PLAN APPROVED 2026-11-01** (with the recommendations under
 - Error Ring (decision 6): generated when its configuration decodes, a gap
   otherwise; identified by its library's recorded path (`XNXI`).
 - Catalog failures: Search and Replace String (a pattern `re` cannot compile:
-  42; a null character in a wired string, in either mode: -4702), Delete (1430, 1,
-  7, 8, 6), To More Specific Class on a class wire (1448).
+  42; a null character in a wired string in Regular Expression mode: -4702),
+  Delete (1430, 1, 7, 8, 6), To More Specific Class on a class wire (1448).
+  **Decided 2026-11-04:** the null-character check is Regular Expression mode
+  only. NI's Search and Replace String page notes, for no mode in particular,
+  "If you include null characters in the strings you wire to this function,
+  LabVIEW returns an error", and -4702 (Regular Expression Error Codes) is
+  "for regular expression matching"; but a shipped example, PicoLog CM3's
+  `plcm3unitinfo`, replaces a constant search string of one null character in
+  plain mode, so LabVIEW accepts one there.
 - Views: an XNode is named by its library, its terminals by their recorded
   names; every changed view line is in `outputs/xnode_views_diff.txt`.
 - Step-7 before/after on the 39 VIs, base dd7fed8c (the 2026-11-02 run):

@@ -150,17 +150,45 @@ def test_a_null_character_in_a_wired_string_is_error_4702(
 
 
 @pytest.mark.parametrize(
-    ("text", "search"), [("a\0c", "b"), ("abc", "b\0")], ids=["input", "search"]
+    ("text", "search", "result"),
+    [("a\0c", "c", "a\0X"), ("a\0c", "\0", "aXc")],
+    ids=["input", "search"],
 )
-def test_plain_mode_with_a_null_character_is_error_4702(
+def test_plain_mode_takes_a_null_character(
     project: Project,  # noqa: F811
     text: str,
     search: str,
+    result: str,
 ) -> None:
-    """NI's note on Search and Replace String names no mode: a null character in
-    a wired string is an error in plain mode too, -4702."""
+    """Plain mode is not checked for a null character: a shipped example
+    (PicoLog CM3, plcm3unitinfo) searches for one, so LabVIEW accepts it
+    there (the maintainer's decision; NI's general note names no mode)."""
     package = _replace(project, regex=False)
-    error = package.function(text, search).error_out
-    assert (error.code, error.source) == (-4702, "Search and Replace String")
-    result = package.function("abc", "b")
-    assert (result.result, result.error_out) == ("aXc", None)
+    assert "NullCharacterError(" not in package.source.split("def replace")[1]
+    out = package.function(text, search)
+    assert (out.result, out.error_out) == (result, None)
+
+
+def test_the_pico_shape_a_constant_null_search_in_plain_mode(
+    project: Project,  # noqa: F811
+) -> None:
+    """plcm3unitinfo's shape: a constant search string of one null character,
+    replaced in a computed input string; no check, and the replacement runs."""
+    vi = Vi(NAME)
+    text = vi.control("text", STR, REQUIRED)
+    result = vi.indicator("result", STR)
+    node = vi.primitive(
+        SEARCH_AND_REPLACE,
+        [
+            ("input string", 0, STR, False),
+            ("result string", 4, STR, True),
+            ("search string", 5, STR, False),
+        ],
+    )
+    vi.wire(text, node["input string"])
+    vi.wire(vi.constant(STR, "0000000100"), node["search string"])
+    vi.wire(node["result string"], result)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert "NullCharacterError(" not in package.source.split("def replace")[1]
+    assert package.function("ab\0\0").result == "ab\0"
