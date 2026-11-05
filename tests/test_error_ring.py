@@ -20,6 +20,7 @@ from lvkit.graph import load_vi_by_path
 from lvkit.graph.models import PrimitiveNode
 from lvkit.load_mode import LoadMode
 from lvkit.parser.error_ring import ERROR_RING_PATH, ErrorRing, decode_error_ring
+from lvkit.render import render_vi
 from tests.error_diagrams import (
     I32,
     REQUIRED,
@@ -120,29 +121,30 @@ def _views_and_run(
 def test_the_views_show_the_ring_as_one_node(project: Project) -> None:  # noqa: F811
     views, _, _ = _views_and_run(project, _FORMAT_RING, "Mod")
     assert views.diagram == (
-        "    function xNode_110 : xNode\n"
-        "      in   1 : String = name 0\n"
-        "      out  0 : Error\n"
-        "    error out = xNode_110::0"
+        "    function Error_Ring_110 : Error Ring\n"
+        "      in   parameter 0 : String = name 0\n"
+        "      out  error out   : Error\n"
+        "    error out = Error_Ring_110::error out"
     )
     assert views.describe_body() == (
         "\n  ring(name 0: String) -> error out: Error\n\n"
         "## Properties\n  lock_state: unlocked\n\n"
         "## Inputs\n  name 0: String (required)\n\n"
         "## Outputs\n  error out: Error\n\n"
-        "## Operations\nxNode"
+        "## Operations\nError Ring"
     )
     assert views.terse.endswith(
         "  block-diagram :\n"
-        "    function xNode_110 : xNode\n"
-        "      in   1 : String = name 0\n"
-        "      out  0 : Error\n"
-        "    error out = xNode_110::0"
+        "    function Error_Ring_110 : Error Ring\n"
+        "      in   parameter 0 : String = name 0\n"
+        "      out  error out   : Error\n"
+        "    error out = Error_Ring_110::error out"
     )
     assert json_body(views) == (
-        '[{"inputs":[{"net":{"bare":"name 0","terminal":"name 0"},"terminal":"1"}],'
-        '"kind":"instance","name":"xNode","outputs":[{"bare":"xNode.0",'
-        '"node":"xNode","terminal":"0"}],"qualified_name":"xNode","uid":"110"}]'
+        '[{"inputs":[{"net":{"bare":"name 0","terminal":"name 0"},'
+        '"terminal":"parameter 0"}],"kind":"instance","name":"Error Ring",'
+        '"outputs":[{"bare":"error out","node":"Error Ring","terminal":"error out"}],'
+        '"qualified_name":"Error Ring","uid":"110"}]'
     )
 
 
@@ -317,3 +319,36 @@ def test_a_ring_whose_link_record_is_in_the_raw_link_table() -> None:
         if isinstance(node, PrimitiveNode) and node.error_ring is not None
     )
     assert rings == [(6001, ERROR_RING_PATH), (6002, ERROR_RING_PATH)]
+
+
+_SAMPLES = Path(".lvkit/cache/samples")
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize(
+    ("vi", "texts"),
+    [
+        (
+            "actor-framework/Providers/MessageRescripter/Support/Find Target Actor.vi",
+            [">Error Ring<", ">error out<"],
+        ),
+        (
+            "measurement-plugin-labview/Source/Runtime/Measurements/"
+            "Measurement Plugin Service/Get User Interface Details.vi",
+            [">Match Regular Expression<", ">regular expression<", ">whole match<"],
+        ),
+    ],
+    ids=["error-ring", "match-regular-expression"],
+)
+def test_the_render_names_an_xnode_by_its_library(vi: str, texts: list[str]) -> None:
+    """The render draws an XNode with its library's name and its terminals'
+    recorded names, not ``xNode``."""
+    path = _SAMPLES / vi
+    if not path.exists():
+        pytest.skip(f"sample corpus VI not present: {path}")
+    graph, vi_name = load_vi_by_path(path, LoadMode.MINIMAL, layout=True)
+    svg = render_vi(graph, vi_name, interactive=False)
+    assert svg is not None
+    for text in texts:
+        assert text in svg
+    assert ">xNode<" not in svg

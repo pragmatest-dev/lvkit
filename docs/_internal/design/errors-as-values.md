@@ -270,7 +270,6 @@ Every commit's diff is reviewed by me (a stronger model than its author).
   time; a constant pattern or replace string is warned at generation as before.
 - **To More Specific Class on a VI Server reference** passes the reference
   through; only a LabVIEW class wire is checked (`isinstance`, error 1448).
-- **XNode views**: describe, lvnet and JSON show every XNode as `xNode` with
-  numbered terminals. Decided 2026-11-04: name each XNode by its library
-  (`XNXI` record) with its recorded terminal names, as its own commit after the
-  review talk, listing the Match Regular Expression view changes line by line.
+- **XNode views** (done after the talk): every XNode is named by its library (`XNXI`)
+  with the terminal names its xTunnels record (`<id>`); the Error Ring's code has
+  no slot in the views (lvnet shows no node detail), so it is not shown.

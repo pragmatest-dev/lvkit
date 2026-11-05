@@ -12,7 +12,7 @@ rest the link table stays the raw ``_LIbd.bin`` sidecar, which
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .error_ring import ERROR_RING_PATH, decode_error_ring
 from .link_table import LinkTableVersion, decode_xnode_links
@@ -48,13 +48,16 @@ def read_xnode_paths(root: ET.Element, main_xml: Path) -> dict[int, str]:
 def resolve_xnode_libraries(
     nodes: list[ParsedNode], main_xml: Path | str | None
 ) -> None:
-    """Give each XNode its recorded library path, in place, and an Error Ring
-    its configuration."""
+    """Give each XNode its recorded library path and the name of its library
+    (the ``.xnode`` file's stem, ``Error Ring``), in place, and an Error Ring its
+    configuration."""
     pending = [n for n in nodes if isinstance(n, XNodeNode)]
     if not pending or main_xml is None:
         return
     paths = read_xnode_paths(parsed_xml(Path(main_xml)), Path(main_xml))
     for node in pending:
         node.library_path = paths.get(int(node.uid), "") if node.uid.isdigit() else ""
+        if node.library_path:
+            node.name = PurePosixPath(node.library_path).stem
         if node.library_path == ERROR_RING_PATH:
             node.error_ring = decode_error_ring(node.state_data)
