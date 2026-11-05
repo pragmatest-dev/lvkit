@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
@@ -30,7 +29,7 @@ import networkx as nx
 
 from lvkit.library_folders import Folders, SearchEntries
 
-from ..cache_paths import project_root
+from ..cache_paths import project_root, shown_path
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
@@ -2537,19 +2536,12 @@ class LoadingMixin:
         )
 
     def _display_path(self, path: Path, caller_file: Path) -> str:
-        """``path`` as a message shows it: its library path (``<userlib>/...``,
-        ``library_location``) for a library file, else a ``./``-prefixed,
-        forward-slash path relative to the project of ``caller_file``
-        (``project_root``); the file name alone when no relative path exists."""
-        library = self.library_location(path)
-        if library is not None:
-            return "/".join(library)
+        """``path`` as a message shows it (``shown_path``): its library path
+        (``<userlib>/...``) for a library file, ``./`` and its path in the
+        project of ``caller_file`` (``project_root``) for a project file, else
+        ``external/<its project folder>/...``."""
         base = project_root(caller_file)
-        try:
-            rel = os.path.relpath(path.resolve(), base.resolve())
-        except (OSError, ValueError):
-            return path.name
-        return "./" + rel.replace(os.sep, "/")
+        return shown_path(path, base, self.library_location(path))
 
     def _stub_undetermined(
         self,

@@ -19,10 +19,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import folder_name, own_project_folder
+from lvkit.cache_paths import EXTERNAL_PACKAGE, folder_name, own_project_folder
 from lvkit.graph import InMemoryVIGraph
-from lvkit.llb_origin import llb_container_of
-from lvkit.module_layout import EXTERNAL_PACKAGE
+from lvkit.llb_origin import vi_file_path
 from lvkit.vi_files import strip_vi_extension
 
 PROJECT_GROUP = "Project"
@@ -64,14 +63,6 @@ def _bounded(stem: str) -> str:
     digest = hashlib.sha1(stem.encode()).hexdigest()[:8]
     cut = stem.encode()[: _MAX_STEM_BYTES - 9].decode(errors="ignore")
     return f"{cut}-{digest}"
-
-
-def vi_file_path(source: Path) -> Path:
-    """The path that names the VI whose file is ``source``: a member of an
-    ``.llb`` below its archive (``.../file.llb/X.vi``), never where it was
-    extracted; any other file as it is."""
-    container = llb_container_of(source)
-    return container.resolve() / source.name if container else source.resolve()
 
 
 def _path_name(

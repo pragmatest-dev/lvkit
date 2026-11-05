@@ -36,3 +36,11 @@ def llb_container_of(vi_path: Path) -> Path | None:
         return parent
     meta = read_llb_meta(parent)
     return Path(meta["source"]) if meta is not None else None
+
+
+def vi_file_path(source: Path) -> Path:
+    """The path that names the VI whose file is ``source``: a member of an
+    ``.llb`` below its archive (``.../file.llb/X.vi``), never where it was
+    extracted; any other file as it is (resolved)."""
+    container = llb_container_of(source)
+    return container.resolve() / source.name if container else source.resolve()

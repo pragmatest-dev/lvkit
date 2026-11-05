@@ -143,10 +143,12 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
     graph, key = load_corpus_vi(vi)
     netlist = build_netlist_from_graph(graph, key)
-    # Shown relative to the VI's project (Source/Runtime holds its .lvproj).
+    # Outside the VI's project (Source/Runtime holds its .lvproj): shown as its
+    # module is placed, below ``external`` and its own repository's name.
     real = (
-        "./../gRPC/Generated APIs/ni/measurementlink/measurement/v1/"
-        "RPC Service/MeasurementService/Server API/Destroy.vi"
+        "external/measurement-plugin-labview/Source/gRPC/Generated APIs/ni/"
+        "measurementlink/measurement/v1/RPC Service/MeasurementService/"
+        "Server API/Destroy.vi"
     )
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"

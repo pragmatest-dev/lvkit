@@ -94,19 +94,31 @@ def test_an_outside_vi_page_is_under_its_own_project_folder(
     )
 
 
+def _outside(tmp_path: Path) -> Path:
+    """A file in another git repository beside the project."""
+    libs = tmp_path.resolve() / "elsewhere" / "libs"
+    (libs / ".git").mkdir(parents=True)
+    return libs / "Sub" / "Helper.vi"
+
+
 def test_an_lvnet_uses_line_shows_a_library_file_by_its_library_path(
-    project: Path,
+    project: Path, tmp_path: Path
 ) -> None:
+    """Library files by their library path, project files from the project,
+    outside files below ``external`` and their own project folder's name (as
+    their modules are placed): never a ``../`` path through this machine."""
     caller = str(project / "Caller.vi")
     lib_dep = str(_userlib(project) / "_OpenG.lib" / "file" / "Delete.vi")
     own_dep = str(project / "sub" / "Own.vi")
+    outside_dep = str(_outside(tmp_path))
     graph = _graph(project, caller)
-    for dep in (lib_dep, own_dep):
+    for dep in (lib_dep, own_dep, outside_dep):
         graph._dep_graph.add_edge(caller, dep)  # noqa: SLF001
     paths = {d.qualified: d.path for d in _build_dependency_manifest(graph, caller)}
     assert paths == {
         "Delete.vi": "<userlib>/_OpenG.lib/file/Delete.vi",
         "Own.vi": "./sub/Own.vi",
+        "Helper.vi": "external/libs/Sub/Helper.vi",
     }
 
 
@@ -153,6 +165,7 @@ def test_an_ambiguous_dependency_names_a_library_candidate_by_its_library_path(
     shown = graph._display_path  # noqa: SLF001
     assert shown(lib_vi, caller) == "<userlib>/_OpenG.lib/file/Delete.vi"
     assert shown(project / "sub" / "Own.vi", caller) == "./sub/Own.vi"
+    assert shown(_outside(project.parent), caller) == "external/libs/Sub/Helper.vi"
 
 
 def _record(graph: InMemoryVIGraph, key: str, recorded: str) -> None:

@@ -97,16 +97,37 @@ def test_the_same_file_named_twice_is_copied_once(tmp_path: Path) -> None:
     assert (out / "a" / "x.dll").read_bytes() == b"one"
 
 
-def test_names_that_differ_only_in_case_are_one_place(tmp_path: Path) -> None:
-    vi = str(tmp_path / "proj" / "V.vi")
-    copies, _ = _copies(tmp_path, {}, vi)
-    upper = _file(tmp_path / "proj" / "Lib.dll", b"one")
-    lower = _file(tmp_path / "proj" / "lib.dll", b"two")
-    _module(copies, vi, ["", "Lib.dll"], ("Lib.dll",), upper)
-    _module(copies, vi, ["", "lib.dll"], ("lib.dll",), lower)
+def test_places_that_differ_only_in_case_are_one_place(tmp_path: Path) -> None:
+    """Two different files (in two folders) whose places in the package differ
+    only in case are one place on a Windows or macOS file system: a clash."""
+    p = str(tmp_path / "c1" / "A" / "P.vi")
+    q = str(tmp_path / "c2" / "A" / "Q.vi")
+    copies, _ = _copies(tmp_path, {p: "<vilib>/A/P.vi", q: "<vilib>/A/Q.vi"}, p, q)
+    upper = _file(tmp_path / "c1" / "A" / "Lib.dll", b"one")
+    lower = _file(tmp_path / "c2" / "A" / "lib.dll", b"two")
+    _module(copies, p, ["", "Lib.dll"], ("Lib.dll",), upper)
+    _module(copies, q, ["", "lib.dll"], ("lib.dll",), lower)
     with pytest.raises(CopyCollisionError) as caught:
         copies.check()
     assert "'Lib.dll'" in str(caught.value) and "'lib.dll'" in str(caught.value)
+
+
+def test_one_file_named_two_ways_is_one_copy(tmp_path: Path) -> None:
+    """The same file reached by two spellings (a link here, a name in another
+    case on a file system that ignores case) is copied once, no clash."""
+    vi = str(tmp_path / "proj" / "V.vi")
+    copies, out = _copies(tmp_path, {}, vi)
+    library = _file(tmp_path / "proj" / "x.dll", b"one")
+    other = tmp_path / "proj" / "y.dll"
+    try:
+        other.symlink_to(library)
+    except OSError:
+        pytest.skip("this file system makes no links")
+    _module(copies, vi, ["", "x.dll"], ("x.dll",), library)
+    module = copies.module()
+    module.register(vi, ["", "x.dll"], ("x.dll",), other)
+    module.commit()
+    copies.check()
 
 
 def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
@@ -137,25 +158,31 @@ def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
 
 
 def test_a_vi_and_library_directly_in_the_home_folder_show_no_home_name(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Directly in the home folder, with no project marker: the module is
+    """Directly in the home folder, or in a folder beside it (another user's home,
+    even one kept in git), with no project marker: the module is
     ``external.helper``, the library ``external/x.dll``, and a clash shows no
     home folder name."""
-    home = tmp_path.resolve()
+    users = tmp_path.resolve() / "home"
+    home, beside = users / "me", users / "bob"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    (beside / ".git").mkdir(parents=True)  # another user's home: never a project
     vi = str(home / "Helper.vi")
-    copies, _ = _copies(tmp_path, {}, vi)
+    other = str(beside / "Other.vi")
+    copies, _ = _copies(tmp_path, {}, vi, other)
     assert copies.layout.places[vi].parts == ("external", "helper")
-    upper = _file(home / "X.dll", b"1")
-    lower = _file(home / "x.dll", b"2")
-    _module(copies, vi, ["", "X.dll"], ("X.dll",), upper)
-    _module(copies, vi, ["", "x.dll"], ("x.dll",), lower)
+    assert copies.layout.places[other].parts == ("external", "other")
+    _module(copies, vi, ["", "x.dll"], ("x.dll",), _file(home / "x.dll", b"1"))
+    _module(copies, other, ["", "x.dll"], ("x.dll",), _file(beside / "x.dll", b"2"))
     with pytest.raises(CopyCollisionError) as caught:
         copies.check()
     message = str(caught.value)
-    assert "'X.dll' (named by 'Helper.vi')" in message
+    assert "(1st copy, named by 'Helper.vi')" in message
+    assert "(2nd copy, named by 'Other.vi')" in message
     assert "'external/x.dll'" in message
-    assert home.name not in message and str(home) not in message
+    for name in ("me", "bob", str(users)):
+        assert f"{name}/" not in message and f"'{name}" not in message
 
 
 def test_a_module_that_is_not_written_copies_nothing(tmp_path: Path) -> None:

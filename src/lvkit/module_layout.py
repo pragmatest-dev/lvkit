@@ -13,14 +13,15 @@ at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi`` is
 under a configured vi.lib / user.lib / instr.lib folder, its path in that folder
 as if recorded (``<userlib>/...``). Any other file in the project is placed by its
 project-relative path; any other outside it under ``external``, by the name of its
-own project folder (``own_project_folder``) and its path below that folder, so no
-folder above its own tree (a user name, this machine's layout) is in the module
-path. A VI with no file is placed by the path its caller recorded, whatever it
-starts at; one with neither a file nor a recorded path cannot be imported and
-stops generation, naming it. Paths are unique, so modules are unique: no
-collision numbering. Two files whose parts transform to the same name (two
-outside trees whose project folders share a name and hold the same file) stop
-generation, naming both.
+own project folder (``outside_place``; no name for a home folder) and its path
+below that folder, so no folder above its own tree (a user name, this machine's
+layout) is in the module path. A VI with no file is placed by the path its caller
+recorded, whatever it starts at; one with neither a file nor a recorded path
+cannot be imported and stops generation, naming it. Paths are unique, so modules
+are unique, and a module name is never numbered. Two files whose parts transform
+to the same name (two outside trees whose project folders share a name and hold
+the same file) stop generation, naming both; only the message numbers two names
+that would read alike (``ordinals``).
 """
 
 from __future__ import annotations
@@ -30,16 +31,13 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit.cache_paths import folder_name, own_project_folder
+from lvkit.cache_paths import outside_place
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.recorded_paths import walk_relative
 from lvkit.library_folders import path_tokens
 from lvkit.vi_files import class_stem, strip_vi_extension
-
-# The package a file outside the project and every library folder is placed in.
-EXTERNAL_PACKAGE = "external"
 
 
 class ModuleCollisionError(Exception):
@@ -80,14 +78,10 @@ class _Location:
 
 
 def _outside_project(key: str) -> _Location:
-    """``key`` below ``external`` and the name of the project folder it belongs
-    to (``folder_name``: nothing for the home folder or above it, or a drive
-    root, so ``external.helper``)."""
-    folder = own_project_folder(key)
-    below = Path(key).resolve().relative_to(folder).parts
-    name = folder_name(folder)
-    tree = (EXTERNAL_PACKAGE, name) if name else (EXTERNAL_PACKAGE,)
-    return _Location(tree, below)
+    """``key`` as ``outside_place`` places it: ``external`` and the name of its
+    own project folder (none for a home folder, so ``external.helper``), then
+    its path below that folder."""
+    return _Location(*outside_place(key))
 
 
 def ordinals(first: str, second: str, what: str) -> tuple[str, str] | None:
@@ -263,8 +257,9 @@ class ModuleLayout:
         return {place.parts[0] for place in self.places.values()}
 
     def _shown(self, key: str) -> str:
-        """A key as a message shows it: a file below the project by its
-        project-relative path, any other as the graph labels it
+        """A key as a message shows it: a file below the project by its path
+        from this layout's project folder (which ``key_label`` does not know: it
+        names a file from the run's folder), any other as the graph labels it
         (``key_label``), never by an absolute path."""
         parts = _below(key, self._root) if os.path.isabs(key) else None
         return "/".join(parts) if parts else self._graph.key_label(key)

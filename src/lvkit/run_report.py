@@ -265,6 +265,10 @@ class RunStopped(BaseException):
         super().__init__(problem.reason)
 
 
+# How a message names a project folder whose own name is not shown.
+PROJECT_FOLDER_LABEL = "the project folder"
+
+
 @dataclass
 class RunSettings:
     """How a run treats the problems it finds: ``echo`` prints each warning when it
@@ -289,7 +293,9 @@ class RunSettings:
         ``recorded``, else its path below a library folder, ``<vilib>/...``,
         likewise ``<userlib>``, ``<instrlib>``), else relative to its project, or,
         for a VI inside an ``.llb``, the archive's label plus its name. Never an
-        absolute path; a project folder itself is its name."""
+        absolute path; a project folder itself is its name (``folder_name``), or
+        ``the project folder`` when its name is not shown (a home folder or a
+        drive's root)."""
         resolved = Path(path).resolve()
         roots = [
             (token, library)
@@ -313,7 +319,9 @@ class RunSettings:
             base = self._roots[folder]
         if resolved.is_relative_to(base):
             rel = resolved.relative_to(base).as_posix()
-            return (folder_name(base) or rel) if rel == "." else rel
+            if rel == ".":
+                return folder_name(base) or PROJECT_FOLDER_LABEL
+            return rel
         return resolved.name
 
     def announce(self, problem: Problem, may_stop: bool = True) -> None:

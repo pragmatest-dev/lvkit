@@ -18,6 +18,7 @@ it loads; then a clash stops generation (``check``), the package written whole.
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -92,7 +93,7 @@ class PackageCopies:
         kept at one of their places is a clash (``check``)."""
         for copy in copies:
             held = self._copies.setdefault(_folded(copy.parts), copy)
-            if held.source != copy.source:
+            if not _same_file(held.source, copy.source):
                 self._clashes.append(self._clash(held, copy))
 
     def _clash(self, held: _Copy, copy: _Copy) -> str:
@@ -130,3 +131,13 @@ class PackageCopies:
 
 def _folded(parts: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(part.casefold() for part in parts)
+
+
+def _same_file(first: Path, second: Path) -> bool:
+    """Whether two paths name one file on disk (its device and file number), so
+    one file spelled two ways (``Lib.dll``, ``lib.dll`` on a file system that
+    ignores case) is one copy; paths with no file compare as paths."""
+    try:
+        return os.path.samefile(first, second)
+    except OSError:
+        return first == second

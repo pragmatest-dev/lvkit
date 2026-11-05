@@ -13,13 +13,13 @@ string literal (``lvnet_literal_token``), written and read back one way.
 
 from __future__ import annotations
 
-import os
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 
+from ..cache_paths import shown_path
 from ..library_folders import library_location
 from ..models import (
     DisableStructureKind,
@@ -591,22 +591,15 @@ def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
 def lvnet_file_path(
     resolved: Path | None, base: Path, library: tuple[str, ...] | None
 ) -> str | None:
-    """The lvnet §6 ``; path`` annotation of a file: its library path
-    (``library``, from ``library_location``: ``<userlib>/...``), the same on
-    every machine, for a library file; else a ``./``-prefixed, forward-slash
-    path relative to ``base``. Best-effort, never fabricated: ``None`` when
-    there is no library path and ``resolved`` is ``None`` or
-    ``os.path.relpath`` itself fails (e.g. a cross-drive path on Windows).
+    """The lvnet §6 ``; path`` annotation of a file, the same on every machine
+    (``shown_path``): its library path (``<userlib>/...``) for a library file,
+    ``./`` and its path from ``base`` for a file in ``base``'s project, else
+    ``external/<its project folder>/...``. Never fabricated: ``None`` when there
+    is no library path and no file (``resolved`` is ``None``).
     """
-    if library is not None:
-        return "/".join(library)
-    if resolved is None:
+    if library is None and resolved is None:
         return None
-    try:
-        rel = os.path.relpath(resolved.resolve(), base.resolve())
-    except (OSError, ValueError):
-        return None
-    return _LVNET_TYPEDEF_NAV_PREFIX + rel.replace(os.sep, "/")
+    return shown_path(resolved or base, base, library)
 
 
 def _typedef_nav(typedef_path: str) -> str:

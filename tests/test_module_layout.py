@@ -435,4 +435,4 @@ def test_an_input_vi_directly_in_the_home_folder_shows_no_home_name(
     assert layout.places[str(vi)] == ModulePlace((), "helper")
     settings = RunSettings(root=project_root(vi))
     assert settings.label(vi) == "Helper.vi"
-    assert settings.label(tree.base) == "."
+    assert settings.label(tree.base) == "the project folder"

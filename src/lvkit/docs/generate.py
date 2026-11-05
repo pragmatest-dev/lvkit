@@ -11,10 +11,15 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from lvkit.cache_paths import folder_name, own_project_folder, project_root
+from lvkit.cache_paths import (
+    EXTERNAL_PACKAGE,
+    folder_name,
+    own_project_folder,
+    project_root,
+)
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
-from lvkit.docs.page_names import page_names, vi_file_path
+from lvkit.docs.page_names import page_names
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.errors import DependencyFileError
@@ -23,7 +28,7 @@ from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
 from lvkit.library_folders import Folders, SearchEntries
-from lvkit.module_layout import EXTERNAL_PACKAGE
+from lvkit.llb_origin import vi_file_path
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -155,7 +160,8 @@ def _index_sections(
     owning class or library; else the installation folder of its library path
     (``library_location``: ``vi.lib``, ``user.lib``, ...); else its folder in the
     project; else, for a file outside the project, its own project folder's name
-    (``own_project_folder``). The section never names a page."""
+    (``own_project_folder``), or ``external`` when that folder's name is not
+    shown (a home folder, ``folder_name``). The section never names a page."""
     sections: dict[str, str] = {}
     for name in vi_names:
         owner = graph.get_owning_class(name) or graph.get_owning_library(name)
