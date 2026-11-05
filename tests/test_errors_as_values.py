@@ -699,6 +699,34 @@ def test_an_error_case_picks_the_frame_of_the_error_code(
     assert "== 7" in package.source
 
 
+@pytest.mark.parametrize("failed", [False, True], ids=["no-error", "error"])
+def test_a_node_feeding_an_error_case_runs_before_the_case(
+    project: Project,  # noqa: F811
+    failed: bool,
+) -> None:
+    """Absolute Value reads ``Step A.vi``'s ``r`` and feeds a tunnel both frames
+    of the error case read; it is not on the error wire, and is still written
+    before the case, as ``Step A.vi`` (on the error wire) is."""
+    package = generate(
+        project,
+        C.error_case_reads_a_value_off_the_error_wire,
+        {"step_a": configurable_step("step_a")},
+    )
+    compile(package.source, "err.py", "exec")
+    lines = [line.strip() for line in package.source.splitlines()]
+    call = lines.index("step_a_result = step_a(x=x, error_in=error_in)")
+    value = lines.index("abs_x = abs(step_a_result.r)")
+    case = lines.index(
+        "if step_a_result.error_out is not None and step_a_result.error_out.status:"
+    )
+    assert call < value < case
+    error = package.error(7) if failed else None
+    package.stub("step_a").ERROR = error
+    result = package.function(x=1)
+    assert result.result == (3 if failed else 2)
+    assert result.error_out is error
+
+
 # =============================================================
 # Unbundle / Bundle of an error
 # =============================================================

@@ -31,6 +31,7 @@ from tests.error_diagrams import (
 
 NAME = "Err.vi"
 VILIB_ERROR = "Utility/error.llb"
+ABSOLUTE_VALUE = 1054
 
 
 def _with_steps(project: Project, vi: Vi, *names: str) -> str:
@@ -374,6 +375,38 @@ def error_case_codes(project: Project) -> str:
         vi.wire(const, face)
     vi.wire(x, a["x"])
     vi.wire(ein, a["error in"])
+    vi.wire(a["error out"], case.selector, eout)
+    vi.wire(out.outer, result)
+    return _with_steps(project, vi, "Step A.vi")
+
+
+def error_case_reads_a_value_off_the_error_wire(project: Project) -> str:
+    """An error case fed from ``Step A.vi``'s error out, with a value that is not
+    on the error wire: ``r`` of ``Step A.vi`` goes through Absolute Value into a
+    tunnel both frames read. No Error frame: ``result`` is that value. Error frame
+    (Default): ``result`` is that value + 1. Step A's error out is the VI's."""
+    vi, x, ein, result, eout = _x_error_result()
+    a = vi.step("Step A.vi")
+    absolute = vi.primitive(
+        ABSOLUTE_VALUE, [("abs", 0, I32, True), ("x", 1, I32, False)]
+    )
+    case = vi.case(
+        "error",
+        ERR,
+        [NO_ERROR_FRAME, FrameSpec()],
+        default_frame=1,
+        tunnels=[(I32, False), (I32, True)],
+    )
+    value, out = case.tunnels
+    with vi.inside(case.scopes[1]):
+        inner = increment(vi)
+    vi.wire(x, a["x"])
+    vi.wire(ein, a["error in"])
+    vi.wire(a["r"], absolute["x"])
+    vi.wire(absolute["abs"], value.outer)
+    vi.wire(value.faces[0], out.faces[0])
+    vi.wire(value.faces[1], inner["in"])
+    vi.wire(inner["out"], out.faces[1])
     vi.wire(a["error out"], case.selector, eout)
     vi.wire(out.outer, result)
     return _with_steps(project, vi, "Step A.vi")
