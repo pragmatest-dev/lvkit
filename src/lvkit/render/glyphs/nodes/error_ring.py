@@ -1,18 +1,20 @@
 """An Error Ring XNode, drawn as LabVIEW shows a configured one.
 
 Measured from NI's public Error Ring page image (labview-api-ref,
-``vi-lib/errorring/loc_ErrorRing.gif``; a 22-pixel-high ring, the same height as
-the XNode's own ``<bounds>``): a white body with a 2-pixel border; on its left
+``vi-lib/errorring/loc_ErrorRing.gif``; a 22-pixel-high ring, the height of its
+error out terminal): a white body with a 2-pixel border; on its left
 the error / warning toggle (a 15-pixel round mark starting 3 pixels inside the
 outer edge) and the call-chain toggle (5 pixels wide, starting 21 pixels in);
 the ring's text from 28 pixels in, vertically centred; a 7-by-4 dropdown arrow
-whose right edge is 4 pixels inside the right border; the error out terminal
-right of the body. The marks are lvkit's own drawings, not NI's artwork.
+whose right edge is 4 pixels inside the ring's outer right edge; the error out
+terminal right of the body, and a ring's format inputs below it. The marks are
+lvkit's own drawings, not NI's artwork.
 
 Each part is read from the node (``_error_ring_glyph``): the text is the label
 LabVIEW stores in the ring's StateData (``ErrorRing.label``), the round mark
 the error / warning byte, the call-chain mark the call-chain byte, and the
-body's right edge the left edge of the error out terminal's ``termBounds``.
+body's right edge and bottom the error out terminal's ``termBounds`` left edge
+and bottom.
 """
 
 from __future__ import annotations
@@ -40,17 +42,20 @@ TEXT_SIZE = 9.0
 @dataclass(frozen=True)
 class ErrorRingGlyph:
     """``label`` is the ring's text; ``is_warning`` picks the warning mark;
-    ``call_chain`` draws the call-chain mark; ``body_right`` is the fraction of
-    the node's width where the body ends and the error out terminal begins."""
+    ``call_chain`` draws the call-chain mark; ``body_right`` and ``body_bottom``
+    are the fractions of the node's width and height where the body ends: the
+    error out terminal's left edge and bottom."""
 
     label: str
     is_warning: bool
     call_chain: bool
     body_right: float = 1.0
+    body_bottom: float = 1.0
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         right = x1 + (x2 - x1) * self.body_right
+        y2 = y1 + (y2 - y1) * self.body_bottom
         mid = (y1 + y2) / 2
         backend.rect(
             x1 + BORDER / 2,
@@ -64,7 +69,7 @@ class ErrorRingGlyph:
         self._draw_toggle(backend, x1 + TOGGLE_LEFT, mid, theme)
         if self.call_chain:
             self._draw_chain(backend, x1 + CHAIN_LEFT, mid, theme)
-        arrow_right = right - BORDER - ARROW_RIGHT_INSET
+        arrow_right = right - ARROW_RIGHT_INSET
         text_room = arrow_right - ARROW_WIDTH - (x1 + TEXT_LEFT)
         backend.text(
             x1 + TEXT_LEFT,

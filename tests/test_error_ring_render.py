@@ -3,7 +3,7 @@ image (labview-api-ref, vi-lib/errorring/loc_ErrorRing.gif): the ring is 22
 pixels high; a 2-pixel #b4ab00 border on a white body; the error / warning
 toggle a 15-pixel round mark 3 pixels inside the outer left edge; the call-chain
 toggle 5 pixels wide from 21 pixels in; the text from 28 pixels in; a 7-by-4
-#a57b39 dropdown arrow whose right edge is 4 pixels inside the right border;
+#a57b39 dropdown arrow whose right edge is 4 pixels inside the outer edge;
 the error out terminal right of the body. Each number is checked on the drawing
 calls the glyph makes for a ring the size of a real one (the 6005 ring of
 actor-framework's Wire FP Controls to Accessor UnBundler.vi: <bounds> 254 x 22,
@@ -67,8 +67,9 @@ def test_the_body_border_text_and_arrow_are_nis_measurements() -> None:
     assert text[2] == LABEL and text[3] == 9.0
     assert text_style["anchor"] == "start"
     [(arrow, arrow_style)] = drawn.of("polygon")
-    # Right edge 4 pixels inside the 2-pixel border; 7 wide, 4 high, centred.
-    assert arrow[0] == [(332.0, 59.0), (339.0, 59.0), (335.5, 63.0)]
+    # Right edge 4 pixels inside the ring's outer edge (x 345); 7 wide, 4 high,
+    # centred.
+    assert arrow[0] == [(334.0, 59.0), (341.0, 59.0), (337.5, 63.0)]
     assert arrow_style["fill"] == "#a57b39"
 
 
@@ -91,3 +92,33 @@ def test_a_warning_without_the_call_chain() -> None:
     # The exclamation bar and dot; no call-chain rings.
     assert len(drawn.of("line")) == 1
     assert len(circles) == 2
+
+
+def _rect_and_mid(body_bottom: float, height: float) -> tuple[Any, float]:
+    """The body rect and the text's vertical position for a 252-wide ring whose
+    error out is (0, 243, 22, 252) in a node ``height`` tall."""
+    recorder = _Recorder()
+    ErrorRingGlyph(LABEL, False, True, 243 / 252, body_bottom).draw(
+        recorder,  # type: ignore[arg-type]
+        (0.0, 0.0, 252.0, height),
+        DEFAULT_THEME,
+    )
+    [(body, _)] = recorder.of("rect")
+    [(text, _)] = recorder.of("text")
+    return body, text[1]
+
+
+def test_a_ring_with_one_input_ends_above_it() -> None:
+    """A ring with one format input is 30 tall (error out (0, 243, 22, 252),
+    input (22, 0, 29, 9)): the ring is the top 22, the input below it."""
+    body, text_y = _rect_and_mid(22 / 30, 30.0)
+    assert body == (1.0, 1.0, 242.0, 21.0)
+    assert text_y == 11.0 + 9.0 * 0.35
+
+
+def test_a_ring_with_two_inputs_ends_above_them() -> None:
+    """A ring with two format inputs is 38 tall (inputs (22, 0, 29, 9) and
+    (30, 0, 37, 9)): the ring is still the top 22."""
+    body, text_y = _rect_and_mid(22 / 38, 38.0)
+    assert body == (1.0, 1.0, 242.0, 21.0)
+    assert text_y == 11.0 + 9.0 * 0.35

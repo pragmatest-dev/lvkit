@@ -204,9 +204,9 @@ class PrimitiveNode(GraphNode):
     # uniform, so the drawer glyph positions each row at its own real
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
-    # XNode only: each terminal's own (x1, x2) span as a fraction of the
-    # node's width (parser.node_types.XNodeNode.terminal_x_fracs).
-    xnode_terminal_x_fracs: list[tuple[float, float]] = []
+    # XNode only: each terminal's own termBounds box as fractions of the
+    # node's bounds (parser.node_types.XNodeNode.terminal_boxes).
+    xnode_terminal_boxes: list[tuple[float, float, float, float]] = []
     # XNode only: the recorded path of its library file, from its XNXI link
     # record (parser/xnode_links.py); "" when no record names the node.
     xnode_library_path: str = ""

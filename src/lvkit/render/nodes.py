@@ -1023,18 +1023,23 @@ def _is_xnode_passthrough(term: Terminal) -> bool:
 
 def _error_ring_glyph(node: PrimitiveNode, ring: ErrorRing) -> ErrorRingGlyph:
     """An Error Ring (``glyphs/nodes/error_ring.py``): its stored label, its
-    error / warning and call-chain choices, and its body ending where its
-    output terminal (the error out) begins."""
-    outputs = [
-        x1
-        for term, (x1, _) in zip(node.terminals, node.xnode_terminal_x_fracs)
-        if term.direction == "output" and x1 > 0
-    ]
+    error / warning and call-chain choices, and its body: left of and above its
+    error out terminal's edges (a ring with format inputs is taller than the
+    ring; the inputs sit below it)."""
+    error_out = next(
+        (
+            box
+            for term, box in zip(node.terminals, node.xnode_terminal_boxes)
+            if term.direction == "output" and box[2] > 0
+        ),
+        None,
+    )
     return ErrorRingGlyph(
         label=ring.label,
         is_warning=ring.is_warning,
         call_chain=ring.include_call_chain,
-        body_right=min(outputs, default=1.0),
+        body_right=error_out[0] if error_out else 1.0,
+        body_bottom=error_out[3] if error_out else 1.0,
     )
 
 
