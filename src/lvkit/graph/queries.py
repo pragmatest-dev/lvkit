@@ -1393,7 +1393,7 @@ class QueryMixin:
         the polymorphic VI records them; empty for a call of no polymorphic VI."""
         if node.callee_key is None or node.callee_key not in self._poly_info:
             return []
-        recorded = terminals_shape(self, node.terminals, node.vi_path)
+        recorded = terminals_shape(self, node.terminals)
         return [
             variant
             for variant in self.get_poly_variants(node.callee_key)

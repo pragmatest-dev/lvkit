@@ -32,8 +32,8 @@ TypeShape = tuple[object, ...]
 PaneShape = frozenset[tuple[int, bool, TypeShape]]
 
 
-def type_shape(graph: PaneGraph, lv_type: LVType | None, vi_key: str) -> TypeShape:
-    """What ``lv_type`` is, as seen from the VI ``vi_key``: its kind, its
+def type_shape(graph: PaneGraph, lv_type: LVType | None) -> TypeShape:
+    """What ``lv_type`` is: its kind, its
     underlying and refnum types, the class a class wire carries, and the shapes
     of its elements and fields."""
     if lv_type is None:
@@ -45,28 +45,25 @@ def type_shape(graph: PaneGraph, lv_type: LVType | None, vi_key: str) -> TypeSha
         lv_type.underlying_type,
         lv_type.ref_type,
         lv_type.dimensions,
-        type_shape(graph, lv_type.element_type, vi_key),
-        type_shape(graph, lv_type.value_type, vi_key),
-        tuple(type_shape(graph, f.type, vi_key) for f in lv_type.fields or []),
+        type_shape(graph, lv_type.element_type),
+        type_shape(graph, lv_type.value_type),
+        tuple(type_shape(graph, f.type) for f in lv_type.fields or []),
     )
 
 
-def slots_shape(graph: PaneGraph, pane: Iterable[PaneSlot], vi_key: str) -> PaneShape:
-    """The shape of the pane a refnum records, seen from the VI ``vi_key``."""
+def slots_shape(graph: PaneGraph, pane: Iterable[PaneSlot]) -> PaneShape:
+    """The shape of the pane a refnum records."""
     return frozenset(
-        (slot.index, slot.is_output, type_shape(graph, slot.type, vi_key))
-        for slot in pane
+        (slot.index, slot.is_output, type_shape(graph, slot.type)) for slot in pane
     )
 
 
-def terminals_shape(
-    graph: PaneGraph, terminals: Iterable[Terminal], vi_key: str
-) -> PaneShape:
+def terminals_shape(graph: PaneGraph, terminals: Iterable[Terminal]) -> PaneShape:
     """The shape of the pane ``terminals`` fill (a VI's own pane, or the pane a
-    call records), seen from the VI ``vi_key``; an unused slot
+    call records); an unused slot
     (``op_walk.is_void_slot``) is left out."""
     return frozenset(
-        (t.index, t.direction == "output", type_shape(graph, t.lv_type, vi_key))
+        (t.index, t.direction == "output", type_shape(graph, t.lv_type))
         for t in terminals
         if t.index is not None and not is_void_slot(t.lv_type)
     )
@@ -75,4 +72,4 @@ def terminals_shape(
 def vi_shape(graph: PaneGraph, key: str) -> PaneShape:
     """The shape of the connector pane of the VI ``key``."""
     inputs, _, outputs, _ = graph.vi_interface(key)
-    return terminals_shape(graph, [*inputs, *outputs], key)
+    return terminals_shape(graph, [*inputs, *outputs])
