@@ -21,7 +21,7 @@ from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.llb_origin import vi_file_path
-from lvkit.project_folders import EXTERNAL_PACKAGE, folder_name, own_project_folder
+from lvkit.project_folders import EXTERNAL_PACKAGE, own_project_folder
 from lvkit.vi_files import strip_vi_extension
 
 PROJECT_GROUP = "Project"
@@ -86,7 +86,7 @@ def _path_name(
     if own.is_relative_to(root.resolve()):
         return named(PROJECT_GROUP, own.relative_to(root.resolve()).parts)
     outside = own_project_folder(own)
-    group = folder_name(outside) or EXTERNAL_PACKAGE
+    group = outside.name or EXTERNAL_PACKAGE
     return named(group, own.relative_to(outside).parts)
 
 

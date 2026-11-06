@@ -3,7 +3,7 @@ path below the project folder, each part put through one transform."""
 
 from __future__ import annotations
 
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 import pytest
 
@@ -16,8 +16,7 @@ from lvkit.module_layout import (
     ModulePlace,
     UnplacedVIError,
 )
-from lvkit.project_folders import is_home, project_root, searched
-from lvkit.run_report import RunSettings
+from lvkit.project_folders import project_root
 
 
 def _graph(*keys: str) -> InMemoryVIGraph:
@@ -39,10 +38,7 @@ class _Tree:
 
 
 @pytest.fixture
-def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
-    """The tree is the home folder, so no ``.git`` above it is a project."""
-    home = tmp_path.resolve()
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+def tree(tmp_path: Path) -> _Tree:
     return _Tree(tmp_path)
 
 
@@ -140,19 +136,6 @@ def test_an_outside_file_with_no_project_marker_is_under_its_own_folder(
     key = tree.key("other", "Deep", "c.vi", under=tree.base)
     layout = _layout(tree.key("a.vi"), key, root=tree.proj)
     assert layout.places[key] == ModulePlace(("external", "deep"), "c")
-
-
-def test_a_git_repo_at_the_home_folder_is_not_an_outside_files_project(
-    tree: _Tree, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A home folder kept in git (dotfiles) never puts the user's name in a
-    module path."""
-    home = tree.base / "home" / "someone"
-    (home / ".git").mkdir(parents=True)
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    key = tree.key("Documents", "libs", "Helper.vi", under=home)
-    layout = _layout(tree.key("a.vi"), key, root=tree.proj)
-    assert layout.places[key] == ModulePlace(("external", "libs"), "helper")
 
 
 def test_outside_projects_in_one_git_repo_are_placed_by_the_repo(
@@ -336,22 +319,6 @@ def test_a_git_repo_inside_a_store_is_its_own_project_but_shares_the_store(
     assert store_root(vi) == tmp_path.resolve()
 
 
-def test_a_git_repo_at_or_above_the_home_folder_is_not_the_project(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    home = tmp_path.resolve() / "home" / "someone"
-    (home / ".git").mkdir(parents=True)
-    (tmp_path / ".git").mkdir()
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    vi = home / "Documents" / "proj" / "src" / "x.vi"
-    vi.parent.mkdir(parents=True)
-    vi.write_text("")
-    assert project_root(vi) == vi.parent
-    repo = home / "Documents" / "proj"
-    (repo / ".git").mkdir()
-    assert project_root(vi) == repo
-
-
 def test_with_no_marker_the_project_is_the_vis_own_folder(tmp_path: Path) -> None:
     vi = tmp_path / "x.vi"
     vi.write_text("")
@@ -388,18 +355,7 @@ def test_an_unplaceable_vi_fails_only_what_imports_it(tree: _Tree) -> None:
         layout.place_of_name("Missing.vi")
 
 
-def test_a_vi_directly_in_the_home_folder_is_placed_with_no_folder_name(
-    tree: _Tree,
-) -> None:
-    """``tree`` makes the test folder the home folder: a VI directly in it, with
-    no project marker, is ``external.helper``, its home folder never named."""
-    key = tree.key("Helper.vi", under=tree.base)
-    layout = _layout(tree.key("a.vi"), key, root=tree.proj)
-    assert layout.places[key] == ModulePlace(("external",), "helper")
-    assert tree.base.name not in layout.display_path(key)
-
-
-def test_two_unmarked_outside_files_alike_stop_generation_numbered(
+def test_two_unmarked_outside_files_alike_stop_generation_naming_their_paths(
     tree: _Tree,
 ) -> None:
     first = tree.key("c1", "A", "P.vi", under=tree.base)
@@ -407,67 +363,6 @@ def test_two_unmarked_outside_files_alike_stop_generation_numbered(
     with pytest.raises(ModuleCollisionError) as caught:
         _layout(tree.key("x.vi"), first, second, root=tree.proj)
     message = str(caught.value)
-    assert "'P.vi' (1st file) and 'P.vi' (2nd file)" in message
+    assert "'../c1/A/P.vi' and '../c2/A/P.vi'" in message
     assert "external.a.p" in message
     assert str(tree.base) not in message
-
-
-def test_two_files_directly_in_the_home_folder_alike_stop_generation(
-    tree: _Tree,
-) -> None:
-    first = tree.key("Helper.vi", under=tree.base)
-    second = tree.key("helper.vi", under=tree.base)
-    with pytest.raises(ModuleCollisionError) as caught:
-        _layout(tree.key("x.vi"), first, second, root=tree.proj)
-    message = str(caught.value)
-    assert "'Helper.vi' and 'helper.vi' both generate the module" in message
-    assert tree.base.name not in message
-
-
-def test_an_input_vi_directly_in_the_home_folder_shows_no_home_name(
-    tree: _Tree,
-) -> None:
-    """With no marker, its project is the home folder only as the base of paths:
-    the module is the VI's own name, and the folder is never named."""
-    vi = tree.base / "Helper.vi"
-    vi.write_text("")
-    assert project_root(vi) == tree.base
-    layout = _layout(str(vi), root=project_root(vi))
-    assert layout.places[str(vi)] == ModulePlace((), "helper")
-    settings = RunSettings(root=project_root(vi))
-    assert settings.label(vi) == "Helper.vi"
-    assert settings.label(tree.base) == "the project folder"
-
-
-@pytest.mark.parametrize(
-    ("home", "folder", "a_home"),
-    [
-        (PurePosixPath("/home/me"), PurePosixPath("/home/me"), True),
-        (PurePosixPath("/home/me"), PurePosixPath("/home"), True),
-        (PurePosixPath("/home/me"), PurePosixPath("/home/bob"), True),  # beside
-        (PurePosixPath("/home/me"), PurePosixPath("/home/me/proj"), False),
-        # A home directly in a drive's root: the root's other folders are not homes.
-        (PurePosixPath("/root"), PurePosixPath("/app"), False),
-        (PurePosixPath("/root"), PurePosixPath("/workspace"), False),
-        (PurePosixPath("/root"), PurePosixPath("/"), True),
-        (PureWindowsPath("C:/Users/me"), PureWindowsPath("C:/Users/bob"), True),
-        (PureWindowsPath("C:/x"), PureWindowsPath("C:/proj"), False),
-    ],
-)
-def test_a_home_folder_is_found_by_its_place(
-    home: PurePath, folder: PurePath, a_home: bool
-) -> None:
-    assert is_home(folder, home) is a_home
-
-
-def test_a_project_beside_a_home_in_a_drives_root_is_searched() -> None:
-    """``/root`` as home (a container run as root): ``/app`` is searched, so its
-    ``.git`` makes it the project; ``/`` is not."""
-    own = PurePosixPath("/app/src")
-    assert searched(own, PurePosixPath("/root")) == [
-        PurePosixPath("/app/src"),
-        PurePosixPath("/app"),
-    ]
-    assert searched(PurePosixPath("/home/bob/x"), PurePosixPath("/home/me")) == [
-        PurePosixPath("/home/bob/x")
-    ]

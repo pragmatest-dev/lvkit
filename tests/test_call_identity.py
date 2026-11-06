@@ -468,7 +468,7 @@ def test_a_callee_two_search_path_files_match_equally_is_missing_and_ambiguous(
     assert reason is not None and reason.startswith(
         "Ambiguous reference -- several files on the VI search path end in"
     )
-    assert all(f"./{f}" in reason for f in found)
+    assert all(f in reason for f in found)
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(

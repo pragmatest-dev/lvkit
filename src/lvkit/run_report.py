@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 from .library_folders import library_location
 from .llb_origin import llb_container_of
-from .project_folders import folder_name, project_root
+from .project_folders import project_root
 
 if TYPE_CHECKING:
     from .graph.core import InMemoryVIGraph
@@ -266,7 +266,6 @@ class RunStopped(BaseException):
 
 
 # How a message names a project folder whose own name is not shown.
-PROJECT_FOLDER_LABEL = "the project folder"
 
 
 @dataclass
@@ -293,9 +292,7 @@ class RunSettings:
         ``recorded``, else its path below a library folder, ``<vilib>/...``,
         likewise ``<userlib>``, ``<instrlib>``), else relative to its project, or,
         for a VI inside an ``.llb``, the archive's label plus its name. Never an
-        absolute path; a project folder itself is its name (``folder_name``), or
-        ``the project folder`` when its name is not shown (a home folder or a
-        drive's root)."""
+        absolute path; a project folder itself is its name."""
         resolved = Path(path).resolve()
         roots = [
             (token, library)
@@ -320,7 +317,7 @@ class RunSettings:
         if resolved.is_relative_to(base):
             rel = resolved.relative_to(base).as_posix()
             if rel == ".":
-                return folder_name(base) or PROJECT_FOLDER_LABEL
+                return base.name
             return rel
         return resolved.name
 

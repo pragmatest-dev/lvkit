@@ -25,7 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.module_layout import ModuleCollisionError, ModuleLayout, ordinals
+from lvkit.module_layout import ModuleCollisionError, ModuleLayout
+from lvkit.project_folders import project_relative
 
 
 class CopyCollisionError(ModuleCollisionError):
@@ -97,17 +98,12 @@ class PackageCopies:
                 self._clashes.append(self._clash(held, copy))
 
     def _clash(self, held: _Copy, copy: _Copy) -> str:
-        """Both files by the label every view gives a file (``vi_label``:
-        project-relative, or ``<vilib>/...``, never an absolute path), numbered
-        in the order they were kept when the labels are the same."""
-        labels = (self._graph.vi_label(held.source), self._graph.vi_label(copy.source))
-        numbers = ordinals(*labels, "copy")
+        """Both files by their path from the generated project folder, each with
+        the VI that names it."""
         said = [
-            f"{label!r} ({f'{number}, ' if number else ''}named by "
+            f"{project_relative(c.source, self.layout.project_folder)!r} (named by "
             f"{self._graph.key_label(c.vi_key)!r})"
-            for label, number, c in zip(
-                labels, numbers or (None, None), (held, copy), strict=True
-            )
+            for c in (held, copy)
         ]
         return (
             f"{said[0]} and {said[1]} are both copied to "

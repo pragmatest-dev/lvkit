@@ -44,18 +44,11 @@ def _file(path: Path, data: bytes) -> Path:
     return path
 
 
-@pytest.fixture(autouse=True)
-def _home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The test folder is the home folder: no folder above it is searched."""
-    home = tmp_path.resolve()
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-
-
 def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     tmp_path: Path,
 ) -> None:
-    """Two unmarked trees: both files are labelled ``x.dll`` (each its own
-    folder's), so the message numbers them in the order they were kept."""
+    """Two unmarked trees: the message names each file by its path from the
+    project folder."""
     p = str(tmp_path / "copy1" / "A" / "P.vi")
     q = str(tmp_path / "copy2" / "A" / "Q.vi")
     copies, _ = _copies(tmp_path, {p: "<vilib>/A/P.vi", q: "<vilib>/A/Q.vi"}, p, q)
@@ -68,9 +61,9 @@ def test_two_copies_of_a_vi_placed_by_one_recorded_path_stop_generation(
     message = str(caught.value)
     assert "'vilib/a/x.dll'" in message
     assert "P.vi" in message and "Q.vi" in message
-    assert "'x.dll' (1st copy, named by 'P.vi')" in message
-    assert "'x.dll' (2nd copy, named by 'Q.vi')" in message
-    assert str(tmp_path) not in message and tmp_path.name not in message
+    assert "'../copy1/A/x.dll' (named by 'P.vi')" in message
+    assert "'../copy2/A/x.dll' (named by 'Q.vi')" in message
+    assert str(tmp_path) not in message
 
 
 def test_two_folders_whose_names_transform_alike_stop_generation(
@@ -110,7 +103,8 @@ def test_places_that_differ_only_in_case_are_one_place(tmp_path: Path) -> None:
     _module(copies, q, ["", "lib.dll"], ("lib.dll",), lower)
     with pytest.raises(CopyCollisionError) as caught:
         copies.check()
-    assert "'Lib.dll'" in str(caught.value) and "'lib.dll'" in str(caught.value)
+    assert "'../c1/A/Lib.dll'" in str(caught.value)
+    assert "'../c2/A/lib.dll'" in str(caught.value)
 
 
 def test_one_file_named_two_ways_is_one_copy(tmp_path: Path) -> None:
@@ -131,12 +125,11 @@ def test_one_file_named_two_ways_is_one_copy(tmp_path: Path) -> None:
     copies.check()
 
 
-def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
+def test_a_clash_names_each_file_by_its_path_from_the_project_folder(
     tmp_path: Path,
 ) -> None:
-    """A clash names each file by the label every view gives it: the vi.lib file
-    by its ``<vilib>`` path, the project's by its project-relative path; never
-    the folders above them."""
+    """A clash names each file by its path from the project folder: the vi.lib
+    file's through ``..``, the project's below it."""
     vilib = tmp_path / "opt" / "vi.lib"
     proj = tmp_path / "home" / "someone" / "proj"
     (proj / ".git").mkdir(parents=True)
@@ -153,37 +146,8 @@ def test_a_vi_lib_file_and_a_project_copy_are_named_by_their_labels(
     with pytest.raises(CopyCollisionError) as caught:
         copies.check()
     message = str(caught.value)
-    assert "'<vilib>/A/x.dll'" in message and "'A/x.dll'" in message
-    assert "someone" not in message and "opt" not in message
+    assert "'../../../opt/vi.lib/A/x.dll'" in message and "'A/x.dll'" in message
     assert str(tmp_path) not in message
-
-
-def test_a_vi_and_library_directly_in_the_home_folder_show_no_home_name(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Directly in the home folder, or in a folder beside it (another user's home,
-    even one kept in git), with no project marker: the module is
-    ``external.helper``, the library ``external/x.dll``, and a clash shows no
-    home folder name."""
-    users = tmp_path.resolve() / "home"
-    home, beside = users / "me", users / "bob"
-    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    (beside / ".git").mkdir(parents=True)  # another user's home: never a project
-    vi = str(home / "Helper.vi")
-    other = str(beside / "Other.vi")
-    copies, _ = _copies(tmp_path, {}, vi, other)
-    assert copies.layout.places[vi].parts == ("external", "helper")
-    assert copies.layout.places[other].parts == ("external", "other")
-    _module(copies, vi, ["", "x.dll"], ("x.dll",), _file(home / "x.dll", b"1"))
-    _module(copies, other, ["", "x.dll"], ("x.dll",), _file(beside / "x.dll", b"2"))
-    with pytest.raises(CopyCollisionError) as caught:
-        copies.check()
-    message = str(caught.value)
-    assert "(1st copy, named by 'Helper.vi')" in message
-    assert "(2nd copy, named by 'Other.vi')" in message
-    assert "'external/x.dll'" in message
-    for name in ("me", "bob", str(users)):
-        assert f"{name}/" not in message and f"'{name}" not in message
 
 
 def test_a_module_that_is_not_written_copies_nothing(tmp_path: Path) -> None:

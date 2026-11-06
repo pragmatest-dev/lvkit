@@ -48,7 +48,7 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE
-from ..project_folders import project_root, shown_path
+from ..project_folders import project_relative, project_root
 from ..run_report import (
     CacheWriteError,
     Problem,
@@ -2536,12 +2536,13 @@ class LoadingMixin:
         )
 
     def _display_path(self, path: Path, caller_file: Path) -> str:
-        """``path`` as a message shows it (``shown_path``): its library path
-        (``<userlib>/...``) for a library file, ``./`` and its path in the
-        project of ``caller_file`` (``project_root``) for a project file, else
-        ``external/<its project folder>/...``."""
-        base = project_root(caller_file)
-        return shown_path(path, base, self.library_location(path))
+        """``path`` as a message shows it: its library path (``<userlib>/...``)
+        for a library file, else its path from the project of ``caller_file``
+        (``project_root``)."""
+        library = self.library_location(path)
+        if library is not None:
+            return "/".join(library)
+        return project_relative(path, project_root(caller_file))
 
     def _stub_undetermined(
         self,

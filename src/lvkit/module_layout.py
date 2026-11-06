@@ -13,15 +13,13 @@ at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi`` is
 under a configured vi.lib / user.lib / instr.lib folder, its path in that folder
 as if recorded (``<userlib>/...``). Any other file in the project is placed by its
 project-relative path; any other outside it under ``external``, by the name of its
-own project folder (``outside_place``; no name for a home folder) and its path
-below that folder, so no folder above its own tree (a user name, this machine's
-layout) is in the module path. A VI with no file is placed by the path its caller
+own project folder (``outside_place``) and its path below that folder. A VI with no
+file is placed by the path its caller
 recorded, whatever it starts at; one with neither a file nor a recorded path
 cannot be imported and stops generation, naming it. Paths are unique, so modules
 are unique, and a module name is never numbered. Two files whose parts transform
 to the same name (two outside trees whose project folders share a name and hold
-the same file) stop generation, naming both; only the message numbers two names
-that would read alike (``ordinals``).
+the same file) stop generation, naming both by their paths from the project folder.
 """
 
 from __future__ import annotations
@@ -36,7 +34,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.recorded_paths import walk_relative
 from lvkit.library_folders import path_tokens
-from lvkit.project_folders import outside_place
+from lvkit.project_folders import outside_place, project_relative
 from lvkit.vi_files import class_stem, strip_vi_extension
 
 
@@ -79,16 +77,8 @@ class _Location:
 
 def _outside_project(key: str) -> _Location:
     """``key`` as ``outside_place`` places it: ``external`` and the name of its
-    own project folder (none for a home folder, so ``external.helper``), then
-    its path below that folder."""
+    own project folder, then its path below that folder."""
     return _Location(*outside_place(key))
-
-
-def ordinals(first: str, second: str, what: str) -> tuple[str, str] | None:
-    """How a message tells apart two things it would name alike (``first`` and
-    ``second``, in the order they were found): ``1st <what>`` and ``2nd <what>``;
-    None when the names already differ."""
-    return (f"1st {what}", f"2nd {what}") if first == second else None
 
 
 def _packages(folders: Sequence[str]) -> tuple[str, ...]:
@@ -252,29 +242,26 @@ class ModuleLayout:
         return _packages(self._tokens_of(key)[:-1])
 
     @property
+    def project_folder(self) -> str:
+        """The project folder messages name files from."""
+        return self._root
+
+    @property
     def root_names(self) -> set[str]:
         """The names at the package root that VI modules and packages take."""
         return {place.parts[0] for place in self.places.values()}
 
     def _shown(self, key: str) -> str:
-        """A key as a message shows it: a file below the project by its path
-        from this layout's project folder (which ``key_label`` does not know: it
-        names a file from the run's folder), any other as the graph labels it
-        (``key_label``), never by an absolute path."""
-        parts = _below(key, self._root) if os.path.isabs(key) else None
-        return "/".join(parts) if parts else self._graph.key_label(key)
+        """A key as a message shows it: a file by its path from this layout's
+        project folder (which ``key_label`` does not know: it names a file from
+        the run's folder), any other as the graph labels it (``key_label``)."""
+        if os.path.isabs(key):
+            return project_relative(key, self._root)
+        return self._graph.key_label(key)
 
     def _pair(self, first: str, second: str) -> tuple[str, str]:
-        """Two keys as a message shows them side by side, numbered when they
-        would show alike (``ordinals``)."""
-        shown = (self._shown(first), self._shown(second))
-        numbers = ordinals(*shown, "file")
-        if numbers is None:
-            return repr(shown[0]), repr(shown[1])
-        return (
-            f"{shown[0]!r} ({numbers[0]})",
-            f"{shown[1]!r} ({numbers[1]})",
-        )
+        """Two keys as a message shows them side by side."""
+        return repr(self._shown(first)), repr(self._shown(second))
 
     def _check_unique(self) -> None:
         for key, place in self.places.items():

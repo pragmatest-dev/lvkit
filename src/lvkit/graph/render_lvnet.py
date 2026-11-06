@@ -13,6 +13,7 @@ string literal (``lvnet_literal_token``), written and read back one way.
 
 from __future__ import annotations
 
+import os
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
@@ -29,7 +30,6 @@ from ..models import (
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
-from ..project_folders import shown_path
 from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
 from .lvnet_drives import (
@@ -591,15 +591,16 @@ def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
 def lvnet_file_path(
     resolved: Path | None, base: Path, library: tuple[str, ...] | None
 ) -> str | None:
-    """The lvnet §6 ``; path`` annotation of a file, the same on every machine
-    (``shown_path``): its library path (``<userlib>/...``) for a library file,
-    ``./`` and its path from ``base`` for a file in ``base``'s project, else
-    ``external/<its project folder>/...``. Never fabricated: ``None`` when there
-    is no library path and no file (``resolved`` is ``None``).
+    """The lvnet §6 ``; path`` annotation of a file: its library path
+    (``<userlib>/...``) for a library file, else ``./`` and its path from
+    ``base``. Never fabricated: ``None`` when there is no library path and no
+    file (``resolved`` is ``None``).
     """
     if library is not None:
         return "/".join(library)
-    return None if resolved is None else shown_path(resolved, base, None)
+    if resolved is None:
+        return None
+    return "./" + os.path.relpath(resolved, base).replace(os.sep, "/")
 
 
 def _typedef_nav(typedef_path: str) -> str:

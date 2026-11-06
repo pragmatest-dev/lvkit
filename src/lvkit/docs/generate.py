@@ -25,7 +25,6 @@ from lvkit.library_folders import Folders, SearchEntries
 from lvkit.llb_origin import vi_file_path
 from lvkit.project_folders import (
     EXTERNAL_PACKAGE,
-    folder_name,
     own_project_folder,
     project_root,
 )
@@ -160,8 +159,8 @@ def _index_sections(
     owning class or library; else the installation folder of its library path
     (``library_location``: ``vi.lib``, ``user.lib``, ...); else its folder in the
     project; else, for a file outside the project, its own project folder's name
-    (``own_project_folder``), or ``external`` when that folder's name is not
-    shown (a home folder, ``folder_name``). The section never names a page."""
+    (``own_project_folder``), or ``external`` for a drive's root. The section
+    never names a page."""
     sections: dict[str, str] = {}
     for name in vi_names:
         owner = graph.get_owning_class(name) or graph.get_owning_library(name)
@@ -174,7 +173,7 @@ def _index_sections(
             below = own.relative_to(project.resolve()).parent.parts
             sections[name] = library_group(None, below)
         elif own is not None:
-            outside = folder_name(own_project_folder(own))
+            outside = own_project_folder(own).name
             sections[name] = outside or EXTERNAL_PACKAGE
     return sections
 
