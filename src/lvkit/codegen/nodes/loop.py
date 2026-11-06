@@ -429,12 +429,11 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             inner_val = inner_ctx.resolve(inner_term)
             if inner_val and inner_val != rsr_shift_var:
                 # Write the new value into a DISTINCT variable rather than
-                # mutating rsr_shift_var (the lSR-bound local) in place.
-                updated_var = ctx.make_output_var(
-                    f"{rsr_shift_var}_updated",
-                    node.id,
-                    terminal_id=outer_term,
-                )
+                # mutating rsr_shift_var (the lSR-bound local) in place. It is
+                # local to the body (readers after the loop read rsr_shift_var),
+                # so it is never named from what the right side feeds: that
+                # name can be rsr_shift_var's own.
+                updated_var = ctx.make_output_var(f"{rsr_shift_var}_updated", node.id)
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
                 # Every shift register carries: the value wired to the right
                 # side becomes the left side for the NEXT iteration, initialized
