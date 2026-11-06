@@ -408,18 +408,18 @@ def generate_documents(
         doc_type = "vi"
         doc_title = library_path_obj.stem
         vi_paths = [library_path_obj]
-    elif library_path_obj.suffix == ".ctl":
+    elif library_path_obj.suffix.lower() == ".ctl":
         doc_type = "typedef"
         doc_title = library_path_obj.stem
         vi_paths = []
         ctl_paths = [library_path_obj.resolve()]
-    elif library_path_obj.suffix == ".lvlib":
+    elif library_path_obj.suffix.lower() == ".lvlib":
         doc_type = "library"
         doc_title = library_path_obj.stem
         vi_paths, ctl_paths = _split_controls(
             _collect_library_vis(library_path_obj, run)
         )
-    elif library_path_obj.suffix == ".lvclass":
+    elif library_path_obj.suffix.lower() == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
         vi_paths = _collect_class_vis(library_path_obj, run)

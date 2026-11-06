@@ -53,6 +53,7 @@ from . import (
     printf,
     property_node,
     queue_ops,
+    run_vi,
     sequence,
     shared_variable,
     subvi,
@@ -112,6 +113,8 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
             raise UnknownNodeError("Feedback Node codegen not yet supported", node)
         if node.properties:
             return property_node.generate(node, ctx)
+        if run_vi.is_run_vi(node):
+            return run_vi.generate(node, ctx)
         if node.method_name:
             return invoke_node.generate(node, ctx)
         return _generate_primitive(node, ctx)

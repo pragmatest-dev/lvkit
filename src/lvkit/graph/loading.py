@@ -73,7 +73,11 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
-from .load_problems import CLASS_MEMBER_ATTR
+from .load_problems import (
+    CLASS_MEMBER_ATTR,
+    repeated_frame_problems,
+    unread_condition_problems,
+)
 from .membership import ListedMethod
 from .models import (
     ExecSystem,
@@ -1680,6 +1684,12 @@ class LoadingMixin:
                 may_stop=False,
             )
         self._dep_load_mode[vi_key] = mode
+        shown_as = self.vi_label(source_file)
+        for problem in (
+            *repeated_frame_problems(vi.block_diagram, shown_as),
+            *unread_condition_problems(vi.block_diagram, shown_as),
+        ):
+            self.record_problem(vi_key, problem)
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
         # Used for both dependency loading and iUse path diagnostics.

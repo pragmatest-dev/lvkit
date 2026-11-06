@@ -29,6 +29,7 @@ from ..graph.models import (
     WireEnd,
 )
 from ..graph.op_walk import _selector_label
+from ..graph.operations import frame_position, position_of, structure_frames
 from ..models import (
     FPTerminal,
     LVType,
@@ -123,8 +124,10 @@ class RenderFPTerminal:
     frame_path: FramePath = ()
 
 
-# Root->leaf (raw structure uid, str(selector_value / frame index)) segments
-# naming which interactive-structure frame(s) an item belongs to. () =
+# Root->leaf (raw structure uid, str(frame position)) segments naming which
+# interactive-structure frame(s) an item belongs to -- a frame is addressed by
+# its position in its structure's ``frames``; what a person sees for it is its
+# label (``Scene.frame_labels``). () =
 # base/always-visible (top level, inside a loop, or inside a flat sequence —
 # only CASE structures and STACKED sequences are interactive, see
 # _frame_path).
@@ -208,7 +211,7 @@ class RenderBorderTerminal:
     # Continue-if-True (draw green) rather than the default Stop-if-True (red).
     # Sourced from the loop node's ``stop_condition_inverted`` (heap bit 16).
     cond_continue: bool = False
-    # For an OUTPUT "tunnel": the set of frame VALUES (str(selector_value)) in
+    # For an OUTPUT "tunnel": the set of frames (str(position)) in
     # which this tunnel is left unwired. LabVIEW's "Use Default If Unwired" —
     # the tunnel draws with a hole (default value) ONLY in those frames, solid
     # in the frames that do wire it. Empty = always solid. Per-frame because the
@@ -347,9 +350,8 @@ def _frame_path(
     by_id: dict[str, AnyGraphNode],
     vi_name: str,
 ) -> FramePath:
-    """Root->leaf ``(raw_struct_uid, str(selector_value / frame index))``
-    segments for each interactive-structure ancestor of ``node`` — walks the
-    ``parent`` chain.
+    """Root->leaf ``(raw_struct_uid, str(frame position))`` segments for each
+    interactive-structure ancestor of ``node`` — walks the ``parent`` chain.
 
     Scope is CASE structures and STACKED sequences (roadmap #17 + this
     feature): loops and flat sequences are skipped, so their children always
@@ -366,10 +368,21 @@ def _frame_path(
             parent,
             (CaseStructureNode, DisableStructureNode, EventStructureNode),
         ) or _is_stacked_sequence(parent):
-            segs.append((_strip_prefix(parent.id, vi_name), str(cur.frame)))
+            raw = _strip_prefix(parent.id, vi_name)
+            segs.append((raw, _frame_address(parent, cur)))
         cur = parent
     segs.reverse()
     return tuple(segs)
+
+
+def _frame_address(
+    struct: AnyGraphNode, item: AnyGraphNode | FPTerminal | TunnelTerminal
+) -> str:
+    """How a frame-path segment names ``item``'s frame of ``struct``: the
+    frame's position (``operations.frame_position`` of the frame key ``item``
+    carries)."""
+    position = frame_position(structure_frames(struct), item.frame)
+    return str(position if position is not None else item.frame)
 
 
 def _fp_terminal_frame_path(
@@ -403,15 +416,15 @@ def _fp_terminal_frame_path(
         parent,
         (CaseStructureNode, DisableStructureNode, EventStructureNode),
     ) or _is_stacked_sequence(parent):
-        segs.append((_strip_prefix(parent.id, vi_name), str(t.frame)))
+        segs.append((_strip_prefix(parent.id, vi_name), _frame_address(parent, t)))
     return tuple(segs)
 
 
 def encode_frame_path(path: FramePath) -> str:
-    """``"struct=val;struct2=val2"`` — root->leaf, insertion order (already
-    deterministic: built by walking the parent chain of nodes returned in
-    sorted, byte-reproducible order by ``iter_nodes``)."""
-    return ";".join(f"{s}={v}" for s, v in path)
+    """``"struct:position;struct2:position2"`` — root->leaf, insertion order
+    (already deterministic: built by walking the parent chain of nodes returned
+    in sorted, byte-reproducible order by ``iter_nodes``)."""
+    return ";".join(f"{s}:{v}" for s, v in path)
 
 
 def _frame_compatible(node_path: FramePath, wire_path: FramePath) -> bool:
@@ -462,13 +475,14 @@ def _frame_info(
     dict[str, dict[str, str]],
     dict[str, dict[str, bool]],
 ]:
-    """raw struct uid -> default frame value, -> the ordered list of ALL frame
-    values (selector chrome click-to-cycle metadata), -> faithful DISPLAY
-    labels per value, and -> for error-cluster cases, which values are the
-    No-Error (green) frame.
+    """raw struct uid -> the default frame, -> the ordered list of ALL frames
+    (selector chrome click-to-cycle metadata), -> faithful DISPLAY labels per
+    frame, and -> for error-cluster cases, which frames are the No-Error
+    (green) frame. A frame is named by its position (``str``) in the
+    structure's ``frames``; only ``frame_labels`` holds what a person sees.
 
-    Cases key by selector value (with ``is_default``/first-frame fallback);
-    stacked sequences key by frame index and open on ``node.displayed_frame``
+    Cases open on the frame LabVIEW last displayed, else their No-Error /
+    default / first frame; stacked sequences open on ``node.displayed_frame``
     (the heap ``dIdx`` when it is a valid local index — see
     ``parser/nodes/base.parse_displayed_frame``), else frame 0.
     """
@@ -479,7 +493,8 @@ def _frame_info(
     for node in nodes:
         if isinstance(node, CaseStructureNode) and node.frames:
             raw = _strip_prefix(node.id, vi_name)
-            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            positions = [str(i) for i in range(len(node.frames))]
+            frame_values[raw] = positions
             sel_t = (
                 graph.get_terminal(node.selector_terminal)
                 if node.selector_terminal
@@ -506,26 +521,31 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = str(shown.selector_value)
+            default_frame[raw] = str(position_of(node.frames, shown))
             frame_labels[raw] = {
-                str(f.selector_value): _selector_label(f, lv_type, is_error)
-                for f in node.frames
+                position: _selector_label(f, lv_type, is_error)
+                for position, f in zip(positions, node.frames, strict=True)
             }
             if is_error:
                 # The No-Error (green) frame is the status==False case; every
                 # other frame — the "Error" frame, including when it
                 # is the structure's default — is red.
                 error_no_error[raw] = {
-                    str(f.selector_value): f.is_no_error for f in node.frames
+                    position: f.is_no_error
+                    for position, f in zip(positions, node.frames, strict=True)
                 }
         elif isinstance(node, DisableStructureNode) and node.frames:
             # Disable structure: no runtime selector / no lv_type to derive a
             # faithful display label from — CaseFrame.selector_value already
             # IS the display text ("Enabled"/"Disabled"/a symbol condition/
-            # "Frame N"), so frame_labels is left unpopulated and
-            # _frame_display's raw-value fallback (draw.py) handles it.
+            # "Frame N"), so each frame's label is that value.
             raw = _strip_prefix(node.id, vi_name)
-            frame_values[raw] = [str(f.selector_value) for f in node.frames]
+            positions = [str(i) for i in range(len(node.frames))]
+            frame_values[raw] = positions
+            frame_labels[raw] = {
+                position: str(f.selector_value)
+                for position, f in zip(positions, node.frames, strict=True)
+            }
             # Prefer the SAVED VISIBLE frame (heap ``dIdx``, range-checked) — the
             # frame the user had open when the VI was saved. For a Conditional
             # Disable this can differ from the ENABLED subdiagram: you can save
@@ -550,7 +570,7 @@ def _frame_info(
                     (f for f in node.frames if f.is_default),
                     node.frames[0],
                 )
-            default_frame[raw] = str(shown.selector_value)
+            default_frame[raw] = str(position_of(node.frames, shown))
         elif (
             isinstance(node, SequenceNode)
             and node.node_type != "flatSequence"
@@ -868,7 +888,7 @@ def _structure_borders(
         unwired_frames: frozenset[str] = frozenset()
         if glyph_kind == "tunnel" and t.direction == "output":
             unwired_frames = frozenset(
-                str(inner.frame)
+                _frame_address(node, inner)
                 for inner in inner_by_outer.get(t.id, [])
                 if inner.frame is not None and inner.id not in wired_dest
             )
@@ -1229,7 +1249,8 @@ def _wire_path(
             and term.frame is not None
         ):
             base = _frame_path(node, by_id, vi_name)
-            cands.append(base + ((_strip_prefix(node.id, vi_name), str(term.frame)),))
+            token = _frame_address(node, term)
+            cands.append(base + ((_strip_prefix(node.id, vi_name), token),))
         else:
             cands.append(_frame_path(node, by_id, vi_name))
     return max(cands, key=len) if cands else ()

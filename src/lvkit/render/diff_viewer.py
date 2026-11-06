@@ -95,6 +95,7 @@ def build_diff_viewer(
         .replace("__BEFORE_SVG__", before_svg)
         .replace("__AFTER_SVG__", after_svg)
         .replace("__CHANGES__", json.dumps(changes))
+        .replace("__FRAME_PAIRS__", json.dumps(data["frame_pairs"]))
         .replace("__NETLIST_TREE__", json.dumps(netlist_rows or []))
         .replace("__ADD__", str(added))
         .replace("__DEL__", str(removed))

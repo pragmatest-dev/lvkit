@@ -1,10 +1,10 @@
 """Which variants of a polymorphic VI get generated code.
 
 A variant is written in its wrapper's module, so only a variant something uses
-needs it: a call of the wrapper that resolves to it (or that leaves the choice to
-the wrapper, which then needs all of them), a call of it by name, or a reference to
-it from a VI that is itself generated. A variant the catalog gives Python for is
-never written: its calls use that Python.
+needs it: a call of the wrapper that records it, a call of it by name, or a
+reference to it from a VI that is itself generated. A call that records no
+variant is a gap and needs none. A variant the catalog gives Python for is never
+written: its calls use that Python.
 """
 
 from __future__ import annotations
@@ -49,8 +49,7 @@ def variants_to_generate(
             for caller, picks in callers.items():
                 if caller not in using or wrapper not in own:
                     continue
-                for pick in picks:
-                    chosen.update(own[wrapper] if pick is None else [pick])
+                chosen.update(pick for pick in picks if pick is not None)
         chosen.update(v for v, users in users_of.items() if using.intersection(users))
         chosen.intersection_update(v for vs in own.values() for v in vs)
         if chosen == needed:

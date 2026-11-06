@@ -19,6 +19,7 @@ import networkx as nx
 
 from ..run_report import (
     Problem,
+    ProblemKind,
     ProblemStage,
     RunSettings,
     UnreadableVIError,
@@ -28,12 +29,67 @@ from .node_kinds import NodeType
 
 if TYPE_CHECKING:
     from ..load_mode import LoadMode
+    from ..models import CaseFrame
+    from ..parser import ParsedBlockDiagram
 
 # The dependency-node attribute holding a VI's problems: a tuple of ``Problem``.
 PROBLEMS_ATTR = "problems"
 # The dependency-node attribute of a method stub whose class file is known but the
 # method's own file is not determined: ``(class file, method file name)``.
 CLASS_MEMBER_ATTR = "class_member"
+
+
+def repeated_frame_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
+    """One problem for each value two frames of one case, Diagram Disable,
+    Conditional Disable or Type Specialization structure show. LabVIEW gives
+    every frame of such a structure its own value, so two frames with one value
+    mean lvkit did not read their values. Both frames still keep their own nodes
+    in every view (a node's frame is its position, ``operations.frame_key``).
+    ``vi`` is the VI as the user sees it."""
+    structures: list[tuple[str, str, list[CaseFrame]]] = [
+        *(("case structure", cs.uid, cs.frames) for cs in bd.case_structures),
+        *(
+            (ds.kind.structure_name, ds.uid, ds.frames)
+            for ds in bd.disable_structures
+        ),
+    ]
+    problems: list[Problem] = []
+    for what, uid, frames in structures:
+        seen: set[str] = set()
+        reported: set[str] = set()
+        for frame in frames:
+            value = str(frame.selector_value)
+            if value in seen and value not in reported:
+                reported.add(value)
+                problems.append(
+                    Problem(
+                        vi=vi,
+                        stage=ProblemStage.LOAD,
+                        kind=ProblemKind.VALUE_NOT_READ,
+                        reason=(
+                            f'{what} {uid} has two frames for "{value}"; '
+                            "lvkit could not read their values"
+                        ),
+                    )
+                )
+            seen.add(value)
+    return problems
+
+
+def unread_condition_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
+    """One problem for each Conditional Disable frame whose condition lvkit
+    could not read in full (``ParsedDisableStructure.unread_conditions``); the
+    frame's label shows what it read. ``vi`` is the VI as the user sees it."""
+    return [
+        Problem(
+            vi=vi,
+            stage=ProblemStage.LOAD,
+            kind=ProblemKind.VALUE_NOT_READ,
+            reason=f"{ds.kind.structure_name} {ds.uid} frame {position}: {why}",
+        )
+        for ds in bd.disable_structures
+        for position, why in ds.unread_conditions
+    ]
 
 
 class LoadProblemsMixin:

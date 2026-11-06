@@ -238,7 +238,7 @@ def test_generated_caller_and_global_module_share_state() -> None:
         data_in = types.SimpleNamespace(
             ref=types.SimpleNamespace(templates_tree=None, ie_vi_ref=None)
         )
-        caller.loadtemplates(data_in=data_in)
+        caller.loadtemplates(data_in=data_in, user_events=None)
         assert seen == ["Changed by another VI"]
     finally:
         for name in [n for n in sys.modules if n.startswith("gvpkg")]:

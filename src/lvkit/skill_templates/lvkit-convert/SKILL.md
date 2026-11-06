@@ -31,7 +31,7 @@ lvkit generate "<vi-path>" -o outputs
 ```
   vilib: 3
   ast:   12
-  error: 0
+Complete: 12 VIs generated, no gaps
 ```
 
 Run both your hand-written port and `outputs/<vi>/<vi>.py` with the same

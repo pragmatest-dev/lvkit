@@ -133,7 +133,7 @@ class TestErrorCaseUnwrap:
             node_type="iUse",
             terminals=[],
             parent="case_1",
-            frame="True",
+            frame="1",  # the "True" frame's position
         )
         op = _make_case_op(
             "sel_1",

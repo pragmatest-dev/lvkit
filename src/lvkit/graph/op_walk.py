@@ -465,6 +465,20 @@ def selector_frame_values(
     return (sv,)  # an already-display token
 
 
+def selector_shown_values(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> tuple[str, ...]:
+    """The parts of a case frame's label (``_selector_label``), unquoted and in
+    order: its values, then ``Default`` for a default frame -- unless it is a
+    Boolean or error frame that stores a value, which is fully described (every
+    value has a frame) and takes no Default marker."""
+    values = selector_frame_values(frame, lv_type, is_error)
+    described = bool(values) and (is_error or frame.boolean_value is not None)
+    if frame.is_default and not described:
+        return (*values, _DEFAULT_LABEL)
+    return values
+
+
 def _double_quote(text: str) -> str:
     """Plain double quoting of one selector value (no escaping)."""
     return f'"{text}"'
@@ -490,22 +504,14 @@ def _selector_label(
     ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
     integer → value(s)/range(s); string → each value through ``quote_value``;
     boolean → ``True``/``False``. A default frame that also matches values lists
-    them first (``0, Default``).
+    them first (``0, Default``). The parts are ``selector_shown_values``; only
+    the frame's own values are quoted, never the Default marker.
     """
-    values = selector_frame_values(frame, lv_type, is_error)
-    if _is_string_selector(frame, lv_type):
-        values = [quote_value(v) for v in values]
-    listed = ", ".join(values)
-    if not frame.is_default:
-        return listed
-    if not listed:
-        return _DEFAULT_LABEL
-    # A Boolean or error frame that stores a value is fully described -- every
-    # value has a frame -- so it takes no Default marker. Any other default frame
-    # can also carry explicit values ("0, Default").
-    if is_error or frame.boolean_value is not None:
-        return listed
-    return f"{listed}, {_DEFAULT_LABEL}"
+    shown = selector_shown_values(frame, lv_type, is_error)
+    if not _is_string_selector(frame, lv_type):
+        return ", ".join(shown)
+    own = len(selector_frame_values(frame, lv_type, is_error))
+    return ", ".join([*(quote_value(v) for v in shown[:own]), *shown[own:]])
 
 
 # ============================================================

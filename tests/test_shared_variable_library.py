@@ -265,11 +265,12 @@ def test_generated_python_writes_then_reads_the_shared_value(
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
         assert shared.sv_samplelvlib_value == 0.0
         assert shared.sv_samplelvlib_value_timestamp == 0.0
-        result = sv_sample.sv_sample()
-        assert result.value == 1.5
-        assert isinstance(result.timestamp, float) and result.timestamp > 0
+        # The indicators are not on the connector pane: nothing is returned, and
+        # the shared variable holds what was written.
+        assert sv_sample.sv_sample() is None
         assert shared.sv_samplelvlib_value == 1.5
-        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
+        stamp = shared.sv_samplelvlib_value_timestamp
+        assert isinstance(stamp, float) and stamp > 0
 
 
 @pytest.mark.parametrize(
@@ -368,11 +369,12 @@ def test_generated_python_for_a_network_published_variable_runs(
 ) -> None:
     graph, vi = _load(SV_NETWORK_SAMPLE)
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
-        result = sv_sample.sv_sample()
-        assert result.value == 1.5
-        assert isinstance(result.timestamp, float) and result.timestamp > 0
+        # The indicators are not on the connector pane: nothing is returned, and
+        # the shared variable holds what was written.
+        assert sv_sample.sv_sample() is None
         assert shared.sv_samplelvlib_value == 1.5
-        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
+        stamp = shared.sv_samplelvlib_value_timestamp
+        assert isinstance(stamp, float) and stamp > 0
 
 
 def _fail_shared_variable_records(
@@ -497,9 +499,9 @@ def test_an_hpvr_record_reads_back_strictly_and_runs(
     _assert_strict_round_trip(text, module)
 
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
-        result = sv_sample.sv_sample()
-        assert result.value == 1.5
-        assert result.timestamp == shared.sv_samplelvlib_value_timestamp
+        assert sv_sample.sv_sample() is None
+        assert shared.sv_samplelvlib_value == 1.5
+        assert shared.sv_samplelvlib_value_timestamp > 0
 
 
 def test_an_hpvr_mismatch_leaves_the_vi_loading_with_the_reason(

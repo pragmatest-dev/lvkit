@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import copy
 from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode
 from lvkit.models import LVType
 
+from .ast_utils import numbered_name
 from .errors import CodeGenError
 
 if TYPE_CHECKING:
@@ -38,6 +40,14 @@ class NameImport:
 
     statement: str
     name: str
+
+    def aliased(self, name: str) -> NameImport:
+        """This import, binding the imported name as ``name``."""
+        (stmt,) = ast.parse(self.statement).body
+        if not isinstance(stmt, ast.ImportFrom) or len(stmt.names) != 1:
+            raise CodeGenError(f"Cannot alias the import {self.statement!r}")
+        stmt.names[0].asname = name
+        return NameImport(ast.unparse(stmt), name)
 
 
 class ImportResolver:
@@ -69,6 +79,9 @@ class ImportResolver:
         names_import: Callable[[str, Collection[str]], str] | None = None,
         register_beside_vi: Callable[[str, Sequence[str], Sequence[str], Path], None]
         | None = None,
+        module_names: set[str] | None = None,
+        own_function_import: Callable[[str], NameImport] | None = None,
+        module_key: str | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -83,6 +96,29 @@ class ImportResolver:
         self._display_path = display_path
         self._names_import = names_import
         self._register_beside_vi = register_beside_vi
+        # The names the generated module binds at its top level: what it
+        # defines and every name its imports are spelled as.
+        self._module_names = module_names if module_names is not None else set()
+        self._own_function_import = own_function_import
+        # The file whose module is being generated (a class, a polymorphic VI or
+        # the VI itself): the code reads a path it computes from that folder.
+        self.module_key = module_key
+
+    def alias_name(self, derived: str, in_use: Callable[[str], bool]) -> str:
+        """A name of its own for an import whose ``derived`` name ``in_use``
+        says a function already holds: ``derived_2``, ``derived_3``…, the first
+        that is neither in use there nor a top-level name of the module, which
+        it becomes."""
+        name = numbered_name(derived, lambda n: n in self._module_names or in_use(n))
+        self._module_names.add(name)
+        return name
+
+    def own_function(self, name: str) -> NameImport:
+        """The import of the function ``name`` the module being generated defines,
+        from that module itself (made inside a function, at run time)."""
+        if self._own_function_import is None:
+            raise CodeGenError("This resolver has no module of its own to import from")
+        return self._own_function_import(name)
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;
