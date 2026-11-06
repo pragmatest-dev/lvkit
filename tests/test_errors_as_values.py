@@ -499,6 +499,12 @@ def test_a_vilib_template_failure_becomes_the_error_out(
 
     monkeypatch.setattr(VILibResolver, "resolve_recorded", failing_entry)
     package = generate(project, C.vilib_template_node)
+    # Which half went wrong when the call below gives the real template's result:
+    # the code written (the patched entry was not read) or the module imported
+    # (another module of the same name was loaded instead of this file).
+    assert "thing.class_path" in package.source, package.source
+    module_file = Path(package.module.__file__ or "").resolve()
+    assert module_file.is_relative_to(package.root.resolve()), module_file
     found = package.function(thing=SimpleNamespace(class_path="a.lvclass"))
     assert (found.path, found.error_out) == (Path("a.lvclass"), None)
     failed = package.function(thing=object())
