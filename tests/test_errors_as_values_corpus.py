@@ -283,7 +283,7 @@ def test_a_polymorphic_module_imports_each_name_once(tmp_path: Path) -> None:
     result = generate_python(
         SAMPLES / IS_AN_ERROR_POLY, tmp_path / "gen", mode=LoadMode.FULL
     )
-    header = "'The variants of the polymorphic VI "
+    header = '"""The variants of the polymorphic VI '
     module = next(
         m
         for m in Path(result["output_dir"]).rglob("*.py")

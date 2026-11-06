@@ -114,7 +114,9 @@ class LocalIndicators:
     ) -> _Kept:
         assert ctx.graph is not None
         module_name = node_owned_name("_lv_indicator", ctx.function_name, terminal_id)
-        ctx.add_state_global(module_name, control_default_expr(control))
+        ctx.add_state_global(
+            module_name, control_default_expr(control), owner=terminal_id
+        )
         flag = (
             ctx.make_output_var(f"{variable}_written", terminal_id)
             if control.is_public

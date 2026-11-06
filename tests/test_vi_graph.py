@@ -11,6 +11,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
 from lvkit.models import FPTerminal, Terminal
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import vi_key
 
 
 class TestInMemoryVIGraphCreation:
@@ -291,7 +292,7 @@ class TestSrnClumpNoFabricatedEdges:
     def _graph(self) -> tuple[InMemoryVIGraph, str]:
         graph = InMemoryVIGraph()
         graph.load_vi(str(_VI_TESTER_ABOUT), mode=LoadMode.NONE)
-        return graph, graph.resolve_vi_name("VI Tester About.vi")
+        return graph, vi_key(graph, "VI Tester About.vi")
 
     def test_copyrights_indicator_is_unwired(self):
         graph, vi = self._graph()

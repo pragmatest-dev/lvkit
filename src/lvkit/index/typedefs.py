@@ -79,7 +79,7 @@ def build_typedef_facts(
     try:
         _, key = load_ctl_by_path(resolved, graph=graph)
         info = graph.get_typedef(key)
-        catalog = TypeCatalog(lambda t: graph.get_type_fields(t, key))
+        catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
         return _facts_from_info(info, catalog, sha, str(resolved))
     except Exception as e:  # noqa: BLE001 -- one unreadable control must not stop a sync
         graph.record_load_failure(resolved, e, node_type=NodeType.TYPEDEF)

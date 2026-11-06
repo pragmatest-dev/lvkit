@@ -25,7 +25,6 @@ from .netlist_models import (
     DefaultValue,
     FrameOutputDrive,
     GammaMerge,
-    NetlistFrame,
     NetlistScope,
     NetRef,
     SequenceLocalDrive,
@@ -92,17 +91,18 @@ def structure_input_drives(
 
 
 def frame_drives(
-    scope: NetlistScope, frame: NetlistFrame, render_source: SourceText
+    scope: NetlistScope, position: int, render_source: SourceText
 ) -> list[tuple[str, str]]:
-    """The ``(net, source)`` drive lines closing one frame: the value it puts on
-    each case / event output tunnel (an unwired frame takes ``(default <Type>)``),
-    then each sequence local it writes, each output tunnel a Sequence or Disable
-    structure's frame wires, and the dynamic-pair value an Event frame wires."""
+    """The ``(net, source)`` drive lines closing the frame at ``position`` of
+    ``scope.frames``: the value it puts on each case / event output tunnel (an
+    unwired frame takes ``(default <Type>)``), then each sequence local it
+    writes, each output tunnel a Sequence or Disable structure's frame wires,
+    and the dynamic-pair value an Event frame wires. Drives are matched to the
+    frame by position, so two frames with one label keep their own lines."""
     lines: list[tuple[str, str]] = []
-    frame_key = "default" if frame.is_default else frame.label
     for merge in scope.outputs:
         if isinstance(merge, GammaMerge):
-            entry = next((c for c in merge.cases if c.frame_key == frame_key), None)
+            entry = next((c for c in merge.cases if c.position == position), None)
             if entry is not None:
                 lines.append(
                     (
@@ -111,14 +111,14 @@ def frame_drives(
                     )
                 )
         elif isinstance(merge, SequenceLocalDrive | FrameOutputDrive):
-            if merge.frame == frame.value:
+            if merge.position == position:
                 lines.append(
                     (
                         lvnet_net_separator(merge.net),
                         render_source(merge.value),
                     )
                 )
-        elif isinstance(merge, SequenceLocalUnreadable) and merge.frame == frame.value:
+        elif isinstance(merge, SequenceLocalUnreadable) and merge.position == position:
             attribute = (
                 f"({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "
                 f"{lvnet_literal_token(merge.reason)})"

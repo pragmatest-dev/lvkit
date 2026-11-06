@@ -244,7 +244,6 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
     assert _with_the_raise_shown_as(source, "<raise>") == [
         "from __future__ import annotations",
         "from dataclasses import dataclass",
-        "from typing import Any",
         "",
         "@dataclass(frozen=True)",
         "class GapResult:",
@@ -306,7 +305,7 @@ def test_an_unknown_primitive_in_a_loop_raises_in_the_loop() -> None:
         ],
     )
     source, gaps = _build(context, [loop, _mystery(parent="loop1")])
-    assert _with_the_raise_shown_as(source, "<raise>")[8:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[7:] == [
         "def gap(x: int) -> GapResult:",
         "    while True:",
         "        result = None",
@@ -343,7 +342,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
                 boundary="inner",
                 tunnel_type="csTun",
                 paired_id="outer",
-                frame="True",
+                frame="0",  # the "True" frame's position
                 lv_type=_lv("NumInt32"),
             ),
         ],
@@ -363,8 +362,8 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
             Wire.from_terminals(from_terminal_id="outer", to_terminal_id="fp:y"),
         ],
     )
-    source, gaps = _build(context, [case, _mystery(parent="case1", frame="True")])
-    assert _with_the_raise_shown_as(source, "<raise>")[8:] == [
+    source, gaps = _build(context, [case, _mystery(parent="case1", frame="0")])
+    assert _with_the_raise_shown_as(source, "<raise>")[7:] == [
         "def gap(flag: bool) -> GapResult:",
         "    case_output = 0",
         "    if flag:",

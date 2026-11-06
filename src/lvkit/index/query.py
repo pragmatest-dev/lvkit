@@ -145,14 +145,17 @@ def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
 def _resolve_vi_key(vis: Sequence[VIFacts], vi_key: str) -> str:
     """Resolve a caller-supplied key (path, qualified name, or unambiguous
     bare name) to the canonical path key. Raises ``VINotFoundError`` when no VI
-    in the index has it or a bare name matches several."""
+    in the index has it, or when a name matches several: the error carries every
+    matching path and none is picked."""
     for f in vis:
         if f.path == vi_key:
             return f.path
-    for f in vis:
-        if f.qualified_name == vi_key:
-            return f.path
-    matches = [f.path for f in vis if f.name == vi_key]
-    if len(matches) == 1:
-        return matches[0]
-    raise VINotFoundError(vi_key, matches)
+    for matches in (
+        [f.path for f in vis if f.qualified_name == vi_key],
+        [f.path for f in vis if f.name == vi_key],
+    ):
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            raise VINotFoundError(vi_key, matches)
+    raise VINotFoundError(vi_key)

@@ -212,9 +212,9 @@ class WireQueriesMixin:
         """The structure and frame whose diagram the terminal is an inside face
         on: a tunnel's (shift register's, case selector's, count terminal's)
         inside face, or a loop's iteration terminal. The frame is keyed as the
-        structure's children are (``graph.operations.frame_key``): a case
-        frame's selector value, a sequence frame's position as text, ``None``
-        for a loop's one diagram. ``None`` for any other terminal."""
+        structure's children are (``graph.operations.frame_key``): a case,
+        disable or sequence frame's position as text, ``None`` for a loop's one
+        diagram. ``None`` for any other terminal."""
         term = self.get_terminal(terminal_id)
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         if not isinstance(node, StructureNode) or term is None:

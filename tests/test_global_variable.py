@@ -361,7 +361,9 @@ def _global_node(
                 direction="input" if is_write else "output",
             )
         ],
-        global_vi=GlobalVIRef(qualified_name=_GLOBAL_KEY, path_tokens=(_GLOBAL_KEY,)),
+        global_vi=GlobalVIRef(
+            qualified_name=_GLOBAL_KEY, path_tokens=(_GLOBAL_KEY,), key=_GLOBAL_KEY
+        ),
         control_name=control,
         param_idx=param_idx,
         is_write=is_write,
@@ -489,3 +491,18 @@ def test_describe_json_shows_the_global_vi_verbose_and_not() -> None:
     assert {"kind": "global", "qualified": "Data.vi"}.items() <= next(
         d for d in verbose["dependencies"] if d["kind"] == "global"
     ).items()
+
+
+def test_a_global_vi_module_imports_only_what_it_reads() -> None:
+    """Its controls are an ``int``, an error and a ``tuple``: no ``Any`` or
+    ``Path``. With no package there is no ``errors`` module to import the
+    error's class from; the annotation is never evaluated."""
+    from lvkit.codegen.global_module import build_global_module
+
+    source = build_global_module(_synthetic_global_vi())
+    assert source == (
+        "from __future__ import annotations\n"
+        "count: int = 5\n"
+        "error_out: LabVIEWError | None = None\n"
+        "settings: tuple = (3, 4)"
+    )

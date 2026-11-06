@@ -18,6 +18,7 @@ from lvkit.docs.generate import _prepare_vi_documentation_data
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
+from tests.helpers import vi_key
 
 SAMPLE_VI = Path(".tmp/array average 1.vi")
 
@@ -30,7 +31,7 @@ def _load_sample() -> tuple[InMemoryVIGraph, str] | None:
         graph.load_vi(SAMPLE_VI, mode=LoadMode.NONE)
     except Exception:
         return None
-    return graph, graph.resolve_vi_name(SAMPLE_VI.name)
+    return graph, vi_key(graph, SAMPLE_VI.name)
 
 
 def _require_sample() -> tuple[InMemoryVIGraph, str]:

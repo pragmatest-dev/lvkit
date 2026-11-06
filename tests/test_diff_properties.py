@@ -49,6 +49,7 @@ from lvkit.graph.models import (
     VIHealth,
     VIProperties,
 )
+from tests.helpers import vi_key
 
 # Same real, permissively-licensed VI ``test_diff.py`` uses as VI_A -- any
 # loadable VI works here since we overwrite its properties/health facets
@@ -61,7 +62,7 @@ VI_PATH = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=False)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 
@@ -342,10 +343,10 @@ class TestJsonDiff:
         gb._vi_properties[nb] = VIProperties(lock_state=LockState.PASSWORD_PROTECTED)
         d = diff_to_dict(ga, gb, na, nb)
         # No separate top-level sections for property/health/signature changes
-        # -- those live in "changes". "before"/"after" (#114) are the only
-        # other top-level keys, carrying which VI pair this is, not a change
-        # section.
-        assert set(d) == {"changes", "common_nodes", "before", "after"}
+        # -- those live in "changes". The other top-level keys say which frames
+        # are the same frame in both versions ("frame_pairs") and which VI pair
+        # this is ("before"/"after", #114); none is a change section.
+        assert set(d) == {"changes", "common_nodes", "frame_pairs", "before", "after"}
 
         lock_change = next(c for c in d["changes"] if c["uid"] == "property:lock_state")
         assert lock_change["kind"] == "property"

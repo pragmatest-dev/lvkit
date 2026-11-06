@@ -28,9 +28,10 @@ VIs) mirrors a case structure closely:
     accepted / matching frame). The heap OMITS it when it is 0 (zero-valued
     fields are dropped), so absent => frame 0.
   - ``commentSelInfoArray`` -- one ``SelectorInfoElement`` per frame, in frame
-    order. A Conditional Disable frame stores its condition as hex-ASCII tokens
-    under ``activeDiag/Tag0000`` (e.g. ``["RUN_TIME_ENGINE","False"]`` ->
-    ``RUN_TIME_ENGINE==False``); an empty token list is the else/Default frame.
+    order. A Conditional Disable frame stores its condition as an expression
+    tree: hex-ASCII strings under ``activeDiag/Tag0000`` and the operator and
+    string nodes under ``activeDiag/activeDiag`` (``disable_condition.py``;
+    e.g. ``RUN_TIME_ENGINE==False``); no strings is the else/Default frame.
     Diagram Disable / Type Specialization frames carry no tokens.
   - ``Tag0273`` -- present only on a Type Specialization Structure (observed on
     every type-spec in the corpus, absent on every diagram/conditional).
@@ -59,12 +60,12 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lvkit.models import CaseFrame, DisableStructureKind, Tunnel
-from lvkit.text_encoding import decode_labview_text
 
 from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from ..models import ParsedDisableStructure
 from ..utils import heap_color
 from .base import frame_inner_node_uids, parse_displayed_frame
+from .disable_condition import Condition, condition_tokens, read_condition
 
 COMMENT_NODE_CLASS = "commentNode"
 COMMENT_TUNNEL_CLASS = "commentTun"
@@ -135,38 +136,6 @@ def _selector_infos(elem: ET.Element) -> list[ET.Element]:
     return csa.findall("SL__arrayElement[@class='SelectorInfoElement']")
 
 
-def _condition_tokens(sel_info: ET.Element) -> list[str]:
-    """Raw hex-encoded condition tokens for one frame -- empty for a
-    non-Conditional frame or a Conditional's else/Default frame."""
-    return [
-        raw
-        for el in sel_info.findall("activeDiag/Tag0000/SL__arrayElement")
-        if (raw := (el.text or "").strip())
-    ]
-
-
-def _decode_condition(raw_tokens: list[str]) -> str:
-    """Decode one Conditional Disable frame's condition tokens to a label.
-    Empty -> the else/Default frame. A ``[SYMBOL, VALUE]`` pair renders as
-    ``SYMBOL==VALUE``: the comparison operator is NOT stored in these tokens,
-    and ``==`` is LabVIEW's dialog default (and matches the corpus/reference) --
-    a ``!=`` condition would need the operator decoded from the ExpressionInfo
-    tree, for which there is no sample yet. Any other token count is an unknown
-    shape, joined with spaces rather than fabricating an operator. Values are
-    decoded with the project text decoder (they are user strings, not ASCII)."""
-    decoded: list[str] = []
-    for raw in raw_tokens:
-        try:
-            decoded.append(decode_labview_text(bytes.fromhex(raw)))
-        except ValueError:
-            decoded.append("?")
-    if not decoded:
-        return "Default"
-    if len(decoded) == 2:
-        return f"{decoded[0]}=={decoded[1]}"
-    return " ".join(decoded)
-
-
 def _disable_kind(
     elem: ET.Element, frame_conditions: list[list[str]]
 ) -> DisableStructureKind:
@@ -184,17 +153,18 @@ def _frame_labels(
     kind: DisableStructureKind,
     n_frames: int,
     active: int,
-    frame_conditions: list[list[str]],
+    conditions: list[Condition],
 ) -> list[str]:
     """The data-driven per-frame labels (see module docstring). ``active`` is
-    the resolved active-frame index (0 when ``activeDiag`` was absent)."""
+    the resolved active-frame index (0 when ``activeDiag`` was absent);
+    ``conditions`` is each Conditional frame's condition."""
     if kind is DisableStructureKind.CONDITIONAL:
-        if len(frame_conditions) != n_frames:
+        if len(conditions) != n_frames:
             # The per-frame array doesn't line up with the frames -- we can't
             # trust index->condition, so fall back to honest index labels rather
             # than emit confidently-misaligned conditions.
             return [f"Frame {i}" for i in range(n_frames)]
-        return [_decode_condition(toks) for toks in frame_conditions]
+        return [condition.label for condition in conditions]
     if kind is DisableStructureKind.TYPE_SPEC:
         # Frames get their bare STORAGE-ORDER index. LabVIEW's real per-frame
         # labels ([N] number + Accepted/Declined/Ignored state) are a COMPILE
@@ -241,9 +211,19 @@ def _extract_one_disable_structure(
             active_frame = None
 
     active = active_frame if active_frame is not None else 0
-    frame_conditions = [_condition_tokens(si) for si in _selector_infos(elem)]
-    kind = _disable_kind(elem, frame_conditions)
-    labels = _frame_labels(kind, n_frames, active, frame_conditions)
+    sel_infos = _selector_infos(elem)
+    kind = _disable_kind(elem, [condition_tokens(si) for si in sel_infos])
+    conditions = (
+        [read_condition(si) for si in sel_infos]
+        if kind is DisableStructureKind.CONDITIONAL
+        else []
+    )
+    labels = _frame_labels(kind, n_frames, active, conditions)
+    unread_conditions = (
+        [(i, c.unread) for i, c in enumerate(conditions) if c.unread is not None]
+        if len(conditions) == n_frames
+        else []
+    )
 
     frames = [
         CaseFrame(
@@ -267,6 +247,7 @@ def _extract_one_disable_structure(
         # ordinal (an INT_MIN sentinel on a plain Diagram Disable), so the
         # renderer keeps its Enabled/active_frame fallback. See issue #30.
         displayed_frame=parse_displayed_frame(elem, n_frames),
+        unread_conditions=unread_conditions,
     )
 
 

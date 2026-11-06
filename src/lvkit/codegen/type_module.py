@@ -20,6 +20,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.models import LVType, LVTypeKind
 from lvkit.type_names import derive_python_name, is_enum_member_name
 
+from .ast_optimizer import remove_unused_imports
 from .ast_utils import (
     build_type_checking_block,
     field_attribute_names,
@@ -65,7 +66,7 @@ def build_type_module(
         body.extend(ast.parse(statement).body)
     body.extend(build_type_checking_block(annotated_imports))
     body.extend(definition)
-    module = ast.Module(body=body, type_ignores=[])
+    module = remove_unused_imports(ast.Module(body=body, type_ignores=[]))
     ast.fix_missing_locations(module)
     return ast.unparse(module)
 

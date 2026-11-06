@@ -128,7 +128,7 @@ def candidates(
     that is dynamic dispatch (Call By Reference cannot call one), or that is
     private to a class the caller is not a VI of (only its own class's VIs call
     a private VI), is left out."""
-    wanted = slots_shape(graph, pane, caller_key)
+    wanted = slots_shape(graph, pane)
     caller_class = graph.owning_class_key(caller_key)
     forms: dict[str, CallForm] = {}
     for key in sorted(graph.list_vis()):

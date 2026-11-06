@@ -272,7 +272,7 @@ class TestUserEventName:
         ev = result[1]
         assert ev.user_event_name == "Drive Status"
         assert ev.element_type is not None
-        assert ev.element_type.typedef_name == "Network Endpoint.ctl"
+        assert ev.element_type.typedef_name == "Lib.lvlib:Network Endpoint.ctl"
         assert ev.type_descriptor() == (
             "UserEvent refnum{Drive Status: Network Endpoint}"
         )

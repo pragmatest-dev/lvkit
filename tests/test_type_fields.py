@@ -29,7 +29,9 @@ class TestGetTypeFields:
         graph._dep_graph.add_node("Foo.lvclass", node_type="class", fields=fields)
 
         result = graph.get_type_fields(
-            LVType(kind=LVTypeKind.CLASS, classname="Foo.lvclass")
+            LVType(
+                kind=LVTypeKind.CLASS, classname="Foo.lvclass", file_key="Foo.lvclass"
+            )
         )
         assert result == fields
 
@@ -44,7 +46,9 @@ class TestGetTypeFields:
         graph._dep_graph.add_node("Bar.ctl", node_type="typedef", fields=fields)
 
         result = graph.get_type_fields(
-            LVType(kind=LVTypeKind.CLUSTER, typedef_name="Bar.ctl")
+            LVType(
+                kind=LVTypeKind.CLUSTER, typedef_name="Bar.ctl", file_key="Bar.ctl"
+            )
         )
         assert result == fields
 

@@ -565,6 +565,26 @@ class Vi:
         self.structures.append(structure)
         return structure
 
+    def disable(self, frames: int, *, active: int = 0) -> Structure:
+        """A Diagram Disable structure of ``frames`` frames with no tunnels;
+        ``active`` is the Enabled frame (``activeDiag``, absent for frame 0)."""
+        uid = self.next_uid()
+        scopes = [self._new_scope() for _ in range(frames)]
+        active_xml = f"<activeDiag>{active:X}</activeDiag>" if active else ""
+
+        def xml() -> str:
+            diagrams = "".join(self._diagram_xml(sc) for sc in scopes)
+            return (
+                f'<SL__arrayElement class="commentNode" uid="{uid}">'
+                '<termList elements="0" />'
+                f'<diagramList elements="{len(scopes)}">{diagrams}</diagramList>'
+                f"{active_xml}</SL__arrayElement>"
+            )
+
+        structure = Structure(0, [], scopes, [], xml=xml)
+        self.structures.append(structure)
+        return structure
+
     def flat_sequence(self, tunnels: list[list[int]]) -> Structure:
         """A Flat Sequence with one frame per entry of ``tunnels``, each the type
         ids of that frame's input tunnels (``Structure.tunnels`` in frame

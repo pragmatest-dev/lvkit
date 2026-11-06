@@ -461,7 +461,7 @@ def _class_attrs(
     """The attributes of the class an aggregate terminal carries."""
     if term is None or ctx.graph is None:
         return None
-    return type_attributes(ctx.graph, term.lv_type, ctx.vi_name)
+    return type_attributes(ctx.graph, term.lv_type, ctx.vi_name, "In Place Element")
 
 
 def _get_class_fields(
@@ -471,4 +471,4 @@ def _get_class_fields(
     """Get type fields for an aggregate terminal."""
     if term is None or term.lv_type is None or ctx.graph is None:
         return None
-    return ctx.graph.get_type_fields(term.lv_type, caller_vi_key=ctx.vi_name)
+    return ctx.graph.get_type_fields(term.lv_type)

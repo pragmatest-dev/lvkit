@@ -18,15 +18,17 @@ from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.class_attributes import ClassAttributes
 from lvkit.codegen.class_model import class_model
-from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
-from tests.helpers import build_graph
+from tests.class_graphs import run_to_gap
+from tests.helpers import build_graph, key_graph_types, with_file_keys
 
 _CLASS_TYPE = LVType(
     kind=LVTypeKind.PRIMITIVE,
@@ -302,7 +304,8 @@ def build_class(
     tmp_path: Path, xml: str, specs: dict[str, Spec], fields: list[ClusterField]
 ) -> Built:
     """The class file ``xml`` as the loader makes it: a class node, a node per
-    VI with its pane, and an ownership edge carrying the scope and the accessor."""
+    VI with its pane, and the members the class file lists (they link as
+    ownership edges)."""
     path = tmp_path / "C.lvclass"
     path.write_text(xml, encoding="utf-8")
     lvclass = parse_lvclass(path)
@@ -324,6 +327,7 @@ def build_class(
     )
     graph._vi_display_names[class_key] = "C.lvclass"  # noqa: SLF001
     contexts: dict[str, VIContext] = {}
+    listed: dict[str, ListedMethod | None] = {}
     for method in lvclass.methods:
         key = keys[method.name]
         context, nodes = specs.get(method.name, passthrough)(key)
@@ -338,19 +342,10 @@ def build_class(
             ),
         )
         graph._dep_graph.add_node(key)  # noqa: SLF001
-        role = property_role(context.inputs, context.outputs, _is_c)
-        graph._add_ownership_edge(  # noqa: SLF001
-            class_key,
-            key,
-            scope=method.scope,
-            is_accessor=method.property_name is not None,
-            accessor_type=role.value if role else None,
-            accessor_field=method.property_name,
-            is_static=method.is_static,
-            must_override=method.must_override,
-            must_call_parent=method.must_call_parent,
-        )
+        listed[key] = ListedMethod.from_item(method)
         contexts[method.name] = context
+    graph._record_members(class_key, listed)  # noqa: SLF001
+    key_graph_types(graph, {"C.lvclass": class_key, "Lib.lvlib:C.lvclass": class_key})
     return Built(graph, lvclass, class_key, keys, contexts)
 
 
@@ -530,12 +525,27 @@ def test_a_private_property_is_spelled_private_and_its_storage_kept_apart(
     assert obj._C__count == 4 and obj._C__count_value == 4 and obj.peek().value == 4
 
 
-def test_a_private_property_read_outside_its_class_is_an_lvkit_error(
+def test_a_private_property_read_outside_its_class_is_a_gap(
     tmp_path: Path,
 ) -> None:
+    """LabVIEW lets only the class's own VIs call a private VI, so a caller of no
+    class is broken in LabVIEW: the call is a gap that raises where it runs."""
     built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
-    with pytest.raises(CodeGenError, match="private member '__count'"):
-        build_module(_reading_caller(built), "caller", graph=built.graph)
+    gaps: list[Gap] = []
+    code = build_module(_reading_caller(built), "caller", graph=built.graph, gaps=gaps)
+    reason = (
+        "A call of the private VI Read Count.vi of the class C.lvclass, but the "
+        "class does not list this VI, so the VI is broken in LabVIEW"
+    )
+    assert [g.reason for g in gaps] == [reason]
+    message = f"{reason}\ngap kind: unsupported_node\nVI: caller\nnode: Read Count.vi"
+    assert f"raise NotImplementedError({message!r})" in code
+    namespace: dict[str, Any] = {}
+    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    ran = run_to_gap(namespace["caller"], obj=built.instance())
+    assert ran.message == message
+    outputs = ran.outputs("obj")
+    assert outputs and set(outputs.values()) == {None}
 
 
 def test_read_and_write_vis_of_two_levels_are_spelled_by_the_wider(
@@ -664,12 +674,16 @@ def test_a_library_qualified_class_name_finds_the_class_its_vi_belongs_to(
     tmp_path: Path,
 ) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
-    method = built.keys["Peek"]
     qualified = "Lib.lvlib:C.lvclass"
-    fields = built.graph.get_class_fields(qualified, caller_vi_key=method)
+    lv_type = with_file_keys(
+        dataclasses.replace(_CLASS_TYPE, classname=qualified),
+        {qualified: built.class_key},
+    )
+    fields = built.graph.get_type_fields(lv_type)
     assert fields is not None and [f.name for f in fields] == ["Count", "Name"]
-    # A caller that is not one of the class's VIs does not find it by a bare name.
-    assert built.graph.get_class_fields(qualified, caller_vi_key="/else.vi") is None
+    # A type no record tied to a class file has no fields, whatever its name.
+    untied = dataclasses.replace(_CLASS_TYPE, classname=qualified)
+    assert built.graph.get_type_fields(untied) is None
 
 
 def test_bundle_and_unbundle_on_a_library_owned_class_use_its_fields(

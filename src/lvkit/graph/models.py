@@ -47,7 +47,9 @@ class GraphNode(BaseModel):
     Subclasses add kind-specific fields via discriminated union.
 
     Containment: nodes inside structures have `parent` set to the
-    structure's UID and `frame` set to the frame selector value.
+    structure's UID and `frame` set to the frame's key
+    (``graph.operations.frame_key``: its position for a case, disable or
+    event frame, its index for a sequence frame).
     Top-level nodes have parent=None.
     """
 
@@ -62,7 +64,7 @@ class GraphNode(BaseModel):
     terminals: list[Terminal] = []
     description: str | None = None
     parent: str | None = None  # containing structure UID
-    frame: str | int | None = None  # frame selector value
+    frame: str | int | None = None  # the containing frame's frame_key
     # First-class FORWARD containment: the qualified UIDs of the nodes this
     # node contains (its direct children), in deterministic ``_node_order_key``
     # order. ``parent`` is the authoritative back-link; this is the forward
@@ -506,13 +508,16 @@ class LocalVariableNode(GraphNode):
 
 class GlobalVIRef(BaseModel):
     """The Global VI a global variable node refers to, as the calling VI's
-    block-diagram link table records it: the qualified name and the path
-    tokens (caller-relative, see ``ParsedDependencyRef.resolve_against``)."""
+    block-diagram link table records it: the qualified name, the path tokens
+    (caller-relative, see ``ParsedDependencyRef.resolve_against``) and the
+    dependency key (file path) the load gave that record (``None`` when the
+    dependencies were not loaded)."""
 
     model_config = {"frozen": True}
 
     qualified_name: str
     path_tokens: tuple[str, ...]
+    key: str | None = None
 
 
 class GlobalVariableNode(GraphNode):
@@ -716,7 +721,7 @@ class Constant(BaseModel):
     unwritable: UnwritableValue | None = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
-    # parent = containing structure's node id, frame = selector value / index.
+    # parent = containing structure's node id, frame = that frame's frame_key.
     parent: str | None = None
     frame: str | int | None = None
 
@@ -733,8 +738,8 @@ class Label(BaseModel):
     bg_color: str | None = None
     attached_to: str | None = None
     # Structure containment (None = top-level diagram). Mirrors GraphNode /
-    # Constant: parent = containing structure's node id, frame = selector
-    # value / index.
+    # Constant: parent = containing structure's node id, frame = that frame's
+    # frame_key.
     parent: str | None = None
     frame: str | int | None = None
 

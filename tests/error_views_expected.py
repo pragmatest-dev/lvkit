@@ -246,7 +246,7 @@ Get File Size [prim 8063]""",
   error out: Error
 
 ## Dependencies
-  Clear Errors.vi: (error in (no error): None, specific error code to clear (0: all): None) -> (error out: None, specific error cleared?: None) -- Resets the error status to no error, code to 0, and source to an empty string. Use this VI when y...
+  Clear Errors.vi: (error in (no error): Error, specific error code to clear (0: all): I32) -> (error out: Error, specific error cleared?: TF) -- Resets the error status to no error, code to 0, and source to an empty string. Use this VI when y...
   Step A.vi: (x: I32, error in: Error) -> (r: I32, error out: Error)
   Step B.vi: (x: I32, error in: Error) -> (r: I32, error out: Error)
 
@@ -342,7 +342,7 @@ Step B.vi(x, error in) -> r, error out""",
   (unnamed): I32 = 7
 
 ## Dependencies
-  Clear Errors.vi: (error in (no error): None, specific error code to clear (0: all): None) -> (error out: None, specific error cleared?: None) -- Resets the error status to no error, code to 0, and source to an empty string. Use this VI when y...
+  Clear Errors.vi: (error in (no error): Error, specific error code to clear (0: all): I32) -> (error out: Error, specific error cleared?: TF) -- Resets the error status to no error, code to 0, and source to an empty string. Use this VI when y...
   Step A.vi: (x: I32, error in: Error) -> (r: I32, error out: Error)
   Step B.vi: (x: I32, error in: Error) -> (r: I32, error out: Error)
 
@@ -547,7 +547,7 @@ Case Structure (2 frames)
   error out: Error
 
 ## Dependencies
-  Error Cluster From Error Code.vi: (is warning? (False): Boolean, show call chain? (False): Boolean, error in (no error): Cluster, error message (""): String, error code (0): NumInt32) -> (error out: Cluster) -- Converts an error or warning code to an error cluster. This VI is useful when you receive a retur...
+  Error Cluster From Error Code.vi: (is warning? (False): TF, show call chain? (False): TF, error in (no error): Error, error message (""): String, error code (0): I32) -> (error out: Error) -- Converts an error or warning code to an error cluster. This VI is useful when you receive a retur...
 
 ## Operations
 Error Cluster From Error Code.vi""",
@@ -603,7 +603,7 @@ Error Cluster From Error Code.vi""",
   (unnamed): TF = True
 
 ## Dependencies
-  Error Cluster From Error Code.vi: (is warning? (False): Boolean, show call chain? (False): Boolean, error in (no error): Cluster, error message (""): String, error code (0): NumInt32) -> (error out: Cluster) -- Converts an error or warning code to an error cluster. This VI is useful when you receive a retur...
+  Error Cluster From Error Code.vi: (is warning? (False): TF, show call chain? (False): TF, error in (no error): Error, error message (""): String, error code (0): I32) -> (error out: Error) -- Converts an error or warning code to an error cluster. This VI is useful when you receive a retur...
 
 ## Operations
 Error Cluster From Error Code.vi""",
@@ -1324,7 +1324,7 @@ Open/Create/Replace File [prim 8050]""",
   error out: Error
 
 ## Dependencies
-  Simple Error Handler.vi: (error code (no error:0): None, error source (" "): None, type of dialog (OK msg:1): NumUInt16, error in (no error): None) -> (error?: None, code out: None, source out: None, error out: Cluster, message: None) -- Indicates whether an error occurred. If an error occurred, this VI returns a description of the e...
+  Simple Error Handler.vi: (error code (no error:0): I32, error source (" "): String, type of dialog (OK msg:1): I32, error in (no error): Error) -> (error?: TF, code out: I32, source out: String, error out: Error, message: String) -- Indicates whether an error occurred. If an error occurred, this VI returns a description of the e...
 
 ## Operations
 Simple Error Handler.vi""",

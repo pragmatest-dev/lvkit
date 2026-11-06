@@ -13,6 +13,7 @@ from lvkit.codegen.ast_utils import node_owned_name
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import first_call
+from lvkit.codegen.nodes import formula as formula_node
 from lvkit.graph.models import (
     FormulaNode,
     GraphNode,
@@ -123,3 +124,73 @@ def test_one_name_given_two_different_functions_is_an_lvkit_error() -> None:
     ctx.add_module_function(one)
     with pytest.raises(CodeGenError, match="one name"):
         ctx.add_module_function(two)
+
+
+def test_two_owners_of_one_name_is_an_lvkit_error_even_with_equal_values() -> None:
+    """Two shift registers that both start at 0 read as one definition, but they
+    are two pieces of state."""
+    ctx = CodeGenContext()
+    ctx.add_module_global("_lv_state_f_7", ast.Constant(value=0), owner="a.vi::7")
+    with pytest.raises(CodeGenError, match="Two nodes were given one module-level"):
+        ctx.add_module_global("_lv_state_f_7", ast.Constant(value=0), owner="b.vi::7")
+
+
+def test_the_message_names_the_uids_not_the_vi_path() -> None:
+    ctx = CodeGenContext()
+    ctx.add_module_global("_g", ast.Constant(value=0), owner="/home/u/a.vi::7")
+    with pytest.raises(CodeGenError) as raised:
+        ctx.add_module_global("_g", ast.Constant(value=0), owner="/home/u/b.vi::9")
+    assert "uid 7" in str(raised.value) and "uid 9" in str(raised.value)
+    assert "/home" not in str(raised.value)
+
+
+def test_one_owner_registering_a_name_twice_is_one_definition() -> None:
+    ctx = CodeGenContext()
+    ctx.add_module_global("_g", ast.Constant(value=0), owner="a.vi::7")
+    ctx.add_module_global("_g", ast.Constant(value=0), owner="a.vi::7")
+    assert list(ctx.module_globals) == ["_g"]
+
+
+def test_a_shared_name_needs_one_definition() -> None:
+    ctx = CodeGenContext()
+    ctx.add_module_global("_g", ast.Constant(value=0))
+    ctx.add_module_global("_g", ast.Constant(value=0))
+    with pytest.raises(CodeGenError, match="one name"):
+        ctx.add_module_global("_g", ast.Constant(value=1))
+
+
+def test_a_shared_name_and_an_owned_name_collide() -> None:
+    ctx = CodeGenContext()
+    ctx.add_module_global("_g", ast.Constant(value=0))
+    with pytest.raises(CodeGenError, match="Two nodes were given one module-level"):
+        ctx.add_module_global("_g", ast.Constant(value=0), owner="a.vi::7")
+
+
+def test_two_formula_nodes_with_one_function_name_are_an_lvkit_error() -> None:
+    """Two Formula Nodes of one function, forced to one uid, would shadow each
+    other's helper."""
+    ctx = CodeGenContext()
+    ctx.function_name = "f"
+    ctx.bind("a.vi::7.a", "x")
+    ctx.bind("b.vi::7.a", "x")
+    for vi in ("a.vi", "b.vi"):
+        formula = FormulaNode(
+            id=f"{vi}::7",
+            vi_path=vi,
+            name="Formula Node",
+            node_type="fBox",
+            script="y = a + 1;",
+            terminals=[
+                Terminal(
+                    id=f"{vi}::7.a", index=0, direction="input", name="a", lv_type=INT
+                ),
+                Terminal(
+                    id=f"{vi}::7.y", index=1, direction="output", name="y", lv_type=INT
+                ),
+            ],
+        )
+        if vi == "a.vi":
+            formula_node.generate(formula, ctx)
+        else:
+            with pytest.raises(CodeGenError, match="Two nodes were given one"):
+                formula_node.generate(formula, ctx)

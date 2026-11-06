@@ -25,12 +25,15 @@ from lvkit.graph.diff import (
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
+from lvkit.vi_diff import diff_vi_files
+from tests.diff_viewer_cases import write_versions
+from tests.helpers import vi_key
 
 
 def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 
@@ -380,31 +383,19 @@ class TestPaneRegistrationAndBlendReveal:
         assert '<button data-mode="split" class="active"' in html
         assert '<span id="opWrap" hidden>' in html
 
-    def test_direct_frame_toggle_translates_renamed_value_across_panes(self):
-        """Toggling a case's selector DIRECTLY on the diagram (setFrame) must
-        land the OTHER pane on the paired frame, not copy the literal value: a
-        renamed "1"->"0" frame means picking "1" in before has to select "0" in
-        after (which has no "1"), else an empty frame shows. Same-value frames
-        still copy verbatim. This is the in-view toggle path, distinct from the
-        change-list's revealFrame."""
-        html = self._html()
-        # pairing maps are built from the value changes' both-sided addressing
-        assert "framePairB2A" in html and "framePairA2B" in html
-        # setFrame routes each pane through the per-pane translation
-        assert "frameValFor(u, v, true)" in html
-        assert "frameValFor(u, v, false)" in html
-
-    def test_value_change_reveals_each_pane_from_its_own_frame_side(self):
-        """A frame VALUE change ("1"->"0") addresses its frame differently in
-        each pane (before=...=1, after=...=0). revealFrame must drive the OTHER
-        pane from frame_path_before, else the before pane is told to select a
-        value it doesn't have and the renamed frame never appears in both panes
-        at once — the same before/after linkage a modified node gets via
-        bounds_before."""
-        html = self._html()
-        # revealFrame drives the other pane from the before-side addressing when
-        # present (a value change), falling back to frame_path (same value both).
-        assert "c.frame_path_before||c.frame_path" in html
+    def test_the_frame_matching_is_embedded_for_the_panes(self, tmp_path):
+        """The viewer moves the other pane to a frame's partner through
+        ``FRAME_PAIRS`` (``ChangeMap.frame_pairs``): the handmade two-version
+        case's case structure 600 (frame "5" inserted, "2" renamed "3") and its
+        nested case 650/655 (frame "9" removed). The behaviour itself is driven
+        in a real browser by ``tests/test_diff_viewer_browser.py``."""
+        body = diff_vi_files(*write_versions(tmp_path), fmt="html", warm_index=False)
+        assert body is not None
+        pairs = (
+            '[{"before": "600", "after": "600", "pairs": [[0, 1], [1, 2]]}, '
+            '{"before": "650", "after": "655", "pairs": [[0, 0], [1, 1]]}]'
+        )
+        assert f"const FRAME_PAIRS = {pairs};" in body.body
 
     def test_zoom_buttons_disable_at_the_limits(self):
         """+ is disabled at ZMAX; − is disabled at the dynamic fit-both floor

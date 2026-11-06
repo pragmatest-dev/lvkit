@@ -340,7 +340,7 @@ def test_a_disable_output_left_unwired_is_the_type_default() -> None:
                 tunnel_type="commentTun",
                 boundary="inner",
                 paired_id="dis:out",
-                frame="Enabled",
+                frame="0",  # the "Enabled" frame's position
             ),
         ],
     )

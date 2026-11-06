@@ -279,8 +279,8 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
 # A NAMED enum/ring/cluster/typedef always renders by bare name inline
 # (above); its FULL structure -- enum ordinals, cluster field TYPES (not
 # just names), a refnum's inner type -- lives ONCE, here, in a bottom
-# appendix. Primitives (even one wrapped in its own scalar ``.ctl``
-# typedef) and class IDENTITIES never get an entry: a primitive has no
+# appendix. A scalar ``.ctl`` typedef gets an entry too (``IEColor = U32``);
+# an unwrapped primitive and class IDENTITIES never do: a primitive has no
 # structure beyond its own faithful token, and a class is identified by
 # ``classname``, never ``typedef_name`` -- see ``lvnet_named_stem``, the
 # single source of truth both this section and ``netlist_signature``'s
@@ -291,16 +291,16 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
 
 def lvnet_named_stem(lv_type: LVType) -> str | None:
     """This type's own bare stripped display name IFF it is one of §10's
-    NAMED kinds (enum/ring/cluster/typedef_ref) with a real ``typedef_name``
+    NAMED kinds (enum/ring/cluster/typedef_ref/scalar) with a real ``typedef_name``
     -- the SAME check ``LVType.type_descriptor(expand_named=False)`` already
     applies to decide when to collapse to a bare name (mirrored here rather
     than re-derived from that method's return value, since a bare "cluster"
     fallback for an UNNAMED-but-fieldless cluster would otherwise be
     ambiguous with a genuinely named one).
 
-    ``None`` for: an anonymous type; a PRIMITIVE (even one wrapped in its
-    own scalar ``.ctl`` typedef -- §10: "primitives ... get no [types:]
-    entry"); a CLASS identity (uses ``classname``, never ``typedef_name``);
+    A typedef of a single value (``LVType.is_named_scalar``) is named too.
+    ``None`` for: an anonymous type; an unwrapped PRIMITIVE; a CLASS identity
+    (uses ``classname``, never ``typedef_name``);
     and an error cluster (``type_descriptor`` renders ``"Error"`` for one
     unconditionally, never falling through to its ``typedef_name`` either).
     """
@@ -312,6 +312,8 @@ def lvnet_named_stem(lv_type: LVType) -> str | None:
         if not lv_type.typedef_name or _is_error_cluster(lv_type):
             return None
         return _strip_typedef_stem(lv_type.typedef_name)
+    if lv_type.is_named_scalar():
+        return _strip_typedef_stem(lv_type.typedef_name or "")
     return None
 
 
@@ -403,6 +405,8 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
                     )
                 return f"{lv_type.ref_type} refnum"
             return "refnum"
+        if lv_type.is_named_scalar():
+            return lv_type.scalar_descriptor()
         return lv_type.type_descriptor(expand_named=False)
     if lv_type.kind == LVTypeKind.CLASS:
         return lv_type.classname or "?"
@@ -794,7 +798,10 @@ def _lv_type_comparison_shape(
         return ("cluster", None)
     # PRIMITIVE / CLASS reached while full=True (e.g. a named cluster's own
     # field typed as a scalar or a class) -- still just its own faithful
-    # label, the SAME as ``_lvnet_type_label`` already renders.
+    # label, the SAME as ``_lvnet_type_label`` already renders. A scalar
+    # typedef compares by what its footnote entry defines it as.
+    if lv_type.is_named_scalar():
+        return ("leaf", lv_type.scalar_descriptor())
     return ("leaf", lv_type.type_descriptor(expand_named=False))
 
 
@@ -1466,11 +1473,11 @@ def _render_lvnet_case_scope(
     lines.append(f"{indent}case {sel_str}{id_suffix}{_LVNET_BLOCK_OPEN}")
     _render_structure_input_lines(scope, indent + _LVNET_INDENT, lines, handles)
     body_indent = indent + _LVNET_INDENT * 2
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         header = _lvnet_case_header(frame.values, frame.is_default)
         lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
@@ -1500,12 +1507,12 @@ def _render_lvnet_sequence_scope(
     lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1535,7 +1542,7 @@ def _render_lvnet_disabled_scope(
     body_indent = indent + _LVNET_INDENT
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         label = lvnet_literal_token(frame.label) if quote_labels else frame.label
         # A disable structure's ACTIVE frame (the enabled diagram-disable
         # frame, the matched conditional-disable/type-spec frame) carries
@@ -1550,7 +1557,7 @@ def _render_lvnet_disabled_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1573,13 +1580,13 @@ def _render_lvnet_event_scope(
     lines.append(f"{indent}event-structure{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         label = lvnet_literal_token(frame.label)
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1760,7 +1767,8 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
 # What makes a NAME (a terminal, enum/ring member, or cluster field) unsafe to
 # render BARE in the lvnet grammar. The real collisions are the delimiter
 # SEQUENCES that separate the surrounding columns -- `` : `` (name/type,
-# name/ordinal), ``, `` (member/field), `` = `` (ordinal) -- NOT a bare
+# name/ordinal), ``, `` (member/field), `` = `` (ordinal), `` ; `` (a
+# ``types :`` entry's file) -- NOT a bare
 # ``:``/``,``/``=`` a name may legitimately carry with no surrounding spaces
 # (``TestResult in (None: Create New)``, ``getData(a,b)``): keying on the
 # sequences avoids needlessly quoting those. A structural brace/bracket or the
@@ -1768,14 +1776,14 @@ def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
 # whitespace. An unsafe name is quoted + backslash-escaped exactly like a
 # string literal, so e.g. ``big-endian, network order`` and a control named
 # ``Image Parameters : Image Type`` round-trip.
-_LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ")
+_LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ", " ; ")
 
 
 def _lvnet_name_is_safe_bare(name: str) -> bool:
     """Whether a NAME can render BARE without breaking the parser. It is safe
     unless it (a) is empty, has leading/trailing whitespace or contains a
     control character (U+0000-U+001F, e.g. a line break), (b) contains a
-    column-delimiter SEQUENCE (`` : `` / ``, `` / `` = ``) at all -- a bare
+    column-delimiter SEQUENCE (`` : `` / ``, `` / `` = `` / `` ; ``) at all -- a bare
     ``:``/``,``/``=`` with no surrounding spaces is fine, e.g. ``(None: Create
     New)`` -- or (c) carries an UNBALANCED quote or brace/bracket, which would
     desync ``_find_first_top_level`` / ``_split_top_level_commas``'s quote/depth
@@ -1783,14 +1791,19 @@ def _lvnet_name_is_safe_bare(name: str) -> bool:
     ("runTest")``) stays bare, since the tracking still lands on the real
     separator. A name that OPENS with a quote would read as a quoted token, and
     one that ENDS with `` (id <digits>)`` as a terminal's identity suffix, so both
-    are quoted."""
+    are quoted. A delimiter is looked for with the spaces the columns around the
+    name add (``Sort devices by :`` ends in one), a backslash would read as an
+    escape, and a run of spaces would read back as one."""
+    padded = f" {name} "
     return bool(
         name
         and name == name.strip()
         and not name.startswith('"')
         and not _LVNET_ID_SUFFIX_RE.search(name)
         and not any(ord(ch) < 0x20 for ch in name)
-        and not any(seq in name for seq in _LVNET_NAME_UNSAFE_SEQS)
+        and not any(seq in padded for seq in _LVNET_NAME_UNSAFE_SEQS)
+        and "\\" not in name
+        and "  " not in name
         and name.count('"') % 2 == 0
         and name.count("{") == name.count("}")
         and name.count("[") == name.count("]")
@@ -1860,7 +1873,9 @@ def _lvnet_const_value_str(c: Constant) -> str:
     OPEN, never invented here as a side effect of the scalar-string fix.
     """
     if c.lv_type and _is_error_cluster(c.lv_type):
-        return _format_error_cluster(c.value)
+        return _lvnet_escape_controls(
+            _format_error_cluster(c.value, quote=lvnet_literal_token)
+        )
     formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
     if formatted is not None:
         text = formatted

@@ -15,6 +15,7 @@ import pytest
 from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.index import store
 from lvkit.index.build import warm_index_for_vi
+from tests.helpers import vi_key
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -37,7 +38,7 @@ def _load_and_name(vi: Path, root: Path) -> tuple[InMemoryVIGraph, str]:
         src = g.get_vi_source_path(name)
         if src is not None and src.resolve() == vi.resolve():
             return g, name
-    return g, g.resolve_vi_name(vi.name)
+    return g, vi_key(g, vi.name)
 
 
 def test_warming_accumulates_rows_progressively(tmp_path):

@@ -127,6 +127,25 @@ def test_an_indicator_a_constant_in_a_frame_writes_is_written_in_the_frame(
     assert package.function(flag=False).out == 0
 
 
+@pytest.mark.parametrize("active", [0, 1])
+def test_an_indicator_a_constant_in_the_enabled_frame_of_a_diagram_disable_writes(
+    project: Project,  # noqa: F811
+    active: int,
+) -> None:
+    """The Enabled frame (the first or the second) holds a constant 7 wired to an
+    indicator in that frame: every call writes 7."""
+    vi = Vi(NAME)
+    out = vi.indicator("out", I32)
+    disable = vi.disable(2, active=active)
+    with vi.inside(disable.scopes[active]):
+        seven = vi.int_constant(7)
+    vi.place_inside(out, disable.scopes[active])
+    vi.wire(seven, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.function().out == 7
+
+
 def test_an_indicator_a_loop_wires_from_its_inside_face_is_written_in_the_loop(
     project: Project,  # noqa: F811
 ) -> None:

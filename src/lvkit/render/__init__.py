@@ -72,11 +72,12 @@ def _root_id(display_name: str, digest: str) -> str:
 
 # Interactive frame controller (roadmap #17): a case/stacked-sequence selector
 # with ◄/► prev-next arrows AND a ▼ dropdown that opens a real menu of frame
-# values to pick from. Selecting a frame shows/hides the matching ``lv-frame``
-# groups (content + value-label groups) by ANDing every ``struct=value`` segment
+# labels to pick from. Selecting a frame shows/hides the matching ``lv-frame``
+# groups (content + label groups) by ANDing every ``struct:position`` segment
 # of their ``data-path`` against current state — which is what makes nesting
 # compose. A delegated click handler reads ``data-lv-action`` (prev/next/toggle)
-# and ``data-lv-value`` (a menu option) off the clicked target. Scoped to this
+# and ``data-lv-value`` (a menu option's frame position) off the clicked
+# target. Scoped to this
 # SVG's own root id and guarded against double-init so a page embedding many
 # SVGs is safe. No Math.random()/Date.
 
@@ -100,7 +101,7 @@ _FRAME_CONTROLLER_JS = """(function() {
       for (var j = 0; j < segs.length; j++) {
         var seg = segs[j];
         if (!seg) continue;
-        var k = seg.indexOf("=");
+        var k = seg.lastIndexOf(":");
         if (state[seg.slice(0, k)] !== seg.slice(k + 1)) { vis = false; break; }
       }
       g.classList.toggle("lv-frame-hidden", !vis);
@@ -688,12 +689,6 @@ def render_vi_file_report(
     """Like :func:`render_vi_file_titled`, but also returns the problems recorded
     on the nodes of the VIs the load reached (a SubVI that cannot be read)."""
     path = Path(path)
-    vi_name_hint = (
-        path.name.replace("_BDHb.xml", ".vi")
-        if path.name.endswith("_BDHb.xml")
-        else path.name
-    )
-
     # What a failed shallow load recorded about the VIs it reached: the retry
     # starts a new graph.
     failed_attempt: list[Problem] = []
@@ -729,12 +724,12 @@ def render_vi_file_report(
     if shallow_failure is not None:
         # The degraded render succeeded: say what it lost.
         graph.record_load_failure(path, shallow_failure, ProblemStage.RENDER)
-    # Use the exact vi_key that load_vi assigned to THIS file as the render
-    # identity. Never re-resolve by bare filename: several loaded VIs can share
-    # a name (e.g. every class's own run.vi under a MINIMAL SubVI load), so a
-    # bare-name lookup can resolve to — and render — the wrong VI. Fall back to
-    # the bare-name resolution only if load_vi couldn't key the file.
-    name = vi_key if vi_key is not None else graph.resolve_vi_name(vi_name_hint)
+    # The exact vi_key that load_vi assigned to THIS file is the render
+    # identity: several loaded VIs can share a file name (e.g. every class's own
+    # run.vi under a MINIMAL SubVI load).
+    if vi_key is None:
+        raise ValueError(f"{path} loads no single VI to render")
+    name = vi_key
     # Every command that parses a VI warms the index — a render parses this VI
     # (and, under MINIMAL, its SubVIs) into `graph`, so upsert their facts
     # (best-effort; never fails the render). A cache HIT never reaches here, so

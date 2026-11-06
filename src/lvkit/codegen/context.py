@@ -76,6 +76,7 @@ PREALLOCATED_CLONE_NOTE = (
     "here every call shares it."
 )
 
+
 @dataclass
 class VISignature:
     """Signature info for a SubVI (for import generation)."""
@@ -170,9 +171,11 @@ class CodeGenContext:
     # the VI function, sorted by name — dict/set iteration order is not
     # a name, so insertion order alone would not be byte-reproducible. Each
     # name has its statements: its assignment, after a note when it has one.
-    module_globals: dict[str, list[ast.stmt]] = field(
-        default_factory=dict, repr=False
-    )
+    module_globals: dict[str, list[ast.stmt]] = field(default_factory=dict, repr=False)
+    # Who owns each module-level name (a global or a helper function): the id of
+    # the node or terminal it was named from, None for a name every call site of
+    # the module shares. One dict per module, shared by child contexts.
+    _module_owners: dict[str, str | None] = field(default_factory=dict, repr=False)
     # Nodes that lie on a cycle of the wires of one structure level, found by
     # the dependency sort, with why. One dict per module, shared by child contexts.
     circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
@@ -605,6 +608,7 @@ class CodeGenContext:
             flat_functions=self.flat_functions,  # Shared — one dict
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
+            _module_owners=self._module_owners,  # Shared — one dict
             _body_generator=self._body_generator,
         )
 
@@ -743,9 +747,7 @@ class CodeGenContext:
         if lv_type.classname == ROOT_CLASS:
             return "object"
         class_key = (
-            self.graph.class_type_key(lv_type, self.vi_name)
-            if self.graph is not None
-            else None
+            self.graph.class_type_key(lv_type) if self.graph is not None else None
         )
         if class_key is None or not isinstance(self.import_resolver, ImportResolver):
             raise ConversionGap(
@@ -833,35 +835,54 @@ class CodeGenContext:
             return
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
-            type_ref = named.type_ref()
-            imported = self.import_resolver.type_import(type_ref) if type_ref else None
+            imported = self.import_resolver.type_import(named)
             if imported is not None:
                 target.add(imported.statement)
 
-    def add_module_global(self, name: str, value: ast.expr) -> None:
+    def _claim_module_name(self, name: str, owner: str | None) -> None:
+        """Record ``owner`` as the owner of module-level ``name``. A name two
+        different owners claim would silently share one definition: an lvkit
+        bug, even when their definitions read the same."""
+        held = self._module_owners.setdefault(name, owner)
+        if held != owner:
+            raise CodeGenError(
+                f"Two nodes were given one module-level name, {name}: "
+                f"{_owner_label(held)} and {_owner_label(owner)}"
+            )
+
+    def add_module_global(
+        self, name: str, value: ast.expr, owner: str | None = None
+    ) -> None:
         """Register a module-level global variable, seeded to ``value``.
 
-        Idempotent: registering the same name with the same value again is a
-        no-op (one call site lowered again); the same name with another value
-        is two pieces of state given one name, a bug in lvkit. The builder
+        ``owner`` is the id of the node or terminal the name was made from
+        (None for a name every call site of the module shares). A name two
+        different owners register is a bug in lvkit, whatever their values.
+        Idempotent: the same owner registering the same name with the same
+        value again is a no-op (one call site lowered again); the same name
+        with another value is two pieces of state given one name. The builder
         emits these above the VI function, sorted by name (see
         ``module_globals`` docstring for why).
         """
+        self._claim_module_name(name, owner)
         assign = ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
         held = self.module_globals.setdefault(name, [assign])
         # The assignment is the last of the name's statements, after its note.
         _require_same_definition(name, held[-1], assign)
 
-    def add_state_global(self, name: str, value: ast.expr) -> None:
+    def add_state_global(
+        self, name: str, value: ast.expr, owner: str | None = None
+    ) -> None:
         """Register a module-level variable holding a value the VI keeps between
         calls (an uninitialized shift register, First Call?, an indicator a
-        Local Variable reads), seeded to ``value``. Every call of the function
-        shares it, as every call of a non-reentrant VI shares its data space. A
-        preallocated clone keeps one per call site in LabVIEW, so the variable
-        of such a VI gets a note saying so, a string statement above it (the
-        way this generator writes notes into code: an AST has no comments)."""
+        Local Variable reads), seeded to ``value``, owned like
+        ``add_module_global``. Every call of the function shares it, as every
+        call of a non-reentrant VI shares its data space. A preallocated clone
+        keeps one per call site in LabVIEW, so the variable of such a VI gets a
+        note saying so, a string statement above it (the way this generator
+        writes notes into code: an AST has no comments)."""
         fresh = name not in self.module_globals
-        self.add_module_global(name, value)
+        self.add_module_global(name, value, owner)
         if fresh and self._is_preallocated_clone():
             self.module_globals[name].insert(
                 0, ast.Expr(value=ast.Constant(value=PREALLOCATED_CLONE_NOTE))
@@ -873,15 +894,18 @@ class CodeGenContext:
         reentrancy = self.graph.get_vi_properties(self.vi_name).execution.reentrancy
         return reentrancy is Reentrancy.PREALLOCATED_CLONE
 
-    def add_module_function(self, func_def: ast.FunctionDef | ast.ClassDef) -> str:
+    def add_module_function(
+        self, func_def: ast.FunctionDef | ast.ClassDef, owner: str | None = None
+    ) -> str:
         """Register a module-level helper function or class, emitted above the VI
         function, and return the name it is written under. Idempotent like
-        ``add_module_global``: the same definition again gives the same name, a
-        different one under that name is lvkit's error. A name the module
-        already holds (an import, a definition) is not taken: the helper is
-        written under the name the module's resolver gives it
-        (``ImportResolver.defined_name``, the alias rule of imports)."""
+        ``add_module_global``, with the same owner rule: the same definition
+        again gives the same name, a different one under that name is lvkit's
+        error. A name the module already holds (an import, a definition) is not
+        taken: the helper is written under the name the module's resolver gives
+        it (``ImportResolver.defined_name``, the alias rule of imports)."""
         wanted = func_def.name
+        self._claim_module_name(wanted, owner)
         if wanted in self.helper_names:
             written = self.helper_names[wanted]
             held = next(
@@ -1255,8 +1279,7 @@ def type_namer(
     resolver = import_resolver
 
     def names(lv_type: LVType) -> str | None:
-        type_ref = lv_type.type_ref()
-        imported = resolver.type_import(type_ref) if type_ref else None
+        imported = resolver.type_import(lv_type) if lv_type.type_ref() else None
         return imported.name if imported is not None else None
 
     return names
@@ -1423,6 +1446,11 @@ def _renamed(
     renamed = copy_module.deepcopy(definition)
     renamed.name = name
     return renamed
+
+
+def _owner_label(owner: str | None) -> str:
+    """An owner for a message: its uid, never its file path."""
+    return "a shared name" if owner is None else f"uid {uid_of(owner)}"
 
 
 def _require_same_definition(name: str, held: ast.stmt, new: ast.stmt) -> None:

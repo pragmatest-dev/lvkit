@@ -17,19 +17,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.membership import ListedMethod
 from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from lvkit.pipeline import create_import_resolver
 from lvkit.structure import PROPERTY_PATH_SEPARATOR
-from tests.helpers import build_graph
+from tests.helpers import build_graph, key_graph_types
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
@@ -226,7 +226,16 @@ class Project:
         )
         self.graph._vi_display_names[key] = f"{name}.lvclass"  # noqa: SLF001
         self.classes[name] = key
+        self._record_types()
         return key
+
+    def _record_types(self) -> None:
+        """Tie every class type on the VIs' terminals to its class, as a loaded VI
+        does through its link records."""
+        key_graph_types(
+            self.graph,
+            {f"{name}.lvclass": key for name, key in self.classes.items()},
+        )
 
     def _register(self, key: str, recipe: Recipe, display: str) -> VIContext:
         context, nodes = recipe(key)
@@ -270,37 +279,30 @@ class Project:
         ``folders``."""
         key = self.key_of(cls, vi)
         class_key = self.classes[cls]
-        context = self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
+        self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
         self.graph._dep_graph.nodes[class_key]["method_paths"][  # noqa: SLF001
             f"{vi}.vi"
         ] = key
-        role: PropertyRole | None = None
-        if property_name is not None:
-            role = property_role(
-                context.inputs,
-                context.outputs,
-                lambda t, cls=cls: bool(
-                    t.lv_type and t.lv_type.classname == f"{cls}.lvclass"
-                ),
-            )
-        self.graph._add_ownership_edge(  # noqa: SLF001
-            class_key,
-            key,
+        # Listed in the class's file, as a loaded class records it; the
+        # ``owns`` edge follows (``graph/membership.py``).
+        listed = self.graph.listed_members(class_key)
+        listed[key] = ListedMethod(
             scope=scope,
-            is_accessor=property_name is not None,
-            accessor_type=role.value if role else None,
-            accessor_field=property_name,
             accessor_path=(
                 PROPERTY_PATH_SEPARATOR.join((*folders, property_name))
                 if property_name is not None
                 else None
             ),
             is_static=static,
+            is_accessor=property_name is not None,
+            accessor_field=property_name,
             must_override=False,
             must_call_parent=False,
         )
+        self.graph._record_members(class_key, listed)  # noqa: SLF001
         self.members[key] = class_key
         self.vis[f"{cls}.{vi}"] = key
+        self._record_types()
         return key
 
     def add_vi(self, vi: str, recipe: Recipe) -> str:
@@ -309,6 +311,7 @@ class Project:
         self._register(key, recipe, f"{vi}.vi")
         self.free.append(key)
         self.vis[vi] = key
+        self._record_types()
         return key
 
     def generate(self, gaps: list[Gap] | None = None) -> Package:
@@ -358,3 +361,28 @@ class Project:
         for module, source in sources.items():
             (out / f"{module}.py").write_text(source, encoding="utf-8")
         return Package(out, sources, gaps)
+
+
+def run_to_gap(function: Callable[..., object], **kwargs: object) -> GapRun:
+    """Call a generated ``function`` that reaches a gap: the message it raises and
+    the local variables of its frame when it raised (a gap node binds its outputs
+    to ``None`` before the ``raise``)."""
+    try:
+        function(**kwargs)
+    except NotImplementedError as raised:
+        tb = raised.__traceback__
+        while tb is not None and tb.tb_next is not None:
+            tb = tb.tb_next
+        assert tb is not None
+        return GapRun(str(raised), dict(tb.tb_frame.f_locals))
+    raise AssertionError("the function did not raise NotImplementedError")
+
+
+@dataclass
+class GapRun:
+    message: str
+    locals: dict[str, object]
+
+    def outputs(self, *inputs: str) -> dict[str, object]:
+        """The locals other than the function's ``inputs``: what the gap bound."""
+        return {k: v for k, v in self.locals.items() if k not in inputs}

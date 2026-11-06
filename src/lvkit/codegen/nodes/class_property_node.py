@@ -58,7 +58,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     graph = ctx.graph
     ref = _reference(node)
     assert ref is not None and ref.lv_type is not None
-    class_key = graph.class_type_key(ref.lv_type, ctx.vi_name)
+    class_key = graph.class_type_key(ref.lv_type)
     if class_key is None or graph.is_stub(class_key):
         recorded = graph.recorded_path(class_key) if class_key else None
         where = f" ({recorded})" if recorded else ""
@@ -179,7 +179,9 @@ def _row(
     long_name = access.accessor_field if access and access.accessor_field else path
     accessor = class_model(graph, owner).attributes.accessors.get(vi_key)
     if accessor is not None:
-        check_private_access(graph, accessor.python_name, owner, ctx.vi_name)
+        check_private_access(
+            graph, accessor.python_name, vi_key, owner, ctx.vi_name, "A call of"
+        )
         target = ast.Attribute(
             value=parse_expr(receiver),
             attr=accessor.python_name,
@@ -216,7 +218,7 @@ def _method_row(
         raise ConversionGap(reason, node)
     shape = member_shape(graph, vi_key)
     assert shape is not None
-    check_private_access(graph, shape.name, owner, ctx.vi_name)
+    check_private_access(graph, shape.name, vi_key, owner, ctx.vi_name, "A call of")
     pane = accessor_pane(graph, owner, vi_key)
     inputs, _, outputs, _ = graph.vi_interface(vi_key)
     keywords: list[ast.keyword] = []
