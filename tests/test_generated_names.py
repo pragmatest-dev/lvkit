@@ -49,6 +49,10 @@ UNRESERVE_SESSIONS = (
     SAMPLES / "measurement-plugin-labview/Source/Runtime/Clients"
     "/Session Management V1/Session Reservation/Unreserve Sessions.vi"
 )
+CLIENT_CACHE_FGV = (
+    SAMPLES / "measurement-plugin-labview/Source/Runtime/Clients/Discovery V1"
+    "/gRPC Client Cache FGV Impl.vi"
+)
 
 
 def _generate(vi: Path, tmp_path: Path) -> Path:
@@ -311,3 +315,17 @@ def test_a_library_has_no_module_and_nothing_imports_one(tmp_path, monkeypatch):
     assert [m for m in _modules(package) if m.stem.endswith("lvlib")] == []
     assert _unresolved_relative_imports(package) == []
     _import_all(package, monkeypatch)
+
+
+def test_a_shift_register_carries_its_new_value_through_a_variable_of_its_own(
+    tmp_path,
+):
+    """The gRPC client cache keeps three values in uninitialized shift registers,
+    each named like the indicator its right side feeds. Each new value goes to
+    a variable of its own, and the registers take them at the end of the
+    iteration; a register is never assigned to itself."""
+    package = _generate(CLIENT_CACHE_FGV, tmp_path)
+    source = _discovery_module(package, "grpc_client_cache_fgv_impl").read_text()
+    assert re.findall(r"^\s*(\w+) = \1$", source, re.MULTILINE) == []
+    for name in ("grpc_client_id", "unique_id_out", "cluster_id"):
+        assert f"        {name} = {name}_updated\n" in source
