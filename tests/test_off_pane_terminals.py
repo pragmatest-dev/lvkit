@@ -155,22 +155,18 @@ def test_slot_zero_keeps_its_wiring_rule() -> None:
     reason="Open/Create/Replace File's advisory locking default is not in the "
     "catalog yet, so the VI generates a gap there",
 )
-def test_unwired_pane_codegen_takes_its_controls_as_keyword_only_parameters() -> None:
+def test_unwired_pane_codegen_takes_its_controls_as_local_variables() -> None:
     graph, key = _load(_ZORDER_VI, LoadMode.FULL)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
-    assert "def zorder_not_respected(*, numeric: int=0, string_in: str=''" in code
+    assert "def zorder_not_respected() -> None:" in code
+    assert "numeric = 0" in code
+    assert "Front panel, not on the connector pane:" in code
     namespace: dict[str, object] = {}
     exec(compile(code, "<zorder>", "exec"), namespace)  # noqa: S102
     function = namespace["zorder_not_respected"]
     assert callable(function)
-    result = function(numeric=2, string_in="hello", y=3)
-    assert result.string_out == "hello"
-    assert result.xy == 5
-    # An off-pane control is not a connector-pane terminal: no positional slot.
-    with pytest.raises(TypeError):
-        function(2, "hello", 3)
-    # Left unset, a control holds its saved default.
-    assert function().xy == 0
+    # No control is on the connector pane: no parameter, no result.
+    assert function() is None
 
 
 @pytest.mark.needs_samples
@@ -214,7 +210,8 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         pytest.skip(f"sample corpus VI not present: {vi}")
     graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
-    assert "*, task_: str=''" in code
+    assert "task_" not in code.split("):", 1)[0]
+    assert "task_ = ''" in code
     namespace: dict[str, object] = {}
     exec(compile(code, "<failUnlessError>", "exec"), namespace)  # noqa: S102
     function = namespace["failunlesserror"]
@@ -229,10 +226,11 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
 
     default_case, named_case = Recorder(), Recorder()
     function(testcase_in=default_case)
-    function(testcase_in=named_case, task_="parsing")
-    # The control's saved default is the empty string; a caller may set it.
+    # The control is not on the connector pane, so a caller cannot set it: it
+    # holds its saved default, the empty string.
     assert default_case.messages == ["no error when expected"]
-    assert named_case.messages == ["no error during parsing"]
+    with pytest.raises(TypeError):
+        function(testcase_in=named_case, task_="parsing")
 
 
 def _fp(tid: str, name: str, direction: str, index: int | None, default=None):
@@ -250,7 +248,8 @@ def _fp(tid: str, name: str, direction: str, index: int | None, default=None):
 
 def test_colliding_control_names_get_distinct_parameters_and_fields() -> None:
     """A connector-pane control and off-pane controls whose labels normalize to
-    one Python name each get their own parameter; same for result fields."""
+    one Python name each get their own name (the parameter, then the local
+    variables); same for the connector-pane result fields."""
     context = VIContext(
         name="Collide.vi",
         inputs=[_fp("c1", "x+y", "input", 0, "1")],
@@ -262,14 +261,17 @@ def test_colliding_control_names_get_distinct_parameters_and_fields() -> None:
         off_pane_outputs=[_fp("o2", "Out", "output", None)],
     )
     code = build_module(context, "Collide.vi")
-    assert "def collide(xy: int=1, *, xy_2: int=2, x_y: int=3)" in code
+    assert "def collide(*, xy: int=1)" in code
+    assert "    xy_2: int = 2\n    x_y: int = 3\n" in code
+    assert "    out: int\n" in code
     namespace: dict[str, object] = {}
     exec(compile(code, "<collide>", "exec"), namespace)  # noqa: S102
     function = namespace["collide"]
     assert callable(function)
     assert function() is not None
-    assert function(7, xy_2=8, x_y=9) is not None
-    assert list(namespace["CollideResult"]._fields) == ["out", "out_2"]
+    assert function(xy=7) is not None
+    # The off-pane indicator is not a result field.
+    assert list(namespace["CollideResult"]._fields) == ["out"]
 
 
 def _duplicate_indicator_module(wired: tuple[bool, bool]) -> NetlistModule:

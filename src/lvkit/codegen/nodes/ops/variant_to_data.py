@@ -193,6 +193,16 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
     lv_type = data.lv_type
     if lv_type is None:
         return CodeFragment(bindings={data.id: value})
+    convert = _numeric_conversion(lv_type)
+    target: ast.expr | None = None
+    if convert is None:
+        annotation = data.python_type(ctx.type_namer())
+        target = _isinstance_target(parse_expr(annotation))
+        if target is None:
+            # Every value is of the data type: the data is the value itself.
+            return CodeFragment(bindings={data.id: value})
+        _type_imports(ctx, data, annotation)
+
     # The check and the conversion read the value; an expression is read once.
     prelude: list[ast.stmt] = []
     if not value.isidentifier():
@@ -200,7 +210,6 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         prelude.append(build_assign(local, parse_expr(value)))
         value = local
 
-    convert = _numeric_conversion(lv_type)
     if convert is not None:
         accepted = "(int, float, complex)" if convert == "complex" else "(int, float)"
         mismatch = parse_expr(
@@ -208,11 +217,7 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         )
         result = parse_expr(f"{convert}({value})")
     else:
-        annotation = data.python_type(ctx.type_namer())
-        target = _isinstance_target(parse_expr(annotation))
-        if target is None:
-            return CodeFragment(bindings={data.id: value})
-        _type_imports(ctx, data, annotation)
+        assert target is not None
         mismatch = ast.UnaryOp(
             op=ast.Not(),
             operand=ast.Call(
