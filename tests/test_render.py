@@ -1892,7 +1892,7 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
     for raw, values in scene.frame_values.items():
         visible = hidden = 0
         for value in values:
-            path_attr = f"{raw}={value}"
+            path_attr = f"{raw}:{value}"
             pattern = (
                 r'<g class="(lv-frame[^"]*)" data-path="' + re.escape(path_attr) + r'">'
             )
@@ -1909,7 +1909,7 @@ def test_case_svg_has_lv_frame_groups_one_visible_per_struct():
 
 def test_nested_case_svg_has_compound_data_path():
     """A case genuinely nested inside another case's frame produces a
-    ``data-path`` with TWO ``struct=val`` segments (root->leaf), so nested
+    ``data-path`` with TWO ``struct:position`` segments (root->leaf), so nested
     cases compose without needing nested DOM (roadmap #17)."""
     loaded = _load_graph(NESTED_CASE_CONTENT_VI)
     if loaded is None:
@@ -1932,7 +1932,7 @@ def test_nested_case_svg_has_compound_data_path():
     path = compound[0]
     encoded = encode_frame_path(path)
     assert f'data-path="{encoded}"' in svg
-    assert encoded.count("=") >= 2  # at least two struct=val segments
+    assert encoded.count(":") >= 2  # at least two struct:position segments
 
 
 def test_loop_only_vi_has_no_frame_groups():
@@ -2065,7 +2065,7 @@ def test_stacked_sequence_svg_has_lv_frame_and_selector():
         default = scene.default_frame.get(structure.raw_uid)
         visible = hidden = 0
         for value in values:
-            path_attr = f"{structure.raw_uid}={value}"
+            path_attr = f"{structure.raw_uid}:{value}"
             pattern = (
                 r'<g class="(lv-frame[^"]*)" data-path="' + re.escape(path_attr) + r'">'
             )
@@ -5063,17 +5063,17 @@ class TestCaseDisplayedFrame:
     def test_displayed_frame_selects_initial(self):
         node = _case_node_with_frames(displayed_frame=1)
         default_frame, _, _, _ = _frame_info([node], "vi", None)
-        assert default_frame["case1"] == "b"
+        assert default_frame["case1"] == "1"  # the "b" frame
 
     def test_no_displayed_frame_falls_back_to_default(self):
         node = _case_node_with_frames(displayed_frame=None)
         default_frame, _, _, _ = _frame_info([node], "vi", None)
-        assert default_frame["case1"] == "c"  # the is_default frame
+        assert default_frame["case1"] == "2"  # the is_default "c" frame
 
     def test_out_of_range_displayed_frame_falls_back(self):
         node = _case_node_with_frames(displayed_frame=9)
         default_frame, _, _, _ = _frame_info([node], "vi", None)
-        assert default_frame["case1"] == "c"
+        assert default_frame["case1"] == "2"  # the "c" frame
 
 
 # ---------------------------------------------------------------------------

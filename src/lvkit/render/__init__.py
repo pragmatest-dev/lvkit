@@ -72,11 +72,12 @@ def _root_id(display_name: str, digest: str) -> str:
 
 # Interactive frame controller (roadmap #17): a case/stacked-sequence selector
 # with ◄/► prev-next arrows AND a ▼ dropdown that opens a real menu of frame
-# values to pick from. Selecting a frame shows/hides the matching ``lv-frame``
-# groups (content + value-label groups) by ANDing every ``struct=value`` segment
+# labels to pick from. Selecting a frame shows/hides the matching ``lv-frame``
+# groups (content + label groups) by ANDing every ``struct:position`` segment
 # of their ``data-path`` against current state — which is what makes nesting
 # compose. A delegated click handler reads ``data-lv-action`` (prev/next/toggle)
-# and ``data-lv-value`` (a menu option) off the clicked target. Scoped to this
+# and ``data-lv-value`` (a menu option's frame position) off the clicked
+# target. Scoped to this
 # SVG's own root id and guarded against double-init so a page embedding many
 # SVGs is safe. No Math.random()/Date.
 
@@ -100,7 +101,7 @@ _FRAME_CONTROLLER_JS = """(function() {
       for (var j = 0; j < segs.length; j++) {
         var seg = segs[j];
         if (!seg) continue;
-        var k = seg.indexOf("=");
+        var k = seg.lastIndexOf(":");
         if (state[seg.slice(0, k)] !== seg.slice(k + 1)) { vis = false; break; }
       }
       g.classList.toggle("lv-frame-hidden", !vis);

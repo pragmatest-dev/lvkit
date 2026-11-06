@@ -1473,11 +1473,11 @@ def _render_lvnet_case_scope(
     lines.append(f"{indent}case {sel_str}{id_suffix}{_LVNET_BLOCK_OPEN}")
     _render_structure_input_lines(scope, indent + _LVNET_INDENT, lines, handles)
     body_indent = indent + _LVNET_INDENT * 2
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         header = _lvnet_case_header(frame.values, frame.is_default)
         lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
@@ -1507,12 +1507,12 @@ def _render_lvnet_sequence_scope(
     lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1542,7 +1542,7 @@ def _render_lvnet_disabled_scope(
     body_indent = indent + _LVNET_INDENT
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         label = lvnet_literal_token(frame.label) if quote_labels else frame.label
         # A disable structure's ACTIVE frame (the enabled diagram-disable
         # frame, the matched conditional-disable/type-spec frame) carries
@@ -1557,7 +1557,7 @@ def _render_lvnet_disabled_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1580,13 +1580,13 @@ def _render_lvnet_event_scope(
     lines.append(f"{indent}event-structure{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for frame in scope.frames:
+    for pos, frame in enumerate(scope.frames):
         label = lvnet_literal_token(frame.label)
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
+        for net, source_str in frame_drives(scope, pos, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )

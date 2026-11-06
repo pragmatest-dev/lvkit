@@ -403,6 +403,63 @@ two in different layers:
 The render composite then asks the graph *"what's inside X?"* and the layout
 *"in what order do I paint them?"*
 
+- **A node's frame is the frame's key, never its name.** `GraphNode.frame`, a
+  constant's or label's `frame`, an FP terminal's frame stamp and a case or
+  disable inner tunnel's `frame` all hold `frame_key(frame, position)`
+  (`graph/operations.py`): the frame's position in `frames` for a case, Diagram
+  Disable or event frame, `str(index)` for a sequence frame; `construction.py`'s
+  `_stamp` and `build_structure_terminals` set it, and every grouping (describe,
+  netlist, codegen `frame_children`, diff element correlation) compares against
+  it, so two frames with one name keep their own nodes (#238). The name is only
+  shown: `shown_frame_value(frames, key)` turns a key back into the selector
+  value for the index `node.frame` column (`index/build.py:_shown_frame`).
+- **Within one VI a frame is addressed by structure + position; a person only
+  reads its label.** The rendered SVG's `data-path` is `<struct uid>:<position>`
+  segments (`render/scene.py:encode_frame_path`, `_frame_address` via
+  `operations.frame_position`); `data-lv-frames`/`data-lv-default`/`data-lv-value`
+  are positions; labels come only from `Scene.frame_labels` (the selector's
+  label groups and menu). Both the render's own toggle script
+  (`render/__init__.py:_FRAME_CONTROLLER_JS`) and the diff viewer read positions.
+- **diff locates every change per side and pairs every frame.** The frame
+  types and matching live in `graph/diff_frames.py`; `graph/diff.py` uses them.
+  An `ElementChange` carries `location_after`/`location_before` (`FrameStep`:
+  structure uid, frame position, shown values as a list; `None` for the side
+  the element is not in) built by `_collect_elements` with `frame_step`/`frame_location`.
+  `_struct_frame_changes` matches frames ACROSS versions with `match_frames`: by
+  value (`frame_match_key`, plus an occurrence number so two same-valued frames
+  still pair in order), then by contents, and returns every pair as `(before
+  position, after position)`: `ChangeMap.frame_pairs`, one `FramePairs` (the
+  structure's before and after uid -- they differ when LabVIEW gave the
+  structure a new uid and the diff matched it by its wiring -- and its pairs)
+  per matched structure, with no pairs when none of its frames match; the
+  viewer addresses each pane by that pane's uid. A frame's contents, for that
+  matching, are its node AND constant uids (`_frame_content_uids`). A constant
+  keeps its uid across saves (25 consecutive revision pairs of JKI VI Tester
+  VIs: 333 of 334 kept theirs; the other was deleted), so `_constant_changes`
+  reports the same uid with a new value or type as one modified constant. The
+  rare constant with a new uid is paired by name, connection and location,
+  the location compared through the frame pairing (`diff_uid` runs the frame
+  matching BEFORE the constants; `FrameMatching.before_key`/`after_key`). The
+  viewer (`render/templates/diff_viewer.html`: `setFrame`/`partner`/
+  `sideLocation`/`revealFrame`, deep link `#frame=uid:pos`) moves the other pane
+  to a frame's partner and leaves it where it is when there is none; the text
+  tree (`_netlist_diff`, `_segments`) places each change on the after side's
+  frames, a removed one through the pairing, and prints the netlist labels.
+  `tests/test_diff_viewer_browser.py` drives this in headless Chrome. In the
+  netlist, every per-frame drive (`GammaCase`, `FrameOutputDrive`,
+  `SequenceLocalDrive`, `SequenceLocalUnreadable`) carries its frame's
+  `position` in the scope's `frames`; `lvnet_drives.frame_drives` matches on
+  it, never on the label.
+- **Two frames for one value is a reading problem on the VI.** LabVIEW gives
+  each frame of a case or disable-family structure its own value (the message
+  names the structure by `DisableStructureKind.structure_name`), so when the
+  parsed structure has two frames showing one value, `load_vi`
+  (`graph/loading.py`, next to the unlabeled-control notes) records one
+  `ProblemKind.VALUE_NOT_READ` problem per repeated value at stage `load`
+  (`graph/load_problems.py:repeated_frame_problems`); every command's run
+  report then ends Partial (exit 3). Nothing is dropped: both frames keep
+  their own nodes in every view.
+
 **Why:** The user re-derived this hard under pressure while reviewing the #35/#39
 render-tree plan — first "z-order is a draw concern, keep it out of the graph,"
 then "but containment IS critical logical understanding, why wouldn't the graph

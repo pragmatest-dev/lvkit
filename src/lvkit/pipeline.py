@@ -54,6 +54,7 @@ from lvkit.run_report import (
     ProblemKind,
     ProblemStage,
     RunProblems,
+    RunReport,
     RunSettings,
     RunStopped,
     problem_for_exception,
@@ -1034,15 +1035,24 @@ def generate_python(
     print(f"  failed: {failed_count}")
     print(f"  gaps:  {len(all_gaps)}")
     gap_vis = len({gap.vi for gap in all_gaps})
+    # Problems besides gaps (a load problem on a VI): the run is partial even
+    # when every VI converts with no gap. Counted the way the run's summary
+    # counts them (``RunReport.of``: each once, notes apart).
+    others = [
+        p
+        for p in RunReport.of(graph.problems()).problems
+        if p.kind is not ProblemKind.GAP
+    ]
     if error_count or failed_count:
         print(
             f"Stopped: {error_count + failed_count} VI(s) could not be written"
             f" ({ast_count} generated, {gap_vis} with gaps)"
         )
-    elif all_gaps:
+    elif all_gaps or others:
+        other_text = f", {len(others)} other problem(s)" if others else ""
         print(
             f"Partial: {ast_count} VIs generated, {gap_vis} with gaps"
-            f" ({len(all_gaps)} gaps) — see warnings"
+            f" ({len(all_gaps)} gaps){other_text} — see warnings"
         )
     else:
         print(f"Complete: {ast_count} VIs generated, no gaps")

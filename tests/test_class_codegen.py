@@ -999,7 +999,7 @@ def _structure_project(reader_first: bool):
     reader = mux(vi, "get", False, BASE, INT, 0)
     for node in (changer, reader):
         node.parent = "s:case"
-        node.frame = "True"
+        node.frame = "0"  # the "True" frame's position
     wires = [
         wire(vi, "obj", "1o"),
         wire(vi, "1o", "1i"),

@@ -1000,6 +1000,15 @@ class DisableStructureKind(str, Enum):
     CONDITIONAL = "conditional"
     TYPE_SPEC = "type_spec"
 
+    @property
+    def structure_name(self) -> str:
+        """LabVIEW's name for this structure, as a message names it."""
+        if self is DisableStructureKind.CONDITIONAL:
+            return "Conditional Disable structure"
+        if self is DisableStructureKind.TYPE_SPEC:
+            return "Type Specialization structure"
+        return "Diagram Disable structure"
+
 
 class TunnelMode(str, Enum):
     """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a
@@ -1041,8 +1050,9 @@ class TunnelTerminal(Terminal):
     tunnel_type: str = ""  # "lSR", "rSR", "lpTun", "lMax", "caseSel"
     boundary: str = ""  # "outer" or "inner"
     paired_id: str | None = None  # matching terminal on other side
-    # For case-structure inner tunnels: the owning CaseFrame's selector_value.
-    # None for outer tunnels and for non-case-structure tunnels (loop/sequence).
+    # For case and disable structure inner tunnels: the owning frame's key
+    # (``graph.operations.frame_key``, the frame's position). None for outer
+    # tunnels and for every other structure's tunnels (loop/sequence/event).
     frame: str | int | None = None
     # Carried straight from the parsed Tunnel (construction.py) so
     # graph/operations.py::_tunnels_from_terminals can round-trip them onto
@@ -1055,7 +1065,8 @@ class TunnelTerminal(Terminal):
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
     # Position of the frame an inner tunnel terminal sits in (see
-    # ``Tunnel.frame_position``); ``frame`` above keeps the case selector value.
+    # ``Tunnel.frame_position``); ``frame`` above is set only for case and
+    # disable structures.
     frame_position: int | None = None
 
 
@@ -1217,10 +1228,9 @@ class EventFrame(Frame):
     """
 
     # Positional frame index (order in the Event Structure's frame list). The
-    # active frame is chosen at runtime, so there is no selector_value to key
-    # on — this position IS the stable correlation token, and it matches what
-    # the renderer stamps (``construction.py`` → ``str(idx)``), so diff
-    # frame-paths line up with the SVG's ``data-path`` for cross-pane lookup.
+    # active frame is chosen at runtime, so there is no selector_value; like
+    # every frame, an event frame is addressed by its position in its
+    # structure.
     index: int = 0
     event_label: str = ""
 

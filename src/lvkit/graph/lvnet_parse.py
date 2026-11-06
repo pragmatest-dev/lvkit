@@ -2868,9 +2868,9 @@ def _module_case_scope_signature(
         (
             _lvnet_case_header(frame.values, frame.is_default),
             _module_body_signature(frame.body, handles, ambiguous),
-            tuple(frame_drives(scope, frame, lvnet_source_text(handles))),
+            tuple(frame_drives(scope, position, lvnet_source_text(handles))),
         )
-        for frame in scope.frames
+        for position, frame in enumerate(scope.frames)
     )
     return (
         "scope",
@@ -2950,9 +2950,11 @@ def _module_frame_only_scope_signature(
         (
             label,
             _module_body_signature(frame.body, handles, ambiguous),
-            tuple(frame_drives(scope, frame, lvnet_source_text(handles))),
+            tuple(frame_drives(scope, position, lvnet_source_text(handles))),
         )
-        for label, frame in zip(frame_labels, scope.frames, strict=True)
+        for position, (label, frame) in enumerate(
+            zip(frame_labels, scope.frames, strict=True)
+        )
     )
     return (
         "scope",
