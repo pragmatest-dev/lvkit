@@ -27,6 +27,7 @@ from .llb_origin import llb_container_of
 from .project_folders import project_root
 
 if TYPE_CHECKING:
+    from .build_options import BuildOptions
     from .graph.core import InMemoryVIGraph
 
 EXIT_COMPLETE = 0
@@ -439,8 +440,11 @@ class RunProblems:
         # whose result is a data line, e.g. ``index``).
         self.on_stop: Callable[[RunReport], None] | None = None
 
-    def new_graph(self, tracked: bool = True) -> InMemoryVIGraph:
-        """A graph whose problems are announced per this run's settings. A tracked
+    def new_graph(
+        self, tracked: bool = True, build: BuildOptions | None = None
+    ) -> InMemoryVIGraph:
+        """A graph whose problems are announced per this run's settings, with the
+        library folders and VI Search Path of ``build`` when given. A tracked
         graph is part of the run's report for as long as the run lives; an
         untracked one (one of many short-lived graphs) is ``collect``ed by hand."""
         # Imported here: the graph is the heavy engine, and a command that is
@@ -449,6 +453,13 @@ class RunProblems:
         from .graph.core import InMemoryVIGraph
 
         graph = InMemoryVIGraph(self.settings)
+        if build is not None:
+            graph.set_library_roots(
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
+                search_path=build.search_path,
+            )
         if tracked:
             self._graphs.append(graph)
         return graph

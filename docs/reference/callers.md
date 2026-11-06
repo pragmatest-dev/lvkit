@@ -33,6 +33,9 @@ never counted as a caller.
 
 Like `query`, these build/refresh the index before reading (see
 [Building & refreshing the index](query.md#building--refreshing-the-index)).
+They take `--vilib`, `--userlib`, `--instrlib` and `--search-path` like
+[`describe`](describe.md), so a dependency in a library folder resolves in the
+index and a library file prints as `<userlib>/…`; changing them rebuilds the index.
 
 ## Example
 

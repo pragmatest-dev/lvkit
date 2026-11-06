@@ -293,6 +293,25 @@ def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -
         )
 
 
+def _index_build(args: argparse.Namespace, run: RunProblems) -> BuildOptions:
+    """The library folders and VI Search Path of an index command, for every
+    graph its sync builds. ``run``'s labels print a file under one of the
+    folders as ``<userlib>/…`` whether or not a graph is built."""
+    roots = _parse_library_roots(args)
+    build = BuildOptions(
+        vilib_root=roots.vilib,
+        userlib_root=roots.userlib,
+        instrlib_root=roots.instrlib,
+        search_path=roots.search_path,
+    )
+    run.settings.library_roots = {
+        "<vilib>": roots.vilib,
+        "<userlib>": roots.userlib,
+        "<instrlib>": roots.instrlib,
+    }
+    return build
+
+
 def _find_project_store(args: argparse.Namespace) -> Path | None:
     """The project store directory for this run: ``--project-root`` in either
     form (the parent of ``.lvkit/``, or ``.lvkit/`` itself), else the nearest
@@ -358,6 +377,7 @@ def main() -> int:
     struct_parser.add_argument(
         "--plan", action="store_true", help="Generate Python structure plan"
     )
+    _add_library_root_args(struct_parser)
 
     # MCP server command
     mcp_parser = subparsers.add_parser(
@@ -411,6 +431,7 @@ def main() -> int:
             "indexed."
         ),
     )
+    _add_library_root_args(index_parser)
     add_fail_fast_arg(index_parser)
 
     # Query command - read-only SQL over the facts index
@@ -458,6 +479,7 @@ def main() -> int:
         default="table",
         help="Output format (default: table).",
     )
+    _add_library_root_args(query_parser)
     add_fail_fast_arg(query_parser)
 
     # Graph-op commands - call graph & change impact over the index. The call
@@ -1059,7 +1081,12 @@ def cmd_index(args: argparse.Namespace) -> int:
     run.on_stop = lambda report: print(json.dumps(report.to_json(stopped=True)))
     try:
         done = sync_index(
-            project_root, vi_paths, ctl_paths, rebuild=not args.refresh, run=run
+            project_root,
+            vi_paths,
+            ctl_paths,
+            rebuild=not args.refresh,
+            run=run,
+            build=_index_build(args, run),
         )
     except CacheWriteError as e:
         # Writing the index is what `index` is for: it cannot go on. (A cache
@@ -1140,6 +1167,7 @@ def _add_graphop_parser(
         action="store_true",
         help="Use the stored index as-is without refreshing first (may be stale).",
     )
+    _add_library_root_args(p)
     add_fail_fast_arg(p)
 
 
@@ -1169,9 +1197,10 @@ def cmd_graph_op(args: argparse.Namespace) -> int:
         return vi_text
     project_root, vi_paths, ctl_paths = resolve_project_files(project)
     run = command_run(args, root=project_root)
+    build = _index_build(args, run)
     label = run.settings.label
     if not args.no_refresh:
-        sync_index(project_root, vi_paths, ctl_paths, run=run)
+        sync_index(project_root, vi_paths, ctl_paths, run=run, build=build)
     facts = store_load(project_root)
     if not facts:
         print(
@@ -1256,10 +1285,11 @@ def cmd_query(args: argparse.Namespace) -> int:
     # `--no-refresh` skips this to query the stored index as-is (fast, but may
     # be stale if a VI changed since the last build).
     run = command_run(args, root=project_root)
+    build = _index_build(args, run)
     if not args.no_refresh:
         from .index.build import sync_index
 
-        sync_index(project_root, vi_paths, ctl_paths, run=run)
+        sync_index(project_root, vi_paths, ctl_paths, run=run, build=build)
 
     try:
         res = isql.run_query(project_root, args.sql)

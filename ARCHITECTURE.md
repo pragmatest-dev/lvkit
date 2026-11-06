@@ -174,7 +174,10 @@ one sync call happened to touch it — even though the VI's own file did not cha
 under the warmed project root. The tables live in `store.py` (VIs), `store_types.py` (the
 shared catalog) and `store_typedefs.py` (controls); a VI's dependency edges to controls are
 `typedef_uses`. All of it surfaces as views in `index/sql.py` (`type*`, `vi_used_type`,
-`typedef*`).
+`typedef*`). The index is built with the run's library folders (`BuildOptions`, given to
+`sync_index` and applied to every graph by `RunProblems.new_graph`) and records them in
+`index_meta.libraries`; every write goes through `store._connect`, and one with other
+folders (a sync, or a warm using `InMemoryVIGraph.library_build`) rebuilds the index.
 
 ### Global VIs and the block-diagram link table
 

@@ -17,8 +17,9 @@ view: module paths, docs pages, messages and lvnet ``uses`` paths."""
 
 from __future__ import annotations
 
+import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 TOP_VI = "<topvi>"
@@ -100,3 +101,22 @@ def library_location(
         if resolved.is_relative_to(folder):
             return (token, *resolved.relative_to(folder).parts)
     return None
+
+
+def library_key(
+    folders: Mapping[str, Iterable[Path]], search_path: SearchEntries = None
+) -> str:
+    """The library folders and VI Search Path of a load as one canonical string
+    (each pseudo path with its resolved folders in the order they are tried,
+    then the search entries): equal strings resolve every recorded path the same
+    way, so facts built under one are the facts of the other."""
+    return json.dumps(
+        {
+            "folders": {
+                token: [str(Path(f).resolve()) for f in folder_list(list(roots))]
+                for token, roots in sorted(folders.items())
+            },
+            "search": list(search_path_entries(search_path)),
+        },
+        sort_keys=True,
+    )

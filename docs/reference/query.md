@@ -26,7 +26,9 @@ querying an unindexed project fails with a clear message.
 | `--format {table,json}` | Output format. `table` (default) prints an aligned text table; `json` prints `{columns, rows, row_count, truncated}`. |
 
 The SQL argument is optional only when `--schema` is given; otherwise it is
-required.
+required. `query` takes `--vilib`, `--userlib`, `--instrlib` and `--search-path`
+like [`describe`](describe.md); the index records them, and changing them
+rebuilds it.
 
 ## Building & refreshing the index
 

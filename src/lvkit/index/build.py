@@ -25,6 +25,7 @@ from pathlib import Path
 import networkx as nx
 
 from .. import cache_paths
+from ..build_options import BuildOptions
 from ..graph import InMemoryVIGraph, LoadMode
 from ..graph.models import (
     AnyGraphNode,
@@ -95,9 +96,13 @@ class BuildResult:
 
 
 def build_index(
-    project_root: Path, vi_paths: list[Path], run: RunProblems | None = None
+    project_root: Path,
+    vi_paths: list[Path],
+    run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> BuildResult:
-    """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
+    """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``, resolving
+    dependency paths against the library folders of ``build`` (none when None).
 
     Both the whole-repo load and each individual single-VI load resolve every
     dependency by the path its caller records, so they resolve identically.
@@ -119,7 +124,7 @@ def build_index(
     all_paths = {p.resolve() for p in vi_paths}
 
     run = run or RunProblems()
-    graph = run.new_graph()
+    graph = run.new_graph(build=build)
     graph.load_directory(project_root, LoadMode.MINIMAL)
     _load_class_ownership(graph, project_root)
     _load_library_ownership(graph, project_root)
@@ -147,7 +152,7 @@ def build_index(
     loaded_alone = 0
     unreadable = {cp for cp in all_paths if graph.problems([str(cp)])}
     for cp in sorted(all_paths - covered - unreadable):
-        one = build_one_vi_recording(project_root, cp, run)
+        one = build_one_vi_recording(project_root, cp, run, build)
         if one is not None:
             facts[str(cp)] = one
             loaded_alone += 1
@@ -201,12 +206,15 @@ def build_lvproj_membership(project_root: Path) -> list[LVProjMemberFact]:
 
 
 def build_one_vi_recording(
-    project_root: Path, vi_path: Path, run: RunProblems
+    project_root: Path,
+    vi_path: Path,
+    run: RunProblems,
+    build: BuildOptions | None = None,
 ) -> VIFacts | None:
     """``build_one_vi`` for one VI of many: a VI that cannot be read or projected
     is recorded on its node (and in ``run``) and gives None, so the others are
     still indexed."""
-    cgraph = run.new_graph(tracked=False)
+    cgraph = run.new_graph(tracked=False, build=build)
     try:
         return build_one_vi(project_root, vi_path, cgraph)
     except Exception as exc:
@@ -286,7 +294,11 @@ def warm_index_for_vi(
     p = vi_path.resolve()
     root = cache_paths.store_root(p)
     try:
-        store_save(root, [project_vi_facts(graph, vi_name, p, root)])
+        store_save(
+            root,
+            [project_vi_facts(graph, vi_name, p, root)],
+            graph.library_build().library_key(),
+        )
     except Exception as exc:
         _warming_failed(graph, root, p, exc)
         return
@@ -310,7 +322,7 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
                 by_root[root].append(p)
     for root, paths in by_root.items():
         try:
-            warm_typedefs(root, paths)
+            warm_typedefs(root, paths, graph.library_build())
         except Exception as exc:
             _warming_failed(graph, root, paths[0], exc, NodeType.TYPEDEF)
 
@@ -348,7 +360,7 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
             _warming_failed(graph, root, p, exc)  # one bad VI must not sink the rest
     for root, facts in by_root.items():
         try:
-            store_save(root, facts)
+            store_save(root, facts, graph.library_build().library_key())
         except Exception as exc:
             _warming_failed(graph, root, Path(facts[0].path), exc)
     _warm_typedefs(graph, by_root)
@@ -396,6 +408,7 @@ def refresh_index(
     stored: list[VIFacts],
     force: frozenset[str] = frozenset(),
     run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> tuple[RefreshResult, list[VIFacts]]:
     """Incrementally refresh ``stored`` against the on-disk repo by content hash.
 
@@ -427,7 +440,7 @@ def refresh_index(
             and existing.content_sha == cache_paths.sha256_file(p)
         ):
             continue
-        one = build_one_vi_recording(project_root, p, run)
+        one = build_one_vi_recording(project_root, p, run, build)
         if one is None:
             facts.pop(path, None)
             unreadable.append(path)
@@ -463,6 +476,7 @@ def sync_index(
     *,
     rebuild: bool = False,
     run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> SyncResult:
     """Bring the persisted index in step with the files, and persist it -- the
     ONE cold-or-refresh policy every entry point shares.
@@ -476,9 +490,13 @@ def sync_index(
     type ids (a control it reads changed shape although the VI's own file did
     not) -- and its ``.lvproj`` membership is recomputed wholesale (a cheap
     reparse that catches added/removed projects and moved members).
+
+    ``build`` gives the library folders and VI Search Path every graph of the
+    sync resolves dependency paths with (none when None). The index records
+    them: a sync with other folders than the stored ones is a full build.
     """
     try:
-        return _sync_index(project_root, vi_paths, ctl_paths, rebuild, run)
+        return _sync_index(project_root, vi_paths, ctl_paths, rebuild, run, build)
     except (OSError, sqlite3.Error) as exc:
         raise index_write_error(project_root, exc) from exc
 
@@ -498,9 +516,15 @@ def _sync_index(
     ctl_paths: list[Path],
     rebuild: bool,
     run: RunProblems | None,
+    build: BuildOptions | None,
 ) -> SyncResult:
     run = run or RunProblems()
-    controls = sync_typedefs(project_root, ctl_paths, rebuild=rebuild, run=run)
+    library_key = (build or BuildOptions()).library_key()
+    # Syncing the controls first also claims the index for these folders (an index
+    # built with other folders is reset), before anything below reads it.
+    controls = sync_typedefs(
+        project_root, ctl_paths, rebuild=rebuild, run=run, build=build
+    )
     stored = store_load(project_root)
     if stored and not rebuild:
         # A VI reads the controls it uses (their fields, so their type ids), not
@@ -517,18 +541,22 @@ def _sync_index(
                 for v in f.typedef_versions
             )
         )
-        rr, facts = refresh_index(project_root, vi_paths, stored, force, run)
-        store_delete(project_root, [*rr.deleted, *rr.unreadable])
-        store_save(project_root, facts)
-        store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
+        rr, facts = refresh_index(project_root, vi_paths, stored, force, run, build)
+        store_delete(project_root, [*rr.deleted, *rr.unreadable], library_key)
+        store_save(project_root, facts, library_key)
+        store_save_lvproj_members(
+            project_root, build_lvproj_membership(project_root), library_key
+        )
         result = SyncResult(facts, rr, 0, controls)
     else:
-        built = build_index(project_root, vi_paths, run)
+        built = build_index(project_root, vi_paths, run, build)
         facts = built.facts
         kept = {f.path for f in facts}
-        store_delete(project_root, [f.path for f in stored if f.path not in kept])
-        store_save(project_root, facts)
-        store_save_lvproj_members(project_root, built.lvproj_members)
+        store_delete(
+            project_root, [f.path for f in stored if f.path not in kept], library_key
+        )
+        store_save(project_root, facts, library_key)
+        store_save_lvproj_members(project_root, built.lvproj_members, library_key)
         result = SyncResult(facts, None, built.loaded_alone, controls)
     for f in facts:
         f.types = []  # the bodies are stored; the in-memory facts keep only ids

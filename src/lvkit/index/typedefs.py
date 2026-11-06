@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .. import cache_paths
+from ..build_options import BuildOptions
 from ..graph import load_ctl_by_path
 from ..graph.node_kinds import NodeType
 from ..graph.typedef import (
@@ -19,7 +20,12 @@ from ..graph.typedef import (
 )
 from ..run_report import RunProblems
 from .model import TypedefFacts, TypedefFieldFact, TypedefRefFact, TypedefRel
-from .store import apply_typedefs, load_typedef_dependents, load_typedef_shas
+from .store import (
+    apply_typedefs,
+    claim_libraries,
+    load_typedef_dependents,
+    load_typedef_shas,
+)
 from .types import TypeCatalog
 
 
@@ -67,15 +73,17 @@ def build_typedef_facts(
     ctl_path: Path,
     sha: str | None = None,
     run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> TypedefFacts | None:
     """The facts of one control, or None when it cannot be read: the problem is
     recorded on the control's node (and in ``run``) and nothing is stored for it,
     so it is tried and reported again on every sync. ``sha`` is the file's content
-    hash when the caller has it."""
+    hash when the caller has it; ``build`` gives the library folders the control's
+    dependencies resolve against."""
     resolved = ctl_path.resolve()
     sha = sha or cache_paths.sha256_file(resolved)
     run = run or RunProblems()
-    graph = run.new_graph(tracked=False)
+    graph = run.new_graph(tracked=False, build=build)
     try:
         _, key = load_ctl_by_path(resolved, graph=graph)
         info = graph.get_typedef(key)
@@ -119,13 +127,14 @@ def _rebuild_facts(
     current: dict[str, Path],
     shas: dict[str, str],
     run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> tuple[list[TypedefFacts], list[str]]:
     """The facts of the controls in ``to_rebuild`` and the paths of those that could
     not be read (nothing is stored for them)."""
     built: list[TypedefFacts] = []
     unreadable: list[str] = []
     for path in sorted(to_rebuild):
-        facts = build_typedef_facts(current[path], shas[path], run)
+        facts = build_typedef_facts(current[path], shas[path], run, build)
         if facts is None:
             unreadable.append(path)
         else:
@@ -139,12 +148,17 @@ def sync_typedefs(
     *,
     rebuild: bool = False,
     run: RunProblems | None = None,
+    build: BuildOptions | None = None,
 ) -> TypedefSyncResult:
     """Make the stored control facts match the files: rebuild new / changed
     controls, every control that (transitively) uses one of them -- its own
     fields/type_id are read through that dependency (or every control, when
     ``rebuild``) -- drop the ones whose file is gone (always), keep the rest,
-    and persist."""
+    and persist. ``build`` gives the library folders the controls are read with;
+    the index built with other folders is reset first, so every sync starts here
+    (a VI sync's controls are synced before its VIs are read)."""
+    library_key = (build or BuildOptions()).library_key()
+    claim_libraries(project_root, library_key)
     stored = load_typedef_shas(project_root)
     current = {str(p.resolve()): p for p in ctl_paths}
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
@@ -156,8 +170,8 @@ def sync_typedefs(
         to_rebuild = _with_dependents(
             dirty | set(deleted), current, load_typedef_dependents(project_root)
         )
-    changed, unreadable = _rebuild_facts(to_rebuild, current, shas, run)
-    apply_typedefs(project_root, changed, [*deleted, *unreadable])
+    changed, unreadable = _rebuild_facts(to_rebuild, current, shas, run, build)
+    apply_typedefs(project_root, changed, [*deleted, *unreadable], library_key)
     return TypedefSyncResult(
         controls=len(current) - len(unreadable),
         rebuilt=[t.path for t in changed],
@@ -165,15 +179,20 @@ def sync_typedefs(
     )
 
 
-def warm_typedefs(project_root: Path, ctl_paths: list[Path]) -> None:
+def warm_typedefs(
+    project_root: Path, ctl_paths: list[Path], build: BuildOptions | None = None
+) -> None:
     """Index the given controls that are new or changed, leaving every other stored
     control alone (a load that saw only some of the project's controls). Does not
     chase dependents -- a full :func:`sync_typedefs` catches those; this is a
-    best-effort top-up from a load that already has the fresh graph in hand."""
+    best-effort top-up from a load that already has the fresh graph in hand, with
+    the library folders (``build``) that load used."""
+    library_key = (build or BuildOptions()).library_key()
+    claim_libraries(project_root, library_key)
     current = {str(p.resolve()): p for p in ctl_paths}
     stored = load_typedef_shas(project_root)
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     changed_paths = {path for path in current if stored.get(path) != shas[path]}
-    changed, unreadable = _rebuild_facts(changed_paths, current, shas)
+    changed, unreadable = _rebuild_facts(changed_paths, current, shas, None, build)
     if changed or unreadable:
-        apply_typedefs(project_root, changed, unreadable)
+        apply_typedefs(project_root, changed, unreadable, library_key)

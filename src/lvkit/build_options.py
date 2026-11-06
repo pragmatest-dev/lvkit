@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .library_folders import folder_list
+from .library_folders import folder_list, library_key
 from .load_mode import LoadMode
 
 
@@ -43,6 +43,18 @@ class BuildOptions:
             f"vilib={_all(self.vilib_root)}|userlib={_all(self.userlib_root)}"
             f"|instrlib={_all(self.instrlib_root)}|search={search}"
             f"|mode={self.mode.name}|store={_one(self.project_store)}"
+        )
+
+    def library_key(self) -> str:
+        """The folders and search path as the index records them
+        (:func:`~lvkit.library_folders.library_key`)."""
+        return library_key(
+            {
+                "<vilib>": self.vilib_root,
+                "<userlib>": self.userlib_root,
+                "<instrlib>": self.instrlib_root,
+            },
+            self.search_path,
         )
 
     def build_kwargs(self) -> dict[str, Any]:

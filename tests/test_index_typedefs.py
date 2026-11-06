@@ -194,7 +194,7 @@ def test_warming_skips_controls_already_indexed(
     monkeypatch.setattr(
         typedefs_mod,
         "build_typedef_facts",
-        lambda p, sha=None, run=None: built.append(p) or real(p, sha),
+        lambda p, sha=None, run=None, build=None: built.append(p) or real(p, sha),
     )
     warm_typedefs(project, _ctls(project))
     assert built == []

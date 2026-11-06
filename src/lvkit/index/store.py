@@ -41,7 +41,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
-from .. import cache_paths
+from .. import cache_paths, library_folders
 from ..models import LVTypeKind
 from .model import (
     ClassFact,
@@ -69,7 +69,8 @@ from .store_types import (
     require_types,
 )
 
-_SCHEMA = """
+_SCHEMA = (
+    """
 CREATE TABLE IF NOT EXISTS vis (
     path TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -259,7 +260,10 @@ CREATE TABLE IF NOT EXISTS meta (
     content_sha TEXT NOT NULL,
     facts_digest TEXT NOT NULL DEFAULT ''
 );
-""" + TYPES_SCHEMA + TYPEDEFS_SCHEMA
+"""
+    + TYPES_SCHEMA
+    + TYPEDEFS_SCHEMA
+)
 
 _CHILD_TABLES = (
     "terminals",
@@ -395,11 +399,19 @@ def db_path(project_root: Path) -> Path:
     return path
 
 
-def _connect(project_root: Path) -> sqlite3.Connection:
+# The library folders of a run that has none: what a write with no folders
+# records (``library_folders.library_key`` of nothing).
+NO_LIBRARIES = library_folders.library_key({})
+
+
+def _connect(project_root: Path, library_key: str | None = None) -> sqlite3.Connection:
+    """Open the project's index DB. A WRITER passes the ``library_key`` of the
+    folders its facts were built with (every write goes through here, so none
+    can skip the check); a reader passes None and takes the DB as it is."""
     path = db_path(project_root)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
-    _ensure_facts_version(conn)
+    _ensure_facts_version(conn, library_key)
     conn.executescript(_SCHEMA)
     # Bump the slice's mtime so the access-TTL sweep keeps an index in active use
     # warm and only retires the ones for builds the user has upgraded away from.
@@ -407,7 +419,9 @@ def _connect(project_root: Path) -> sqlite3.Connection:
     return conn
 
 
-def _ensure_facts_version(conn: sqlite3.Connection) -> None:
+def _ensure_facts_version(
+    conn: sqlite3.Connection, library_key: str | None = None
+) -> None:
     """Invalidate the whole index when lvkit's facts-producing code changed.
 
     Runs at the single point every caller funnels through (``_connect``), before
@@ -420,23 +434,35 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
     of silently reusing the stale ones; NO migrate-in-place, because a derived
     cache with defaulted columns that never recompute IS the staleness bug.
 
+    Facts built with different library folders are different facts, so a writer
+    (``library_key`` given) whose folders differ from the ones the DB records --
+    or a DB that records none -- resets it the same way, and stamps its own.
+
     Deliberately additive-safe: intentionally drops and lets the caller rebuild
     rather than trying to preserve rows — the rows are all rederivable from VIs.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS index_meta ("
-        "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
+        "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL, "
+        "libraries TEXT)"
     )
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(index_meta)")}
+    if "libraries" not in columns:
+        conn.execute("ALTER TABLE index_meta ADD COLUMN libraries TEXT")
     current = _facts_fingerprint()
-    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
+    row = conn.execute(
+        "SELECT fingerprint, libraries FROM index_meta WHERE id = 0"
+    ).fetchone()
     if row is not None and row[0] == current:
-        return
+        if library_key is None or row[1] == library_key:
+            return
     for table in _ALL_TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table}")
     conn.execute(
-        "INSERT INTO index_meta(id, fingerprint) VALUES (0, ?) "
-        "ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint",
-        (current,),
+        "INSERT INTO index_meta(id, fingerprint, libraries) VALUES (0, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint, "
+        "libraries = excluded.libraries",
+        (current, library_key),
     )
     conn.commit()
 
@@ -632,7 +658,7 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
     return effective
 
 
-def _probe(project_root: Path) -> sqlite3.Connection | None:
+def _probe(project_root: Path, library_key: str) -> sqlite3.Connection | None:
     """A read-only, lock-free view of the project's current index DB, or ``None``
     when there is none to read. ``immutable`` opens the main file alone, so a
     probe creates no ``-wal``/``-shm`` files and writes nothing; a concurrent
@@ -644,20 +670,20 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
     try:
         conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
         row = conn.execute(
-            "SELECT fingerprint FROM index_meta WHERE id = 0"
+            "SELECT fingerprint, libraries FROM index_meta WHERE id = 0"
         ).fetchone()
     except sqlite3.Error:
         return None
-    if row is None or row[0] != _facts_fingerprint():
+    if row is None or row[0] != _facts_fingerprint() or row[1] != library_key:
         conn.close()
         return None
     return conn
 
 
-def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
+def _probe_is_current(project_root: Path, vis: list[VIFacts], library_key: str) -> bool:
     """True when every one of ``vis`` is already stored as-is: a save would
     write nothing, so it need not open the DB for writing at all."""
-    conn = _probe(project_root)
+    conn = _probe(project_root, library_key)
     if conn is None:
         return False
     try:
@@ -668,7 +694,18 @@ def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
         conn.close()
 
 
-def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
+def claim_libraries(project_root: Path, library_key: str) -> None:
+    """Record that the facts about to be written are built with these library
+    folders: an index built with other folders is reset first. A sync calls this
+    before it reads what is stored, so it never refreshes facts of other folders."""
+    _connect(project_root, library_key).close()
+
+
+def save(
+    project_root: Path,
+    vis: Iterable[VIFacts],
+    library_key: str = NO_LIBRARIES,
+) -> None:
     """Upsert the given ``VIFacts`` rows into the project's index DB.
 
     A VI whose stored row is already current is not touched (see
@@ -680,9 +717,9 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     the one exception filled at merge, like impact_score.)
     """
     pending = list(vis)
-    if not pending or _probe_is_current(project_root, pending):
+    if not pending or _probe_is_current(project_root, pending, library_key):
         return
-    conn = _connect(project_root)
+    conn = _connect(project_root, library_key)
     try:
         with conn:
             for incoming in pending:
@@ -845,12 +882,14 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
     )
 
 
-def delete(project_root: Path, paths: Iterable[str]) -> None:
+def delete(
+    project_root: Path, paths: Iterable[str], library_key: str = NO_LIBRARIES
+) -> None:
     """Delete every row belonging to each given VI path from the index DB.
 
     Used by an incremental refresh to drop VIs whose ``.vi`` file is gone.
     """
-    conn = _connect(project_root)
+    conn = _connect(project_root, library_key)
     try:
         with conn:
             for path in paths:
@@ -892,11 +931,14 @@ def load_typedef_shas(project_root: Path) -> dict[str, str]:
 
 
 def apply_typedefs(
-    project_root: Path, changed: Iterable[TypedefFacts], deleted: Iterable[str]
+    project_root: Path,
+    changed: Iterable[TypedefFacts],
+    deleted: Iterable[str],
+    library_key: str = NO_LIBRARIES,
 ) -> None:
     """Replace the ``changed`` controls' rows and drop the ``deleted`` ones, in one
     transaction with one collection of the types nothing uses any more."""
-    conn = _connect(project_root)
+    conn = _connect(project_root, library_key)
     try:
         with conn:
             for path in deleted:
@@ -910,6 +952,7 @@ def apply_typedefs(
 def save_lvproj_members(
     project_root: Path,
     members: Iterable[LVProjMemberFact],
+    library_key: str = NO_LIBRARIES,
 ) -> None:
     """Replace the project's ``.lvproj`` membership rows wholesale.
 
@@ -919,7 +962,7 @@ def save_lvproj_members(
     reinserts, keeping it consistent with the current set of ``.lvproj`` files
     (added/removed projects, moved members) on every build/refresh.
     """
-    conn = _connect(project_root)
+    conn = _connect(project_root, library_key)
     try:
         with conn:
             conn.execute("DELETE FROM lvproj_members")

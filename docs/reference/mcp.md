@@ -48,7 +48,10 @@ against, not something the agent calls through MCP.
 
 `index` builds a persisted, **path-keyed** facts index for the enclosing project
 (so same-named VIs like `setUp.vi` ×17 never collide); the rest read it in sub-ms.
-All take a `project` path (any file/dir inside the repo).
+All take a `project` path (any file/dir inside the repo). `index` and `query` also
+take `vilib`, `userlib` and `instrlib` (the folders a recorded `<vilib>`/`<userlib>`/
+`<instrlib>` dependency path starts from); the index records them, and a call with
+other folders rebuilds it.
 
 | Tool | Description |
 |------|-------------|
