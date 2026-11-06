@@ -23,6 +23,7 @@ from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
 from .models import (
     AnyGraphNode,
@@ -124,6 +125,7 @@ class QueryMixin:
         def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
         def class_type_key(self, lv_type: LVType) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
+        def _locate_recorded(self, candidate: Path, leaf: str) -> Path | None: ...
         def key_label(self, key: str) -> str: ...
         def listed_members(
             self, container_key: str
@@ -241,10 +243,29 @@ class QueryMixin:
         ]
 
     def recorded_ref(self, key: str, caller: str) -> ParsedDependencyRef | None:
-        """The path ``caller`` recorded for the dependency ``key``, exactly as
-        recorded (its tokens and path type); None when ``caller`` recorded none
-        for it."""
-        return self._recorded.recorded_by(key, caller)
+        """The path ``caller`` stores for the dependency ``key``, exactly as
+        stored (its tokens and path type; a class method's is its class's path);
+        None when ``caller`` stored none for it."""
+        return self._recorded.stored_by(key, caller)
+
+    def found_elsewhere(self, key: str, caller: str) -> Path | None:
+        """Where the file of ``key`` is when it is not at any place ``caller``'s
+        record for it points to on this machine (it was found on the VI search
+        path); None when it is there, or the file or the record is missing."""
+        ref = self._recorded.recorded_by(key, caller)
+        caller_file = self.get_vi_source_path(caller)
+        file = self._dependency_file_path(key)
+        if ref is None or caller_file is None or file is None or not file.is_file():
+            return None
+        resolved = file.resolve()
+        try:
+            for candidate in self.recorded_candidates(ref, caller_file):
+                at = self._locate_recorded(candidate, ref.name)
+                if at is not None and at.resolve() == resolved:
+                    return None
+        except AmbiguousVIReferenceError:
+            return None
+        return resolved
 
     def recorded_candidates(
         self, ref: ParsedDependencyRef, caller_file: Path

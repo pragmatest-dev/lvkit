@@ -147,15 +147,16 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
     graph, key = load_corpus_vi(vi)
     netlist = build_netlist_from_graph(graph, key)
-    # The VI names the method through its class: it stores the class's path, none
-    # for the method itself.
+    # The VI names the method through its class: the path it stores is the
+    # class's.
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
     ] == [
         (
             "ni.measurementlink.measurement.v1.api.lvlib:MeasurementServiceBaseV1"
             ".lvclass:Destroy.vi",
-            None,
+            "../../../gRPC/Generated APIs/ni/measurementlink/measurement/v1"
+            "/RPC Service/MeasurementService/MeasurementServiceBaseV1.lvclass",
         )
     ]
     (call,) = [

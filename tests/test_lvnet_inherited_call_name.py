@@ -26,9 +26,8 @@ def _subvis(vi: Path) -> dict[str, str | None]:
 @pytest.mark.needs_samples
 def test_inherited_method_declared_with_owning_class() -> None:
     subvis = _subvis(_ROOT / "Tests" / "MyFirstTest" / "testDemo.vi")
-    # The VI stores the class's path for a method it names through its class,
-    # not a path of the method: no path.
-    assert subvis == {"TestCase.lvclass:failUnlessEqual.vi": None}
+    # The VI stores the class's path for a method it names through its class.
+    assert subvis == {"TestCase.lvclass:failUnlessEqual.vi": "./MyFirstTest.lvclass"}
 
 
 @pytest.mark.needs_samples
@@ -39,6 +38,6 @@ def test_direct_calls_and_a_same_named_member_of_the_callers_class() -> None:
     # nor the ancestor's run.vi is declared.
     assert subvis["TestCase.lvclass:run.vi"] == "../TestCase/run.vi"
     assert subvis["TestSuite.lvclass:run.vi"] == "../TestSuite/run.vi"
-    assert subvis["TextTestRunner.lvclass:makeResult.vi"] is None
+    assert subvis["TextTestRunner.lvclass:makeResult.vi"] == "./TextTestRunner.lvclass"
     assert "TestRunner.lvclass:run.vi" not in subvis
     assert "run.vi" not in subvis

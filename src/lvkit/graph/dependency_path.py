@@ -12,12 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lvkit.graph.errors import AmbiguousVIReferenceError
 from lvkit.stored_path import to_stored
 
 if TYPE_CHECKING:
     from lvkit.graph.core import InMemoryVIGraph
-    from lvkit.parser.models import ParsedDependencyRef
 
 
 @dataclass(frozen=True)
@@ -43,26 +41,16 @@ def dependency_path(graph: InMemoryVIGraph, key: str, caller: str) -> Dependency
         installed = graph.recorded_path(key)
         stored = to_stored(installed.split("/"), None) if installed else None
     missing = graph.is_stub(key)
-    found = None if missing or ref is None else _found(graph, key, caller, ref)
+    found = None if missing or ref is None else _found(graph, key, caller)
     return DependencyPath(stored, missing, found)
 
 
-def _found(
-    graph: InMemoryVIGraph, key: str, caller: str, ref: ParsedDependencyRef
-) -> str | None:
-    """The file's path from ``caller``'s folder when it is not at any place
-    ``ref`` points to on this machine (it was found on the VI search path)."""
+def _found(graph: InMemoryVIGraph, key: str, caller: str) -> str | None:
+    """The file's path from ``caller``'s folder when it was found on the VI search
+    path, not where the record points."""
+    resolved = graph.found_elsewhere(key, caller)
     caller_file = graph.get_vi_source_path(caller)
-    file = graph._dependency_file_path(key)  # noqa: SLF001
-    if caller_file is None or file is None or not file.is_file():
-        return None
-    resolved = file.resolve()
-    try:
-        for candidate in graph.recorded_candidates(ref, caller_file):
-            at = graph._locate_recorded(candidate, ref.name)  # noqa: SLF001
-            if at is not None and at.resolve() == resolved:
-                return None
-    except AmbiguousVIReferenceError:
+    if resolved is None or caller_file is None:
         return None
     try:
         shown = Path(os.path.relpath(resolved, caller_file.resolve().parent))

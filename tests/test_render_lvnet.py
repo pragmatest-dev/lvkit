@@ -50,7 +50,7 @@ vi loadTestsFromTestCase.vi :
   uses :
     class TestCase.lvclass                       ; ../TestCase/TestCase.lvclass
     subVI TestCase.lvclass:TestCase_Init.vi      ; ../TestCase/TestCase_Init.vi
-    subVI TestCase.lvclass:listAllTestMethods.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ../TestCase/TestCase.lvclass
     class TestLoader.lvclass                     ; ./TestLoader.lvclass
     class TestSuite.lvclass                      ; ../TestSuite/TestSuite.lvclass
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ../TestSuite/TestSuite_Init.vi
@@ -277,7 +277,7 @@ vi loadTestsFromTestCase.vi :
       in   error in (no error)    : Error
       out  TestCase out           : TestCase.lvclass
       out  error out              : Error
-    subVI TestCase.lvclass:listAllTestMethods.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ../TestCase/TestCase.lvclass
       in   TestCase in         : TestCase.lvclass
       in   error in (no error) : Error
       out  TestCase out        : TestCase.lvclass

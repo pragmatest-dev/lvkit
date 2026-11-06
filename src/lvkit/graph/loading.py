@@ -744,9 +744,13 @@ class LoadingMixin:
         and every dependency, resolved or not, records when its load returns. A
         class method's record names its class, not the method (``class_owner_ref``):
         the method's path follows from the class that lists it, so it records
-        none."""
+        none. The path as stored is kept apart (``note_stored``) for showing."""
         if dep_ref is None or not dep_ref.path_tokens:
             return
+        if caller_key is not None and caller_key != key:
+            self._recorded.note_stored(
+                key, caller_key, list(dep_ref.path_tokens), dep_ref.path_type
+            )
         if class_owner_ref(qualified_name, dep_ref) is not None:
             return
         leaf = qualified_name.rsplit(":", 1)[-1]

@@ -72,6 +72,7 @@ def _loaded(
     graph._dep_graph.add_node(key, qname=file.name, node_type=NodeType.VI)  # noqa: SLF001
     graph._dep_graph.add_edge(caller, key)  # noqa: SLF001
     graph._recorded.record(key, caller, tokens, kind)  # noqa: SLF001
+    graph._recorded.note_stored(key, caller, tokens, kind)  # noqa: SLF001
     return key
 
 
@@ -80,6 +81,7 @@ def _absent(
 ) -> None:
     graph._add_stub(qname, NodeType.VI, qname, qname, caller=caller)  # noqa: SLF001
     graph._recorded.record(qname, caller, tokens, None)  # noqa: SLF001
+    graph._recorded.note_stored(qname, caller, tokens, None)  # noqa: SLF001
 
 
 def _manifest(tmp_path: Path) -> list[NetlistDependency]:

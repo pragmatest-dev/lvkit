@@ -131,6 +131,10 @@ class RecordedPaths:
     def __init__(self, dep_graph: nx.DiGraph) -> None:
         self._dep_graph = dep_graph
         self._references: dict[str, set[_Reference]] = {}
+        # What each caller stores for each key, exactly as stored (never moved to a
+        # member's file, and including a class method's class path): for showing,
+        # never for placing.
+        self._stored: dict[tuple[str, str], _Reference] = {}
         # The round a key settled in and its resolved tokens (round 0 and None for
         # a key with no path), valid while the references and the ownership edges
         # are as they were (``_stamp``).
@@ -141,6 +145,7 @@ class RecordedPaths:
 
     def clear(self) -> None:
         self._references.clear()
+        self._stored.clear()
         self._settled.clear()
         self._stamp = (-1, -1)
         self._recorded = 0
@@ -165,6 +170,35 @@ class RecordedPaths:
         if reference not in references:
             references.add(reference)
             self._recorded += 1
+
+    def note_stored(
+        self,
+        key: str,
+        caller: str,
+        tokens: list[str],
+        path_type: int | None = None,
+    ) -> None:
+        """Remember the path ``caller`` stores for ``key`` exactly as stored. It
+        takes no part in resolution. When a caller stores several, the smallest
+        (``_order``) is kept."""
+        if not tokens:
+            return
+        new = _Reference(caller, tuple(tokens), path_type)
+        old = self._stored.get((key, caller))
+        if old is None or _order(list(new.tokens)) < _order(list(old.tokens)):
+            self._stored[(key, caller)] = new
+
+    def stored_by(self, key: str, caller: str) -> ParsedDependencyRef | None:
+        """The path ``caller`` stores for ``key``, exactly as stored (a class
+        method's is its class's path); None when it stored none."""
+        chosen = self._stored.get((key, caller))
+        if chosen is None:
+            return None
+        return ParsedDependencyRef(
+            name=chosen.tokens[-1],
+            path_tokens=list(chosen.tokens),
+            path_type=chosen.path_type,
+        )
 
     def owners_changed(self) -> None:
         """The loader added an ownership edge (a class or library to a member): the

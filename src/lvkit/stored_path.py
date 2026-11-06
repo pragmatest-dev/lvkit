@@ -16,9 +16,10 @@ that records it). ``to_stored`` writes them, ``from_stored`` reads them back:
 - anything else: the tokens joined by ``/``.
 
 ``from_stored`` returns the tokens and the path type (0, 1, or None for a pseudo
-or bare path). Reading ``../../x`` gives two further empty tokens where the
-record may have had a literal ``..``: the same folder, and writing it again gives
-the same string.
+or bare path). A relative record with no path type (``path_type is None``) is
+written as relative and reads back as type 1. Reading ``../../x`` gives two
+further empty tokens where the record may have had a literal ``..``: the same
+folder, and writing it again gives the same string.
 """
 
 from __future__ import annotations

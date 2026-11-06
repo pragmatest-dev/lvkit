@@ -120,6 +120,7 @@ def test_an_lvnet_uses_line_shows_a_library_file_by_its_library_path(
     for dep, (tokens, path_type) in stored.items():
         graph._dep_graph.add_edge(caller, dep)  # noqa: SLF001
         graph._recorded.record(dep, caller, tokens, path_type)  # noqa: SLF001
+        graph._recorded.note_stored(dep, caller, tokens, path_type)  # noqa: SLF001
     paths = {d.qualified: d.path for d in _build_dependency_manifest(graph, caller)}
     assert paths == {
         "Delete.vi": "<userlib>/_OpenG.lib/file/Delete.vi",

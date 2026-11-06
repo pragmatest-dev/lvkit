@@ -145,7 +145,7 @@ def test_method_in_a_class_subfolder_is_declared_once_by_its_file(tree: _Tree) -
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Sub.lvclass:Run.vi", None)]
+    assert declared == [("Sub.lvclass:Run.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
     assert not any(k.endswith("/Sub/Run.vi") for k in graph.get_vi_dependencies(key))
@@ -158,7 +158,7 @@ def test_inherited_method_is_declared_by_the_parents_file(tree: _Tree) -> None:
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Base.lvclass:Stop.vi", None)]
+    assert declared == [("Base.lvclass:Stop.vi", "./Child/Child.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Base/Stop.vi")
 
@@ -167,7 +167,9 @@ def test_method_the_class_declares_itself_is_not_the_parents(tree: _Tree) -> Non
     graph, key = _load(tree, "caller_over.vi")
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Over/Stop.vi")
-    assert _uses(tree, "caller_over.vi") == ["subVI Over.lvclass:Stop.vi"]
+    assert _uses(tree, "caller_over.vi") == [
+        "subVI Over.lvclass:Stop.vi ; ./Over/Over.lvclass"
+    ]
 
 
 def _plain(name: str) -> bytes:
@@ -224,7 +226,7 @@ def test_vipi_with_an_owner_chain_declares_the_real_file(tree: _Tree) -> None:
         if d.kind.value == "subVI"
     ]
     # The block-diagram record and the VI-level record are one call: one file.
-    assert declared == [("Sub.lvclass:Run.vi", None)]
+    assert declared == [("Sub.lvclass:Run.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
 
@@ -286,7 +288,7 @@ def test_method_no_class_of_the_chain_lists_has_no_invented_path(tree: _Tree) ->
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Sub.lvclass:Gone.vi", None)]
+    assert declared == [("Sub.lvclass:Gone.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     stub = call.callee_key
     assert stub == f"Sub.lvclass@{_key(tree, 'Sub/Sub.lvclass')}:Gone.vi"
