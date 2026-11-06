@@ -63,7 +63,7 @@ def disabled_frame_value(label: str, kind: DisableStructureKind) -> str:
 
 
 def _frame_output_drive(
-    drive: ParsedDrive, frame: str, registry: Registry
+    drive: ParsedDrive, frame: str, position: int, registry: Registry
 ) -> FrameOutputDrive:
     return FrameOutputDrive(
         net=drive.net,
@@ -71,22 +71,21 @@ def _frame_output_drive(
         value=require_netref(
             parse_source_token(drive.source, registry), f"{drive.net} drive"
         ),
+        position=position,
     )
 
 
-def _in_tunnel_order(
-    drives: Sequence[FrameDrive], frame_values: list[str]
-) -> list[ScopeOutput]:
+def _in_tunnel_order(drives: Sequence[FrameDrive]) -> list[ScopeOutput]:
     """The per-frame drives in the order the structure's builder makes them:
     sequence locals, then output tunnels; each by the number ending its net,
-    then by frame. The text lists them frame by frame."""
+    then by frame position. The text lists them frame by frame."""
 
     def key(drive: FrameDrive) -> tuple[int, int, int]:
         m = _TRAILING_NUMBER_RE.search(drive.net)
         return (
             int(isinstance(drive, FrameOutputDrive)),
             int(m.group(1)) if m else 0,
-            frame_values.index(drive.frame),
+            drive.position,
         )
 
     return list(sorted(drives, key=key))
@@ -108,12 +107,14 @@ def sequence_outputs(
     """A Sequence's sequence locals and frame output drives; ``values`` is each
     frame's value."""
     drives: list[FrameDrive] = []
-    for frame, value in zip(frames, values, strict=True):
+    for position, (frame, value) in enumerate(zip(frames, values, strict=True)):
         for d in frame.drives:
             reason = _sequence_local_unreadable_reason(d.source)
             if reason is not None:
                 drives.append(
-                    SequenceLocalUnreadable(net=d.net, frame=value, reason=reason)
+                    SequenceLocalUnreadable(
+                        net=d.net, frame=value, reason=reason, position=position
+                    )
                 )
             elif d.kind is DriveKind.SEQUENCE_LOCAL:
                 drives.append(
@@ -124,11 +125,12 @@ def sequence_outputs(
                             parse_source_token(d.source, registry),
                             f"{d.net} drive",
                         ),
+                        position=position,
                     )
                 )
             else:
-                drives.append(_frame_output_drive(d, value, registry))
-    return _in_tunnel_order(drives, values)
+                drives.append(_frame_output_drive(d, value, position, registry))
+    return _in_tunnel_order(drives)
 
 
 def case_outputs(
@@ -137,10 +139,14 @@ def case_outputs(
     """A Case structure's output tunnels: one ``GammaMerge`` per net, with the
     source each frame (keyed by ``keys``) drives onto it."""
     cases_by_net: dict[str, list[GammaCase]] = {}
-    for frame, key in zip(frames, keys, strict=True):
+    for position, (frame, key) in enumerate(zip(frames, keys, strict=True)):
         for d in frame.drives:
             cases_by_net.setdefault(d.net, []).append(
-                GammaCase(frame_key=key, source=parse_source_token(d.source, registry))
+                GammaCase(
+                    frame_key=key,
+                    source=parse_source_token(d.source, registry),
+                    position=position,
+                )
             )
     return [
         GammaMerge(net=net, selector=None, cases=cases)
@@ -154,8 +160,8 @@ def event_outputs(
     """An Event Structure's output tunnels (a ``GammaMerge`` each) followed by the
     frames that drive the dynamic pair's right terminal."""
     dynamic = [
-        _frame_output_drive(d, label, registry)
-        for frame, label in zip(frames, labels, strict=True)
+        _frame_output_drive(d, label, position, registry)
+        for position, (frame, label) in enumerate(zip(frames, labels, strict=True))
         for d in frame.drives
         if d.kind is DriveKind.EVENT_DYNAMIC
     ]

@@ -349,10 +349,8 @@ class NetlistFrame:
     # raw index for a sequence frame. What ``render_lvnet`` prints.
     label: str
     # The raw selector value (case) / index (sequence), always ``str()``.
-    # Kept SEPARATE from ``label`` because ``diff.py`` keys frames across two
-    # VI versions, and encodes ``data-path`` for the SVG (``_extend_frame_path``/
-    # ``render/scene.py::encode_frame_path``) by this raw token -- identity
-    # must stay stable even when the display label is enum-name-aware.
+    # Kept SEPARATE from ``label``, which is enum-name-aware; the lvnet text
+    # and JSON write both.
     value: str
     is_default: bool
     body: list[NetlistItem]
@@ -415,11 +413,14 @@ class GammaCase:
     producer net, or the tunnel's type ``DefaultValue`` when the frame left
     it unwired (LabVIEW routes the type default through, per LV's own
     "use default if unwired" tunnel semantics -- never omitted, never
-    fabricated as a wire that doesn't exist).
+    fabricated as a wire that doesn't exist). ``position`` is the frame's
+    place in the scope's ``frames``: it, not the label, says which frame a
+    case belongs to, since two frames can carry one label.
     """
 
     frame_key: str
     source: NetRef | DefaultValue
+    position: int
 
 
 @dataclass(frozen=True)
@@ -513,11 +514,13 @@ class SequenceLocalDrive:
     named net (``sequence_<uid>.local<K>``, ``K`` the local's position in the
     structure's list) driven by ``value`` inside frame ``frame`` (the frame's
     ``NetlistFrame.value``). A reader in a later frame references the same
-    net (see ``netlist_build._sequence_local_net_name_gn``)."""
+    net (see ``netlist_build._sequence_local_net_name_gn``). ``position`` is
+    that frame's place in the scope's ``frames``."""
 
     net: str
     frame: str
     value: NetRef
+    position: int
 
 
 @dataclass(frozen=True)
@@ -525,11 +528,13 @@ class SequenceLocalUnreadable:
     """A sequence local whose wiring LabVIEW does not allow (see
     ``SequenceLocalLink.unreadable``): the net's reason, shown in the first
     frame ``frame`` where the local has a wired terminal. Readers still
-    reference the net."""
+    reference the net. ``position`` is that frame's place in the scope's
+    ``frames``."""
 
     net: str
     frame: str
     reason: str
+    position: int
 
 
 @dataclass(frozen=True)
@@ -538,11 +543,14 @@ class FrameOutputDrive:
     the net (``sequence_<uid>.out<K>``, or ``event_<uid>.dynamic`` for the right
     terminal of an Event Structure's dynamic pair) driven by ``value`` inside
     frame ``frame`` (the frame's ``NetlistFrame.value``). Only a frame that wires
-    the tunnel has one -- data leaves each frame as it finishes."""
+    the tunnel has one -- data leaves each frame as it finishes. ``position`` is
+    that frame's place in the scope's ``frames``: it, not ``frame``, says which
+    frame drives the net, since two frames can carry one value."""
 
     net: str
     frame: str
     value: NetRef
+    position: int
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@
 Methods: top_level_nodes, child_nodes, enriched_terminals,
 _tunnels_from_terminals, _enrich_subvi_terminals_typed, _get_slot_to_name,
 _sort_inner_uids, _get_children_of. Also exports the module-level
-``frame_key`` helper.
+``frame_key`` and ``shown_frame_value`` helpers.
 
 These are the graph-native tree-walk ergonomics a generator uses to walk
 ``top_level_nodes`` -> ``child_nodes`` and read ``enriched_terminals``,
@@ -12,6 +12,7 @@ consuming ``GraphNode``s directly.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import networkx as nx
@@ -336,25 +337,59 @@ class OperationsMixin:
 
 
 def frame_key(frame: Frame, position: int) -> str | int | None:
-    """The match key a structure's children are grouped by, for pairing a
-    given ``Frame`` object with the ``GraphNode``s that live inside it: a
-    case/disable frame's raw ``selector_value``, a sequence frame's
-    ``str(index)``, an event frame's ``str(position)`` (its LIST POSITION,
-    not its own ``.index`` -- an event frame carries no selector of its own,
-    so ``construction.py``'s ``_stamp`` keys its children by diagram-order
-    position instead). ``None`` for any other ``Frame`` subtype (there are
-    currently only these three -- see ``models.Frame``).
+    """The key a structure's children are grouped by, for pairing a given
+    ``Frame`` object with the ``GraphNode``s that live inside it: a case,
+    disable or event frame's ``str(position)`` (its place in the structure's
+    ``frames`` list, the diagram order ``construction.py``'s ``_stamp`` keys
+    the children by), a sequence frame's ``str(index)``. ``None`` for any
+    other ``Frame`` subtype (there are currently only these three -- see
+    ``models.Frame``).
 
-    Single-sourced here so ``codegen.context.CodeGenContext.frame_children``,
-    ``graph.describe``'s frame/child matching, ``graph.diff``'s element
-    correlation, and the netlist builder's frame-child lookup all group a
-    structure's children the SAME way -- this used to be reimplemented (with
-    subtly different fallback ordering) in all four places.
+    A frame is keyed by position, not by its name, so two frames that carry
+    the same selector value still hold only their own nodes. The name is what
+    every view SHOWS (:func:`shown_frame_value`).
+
+    ``codegen.context.CodeGenContext.frame_children``, ``graph.describe``'s
+    frame/child matching, ``graph.diff``'s element correlation, and the
+    netlist builder's frame-child lookup all group a structure's children by
+    this one key.
     """
-    if isinstance(frame, CaseFrame):
-        return frame.selector_value
+    if isinstance(frame, CaseFrame | EventFrame):
+        return str(position)
     if isinstance(frame, SequenceFrame):
         return str(frame.index)
-    if isinstance(frame, EventFrame):
-        return str(position)
     return None
+
+
+def shown_frame_value(
+    frames: Sequence[Frame], key: str | int | None
+) -> str | int | None:
+    """The value a view shows for the frame of ``frames`` whose
+    :func:`frame_key` is ``key``: a case or disable frame's selector value;
+    a sequence or event frame shows its key. ``key`` itself when no frame
+    has that key (``None`` for a node in no frame)."""
+    for position, frame in enumerate(frames):
+        if frame_key(frame, position) == key:
+            return frame.selector_value if isinstance(frame, CaseFrame) else key
+    return key
+
+
+def structure_frames(node: object | None) -> Sequence[Frame]:
+    """The frames of a frame-bearing structure node; empty for any other node
+    (a loop, an In Place Element) and for ``None``."""
+    return getattr(node, "frames", None) or []
+
+
+def frame_position(frames: Sequence[Frame], key: str | int | None) -> int | None:
+    """The position in ``frames`` of the frame whose :func:`frame_key` is
+    ``key`` -- how a view addresses a frame within one VI; ``None`` when no
+    frame has that key (a node in no frame)."""
+    for position, frame in enumerate(frames):
+        if frame_key(frame, position) == key:
+            return position
+    return None
+
+
+def position_of(frames: Sequence[Frame], frame: Frame) -> int:
+    """The position of ``frame`` itself (by identity) in ``frames``."""
+    return next(i for i, f in enumerate(frames) if f is frame)

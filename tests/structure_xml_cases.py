@@ -79,7 +79,7 @@ def case_xml(*, wire_selector: bool = True, read_input: bool = False) -> str:
         '<SL__arrayElement class="caseStruct" uid="600">'
         f'<termList elements="3">{outer}</termList>'
         f'<diagramList elements="2">{false_frame}{in_frame}</diagramList>'
-        f'{_selector_xml("boolean", BOOLEAN_FRAMES, True)}</SL__arrayElement>'
+        f"{_selector_xml('boolean', BOOLEAN_FRAMES, True)}</SL__arrayElement>"
     )
     wires = [wire(901, 701, 620), wire(902, 640, 633), wire(904, 630, READER + 3)]
     if wire_selector:
@@ -246,10 +246,16 @@ def event_xml() -> str:
     )
 
 
-def conditional_disable_xml(*, type_specialization: bool = False) -> str:
+def conditional_disable_xml(
+    *,
+    type_specialization: bool = False,
+    operator: str = "FD",
+    condition: tuple[list[str], str] | None = None,
+) -> str:
     """The Disable Structure of ``disable_xml`` as a Conditional Disable (frame 0
-    is ``TARGET==a"b``, frame 1 the Default) or, with ``type_specialization``, a
-    Type Specialization Structure."""
+    is ``TARGET <operator> a"b``, ``FD`` being ``==``, or ``condition``'s strings
+    and expression tree; frame 1 the Default) or, with ``type_specialization``,
+    a Type Specialization Structure."""
     border = [
         tunnel("commentTun", 3020, 3023, [3021, 3022]),
     ]
@@ -259,7 +265,11 @@ def conditional_disable_xml(*, type_specialization: bool = False) -> str:
         3000,
         border,
         [first, default],
-        conditions=None if type_specialization else [["TARGET", 'a"b'], []],
+        conditions=None
+        if type_specialization
+        else [condition[0] if condition else ["TARGET", 'a"b'], []],
+        operators=None if type_specialization else [operator, operator],
+        trees=[condition[1], None] if condition else None,
         type_specialization=type_specialization,
     )
     return root_diagram(

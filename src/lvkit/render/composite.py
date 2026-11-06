@@ -41,6 +41,7 @@ from .glyphs.structures.base import ERROR_BORDER_W
 from .glyphs.structures.factory import structure_body_glyph
 from .glyphs.structures.selectable import SelectableStructureGlyph, SelectorState
 from .scene import (
+    FramePath,
     RenderDecoration,
     RenderFPTerminal,
     RenderNode,
@@ -531,14 +532,9 @@ def build_render_tree(scene: Scene) -> DiagramObject:
 
     interactive_structures: list[StructureObject] = []
 
-    def _node_frame(rn: RenderNode) -> str | None:
-        return str(rn.node.frame) if rn.node.frame is not None else None
-
-    def _struct_frame(rs: RenderStructure) -> str | None:
-        return str(rs.node.frame) if rs.node.frame is not None else None
-
-    def _wire_frame(net: RenderWireNet, container: str | None) -> str | None:
-        for s, v in net.frame_path:
+    def _frame_in(path: FramePath, container: str | None) -> str | None:
+        """The frame of ``container`` an item's frame path places it in."""
+        for s, v in path:
             if s == container:
                 return v
         return None
@@ -549,11 +545,11 @@ def build_render_tree(scene: Scene) -> DiagramObject:
         # z-ordered children (nodes + nested structures) for this diagram.
         ranked: list[tuple[int, RenderObject]] = []
         for rn in nodes_by_container.get(container, []):
-            if interactive and _node_frame(rn) != frame:
+            if interactive and _frame_in(rn.frame_path, container) != frame:
                 continue
             ranked.append((rank(rn.dom_id), NodeObject(rn)))
         for rs in structs_by_container.get(container, []):
-            if interactive and _struct_frame(rs) != frame:
+            if interactive and _frame_in(rs.frame_path, container) != frame:
                 continue
             ranked.append((rank(rs.raw_uid), _build_structure(rs)))
         # Decorations (Flat Frame / Line / Arrow) interleave by z-order like
@@ -577,7 +573,7 @@ def build_render_tree(scene: Scene) -> DiagramObject:
         nets = [
             net
             for net in nets_by_container.get(container, [])
-            if not interactive or _wire_frame(net, container) == frame
+            if not interactive or _frame_in(net.frame_path, container) == frame
         ]
 
         # Draw wires in LabVIEW's signalList paint order (Scene.wire_z, keyed by

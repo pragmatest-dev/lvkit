@@ -1716,7 +1716,10 @@ def _build_case_outputs_gn(
     gammas: list[GammaMerge] = []
     for k, outer in enumerate(outers):
         cases: list[GammaCase] = []
-        for raw_frame, nl_frame in zip(node.frames, frames, strict=True):
+        for i, (raw_frame, nl_frame) in enumerate(
+            zip(node.frames, frames, strict=True)
+        ):
+            key = frame_key(raw_frame, i)
             inner = next(
                 (
                     t
@@ -1724,7 +1727,7 @@ def _build_case_outputs_gn(
                     if isinstance(t, TunnelTerminal)
                     and t.boundary == "inner"
                     and t.paired_id == outer.id
-                    and t.frame == raw_frame.selector_value
+                    and t.frame == key
                 ),
                 None,
             )
@@ -1737,8 +1740,8 @@ def _build_case_outputs_gn(
                 inner,
                 outer,
             )
-            frame_key = "default" if nl_frame.is_default else nl_frame.label
-            cases.append(GammaCase(frame_key=frame_key, source=source))
+            label = "default" if nl_frame.is_default else nl_frame.label
+            cases.append(GammaCase(frame_key=label, source=source, position=i))
         gammas.append(
             GammaMerge(net=f"case_{case_uid}.out{k}", selector=selector, cases=cases)
         )
@@ -1946,6 +1949,7 @@ def _build_sequence_scope_gn(
                     net=f"sequence_{seq_uid}.local{k}",
                     frame=frames[link.unreadable_frame].value,
                     reason=link.unreadable,
+                    position=link.unreadable_frame,
                 )
             )
             continue
@@ -1958,6 +1962,7 @@ def _build_sequence_scope_gn(
                     net=f"sequence_{seq_uid}.local{k}",
                     frame=frames[link.write_frame].value,
                     value=value,
+                    position=link.write_frame,
                 )
             )
     wires = _wires_gn(graph, ctx, vi_name, build_ctx)

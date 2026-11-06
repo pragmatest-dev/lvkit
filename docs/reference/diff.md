@@ -171,7 +171,7 @@ losing or gaining a connection, with no node add/remove alongside it — still
 renders its own `sink = source` line, and a REMOVED wire always renders even
 when nothing else at that containment depth changed; see [Netlist: Diff
 annotations](netlist.md#diff-annotations) for a worked example. (A constant
-edited IN PLACE — same UID, new value — reads as its own instance line like
+edited IN PLACE — same UID, new value or type — reads as its own instance line like
 any other modified node, since it's tracked in the UID-keyed change map by
 its stable UID; only an ADDED or REMOVED constant, which has no UID of its
 own to key on, goes through the separate name/value-matched list and keeps
@@ -191,7 +191,8 @@ lvkit diff "Convert File Extension (String)__ogtk.vi" "Convert File Extension (P
 ```
 
 Prints the diff engine's `ChangeMap` as JSON: `{"changes": [...], "common_nodes":
-N}` — no other top-level keys. `changes` has one entry per added/removed/
+N, "frame_pairs": [...], "before": {...}, "after": {...}}` (`before`/`after` name
+and locate the two VIs) — no other top-level keys. `changes` has one entry per added/removed/
 modified node, wire, structure, constant, FP control/indicator (`kind:
 "terminal"`), or VI-level facet (`kind: "property"`/`"connector_pane"` — the
 VI's own Properties/connector-pane interface, rendered as ordinary entries
@@ -203,7 +204,22 @@ always `null` for a property/connector_pane entry, which has no diagram
 element of its own). A property entry's `uid` is `property:{raw_field}` (the
 underlying `VIProperties`/`KindProps` field name, e.g. `property:lock_state`
 — not its curated `label`, e.g. `"lock"`); `common_nodes` is the count of
-nodes matched unchanged across both VIs. **VI health is never diffed** — it's
+nodes matched unchanged across both VIs. An entry inside a case, Diagram
+Disable, event or stacked-sequence frame says where it is in each version:
+`location_after` and `location_before` list, outermost first, every frame it
+is inside as `{"structure": "<uid>", "frame": <position>, "value": ...}` —
+`frame` is the frame's position in its structure (0 for the first), `value`
+the list of values the frame shows. `[]` as the location means the VI's own
+diagram, including inside a loop or flat sequence there; `null` means the
+element is not in that version (an added element
+has no `location_before`, a removed one no `location_after`). `frame_pairs` is a
+list with one `{"before": "<uid>", "after": "<uid>", "pairs": [...]}` per
+structure matched across the versions (its uid in each version; they differ
+when LabVIEW gave the structure a new uid and the diff matched it by its
+wiring);
+`pairs` lists the frames that are
+the same frame in both versions, as `[before position, after position]` —
+matched by value, then by contents; an added or removed frame has no pair. **VI health is never diffed** — it's
 an emergent characteristic, not an authored change (`describe`/the index
 still surface it) — so no `kind: "health"` entry, and no `health:`-prefixed
 `uid`, ever appears in this JSON. This is the same change map `--format html`
@@ -239,18 +255,18 @@ in a review, or hosted as a static CI artifact.
   case.
 - Independent zoom (toolbar buttons, `+`/`-` keys, or Ctrl/Cmd+scroll) is
   shared across all four view modes.
-- The URL fragment encodes the selected change, view mode, change-list mode,
-  and per-structure frame selection
-  (`#c=N&view=overlay&list=tree&frame=UID=VALUE`), so a link into the viewer
-  can deep-link straight to a specific change.
+- A link into the viewer can open a specific change: the viewer reads the
+  change, view mode, change-list mode and frames from the URL fragment
+  (`#c=N&view=overlay&list=tree&frame=UID:POSITION`, a frame of the after
+  version by its position; the before pane shows the same frame). It reads
+  the fragment once when the page opens and does not update it as you click.
 
 ### Flat vs. tree change list
 
 A **Flat / Tree** toggle sits above the change list. **Flat** (the default)
 is the numbered list in engine order, one row per change. **Tree** regroups
-the SAME list by containment — client-side, from the `container_uid`/
-`frame_path` every entry already carries, no extra data and no second engine
-call — into exactly the structure the `text` containment tree above prints:
+the SAME list by containment into exactly the structure the `text`
+containment tree above prints (the same rows, computed with it):
 a structure is a recursion point, its frames are quoted sub-headers, and
 contained changes nest beneath them. Every row keeps its number badge and
 click-to-select behavior in either mode — switching modes only changes how

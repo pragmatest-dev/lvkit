@@ -63,6 +63,7 @@ from .op_walk import (
     _terminal_display_name,
     selector_values_quoted_one_by_one,
 )
+from .operations import frame_key
 from .queries import collect_class_context
 from .reference_target import is_reference_constant, reference_phrase, reference_target
 from .render_lvnet import lvnet_literal_token
@@ -435,9 +436,8 @@ def _frame_child_nodes(
     vi_name: str,
 ) -> dict[object, list[AnyGraphNode]]:
     """Group a structure's child ``GraphNode``s by their ``frame`` key. Keyed
-    by the raw ``child.frame`` value, matched against a case frame's
-    ``selector_value`` / a sequence frame's ``str(index)`` / an event frame's
-    ``str(position)``."""
+    by the raw ``child.frame`` value, matched against :func:`frame_key` of
+    each frame."""
     out: dict[object, list[AnyGraphNode]] = {}
     for child in graph.child_nodes(node.id, vi_name):
         out.setdefault(child.frame, []).append(child)
@@ -773,12 +773,12 @@ def _collect_structures(
                     f"Case structure ({_frame_count(len(node.frames))}{sel})"
                 )
                 fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
-                for frame in node.frames:
+                for i, frame in enumerate(node.frames):
                     for s in _collect_structures(
                         graph,
                         ctx,
                         vi_name,
-                        fmap.get(frame.selector_value, []),
+                        fmap.get(frame_key(frame, i), []),
                         constants,
                     ):
                         structures.append(f"  \\ {s}")
@@ -831,12 +831,12 @@ def _collect_structures(
                     f"Disable structure ({_frame_count(len(node.frames))})"
                 )
                 fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
-                for frame in node.frames:
+                for i, frame in enumerate(node.frames):
                     for s in _collect_structures(
                         graph,
                         ctx,
                         vi_name,
-                        fmap.get(frame.selector_value, []),
+                        fmap.get(frame_key(frame, i), []),
                         constants,
                     ):
                         structures.append(f"  \\ {s}")
@@ -880,12 +880,11 @@ def _describe_label_line(lbl: Label) -> str:
 def _frame_constants(
     constants: list[Constant],
     parent_id: str,
-    frame_key: object,
+    key: object,
 ) -> list[Constant]:
-    """Constants attributed to a specific frame of a structure."""
-    return [
-        c for c in constants if c.parent == parent_id and str(c.frame) == str(frame_key)
-    ]
+    """Constants attributed to a specific frame of a structure (``key`` is
+    that frame's :func:`frame_key`)."""
+    return [c for c in constants if c.parent == parent_id and str(c.frame) == str(key)]
 
 
 def _case_frame_header(node: CaseStructureNode, frame: CaseFrame) -> str:
@@ -946,13 +945,14 @@ def _describe_op_list(
             case CaseStructureNode():
                 passthrough = _node_has_output_tunnel(node)
                 fmap = _frame_child_nodes(graph, node, vi_name)
-                for frame in node.frames:
+                for i, frame in enumerate(node.frames):
+                    key = frame_key(frame, i)
                     lines.append(f"{prefix}  Frame {_case_frame_header(node, frame)}:")
                     _describe_frame_body(
                         graph,
                         vi_name,
-                        fmap.get(frame.selector_value, []),
-                        _frame_constants(constants, node.id, frame.selector_value),
+                        fmap.get(key, []),
+                        _frame_constants(constants, node.id, key),
                         constants,
                         lines,
                         prefix,
@@ -992,14 +992,15 @@ def _describe_op_list(
             case DisableStructureNode():
                 passthrough = _node_has_output_tunnel(node)
                 fmap = _frame_child_nodes(graph, node, vi_name)
-                for frame in node.frames:
+                for i, frame in enumerate(node.frames):
+                    key = frame_key(frame, i)
                     default = " (default)" if frame.is_default else ""
                     lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
                     _describe_frame_body(
                         graph,
                         vi_name,
-                        fmap.get(frame.selector_value, []),
-                        _frame_constants(constants, node.id, frame.selector_value),
+                        fmap.get(key, []),
+                        _frame_constants(constants, node.id, key),
                         constants,
                         lines,
                         prefix,
