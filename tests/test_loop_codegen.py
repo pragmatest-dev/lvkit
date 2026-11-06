@@ -1012,15 +1012,9 @@ class TestUninitializedShiftRegister:
 
         fragment = loop.generate(loop_op, ctx)
         global_name = next(iter(ctx.module_globals))
-        # The rSR's outer-terminal binding is the freshly WRITTEN value
-        # (matches rSR's real dataflow meaning); the lSR-bound local from
-        # the seed assignment holds the unmutated PREVIOUS value -- both
-        # must remain independently readable within the same call (see
-        # loop.py step 5's docstring for why the update does not mutate
-        # the lSR-bound local in place).
+        # The rSR's outer-terminal binding is the loop-carried register
+        # variable: after the loop it holds the last value written.
         new_var = fragment.bindings["rsr_outer"]
-        old_var = fragment.statements[1].targets[0].id
-        assert old_var != new_var
 
         func_def = ast.FunctionDef(
             name="run",
@@ -1035,15 +1029,7 @@ class TestUninitializedShiftRegister:
             ),
             body=[
                 *fragment.statements,
-                ast.Return(
-                    value=ast.Tuple(
-                        elts=[
-                            ast.Name(id=old_var, ctx=ast.Load()),
-                            ast.Name(id=new_var, ctx=ast.Load()),
-                        ],
-                        ctx=ast.Load(),
-                    )
-                ),
+                ast.Return(value=ast.Name(id=new_var, ctx=ast.Load())),
             ],
             decorator_list=[],
         )
@@ -1058,11 +1044,11 @@ class TestUninitializedShiftRegister:
 
         # Call 1: previous value is the type default (0); new_value=5 is
         # written into the SR for next time.
-        assert run(5) == (0, 5)
+        assert run(5) == 5
         assert ns[global_name] == 5
 
         # Call 2: sees the value persisted from call 1.
-        assert run(12) == (5, 12)
+        assert run(12) == 12
         assert ns[global_name] == 12
 
 
@@ -1277,3 +1263,194 @@ def test_a_constant_stop_condition_is_not_assigned_to():
     )
     assert "True = False" not in source
     compile(source, "loop", "exec")
+
+
+class TestShiftRegisterCarry:
+    """Every shift register carries its value to the next iteration, initialized
+    or not; a last-value tunnel off the register's left side outputs the left
+    value of the last iteration. Each test generates a For Loop, runs it and
+    checks the values."""
+
+    I32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+
+    def _sr_terminals(self) -> list[TunnelTerminal]:
+        def tt(tid, paired, direction, boundary, ttype, index):
+            return TunnelTerminal(
+                id=tid,
+                index=index,
+                direction=direction,
+                tunnel_type=ttype,
+                boundary=boundary,
+                paired_id=paired,
+                lv_type=self.I32,
+            )
+
+        return [
+            tt("lsr_outer", "lsr_inner", "input", "outer", "lSR", 1),
+            tt("lsr_inner", "lsr_outer", "output", "inner", "lSR", 2),
+            tt("rsr_outer", "rsr_inner", "output", "outer", "rSR", 3),
+            tt("rsr_inner", "rsr_outer", "input", "inner", "rSR", 4),
+        ]
+
+    def _build(self, *, initialized: bool, count: int, left_tunnel: bool):
+        """For Loop: right side = i + 1; optional last-value output tunnel
+        wired from the register's left side. Returns (run, ctx, global_name)
+        where run() -> (register output, left tunnel output or None)."""
+        wires = [
+            Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+            Wire.from_terminals(from_terminal_id="new_src", to_terminal_id="rsr_inner"),
+        ]
+        terminals = self._sr_terminals()
+        if initialized:
+            wires.append(
+                Wire.from_terminals(
+                    from_terminal_id="init_src", to_terminal_id="lsr_outer"
+                )
+            )
+        if left_tunnel:
+            wires.append(
+                Wire.from_terminals(
+                    from_terminal_id="lsr_inner", to_terminal_id="out_inner"
+                )
+            )
+            terminals += _output_tunnel("out_outer", "out_inner", TunnelMode.LAST_VALUE)
+        ctx = CodeGenContext.from_wires(wires)
+        ctx.bind("n_src", str(count))
+        ctx.bind("new_src", "i + 1")
+        ctx.bind("init_src", "10")
+        terminals.append(Terminal(id="iter", index=20, direction="output"))
+        loop_op = _mk_loop(
+            ctx,
+            loop_type="forLoop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="n_outer",
+                    inner_terminal_uid="n_inner",
+                    tunnel_type="lMax",
+                )
+            ],
+            terminals=terminals,
+        )
+        fragment = loop.generate(loop_op, ctx)
+        outs = [fragment.bindings["rsr_outer"]]
+        if left_tunnel:
+            outs.append(fragment.bindings["out_outer"])
+        ret = ast.Return(
+            value=ast.Tuple(
+                elts=[ast.Name(id=o, ctx=ast.Load()) for o in outs], ctx=ast.Load()
+            )
+        )
+        func_def = ast.FunctionDef(
+            name="run",
+            args=ast.arguments(
+                posonlyargs=[],
+                args=[],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+            ),
+            body=[*fragment.statements, ret],
+            decorator_list=[],
+        )
+        module = ast.Module(
+            body=[*ctx.module_globals.values(), func_def], type_ignores=[]
+        )
+        ast.fix_missing_locations(module)
+        ns: dict = {}
+        exec(compile(module, "<test>", "exec"), ns)  # noqa: S102
+        names = list(ctx.module_globals)
+        return ns, (names[0] if names else None), left_tunnel
+
+    @staticmethod
+    def _call(ns, left_tunnel):
+        out = ns["run"]()
+        return out if left_tunnel else (out[0], None)
+
+    def test_uninitialized_register_advances_and_persists_across_calls(self):
+        ns, gname, lt = self._build(initialized=False, count=3, left_tunnel=True)
+        # i = 0,1,2: right side is 1,2,3. Left in the last iteration is 2.
+        assert self._call(ns, lt) == (3, 2)
+        assert ns[gname] == 3
+        # Second call starts from the stored 3: left in last iteration is
+        # still the previous iteration's right (2); register ends at 3.
+        assert self._call(ns, lt) == (3, 2)
+
+    def test_uninitialized_register_zero_iterations_gives_stored_value(self):
+        ns, gname, lt = self._build(initialized=False, count=0, left_tunnel=False)
+        assert self._call(ns, lt) == (0, None)
+        ns[gname] = 6
+        assert self._call(ns, lt) == (6, None)
+        assert ns[gname] == 6
+
+    def test_initialized_register_left_tunnel_is_last_iteration_left_value(self):
+        ns, _, lt = self._build(initialized=True, count=3, left_tunnel=True)
+        assert self._call(ns, lt) == (3, 2)
+
+    def test_initialized_register_zero_iterations_gives_initial_value(self):
+        ns, _, lt = self._build(initialized=True, count=0, left_tunnel=True)
+        # Register keeps its initial value; the left tunnel has no iteration
+        # to read, so it gives the type default.
+        assert self._call(ns, lt) == (10, 0)
+
+    def test_uninitialized_left_tunnel_zero_iterations_is_type_default(self):
+        ns, _, lt = self._build(initialized=False, count=0, left_tunnel=True)
+        assert self._call(ns, lt) == (0, 0)
+
+    def test_changed_shape_compares_left_with_right_across_calls(self):
+        """The OpenG "Changed?" shape: one iteration, right side = the input,
+        a last-value tunnel off the left side; Changed = left != right."""
+        wires = [
+            Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+            Wire.from_terminals(from_terminal_id="new_src", to_terminal_id="rsr_inner"),
+            Wire.from_terminals(
+                from_terminal_id="lsr_inner", to_terminal_id="out_inner"
+            ),
+        ]
+        terminals = [
+            *self._sr_terminals(),
+            *_output_tunnel("out_outer", "out_inner", TunnelMode.LAST_VALUE),
+        ]
+        ctx = CodeGenContext.from_wires(wires)
+        ctx.bind("n_src", "1")
+        ctx.bind("new_src", "x")
+        loop_op = _mk_loop(
+            ctx,
+            loop_type="forLoop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="n_outer",
+                    inner_terminal_uid="n_inner",
+                    tunnel_type="lMax",
+                )
+            ],
+            terminals=terminals,
+        )
+        fragment = loop.generate(loop_op, ctx)
+        old, new = fragment.bindings["out_outer"], fragment.bindings["rsr_outer"]
+        func_def = ast.parse("def run(x):\n    pass").body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        func_def.body = [
+            *fragment.statements,
+            ast.Return(
+                value=ast.Compare(
+                    left=ast.Name(id=old, ctx=ast.Load()),
+                    ops=[ast.NotEq()],
+                    comparators=[ast.Name(id=new, ctx=ast.Load())],
+                )
+            ),
+        ]
+        module = ast.Module(
+            body=[*ctx.module_globals.values(), func_def], type_ignores=[]
+        )
+        ast.fix_missing_locations(module)
+        ns: dict = {}
+        exec(compile(module, "<test>", "exec"), ns)  # noqa: S102
+        assert [ns["run"](x) for x in (5, 5, 7, 7, 9)] == [
+            True,
+            False,
+            True,
+            False,
+            True,
+        ]

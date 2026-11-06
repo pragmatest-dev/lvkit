@@ -67,14 +67,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # Track shift register variable names for update statements
     shift_reg_vars: dict[str, str] = {}  # lSR outer_terminal -> var_name
-    # lSR outer terminals whose left side is wired from OUTSIDE the loop
-    # (an initializer). These are local accumulators: their right-side value
-    # must be fed back into the local each iteration so the loop advances.
-    # An UNINITIALIZED lSR (not in this set) is LabVIEW's functional-global
-    # idiom -- it persists across CALLS via a module global (see below), so
-    # its local must NOT be overwritten mid-loop; a separate branch reads the
-    # pre-update value after the loop (e.g. the OpenG "Changed?" family).
-    initialized_sr_outers: set[str] = set()
     # (global_name, lsr_outer_term, fallback_shift_var) for uninitialized
     # SRs -- written back to the module global after the loop so the next
     # VI call sees them. The final value used is looked up after step 5
@@ -105,7 +97,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 pre_loop_stmts.append(build_assign(shift_var, parse_expr(outer_var)))
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
-                initialized_sr_outers.add(outer_term)
                 # An array-typed shift register carries an array; track it so the
                 # module pass writes operators as comprehensions over it (e.g. an
                 # element-wise Add of the accumulator to a per-iteration array,
@@ -445,28 +436,16 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     terminal_id=outer_term,
                 )
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
-                # Feed the new value back into the lSR local for the NEXT
-                # iteration when the SR is INITIALIZED (a local accumulator):
-                # its next value is whatever the body wired to the right side
-                # -- `counter + 1`, a case-merged array, the found index + 1 --
-                # and it MUST advance each iteration regardless of whether that
-                # expression textually mentions the SR var. An UNINITIALIZED SR
-                # is skipped: it is the functional-global idiom whose state
-                # persists across CALLS via the module global below, and whose
-                # pre-update value is read by a post-loop branch (the OpenG
-                # "Changed?" `old != new`), so an in-loop write would clobber it.
-                if lsr_outer in initialized_sr_outers:
-                    sr_feedbacks.append((rsr_shift_var, updated_var))
-                    # A post-loop reader of an initialized SR reads the
-                    # loop-carried variable -- its initial value when the loop
-                    # runs 0 times, the last fed-back value otherwise -- NOT the
-                    # body-local updated_var, which is unbound if the body never
-                    # executes (e.g. an empty input array).
-                    bindings[outer_term] = rsr_shift_var
-                else:
-                    # Uninitialized (functional-global) SR: the module-global
-                    # writeback below reads this fresh updated_var.
-                    bindings[outer_term] = updated_var
+                # Every shift register carries: the value wired to the right
+                # side becomes the left side for the NEXT iteration, initialized
+                # or not (an uninitialized one starts from the module global).
+                sr_feedbacks.append((rsr_shift_var, updated_var))
+                # A post-loop reader (and the module-global writeback of an
+                # uninitialized register) reads the loop-carried variable --
+                # the entry value when the loop runs 0 times, the last fed-back
+                # value otherwise -- NOT the body-local updated_var, which is
+                # unbound if the body never executes.
+                bindings[outer_term] = rsr_shift_var
             else:
                 bindings[outer_term] = rsr_shift_var
 
@@ -520,7 +499,29 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Only if not already bound (it might be an input tunnel)
         if outer_term not in bindings:
             inner_val = inner_ctx.resolve(inner_term)
-            if inner_val:
+            if inner_val and inner_val in shift_reg_vars.values():
+                # The tunnel reads a shift register's left side: it outputs
+                # the left value of the LAST iteration (before that
+                # iteration's update). The feedback at the end of the body
+                # overwrites the shift variable, so capture it at the top of
+                # each iteration into its own variable, seeded with the
+                # tunnel's type default for a For Loop that runs zero times.
+                captured = ctx.make_output_var(
+                    f"{inner_val}_iter", node.id, terminal_id=outer_term
+                )
+                outer_t = term_by_id.get(outer_term)
+                pre_loop_stmts.append(
+                    build_assign(
+                        captured,
+                        default_value_expr(outer_t.lv_type if outer_t else None),
+                    )
+                )
+                loop_ast.body.insert(
+                    0,
+                    build_assign(captured, ast.Name(id=inner_val, ctx=ast.Load())),
+                )
+                bindings[outer_term] = captured
+            elif inner_val:
                 bindings[outer_term] = inner_val
 
     # Add initialization for while loop stop condition
