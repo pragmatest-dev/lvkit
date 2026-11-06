@@ -50,6 +50,7 @@ from lvkit.module_layout import ModuleLayout
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
+    Outcome,
     Problem,
     ProblemKind,
     ProblemStage,
@@ -441,6 +442,51 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
         traceback.print_exception(exc)
 
 
+# What happened to a VI with no module, by the kind of its generate problem.
+_FAILURE_PHRASES = {
+    ProblemKind.UNWRITABLE: "could not be written",
+    ProblemKind.LVKIT_ERROR: "failed with an lvkit error",
+    ProblemKind.UNREADABLE: "could not be read",
+    ProblemKind.ENVIRONMENT: "failed on an environment problem",
+}
+
+
+def run_stopped(report: RunReport, fail_fast_stop: bool) -> bool:
+    """The run stopped: ``--fail-fast`` ended it, or a VI has no place in the
+    package (it could not be written)."""
+    return fail_fast_stop or any(
+        p.kind is ProblemKind.UNWRITABLE for p in report.problems
+    )
+
+
+def summary_line(report: RunReport, stopped: bool, generated: int) -> str:
+    """The closing line of ``generate``, read from the run's report (the same one
+    the problem summary is): its outcome, how many VIs were generated, and the
+    VIs each kind of failure left with no module, the gaps and any other
+    problem."""
+    outcome = report.outcome(stopped)
+    if outcome is Outcome.COMPLETE:
+        return f"Complete: {generated} VIs generated, no gaps"
+    parts = [f"{generated} VIs generated"]
+    counted = 0
+    for kind, phrase in _FAILURE_PHRASES.items():
+        failed = [
+            p
+            for p in report.problems
+            if p.kind is kind and p.stage is ProblemStage.GENERATE
+        ]
+        if failed:
+            parts.append(f"{len({p.vi for p in failed})} VI(s) {phrase}")
+            counted += len(failed)
+    gaps = [p for p in report.problems if p.kind is ProblemKind.GAP]
+    if gaps:
+        parts.append(f"{len({p.vi for p in gaps})} with gaps ({len(gaps)} gaps)")
+    others = len(report.problems) - counted - len(gaps)
+    if others:
+        parts.append(f"{others} other problem(s)")
+    return f"{outcome.value}: {', '.join(parts)} — see warnings"
+
+
 def _is_type_checking_block(node: ast.stmt) -> bool:
     """Whether ``node`` is ``if TYPE_CHECKING:``."""
     return (
@@ -615,8 +661,9 @@ def generate_python(
             it; with ``fail_fast`` on, the run ends at the first problem.
 
     Returns:
-        Summary dict with keys: vilib, ast, error, failed counts and
-        ``gaps``, the list of ``Gap`` records.
+        Summary dict with keys: vilib, ast, error, failed counts,
+        ``stopped`` (the run stopped: a fail-fast stop, or a VI the package has
+        no place for) and ``gaps``, the list of ``Gap`` records.
         ``output_dir``, ``vi_paths`` and ``generated`` are in the form the
         caller gave ``output_dir``. On Windows with long paths off, open a file
         deeper than 260 characters through ``lvkit.long_paths.extended_length``.
@@ -788,9 +835,12 @@ def generate_python(
 
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
+    fail_fast_stop = False
+    current = ""  # the key of the VI being generated, for a fail-fast stop
 
     try:
         for i, vi_name in enumerate(order, 1):
+            current = vi_name
             if vi_name in class_of_member:
                 print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (method of its class)")
@@ -974,6 +1024,7 @@ def generate_python(
         for wrapper_name, variants in poly_groups.items():
             if not variants:
                 continue
+            current = wrapper_name
             wrapper_path = vi_paths.get(wrapper_name)
             if not wrapper_path:
                 place = layout.place_beside(wrapper_name, variants)
@@ -1007,15 +1058,17 @@ def generate_python(
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                     _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
+                    generated.append((wrapper_name, None, "failed"))
 
         # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
 
-    except RunStopped as stop:
+    except RunStopped:
         print("Stopped at the first problem (--fail-fast): the output is incomplete.")
-        generated.append((stop.problem.vi, None, "failed"))
+        generated.append((current, None, "failed"))
+        fail_fast_stop = True
 
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
@@ -1031,31 +1084,9 @@ def generate_python(
 
     print(f"  vilib: {vilib_count}")
     print(f"  ast:   {ast_count}")
-    print(f"  error: {error_count}")
-    print(f"  failed: {failed_count}")
-    print(f"  gaps:  {len(all_gaps)}")
-    gap_vis = len({gap.vi for gap in all_gaps})
-    # Problems besides gaps (a load problem on a VI): the run is partial even
-    # when every VI converts with no gap. Counted the way the run's summary
-    # counts them (``RunReport.of``: each once, notes apart).
-    others = [
-        p
-        for p in RunReport.of(graph.problems()).problems
-        if p.kind is not ProblemKind.GAP
-    ]
-    if error_count or failed_count:
-        print(
-            f"Stopped: {error_count + failed_count} VI(s) could not be written"
-            f" ({ast_count} generated, {gap_vis} with gaps)"
-        )
-    elif all_gaps or others:
-        other_text = f", {len(others)} other problem(s)" if others else ""
-        print(
-            f"Partial: {ast_count} VIs generated, {gap_vis} with gaps"
-            f" ({len(all_gaps)} gaps){other_text} — see warnings"
-        )
-    else:
-        print(f"Complete: {ast_count} VIs generated, no gaps")
+    report = run.report()
+    stopped = run_stopped(report, fail_fast_stop)
+    print(summary_line(report, stopped, ast_count))
 
     if error_count > 0:
         store = find_project_store()
@@ -1082,6 +1113,7 @@ def generate_python(
         "ast": ast_count,
         "error": error_count,
         "failed": failed_count,
+        "stopped": stopped,
         "gaps": all_gaps,
         "generated": [
             (

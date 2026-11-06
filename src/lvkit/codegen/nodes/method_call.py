@@ -62,7 +62,9 @@ def generate(node: VINode, ctx: CodeGenContext, shape: MethodShape) -> CodeFragm
     reason = not_a_method(ctx.graph, shape.key)
     if reason is not None:
         raise ConversionGap(reason, node)
-    check_private_access(ctx.graph, shape.name, shape.class_key, ctx.vi_name)
+    check_private_access(
+        ctx.graph, shape.name, shape.key, shape.class_key, ctx.vi_name, "A call of"
+    )
     call = build_call(node, ctx, shape, receiver_keyword=None)
     if node.node_type == "callParentDynIUse":
         target: ast.expr = _super(node, ctx, call.receiver)

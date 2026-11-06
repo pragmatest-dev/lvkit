@@ -12,13 +12,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from lvkit.cli_run import add_fail_fast_arg, command_run, finish, run_command
+from lvkit.console import write_whole_lines
 from lvkit.graph.loading import LoadMode
 from lvkit.pipeline import generate_python
 
 
 def main():
+    write_whole_lines()
     parser = argparse.ArgumentParser(
         description="Generate code using AST builder (no LLM)",
     )
@@ -64,7 +65,7 @@ def _generate(args: argparse.Namespace) -> int:
         instrlib_root=Path(args.instrlib) if args.instrlib else None,
         run=run,
     )
-    return finish(run, bool(result["error"] or result["failed"]))
+    return finish(run, result["stopped"])
 
 
 if __name__ == "__main__":

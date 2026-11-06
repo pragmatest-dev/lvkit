@@ -455,7 +455,7 @@ def test_generate_with_a_load_problem_says_partial(
     generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE)
     out = capsys.readouterr().out
     assert (
-        "Partial: 1 VIs generated, 0 with gaps (0 gaps), 1 other problem(s) "
+        "Partial: 1 VIs generated, 1 other problem(s) "
         "— see warnings"
     ) in out
     assert "Complete:" not in out
