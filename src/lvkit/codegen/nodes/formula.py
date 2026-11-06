@@ -73,7 +73,7 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     specs = _varspecs(node)
     result = transpile(node.script, specs, func_name=func_name)
     # Inject the generated function at module level (once per node).
-    ctx.formula_helpers.append(result.func_def)
+    ctx.add_module_function(result.func_def, owner=node.id)
 
     # Map terminals by direction for input resolution / output binding.
     inputs = {t.name: t for t in node.terminals if t.direction == "input" and t.name}

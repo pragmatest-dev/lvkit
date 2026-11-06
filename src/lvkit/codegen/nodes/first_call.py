@@ -30,7 +30,7 @@ FIRST_CALL_PRIM_ID = 1083
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Lower a First Call? call site to a module-global-backed flag read."""
     flag_name = node_owned_name("_lv_first_call", ctx.function_name, node.id)
-    ctx.add_module_global(flag_name, ast.Constant(value=True))
+    ctx.add_module_global(flag_name, ast.Constant(value=True), owner=node.id)
 
     statements: list[ast.stmt] = [ast.Global(names=[flag_name])]
     bindings: dict[str, str] = {}

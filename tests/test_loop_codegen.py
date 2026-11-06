@@ -1279,3 +1279,113 @@ def test_a_constant_stop_condition_is_not_assigned_to():
     )
     assert "True = False" not in source
     compile(source, "loop", "exec")
+
+
+class TestTwoUninitializedShiftRegisters:
+    """Two uninitialized shift registers that both start at 0 are two pieces of
+    state: two module-level globals, each advancing on its own."""
+
+    def test_each_register_keeps_its_own_global(self):
+        data_flow = [
+            Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+            Wire.from_terminals(from_terminal_id="a_in", to_terminal_id="add_a_x"),
+            Wire.from_terminals(from_terminal_id="one_src", to_terminal_id="add_a_y"),
+            Wire.from_terminals(from_terminal_id="add_a_out", to_terminal_id="a_rsr"),
+            Wire.from_terminals(from_terminal_id="b_in", to_terminal_id="add_b_x"),
+            Wire.from_terminals(from_terminal_id="ten_src", to_terminal_id="add_b_y"),
+            Wire.from_terminals(from_terminal_id="add_b_out", to_terminal_id="b_rsr"),
+        ]
+        ctx = CodeGenContext.from_wires(data_flow)
+        ctx.function_name = "counter"
+        ctx.bind("n_src", "1")
+        ctx.bind("one_src", "1")
+        ctx.bind("ten_src", "10")
+
+        def adder(tag: str) -> PrimitiveNode:
+            return PrimitiveNode(
+                vi_path="test.vi",
+                id=f"add_{tag}",
+                name="Add",
+                prim_id=1050,
+                terminals=[
+                    Terminal(id=f"add_{tag}_x", index=1, direction="input", name="x"),
+                    Terminal(id=f"add_{tag}_y", index=2, direction="input", name="y"),
+                    Terminal(
+                        id=f"add_{tag}_out", index=0, direction="output", name="r"
+                    ),
+                ],
+            )
+
+        loop_op = _mk_loop(
+            ctx,
+            id="loop1",
+            name="For Loop",
+            loop_type="forLoop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="n_outer",
+                    inner_terminal_uid="n_inner",
+                    tunnel_type="lMax",
+                ),
+                Tunnel(
+                    outer_terminal_uid="a_lsr",
+                    inner_terminal_uid="a_in",
+                    tunnel_type="lSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="a_out",
+                    inner_terminal_uid="a_rsr",
+                    tunnel_type="rSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="b_lsr",
+                    inner_terminal_uid="b_in",
+                    tunnel_type="lSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="b_out",
+                    inner_terminal_uid="b_rsr",
+                    tunnel_type="rSR",
+                ),
+            ],
+            inner_nodes=[adder("a"), adder("b")],
+        )
+
+        i32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        for terminal in loop_op.terminals:
+            terminal.lv_type = i32
+        fragment = loop.generate(loop_op, ctx)
+        names = sorted(ctx.module_globals)
+        assert names == ["_lv_state_counter_a_lsr", "_lv_state_counter_b_lsr"]
+        a_var = fragment.bindings["a_out"]
+        b_var = fragment.bindings["b_out"]
+
+        body = ast.Module(
+            body=[
+                *ctx.module_globals.values(),
+                ast.FunctionDef(
+                    name="step",
+                    args=ast.arguments(
+                        posonlyargs=[],
+                        args=[],
+                        kwonlyargs=[],
+                        kw_defaults=[],
+                        defaults=[],
+                    ),
+                    body=[
+                        *fragment.statements,
+                        parse_stmt(f"return ({a_var}, {b_var})"),
+                    ],
+                    decorator_list=[],
+                ),
+            ],
+            type_ignores=[],
+        )
+        ast.fix_missing_locations(body)
+        ns: dict = {}
+        exec(compile(body, "<test>", "exec"), ns)
+
+        assert ns["step"]() == (1, 10)
+        assert ns["step"]() == (2, 20)
+        assert ns["_lv_state_counter_a_lsr"] == 2
+        assert ns["_lv_state_counter_b_lsr"] == 20

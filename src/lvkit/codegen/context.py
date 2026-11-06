@@ -165,6 +165,10 @@ class CodeGenContext:
     # the VI function, sorted by name — dict/set iteration order is not
     # a name, so insertion order alone would not be byte-reproducible.
     module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # Who owns each module-level name (a global or a helper function): the id of
+    # the node or terminal it was named from, None for a name every call site of
+    # the module shares. One dict per module, shared by child contexts.
+    _module_owners: dict[str, str | None] = field(default_factory=dict, repr=False)
     # Nodes that lie on a cycle of the wires of one structure level, found by
     # the dependency sort, with why. One dict per module, shared by child contexts.
     circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
@@ -596,6 +600,7 @@ class CodeGenContext:
             flat_functions=self.flat_functions,  # Shared — one dict
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
+            _module_owners=self._module_owners,  # Shared — one dict
             _body_generator=self._body_generator,
         )
 
@@ -783,22 +788,42 @@ class CodeGenContext:
             if imported is not None:
                 target.add(imported.statement)
 
-    def add_module_global(self, name: str, value: ast.expr) -> None:
+    def _claim_module_name(self, name: str, owner: str | None) -> None:
+        """Record ``owner`` as the owner of module-level ``name``. A name two
+        different owners claim would silently share one definition: an lvkit
+        bug, even when their definitions read the same."""
+        held = self._module_owners.setdefault(name, owner)
+        if held != owner:
+            raise CodeGenError(
+                f"Two nodes were given one module-level name, {name}: "
+                f"{_owner_label(held)} and {_owner_label(owner)}"
+            )
+
+    def add_module_global(
+        self, name: str, value: ast.expr, owner: str | None = None
+    ) -> None:
         """Register a module-level global variable, seeded to ``value``.
 
-        Idempotent: registering the same name with the same value again is a
-        no-op (one call site lowered again); the same name with another value
-        is two pieces of state given one name, a bug in lvkit. The builder
+        ``owner`` is the id of the node or terminal the name was made from
+        (None for a name every call site of the module shares). A name two
+        different owners register is a bug in lvkit, whatever their values.
+        Idempotent: the same owner registering the same name with the same
+        value again is a no-op (one call site lowered again); the same name
+        with another value is two pieces of state given one name. The builder
         emits these above the VI function, sorted by name (see
         ``module_globals`` docstring for why).
         """
+        self._claim_module_name(name, owner)
         assign = ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
         held = self.module_globals.setdefault(name, assign)
         _require_same_definition(name, held, assign)
 
-    def add_module_function(self, func_def: ast.FunctionDef) -> None:
+    def add_module_function(
+        self, func_def: ast.FunctionDef, owner: str | None = None
+    ) -> None:
         """Register a module-level helper function, emitted above the VI function.
-        Idempotent like ``add_module_global``."""
+        Idempotent like ``add_module_global``, with the same owner rule."""
+        self._claim_module_name(func_def.name, owner)
         for stmt in self.formula_helpers:
             if isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name:
                 _require_same_definition(func_def.name, stmt, func_def)
@@ -1308,6 +1333,11 @@ def _format_constant(
             return str(ord(value))
         return repr(value)
     return repr(value)
+
+
+def _owner_label(owner: str | None) -> str:
+    """An owner for a message: its uid, never its file path."""
+    return "a shared name" if owner is None else f"uid {uid_of(owner)}"
 
 
 def _require_same_definition(name: str, held: ast.stmt, new: ast.stmt) -> None:
