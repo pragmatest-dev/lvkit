@@ -83,7 +83,7 @@ control — and loads it live (XML already cached) — no `load`/`clear` session
 | Tool | Description |
 |------|-------------|
 | `describe` | Human-readable purpose, signature, SubVI calls, control flow. |
-| `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
+| `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. `vi_path` may be a path as lvkit prints it (`<userlib>/…`, `<vilib>/…`, or a VI inside an `.llb`), found in the tool's `vilib`, `userlib` and `instrlib` folders. |
 | `read_ctl` | A `.ctl` typedef / custom control as `{typedef, path, kind, type, default, fields, uses}` — the control's own type, enum items, and every field with its recorded default (nested clusters, arrays and saved values included). `render` on the same path draws its front panel. |
 
 ### Resolution gaps — triage before converting

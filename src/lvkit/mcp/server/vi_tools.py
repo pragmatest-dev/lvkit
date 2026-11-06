@@ -25,10 +25,12 @@ import lvkit.mcp.server as _facade
 from ... import __version__
 from ...build_options import BuildOptions
 from ...graph import InMemoryVIGraph, load_ctl_by_path, load_vi_by_path
+from ...graph.llb_members import file_is_present
 from ...graph.lvnet_typedef import render_lvnet_typedef
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
 from ...graph.netlist_json import typedef_to_dict
 from ...index.build import warm_all_loaded
+from ...input_path import InputNotFound, is_stored_path, resolve_input
 from ...library_folders import folder_list
 from ...load_mode import LoadMode
 from ...output_cache import (
@@ -78,6 +80,31 @@ def _build(
     )
 
 
+async def _target(
+    path: str,
+    ctx: Context | None,
+    vilib: str | list[str] | None,
+    userlib: str | list[str] | None,
+    instrlib: str | list[str] | None,
+) -> str:
+    """The file or folder a tool's path argument names: a stored path
+    (``<userlib>/…``) is found in the tool's own ``vilib``/``userlib``/
+    ``instrlib`` folders; any other path may be relative to the client's roots."""
+    if not is_stored_path(path):
+        return await _facade._resolve_target(path, ctx)
+    build = _build(vilib, userlib, instrlib)
+    folders = {
+        "<vilib>": build.vilib_root,
+        "<userlib>": build.userlib_root,
+        "<instrlib>": build.instrlib_root,
+    }
+    try:
+        return str(resolve_input(path, folders))
+    except InputNotFound as e:
+        tried = "".join(f"\n  tried: {t}" for t in e.tried)
+        raise FileNotFoundError(f"Path not found: {path}: {e.reason}{tried}") from e
+
+
 def _load_one(
     vi_path: str,
     build: BuildOptions | None = None,
@@ -93,7 +120,7 @@ def _load_one(
     """
     p = Path(vi_path).resolve()
     run = run or new_run(p)
-    if not p.exists():
+    if not file_is_present(p):
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
     build = build or BuildOptions()
@@ -171,7 +198,7 @@ async def read_vi(
     ``verbose=True`` to also inline each direct SubVI's connector-pane
     interface plus a trailing ``types :`` appendix (type-rehydratable)."""
     _check_format(format)
-    vi_path = await _facade._resolve_target(vi_path, ctx)
+    vi_path = await _target(vi_path, ctx, vilib, userlib, instrlib)
 
     def _work() -> dict[str, Any]:
         run = new_run(vi_path)
@@ -232,7 +259,7 @@ async def read_ctl(
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
     dependency is found only at the path its caller records)."""
     _check_format(format)
-    ctl_path = await _facade._resolve_target(ctl_path, ctx)
+    ctl_path = await _target(ctl_path, ctx, vilib, userlib, instrlib)
 
     def _work() -> dict[str, Any]:
         p = Path(ctl_path).resolve()
@@ -298,11 +325,11 @@ async def render(
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
     dependency is found only at the path its caller records).
     """
-    vi_path = await _facade._resolve_target(vi_path, ctx)
+    vi_path = await _target(vi_path, ctx, vilib, userlib, instrlib)
 
     def _work() -> dict[str, Any]:
         p = Path(vi_path).resolve()
-        if not p.exists():
+        if not file_is_present(p):
             raise FileNotFoundError(f"File not found: {vi_path}")
         store = _configure_resolvers_for_vi(p)
         build = _build(vilib, userlib, instrlib, search_path, store)
@@ -381,13 +408,13 @@ async def diff(
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
     dependency is found only at the path its caller records).
     """
-    before_vi = await _facade._resolve_target(before_vi, ctx)
-    after_vi = await _facade._resolve_target(after_vi, ctx)
+    before_vi = await _target(before_vi, ctx, vilib, userlib, instrlib)
+    after_vi = await _target(after_vi, ctx, vilib, userlib, instrlib)
 
     def _work() -> dict[str, Any]:
         pa, pb = Path(before_vi).resolve(), Path(after_vi).resolve()
         for p in (pa, pb):
-            if not p.exists():
+            if not file_is_present(p):
                 raise FileNotFoundError(f"VI not found: {p}")
         store = _configure_resolvers_for_vi(pa)
         build = _build(vilib, userlib, instrlib, search_path, store)
@@ -452,7 +479,7 @@ async def unresolved(
     dependency path starts from (each one folder or several, tried in order);
     ``search_path`` is the VI search path a file not at its recorded path is
     looked for on."""
-    target = await _facade._resolve_target(target, ctx)
+    target = await _target(target, ctx, vilib, userlib, instrlib)
     _configure_resolvers_for_vi(target)
 
     def _work() -> dict[str, Any]:

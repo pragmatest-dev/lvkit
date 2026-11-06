@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Commands and MCP tools take a path as lvkit prints it** — `<userlib>/…`, `<vilib>/…`, `<instrlib>/…` and a VI inside an `.llb` are found in the folders given by `--vilib`, `--userlib` and `--instrlib` (the tool's `vilib`/`userlib`/`instrlib` in MCP); a path found nowhere is a usage error (exit 2) naming each place tried.
 - **A vi.lib / user.lib file is placed and shown by its library path wherever it sits** — a user.lib inside a git repository or a project generates `userlib.*` modules, gets `user.lib` docs pages and shows `<userlib>/…` in lvnet `uses :` paths and messages; a file outside the project goes under `external.<its own repository or project folder>` with no folders above it, and no project is looked for at the home folder or above it, whose name is never shown.
 - **Fix: a VI its class does not list that reaches the class's private data or calls its private VI is a gap, not an lvkit error** — the reason says the VI is broken in LabVIEW (and when the VI claims that class); `generate`'s closing line says how each VI failed instead of `Stopped` for a run that went on, and progress and warnings no longer interleave mid-line in one pipe.
 - **Fix: a file of a kind a command does not take is a usage error (exit 2) in generate, unresolved, docs, render, visualize and diff** — `Error: expected a VI file (.vi, .vim, .vit), …: Bad.txt`, never an lvkit error.
