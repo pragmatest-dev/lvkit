@@ -15,7 +15,6 @@ import traceback
 from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
@@ -28,6 +27,7 @@ from lvkit.codegen.ast_utils import (
     to_function_name,
     unique_names,
 )
+from lvkit.codegen.class_builder.shared_state import ModuleParts
 from lvkit.codegen.error_path import is_error_wire_vi
 from lvkit.codegen.errors import MissingVIError
 from lvkit.codegen.errors_module import (
@@ -39,6 +39,7 @@ from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
@@ -133,6 +134,9 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
+    module_names: set[str] | None = None,
+    spellings: dict[str, str] | None = None,
+    module_key: str | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -155,6 +159,14 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
+        module_names: The top-level names of the module, shared by every
+            resolver that writes into it (the variants of a polymorphic VI);
+            each name an import is spelled as is added to it.
+        spellings: The name each import of the module is spelled as, by its
+            identity, shared like ``module_names``: every variant spells one
+            import the same way, so the module imports it once.
+        module_key: The file whose module ``caller_path`` is (a class, a
+            polymorphic VI); ``caller_key`` when omitted.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -207,7 +219,9 @@ def create_import_resolver(
 
     def found(key: str, name: str) -> Path:
         """The output file of the VI at ``key``; a VI the graph holds only as a
-        stub, with no implementation of its own, was not found."""
+        stub, with no implementation of its own, was not found. A polymorphic VI
+        with no implementation of its own has no function: only its variants
+        do, so a use of it that records no variant is a gap."""
         implemented = (
             vilib_resolver is not None
             and graph is not None
@@ -215,6 +229,14 @@ def create_import_resolver(
         )
         if graph is not None and graph.is_stub(key) and not implemented:
             raise missing(name, key)
+        variants = graph.get_poly_variants(key) if graph is not None else []
+        if variants and not implemented:
+            listed = ", ".join(shown(v) or Path(v).name for v in variants)
+            raise ConversionGap(
+                f"This use of the polymorphic VI {shown(key) or Path(key).name} "
+                "records no variant, so which one it runs is not known; its "
+                f"variants: {listed}"
+            )
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
@@ -239,8 +261,9 @@ def create_import_resolver(
     # module, by the identity of its node (its file path). Two with the same
     # derived name, or one with the name of what the module defines, are told
     # apart by an alias.
-    spelled: dict[str, str] = {}
-    taken = set(defined_names)
+    spelled = spellings if spellings is not None else {}
+    taken = module_names if module_names is not None else set()
+    taken.update(defined_names)
     if caller_key is not None:
         taken.add(to_function_name(Path(caller_key).name))
 
@@ -257,9 +280,16 @@ def create_import_resolver(
             return NameImport("", derived)
         dots, package, module = relative(located)
         dotted = f"{package}.{module}" if package else module
-        name = spell(f"function:{located}", derived)
+        # A module can define several functions (the variants of a polymorphic
+        # VI): a function is its module and its name.
+        name = spell(f"function:{located}:{derived}", derived)
         alias = "" if name == derived else f" as {name}"
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
+
+    def own_function_import(name: str) -> NameImport:
+        dots, package, module = relative(caller_path)
+        dotted = f"{package}.{module}" if package else module
+        return NameImport(f"from {dots}{dotted} import {name}", name)
 
     def module_import(global_vi_name: str) -> ModuleImport:
         dots, package, module = relative(locate_by_name(global_vi_name))
@@ -331,6 +361,9 @@ def create_import_resolver(
         project_file,
         shown,
         names_import,
+        taken,
+        own_function_import,
+        module_key if module_key is not None else caller_key,
     )
 
 
@@ -408,6 +441,15 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
         traceback.print_exception(exc)
 
 
+def _is_type_checking_block(node: ast.stmt) -> bool:
+    """Whether ``node`` is ``if TYPE_CHECKING:``."""
+    return (
+        isinstance(node, ast.If)
+        and isinstance(node.test, ast.Name)
+        and node.test.id == "TYPE_CHECKING"
+    )
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -421,11 +463,15 @@ def _generate_polymorphic_module(
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
 ) -> str:
-    """Generate a module containing all variants and wrapper. Data files the
-    variants read at run time are added to ``data_files``, and the gaps found in
-    the variants to ``gaps``."""
+    """The module of the polymorphic VI ``wrapper_name``: the functions of its
+    ``variants``, each called directly by the calls that record it. Data files
+    the variants read at run time are added to ``data_files``, and the gaps found
+    in the variants to ``gaps``."""
+    # repr() makes the VI path a valid string literal whatever it contains
+    # (a Windows path holds backslashes).
+    shown = layout.display_path(wrapper_name)
     lines = [
-        '"""Polymorphic VI module."""',
+        repr(f"The variants of the polymorphic VI {shown}."),
         "from __future__ import annotations",
         "",
     ]
@@ -434,9 +480,6 @@ def _generate_polymorphic_module(
 
     # Generate each variant
     variant_funcs: list[str] = []
-    variant_result_classes: list[str] = []  # Track result class names
-    all_inputs: dict[int, Any] = {}
-    all_outputs: dict[int, Any] = {}
     # Imports a variant body needs (e.g. the runtime helper for Index Array).
     # The variant bodies below drop their own import lines; collect them here so
     # the shared module header carries every one a variant references.
@@ -444,11 +487,18 @@ def _generate_polymorphic_module(
     variant_imports: set[str] = set()
     variant_annotation_imports: set[str] = set()
 
+    # One module holds every variant: their imports are spelled against one set
+    # of the module's names, which starts with every function it defines.
+    module_names = {to_function_name(Path(name).name) for name in variants}
+    spellings: dict[str, str] = {}
+    # Their module-level code (helpers, ctypes declarations, globals) is named
+    # against one another, and each statement goes into the module once.
+    shared = ModuleParts(module_stem=to_function_name(Path(wrapper_name).name))
+    written: set[str] = set()
     for variant_name in variants:
         vi_context = graph.get_vi_context(variant_name)
         # build_module names the variant function from its DISPLAY name
-        # (basename), so the wrapper must reference that same short name — a
-        # full-path-mangled name is undefined (NameError). Mirrors wrapper_func.
+        # (basename).
         func_name = to_function_name(Path(variant_name).name)
         variant_funcs.append(func_name)
 
@@ -462,6 +512,9 @@ def _generate_polymorphic_module(
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
             layout=layout,
+            module_names=module_names,
+            spellings=spellings,
+            module_key=wrapper_name,
         )
         code = build_module(
             vi_context,
@@ -470,40 +523,32 @@ def _generate_polymorphic_module(
             graph=graph,
             data_files=data_files,
             gaps=gaps,
+            shared=shared,
         )
         # Take the function and result class; collect imports the body needs
         # into the shared header rather than dropping them.
         tree = ast.parse(code)
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                lines.append("")
-                lines.append(ast.unparse(node))
-                variant_result_classes.append(node.name)
-            elif isinstance(node, ast.FunctionDef):
-                lines.append("")
-                lines.append(ast.unparse(node))
-            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+        for index, node in enumerate(tree.body):
+            if index == 0 and ast.get_docstring(tree) is not None:
+                continue  # the variant module's docstring
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
                 imp = ast.unparse(node)
                 if imp not in _header:
                     variant_imports.add(imp)
-            elif isinstance(node, ast.If):
+            elif _is_type_checking_block(node):
+                assert isinstance(node, ast.If)
                 variant_annotation_imports.update(
                     ast.unparse(stmt) for stmt in node.body
                 )
-
-        # Collect inputs/outputs for union signature
-        for inp in vi_context.inputs:
-            idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
-            if idx not in all_inputs:
-                all_inputs[idx] = inp
-        for out in vi_context.outputs:
-            idx = getattr(
-                out,
-                "slot_index",
-                getattr(out, "index", len(all_outputs)),
-            )
-            if idx not in all_outputs:
-                all_outputs[idx] = out
+            else:
+                # Everything else the variant's module defines, in order: its
+                # result class, its function, and any module-level state or
+                # helpers (a stored-state global, Call Library Function code).
+                text = ast.unparse(node)
+                if text not in written:
+                    written.add(text)
+                    lines.append("")
+                    lines.append(text)
 
     # A variant that calls a SIBLING variant emits an import for it as a
     # separate module — but siblings are DEFINED inline in this same module, and
@@ -523,80 +568,16 @@ def _generate_polymorphic_module(
     variant_imports = {i for i in variant_imports if not _imports_inline_sibling(i)}
 
     # Hoist any imports the variant bodies referenced into the shared header
-    # (after the fixed imports, before the blank line separating header/body).
-    if variant_imports:
-        lines[header_end:header_end] = sorted(variant_imports)
-    if variant_annotation_imports:
-        lines[header_end:header_end] = [
-            ast.unparse(stmt)
-            for stmt in build_type_checking_block(variant_annotation_imports)
-        ]
-
-    # Generate wrapper function. Name it by the VI's DISPLAY name (basename),
-    # not the full path — callers import it as to_function_name(node.name) (the
-    # short name), so a path-mangled wrapper name is an ImportError for every
-    # caller. (Path(...).name strips a path prefix; a bare qualified name is
-    # left unchanged, so multi-VI generation is unaffected.)
-    wrapper_func = to_function_name(Path(wrapper_name).name)
-
-    # Determine return type from outputs - use first variant's result class
-    if variant_result_classes:
-        returns = variant_result_classes[0]
-    elif all_outputs:
-        returns = "Any"
-        lines.insert(header_end, "from typing import Any")
-    else:
-        returns = "None"
-
-    # Generate wrapper with runtime type dispatch
-    lines.append("")
-    lines.append("")
-    lines.append("def _lv_dispatch(_fn, /, *_vals):")
-    lines.append('    """Call a polymorphic variant, mapping the wrapper\'s values')
-    lines.append("    to the variant's parameters BY POSITION (variants share the")
-    lines.append("    input SLOT order but may name a slot differently — e.g. a")
-    lines.append('    scalar `string` vs an array `strings`)."""')
-    lines.append("    import inspect")
-    lines.append("    _p = list(inspect.signature(_fn).parameters)")
-    lines.append("    return _fn(**dict(zip(_p, _vals)))")
-    lines.append("")
-    lines.append("")
-    # The wrapper takes *args/**kwargs: a caller names arguments by the POLY
-    # VI's OWN connector pane, which need not match any variant's parameter
-    # names, so collect the provided values in call order and let _lv_dispatch
-    # map them to the chosen variant's parameters positionally.
-    lines.append(f"def {wrapper_func}(*args, **kwargs) -> {returns}:")
-    # repr() makes the VI path a valid string literal whatever it contains
-    # (a Windows path holds backslashes).
-    docstring = repr(f"Polymorphic wrapper for {wrapper_name}.")
-    lines.append(f"    {docstring}")
-    lines.append("    _vals = [*args, *kwargs.values()]")
-
-    if variant_funcs:
-        # Categorize variants by type (array vs traditional/scalar) and dispatch
-        # on the first value's type.
-        array_variants = [f for f in variant_funcs if "array" in f.lower()]
-        traditional_variants = [f for f in variant_funcs if "traditional" in f.lower()]
-        other_variants = [
-            f
-            for f in variant_funcs
-            if f not in array_variants and f not in traditional_variants
-        ]
-        if array_variants and (traditional_variants or other_variants):
-            arr0 = array_variants[0]
-            fallback = (
-                traditional_variants[0]
-                if traditional_variants
-                else (other_variants[0] if other_variants else variant_funcs[0])
-            )
-            lines.append("    if _vals and isinstance(_vals[0], (list, tuple)):")
-            lines.append(f"        return _lv_dispatch({arr0}, *_vals)")
-            lines.append("    else:")
-            lines.append(f"        return _lv_dispatch({fallback}, *_vals)")
-        else:
-            lines.append(f"    return _lv_dispatch({variant_funcs[0]}, *_vals)")
-    else:
-        lines.append("    pass")
+    # (after `from __future__`, before the blank line separating header/body).
+    # The annotation block carries its own `TYPE_CHECKING` import, which each
+    # variant's module also had: it is written once.
+    annotation_block = (
+        [ast.unparse(s) for s in build_type_checking_block(variant_annotation_imports)]
+        if variant_annotation_imports
+        else []
+    )
+    variant_imports -= set(annotation_block)
+    lines[header_end:header_end] = annotation_block + sorted(variant_imports)
 
     module = remove_unused_imports(
         remove_duplicate_imports(ast.parse("\n".join(lines)))
@@ -818,7 +799,7 @@ def generate_python(
             # Skip variants - they'll be generated with their wrapper
             if vi_name in poly_variants:
                 print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
-                print("         -> (included in polymorphic wrapper)")
+                print("         -> (in the module of its polymorphic VI)")
                 continue
 
             is_stub = graph.is_stub(vi_name)
@@ -838,7 +819,7 @@ def generate_python(
 
             # A polymorphic wrapper with no variant to generate has no module
             if vi_name in poly_groups and not poly_groups[vi_name]:
-                print("         -> (polymorphic, every called variant is catalog)")
+                print("         -> (polymorphic, no variant to generate)")
                 continue
 
             if vi_name in layout.unplaced:
@@ -889,6 +870,7 @@ def generate_python(
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             package_modules=package_modules,
                             layout=layout,
+                            module_key=vi_name,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
@@ -987,7 +969,7 @@ def generate_python(
                     print(f"         -> FAILED: {e}")
                     generated.append((vi_name, error_path, "error"))
 
-        # Generate polymorphic wrappers for structurally-detected groups
+        # Generate the modules of the polymorphic VIs
         # whose wrapper VI wasn't in the conversion order
         for wrapper_name, variants in poly_groups.items():
             if not variants:

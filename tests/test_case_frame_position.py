@@ -285,8 +285,8 @@ def samename():
     number = random.random()
     match number:
         case 1:
-            number_500 = random.random()
-            time.sleep(number_500 / 1000)
+            number_2 = random.random()
+            time.sleep(number_2 / 1000)
         case 1:
             millisecond_timer_value = int(time.time() * 1000)
             time.sleep(millisecond_timer_value / 1000)"""
@@ -368,7 +368,7 @@ def test_generate_merges_each_frames_own_value_on_an_output_tunnel(
 ) -> None:
     graph, vi_name = _load(tmp_path, second_value=1, tunnel=True)
     source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
-    assert "            case_output = number_500\n" in source
+    assert "            case_output = number_2\n" in source
     assert "            case_output = millisecond_timer_value\n" in source
     assert source.rstrip().endswith("    time.sleep(case_output / 1000)")
 

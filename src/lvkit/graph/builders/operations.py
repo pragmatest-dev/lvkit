@@ -258,10 +258,13 @@ def callee_keys(
     """``(callee_key, variant_key)`` of a SubVI call node (see ``VINode``).
 
     The caller's link table names, for a polymorphic call, the polymorphic VI
-    and the variant the call resolves to; for any other call, the VI it calls."""
+    and the variant the call resolves to; for any other call, the VI it calls.
+    A polymorphic call whose only record names the polymorphic VI itself records
+    no variant."""
     recorded = iuse_to_callee_key.get(uid)
     if node_type == "polyIUse":
-        return poly_to_callee_key.get(uid), recorded
+        poly = poly_to_callee_key.get(uid)
+        return poly, recorded if recorded != poly else None
     return recorded, None
 
 

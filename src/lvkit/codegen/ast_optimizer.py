@@ -15,8 +15,8 @@ from .gaps import is_gap_raise
 class DeadCodeEliminator(ast.NodeTransformer):
     """Remove unused variable assignments from AST.
 
-    Identifies assignments where the target variable is never referenced
-    (never used in a Load context) and removes them from the AST.
+    Identifies assignments where the target variable is never relied on
+    (``_collect_usage``) and removes them from the AST.
 
     This is particularly useful for cleaning up output bindings from inlined
     SubVIs that produce outputs which aren't consumed downstream.
@@ -61,15 +61,24 @@ class DeadCodeEliminator(ast.NodeTransformer):
         return module
 
     def _collect_usage(self, node: ast.AST) -> None:
-        """Collect all variable assignments and loads."""
-        for child in ast.walk(node):
-            # Track assignments (Store context)
-            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store):
-                self.assigned_vars.add(child.id)
+        """Collect every assigned variable and every variable the code relies on.
 
-            # Track variable references (Load context)
-            elif isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
-                self.loaded_vars.add(child.id)
+        A variable is relied on where it is read (``x``), deleted (``del x``),
+        updated in place (``x += 1`` reads ``x`` first) or named by a
+        ``nonlocal``/``global`` statement (which needs the binding to exist in the
+        enclosing scope). Reads in nested functions and lambdas are reads too:
+        the walk covers the whole module.
+        """
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name):
+                if isinstance(child.ctx, ast.Store):
+                    self.assigned_vars.add(child.id)
+                else:
+                    self.loaded_vars.add(child.id)
+            if isinstance(child, ast.AugAssign) and isinstance(child.target, ast.Name):
+                self.loaded_vars.add(child.target.id)
+            elif isinstance(child, ast.Nonlocal | ast.Global):
+                self.loaded_vars.update(child.names)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
         """Visit function definition and filter out dead assignments."""

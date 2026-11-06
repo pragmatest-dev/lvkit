@@ -5,9 +5,11 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
-from collections.abc import Iterable
+import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
+from lvkit.graph.core import uid_of
 from lvkit.lv_type_codes import (
     INTEGER_TYPE_NAMES,
     is_boolean_type_name,
@@ -322,24 +324,33 @@ def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
     return {t.id: name for t, name in zip(params, names, strict=True)}
 
 
-def result_field_names(
-    outputs: list[Terminal], off_pane_outputs: list[Terminal]
-) -> dict[str, str]:
-    """Terminal id -> result field name of each non-error-cluster indicator.
-    Connector-pane fields are ``result_field_name`` of the label (callers read
-    them by it), made distinct when two labels give the same name; an off-pane
-    indicator's field is made distinct from every earlier one."""
+def result_field_names(outputs: list[Terminal]) -> dict[str, str]:
+    """Terminal id -> result field name of each non-error-cluster connector-pane
+    indicator: ``result_field_name`` of the label (callers read them by it), made
+    distinct when two labels give the same name."""
     pane = [t for t in outputs if not t.is_error_cluster]
-    pane_names = unique_names([result_field_name(t.name or "output") for t in pane])
-    names = {t.id: name for t, name in zip(pane, pane_names, strict=True)}
-    taken = list(names.values())
-    for t in off_pane_outputs:
-        if t.is_error_cluster:
-            continue
-        name = unique_names([*taken, result_field_name(t.name or "output")])[-1]
-        taken.append(name)
-        names[t.id] = name
-    return names
+    names = unique_names([result_field_name(t.name or "output") for t in pane])
+    return {t.id: name for t, name in zip(pane, names, strict=True)}
+
+
+def numbered_name(name: str, taken: Callable[[str], bool]) -> str:
+    """``name_2``, ``name_3``…: the first that ``taken`` says is free."""
+    n = 2
+    while taken(f"{name}_{n}"):
+        n += 1
+    return f"{name}_{n}"
+
+
+def distinct_names(taken: Iterable[str], wanted: Iterable[str]) -> list[str]:
+    """The names ``wanted``, each made distinct from every name in ``taken`` and
+    from the others (the first holder of a name keeps it)."""
+    used = list(taken)
+    result: list[str] = []
+    for name in wanted:
+        chosen = unique_names([*used, name])[-1]
+        used.append(chosen)
+        result.append(chosen)
+    return result
 
 
 @dataclass(frozen=True)
@@ -355,15 +366,16 @@ def interface_names(
     inputs: list[Terminal],
     off_pane_inputs: list[Terminal],
     outputs: list[Terminal],
-    off_pane_outputs: list[Terminal],
 ) -> InterfaceNames:
     """The one place a VI's parameter names and result field names are made from
-    its terminals, in interface order, each set distinct. The VI's own function
-    and result class use them, and so does every caller that passes it keyword
-    arguments and reads its result fields."""
+    its terminals, in interface order, each set distinct. The connector pane is
+    the interface: ``parameters`` names its inputs, and also the local variable of
+    each off-pane control (distinct from every parameter); ``fields`` names its
+    outputs. The VI's own function and result class use them, and so does every
+    caller that passes it keyword arguments and reads its result fields."""
     return InterfaceNames(
         parameters=parameter_names([*inputs, *off_pane_inputs]),
-        fields=result_field_names(outputs, off_pane_outputs),
+        fields=result_field_names(outputs),
     )
 
 
@@ -389,34 +401,21 @@ GENERATED_MODULE_NAMES = frozenset(
 RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
 
 
-def sanitize_state_var_suffix(uid: str) -> str:
-    """Turn an arbitrary terminal/node uid into a valid identifier suffix.
+def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
+    """The name of module-level code one node of a VI owns: an uninitialized
+    shift register's global (codegen/nodes/loop.py), First Call?'s flag
+    (codegen/nodes/first_call.py), a Formula Node's function
+    (codegen/nodes/formula.py).
 
-    Used for module-level persistent-state variable names: uninitialized
-    shift-register globals (see codegen/nodes/loop.py) and stateful
-    primitives like First Call? (codegen/nodes/first_call.py). Graph uids
-    are already qualified as ``"<vi_name>::<raw_uid>"`` (see
-    ``InMemoryVIGraph._qid``), so the sanitized result stays unique and
-    stable across regenerations of the same VI -- unlike ``to_var_name``,
-    which strips non-alnum characters entirely, this replaces runs of them
-    with a single ``_`` so the ``vi_name`` and ``raw_uid`` portions don't
-    collapse into each other.
+    ``<prefix>_<function>_<uid>``: the VI's function name, unchanged, and the
+    node's or terminal's uid within its VI (``node_id`` is ``<vi path>::<uid>``,
+    see ``InMemoryVIGraph._qid``), each run of characters that cannot be in a
+    name made one ``_``. A module's functions have names of their own, so the
+    name is unique in a module that holds several VIs (the variants of a
+    polymorphic VI), and it is the same wherever the project sits on disk.
     """
-    chars: list[str] = []
-    prev_underscore = False
-    for ch in uid:
-        if ch.isalnum():
-            chars.append(ch.lower())
-            prev_underscore = False
-        elif not prev_underscore:
-            chars.append("_")
-            prev_underscore = True
-    ident = "".join(chars).strip("_")
-    if not ident:
-        ident = "x"
-    if ident[0].isdigit():
-        ident = "_" + ident
-    return ident
+    uid = re.sub(r"\W+", "_", uid_of(node_id))
+    return f"{prefix}_{function_name}_{uid}"
 
 
 def to_function_name(vi_name: str) -> str:
@@ -499,6 +498,20 @@ def param_default_expr(inp: Terminal) -> ast.expr:
     except (ValueError, TypeError, SyntaxError):
         pass
     return default_value_expr(inp.lv_type)
+
+
+def os_imports(statements: Iterable[ast.AST]) -> set[str]:
+    """``{"import os"}`` when ``statements`` read ``os`` by its bare name, else
+    empty: a path value spells its volume for the OS the code runs on with
+    ``os.name`` (``python_path``). Every module builder adds these to its imports.
+    A bare ``os`` can only be that module: generated variable and function names
+    never take a module's name (``to_var_name``)."""
+    reads_os = any(
+        isinstance(node, ast.Name) and node.id == "os"
+        for statement in statements
+        for node in ast.walk(statement)
+    )
+    return {"import os"} if reads_os else set()
 
 
 def build_type_checking_block(statements: set[str]) -> list[ast.stmt]:

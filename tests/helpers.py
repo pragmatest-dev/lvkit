@@ -198,27 +198,29 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
         )
         graph._term_to_node[tid] = nid
 
-    for inp in vi_context.inputs:
+    for inp in [*vi_context.inputs, *vi_context.off_pane_inputs]:
         if inp.id:
             _stub(inp.id, "output", inp)
-    for out in vi_context.outputs:
+    for out in [*vi_context.outputs, *vi_context.off_pane_outputs]:
         if out.id:
             _stub(out.id, "input", out)
+    # A constant's node and its one output terminal share its id, as the loader
+    # builds them (``graph/construction.py``).
     for const in vi_context.constants:
-        if const.id and f"_fp_{const.id}" not in graph._graph:
+        if const.id and const.id not in graph._graph:
             graph._graph.add_node(
-                f"_fp_{const.id}",
+                const.id,
                 node=ConstantNode(
-                    id=f"_fp_{const.id}",
+                    id=const.id,
                     vi_path=vi_name,
-                    name=f"_fp_{const.id}",
+                    name=const.id,
                     value=const.value,
                     lv_type=const.lv_type,
                     terminals=[Terminal(id=const.id, index=0, direction="output")],
                 ),
             )
-            graph._term_to_node[const.id] = f"_fp_{const.id}"
-            graph._vi_nodes[vi_name].add(f"_fp_{const.id}")
+            graph._term_to_node[const.id] = const.id
+            graph._vi_nodes[vi_name].add(const.id)
 
     register_nodes(graph, nodes, vi_name=vi_name)
 
@@ -388,8 +390,10 @@ def with_file_keys(lv_type, keys: dict[str, str]):
 
 def key_graph_types(graph, keys: dict[str, str]) -> None:
     """Give every class and typedef type on the terminals of ``graph``'s nodes
-    its ``file_key`` (``with_file_keys``)."""
+    its ``file_key`` (``with_file_keys``), and a constant's own type too."""
     for _, data in graph._graph.nodes(data=True):
         node = data.get("node")
+        if getattr(node, "lv_type", None) is not None:
+            node.lv_type = with_file_keys(node.lv_type, keys)
         for terminal in getattr(node, "terminals", None) or ():
             terminal.lv_type = with_file_keys(terminal.lv_type, keys)

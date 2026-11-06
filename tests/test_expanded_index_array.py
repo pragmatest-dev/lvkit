@@ -53,6 +53,7 @@ def generated_index(
     array_wired=True,
     underlying="NumFloat64",
     rank=1,
+    required=True,
 ):
     element = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
     node = index_node(len(indices), element=element, rank=rank)
@@ -64,6 +65,7 @@ def generated_index(
                 id="fp:values",
                 index=0,
                 direction="input",
+                wiring_rule=1 if required else 2,
                 name="values",
                 is_public=True,
                 is_indicator=False,
@@ -78,6 +80,7 @@ def generated_index(
                     id=f"fp:idx{row}",
                     index=len(inputs),
                     direction="input",
+                    wiring_rule=1 if required else 2,
                     name=f"index_{row}",
                     is_public=True,
                     is_indicator=False,
@@ -173,7 +176,7 @@ def test_unwired_array_has_empty_type_default():
 
 
 def test_omitted_public_array_and_index_defaults():
-    assert tuple(generated_index()()) == (0.0, 0.0, 0.0)
+    assert tuple(generated_index(required=False)()) == (0.0, 0.0, 0.0)
 
 
 @pytest.mark.parametrize(
