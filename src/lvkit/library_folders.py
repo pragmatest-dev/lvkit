@@ -19,8 +19,13 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .lv_detect import DetectedLabVIEW
 
 TOP_VI = "<topvi>"
 FOUND_VI = "<foundvi>"
@@ -119,4 +124,49 @@ def library_key(
             "search": list(search_path_entries(search_path)),
         },
         sort_keys=True,
+    )
+
+
+@dataclass(frozen=True)
+class RunFolders:
+    """The library folders a run uses and, when they came from an installed
+    LabVIEW, that installation (``detected``)."""
+
+    vilib: tuple[Path, ...]
+    userlib: tuple[Path, ...]
+    instrlib: tuple[Path, ...]
+    detected: DetectedLabVIEW | None = None
+
+
+def run_folders(
+    vilib: Folders,
+    userlib: Folders,
+    instrlib: Folders,
+    *,
+    auto_detect: bool,
+    detect: Callable[[], DetectedLabVIEW | None] | None = None,
+) -> RunFolders:
+    """The library folders of one run, the same for the command line and the MCP
+    tools: the folders given, and, when no ``vilib`` is given and ``auto_detect``
+    is set, the vi.lib of the installed LabVIEW (``detect``, default
+    ``lv_detect.detect_labview``) with its user.lib and instr.lib for each of
+    those not given. Detection never fails a run: none found is the folders
+    given."""
+    vilib_root = folder_list(vilib)
+    userlib_root = folder_list(userlib)
+    instrlib_root = folder_list(instrlib)
+    if vilib_root or not auto_detect:
+        return RunFolders(vilib_root, userlib_root, instrlib_root)
+    if detect is None:
+        from . import lv_detect
+
+        detect = lv_detect.detect_labview
+    detected = detect()
+    if detected is None:
+        return RunFolders(vilib_root, userlib_root, instrlib_root)
+    return RunFolders(
+        (detected.vilib_root,),
+        userlib_root or folder_list(detected.userlib_root),
+        instrlib_root or folder_list(detected.instrlib_root),
+        detected,
     )

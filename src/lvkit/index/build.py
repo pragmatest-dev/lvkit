@@ -56,6 +56,7 @@ from ..run_report import (
     problem_for_exception,
 )
 from ..structure import get_project_members, parse_lvproj
+from .folder_dependence import folder_sensitive
 from .model import (
     ClassFact,
     ConstantFact,
@@ -294,11 +295,7 @@ def warm_index_for_vi(
     p = vi_path.resolve()
     root = cache_paths.store_root(p)
     try:
-        store_save(
-            root,
-            [project_vi_facts(graph, vi_name, p, root)],
-            graph.library_build().library_key(),
-        )
+        store_save(root, [project_vi_facts(graph, vi_name, p, root)])
     except Exception as exc:
         _warming_failed(graph, root, p, exc)
         return
@@ -360,7 +357,7 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
             _warming_failed(graph, root, p, exc)  # one bad VI must not sink the rest
     for root, facts in by_root.items():
         try:
-            store_save(root, facts, graph.library_build().library_key())
+            store_save(root, facts)
         except Exception as exc:
             _warming_failed(graph, root, Path(facts[0].path), exc)
     _warm_typedefs(graph, by_root)
@@ -492,8 +489,9 @@ def sync_index(
     reparse that catches added/removed projects and moved members).
 
     ``build`` gives the library folders and VI Search Path every graph of the
-    sync resolves dependency paths with (none when None). The index records
-    them: a sync with other folders than the stored ones is a full build.
+    sync resolves dependency paths with (none when None). Each VI records the
+    folders its facts depend on (``VIFacts.libraries``); a sync with other folders
+    rebuilds only the VIs recorded under other folders.
     """
     try:
         return _sync_index(project_root, vi_paths, ctl_paths, rebuild, run, build)
@@ -520,8 +518,6 @@ def _sync_index(
 ) -> SyncResult:
     run = run or RunProblems()
     library_key = (build or BuildOptions()).library_key()
-    # Syncing the controls first also claims the index for these folders (an index
-    # built with other folders is reset), before anything below reads it.
     controls = sync_typedefs(
         project_root, ctl_paths, rebuild=rebuild, run=run, build=build
     )
@@ -540,23 +536,20 @@ def _sync_index(
                 current_type_ids.get(v.typedef_path) != v.type_id
                 for v in f.typedef_versions
             )
+            or (f.libraries is not None and f.libraries != library_key)
         )
         rr, facts = refresh_index(project_root, vi_paths, stored, force, run, build)
-        store_delete(project_root, [*rr.deleted, *rr.unreadable], library_key)
-        store_save(project_root, facts, library_key)
-        store_save_lvproj_members(
-            project_root, build_lvproj_membership(project_root), library_key
-        )
+        store_delete(project_root, [*rr.deleted, *rr.unreadable])
+        store_save(project_root, facts)
+        store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
         result = SyncResult(facts, rr, 0, controls)
     else:
         built = build_index(project_root, vi_paths, run, build)
         facts = built.facts
         kept = {f.path for f in facts}
-        store_delete(
-            project_root, [f.path for f in stored if f.path not in kept], library_key
-        )
-        store_save(project_root, facts, library_key)
-        store_save_lvproj_members(project_root, built.lvproj_members, library_key)
+        store_delete(project_root, [f.path for f in stored if f.path not in kept])
+        store_save(project_root, facts)
+        store_save_lvproj_members(project_root, built.lvproj_members)
         result = SyncResult(facts, None, built.loaded_alone, controls)
     for f in facts:
         f.types = []  # the bodies are stored; the in-memory facts keep only ids
@@ -791,6 +784,15 @@ def project_vi_facts(
         for dep in typedef_deps
     ]
 
+    # A VI whose dependencies were not walked cannot say which of them the folders
+    # decide, so it is taken to depend on them.
+    walked = graph.dependencies_walked(vi_name)
+    libraries = (
+        graph.library_build().library_key()
+        if not walked or folder_sensitive(graph, vi_name)
+        else None
+    )
+
     return VIFacts(
         path=str(vi_path),
         name=vi_path.name,
@@ -805,7 +807,8 @@ def project_vi_facts(
         type_ids=sorted(catalog.types),
         typedef_paths=typedef_paths,
         typedef_versions=typedef_versions,
-        dependencies_walked=graph.dependencies_walked(vi_name),
+        dependencies_walked=walked,
+        libraries=libraries,
         types=list(catalog.types.values()),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 from .input_path import InputNotFound, is_stored_path, resolve_input
-from .library_folders import folder_list
+from .library_folders import run_folders
 
 if TYPE_CHECKING:
     from .graph import InMemoryVIGraph
@@ -229,28 +229,27 @@ def _parse_library_roots(args: argparse.Namespace) -> LibraryArgs:
     parsed = getattr(args, "_library_args", None)
     if parsed is not None:
         return parsed
-    vilib_root = folder_list(getattr(args, "vilib", None))
-    userlib_root = folder_list(getattr(args, "userlib", None))
-    instrlib_root = folder_list(getattr(args, "instrlib", None))
     entries = getattr(args, "search_path", None)
     search_path = tuple(entries) if entries else None
-
-    if not vilib_root and not getattr(args, "no_auto_vilib", False):
-        from .lv_detect import detect_labview
-
-        detected = detect_labview()
-        if detected is not None:
-            vilib_root = (detected.vilib_root,)
-            if not userlib_root:
-                userlib_root = folder_list(detected.userlib_root)
-            if not instrlib_root:
-                instrlib_root = folder_list(detected.instrlib_root)
-            version = detected.version or "?"
-            print(
-                f"lvkit: auto-detected LabVIEW {version} vi.lib at "
-                f"{detected.vilib_root} ({detected.source})",
-                file=sys.stderr,
-            )
+    folders = run_folders(
+        getattr(args, "vilib", None),
+        getattr(args, "userlib", None),
+        getattr(args, "instrlib", None),
+        auto_detect=not getattr(args, "no_auto_vilib", False),
+    )
+    vilib_root, userlib_root, instrlib_root = (
+        folders.vilib,
+        folders.userlib,
+        folders.instrlib,
+    )
+    detected = folders.detected
+    if detected is not None:
+        version = detected.version or "?"
+        print(
+            f"lvkit: auto-detected LabVIEW {version} vi.lib at "
+            f"{detected.vilib_root} ({detected.source})",
+            file=sys.stderr,
+        )
 
     args._library_args = LibraryArgs(
         vilib_root, userlib_root, instrlib_root, search_path

@@ -175,9 +175,14 @@ under the warmed project root. The tables live in `store.py` (VIs), `store_types
 shared catalog) and `store_typedefs.py` (controls); a VI's dependency edges to controls are
 `typedef_uses`. All of it surfaces as views in `index/sql.py` (`type*`, `vi_used_type`,
 `typedef*`). The index is built with the run's library folders (`BuildOptions`, given to
-`sync_index` and applied to every graph by `RunProblems.new_graph`) and records them in
-`index_meta.libraries`; every write goes through `store._connect`, and one with other
-folders (a sync, or a warm using `InMemoryVIGraph.library_build`) rebuilds the index.
+`sync_index` and applied to every graph by `RunProblems.new_graph`). A VI or control whose
+facts depend on them (`index/folder_dependence.py`: a dependency recorded under a pseudo
+path, found on the VI Search Path, or not found, here or in a control or class its types
+read) stores the folders it was built with (`meta.libraries`, `typedefs.libraries`); a sync
+with other folders rebuilds just those (`_sync_index`'s `force` set,
+`sync_typedefs`' changed set), and a warm replaces the rows it writes. The CLI and the MCP
+tools get their folders from one function, `library_folders.run_folders`, which finds an
+installed LabVIEW when no `vilib` is given.
 
 ### Global VIs and the block-diagram link table
 

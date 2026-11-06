@@ -19,18 +19,23 @@ from ..graph.typedef import (
     walk_typedef_fields,
 )
 from ..run_report import RunProblems
+from .folder_dependence import folder_sensitive
 from .model import TypedefFacts, TypedefFieldFact, TypedefRefFact, TypedefRel
 from .store import (
     apply_typedefs,
-    claim_libraries,
     load_typedef_dependents,
+    load_typedef_libraries,
     load_typedef_shas,
 )
 from .types import TypeCatalog
 
 
 def _facts_from_info(
-    info: TypedefInfo, catalog: TypeCatalog, sha: str, path: str
+    info: TypedefInfo,
+    catalog: TypeCatalog,
+    sha: str,
+    path: str,
+    libraries: str | None,
 ) -> TypedefFacts:
     root_id = catalog.add(info.root_type)
     rows = [
@@ -66,6 +71,7 @@ def _facts_from_info(
         fields=rows,
         refs=refs,
         types=list(catalog.types.values()),
+        libraries=libraries,
     )
 
 
@@ -88,7 +94,12 @@ def build_typedef_facts(
         _, key = load_ctl_by_path(resolved, graph=graph)
         info = graph.get_typedef(key)
         catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
-        return _facts_from_info(info, catalog, sha, str(resolved))
+        libraries = (
+            graph.library_build().library_key()
+            if folder_sensitive(graph, key)
+            else None
+        )
+        return _facts_from_info(info, catalog, sha, str(resolved), libraries)
     except Exception as e:  # noqa: BLE001 -- one unreadable control must not stop a sync
         graph.record_load_failure(resolved, e, node_type=NodeType.TYPEDEF)
         return None
@@ -155,23 +166,28 @@ def sync_typedefs(
     fields/type_id are read through that dependency (or every control, when
     ``rebuild``) -- drop the ones whose file is gone (always), keep the rest,
     and persist. ``build`` gives the library folders the controls are read with;
-    the index built with other folders is reset first, so every sync starts here
-    (a VI sync's controls are synced before its VIs are read)."""
+    a control whose facts depend on the folders (``TypedefFacts.libraries``) and
+    was built with other ones is rebuilt too."""
     library_key = (build or BuildOptions()).library_key()
-    claim_libraries(project_root, library_key)
     stored = load_typedef_shas(project_root)
+    stored_libraries = load_typedef_libraries(project_root)
     current = {str(p.resolve()): p for p in ctl_paths}
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     deleted = [path for path in stored if path not in current]
     if rebuild:
         to_rebuild = set(current)
     else:
-        dirty = {path for path in current if stored.get(path) != shas[path]}
+        dirty = {
+            path
+            for path in current
+            if stored.get(path) != shas[path]
+            or stored_libraries.get(path) not in (None, library_key)
+        }
         to_rebuild = _with_dependents(
             dirty | set(deleted), current, load_typedef_dependents(project_root)
         )
     changed, unreadable = _rebuild_facts(to_rebuild, current, shas, run, build)
-    apply_typedefs(project_root, changed, [*deleted, *unreadable], library_key)
+    apply_typedefs(project_root, changed, [*deleted, *unreadable])
     return TypedefSyncResult(
         controls=len(current) - len(unreadable),
         rebuilt=[t.path for t in changed],
@@ -187,12 +203,10 @@ def warm_typedefs(
     chase dependents -- a full :func:`sync_typedefs` catches those; this is a
     best-effort top-up from a load that already has the fresh graph in hand, with
     the library folders (``build``) that load used."""
-    library_key = (build or BuildOptions()).library_key()
-    claim_libraries(project_root, library_key)
     current = {str(p.resolve()): p for p in ctl_paths}
     stored = load_typedef_shas(project_root)
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     changed_paths = {path for path in current if stored.get(path) != shas[path]}
     changed, unreadable = _rebuild_facts(changed_paths, current, shas, None, build)
     if changed or unreadable:
-        apply_typedefs(project_root, changed, unreadable, library_key)
+        apply_typedefs(project_root, changed, unreadable)

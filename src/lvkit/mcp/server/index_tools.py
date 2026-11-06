@@ -131,6 +131,7 @@ async def index(
     userlib: str | list[str] | None = None,
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Build or refresh the code-understanding index for a whole VI repo.
@@ -153,8 +154,12 @@ async def index(
     Stopped) and ``problems`` (every VI that could not be read; the rest is
     indexed). ``vilib``/``userlib``/``instrlib`` are the folders a recorded
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
-    dependency is found only at the path its caller records); the index records
-    them, and a call with other folders rebuilds it.
+    dependency is found only at the path its caller records); a call with other
+    folders rebuilds only the VIs that call into a library folder, are found on
+    the VI search path, or have a dependency that is not found.
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
     project = await _facade._resolve_project(project, ctx)
 
@@ -164,7 +169,7 @@ async def index(
         _require_vis(root, vi_paths)
         _configure_resolvers_for_vi(root)
         run = new_run(root)
-        build = _build(vilib, userlib, instrlib, search_path)
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
         done = sync_index(
             root, vi_paths, ctl_paths, rebuild=not refresh, run=run, build=build
         )
@@ -206,6 +211,7 @@ async def query(
     userlib: str | list[str] | None = None,
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Read a LabVIEW project's structure — classes & inheritance, terminals,
@@ -243,13 +249,17 @@ async def query(
     ``vi.impact_score`` are the precomputed counts). ``vilib``/``userlib``/
     ``instrlib`` are the folders a recorded ``<vilib>``/``<userlib>``/
     ``<instrlib>`` dependency path starts from (each dependency is found only at
-    the path its caller records); the index records them, and a call with other
-    folders rebuilds it.
+    the path its caller records); a call with other folders rebuilds only the VIs
+    that call into a library folder, are found on the VI search path, or have a
+    dependency that is not found.
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
     project = await _facade._resolve_project(project, ctx)
 
     def _work() -> dict[str, Any]:
-        build = _build(vilib, userlib, instrlib, search_path)
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
         root, _ = _get_index(project, build=build)
         run = new_run(root)
         run.take(_index_problems.get(_cache_key(root, build), ()), announce=False)

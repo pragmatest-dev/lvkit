@@ -41,7 +41,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
-from .. import cache_paths, library_folders
+from .. import cache_paths
 from ..models import LVTypeKind
 from .model import (
     ClassFact,
@@ -59,6 +59,7 @@ from .store_typedefs import (
     TYPEDEFS_SCHEMA,
     delete_typedef,
     read_typedef_dependents,
+    read_typedef_libraries,
     read_typedef_shas,
     write_typedefs,
 )
@@ -69,8 +70,7 @@ from .store_types import (
     require_types,
 )
 
-_SCHEMA = (
-    """
+_SCHEMA = """
 CREATE TABLE IF NOT EXISTS vis (
     path TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -258,12 +258,10 @@ CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
     content_sha TEXT NOT NULL,
-    facts_digest TEXT NOT NULL DEFAULT ''
+    facts_digest TEXT NOT NULL DEFAULT '',
+    libraries TEXT
 );
-"""
-    + TYPES_SCHEMA
-    + TYPEDEFS_SCHEMA
-)
+""" + TYPES_SCHEMA + TYPEDEFS_SCHEMA
 
 _CHILD_TABLES = (
     "terminals",
@@ -399,19 +397,11 @@ def db_path(project_root: Path) -> Path:
     return path
 
 
-# The library folders of a run that has none: what a write with no folders
-# records (``library_folders.library_key`` of nothing).
-NO_LIBRARIES = library_folders.library_key({})
-
-
-def _connect(project_root: Path, library_key: str | None = None) -> sqlite3.Connection:
-    """Open the project's index DB. A WRITER passes the ``library_key`` of the
-    folders its facts were built with (every write goes through here, so none
-    can skip the check); a reader passes None and takes the DB as it is."""
+def _connect(project_root: Path) -> sqlite3.Connection:
     path = db_path(project_root)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
-    _ensure_facts_version(conn, library_key)
+    _ensure_facts_version(conn)
     conn.executescript(_SCHEMA)
     # Bump the slice's mtime so the access-TTL sweep keeps an index in active use
     # warm and only retires the ones for builds the user has upgraded away from.
@@ -419,9 +409,7 @@ def _connect(project_root: Path, library_key: str | None = None) -> sqlite3.Conn
     return conn
 
 
-def _ensure_facts_version(
-    conn: sqlite3.Connection, library_key: str | None = None
-) -> None:
+def _ensure_facts_version(conn: sqlite3.Connection) -> None:
     """Invalidate the whole index when lvkit's facts-producing code changed.
 
     Runs at the single point every caller funnels through (``_connect``), before
@@ -434,35 +422,23 @@ def _ensure_facts_version(
     of silently reusing the stale ones; NO migrate-in-place, because a derived
     cache with defaulted columns that never recompute IS the staleness bug.
 
-    Facts built with different library folders are different facts, so a writer
-    (``library_key`` given) whose folders differ from the ones the DB records --
-    or a DB that records none -- resets it the same way, and stamps its own.
-
     Deliberately additive-safe: intentionally drops and lets the caller rebuild
     rather than trying to preserve rows — the rows are all rederivable from VIs.
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS index_meta ("
-        "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL, "
-        "libraries TEXT)"
+        "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
     )
-    columns = {r[1] for r in conn.execute("PRAGMA table_info(index_meta)")}
-    if "libraries" not in columns:
-        conn.execute("ALTER TABLE index_meta ADD COLUMN libraries TEXT")
     current = _facts_fingerprint()
-    row = conn.execute(
-        "SELECT fingerprint, libraries FROM index_meta WHERE id = 0"
-    ).fetchone()
+    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     if row is not None and row[0] == current:
-        if library_key is None or row[1] == library_key:
-            return
+        return
     for table in _ALL_TABLES:
         conn.execute(f"DROP TABLE IF EXISTS {table}")
     conn.execute(
-        "INSERT INTO index_meta(id, fingerprint, libraries) VALUES (0, ?, ?) "
-        "ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint, "
-        "libraries = excluded.libraries",
-        (current, library_key),
+        "INSERT INTO index_meta(id, fingerprint) VALUES (0, ?) "
+        "ON CONFLICT(id) DO UPDATE SET fingerprint = excluded.fingerprint",
+        (current,),
     )
     conn.commit()
 
@@ -480,6 +456,7 @@ class _Prior:
     class_fact: ClassFact | None
     typedef_paths: list[str]
     typedef_versions: list[TypedefVersionFact]
+    libraries: str | None
 
 
 def facts_digest(f: VIFacts) -> str:
@@ -499,7 +476,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
     """The stored row for ``path`` (``None`` if never saved)."""
     row = conn.execute(
         "SELECT v.content_sha, m.facts_digest, v.is_stub, v.library, "
-        "v.impact_score, v.callers_count "
+        "v.impact_score, v.callers_count, m.libraries "
         "FROM vis v JOIN meta m ON m.vi_path = v.path WHERE v.path = ?",
         (path,),
     ).fetchone()
@@ -554,6 +531,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         class_fact=class_fact,
         typedef_paths=typedef_paths,
         typedef_versions=typedef_versions,
+        libraries=row[6],
     )
 
 
@@ -628,7 +606,8 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
       current shape to decide a rebuild, so the latest load that walked the VI's
       dependencies replaces them. A load that did not walk them
       (``dependencies_walked`` False) knows nothing about them, so the stored
-      lists stay.
+      lists stay, and so does ``libraries`` (the library folders a VI's facts
+      depend on come from the dependencies walked).
     * a stub never replaces a loaded VI.
     * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
       stored ones stay.
@@ -650,6 +629,7 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             typedef_versions=(
                 f.typedef_versions if f.dependencies_walked else prior.typedef_versions
             ),
+            libraries=f.libraries if f.dependencies_walked else prior.libraries,
             impact_score=prior.impact_score,
             callers_count=prior.callers_count,
         )
@@ -658,7 +638,7 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
     return effective
 
 
-def _probe(project_root: Path, library_key: str) -> sqlite3.Connection | None:
+def _probe(project_root: Path) -> sqlite3.Connection | None:
     """A read-only, lock-free view of the project's current index DB, or ``None``
     when there is none to read. ``immutable`` opens the main file alone, so a
     probe creates no ``-wal``/``-shm`` files and writes nothing; a concurrent
@@ -670,20 +650,20 @@ def _probe(project_root: Path, library_key: str) -> sqlite3.Connection | None:
     try:
         conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
         row = conn.execute(
-            "SELECT fingerprint, libraries FROM index_meta WHERE id = 0"
+            "SELECT fingerprint FROM index_meta WHERE id = 0"
         ).fetchone()
     except sqlite3.Error:
         return None
-    if row is None or row[0] != _facts_fingerprint() or row[1] != library_key:
+    if row is None or row[0] != _facts_fingerprint():
         conn.close()
         return None
     return conn
 
 
-def _probe_is_current(project_root: Path, vis: list[VIFacts], library_key: str) -> bool:
+def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
     """True when every one of ``vis`` is already stored as-is: a save would
     write nothing, so it need not open the DB for writing at all."""
-    conn = _probe(project_root, library_key)
+    conn = _probe(project_root)
     if conn is None:
         return False
     try:
@@ -694,18 +674,7 @@ def _probe_is_current(project_root: Path, vis: list[VIFacts], library_key: str) 
         conn.close()
 
 
-def claim_libraries(project_root: Path, library_key: str) -> None:
-    """Record that the facts about to be written are built with these library
-    folders: an index built with other folders is reset first. A sync calls this
-    before it reads what is stored, so it never refreshes facts of other folders."""
-    _connect(project_root, library_key).close()
-
-
-def save(
-    project_root: Path,
-    vis: Iterable[VIFacts],
-    library_key: str = NO_LIBRARIES,
-) -> None:
+def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     """Upsert the given ``VIFacts`` rows into the project's index DB.
 
     A VI whose stored row is already current is not touched (see
@@ -717,9 +686,9 @@ def save(
     the one exception filled at merge, like impact_score.)
     """
     pending = list(vis)
-    if not pending or _probe_is_current(project_root, pending, library_key):
+    if not pending or _probe_is_current(project_root, pending):
         return
-    conn = _connect(project_root, library_key)
+    conn = _connect(project_root)
     try:
         with conn:
             for incoming in pending:
@@ -877,19 +846,18 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
             ),
         )
     conn.execute(
-        "INSERT INTO meta(vi_path, content_sha, facts_digest) VALUES (?,?,?)",
-        (f.path, f.content_sha, facts_digest(f)),
+        "INSERT INTO meta(vi_path, content_sha, facts_digest, libraries) "
+        "VALUES (?,?,?,?)",
+        (f.path, f.content_sha, facts_digest(f), f.libraries),
     )
 
 
-def delete(
-    project_root: Path, paths: Iterable[str], library_key: str = NO_LIBRARIES
-) -> None:
+def delete(project_root: Path, paths: Iterable[str]) -> None:
     """Delete every row belonging to each given VI path from the index DB.
 
     Used by an incremental refresh to drop VIs whose ``.vi`` file is gone.
     """
-    conn = _connect(project_root, library_key)
+    conn = _connect(project_root)
     try:
         with conn:
             for path in paths:
@@ -930,15 +898,22 @@ def load_typedef_shas(project_root: Path) -> dict[str, str]:
         conn.close()
 
 
+def load_typedef_libraries(project_root: Path) -> dict[str, str | None]:
+    """``{path: library folders its facts depend on, or None}`` of every indexed
+    ``.ctl`` control."""
+    conn = _connect(project_root)
+    try:
+        return read_typedef_libraries(conn)
+    finally:
+        conn.close()
+
+
 def apply_typedefs(
-    project_root: Path,
-    changed: Iterable[TypedefFacts],
-    deleted: Iterable[str],
-    library_key: str = NO_LIBRARIES,
+    project_root: Path, changed: Iterable[TypedefFacts], deleted: Iterable[str]
 ) -> None:
     """Replace the ``changed`` controls' rows and drop the ``deleted`` ones, in one
     transaction with one collection of the types nothing uses any more."""
-    conn = _connect(project_root, library_key)
+    conn = _connect(project_root)
     try:
         with conn:
             for path in deleted:
@@ -952,7 +927,6 @@ def apply_typedefs(
 def save_lvproj_members(
     project_root: Path,
     members: Iterable[LVProjMemberFact],
-    library_key: str = NO_LIBRARIES,
 ) -> None:
     """Replace the project's ``.lvproj`` membership rows wholesale.
 
@@ -962,7 +936,7 @@ def save_lvproj_members(
     reinserts, keeping it consistent with the current set of ``.lvproj`` files
     (added/removed projects, moved members) on every build/refresh.
     """
-    conn = _connect(project_root, library_key)
+    conn = _connect(project_root)
     try:
         with conn:
             conn.execute("DELETE FROM lvproj_members")
@@ -1204,6 +1178,10 @@ def load(project_root: Path) -> list[VIFacts]:
                 ancestors=json.loads(ancestors),
             )
 
+        libraries_by_vi: dict[str, str | None] = dict(
+            conn.execute("SELECT vi_path, libraries FROM meta")
+        )
+
         results: list[VIFacts] = []
         for row in vi_rows:
             base = row[:8]
@@ -1242,6 +1220,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     typedef_paths=typedef_paths_by_vi.get(path, []),
                     typedef_versions=typedef_versions_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
+                    libraries=libraries_by_vi.get(path),
                     impact_score=impact_score,
                     callers_count=callers_count,
                     **prop_kwargs,

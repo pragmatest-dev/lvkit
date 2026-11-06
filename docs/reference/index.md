@@ -59,7 +59,7 @@ you), then ask project-wide questions in one call — no per-VI round trips.
 
 ## Shared options
 
-- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--vilib`, `--userlib`, `--instrlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, `render`, `index`, `query`, `callers`, `callees`, and `blast-radius`, explained once. The index records its folders; changing them rebuilds it.
+- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--vilib`, `--userlib`, `--instrlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, `render`, `index`, `query`, `callers`, `callees`, and `blast-radius`, explained once. Changing them rebuilds only the VIs that call into a library folder, are found on the VI Search Path, or have a dependency that is not found.
 - [Netlist](netlist.md) — the node-first text grammar shared by `describe --verbose`'s `## Netlist` section, `diff`'s text output, and the interactive diff viewer's Tree change list.
 
 ---

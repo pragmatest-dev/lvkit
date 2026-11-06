@@ -50,8 +50,10 @@ against, not something the agent calls through MCP.
 (so same-named VIs like `setUp.vi` ×17 never collide); the rest read it in sub-ms.
 All take a `project` path (any file/dir inside the repo). `index` and `query` also
 take `vilib`, `userlib` and `instrlib` (the folders a recorded `<vilib>`/`<userlib>`/
-`<instrlib>` dependency path starts from); the index records them, and a call with
-other folders rebuilds it.
+`<instrlib>` dependency path starts from); a call with other folders rebuilds only the VIs
+that call into a library folder, are found on the VI Search Path, or have a dependency that
+is not found. Every tool that takes `vilib` finds an installed LabVIEW's folders when it is
+not given, like the command line; `no_auto_vilib` turns that off.
 
 | Tool | Description |
 |------|-------------|

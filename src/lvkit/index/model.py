@@ -189,6 +189,9 @@ class TypedefFacts:
     fields: list[TypedefFieldFact] = field(default_factory=list)
     refs: list[TypedefRefFact] = field(default_factory=list)
     types: list[TypeFact] = field(default_factory=list)  # own type + everything nested
+    # The library folders the control's facts were built with, when they depend on
+    # them (``VIFacts.libraries``), else None.
+    libraries: str | None = None
 
 
 @dataclass
@@ -490,6 +493,12 @@ class VIFacts:
     # edges): its empty ``typedef_paths``/``typedef_versions`` then mean "not
     # looked at", not "none". Not persisted.
     dependencies_walked: bool = True
+    # The library folders and VI Search Path (``library_folders.library_key``)
+    # this VI's facts were built with, when they depend on them -- a dependency
+    # is recorded as ``<userlib>/...``, is found on the VI search path or is not
+    # found (``index.folder_dependence``) -- else None: its facts are the same
+    # under any folders.
+    libraries: str | None = None
     # The ``TypeFact`` bodies a fresh build produced. NOT persisted on the VI: a
     # type is stored once, shared by every owner (``types`` table). Empty on a VI
     # loaded from the store, whose ``type_ids`` already name rows that exist.
