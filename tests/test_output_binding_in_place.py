@@ -45,15 +45,17 @@ def _array(element: int) -> str:
 
 @pytest.fixture
 def first_element(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The catalog answers ``FIRST_ELEMENT`` with the test primitive."""
-    resolver = get_resolver()
-    resolve = resolver.resolve
+    """The catalog answers ``FIRST_ELEMENT`` with the test primitive. The patch is
+    on the catalog's class: patching the shared catalog object would leave its
+    original method stored on it when undone, hiding a later test's class patch."""
+    catalog = type(get_resolver())
+    resolve = catalog.resolve
 
     def fake(
-        prim_id: object = None, *args: object, **kwargs: object
+        self: object, prim_id: object = None, *args: object, **kwargs: object
     ) -> ResolvedPrimitive | None:
         if str(prim_id) != str(FIRST_ELEMENT):
-            return resolve(prim_id, *args, **kwargs)  # type: ignore[arg-type]
+            return resolve(self, prim_id, *args, **kwargs)  # type: ignore[arg-type]
         return ResolvedPrimitive(
             prim_id=str(FIRST_ELEMENT),
             name="First Element",
@@ -66,7 +68,7 @@ def first_element(monkeypatch: pytest.MonkeyPatch) -> None:
             ],
         )
 
-    monkeypatch.setattr(resolver, "resolve", fake)
+    monkeypatch.setattr(catalog, "resolve", fake)
 
 
 def _body(package: Package) -> str:
