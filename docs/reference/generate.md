@@ -80,7 +80,7 @@ a bare success line.
 |-----------|---------|
 | `0` | Every VI converted, no gaps. |
 | `3` | Partial: the output was written, but some nodes could not be converted or a VI could not be read (see [problems](problems.md)). |
-| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`, and so does a `--fail-fast` run that reached a problem. |
+| `1` | A VI could not be written (it has no file and no recorded path; the summary reads `Stopped: … VI(s) could not be written`), lvkit itself failed on a VI (the summary names `VI(s) failed with an lvkit error`, and the run goes on to the other VIs), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both of these and gaps exits `1`, and so does a `--fail-fast` run that reached a problem. |
 
 `lvkit unresolved <input-path> [--format json]` lists the same gaps, grouped by kind
 with the VIs each occurs in.

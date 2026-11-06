@@ -195,7 +195,7 @@ def test_generated_code_runs_with_the_typedef_module() -> None:
     )
     namespace: dict = {}
     exec(compile(source, "check_color.py", "exec"), namespace)  # noqa: S102
-    assert namespace["check_color"](7).color_out == 7
+    assert namespace["check_color"](color_in=7).color_out == 7
 
 
 def test_a_plain_u32_is_an_int_with_no_import() -> None:

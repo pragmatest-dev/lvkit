@@ -507,14 +507,15 @@ class TestParseSelectorTables:
         assert tables[0].ranges == [(0, 0, 0), (2, 4, 1)]
         assert tables[1].strings == [] and tables[1].ranges == [(2, 3, 0), (5, 7, 1)]
 
-    def test_dedupe_identical_pairs_keeps_lowest_type_id(self):
-        """pylabview emits each default twice (edit + run copy)."""
+    def test_identical_tables_are_each_kept_by_type_id(self):
+        """Two case structures with the same values (a copied case) each have
+        their own table."""
 
         def t(tid: int) -> ET.Element:
             return _ds_selector_table(tid, 0, [(0, 0, 0), (1, 1, 1)])
 
         tables = parse_selector_tables(_ds_root(t(31), t(70)))
-        assert [t.type_id for t in tables] == [31]
+        assert [t.type_id for t in tables] == [31, 70]
 
     def test_ignores_non_selector_datafills(self):
         other = ET.Element("DataFill", attrib={"TypeID": "9"})
@@ -642,3 +643,77 @@ class TestCaseInsensitiveFlag:
     def test_bit24_on_non_string_selector_ignored(self):
         cs = self._case_with_objflags(1 << 24, type_name="NumInt32")
         assert cs.case_insensitive is False
+
+
+def _linked_enum_case(case_uid: str, td_offset: int, type_id: int) -> ET.Element:
+    """A three-frame enum case with no values in the heap whose ``tdOffset``
+    names its selector table."""
+    root = _build_case_xml(
+        case_uid,
+        f"sel_{case_uid}",
+        select_ranges=None,
+        num_diags=3,
+        sel_type_id=type_id,
+    )
+    case = root.find(f".//*[@uid='{case_uid}']")
+    assert case is not None
+    ET.SubElement(case, "tdOffset").text = format(td_offset, "X")
+    return case
+
+
+class TestCopiedCaseTables:
+    """Issue #238: a case copied into another frame of the diagram has its own
+    table with the same values; each case gets its own, and its frames their
+    own names."""
+
+    RANGES = [(1, 1, 1), (4, 4, 2)]
+
+    def _cases(self):
+        root = ET.Element("root")
+        root.append(_linked_enum_case("a", 15, 121))
+        root.append(_linked_enum_case("b", 26, 122))
+        ti = {
+            **_make_terminal_info("sel_a", "NumInt32"),
+            **_make_terminal_info("sel_b", "NumInt32"),
+        }
+        tables = parse_selector_tables(
+            _ds_root(
+                _ds_selector_table(19, 0, self.RANGES),
+                _ds_selector_table(30, 0, self.RANGES),
+                _ds_selector_table(81, 1, [(-2147483648, 0, 0)]),
+            )
+        )
+        return extract_case_structures(root, ti, tables, table_index_shift=4)
+
+    def test_each_copy_gets_its_own_table(self):
+        for cs in self._cases():
+            assert [f.selector_value for f in cs.frames] == ["Default", "1", "4"]
+
+    def test_no_two_frames_share_a_name(self):
+        for cs in self._cases():
+            values = [f.selector_value for f in cs.frames]
+            assert len(set(values)) == len(values)
+
+
+def test_an_unlinked_copy_of_a_used_table_is_not_paired_by_position():
+    """pylabview can emit a table twice; the copy no case links to is not
+    handed to a case with no link of its own."""
+    root = ET.Element("root")
+    root.append(_linked_enum_case("a", 15, 121))
+    unlinked = _build_case_xml(
+        "b", "sel_b", select_ranges=None, num_diags=2, sel_type_id=122
+    )
+    root.append(unlinked[0])
+    ti = {
+        **_make_terminal_info("sel_a", "NumInt32"),
+        **_make_terminal_info("sel_b", "NumInt32"),
+    }
+    tables = parse_selector_tables(
+        _ds_root(
+            _ds_selector_table(19, 0, [(1, 1, 1), (4, 4, 2)]),
+            _ds_selector_table(70, 0, [(1, 1, 1), (4, 4, 2)]),
+        )
+    )
+    a, b = extract_case_structures(root, ti, tables, table_index_shift=4)
+    assert [f.selector_value for f in a.frames] == ["Default", "1", "4"]
+    assert all(f.selector_ranges == [] for f in b.frames)

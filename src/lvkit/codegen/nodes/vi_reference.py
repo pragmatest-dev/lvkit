@@ -263,8 +263,7 @@ def _member_value_call(
             f"{_label(node)}: the VI the reference holds is only known when the "
             f"diagram runs, and the project's VIs with its connector pane ({shown}) "
             "are not all called the same way: a method of a class takes its object "
-            "as self and returns its results as one value or a NamedTuple, a VI "
-            "returns a NamedTuple of its outputs.",
+            "as self; both return a NamedTuple of the connector pane's outputs.",
             node,
         )
     if form.member is None:
@@ -322,13 +321,7 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             bindings=bindings,
         )
 
-    ctx.add_import(_EXECUTOR_IMPORT)
-    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
-    submit = ast.Call(
-        func=parse_expr(f"{_EXECUTOR}.submit"),
-        args=[parse_expr(call.function)],
-        keywords=call.keywords,
-    )
+    submit = submit_to_pool(ctx, call.function, call.keywords)
     if options is not None and options & CALL_AND_FORGET:
         return CodeFragment(
             statements=[*call.prelude, ast.Expr(value=submit)], bindings=bindings
@@ -336,6 +329,21 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     future = ctx.make_output_var("future", node.id)
     return CodeFragment(
         statements=[*call.prelude, build_assign(future, submit)], bindings=bindings
+    )
+
+
+def submit_to_pool(
+    ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
+) -> ast.Call:
+    """``function(**keywords)`` started on the module's thread pool, which this
+    adds: the call goes on while the caller does not wait for it. Its value is
+    the call's ``Future``."""
+    ctx.add_import(_EXECUTOR_IMPORT)
+    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
+    return ast.Call(
+        func=parse_expr(f"{_EXECUTOR}.submit"),
+        args=[parse_expr(function)],
+        keywords=keywords,
     )
 
 
@@ -423,7 +431,12 @@ _IMPORT_MODULE = """\
 if {stem}.lower().endswith((".vi", ".vim", ".vit")):
     {stem} = {stem}.rsplit(".", 1)[0]
 {module} = importlib.import_module({package} + _module_part({stem}), __package__)
-{reference} = getattr({module}, _function_name({stem}))
+{reference} = getattr({module}, _function_name({stem}), None)
+if {reference} is None:
+    raise LookupError(
+        f"the module of {{{stem}!r}} has no function for it (a polymorphic VI "
+        "has none: only its variants do)"
+    )
 """
 
 
@@ -491,9 +504,14 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     name and its method's name."""
     assert ctx.graph is not None and ctx.vi_name is not None
     resolver = ctx.import_resolver
-    # The module being generated sits in the folder of its class file (a method)
-    # or of its VI; a path computed when the code runs is read from that folder.
-    module_key = ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
+    # A path computed when the code runs is read from the folder of the module
+    # being written (the resolver's ``module_key``: a class, a polymorphic VI,
+    # the VI itself).
+    module_key = (
+        resolver.module_key
+        if isinstance(resolver, ImportResolver) and resolver.module_key
+        else ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
+    )
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)

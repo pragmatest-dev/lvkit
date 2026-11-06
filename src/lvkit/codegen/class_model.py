@@ -27,10 +27,9 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import networkx as nx
-
 from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import derive_python_name
 
@@ -45,7 +44,6 @@ from .class_attributes import (
     property_accessors,
     storage_names,
 )
-from .errors import CodeGenError
 from .receiver_flow import carries_receiver
 from .value_copy import holds_refnum
 
@@ -68,11 +66,12 @@ class MethodKind(str, Enum):
 class MethodShape:
     """One member VI as a Python method.
 
-    ``parameters`` maps the pane index of each input other than the class wire
-    and the error cluster to its keyword; ``result_fields`` maps the pane index of
-    each result to its field of the ``NamedTuple`` ``result_class`` (named only
-    when there are two or more results). ``results`` are the pane indices
-    returned, in pane order, and include the class output when
+    Only connector-pane terminals are in a shape. ``parameters`` maps the pane
+    index of each input other than the class wire and the error cluster to its
+    keyword, and ``required`` are the indices of those a caller must wire;
+    ``result_fields`` maps the pane index of each result to its field of the
+    ``NamedTuple`` ``result_class`` (named when there is a result). ``results`` are
+    the pane indices returned, in pane order, and include the class output when
     ``returns_receiver``: the class output is not the object the method was
     called on, changed in place, in this VI or in a VI that overrides it."""
 
@@ -83,6 +82,7 @@ class MethodShape:
     receiver_in: int | None
     receiver_out: int | None
     parameters: dict[int, str]
+    required: frozenset[int]
     results: tuple[int, ...]
     result_fields: dict[int, str]
     returns_receiver: bool
@@ -130,7 +130,6 @@ class _RunState:
     models: dict[str, ClassModel] = field(default_factory=dict)
     returns: dict[str, bool] = field(default_factory=dict)
     active: set[str] = field(default_factory=set)
-    cyclic_classes: set[str] | None = None
 
 
 _STATES: weakref.WeakKeyDictionary[InMemoryVIGraph, _RunState] = (
@@ -156,19 +155,24 @@ def class_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
 
 
 def type_attributes(
-    graph: InMemoryVIGraph, lv_type: LVType | None, caller_vi_key: str | None
+    graph: InMemoryVIGraph,
+    lv_type: LVType | None,
+    caller_vi_key: str | None,
+    node_label: str,
 ) -> ClassAttributes | None:
     """The attributes of the class a wire of type ``lv_type`` carries, found among
-    the calling VI's own records, for a Bundle/Unbundle By Name or In Place Element
-    on its private data; ``None`` for a wire that is not a loaded class. Only the
-    class's own VIs reach its private data (its storage is private), so a node
-    in any other VI is an lvkit error."""
+    the calling VI's own records, for the ``node_label`` node (a Bundle/Unbundle By
+    Name or In Place Element) on its private data; ``None`` for a wire that is
+    not a loaded class. Only the class's own VIs reach its private data, so the
+    node in any other VI is a gap: that VI is broken in LabVIEW."""
     if lv_type is None:
         return None
     key = graph.class_type_key(lv_type)
     if key is None:
         return None
-    _require_own_class(graph, key, caller_vi_key, "Its private data")
+    _require_own_class(
+        graph, key, caller_vi_key, f"{node_label} on the private data"
+    )
     return class_model(graph, key).attributes
 
 
@@ -177,13 +181,21 @@ def _require_own_class(
 ) -> None:
     """``what`` of the class at ``class_key`` is reached from ``caller_key``,
     which must be one of the class's own VIs (written in its body, where Python
-    finds a private name); anything else is an lvkit error."""
+    finds a private name). LabVIEW lets no other VI reach it, so anything else
+    is a VI broken in LabVIEW: a gap. When the VI's own record claims the class
+    (``claimed_owner``, by path), the class file and the VI disagree, and the
+    reason says so."""
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
-    if caller_class != class_key:
-        raise CodeGenError(
-            f"{what} of {python_class_name(class_key)} is reached from outside "
-            "the class"
-        )
+    if caller_class == class_key:
+        return
+    if caller_key and graph.claimed_owner(caller_key) == class_key:
+        why = "the VI names that class as its owner while the class does not list it"
+    else:
+        why = "the class does not list this VI"
+    raise ConversionGap(
+        f"{what} of the class {graph.key_label(class_key)}, but {why}, so the VI "
+        "is broken in LabVIEW"
+    )
 
 
 def accessor_of(
@@ -303,7 +315,11 @@ def _family(
 ) -> tuple[str, str, list[str]]:
     """``(root class, root VI, every VI of the family)`` of the dynamic-dispatch
     VI ``vi_key``: the declaration and each override in the loaded descendants.
-    A VI that is not dynamic dispatch is its own family."""
+    A VI that is not dynamic dispatch is its own family. Only a VI the graph
+    holds as a member of its class is in the family: the class generated for an
+    ancestor whose VI was not loaded has no such method, so the topmost loaded
+    VI is the declaration Python sees, and its connector pane is the
+    signature."""
     access = graph.get_method_access(vi_key)
     if access is None or access.is_static:
         return class_key, vi_key, [vi_key]
@@ -311,7 +327,7 @@ def _family(
     root_class, root_key = class_key, vi_key
     parent = graph.class_parent_key(class_key)
     while parent is not None:
-        found = graph.class_method(parent, name)
+        found = _member_method(graph, parent, name)
         if found is None:
             break
         root_class, root_key = found
@@ -325,11 +341,23 @@ def _family(
             continue
         seen.add(child)
         if graph.class_declares(child, name):
-            found = graph.class_method(child, name)
-            assert found is not None
-            keys.append(found[1])
+            found = _member_method(graph, child, name)
+            if found is not None:
+                keys.append(found[1])
         pending.extend(graph.class_child_keys(child))
     return root_class, root_key, keys
+
+
+def _member_method(
+    graph: InMemoryVIGraph, class_key: str, name: str
+) -> tuple[str, str] | None:
+    """``(owner class, VI)`` of the method file ``name`` of the class at
+    ``class_key`` or its nearest ancestor that lists it, when the graph holds
+    that VI as a member of its class; None otherwise."""
+    found = graph.class_method(class_key, name)
+    if found is None or found[1] not in graph.class_member_keys(found[0]):
+        return None
+    return found
 
 
 def _own_returns_receiver(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> bool:
@@ -387,18 +415,23 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
     root_class, root_key, _ = _family(graph, class_key, vi_key)
     returns = _family_returns_receiver(graph, class_key, vi_key)
 
-    r_in, r_off_in, r_out, r_off_out = graph.vi_interface(root_key)
-    names = interface_names(r_in, r_off_in, r_out, r_off_out)
+    r_in, r_off_in, r_out, _ = graph.vi_interface(root_key)
+    names = interface_names(r_in, r_off_in, r_out)
     root_receiver_in, _ = _receivers(graph, root_class, root_key)
     root_receiver_index = root_receiver_in.index if root_receiver_in else None
     parameters = {
         t.index: names.parameters[t.id]
-        for t in [*r_in, *r_off_in]
+        for t in r_in
         if t.id in names.parameters and t.index != root_receiver_index
     }
+    required = frozenset(
+        t.index
+        for t in r_in
+        if t.index in parameters and is_required(t, "input")
+    )
     results: list[int] = []
     result_fields: dict[int, str] = {}
-    for t in [*r_out, *r_off_out]:
+    for t in r_out:
         if t.is_error_cluster or t.id not in names.fields:
             continue
         is_receiver = receiver_out is not None and t.index == receiver_out.index
@@ -414,11 +447,12 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
         receiver_in=receiver_in.index if receiver_in else None,
         receiver_out=receiver_out.index if receiver_out else None,
         parameters=parameters,
+        required=required,
         results=tuple(results),
         result_fields=result_fields,
         returns_receiver=returns,
         result_class=(
-            build_result_class_name(Path(root_key).name) if len(results) >= 2 else None
+            build_result_class_name(Path(root_key).name) if results else None
         ),
         root_key=root_key,
         root_class_key=root_class,
@@ -473,14 +507,25 @@ def not_a_method(graph: InMemoryVIGraph, vi_key: str) -> str | None:
 
 
 def check_private_access(
-    graph: InMemoryVIGraph, name: str, class_key: str, caller_key: str | None
+    graph: InMemoryVIGraph,
+    name: str,
+    member_key: str,
+    class_key: str,
+    caller_key: str | None,
+    use: str,
 ) -> None:
-    """A private member ``name`` of the class at ``class_key`` is reached only
-    from that class's own VIs (LabVIEW lets no other VI call it), which are
-    written in the class body where Python finds the name; anything else is an
-    lvkit error."""
+    """A private member ``name`` (the VI ``member_key``) of the class at
+    ``class_key`` is reached only from that class's own VIs (LabVIEW lets no
+    other VI reach it), which are written in the class body where Python finds
+    the name; ``use`` of it ("A call of", "A reference to") from anything else is
+    a gap."""
     if is_private(name):
-        _require_own_class(graph, class_key, caller_key, f"The private member '{name}'")
+        _require_own_class(
+            graph,
+            class_key,
+            caller_key,
+            f"{use} the private VI {graph.vi_display_name(member_key)}",
+        )
 
 
 def member_reference(
@@ -498,12 +543,15 @@ def member_reference(
         raise ConversionGap(reason)
     imported = class_import(graph, shape.class_key, resolver)
     accessor = class_model(graph, shape.class_key).attributes.accessors.get(shape.key)
+    name = shape.name if accessor is None else accessor.python_name
+    check_private_access(
+        graph, name, shape.key, shape.class_key, caller_key, "A reference to"
+    )
     if accessor is None:
-        check_private_access(graph, shape.name, shape.class_key, caller_key)
-        return f"{imported.name}.{shape.name}", imported.statement
-    check_private_access(graph, accessor.python_name, shape.class_key, caller_key)
+        return f"{imported.name}.{name}", imported.statement
     side = "fget" if accessor.role is PropertyRole.GETTER else "fset"
-    return f"{imported.name}.{accessor.python_name}.{side}", imported.statement
+    return f"{imported.name}.{name}.{side}", imported.statement
+
 
 
 def result_class_imports(
@@ -513,7 +561,11 @@ def result_class_imports(
     that another class's module defines (an override returns its declaration's)."""
     by_class: dict[str, set[str]] = {}
     for shape in model.shapes.values():
-        if shape.result_class is not None and shape.root_class_key != model.key:
+        if (
+            shape.result_class is not None
+            and has_result_class(model, shape)
+            and shape.root_class_key != model.key
+        ):
             by_class.setdefault(shape.root_class_key, set()).add(shape.result_class)
     statements = []
     for root_class, names in sorted(by_class.items()):
@@ -523,44 +575,16 @@ def result_class_imports(
     return statements
 
 
+def has_result_class(model: ClassModel, shape: MethodShape) -> bool:
+    """Whether the method ``shape`` returns a result class: it has a result and is
+    not the getter or setter of a property (those return their value itself)."""
+    accessors = model.attributes.accessors
+    return shape.result_class is not None and shape.key not in accessors
+
+
 def declares_result_class(model: ClassModel, shape: MethodShape) -> bool:
     """Whether the module of the class defines the result class of ``shape``."""
-    return shape.result_class is not None and shape.root_class_key == model.key
-
-
-def lazy_imports(graph: InMemoryVIGraph, class_key: str) -> bool:
-    """Whether the module of the class at ``class_key`` is in an import cycle with
-    other generated modules (it calls a VI that calls it back), so the imports
-    its methods need go inside the methods that use them."""
-    state = _state(graph)
-    if state.cyclic_classes is None:
-        state.cyclic_classes = _classes_in_import_cycles(graph)
-    return class_key in state.cyclic_classes
-
-
-def _classes_in_import_cycles(graph: InMemoryVIGraph) -> set[str]:
-    """The classes that lie on a cycle of the calls between the modules, where a
-    class and its member VIs are one module and a class also depends on its
-    parent."""
-    module_of: dict[str, str] = {}
-    for key in graph.list_class_keys():
-        module_of[key] = key
-        for member in graph.class_member_keys(key):
-            module_of[member] = key
-    modules = nx.DiGraph()
-    for caller, callee in graph.call_edges():
-        a, b = module_of.get(caller, caller), module_of.get(callee, callee)
-        if a != b:
-            modules.add_edge(a, b)
-    for key in sorted(set(module_of.values())):
-        parent = graph.class_parent_key(key)
-        if parent is not None:
-            modules.add_edge(key, parent)
-    cyclic: set[str] = set()
-    for component in nx.strongly_connected_components(modules):
-        if len(component) > 1:
-            cyclic.update(k for k in component if module_of.get(k) == k)
-    return cyclic
+    return has_result_class(model, shape) and shape.root_class_key == model.key
 
 
 def shares_refnums(graph: InMemoryVIGraph, class_key: str) -> bool:

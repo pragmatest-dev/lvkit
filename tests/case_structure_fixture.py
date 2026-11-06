@@ -136,6 +136,16 @@ def _selector_xml(
     return range_xml + f"<SelectStringArray>{string_xml}</SelectStringArray>"
 
 
+def _default_xml(default_frame: int | None) -> str:
+    """The ``SelectDefaultCase`` xml naming the Default frame (None: no Default
+    frame). LabVIEW leaves it out when the default is frame 0."""
+    if default_frame is None:
+        return "<SelectDefaultCase>FF</SelectDefaultCase>"
+    if default_frame == 0:
+        return ""
+    return f"<SelectDefaultCase>{default_frame:02X}</SelectDefaultCase>"
+
+
 def _bd_xml(
     selector: Selector,
     frames: list[FrameSpec],
@@ -155,14 +165,7 @@ def _bd_xml(
         for i in range(len(frames))
     )
     values = _selector_xml(selector, frames, stored_values)
-    # LabVIEW leaves SelectDefaultCase out when the default is frame 0.
-    default = (
-        "<SelectDefaultCase>FF</SelectDefaultCase>"
-        if default_frame is None
-        else ""
-        if default_frame == 0
-        else f"<SelectDefaultCase>{default_frame:02X}</SelectDefaultCase>"
-    )
+    default = _default_xml(default_frame)
     case = (
         f'<SL__arrayElement class="caseStruct" uid="{_CASE_UID}">'
         '<termList elements="1">'

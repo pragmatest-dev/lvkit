@@ -483,3 +483,67 @@ def test_relative_imports_at_different_levels_are_not_duplicates():
         )
     )
     assert result == "from .x import A\nfrom ..x import A"
+
+
+def _keeps_starting_value(code: str) -> str:
+    """The optimized code, which must still compile and keep ``x = 0``."""
+    result = ast.unparse(eliminate_dead_code(ast.parse(code)))
+    compile(result, "<optimized>", "exec")
+    assert "x = 0" in result
+    return result
+
+
+def test_augmented_assignment_reads_its_target():
+    """``x += 1`` reads ``x``: its starting value is kept."""
+    _keeps_starting_value("""
+def f():
+    x = 0
+    while True:
+        x += 1
+        if x > 3:
+            break
+""")
+
+
+def test_nonlocal_name_keeps_its_binding():
+    """A nested function's ``nonlocal x`` needs the enclosing ``x = 0``."""
+    result = _keeps_starting_value("""
+def f():
+    x = 0
+    def branch():
+        nonlocal x
+        x = 2
+    branch()
+""")
+    assert "x = 2" in result
+
+
+def test_global_name_counts_as_used():
+    _keeps_starting_value("""
+def f():
+    x = 0
+    def g():
+        global x
+        x = 2
+""")
+
+
+def test_deleted_name_counts_as_used():
+    _keeps_starting_value("""
+def f():
+    x = 0
+    del x
+""")
+
+
+def test_read_in_nested_function_and_lambda_counts_as_used():
+    result = _keeps_starting_value("""
+def f():
+    x = 0
+    y = 1
+    def g():
+        return x
+    h = lambda: y
+    return (g, h)
+""")
+    assert "y = 1" in result

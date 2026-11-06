@@ -53,11 +53,12 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
+from .pane_shape import terminals_shape, vi_shape
+from .recorded_paths import RecordedPaths, resolve_against
+from .type_records import TypeRecords, resolve_name, resolve_type
 
 if TYPE_CHECKING:
     from .membership import ListedMethod
-from .recorded_paths import RecordedPaths, resolve_against
-from .type_records import TypeRecords, resolve_name, resolve_type
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -160,6 +161,11 @@ class QueryMixin:
         recorded for the call, never a lookup by the callee's name."""
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
+
+    def is_loaded_vi(self, key: str) -> bool:
+        """Whether the VI at ``key`` is loaded in the graph: not a stub, not a
+        file the load did not reach."""
+        return key in self._vi_nodes
 
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives
@@ -1358,17 +1364,41 @@ class QueryMixin:
 
     def poly_call_choices(self) -> dict[str, dict[str, set[str | None]]]:
         """For each polymorphic VI some node calls: the VIs that call it, each with
-        the variants its calls resolve to (``None`` for a call that leaves the
-        choice to the wrapper). One pass over every node of every VI."""
+        the variants its calls run (``call_variant``; ``None`` for a call that
+        runs no single one). One pass over every node of every VI."""
         calls: dict[str, dict[str, set[str | None]]] = {}
         for caller, uids in self._vi_nodes.items():
             for uid in uids:
                 node = self._get_typed_node(uid)
                 if isinstance(node, VINode) and node.callee_key in self._poly_info:
                     calls.setdefault(node.callee_key, {}).setdefault(caller, set()).add(
-                        node.variant_key
+                        self.call_variant(node)
                     )
         return calls
+
+    def call_variant(self, node: VINode) -> str | None:
+        """The key of the variant a call of a polymorphic VI runs: the one its
+        caller records (``VINode.variant_key``), else the one ``pane_matches``
+        gives. None when the call is of no polymorphic VI, or no variant or
+        several match."""
+        if node.variant_key is not None:
+            return node.variant_key
+        matches = self.pane_matches(node)
+        return matches[0] if len(matches) == 1 else None
+
+    def pane_matches(self, node: VINode) -> list[str]:
+        """The loaded variants of the polymorphic VI a call node calls whose
+        connector pane is the pane the call records, slot by slot (index,
+        direction and type shape, ``pane_shape.terminals_shape``), in the order
+        the polymorphic VI records them; empty for a call of no polymorphic VI."""
+        if node.callee_key is None or node.callee_key not in self._poly_info:
+            return []
+        recorded = terminals_shape(self, node.terminals)
+        return [
+            variant
+            for variant in self.get_poly_variants(node.callee_key)
+            if variant in self._vi_nodes and vi_shape(self, variant) == recorded
+        ]
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
         """The key of each variant mapped to the key of its wrapper VI."""

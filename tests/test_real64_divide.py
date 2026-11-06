@@ -34,6 +34,7 @@ def generated_divide(underlying="NumFloat64", numerator_rank=0, denominator_rank
             id=f"fp:{name}",
             index=index,
             direction="input",
+            wiring_rule=1,
             name=name,
             is_public=True,
             is_indicator=False,

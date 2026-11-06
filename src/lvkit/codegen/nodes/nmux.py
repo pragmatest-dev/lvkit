@@ -115,7 +115,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if ctx.graph is not None:
             class_fields = ctx.graph.get_type_fields(agg_terminals[0].lv_type)
             class_attrs = type_attributes(
-                ctx.graph, agg_terminals[0].lv_type, ctx.vi_name
+                ctx.graph,
+                agg_terminals[0].lv_type,
+                ctx.vi_name,
+                "Bundle/Unbundle By Name",
             )
 
     if list_in and list_out:

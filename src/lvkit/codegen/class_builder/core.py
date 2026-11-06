@@ -16,7 +16,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import build_type_checking_block, to_module_name
+from ..ast_utils import build_type_checking_block, os_imports, to_module_name
 from ..class_attributes import Accessor
 from ..class_model import (
     ClassModel,
@@ -24,13 +24,13 @@ from ..class_model import (
     base_import,
     class_model,
     declares_result_class,
-    lazy_imports,
     result_class_imports,
     shares_refnums,
 )
 from ..context import type_namer
 from ..errors import CodeGenError
 from ..gaps import Gap, gap_of
+from ..import_cycles import in_import_cycle
 from ..import_resolver import ImportResolver, NameImport
 from ..type_fields import annotation_imports
 from ..value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
@@ -66,7 +66,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         self._import_resolver = import_resolver
         self._gaps: list[Gap] = gaps if gaps is not None else []
         self._model: ClassModel = class_model(graph, class_key)
-        self._lazy = lazy_imports(graph, class_key)
+        self._lazy = in_import_cycle(graph, class_key)
         self._parts = ModuleParts(
             module_stem=to_module_name(Path(class_key).name), data_files=data_files
         )
@@ -96,13 +96,9 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             body=body,
             decorator_list=[],
         )
-        results = self._result_classes()
-        module_body = [
-            *self._build_imports(base),
-            *results,
-            *self._parts.statements(),
-            class_def,
-        ]
+        definitions = [*self._result_classes(), *self._parts.statements(), class_def]
+        self._parts.imports.update(os_imports(definitions))
+        module_body = [*self._build_imports(base), *definitions]
         module = ast.Module(body=module_body, type_ignores=[])
         return optimize_module(module)
 
