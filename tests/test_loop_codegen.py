@@ -1292,7 +1292,14 @@ class TestShiftRegisterCarry:
             tt("rsr_inner", "rsr_outer", "input", "inner", "rSR", 4),
         ]
 
-    def _build(self, *, initialized: bool, count: int, left_tunnel: bool):
+    def _build(
+        self,
+        *,
+        initialized: bool,
+        count: int,
+        left_tunnel: bool,
+        left_expr: str | None = None,
+    ):
         """For Loop: right side = i + 1; optional last-value output tunnel
         wired from the register's left side. Returns (run, ctx, global_name)
         where run() -> (register output, left tunnel output or None)."""
@@ -1310,7 +1317,8 @@ class TestShiftRegisterCarry:
         if left_tunnel:
             wires.append(
                 Wire.from_terminals(
-                    from_terminal_id="lsr_inner", to_terminal_id="out_inner"
+                    from_terminal_id="expr_src" if left_expr else "lsr_inner",
+                    to_terminal_id="out_inner",
                 )
             )
             terminals += _output_tunnel("out_outer", "out_inner", TunnelMode.LAST_VALUE)
@@ -1318,6 +1326,8 @@ class TestShiftRegisterCarry:
         ctx.bind("n_src", str(count))
         ctx.bind("new_src", "i + 1")
         ctx.bind("init_src", "10")
+        if left_expr:
+            ctx.bind("expr_src", left_expr)
         terminals.append(Terminal(id="iter", index=20, direction="output"))
         loop_op = _mk_loop(
             ctx,
@@ -1397,6 +1407,28 @@ class TestShiftRegisterCarry:
     def test_uninitialized_left_tunnel_zero_iterations_is_type_default(self):
         ns, _, lt = self._build(initialized=False, count=0, left_tunnel=True)
         assert self._call(ns, lt) == (0, 0)
+
+    def test_tunnel_fed_by_an_expression_of_the_left_side_is_last_iteration(self):
+        """Increment of the left side: the last iteration's left + 1 (3), not
+        the final register value + 1 (4)."""
+        for initialized in (True, False):
+            ns, _, lt = self._build(
+                initialized=initialized,
+                count=3,
+                left_tunnel=True,
+                left_expr="state + 1",
+            )
+            assert self._call(ns, lt) == (3, 3), initialized
+
+    def test_expression_tunnel_zero_iterations_is_type_default(self):
+        for initialized in (True, False):
+            ns, _, lt = self._build(
+                initialized=initialized,
+                count=0,
+                left_tunnel=True,
+                left_expr="state + 1",
+            )
+            assert self._call(ns, lt)[1] == 0, initialized
 
     def test_changed_shape_compares_left_with_right_across_calls(self):
         """The OpenG "Changed?" shape: one iteration, right side = the input,

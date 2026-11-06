@@ -449,10 +449,11 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             else:
                 bindings[outer_term] = rsr_shift_var
 
-    for lsr_var, updated_var in sr_feedbacks:
-        inner_stmts.append(
-            build_assign(lsr_var, ast.Name(id=updated_var, ctx=ast.Load()))
-        )
+    feedback_stmts = [
+        build_assign(lsr_var, ast.Name(id=updated_var, ctx=ast.Load()))
+        for lsr_var, updated_var in sr_feedbacks
+    ]
+    inner_stmts.extend(feedback_stmts)
 
     # Resolve uninitialized-SR writebacks now that step 5 has run: use the
     # paired rSR's final bound value (the fresh "updated" variable above)
@@ -499,13 +500,17 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Only if not already bound (it might be an input tunnel)
         if outer_term not in bindings:
             inner_val = inner_ctx.resolve(inner_term)
-            if inner_val and inner_val in shift_reg_vars.values():
-                # The tunnel reads a shift register's left side: it outputs
-                # the left value of the LAST iteration (before that
+            if (
+                inner_val
+                and feedback_stmts
+                and _reads_shift_variable(inner_val, shift_reg_vars)
+            ):
+                # The tunnel's value is computed from a shift register's left
+                # side, so it is the value of the LAST iteration (before that
                 # iteration's update). The feedback at the end of the body
-                # overwrites the shift variable, so capture it at the top of
-                # each iteration into its own variable, seeded with the
-                # tunnel's type default for a For Loop that runs zero times.
+                # overwrites the shift variable, so evaluate it into its own
+                # variable just before the feedback, seeded with the tunnel's
+                # type default for a For Loop that runs zero times.
                 captured = ctx.make_output_var(
                     f"{inner_val}_iter", node.id, terminal_id=outer_term
                 )
@@ -516,10 +521,16 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                         default_value_expr(outer_t.lv_type if outer_t else None),
                     )
                 )
-                loop_ast.body.insert(
+                capture = build_assign(captured, parse_expr(inner_val))
+                at = next(
+                    (
+                        i
+                        for i, stmt in enumerate(loop_ast.body)
+                        if any(stmt is f for f in feedback_stmts)
+                    ),
                     0,
-                    build_assign(captured, ast.Name(id=inner_val, ctx=ast.Load())),
                 )
+                loop_ast.body.insert(at, capture)
                 bindings[outer_term] = captured
             elif inner_val:
                 bindings[outer_term] = inner_val
@@ -531,9 +542,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # assignment target)
     if stop_condition_var:
         param_names = ctx.parameter_var_names()
-        is_identifier = (
-            stop_condition_var.isidentifier()
-            and not keyword.iskeyword(stop_condition_var)
+        is_identifier = stop_condition_var.isidentifier() and not keyword.iskeyword(
+            stop_condition_var
         )
         if is_identifier and stop_condition_var not in param_names:
             pre_loop_stmts.append(
@@ -552,6 +562,15 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         statements=all_stmts,
         bindings=bindings,
         imports=inner_ctx.imports,
+    )
+
+
+def _reads_shift_variable(expr_text: str, shift_reg_vars: dict[str, str]) -> bool:
+    """True if the expression reads one of the loop's shift variables."""
+    shift_vars = set(shift_reg_vars.values())
+    return any(
+        isinstance(n, ast.Name) and n.id in shift_vars
+        for n in ast.walk(parse_expr(expr_text))
     )
 
 
