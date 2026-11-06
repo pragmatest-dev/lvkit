@@ -18,15 +18,20 @@ import logging
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import networkx as nx
 
 from ..models import ClusterField, LVType, LVTypeKind, ScalarValue
 from ..parser.models import ParsedFPControl, ParsedFrontPanel
+from .dependency_path import DependencyPath, dependency_path
 from .node_kinds import OWNERSHIP_RELS, NodeType, node_type_of
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .core import InMemoryVIGraph
+
 
 @dataclass(frozen=True)
 class TypedefField:
@@ -80,12 +85,14 @@ class TypedefRef:
     the kind of node it is in the graph (a VI, a class, a library, a typedef);
     ``path`` is None for a stub (a file that isn't on disk) -- never a guessed
     path; ``library`` is its library path (``library_location``: ``<vilib>``,
-    ``<userlib>``, ... and the parts below) when it is a library file."""
+    ``<userlib>``, ... and the parts below) when it is a library file;
+    ``stored`` is the path the typedef stores for it (a ``uses`` entry only)."""
 
     node_type: NodeType
     qualified: str
     path: str | None
     library: tuple[str, ...] | None = None
+    stored: DependencyPath | None = None
 
 
 @dataclass(frozen=True)
@@ -290,7 +297,7 @@ class TypedefMixin:
             return leaf
         return f"{self._dep_graph.nodes[library].get('qname', library)}:{leaf}"
 
-    def _typedef_ref(self, other: str) -> TypedefRef:
+    def _typedef_ref(self, other: str, stored_by: str | None = None) -> TypedefRef:
         data = self._dep_graph.nodes[other]
         path = None if self.is_stub(other) else other
         return TypedefRef(
@@ -298,6 +305,9 @@ class TypedefMixin:
             data.get("qname") or Path(other).name,
             path,
             self.library_location(path, self.recorded_path(other)),
+            None
+            if stored_by is None
+            else dependency_path(cast("InMemoryVIGraph", self), other, stored_by),
         )
 
     def is_typedef(self, key: str) -> bool:
@@ -350,7 +360,7 @@ class TypedefMixin:
             fields=_typedef_fields(
                 node.get("fields"), root_ctrl.children if root_ctrl else []
             ),
-            uses=_sorted_refs([self._typedef_ref(s) for s in succs]),
+            uses=_sorted_refs([self._typedef_ref(s, key) for s in succs]),
             owned_by=_sorted_refs([self._typedef_ref(p) for p in owners]),
             used_by=_sorted_refs(
                 [self._typedef_ref(p) for p in preds if p not in owners]

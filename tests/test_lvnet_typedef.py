@@ -7,6 +7,7 @@ import asyncio
 
 import pytest
 
+from lvkit.graph.dependency_path import DependencyPath
 from lvkit.graph.describe_typedef import describe_ctl_file
 from lvkit.graph.lvnet_typedef import render_lvnet_typedef
 from lvkit.graph.node_kinds import NodeType
@@ -67,15 +68,20 @@ def test_an_enum_control_has_a_type_and_a_default_but_no_fields() -> None:
     assert "  default Write" in text and "fields :" not in text
 
 
-def test_uses_are_paths_relative_to_the_control() -> None:
+def test_uses_are_the_paths_the_control_stores() -> None:
     uses = (
-        TypedefRef(NodeType.TYPEDEF, "Dep.ctl", "/p/dir/sub/Dep.ctl"),
-        TypedefRef(NodeType.CLASS, "Cls.lvclass", None),  # a stub: no path
+        TypedefRef(
+            NodeType.TYPEDEF,
+            "Dep.ctl",
+            "/p/dir/sub/Dep.ctl",
+            stored=DependencyPath("./sub/Dep.ctl", False),
+        ),
+        TypedefRef(NodeType.CLASS, "Cls.lvclass", None),  # records no path
     )
     lines = render_lvnet_typedef(_info(uses=uses)).splitlines()
     assert lines[1] == "  uses :"
     assert lines[2].split() == ["typedef", "Dep.ctl", ";", "./sub/Dep.ctl"]
-    assert lines[3].split() == ["class", "Cls.lvclass"]  # a stub: no path
+    assert lines[3].split() == ["class", "Cls.lvclass"]  # records no path
 
 
 def test_a_control_cannot_use_a_library() -> None:

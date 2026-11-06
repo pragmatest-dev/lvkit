@@ -10,6 +10,7 @@ import pytest
 from lvkit.docs.generate import _index_sections
 from lvkit.docs.page_names import PageName, page_names
 from lvkit.graph import InMemoryVIGraph, NodeType
+from lvkit.graph.dependency_path import DependencyPath
 from lvkit.graph.lvnet_typedef import render_lvnet_typedef
 from lvkit.graph.netlist_build import _build_dependency_manifest
 from lvkit.graph.render_lvnet import render_lvnet_named_types
@@ -104,19 +105,26 @@ def _outside(tmp_path: Path) -> Path:
 def test_an_lvnet_uses_line_shows_a_library_file_by_its_library_path(
     project: Path, tmp_path: Path
 ) -> None:
-    """Library files by their library path, other files from the project."""
+    """Every file by the path the VI stores for it: a library file by its library
+    path, the others relative to the VI."""
     caller = str(project / "Caller.vi")
     lib_dep = str(_userlib(project) / "_OpenG.lib" / "file" / "Delete.vi")
     own_dep = str(project / "sub" / "Own.vi")
     outside_dep = str(_outside(tmp_path))
     graph = _graph(project, caller)
-    for dep in (lib_dep, own_dep, outside_dep):
+    stored = {
+        lib_dep: (["<userlib>", "_OpenG.lib", "file", "Delete.vi"], None),
+        own_dep: (["", "sub", "Own.vi"], 1),
+        outside_dep: (["", "", "elsewhere", "libs", "Sub", "Helper.vi"], 1),
+    }
+    for dep, (tokens, path_type) in stored.items():
         graph._dep_graph.add_edge(caller, dep)  # noqa: SLF001
+        graph._recorded.record(dep, caller, tokens, path_type)  # noqa: SLF001
     paths = {d.qualified: d.path for d in _build_dependency_manifest(graph, caller)}
     assert paths == {
         "Delete.vi": "<userlib>/_OpenG.lib/file/Delete.vi",
         "Own.vi": "./sub/Own.vi",
-        "Helper.vi": "./../elsewhere/libs/Sub/Helper.vi",
+        "Helper.vi": "../elsewhere/libs/Sub/Helper.vi",
     }
 
 
@@ -133,6 +141,7 @@ def test_a_ctl_uses_line_and_types_footnote_show_library_paths() -> None:
                 "Dir.ctl",
                 "/lv/vi.lib/Utility/Dir.ctl",
                 ("<vilib>", "Utility", "Dir.ctl"),
+                DependencyPath("<vilib>/Utility/Dir.ctl", False),
             ),
         ),
         owned_by=(),

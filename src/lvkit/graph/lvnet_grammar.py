@@ -60,6 +60,11 @@ _LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
 # (``render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
 # as a literal, so it is a genuine cross-file drift risk.
 _LVNET_DEP_PATH_SEP = "; "
+# The verbose-only markers that end a ``uses :`` entry: ``(missing)`` for a
+# dependency whose file was not found, ``(found <path>)`` for a file found
+# somewhere other than where its stored path points.
+_LVNET_DEP_MISSING = " (missing)"
+_LVNET_DEP_FOUND_OPEN = " (found "
 _LVNET_ENUM_OPEN = "enum{"  # §10 lossless enum/ring/cluster open tokens
 _LVNET_RING_OPEN = "ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"

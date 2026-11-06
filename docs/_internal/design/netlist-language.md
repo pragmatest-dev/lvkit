@@ -75,7 +75,7 @@ terminals loose under the `vi :` header:
 ```
 vi <VIName.vi> :
   uses :                                 # dependency manifest (§7a), OPTIONAL -- omitted with no deps
-    <kind> <qualified-identity>   [; ./path]
+    <kind> <qualified-identity>   [; <stored-path>]   [(missing)] [(found <path>)]   # marks: verbose only
   front-panel :                          # OPTIONAL -- omitted when there is nothing to show at all
     pattern : <conId>                    # ConnectorPane.pattern_id, OMITTED when unknown
     in   <name> : <Type> [<requirement>] [default <value>] [caption [hidden] "<text>"] @<index>   # on-pane boundary terminal (§3)
@@ -151,7 +151,7 @@ MCP `read_ctl(format="lvnet")` (`graph/lvnet_typedef.py`):
 ```
 typedef <Name.ctl> :
   uses :                                 # §7a manifest of the typedefs/classes it references, OPTIONAL
-    <kind> <qualified-identity>   [; ./path]   # path relative to the control's own directory
+    <kind> <qualified-identity>   [; <stored-path>]   # the path the control stores
   type : <lossless-def>                  # the root type in the §10.1 grammar, ALWAYS present
   default <value>                        # a scalar / enum / ring control's own default, OPTIONAL
   fields :                               # a cluster's fields, OPTIONAL
@@ -393,7 +393,7 @@ sites is verbose-only nuance (terse may omit it there).
 
 | Annotation | Meaning |
 |---|---|
-| `; ./path` | a file-backed node's project-relative path (click-to-jump nav), e.g. on a `subVI`/typedef-constant header; a library file, inside or outside the project, shows its library path instead, `; <vilib>/Utility/error.llb/Clear Errors.vi` (`library_location`, `library_folders.py`): the path its caller recorded from an installation folder, which is any recorded `<…>` token (`<vilib>`, `<userlib>`, `<instrlib>`, `<extravilib>`, `<resource>`, …), else its path below a configured vi.lib / user.lib / instr.lib folder; any other file outside the project shows `; external/<its own project folder>/<path below it>`, as its generated module is placed (no folder name for a home folder; `shown_path`, `cache_paths.py`); the same on every machine, never a `../` path through this machine |
+| `; ./path` | a file-backed node's path. For a `uses :` entry it is the path the VI STORES for the dependency, written as LabVIEW stores it (`stored_path.py`): relative to the VI that records it (`./B.vi` beside it, `../shared/X.vi` one folder up) or a pseudo path (`<vilib>/Utility/error.llb/Clear Errors.vi`, `<userlib>/…`, `<instrlib>/…`), or an absolute path (`/opt/X.vi`, `C:/Program Files/X.vi`); the same on every machine, whether or not the file is on this one. The entry has no path only when the VI records none (a method it names through its class). Verbose ends an entry with `(missing)` when the file was not found and `(found <path>)` when it was found somewhere other than the stored path points (the VI search path), the path from the VI's folder |
 | `; inverted` | a Boolean input wired through inversion |
 | `; unconnected` | an unwired **node output** — net declared, no reader |
 | `; unread` | an unread **control** — a source with no sink |
@@ -488,7 +488,7 @@ dependencies (never an empty `uses :` header).
 
 ```
 uses :
-  <kind> <qualified-identity>   ; ./<project-relative-path>
+  <kind> <qualified-identity>   ; <stored-path>
 ```
 
 - **`<kind>`** — derived from the identity's file extension, never guessed
@@ -514,14 +514,16 @@ uses :
   char from the binary (a real corpus case decoded a member as
   `"\nToTable.vi"`) that a legitimate VI/class name never has — left in, it
   corrupts the `class:member` identity and splits this `uses :` line.
-- **`; ./path`** — the §6 project-relative nav annotation, omitted (not
-  fabricated as an empty/guessed value) when the dependency's recorded or
-  searched reference doesn't resolve to a real on-disk file. A library file is
-  the exception: it shows its library path (`; <userlib>/_OpenG.lib/...`), from
-  the path its caller recorded from an installation folder whether or not the
-  file is on this machine, else from the configured library folder it is in,
-  so the text is the same on a machine with or without the libraries (it is
-  also the git diff text).
+- **`; <stored-path>`** — the path the VI stores for the dependency, as LabVIEW
+  stores it (`stored_path.py`): relative to the VI (`./B.vi` beside it,
+  `../shared/X.vi` one folder up), a pseudo path (`<vilib>/…`, `<userlib>/…`,
+  `<instrlib>/…`) or an absolute path (`/opt/X.vi`, `C:/Program Files/X.vi`).
+  It is always written, found or not, so the text is the same on every machine
+  (it is also the git diff text). It is omitted only when the VI records none
+  (a method it names through its class). Verbose also ends an entry with
+  `(missing)` when the file was not found and `(found <path>)` when it was
+  found somewhere other than the stored path points (the VI search path), the
+  path from the VI's folder; terse writes neither.
 - **Sorted by qualified identity** for byte-reproducibility.
 - **Verbose-only: each `subVI` entry inlines its own connector-pane
   interface** right under its line — the later element the bullet above used
@@ -532,7 +534,7 @@ uses :
 
   ```
   uses :
-    subVI <qualified-identity>   ; ./<project-relative-path>
+    subVI <qualified-identity>   ; <stored-path>
       in  <name> : <Type>
       out <name> : <Type>
   ```
@@ -1049,8 +1051,8 @@ column width is capped, so that one refnum type doesn't stretch the
 to match it (§14). It also carries the §7a `uses :` dependency manifest right
 after the header -- this VI's real six direct dependencies (its three SubVI
 calls plus the three classes its own connector pane is typed with), sorted
-by qualified identity, every one resolving to a real on-disk file in this
-corpus so every line carries a `; ./path` nav comment. This VI has no
+by qualified identity; each line carries the path the VI stores for it
+(`listAllTestMethods.vi` is named through its class: no path). This VI has no
 `constant` node on its own diagram (see the synthetic example below for that
 shape) and no off-pane front-panel controls (see §2/§7's `front-panel :`
 description for that shape).
@@ -1058,12 +1060,12 @@ description for that shape).
 ```
 vi loadTestsFromTestCase.vi :
   uses :
-    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
-    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
-    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
-    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
-    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
-    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
+    class TestCase.lvclass                       ; ../TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ../TestCase/TestCase_Init.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi
+    class TestLoader.lvclass                     ; ./TestLoader.lvclass
+    class TestSuite.lvclass                      ; ../TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ../TestSuite/TestSuite_Init.vi
   front-panel :
     pattern : 4815
     in   TestLoader in       : TestLoader.lvclass @11

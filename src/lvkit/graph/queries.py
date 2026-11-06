@@ -240,6 +240,12 @@ class QueryMixin:
             for root in roots
         ]
 
+    def recorded_ref(self, key: str, caller: str) -> ParsedDependencyRef | None:
+        """The path ``caller`` recorded for the dependency ``key``, exactly as
+        recorded (its tokens and path type); None when ``caller`` recorded none
+        for it."""
+        return self._recorded.recorded_by(key, caller)
+
     def recorded_candidates(
         self, ref: ParsedDependencyRef, caller_file: Path
     ) -> list[Path]:

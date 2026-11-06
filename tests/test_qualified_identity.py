@@ -165,7 +165,7 @@ def test_a_dependency_pane_is_read_by_its_exact_key(tmp_path: Path) -> None:
     assert graph.vi_interface(stub) == ([], [], [], [])
     assert graph.key_label(stub) == "Owner.lvclass:T.vi"
     lvnet, describe, as_json = _views(graph, vi)
-    assert "    subVI Owner.lvclass:T.vi\n" in lvnet
+    assert "    subVI Owner.lvclass:T.vi (missing)\n" in lvnet
     assert {d["qualified"] for d in as_json["dependencies"]} == {
         "Owner.lvclass:T.vi"
     }

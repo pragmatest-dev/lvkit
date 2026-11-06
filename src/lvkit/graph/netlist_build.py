@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.project_folders import project_root
 from lvkit.vi_files import is_vi_file
 
 from ..models import (
@@ -48,6 +47,7 @@ from ..models import (
 from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
+from .dependency_path import dependency_path
 from .interface_order import ordered_interface, requirement_state
 from .models import (
     AnyGraphNode,
@@ -135,7 +135,6 @@ from .queries import ClassContext, collect_class_context
 from .reference_target import is_reference_constant, reference_target
 from .render_lvnet import (
     _lvnet_const_value_str,
-    lvnet_file_path,
     lvnet_literal_token,
 )
 from .unwired_default import instance_default, pane_default
@@ -2519,11 +2518,6 @@ def _build_dependency_manifest(
     if not dep_keys:
         return assemblies
 
-    # Shown relative to the project of the VI's own path (its identity: the
-    # original a copy stands for).
-    own = Path(vi_name)
-    rel_base = project_root(own) if own.is_absolute() else Path.cwd()
-
     # The files this VI's variable nodes refer to -- a Global VI through its global
     # variable nodes, a project library through its Shared Variable nodes -- by
     # dependency key, with the kind and the qualified name those nodes spell (the
@@ -2551,8 +2545,7 @@ def _build_dependency_manifest(
     for key in dep_keys:
         node = graph._dep_graph.nodes.get(key, {})
         resolved = graph._dependency_file_path(key)
-        library = graph.library_location(resolved, graph.recorded_path(key))
-        path = lvnet_file_path(resolved, rel_base, library)
+        stored = dependency_path(graph, key, vi_name)
         if key in variable_dep_by_key:
             variable_kind, qname = variable_dep_by_key[key]
             if qname not in seen:
@@ -2561,7 +2554,9 @@ def _build_dependency_manifest(
                     NetlistDependency(
                         kind=variable_kind,
                         qualified=qname,
-                        path=path,
+                        path=stored.stored,
+                        missing=stored.missing,
+                        found=stored.found,
                     )
                 )
             continue
@@ -2588,7 +2583,9 @@ def _build_dependency_manifest(
             NetlistDependency(
                 kind=kind,
                 qualified=qname,
-                path=path,
+                path=stored.stored,
+                missing=stored.missing,
+                found=stored.found,
                 interface=_dependency_interface(graph, kind, key),
             )
         )

@@ -61,6 +61,8 @@ from .lvnet_grammar import (
     _LVNET_CAPTION_KEYWORD,
     _LVNET_CLUSTER_OPEN,
     _LVNET_DEFAULT_KEYWORD,
+    _LVNET_DEP_FOUND_OPEN,
+    _LVNET_DEP_MISSING,
     _LVNET_DEP_PATH_SEP,
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
@@ -954,6 +956,8 @@ class ParsedDependency:
     path: str | None = None
     interface: tuple[ParsedDependencyTerminal, ...] = field(default_factory=tuple)
     unreadable: str | None = None
+    missing: bool = False
+    found: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2095,6 +2099,7 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 )
             )
             continue
+        rest, missing, found = _split_dependency_marks(rest)
         sep_idx = rest.find(_LVNET_DEP_PATH_SEP)
         if sep_idx == -1:
             qualified, path = rest.strip(), None
@@ -2110,7 +2115,12 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
         interface = _parse_dependency_interface(cursor, _USES_INTERFACE_INDENT)
         entries.append(
             ParsedDependency(
-                kind=kind, qualified=qualified, path=path, interface=interface
+                kind=kind,
+                qualified=qualified,
+                path=path,
+                interface=interface,
+                missing=missing,
+                found=found,
             )
         )
     if not entries:
@@ -2118,6 +2128,23 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
             "'uses :' header present but the block has no dependency entries"
         )
     return tuple(entries)
+
+
+_DEP_FOUND_RE = re.compile(re.escape(_LVNET_DEP_FOUND_OPEN) + r"(.+)\)$")
+
+
+def _split_dependency_marks(rest: str) -> tuple[str, bool, str | None]:
+    """``rest`` of a ``uses :`` entry without its verbose-only ending, and what
+    the ending said: ``(missing)`` and ``(found <path>)``. A mark is only read at
+    the END of the line, so a file name holding parentheses is left whole."""
+    found = None
+    m = _DEP_FOUND_RE.search(rest)
+    if m is not None:
+        found, rest = m.group(1), rest[: m.start()]
+    missing = rest.endswith(_LVNET_DEP_MISSING)
+    if missing:
+        rest = rest[: -len(_LVNET_DEP_MISSING)]
+    return rest, missing, found
 
 
 def _parse_boundary_terminal_line(

@@ -886,10 +886,11 @@ class NetlistDependency:
     design, present in BOTH modes (a plain reference list; the dependency's
     own INTERFACE/type structure is a later, verbose-only element).
 
-    ``path`` is a project-relative ``./...`` display path (§6's ``; ./path``
-    annotation), or ``None`` when the dependency's recorded/searched
-    reference doesn't resolve to an on-disk file -- NEVER fabricated (see
-    ``_build_dependency_manifest``).
+    ``path`` is the path the VI stores for the dependency, as LabVIEW stores it
+    (``stored_path``); None only when the VI records none. ``missing``: the
+    dependency's file was not found. ``found``: set only when the file was found
+    somewhere other than where the stored path points (the VI search path): its
+    path from the calling VI's folder.
 
     ``interface`` is the §7a verbose-only element this ``NetlistDependency``
     docstring above forward-referenced: a ``subVI`` dependency's OWN
@@ -915,6 +916,8 @@ class NetlistDependency:
     # names no assembly (``qualified`` is empty) and lvnet spells it
     # ``assembly (unreadable "<reason>")``.
     unreadable: str | None = None
+    missing: bool = False
+    found: str | None = None
 
 
 @dataclass

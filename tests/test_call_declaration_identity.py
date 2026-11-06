@@ -43,9 +43,9 @@ def _declarations(vi: Path) -> dict[str, str | None]:
 def test_renamed_file_is_declared_by_its_file_name() -> None:
     root = _SAMPLES / "LabVIEW-DAQ" / "Two Photon"
     decls = _declarations(root / "MasterAquisitionFile_2P.vi")
-    # Paths are shown relative to the VI's project (the sample's git root).
+    # The path is the one the VI stores: beside the VI.
     assert decls["TrackWhiskerDroppedFrames_2P.vi"] == (
-        "./Two Photon/TrackWhiskerDroppedFrames_2P.vi"
+        "./TrackWhiskerDroppedFrames_2P.vi"
     )
     assert "TrackDroppedFrames_2P.vi" not in decls
 
@@ -119,9 +119,10 @@ def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
 
 
 @pytest.mark.needs_samples
-def test_absent_class_declared_without_a_machine_path() -> None:
-    """The absent SDK class is recorded by a machine path in a link record that
-    names no file; the record is still this VI's, named by its file."""
+def test_absent_class_declared_by_its_stored_machine_path() -> None:
+    """The absent SDK class is recorded by a machine path (a drive path) in a
+    link record that names no file; the entry is named by its file and writes the
+    path as the VI stores it."""
     template = (
         _SAMPLES
         / "measurement-plugin-labview/Source/Generator"
@@ -131,10 +132,13 @@ def test_absent_class_declared_without_a_machine_path() -> None:
         template / "Build Assets" / "Post-Build Action.vi")
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
-    assert f"    class {sdk_class}\n" in lvnet
+    stored = (
+        "C:/Program Files/National Instruments/LabVIEW 2024/vi.lib/Plug-In SDKs/"
+        "Measurements/Measurement Plugin Service/Measurement Plugin Service.lvclass"
+    )
+    assert f"    class {sdk_class} ; {stored}\n" in lvnet
     as_json = netlist_to_dict(build_netlist_from_graph(graph, key), verbose=True)
     assert sdk_class in {d["qualified"] for d in as_json["dependencies"]}
-    assert "Program Files" not in lvnet
 
 
 @pytest.mark.needs_samples
@@ -143,20 +147,15 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
     graph, key = load_corpus_vi(vi)
     netlist = build_netlist_from_graph(graph, key)
-    # Outside the VI's project (Source/Runtime holds its .lvproj): shown as its
-    # module is placed, below ``external`` and its own repository's name.
-    real = (
-        "external/measurement-plugin-labview/Source/gRPC/Generated APIs/ni/"
-        "measurementlink/measurement/v1/RPC Service/MeasurementService/"
-        "Server API/Destroy.vi"
-    )
+    # The VI names the method through its class: it stores the class's path, none
+    # for the method itself.
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
     ] == [
         (
             "ni.measurementlink.measurement.v1.api.lvlib:MeasurementServiceBaseV1"
             ".lvclass:Destroy.vi",
-            real,
+            None,
         )
     ]
     (call,) = [

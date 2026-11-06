@@ -129,10 +129,12 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 def _uses(tree: _Tree, name: str) -> list[str]:
     graph, key = _load(tree, name)
     text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
+    lines = text.splitlines()
+    block = lines[lines.index("  uses :") + 1 :]
     return [
         ln.strip()
-        for ln in text.splitlines()
-        if ln.strip().startswith("subVI") and " ; " in ln
+        for ln in block[: next(i for i, ln in enumerate(block) if ln[:4] != "    ")]
+        if ln.strip().startswith("subVI")
     ]
 
 
@@ -143,7 +145,7 @@ def test_method_in_a_class_subfolder_is_declared_once_by_its_file(tree: _Tree) -
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Sub.lvclass:Run.vi", "./Sub/impl/Run.vi")]
+    assert declared == [("Sub.lvclass:Run.vi", None)]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
     assert not any(k.endswith("/Sub/Run.vi") for k in graph.get_vi_dependencies(key))
@@ -156,7 +158,7 @@ def test_inherited_method_is_declared_by_the_parents_file(tree: _Tree) -> None:
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Base.lvclass:Stop.vi", "./Base/Stop.vi")]
+    assert declared == [("Base.lvclass:Stop.vi", None)]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Base/Stop.vi")
 
@@ -165,9 +167,7 @@ def test_method_the_class_declares_itself_is_not_the_parents(tree: _Tree) -> Non
     graph, key = _load(tree, "caller_over.vi")
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Over/Stop.vi")
-    assert _uses(tree, "caller_over.vi") == [
-        "subVI Over.lvclass:Stop.vi ; ./Over/Stop.vi"
-    ]
+    assert _uses(tree, "caller_over.vi") == ["subVI Over.lvclass:Stop.vi"]
 
 
 def _plain(name: str) -> bytes:
@@ -224,7 +224,7 @@ def test_vipi_with_an_owner_chain_declares_the_real_file(tree: _Tree) -> None:
         if d.kind.value == "subVI"
     ]
     # The block-diagram record and the VI-level record are one call: one file.
-    assert declared == [("Sub.lvclass:Run.vi", "./Sub/impl/Run.vi")]
+    assert declared == [("Sub.lvclass:Run.vi", None)]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
 
