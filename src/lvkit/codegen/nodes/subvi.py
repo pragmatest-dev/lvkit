@@ -16,7 +16,6 @@ from lvkit.vilib_resolver import (
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
-    VILibResolver,
     derive_python_location,
     get_resolver,
 )
@@ -27,6 +26,8 @@ from ..ast_utils import (
     to_function_name,
     to_var_name,
 )
+from ..called_vi import run_call
+from ..called_vi import vilib_resolver as _vilib_resolver
 from ..callee_names import callee_names
 from ..class_model import accessor_of, member_shape
 from ..context import CodeGenContext, terminal_default_expression
@@ -47,6 +48,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "A VI node has no name, so the VI it calls is unknown", node
         )
+    run = run_call(node, ctx)
+    if run.gap is not None:
+        raise ConversionGap(run.gap, node)
+    node, callee_name, callee_key = run.node, run.name, run.key
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
@@ -88,25 +93,6 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
         return _generate_inline(node, ctx, vilib_vi)
 
-    # The module of the VI the call names. A polymorphic call whose polymorphic
-    # VI the caller does not record calls the variant it resolves to.
-    callee_name, callee_key = subvi_name, node.callee_key
-    if callee_key is None and node.variant_key is not None:
-        callee_key = node.variant_key
-        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
-    elif (
-        node.variant_key is not None
-        and vilib_vi is not None
-        and vilib_vi.python_code is not None
-    ):
-        # The catalog gives the selected variant its own module.
-        callee_key = node.variant_key
-        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
-    elif callee_key is None and node.qualified_path and node.qualified_name:
-        # The caller records a path (a `<vilib>` or `<extravilib>` VI with no
-        # configured root): the absent VI is named by its qualified name, the
-        # identity its stub is keyed by.
-        callee_name = node.qualified_name
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
     stmt = ast.Assign(
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
@@ -151,7 +137,9 @@ def build_call(
     func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
     prelude: list[ast.stmt] = []
-    args, keywords = _build_arguments(node, ctx, vilib_vi, prelude)
+    args, keywords = _build_arguments(
+        node, ctx, callee_name, callee_key, vilib_vi, prelude
+    )
     if keywords:
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
@@ -323,12 +311,6 @@ def _generate_inline(
     )
 
 
-def _vilib_resolver(ctx: CodeGenContext | None) -> VILibResolver:
-    """The vi.lib resolver this run reads: its own copy once it has learned, else
-    the shared catalog."""
-    return ctx.learned_vilib[0] if ctx and ctx.learned_vilib else get_resolver()
-
-
 def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
     """``entry`` completed from the connector pane of the VI the call names when
     that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
@@ -450,12 +432,15 @@ def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int, str]:
 def _build_arguments(
     node: VINode,
     ctx: CodeGenContext,
+    callee_name: str,
+    callee_key: str | None,
     vilib_vi: VIEntry | None,
     prelude: list[ast.stmt],
 ) -> tuple[list[str], dict[str, str]]:
     """Build input arguments, using vilib names if available. An argument that is
     a class object or named cluster the callee may change is copied first (into
-    ``prelude``) when something else can still read it."""
+    ``prelude``) when something else can still read it. An enum value is named
+    from the module of the VI the call runs (``callee_name``, ``callee_key``)."""
     subvi_name = node.name or ""
 
     vilib_inputs = _build_vilib_terminal_map(
@@ -492,6 +477,12 @@ def _build_arguments(
         if value is None:
             value = catalog_defaults.get(term_index)
         if value is None:
+            if names is not None and term_index in names.required:
+                raise ConversionGap(
+                    f"The call of {subvi_name!r} leaves its required input "
+                    f"{term_name or names.parameters[term_index]!r} unwired",
+                    node,
+                )
             continue
 
         # Determine parameter name with priority:
@@ -510,7 +501,7 @@ def _build_arguments(
 
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = (
-            _resolve_enum_value(value, term, vilib_vi, subvi_name, node.callee_key, ctx)
+            _resolve_enum_value(value, term, vilib_vi, callee_name, callee_key, ctx)
             if vilib_vi and wired
             else value
         )

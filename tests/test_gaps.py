@@ -122,6 +122,7 @@ def _fp(id: str, direction: str, name: str, lv_type: str) -> FPTerminal:
         is_public=True,
         is_indicator=direction == "output",
         lv_type=_lv(lv_type),
+        wiring_rule=0 if direction == "output" else 1,  # a Required input
     )
 
 
@@ -248,7 +249,7 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
         "class GapResult(NamedTuple):",
         "    y: int",
         "",
-        "def gap(x: int=0) -> GapResult:",
+        "def gap(x: int) -> GapResult:",
         "    result = None",
         "    <raise>",
         "    return GapResult(y=result)",
@@ -305,7 +306,7 @@ def test_an_unknown_primitive_in_a_loop_raises_in_the_loop() -> None:
     )
     source, gaps = _build(context, [loop, _mystery(parent="loop1")])
     assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
-        "def gap(x: int=0) -> GapResult:",
+        "def gap(x: int) -> GapResult:",
         "    while True:",
         "        result = None",
         "        <raise>",
@@ -363,7 +364,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
     )
     source, gaps = _build(context, [case, _mystery(parent="case1", frame="True")])
     assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
-        "def gap(flag: bool=False) -> GapResult:",
+        "def gap(flag: bool) -> GapResult:",
         "    case_output = 0",
         "    if flag:",
         "        result = None",

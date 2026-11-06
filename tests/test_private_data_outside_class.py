@@ -186,4 +186,4 @@ def test_the_classs_own_vi_reads_its_private_data_with_no_gap(
     with package.use() as module:
         base = module("base").Base()
         base._Base__count = 5
-        assert module("base").Base.get_count(base) == 5
+        assert module("base").Base.get_count(base).value == 5

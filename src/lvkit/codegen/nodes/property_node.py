@@ -10,6 +10,7 @@ from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import Terminal
 
 from ..ast_utils import parse_expr, to_var_name
+from ..called_vi import run_call
 from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
@@ -44,8 +45,12 @@ def _callees(ctx: CodeGenContext) -> str:
     names: list[str] = []
     if ctx.graph is not None and ctx.vi_name:
         for other in ctx.graph.iter_nodes(ctx.vi_name):
-            if isinstance(other, VINode) and other.callee_key is not None:
-                name = ctx.import_function(other.name or "", other.callee_key)
+            if not isinstance(other, VINode):
+                continue
+            run = run_call(other, ctx)
+            # A call that runs no variant carries its own gap.
+            if run.key is not None and run.gap is None:
+                name = ctx.import_function(run.name, run.key)
                 if name != ctx.function_name and name not in names:
                     names.append(name)
     tail = "," if len(names) == 1 else ""
@@ -56,7 +61,7 @@ def _default_object_expression(
     ctx: CodeGenContext, value: DefaultObjectProperty
 ) -> str:
     """``value.python`` with the generating VI's function and callees written in."""
-    expression = value.python.replace("{function}", ctx.function_name)
+    expression = value.python.replace("{function}", ctx.this_vi_expression())
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
     return expression

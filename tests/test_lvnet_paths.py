@@ -364,4 +364,88 @@ def test_a_control_named_like_an_imported_module_does_not_hide_it(
     )
     function, source = _generate(load(tmp_path, xml, _TYPES))
     assert f"{renamed}:" in source and "import os\n" in source
-    assert function(**{renamed: 1}).result.as_posix() in ("/D/data", "D:/data")
+    assert function().result.as_posix() in ("/D/data", "D:/data")
+
+
+_PATH_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+
+
+def _absolute_path_default() -> str:
+    text = format_path(0, ["C", "Data"])
+    assert text is not None
+    return text
+
+
+def test_a_class_method_with_an_absolute_path_default_imports_os(
+    tmp_path: Path,
+) -> None:
+    """A method's Optional path input defaults to an absolute path, whose
+    volume is spelled with ``os.name``: the class module imports ``os``."""
+    from lvkit.graph.models import GraphNode, VIContext
+    from lvkit.models import FPTerminal
+    from lvkit.parser.models import ParsedWiringRule
+    from tests.class_graphs import Project, pane
+    from tests.class_graphs import wire as pane_wire
+
+    def folder(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        default = pane(
+            vi, "input", "dir", _PATH_TYPE, "dir", 0, ParsedWiringRule.OPTIONAL
+        )
+        assert isinstance(default, FPTerminal)
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    default.model_copy(
+                        update={"default_value": _absolute_path_default()}
+                    )
+                ],
+                outputs=[pane(vi, "output", "out", _PATH_TYPE, "out", 1)],
+                data_flow=[pane_wire(vi, "dir", "out")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Store", [])
+    project.add_method("Store", "Folder", folder, static=True)
+    package = project.generate()
+    source = package.sources["store"]
+    assert "import os\n" in source
+    with package.use() as module:
+        assert module("store").Store.folder().out.parts[-1] == "Data"
+
+
+def test_a_global_with_an_absolute_path_default_imports_os() -> None:
+    from types import ModuleType
+
+    from lvkit.codegen.global_module import build_global_module
+    from lvkit.graph.models import VINode
+    from lvkit.models import FPTerminal
+    from lvkit.parser.models import ParsedFrontPanel
+
+    control = FPTerminal(
+        id="fp_d0",
+        index=None,
+        direction="output",
+        name="Folder",
+        lv_type=_PATH_TYPE,
+        default_value=_absolute_path_default(),
+        is_public=False,
+        fp_dco_uid="d0",
+    )
+    source = build_global_module(
+        VINode(
+            id="Paths.vi",
+            vi_path="Paths.vi",
+            name="Paths.vi",
+            terminals=[control],
+            front_panel=ParsedFrontPanel(
+                controls=[], panel_bounds=(0, 0, 0, 0), dco_order=["d0"]
+            ),
+        )
+    )
+    assert "import os\n" in source
+    module = ModuleType("paths")
+    exec(compile(source, "paths", "exec"), module.__dict__)  # noqa: S102
+    assert module.folder.parts[-1] == "Data"
