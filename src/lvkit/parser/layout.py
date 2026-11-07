@@ -33,7 +33,7 @@ from ..extractor import extract_vi_xml
 from ..vi_files import is_vi_file
 from .extfunc_bounds import extfunc_mirrored_bounds
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
-from .utils import extract_caption, extract_label_strict
+from .utils import extract_caption, extract_label_strict, heap_origin
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -772,7 +772,7 @@ def _cluster_field_geoms(
     child_frame = (0.0, 0.0)
     placed: Callable[[Rect], Rect] | None = None
     if frame is not None:
-        origin = _origin(pane)
+        origin = heap_origin(pane)
         frame_tl = (raw_box[0] + frame[0], raw_box[1] + frame[1])
         child_frame = (frame_tl[0] + pane_local[0], frame_tl[1] + pane_local[1])
         shift = (
@@ -857,15 +857,6 @@ def cluster_child_frame(
     pane = cluster_el.find("paneHierarchy")
     pane_tl = stored_top_left(pane) if pane is not None else (0.0, 0.0)
     return (tl[0] + frame[0] + pane_tl[0], tl[1] + frame[1] + pane_tl[1])
-
-
-def _origin(pane: ET.Element) -> tuple[float, float]:
-    """A pane's ``<origin>`` as (x, y); (0, 0) when it records none."""
-    text = pane.findtext("origin")
-    if not text:
-        return (0.0, 0.0)
-    x, y = (int(v) for v in text.strip("()").split(","))
-    return (float(x), float(y))
 
 
 def _shifted(shift: tuple[float, float]) -> Callable[[Rect], Rect]:

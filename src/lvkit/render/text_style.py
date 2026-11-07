@@ -8,16 +8,19 @@ from dataclasses import dataclass
 from ..parser.models import ParsedFPFont, ParsedFPPart
 from .backend import Backend
 
-# LabVIEW sizes are points; the diagram is in pixels at 96 dpi.
-_PT_TO_PX = 0.75
+# A font's stored size is the height of its text line in pixels: a label's box
+# is that size + 2 px tall (``labview-binary-format.md`` "Front panel
+# structure"). The SVG font size whose line is that tall, for the predefined
+# font's face, is 0.75 of it (15 -> about 11 px glyphs, as measured).
+_LINE_HEIGHT_TO_FONT_SIZE = 0.75
 
-# The Application font's size in points (the table's first row in every VI
+# The Application font's stored size (the table's first row in every VI
 # measured); a text with no font run is drawn at it.
-_DEFAULT_POINTS = 15
+_DEFAULT_SIZE = 15
 
 # Font size of a front-panel label with no font run: a control's own caption and
-# each cluster field's name. 15 points, as the screenshots show it.
-LABEL_SIZE = _DEFAULT_POINTS * _PT_TO_PX
+# each cluster field's name.
+LABEL_SIZE = _DEFAULT_SIZE * _LINE_HEIGHT_TO_FONT_SIZE
 
 # The stack for the three predefined fonts (Application, System, Dialog), and
 # the fallback after a stored name.
@@ -43,12 +46,12 @@ def text_style(
 ) -> TextStyle:
     """The style of a text whose first run uses ``font`` (None: no run) and has
     the literal colour ``color``. ``default_size`` is the size the caller draws
-    a ``_DEFAULT_POINTS`` text at; another size scales it, so a text in the
+    a ``_DEFAULT_SIZE`` text at; another size scales it, so a text in the
     default font is drawn as it was measured."""
     if font is None:
         return TextStyle(default_size, color=color)
     size = (
-        default_size * font.size / _DEFAULT_POINTS
+        default_size * font.size / _DEFAULT_SIZE
         if font.size is not None
         else default_size
     )

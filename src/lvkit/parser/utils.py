@@ -333,6 +333,19 @@ def heap_rect(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
     return (nums[0], nums[1], nums[2], nums[3])
 
 
+def heap_origin(elem: ET.Element) -> tuple[int, int]:
+    """A pane's stored ``origin`` (its scroll offset) as ``(x, y)``; ``(0, 0)``
+    when it is absent or not two integers."""
+    text = (elem.findtext("origin") or "").strip().strip("()")
+    try:
+        nums = [int(x.strip()) for x in text.split(",")]
+    except ValueError:
+        return (0, 0)
+    if len(nums) != 2:
+        return (0, 0)
+    return (nums[0], nums[1])
+
+
 def heap_color(text: str | None) -> str | None:
     """A heap ``fgColor``/``bgColor`` (``00RRGGBB`` hex) as ``#RRGGBB``. Only a
     literal color has a ``00`` high byte; any other value (e.g. ``01000000``,

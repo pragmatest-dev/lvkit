@@ -32,6 +32,7 @@ from .utils import (
     clean_labview_string,
     decode_xml_entities_to_bytes,
     heap_color,
+    heap_origin,
     heap_rect,
     int_or_none,
     strip_surrounding_quotes,
@@ -96,7 +97,7 @@ class _ObjectReader:
         if node_class == "pane":
             return ParsedFPPane(
                 bounds=bounds,
-                origin=_origin(elem),
+                origin=heap_origin(elem),
                 objects=self._read_objects(elem.find("zPlaneList")),
                 doc_bounds=heap_rect(elem.find("docBounds")),
                 background=_pane_background(elem),
@@ -289,23 +290,8 @@ def _caption(elem: ET.Element) -> str:
 # --- field readers -----------------------------------------------------
 
 
-def _numbers(text: str | None) -> list[int] | None:
-    try:
-        return [int(part) for part in (text or "").strip().strip("()").split(",")]
-    except ValueError:
-        return None
-
-
 def _bounds(elem: ET.Element) -> tuple[int, int, int, int] | None:
     return heap_rect(elem.find("bounds"))
-
-
-def _origin(elem: ET.Element) -> tuple[int, int]:
-    """The pane's stored ``origin`` as ``(x, y)``; ``(0, 0)`` when absent."""
-    nums = _numbers(elem.findtext("origin"))
-    if nums is None or len(nums) != 2:
-        return (0, 0)
-    return (nums[0], nums[1])
 
 
 def _ratio(text: str | None) -> float | None:

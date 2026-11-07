@@ -5,7 +5,8 @@ A text's ``textRec/fr/SL__arrayElement[class=fontRun]`` has ``fontid``, an index
 ``Prop8`` and a ``Name``. Measured on the corpus (``labview-binary-format.md``
 "Front panel structure"), only these are settled:
 
-- ``Prop2`` is the size in points; ``32768`` (0x8000) means "the default size".
+- ``Prop2`` is the size: the height of a line of the text in pixels (a label is
+  ``Prop2 + 2`` px tall); ``32768`` (0x8000) means "the default size".
 - ``Prop4`` is ``1000`` for a bold font (its ``Prop7`` metric is larger than the
   same font's non-bold row in 118 of 123 pairs), ``0`` or ``32768`` otherwise.
 - ``Name`` is a font name, or a digit: the number of a predefined font
