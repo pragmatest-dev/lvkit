@@ -34,7 +34,7 @@ def parsed_vi(extracted_xml) -> ParsedVI:
     """Parse VI once for all tests."""
     # Pass vi_path so parse_vi can record the original source location
     # (bd_xml may now be in a temp cache dir rather than next to the VI).
-    return parse_vi(vi_path=TEST_VI)
+    return parse_vi(vi_path=TEST_VI, roots=LibraryRoots())
 
 
 @pytest.fixture(scope="module")
