@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cli
+from lvkit.cache_paths import LibraryRoots
 from lvkit.load_mode import LoadMode
 from lvkit.output_cache import cached_render, lookup_render, render_options_tag
 from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
@@ -23,6 +24,8 @@ from lvkit.render.front_panel import render_front_panel_svg
 from lvkit.render.render_viewer import build_ctl_viewer, build_render_viewer
 
 from .conftest import SAMPLES_ROOT
+
+NO_ROOTS = LibraryRoots()
 
 _CTL = (
     SAMPLES_ROOT
@@ -159,10 +162,11 @@ def test_the_output_cache_serves_a_control_render(tmp_path, monkeypatch):
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "cache"))
     opts = render_options_tag("svg", "light", None)
     first = cached_render(
-        _CTL, fmt="svg", options=opts, version="t", theme_mode="light"
+        _CTL, fmt="svg", options=opts, version="t", theme_mode="light", roots=NO_ROOTS
     )
     assert first is not None
-    assert lookup_render(_CTL, "svg", opts, "t") == first.body  # a fresh cache hit
+    # a fresh cache hit
+    assert lookup_render(_CTL, "svg", opts, "t", NO_ROOTS) == first.body
 
 
 @pytest.mark.needs_samples

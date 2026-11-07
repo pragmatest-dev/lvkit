@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -80,7 +81,7 @@ def test_a_real_corpus_tag_control_renders_its_channel_name() -> None:
     """A real DAQmx physical-channel control: its saved channel name decodes
     (``'SimAO/ao0:1'``) through the SAME generic mechanism ``stdRefNum``
     added, and actually appears in the rendered SVG."""
-    parsed = parse_vi(_DAQ_AO_SFP_VI)
+    parsed = parse_vi(_DAQ_AO_SFP_VI, roots=LibraryRoots())
     channels = next(
         c for c in parsed.front_panel.controls if c.control_type == "stdTag"
     )

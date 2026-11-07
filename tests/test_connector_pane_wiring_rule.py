@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.parser.flags import get_wiring_rule
 from lvkit.parser.front_panel import (
@@ -101,7 +102,7 @@ def _rules(vi_relpath: str) -> dict[int, int]:
     vi_path = _SAMPLES / vi_relpath
     if not vi_path.exists():
         pytest.skip(f"{vi_relpath} not present in sample corpus")
-    _, fp_xml, main_xml = extract_vi_xml(vi_path)
+    _, fp_xml, main_xml = extract_vi_xml(vi_path, roots=LibraryRoots())
     assert fp_xml is not None and main_xml is not None
     pane = parse_connector_pane(fp_xml)
     assert pane is not None

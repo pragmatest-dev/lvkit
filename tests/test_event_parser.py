@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import resolve_extracted
 from lvkit.parser.nodes.event import _CONFIRMED_EVENT_TYPES, extract_event_structures
 
@@ -478,7 +479,7 @@ class TestViTesterAboutFixture:
 
     def test_reconstructed_labels_match_ground_truth(self):
         vi_path = _VI_TESTER_ABOUT_DIR / "VI Tester About.vi"
-        bd_xml, fp_xml, _ = resolve_extracted(vi_path)
+        bd_xml, fp_xml, _ = resolve_extracted(vi_path, roots=LibraryRoots())
         bd_root = ET.parse(bd_xml).getroot()
 
         structures = extract_event_structures(bd_root, fp_xml)
@@ -534,7 +535,7 @@ def test_confirmed_type_matches_displayed_frame(rel_path: str, code: int) -> Non
     vi_path = _SAMPLES_ROOT / rel_path
     if not vi_path.exists():
         pytest.skip(f"{rel_path} not present in sample corpus")
-    bd_xml, _, _ = resolve_extracted(vi_path)
+    bd_xml, _, _ = resolve_extracted(vi_path, roots=LibraryRoots())
     signed = code - (1 << 32) if code & 0x80000000 else code
 
     checked = 0

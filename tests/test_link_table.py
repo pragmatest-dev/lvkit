@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.models import SharedVariableKind
 from lvkit.parser.link_table import (
@@ -290,7 +291,7 @@ def test_qualified_link_name_rules() -> None:
 
 
 def _sidecar(vi: Path) -> tuple[Path, LinkTableVersion]:
-    _bd, _fp, main_xml = extract_vi_xml(vi)
+    _bd, _fp, main_xml = extract_vi_xml(vi, roots=LibraryRoots())
     assert main_xml is not None
     version = ET.parse(main_xml).getroot().find(".//LVSR/Section/Version")
     assert version is not None

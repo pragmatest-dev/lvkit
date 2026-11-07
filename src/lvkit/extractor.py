@@ -31,11 +31,12 @@ install_pylabview_patches()
 # The cache-location + freshness primitives live in the stdlib-only
 # ``cache_paths`` module so the CLI's render/diff HIT path can locate and
 # validate a cached artifact without importing this module (which pulls
-# pylabview). Re-exported here so long-standing callers of ``extractor.X`` (e.g.
-# ``graph.core`` -> ``extractor.set_extraction_roots``) keep working unchanged.
+# pylabview). Re-exported here so long-standing callers of ``extractor.X`` keep
+# working unchanged.
 from lvkit import staging  # noqa: E402
 from lvkit.cache_paths import (  # noqa: E402
     MANAGED_ARTIFACT_STEM,
+    LibraryRoots,
     _slug,
     classify,
     cleanup_legacy_cache,
@@ -111,22 +112,22 @@ def _windows_long_path_hint(path: Path) -> str:
     )
 
 
-def _cache_target(vi_path: Path) -> Path:
+def _cache_target(vi_path: Path, roots: LibraryRoots) -> Path:
     """The per-VI EXTRACTION cache directory for ``vi_path`` (not created: the
     publish step creates it, or renames a finished one into place).
 
     A one-time cleanup drops the abandoned kind-first cache trees on first use.
     """
     cleanup_legacy_cache()
-    target, _, _ = classify(vi_path, "extract")
+    target, _, _ = classify(vi_path, "extract", roots)
     return target
 
 
-def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
+def _write_cache_meta(vi_path: Path, meta_path: Path, roots: LibraryRoots) -> None:
     """Write the cache-VALID marker for ``vi_path`` at ``meta_path``. ``meta_path``
     is inside a private staging directory; it reaches the cache only when the
     finished extraction is published (meta last, atomically)."""
-    _, source, _ = classify(vi_path, "extract")
+    _, source, _ = classify(vi_path, "extract", roots)
     write_meta(
         vi_path,
         meta_path,
@@ -296,7 +297,9 @@ class _ArtifactSlot(NamedTuple):
     meta_path: Path
 
 
-def _artifact_slot(vi_path: Path, output_dir: Path | None) -> _ArtifactSlot:
+def _artifact_slot(
+    vi_path: Path, output_dir: Path | None, roots: LibraryRoots
+) -> _ArtifactSlot:
     """The artifact paths for the resolved ``vi_path``.
 
     A caller-supplied ``output_dir`` is caller-owned, so keep the real source stem
@@ -310,7 +313,7 @@ def _artifact_slot(vi_path: Path, output_dir: Path | None) -> _ArtifactSlot:
     """
     managed = output_dir is None
     if output_dir is None:
-        output_dir = _cache_target(vi_path)
+        output_dir = _cache_target(vi_path, roots)
     stem = MANAGED_ARTIFACT_STEM if managed else vi_path.stem
     return _ArtifactSlot(
         output_dir,
@@ -349,18 +352,20 @@ def _cache_hit(
 
 
 def cached_extraction(
-    vi_path: Path | str,
+    vi_path: Path | str, *, roots: LibraryRoots
 ) -> tuple[Path, Path | None, Path | None] | None:
     """``(bd_xml, fp_xml, main_xml)`` when ``vi_path`` is already extracted into
     the managed cache and still valid — exactly the case in which
     :func:`extract_vi_xml` returns without extracting — else None."""
     vi_path = Path(vi_path).resolve()
-    return _cache_hit(vi_path, _artifact_slot(vi_path, None))
+    return _cache_hit(vi_path, _artifact_slot(vi_path, None, roots))
 
 
 def extract_vi_xml(
     vi_path: Path | str,
     output_dir: Path | None = None,
+    *,
+    roots: LibraryRoots,
     force: bool = False,
 ) -> tuple[Path, Path | None, Path | None]:
     """Extract a VI file to XML using pylabview.
@@ -375,6 +380,8 @@ def extract_vi_xml(
             subdirectory under the global per-user cache
             (``global_cache_root()``; see ``_cache_target``) so extracted
             artifacts never land in the user's source tree.
+        roots: The library folders of the run asking; they choose the VI's
+            cache slot (see ``cache_paths.classify``).
         force: Force re-extraction even if cache is valid.
 
     Returns:
@@ -387,7 +394,7 @@ def extract_vi_xml(
         CacheWriteError: If the extraction cannot be written to the cache.
     """
     vi_path = Path(vi_path).resolve()
-    slot = _artifact_slot(vi_path, output_dir)
+    slot = _artifact_slot(vi_path, output_dir, roots)
     output_dir, artifact_stem = slot.output_dir, slot.artifact_stem
     bd_xml, meta_path = slot.bd_xml, slot.meta_path
 
@@ -434,7 +441,7 @@ def extract_vi_xml(
                 "no block diagram could be read", warnings, vi_path
             )
 
-        _write_cache_meta(vi_path, tmp_dir / meta_path.name)
+        _write_cache_meta(vi_path, tmp_dir / meta_path.name, roots)
         _publish(tmp_dir, output_dir, meta_path.name)
     except OSError as exc:
         # A publish/mkdir OSError on a genuinely deep FINAL path — augment the
@@ -458,7 +465,7 @@ def extract_vi_xml(
 
 
 def resolve_extracted(
-    vi_path: Path | str, *, force: bool = False
+    vi_path: Path | str, *, roots: LibraryRoots, force: bool = False
 ) -> tuple[Path, Path | None, Path | None]:
     """Single entry point readers use to get a VI's extracted XML.
 
@@ -467,7 +474,7 @@ def resolve_extracted(
     route through this so writes and reads agree — the cache path is a pure
     function of the resolved ``.vi`` path and the run's library roots.
     """
-    return extract_vi_xml(vi_path, force=force)
+    return extract_vi_xml(vi_path, roots=roots, force=force)
 
 
 # ===== LLB container extraction =====

@@ -245,7 +245,7 @@ read (`dependencies` in the meta: the loaded graph's `get_dependency_paths`,
 stamped by `cache_paths.dependency_stamps`, checked in `cache_paths.meta_fresh`)
 still match. `render -o FILE --no-cache` skips the cache entirely
 (`cli._build_render_body`). A VI outside any project/library has its own extract
-slot, `adhoc/extract/<fp>/vi-<hash of its path>` (`cache_paths.classify`).
+slot, `adhoc/extract/<fp>/vi-<hash of its path>` (`cache_paths.classify`). A VI's cache slot is chosen from the library folders of the run that asks: the graph's `cache_roots` (`LibraryRoots`, set by `set_library_roots`), passed to `cache_paths.classify` by every extraction, render and diff lookup, so runs in one process (MCP tool calls) never share them.
 
 ## Problems: data on the VI's node, projected into one report
 

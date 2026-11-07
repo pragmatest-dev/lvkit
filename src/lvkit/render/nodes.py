@@ -643,7 +643,9 @@ class ExtractedIconResolver:
         src_path = resolved.path
 
         try:
-            bd_xml, _, _ = extract_vi_xml(src_path)
+            bd_xml, _, _ = extract_vi_xml(
+                src_path, roots=ctx.graph.cache_roots
+            )
         except Exception:
             logger.debug(
                 "subVI icon extraction failed for %r (%s)",

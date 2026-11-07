@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..cache_paths import LibraryRoots
 from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
@@ -253,6 +254,10 @@ class InMemoryVIGraph(
         self._vilib_roots: tuple[Path, ...] = ()
         self._userlib_roots: tuple[Path, ...] = ()
         self._instrlib_roots: tuple[Path, ...] = ()
+        # The same folders resolved, for filing each VI's cache slot (shared vs.
+        # per-project): every graph carries its own, so graphs sharing a
+        # process never see each other's.
+        self.cache_roots = LibraryRoots()
         self._search_path = SearchPath(search_path_entries(None), {})
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
@@ -301,11 +306,7 @@ class InMemoryVIGraph(
         }
         self._search_path = SearchPath(search_path_entries(search_path), pseudo)
         self.run_settings.library_roots = dict(pseudo)
-        # The run's library roots feed the cache classifier; set them on the
-        # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
-        from lvkit import cache_paths
-
-        cache_paths.set_extraction_roots(
+        self.cache_roots = LibraryRoots.of(
             vilib_root=self._vilib_roots,
             userlib_root=self._userlib_roots,
             instrlib_root=self._instrlib_roots,

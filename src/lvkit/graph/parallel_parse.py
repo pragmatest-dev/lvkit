@@ -34,6 +34,7 @@ import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+from ..cache_paths import LibraryRoots
 from ..console import use_utf8_output
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_vi_xml
@@ -78,13 +79,15 @@ def _parse_batch(items: list[_ParseItem]) -> dict[str, ParsedVI]:
 
 def parallel_parse_directory(
     vi_paths: list[Path],
+    roots: LibraryRoots,
     extract_pool: ExtractionPool | None = None,
     max_workers: int | None = None,
 ) -> dict[str, ParsedVI]:
     """Pre-parse every ``.vi`` in ``vi_paths`` across a process pool.
 
     The VIs not extracted yet are extracted first, in parallel, by
-    ``extract_pool`` (a private one when none is given).
+    ``extract_pool`` (a private one when none is given), each filed by the
+    asking run's library folders ``roots``.
 
     Returns a dict keyed by ``str(bd_xml)`` for every VI that parsed cleanly.
     Never raises: a partial or empty dict on any failure (extraction miss,
@@ -104,12 +107,12 @@ def parallel_parse_directory(
 
     resolved: list[_ParseItem] = []
     with contextlib.ExitStack() as stack:
-        pool = extract_pool or stack.enter_context(ExtractionPool())
+        pool = extract_pool or stack.enter_context(ExtractionPool(roots))
         pool.prefetch(vi_paths)
         for vi_path in vi_paths:
             pool.wait(vi_path)
             try:
-                bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+                bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path, roots=roots)
             except Exception:
                 # Extraction failure -- let the serial path hit (and report) it.
                 continue

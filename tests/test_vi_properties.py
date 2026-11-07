@@ -62,6 +62,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import resolve_extracted
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -764,7 +765,7 @@ class TestVIPropertiesCorpus:
     @pytest.mark.needs_samples
     def test_vi_kind_control(self) -> None:
         _skip_if_missing(CONTROL_FILE)
-        _bd, _fp, main_xml = resolve_extracted(CONTROL_FILE)
+        _bd, _fp, main_xml = resolve_extracted(CONTROL_FILE, roots=LibraryRoots())
         assert main_xml is not None
         assert parse_vi_metadata(main_xml)["vi_type"] == "Control"
 

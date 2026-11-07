@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from lvkit.cache_paths import project_root
+from lvkit.cache_paths import LibraryRoots, project_root
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.page_names import page_names
@@ -22,7 +22,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
-from lvkit.library_folders import Folders, SearchEntries
+from lvkit.library_folders import Folders, SearchEntries, folder_list
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -84,10 +84,12 @@ def _collect_library_vis(library_path: Path, run: RunProblems) -> list[Path]:
     return vi_paths
 
 
-def _collect_class_vis(class_path: Path, run: RunProblems) -> list[Path]:
+def _collect_class_vis(
+    class_path: Path, run: RunProblems, roots: LibraryRoots
+) -> list[Path]:
     """Collect all method VIs from a .lvclass class. A method that is not at its
     recorded path is a problem in ``run``."""
-    lvclass = parse_lvclass(class_path)
+    lvclass = parse_lvclass(class_path, roots)
     locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
@@ -419,7 +421,15 @@ def generate_documents(
     elif library_path_obj.suffix.lower() == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
-        vi_paths = _collect_class_vis(library_path_obj, run)
+        vi_paths = _collect_class_vis(
+            library_path_obj,
+            run,
+            LibraryRoots.of(
+                vilib_root=folder_list(vilib_root),
+                userlib_root=folder_list(userlib_root),
+                instrlib_root=folder_list(instrlib_root),
+            ),
+        )
     elif library_path_obj.is_dir():
         doc_type = "directory"
         doc_title = library_path_obj.name
