@@ -151,7 +151,9 @@ def gap_of(
     elif isinstance(exc, CatalogPaneMismatch):
         kind, identifier, name = TERMINAL_MAPPING, exc.vi_name, exc.vi_name
     elif isinstance(exc, MissingVIError):
-        kind, identifier, name = MISSING_VI, exc.name, exc.name
+        # A missing VI is named by its path (``<vilib>/...`` or project
+        # relative): two files of one name at two paths are two missing VIs.
+        kind, identifier, name = MISSING_VI, exc.recorded_path or exc.name, exc.name
     elif isinstance(exc, TerminalResolutionNeeded):
         kind, identifier, name = TERMINAL_MAPPING, exc.prim_name, exc.prim_name
     elif isinstance(exc, UnknownDefault):
