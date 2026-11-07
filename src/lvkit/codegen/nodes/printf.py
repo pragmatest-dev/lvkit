@@ -21,9 +21,11 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..gaps import gap_of, raise_statement
 from ..labview_format import (
     _lv_decode_escapes,
     _lv_format_into_string,
+    _lv_negative_float_reason,
     _lv_parse,
     _lv_round_int,
     _lv_scientific,
@@ -133,8 +135,15 @@ def _string_value(
 
 
 def _number_value(
-    spec: _LvSpecifier, arg: ast.expr, kind: FormatKind, ctx: CodeGenContext
+    spec: _LvSpecifier,
+    arg: ast.expr,
+    kind: FormatKind,
+    ctx: CodeGenContext,
+    negative_gaps: list[tuple[ast.expr, str]],
 ) -> ast.FormattedValue:
+    """The value written for a number code. A floating-point value with ``u``,
+    ``x``, ``o`` or ``b`` adds to ``negative_gaps`` the integer it rounds to and
+    the reason a negative one has no conversion."""
     if kind.kind in ("bool", "enum"):
         base: ast.expr = _call("int", arg)
     elif kind.kind == "complex":
@@ -167,14 +176,14 @@ def _number_value(
         whole = _call("_lv_round_int", base)
     if spec.code == "d":
         return _formatted(whole, _python_spec(spec, "d", text=False))
+    if kind.kind in ("float", "complex"):
+        negative_gaps.append((whole, _lv_negative_float_reason(spec)))
     if kind.kind == "int" and kind.signed:
-        mask = (1 << kind.bits) - 1
-    elif kind.kind in ("float", "complex"):
-        mask = (1 << 64) - 1
-    else:
-        mask = 0
-    if mask:
-        whole = ast.BinOp(left=whole, op=ast.BitAnd(), right=ast.Constant(value=mask))
+        whole = ast.BinOp(
+            left=whole,
+            op=ast.BitAnd(),
+            right=ast.Constant(value=(1 << kind.bits) - 1),
+        )
     char = {"u": "d", "x": "X", "o": "o", "b": "b"}[spec.code]
     return _formatted(whole, _python_spec(spec, char, text=False))
 
@@ -185,6 +194,7 @@ def _literal_format(
     initial: ast.expr | None,
     node: PrimitiveNode,
     ctx: CodeGenContext,
+    negative_gaps: list[tuple[ast.expr, str]],
 ) -> ast.expr:
     """The initial string followed by ``text`` with each specifier written for
     its value, as one f-string."""
@@ -206,7 +216,7 @@ def _literal_format(
         if piece.code == "s":
             parts.append(_string_value(piece, arg, kind))
         else:
-            parts.append(_number_value(piece, arg, kind, ctx))
+            parts.append(_number_value(piece, arg, kind, ctx, negative_gaps))
     if not any(isinstance(p, ast.FormattedValue) for p in parts):
         return ast.Constant(
             value="".join(
@@ -284,6 +294,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             arguments.append((parse_expr(value), format_kind(terminal.lv_type)))
 
     text = None if format_value is None else _literal_text(format_value)
+    negative_gaps: list[tuple[ast.expr, str]] = []
     expr: ast.expr
     if format_value is not None and text is None:
         expr = _runtime_format(format_value, arguments, initial, ctx)
@@ -301,8 +312,33 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
             text = "%s" * len(arguments)
         assert text is not None
-        expr = _literal_format(text, arguments, initial, node, ctx)
+        expr = _literal_format(text, arguments, initial, node, ctx, negative_gaps)
 
     out_term = outputs[0]
     base_name = out_term.name or "formatted"
-    return bind_output(node, out_term.id, base_name, expr, ctx)
+    fragment = bind_output(node, out_term.id, base_name, expr, ctx)
+    fragment.statements[:0] = _negative_guards(negative_gaps, node, ctx)
+    return fragment
+
+
+def _negative_guards(
+    negative_gaps: list[tuple[ast.expr, str]],
+    node: PrimitiveNode,
+    ctx: CodeGenContext,
+) -> list[ast.stmt]:
+    """For each floating-point value a number code writes, the gap of a negative
+    one: recorded (the warning), and raised where the value turns out negative."""
+    guards: list[ast.stmt] = []
+    for whole, reason in negative_gaps:
+        gap = gap_of(ConversionGap(reason, node), ctx.vi_name or "", node)
+        ctx.gaps.append(gap)
+        guards.append(
+            ast.If(
+                test=ast.Compare(
+                    left=whole, ops=[ast.Lt()], comparators=[ast.Constant(value=0)]
+                ),
+                body=[raise_statement(gap.message)],
+                orelse=[],
+            )
+        )
+    return guards

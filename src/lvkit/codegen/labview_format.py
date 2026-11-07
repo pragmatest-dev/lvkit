@@ -187,6 +187,16 @@ def _lv_unsupported(spec, kind):
     return f"Format Into String specifier {spec.text!r} ({part}) has no conversion"
 
 
+def _lv_negative_float_reason(spec):
+    """Why ``spec`` (``u``, ``x``, ``o`` or ``b``) cannot write a negative
+    floating-point value: NI's docs do not say how many bits it is written in."""
+    return (
+        f"Format Into String specifier {spec.text!r} (a negative floating-point "
+        "value) has no conversion: NI's docs do not say how many bits it is "
+        "written in"
+    )
+
+
 def _lv_pad(text, width, left, zero):
     """The text in a field ``width`` wide: left-justified, or right-justified
     with spaces or (``zero``) with zeros after the sign."""
@@ -257,9 +267,10 @@ def _lv_format_value(spec, value, kind, bits, labels):
         if code == "d":
             text = format(whole, "+d" if spec.plus else "d")
         else:
+            if whole < 0 and kind != "int":
+                raise NotImplementedError(_lv_negative_float_reason(spec))
             if whole < 0:
-                width = bits if kind == "int" else 64
-                whole &= (1 << width) - 1
+                whole &= (1 << bits) - 1
             text = format(whole, {"u": "d", "x": "X", "o": "o", "b": "b"}[code])
     return _lv_pad(text, spec.width, spec.left, spec.zero)
 
@@ -294,7 +305,13 @@ _DEPENDENCIES: dict[object, tuple[object, ...]] = {
     _lv_round_int: (),
     _lv_exponent: (),
     _lv_scientific: (_lv_pad, _lv_exponent),
-    _lv_format_value: (_lv_pad, _lv_round_int, _lv_scientific),
+    _lv_negative_float_reason: (),
+    _lv_format_value: (
+        _lv_pad,
+        _lv_round_int,
+        _lv_scientific,
+        _lv_negative_float_reason,
+    ),
     _lv_format_into_string: (
         _lv_decode_escapes,
         _lv_parse,

@@ -4,6 +4,7 @@ writes, for a format string on the diagram and for one wired at run time."""
 from __future__ import annotations
 
 import ast
+import re
 from typing import Any
 
 import pytest
@@ -145,7 +146,8 @@ CASES: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%x", [(-1, I8)], "FF"),
     ("%x", [(-1, I32)], "FFFFFFFF"),
     ("%u", [(-1, I8)], "255"),
-    ("%x", [(-4.2, DBL)], "FFFFFFFFFFFFFFFC"),
+    ("%x", [(12.4, DBL)], "C"),
+    ("%04b", [(2.5, DBL)], "0010"),
     ("%-5d|", [(42, I32)], "42   |"),
     ("%+d", [(5, I32)], "+5"),
     ("%05d", [(-42, I32)], "-0042"),
@@ -252,6 +254,26 @@ def test_no_format_string_and_an_enum_with_no_labels_is_a_gap() -> None:
 def test_no_format_string_and_a_number_is_a_gap() -> None:
     with pytest.raises(ConversionGap, match="no format string"):
         _build(None, [(1.5, DBL)])
+
+
+NEGATIVE_FLOAT = "'%x' (a negative floating-point value) has no conversion"
+
+
+@pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
+def test_a_negative_float_with_a_bit_code_raises_where_it_runs(
+    wired_format: bool,
+) -> None:
+    assert _run("%x", [(12.4, DBL)], wired_format=wired_format) == "C"
+    with pytest.raises(NotImplementedError, match=re.escape(NEGATIVE_FLOAT)):
+        _run("%x", [(-4.2, DBL)], wired_format=wired_format)
+
+
+def test_a_float_with_a_bit_code_is_a_gap_raised_only_when_negative() -> None:
+    source, _ = _build("%x", [(1.0, DBL)])
+    guard, formatted = source.split("\n")[-3:-1], source.split("\n")[-1]
+    assert guard[0] == "if _lv_round_int(arg0) < 0:"
+    assert NEGATIVE_FLOAT in guard[1] and "gap kind: unsupported_node" in guard[1]
+    assert formatted == "formatted = f'{_lv_round_int(arg0):X}'"
 
 
 def test_the_diagram_helpers_are_copied_only_when_used() -> None:
