@@ -147,7 +147,10 @@ def test_modern_indicator_numeric_draws_no_spinner_and_the_indicator_fill() -> N
 
 def test_modern_numeric_uses_the_readouts_stored_fill() -> None:
     svg = _svg(_modern_numeric(indicator=True, arrows=_HIDDEN, bg="#FFFFFF"))
-    assert 'fill="#D2D2D2"' not in svg
+    assert not any(
+        line.startswith("<rect") and 'fill="#D2D2D2"' in line
+        for line in svg.splitlines()
+    )
     assert 'fill="#FFFFFF"' in svg
 
 
@@ -267,7 +270,7 @@ def test_modern_string_has_the_shadow_strip_and_no_outline() -> None:
     )
     svg = _svg(ctrl)
     assert 'fill="#D2D2D2"' in svg
-    assert "linearGradient" in svg
+    assert "<polygon" in svg  # the shadow strips
     assert 'stroke="#ABADB3"' not in svg
     assert f'stroke="{DEFAULT_THEME.struct_border}"' not in svg
 
@@ -497,3 +500,26 @@ def test_square_led_has_no_white_gloss_at_the_top() -> None:
     assert first is not None
     red, green, blue = (int(first.group(1)[i : i + 2], 16) for i in (1, 3, 5))
     assert red <= 0x74 and blue <= 0x30
+
+
+def test_modern_shadow_strips_meet_in_a_mitred_corner() -> None:
+    from lvkit.render.front_panel.controls import modern
+
+    backend = SvgBackend()
+    modern.draw_shadow_strips(backend, (0, 0, 60, 30), (4, 4, 56, 26))
+    svg = backend.render((0, 0, 60, 30), root_id="r")
+    # the first band of each strip starts at the outer corner and slants to the
+    # inner corner; the left strip's first band is the same diagonal
+    assert 'points="0.0,0.0 60.0,0.0 60.0,4.0 4.0,4.0"' in svg
+    assert 'points="0.0,0.0 4.0,4.0 4.0,30.0 0.0,30.0"' in svg
+
+
+def test_modern_field_right_and_bottom_edges_follow_the_fill() -> None:
+    from lvkit.render.front_panel.controls import modern
+
+    backend = SvgBackend()
+    modern.draw_field(backend, (0, 0, 60, 30), (4, 10, 56, 26), "#D2D2D2")
+    svg = backend.render((0, 0, 60, 30), root_id="r")
+    # the measured indicator edges: #E3 at the right, #DA at the bottom
+    assert 'fill="#E3E3E3"' in svg
+    assert 'fill="#DADADA"' in svg

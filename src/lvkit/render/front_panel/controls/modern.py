@@ -38,7 +38,7 @@ TEXT_INSET = 1.0
 
 # The inner shadow's fade, light at the frame to dark at the field: the rows of
 # the measured strip above a field (7 px at 150%).
-_SHADOW_STOPS = (
+SHADOW_STOPS = (
     (0.0, "#F7F7F7"),
     (0.2, "#EDEDED"),
     (0.4, "#E2E2E2"),
@@ -46,11 +46,38 @@ _SHADOW_STOPS = (
     (0.8, "#D3D3D3"),
     (1.0, "#CFCFCF"),
 )
+# An array's frame has its own strip, and an element in the array its own over
+# it. Measured on docs/images/Measurement UI.png, "double array in", column x 180:
+# the frame's strip is y 298-304 #FC #F3 #E7 #DD #D6 #D1 #D0; the element's strip
+# is y 305-311 #D9 #D8 #D4 #D0 #CC #CA #C8, then the edge row #E2.
+_FRAME_SHADOW_STOPS = (
+    (0.0, "#FCFCFC"),
+    (1 / 6, "#F3F3F3"),
+    (2 / 6, "#E7E7E7"),
+    (3 / 6, "#DDDDDD"),
+    (4 / 6, "#D6D6D6"),
+    (5 / 6, "#D1D1D1"),
+    (1.0, "#D0D0D0"),
+)
+ARRAY_ELEMENT_SHADOW_STOPS = (
+    (0.0, "#D9D9D9"),
+    (1 / 6, "#D8D8D8"),
+    (2 / 6, "#D4D4D4"),
+    (3 / 6, "#D0D0D0"),
+    (4 / 6, "#CCCCCC"),
+    (5 / 6, "#CACACA"),
+    (1.0, "#C8C8C8"),
+)
 # The last row of the shadow, the one against the field, is lighter than the
 # fade before it.
 _EDGE_TOP = "#E4E4E4"
-_EDGE_RIGHT = "#E3E3E3"
-_EDGE_BOTTOM = "#DADADA"
+# The 1 px edge at the field's right and bottom is the fill stepped toward the
+# page's white. Measured on docs/images/Measurement UI.png: the indicator "double
+# out" field (#D2) has #E3 at x 399 (right) and #DA at y 256 (bottom), both then
+# #FF: 17/45 and 8/45 of the way to white. The control "double in" field (#FA)
+# shows #FB at x 204 and y 256: no outline, which these fractions give (#FC, #FB).
+_EDGE_RIGHT_STEP = 17 / 45
+_EDGE_BOTTOM_STEP = 8 / 45
 
 # The spinner is one oval (an ellipse: the sides curve all the way, rows 227 and
 # 231 are 10 and 14 px wide of 18) spanning both arrow parts (``partID`` 2 and 3),
@@ -118,22 +145,97 @@ def field_fill(stored: str | None, is_indicator: bool, disabled: bool = False) -
     return INDICATOR_FILL if is_indicator else CONTROL_FILL
 
 
-def draw_field(backend: Backend, frame: Rect | None, field: Rect, fill: str) -> None:
-    """``field`` filled, with the inner shadow in the room ``frame`` leaves
-    around it (none without a frame)."""
+def _toward_white(color: str, step: float) -> str:
+    """``#RRGGBB`` ``color`` moved ``step`` (0-1) of the way to white."""
+    channels = [int(color[i : i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(
+        f"{round(c + (255 - c) * step):02X}" for c in channels
+    )
+
+
+def _color_at(stops: tuple[tuple[float, str], ...], t: float) -> str:
+    """The color ``t`` (0-1) of the way along ``stops``, blended linearly."""
+    for (o1, c1), (o2, c2) in zip(stops, stops[1:]):
+        if t <= o2:
+            f = 0.0 if o2 == o1 else (t - o1) / (o2 - o1)
+            a = [int(c1[i : i + 2], 16) for i in (1, 3, 5)]
+            b = [int(c2[i : i + 2], 16) for i in (1, 3, 5)]
+            return "#" + "".join(f"{round(x + (y - x) * f):02X}" for x, y in zip(a, b))
+    return stops[-1][1]
+
+
+def draw_shadow_strips(
+    backend: Backend,
+    outer: Rect,
+    inner: Rect,
+    stops: tuple[tuple[float, str], ...] = SHADOW_STOPS,
+) -> None:
+    """The dark strips along the top and left of ``inner`` inside ``outer``,
+    each fading from the light page at ``outer`` to the dark at ``inner``, meeting
+    in a mitred corner (a diagonal from ``outer``'s corner to ``inner``'s), as on
+    the real screenshots: the top strip's left end and the left strip's top end
+    slant along the diagonal. One band per pixel of strip, each painted from its
+    own depth to the strip's inner edge so the bands leave no seams."""
+    ox1, oy1, ox2, oy2 = outer
+    ix1, iy1, _ix2, _iy2 = inner
+    top, left = iy1 - oy1, ix1 - ox1
+    if top > 0:
+        n = max(1, round(top))
+        slope = left / top if top else 0.0
+        for i in range(n):
+            y = oy1 + top * i / n
+            xl = ox1 + (y - oy1) * slope
+            backend.polygon(
+                [(xl, y), (ox2, y), (ox2, iy1), (ix1, iy1)],
+                fill=_color_at(stops, (i + 0.5) / n),
+            )
+    if left > 0:
+        n = max(1, round(left))
+        slope = top / left if left else 0.0
+        for i in range(n):
+            x = ox1 + left * i / n
+            yt = oy1 + (x - ox1) * slope
+            backend.polygon(
+                [(x, yt), (ix1, iy1), (ix1, oy2), (x, oy2)],
+                fill=_color_at(stops, (i + 0.5) / n),
+            )
+
+
+def draw_field(
+    backend: Backend,
+    frame: Rect | None,
+    field: Rect,
+    fill: str,
+    stops: tuple[tuple[float, str], ...] = SHADOW_STOPS,
+) -> None:
+    """``field`` filled, with the inner shadow (``stops``) in the room ``frame``
+    leaves around it (none without a frame)."""
     fx1, fy1, fx2, fy2 = field
     if frame is not None:
         ax1, ay1, ax2, ay2 = frame
+        draw_shadow_strips(backend, frame, field, stops)
         if fy1 > ay1:
-            backend.gradient_rect(ax1, ay1, ax2, fy1 - 1, stops=_SHADOW_STOPS)
             backend.rect(ax1, fy1 - 1, ax2, fy1, fill=_EDGE_TOP)
-        if fx1 > ax1:
-            backend.gradient_rect(
-                ax1, fy1, fx1, ay2, stops=_SHADOW_STOPS, end=(1.0, 0.0)
-            )
-        backend.rect(fx2, fy1, fx2 + 1, fy2 + 1, fill=_EDGE_RIGHT)
-        backend.rect(fx1, fy2, fx2, fy2 + 1, fill=_EDGE_BOTTOM)
+        backend.rect(
+            fx2, fy1, fx2 + 1, fy2 + 1, fill=_toward_white(fill, _EDGE_RIGHT_STEP)
+        )
+        backend.rect(
+            fx1, fy2, fx2, fy2 + 1, fill=_toward_white(fill, _EDGE_BOTTOM_STEP)
+        )
     backend.rect(fx1, fy1, fx2, fy2, fill=fill)
+
+
+def draw_frame(backend: Backend, frame: Rect, inner: Rect, fill: str) -> None:
+    """An array's frame in the Modern look: no outline; ``frame`` filled, with
+    the dark strips along its top and left toward ``inner`` (the room for the
+    elements), so the right and bottom are the pale fill alone. Measured on
+    docs/images/Measurement UI.png, "double array in" element frame: right
+    (x 208-214, y 328-336) #E6 #DF #E0 #E2 #E1 #E3 #F8 and bottom (x 180, y
+    337-345) #F8 #E4 #DF #E0 #E2 #E1 #E2 #E8 #F4, the frame fill (#E2) with soft
+    outer rows and no outline; top (x 180, y 298-304) #FC #F3 #E7 #DD #D6 #D1
+    #D0 fading toward the elements."""
+    backend.rect(*frame, fill=fill)
+    draw_shadow_strips(backend, frame, inner, _FRAME_SHADOW_STOPS)
 
 
 def draw_text(

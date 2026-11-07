@@ -76,6 +76,8 @@ class NumericControlGlyph(ControlGlyph):
     disabled: bool = False
     # The glyph is an array's index display.
     is_index: bool = False
+    # The glyph is an array's element: its shadow lies over the array frame's.
+    in_array: bool = False
     # The array this is the index display of, when it is the array controller's
     # live target: its arrows page the array and its readout shows the index.
     live_struct: str | None = None
@@ -124,6 +126,11 @@ class NumericControlGlyph(ControlGlyph):
         modern.draw_field(
             backend, frame, readout,
             modern.field_fill(self.readout_fill, self.is_indicator, self.greyed),
+            (
+                modern.ARRAY_ELEMENT_SHADOW_STOPS
+                if self.in_array
+                else modern.SHADOW_STOPS
+            ),
         )
         if self.show_spinner:
             halves = tuple(
@@ -211,11 +218,13 @@ def numeric_from_parts(
     disabled: bool = False,
     live_struct: str | None = None,
     is_index: bool = False,
+    in_array: bool = False,
 ) -> NumericControlGlyph:
     """The numeric glyph of whatever holds the parts: a control, or a part with
     sub-parts of its own (an array's index display or element). ``value`` is the
     display text. ``live_struct`` names the array it is the live index of;
-    ``is_index`` marks an array's index display."""
+    ``is_index`` marks an array's index display, ``in_array`` an array's
+    element."""
     x1, y1, x2, y2 = value_extent(owner)
     origin = (x1, y1)
     frame = local_part_rect(owner, FRAME_PART_ID, origin)
@@ -224,7 +233,7 @@ def numeric_from_parts(
     if frame is None or readout is None:
         return NumericControlGlyph(
             value=value, disabled=disabled, live_struct=live_struct,
-            is_index=is_index,
+            is_index=is_index, in_array=in_array,
         )
     halves = tuple(
         rect
@@ -256,6 +265,7 @@ def numeric_from_parts(
         is_indicator=is_indicator,
         disabled=disabled,
         is_index=is_index,
+        in_array=in_array,
         live_struct=live_struct,
         value_font=readout_part.font if readout_part is not None else None,
         value_color=readout_part.text_color if readout_part is not None else None,

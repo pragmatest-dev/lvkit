@@ -106,6 +106,7 @@ def _element(
                 format_number(shown or "0", ctrl.number_format),
                 is_indicator(element_part.flags),
                 disabled,
+                in_array=True,
             )
         )
     # Any other scalar element goes straight to leaf_glyph, bypassing the _RESOLVERS

@@ -74,6 +74,15 @@ def _array(indicator: bool, values: list[object]) -> ParsedFPControl:
     )
 
 
+def _rect_filled(svg: str, color: str) -> bool:
+    """True when a ``<rect>`` (a field) is filled ``color``; the shadow's
+    polygons can share the color."""
+    return any(
+        line.startswith("<rect") and f'fill="{color}"' in line
+        for line in svg.splitlines()
+    )
+
+
 def _svg(ctrl: ParsedFPControl) -> str:
     return render_front_panel_svg(
         ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 300, 300)),
@@ -84,10 +93,11 @@ def _svg(ctrl: ParsedFPControl) -> str:
 def test_the_index_is_the_modern_numeric_and_the_element_its_own_fill() -> None:
     control = _svg(_array(False, ["5"]))
     assert _OVAL_START in control
-    assert 'fill="#FAFAFA"' in control and 'fill="#D2D2D2"' not in control
+    assert 'fill="#FAFAFA"' in control
+    assert not _rect_filled(control, "#D2D2D2")
     indicator = _svg(_array(True, ["5"]))
     assert _OVAL_START in indicator
-    assert 'fill="#D2D2D2"' in indicator
+    assert _rect_filled(indicator, "#D2D2D2")
 
 
 def test_an_empty_array_has_a_disabled_element_and_a_plain_index() -> None:
@@ -105,7 +115,7 @@ def test_an_empty_array_has_a_disabled_element_and_a_plain_index() -> None:
     indicator = _svg(_array(True, []))
     assert 'fill="#EDEDED"' in indicator
     assert 'fill="#FAFAFA"' in indicator
-    assert 'fill="#D2D2D2"' not in indicator
+    assert not _rect_filled(indicator, "#D2D2D2")
 
 
 def test_the_elements_arrows_follow_their_own_hidden_bit() -> None:

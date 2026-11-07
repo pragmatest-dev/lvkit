@@ -37,6 +37,7 @@ from ...glyphs.nodes.array_scrollbar import draw_array_scrollbar
 from ...glyphs.nodes.index_selector import draw_index_control, draw_index_selector
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
+from . import modern
 from .base import (
     FRAME_PART_ID,
     ControlGlyph,
@@ -49,6 +50,7 @@ from .base import (
     value_extent,
 )
 from .numeric import NumericControlGlyph, numeric_from_parts
+from .style import ControlStyle
 
 _VIEWPORT_PART_ID = 28
 _SCROLLBAR_PART_ID = 39
@@ -122,6 +124,16 @@ class ArrayControlGlyph(ControlGlyph):
             and glyph.glyph.native_size is not None
         )
 
+    @property
+    def _modern_elements(self) -> bool:
+        """True when the elements are Modern numerics: the frame is then drawn in
+        the Modern look, with no outline."""
+        glyph = self.default_element
+        return (
+            isinstance(glyph, ElementRowGlyph)
+            and glyph.glyph.style == ControlStyle.MODERN
+        )
+
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         frame = scale_local(self.frame_local, self.native_size, bounds)
         viewport = scale_local(self.viewport_local, self.native_size, bounds)
@@ -130,12 +142,17 @@ class ArrayControlGlyph(ControlGlyph):
             frame = bounds
             x1, y1, x2, y2 = bounds
             viewport = (x1 + _INSET, y1 + _INSET, x2 - _INSET, y2 - _INSET)
-        backend.rect(
-            *frame,
-            fill=self.frame_fill or theme.fp_panel,
-            stroke=self.frame_stroke or theme.struct_border,
-            stroke_width=1.0,
-        )
+        if self._modern_elements:
+            modern.draw_frame(
+                backend, frame, viewport, self.frame_fill or theme.fp_panel
+            )
+        else:
+            backend.rect(
+                *frame,
+                fill=self.frame_fill or theme.fp_panel,
+                stroke=self.frame_stroke or theme.struct_border,
+                stroke_width=1.0,
+            )
         washed = self._draw_indices(backend, bounds, theme)
         vx1, vy1, vx2, vy2 = viewport
         if vx2 - vx1 < 6.0 or vy2 - vy1 < 6.0:
