@@ -8,14 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from lvkit import catalogs
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.pipeline import create_import_resolver
-from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
+from lvkit.vilib_resolver import VIEntry, VILibResolver, VITerminal
 from tests.helpers import build_graph
 
 KEY = "/vilib/Analysis/Inverse FFT.vi"
@@ -88,10 +87,10 @@ def _caller_source(
     )
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
-    catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
-    monkeypatch.setattr(catalog, "resolve_recorded", lambda path: entry)
-    monkeypatch.setattr(catalog, "catalog_file_name", lambda path: "Inverse FFT.vi")
+    monkeypatch.setattr(VILibResolver, "resolve_recorded", lambda _self, path: entry)
+    monkeypatch.setattr(
+        VILibResolver, "catalog_file_name", lambda _self, path: "Inverse FFT.vi"
+    )
     return build_module(
         context, "caller.vi", import_resolver=resolver, graph=built, gaps=gaps
     )

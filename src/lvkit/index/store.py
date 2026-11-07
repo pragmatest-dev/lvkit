@@ -230,6 +230,7 @@ CREATE TABLE IF NOT EXISTS class_facts (
     scope TEXT,
     is_accessor INTEGER NOT NULL DEFAULT 0,
     accessor_field TEXT,
+    accessor_path TEXT,
     private_data TEXT NOT NULL DEFAULT '[]',
     is_static INTEGER NOT NULL DEFAULT 0,
     must_override INTEGER NOT NULL DEFAULT 0,
@@ -465,6 +466,7 @@ def facts_digest(f: VIFacts) -> str:
     del payload["impact_score"]
     del payload["callers_count"]
     del payload["dependencies_walked"]
+    del payload["scores_computed"]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
@@ -483,7 +485,8 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
     cf_row = conn.execute(
         "SELECT owning_class, parent, scope, is_accessor, accessor_field, "
         "private_data, is_static, must_override, must_call_parent, "
-        "class_version, ancestors FROM class_facts WHERE vi_path = ?",
+        "class_version, ancestors, accessor_path FROM class_facts "
+        "WHERE vi_path = ?",
         (path,),
     ).fetchone()
     class_fact = (
@@ -493,6 +496,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
             scope=cf_row[2],
             is_accessor=bool(cf_row[3]),
             accessor_field=cf_row[4],
+            accessor_path=cf_row[11],
             private_data=json.loads(cf_row[5]),
             is_static=bool(cf_row[6]),
             must_override=bool(cf_row[7]),
@@ -543,16 +547,18 @@ def _coalesce_class_fact(
         return prior
     if prior is None:
         return cfc
-    # Coalesce the accessor PAIR atomically: is_accessor and accessor_field are
-    # one fact from the owns edge, so a partial load with no accessor info must
-    # not leave is_accessor=False beside a preserved accessor_field (a
-    # self-contradictory row).
+    # Coalesce the accessor facts atomically: is_accessor, accessor_field and
+    # accessor_path are one fact from the owns edge, so a partial load with no
+    # accessor info must not leave is_accessor=False beside a preserved
+    # accessor_field (a self-contradictory row).
     if cfc.is_accessor or cfc.accessor_field is not None:
         is_accessor = cfc.is_accessor
         accessor_field = cfc.accessor_field
+        accessor_path = cfc.accessor_path
     else:
         is_accessor = prior.is_accessor
         accessor_field = prior.accessor_field
+        accessor_path = prior.accessor_path
     # scope/is_static/must_override/must_call_parent all come from the SAME
     # "owns" edge lookup (get_method_access) -- gate the whole group on scope
     # (like the accessor pair above) so a partial load with no access info at
@@ -576,6 +582,7 @@ def _coalesce_class_fact(
         scope=scope,
         is_accessor=is_accessor,
         accessor_field=accessor_field,
+        accessor_path=accessor_path,
         private_data=cfc.private_data if cfc.private_data else prior.private_data,
         is_static=is_static,
         must_override=must_override,
@@ -605,8 +612,10 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
       (``dependencies_walked`` False) knows nothing about them, so the stored
       lists stay.
     * a stub never replaces a loaded VI.
-    * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
-      stored ones stay.
+    * ``impact_score`` / ``callers_count`` are whole-call-graph results: the
+      stored ones stay unless ``f`` carries scores computed across the whole
+      graph (``scores_computed``), which replace them and make a changed score
+      count as a change.
 
     The result is compared by :func:`facts_digest`; equal means nothing to write.
     """
@@ -625,10 +634,15 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             typedef_versions=(
                 f.typedef_versions if f.dependencies_walked else prior.typedef_versions
             ),
-            impact_score=prior.impact_score,
-            callers_count=prior.callers_count,
+            impact_score=f.impact_score if f.scores_computed else prior.impact_score,
+            callers_count=(
+                f.callers_count if f.scores_computed else prior.callers_count
+            ),
         )
-        if prior.facts_digest == facts_digest(effective):
+        if prior.facts_digest == facts_digest(effective) and (
+            prior.impact_score,
+            prior.callers_count,
+        ) == (effective.impact_score, effective.callers_count):
             return None
     return effective
 
@@ -677,8 +691,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     for writing, so a repeat load of an unchanged project leaves ``index.db``
     and its WAL files exactly as they were. The terminals/constants/nodes/
     type_uses child tables are intrinsic to a single-VI load and are always
-    rewritten together with their VI's row. (``callee_path`` on the node rows is
-    the one exception filled at merge, like impact_score.)
+    rewritten together with their VI's row.
     """
     pending = list(vis)
     if not pending or _probe_is_current(project_root, pending):
@@ -821,10 +834,10 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
         cf = f.class_fact
         conn.execute(
             "INSERT INTO class_facts(vi_path, owning_class, parent, "
-            "scope, is_accessor, accessor_field, private_data, "
+            "scope, is_accessor, accessor_field, accessor_path, private_data, "
             "is_static, must_override, must_call_parent, "
             "class_version, ancestors) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 f.path,
                 cf.owning_class,
@@ -832,6 +845,7 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
                 cf.scope,
                 int(cf.is_accessor),
                 cf.accessor_field,
+                cf.accessor_path,
                 json.dumps(cf.private_data),
                 int(cf.is_static),
                 int(cf.must_override),
@@ -1132,8 +1146,9 @@ def load(project_root: Path) -> list[VIFacts]:
         class_fact_by_vi: dict[str, ClassFact] = {}
         for row in conn.execute(
             "SELECT vi_path, owning_class, parent, scope, is_accessor, "
-            "accessor_field, private_data, is_static, must_override, "
-            "must_call_parent, class_version, ancestors FROM class_facts"
+            "accessor_field, accessor_path, private_data, is_static, "
+            "must_override, must_call_parent, class_version, ancestors "
+            "FROM class_facts"
         ):
             (
                 vi_path,
@@ -1142,6 +1157,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 scope,
                 is_accessor,
                 accessor_field,
+                accessor_path,
                 private_data,
                 is_static,
                 must_override,
@@ -1155,6 +1171,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 scope=scope,
                 is_accessor=bool(is_accessor),
                 accessor_field=accessor_field,
+                accessor_path=accessor_path,
                 private_data=json.loads(private_data),
                 is_static=bool(is_static),
                 must_override=bool(must_override),

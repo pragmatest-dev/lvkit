@@ -4,7 +4,11 @@ The accessor is the getter or the setter of a property of its class
 (``class_attributes``): the call reads ``obj.name`` or writes ``obj.name =
 value``. Call Parent of a property's read VI is ``super().name``, of its write VI
 ``Parent.name.fset(self, value)`` with ``Parent`` the class the calling class
-descends from. A private property is reached only from its class's own VIs."""
+descends from. A private property is reached only from its class's own VIs. The
+error out is the incoming error (the accessor cannot produce one of its own,
+``class_model``); the access is skipped on an incoming error when the accessor
+VI skips its work then (``Accessor.skips_on_error``), else it runs whatever
+error comes in."""
 
 from __future__ import annotations
 
@@ -15,7 +19,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import Terminal
 
-from ..ast_utils import param_default_expr, parse_expr, to_var_name
+from ..ast_utils import control_default_expr, parse_expr, to_var_name
 from ..class_attributes import Accessor, AccessorPane
 from ..class_model import base_import, check_private_access, python_class_name
 from ..context import CodeGenContext
@@ -42,6 +46,7 @@ def generate(
         "A call of",
     )
     terminals = ctx.enriched_terminals(node)
+    runs_on_error = not accessor.skips_on_error
 
     def terminal(direction: str, index: int | None) -> Terminal | None:
         if index is None:
@@ -105,17 +110,25 @@ def generate(
         else:
             target.ctx = ast.Store()
             stmt = ast.Assign(targets=[target], value=value_expr)
-        return CodeFragment(statements=[*prelude, stmt], bindings=bindings)
+        return CodeFragment(
+            statements=[*prelude, stmt], bindings=bindings, runs_on_error=runs_on_error
+        )
 
     value_out = terminal("output", pane.value_out)
     if value_out is None:
-        return CodeFragment(statements=[ast.Expr(value=target)], bindings=bindings)
+        return CodeFragment(
+            statements=[ast.Expr(value=target)],
+            bindings=bindings,
+            runs_on_error=runs_on_error,
+        )
     var = ctx.make_output_var(
         to_var_name(accessor.property_name), node.id, value_out.id
     )
     bindings[value_out.id] = var
     stmt = ast.Assign(targets=[ast.Name(id=var, ctx=ast.Store())], value=target)
-    return CodeFragment(statements=[stmt], bindings=bindings)
+    return CodeFragment(
+        statements=[stmt], bindings=bindings, runs_on_error=runs_on_error
+    )
 
 
 def _super(node: VINode, ctx: CodeGenContext, receiver: str) -> ast.expr:
@@ -137,7 +150,7 @@ def _accessor_default(
     assert ctx.graph is not None and node.callee_key is not None
     inputs, _, _, _ = ctx.graph.vi_interface(node.callee_key)
     control = next((t for t in inputs if t.index == pane.value_in), None)
-    return param_default_expr(control) if control is not None else ast.Constant(None)
+    return control_default_expr(control) if control is not None else ast.Constant(None)
 
 
 def _parent_class(ctx: CodeGenContext, node: VINode) -> ast.expr:

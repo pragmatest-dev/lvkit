@@ -30,7 +30,7 @@ def test_a_disable_structure_output_left_unwired_sends_the_type_default(
         / "Time-Delayed Send Message.vi"
     )
     source, _ = _generate(vi, tmp_path)
-    assert "tunnel_default = None" in source
+    assert "tunnel_default = ('', '')" in source  # the cluster's own default
 
 
 def test_a_bundle_with_an_element_that_selects_no_field_is_a_gap(

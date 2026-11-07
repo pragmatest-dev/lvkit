@@ -47,6 +47,12 @@
     },
     "8003": {
       "name": "Variant To Data",
+      "errors": [
+        {
+          "exception": "TypeError",
+          "code": 91
+        }
+      ],
       "terminals": [
         {
           "index": 0,

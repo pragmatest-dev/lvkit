@@ -29,6 +29,9 @@ _CATALOG_ENTRY = {
     "category": "Test",
     "description": "Café © description kept verbatim.",
     "status": "docs_enriched",
+    # The catalog writes the VI's module, so a call names its terminals by the
+    # catalog's python_param.
+    "python_code": "def learn_me(file_path=None, mode=0):\n    return None",
     "terminals": [
         {
             "name": "Path",

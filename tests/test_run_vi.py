@@ -7,17 +7,19 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import ConstantNode, GraphNode, PrimitiveNode, VIContext
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import INT, Project, Recipe, pane, wire
 
 BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
 VI_REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="VIRefnum")
+STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 
 
 def target(required: bool) -> Recipe:
@@ -188,3 +190,93 @@ def test_run_vi_that_a_call_cannot_be_is_a_gap(
     with package.use() as module:
         with pytest.raises(NotImplementedError, match="Run VI"):
             module("runner").runner(**({"go": True} if wait == "input" else {}))
+
+
+ERROR = LVType(
+    kind=LVTypeKind.CLUSTER,
+    typedef_name="error",
+    fields=[
+        ClusterField(name="status", type=BOOL),
+        ClusterField(name="code", type=INT),
+        ClusterField(name="source", type=STRING),
+    ],
+)
+
+
+def runner_on_error_chain(target_key: str) -> Recipe:
+    """A VI whose ``error in`` goes through Run VI on a Static VI Reference to
+    ``target_key`` and out to its ``error out``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        reference = ConstantNode(
+            id=f"{vi}:ref",
+            vi_path=vi,
+            name="Target.vi",
+            value="Target.vi",
+            lv_type=VI_REF,
+            referenced_vi_key=target_key,
+            terminals=[
+                Terminal(id=f"{vi}:ref", index=0, direction="output", lv_type=VI_REF)
+            ],
+        )
+        run = invoke(vi, "run", "Run VI", 1003)
+        run.terminals.extend(
+            [
+                Terminal(
+                    id=f"{vi}:run.err_in", index=2, direction="input", lv_type=ERROR
+                ),
+                Terminal(
+                    id=f"{vi}:run.err_out", index=3, direction="output", lv_type=ERROR
+                ),
+            ]
+        )
+        context = VIContext(
+            name=vi,
+            inputs=[
+                pane(
+                    vi,
+                    "input",
+                    "err_in",
+                    ERROR,
+                    "error in",
+                    0,
+                    ParsedWiringRule.RECOMMENDED,
+                )
+            ],
+            outputs=[pane(vi, "output", "err_out", ERROR, "error out", 1)],
+            data_flow=[
+                wire(vi, "ref", "run.ref"),
+                wire(vi, "err_in", "run.err_in"),
+                wire(vi, "run.err_out", "err_out"),
+            ],
+        )
+        return context, [reference, run]
+
+    return build
+
+
+def test_run_vi_on_an_error_chain_runs_when_no_error_came_in(tmp_path: Path) -> None:
+    """Run VI is an Invoke Node on the error chain: it runs the VI only when no
+    error came in on its error in, and its error out is that error in."""
+    project = Project(tmp_path)
+    target_key = project.add_vi("Target", target(False))
+    runner_key = project.add_vi("Runner", runner_on_error_chain(target_key))
+    project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["runner"]
+    assert "    if error_in is None or not error_in.status:\n        target()" in (
+        source
+    )
+    assert "return RunnerResult(error_out=error_in)" in source
+    with package.use() as module:
+        runner_module = module("runner")
+        calls: list[str] = []
+        runner_module.target = lambda: calls.append("run")
+        assert runner_module.runner().error_out is None
+        assert calls == ["run"]
+        error = SimpleNamespace(status=True, code=1, source="x")
+        assert runner_module.runner(error_in=error).error_out is error
+        warning = SimpleNamespace(status=False, code=1, source="x")
+        assert runner_module.runner(error_in=warning).error_out is warning
+        assert calls == ["run", "run"]

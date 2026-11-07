@@ -14,6 +14,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire, WireEnd
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from tests.helpers import build_graph, make_ctx
+from tests.native_vi import result_values
 
 DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 I32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
@@ -114,7 +115,8 @@ def generated_index(
     source = build_module(context, context.name, graph=graph)
     namespace = {}
     exec(compile(source, context.name, "exec"), namespace)
-    return namespace["index_rows_test"]
+    function = namespace["index_rows_test"]
+    return lambda *args: result_values(function(*args))
 
 
 @pytest.mark.parametrize(

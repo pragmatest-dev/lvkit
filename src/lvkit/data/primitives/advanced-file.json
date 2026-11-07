@@ -158,6 +158,32 @@
     },
     "1417": {
       "name": "Delete",
+      "op": "DELETE",
+      "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "terminals": [
         {
           "index": 0,
@@ -185,7 +211,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "no instance in the corpus; its pane's types (Path in, Path out, error in/out) name each terminal"
     },
     "1418": {
       "name": "List Folder",
@@ -287,6 +314,24 @@
     },
     "8053": {
       "name": "Copy",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 7,
@@ -394,6 +439,31 @@
     },
     "8056": {
       "name": "Delete",
+      "op": "DELETE",
+      "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
       "terminals": [
         {
@@ -412,14 +482,14 @@
         {
           "index": 9,
           "direction": "input",
-          "name": "entire_hierarchy",
+          "name": "confirm",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "confirm",
+          "name": "entire_hierarchy",
           "type": "Boolean",
           "default": false
         },
@@ -448,13 +518,8 @@
           "type": "Path"
         }
       ],
-      "python_code": {
-        "path_out": "in_11",
-        "cancelled": "False",
-        "error_out": "in_8"
-      },
-      "note": "Delete (NI Delete doc; renamed from a mislabelled 'File Dialog'). in#9/in#10 Boolean order (entire-hierarchy vs confirm) not disambiguated. python_code is a no-op placeholder, not execution-verified.",
-      "verified": false
+      "verified": false,
+      "note": "in 9 = confirm, in 10 = entire hierarchy: a constant labelled 'entire hierarchy' feeds in 10 (measurement-plugin Cleanup Client If Error.vi), and unattended install VIs that delete folders wire TRUE to in 10"
     },
     "8057": {
       "name": "Deny Access",
@@ -530,6 +595,12 @@
     },
     "8062": {
       "name": "Get File Position",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -572,6 +643,12 @@
     },
     "8063": {
       "name": "Get File Size",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -614,6 +691,20 @@
     },
     "8065": {
       "name": "Get Permissions",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 8,
@@ -768,6 +859,24 @@
     },
     "8068": {
       "name": "Move",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 7,
@@ -830,6 +939,12 @@
     },
     "8073": {
       "name": "Set File Position",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -1009,6 +1124,20 @@
     },
     "8082": {
       "name": "File/Directory Info",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 8,
@@ -1079,6 +1208,20 @@
     },
     "8083": {
       "name": "List Folder",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 5,

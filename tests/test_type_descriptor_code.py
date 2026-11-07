@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-from lvkit import catalogs
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
@@ -19,7 +18,7 @@ from lvkit.graph.load_ctl import load_ctl_by_path
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.lv_type_codes import TD_FULL_TYPE, type_descriptor_code
 from lvkit.models import FPTerminal, LVType, LVTypeKind
-from lvkit.vilib_resolver import VIEntry, get_resolver
+from lvkit.vilib_resolver import VIEntry, VILibResolver
 from tests.helpers import build_graph
 
 _CATALOG = Path(__file__).parent.parent / "src/lvkit/data/openg/variant.json"
@@ -72,10 +71,8 @@ def _generate(
     )
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
-    catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
-    monkeypatch.setattr(catalog, "resolve_recorded", lambda path: _ENTRY)
-    monkeypatch.setattr(catalog, "catalog_file_name", lambda path: _FILE)
+    monkeypatch.setattr(VILibResolver, "resolve_recorded", lambda _self, path: _ENTRY)
+    monkeypatch.setattr(VILibResolver, "catalog_file_name", lambda _self, path: _FILE)
     return build_module(context, "caller.vi", graph=built, gaps=gaps)
 
 
@@ -95,7 +92,7 @@ def test_the_code_of_the_wired_type_is_a_constant(
     gaps: list[Gap] = []
     source = _generate(data, monkeypatch, gaps)
     assert gaps == []
-    assert f"type_descriptor_enumeration = {code}" in source
+    assert f"return CallerResult(t={code})" in source
     namespace: dict = {}
     exec(compile(source, "caller.py", "exec"), namespace)
     assert namespace["caller"](None).t == code

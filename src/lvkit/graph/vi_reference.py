@@ -32,6 +32,14 @@ OPEN_VI_PATH_INDEX = 10
 OPEN_VI_REFERENCE_INDEX = 3
 OPEN_TYPE_SPECIFIER_INDEX = 11
 
+# The terminals of a Call By Reference or Start Asynchronous Call node that are
+# the node's own, not the called VI's (its connector pane is numbered from 0):
+# the VI reference in and out, and the node's error in and error out.
+CALL_REFERENCE_IN = -1
+CALL_REFERENCE_OUT = -2
+CALL_ERROR_IN = -3
+CALL_ERROR_OUT = -4
+
 # Property Node on the VI class: the PropItemCode a file records for the Name and
 # the Path property (the same codes pair with those names in every Property Node
 # of the VI class in the corpus).

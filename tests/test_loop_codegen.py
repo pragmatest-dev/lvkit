@@ -6,7 +6,7 @@ import ast
 
 import pytest
 
-from lvkit.codegen.ast_utils import parse_stmt
+from lvkit.codegen.ast_utils import node_owned_name, parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
@@ -966,7 +966,7 @@ class TestUninitializedShiftRegister:
         name = next(iter(ctx.module_globals))
         # The VI's function name and the shift register's outer terminal uid.
         assert name == "_lv_state_counter_lsr_outer"
-        stmt = ctx.module_globals[name]
+        [stmt] = ctx.module_globals[name]
         code = ast.unparse(ast.fix_missing_locations(stmt))
         assert code == f"{name} = 0"
 
@@ -1036,7 +1036,7 @@ class TestUninitializedShiftRegister:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[ctx.module_globals[global_name], func_def],
+            body=[*ctx.module_globals[global_name], func_def],
             type_ignores=[],
         )
         ast.fix_missing_locations(module)
@@ -1267,6 +1267,22 @@ def test_a_constant_stop_condition_is_not_assigned_to():
     compile(source, "loop", "exec")
 
 
+@pytest.mark.parametrize(
+    "uid",
+    [
+        "/home/someone/proj/sub/Shift Thing.vi::1010",
+        "C:\\Users\\someone\\proj\\Shift Thing.vi::1010",
+        "sub/Shift Thing.vi::1010",
+    ],
+)
+def test_a_state_variable_names_no_folder_of_the_machine(uid: str) -> None:
+    """The name of an uninitialized shift register's module variable is the
+    VI's function name and the node's uid; it names no folder of the machine
+    that generated it, so it is the same wherever the code is generated."""
+    name = node_owned_name("_lv_state", "shift_thing", uid)
+    assert name == "_lv_state_shift_thing_1010"
+
+
 class TestShiftRegisterCarry:
     """Every shift register carries its value to the next iteration, initialized
     or not; a last-value tunnel off the register's left side outputs the left
@@ -1367,7 +1383,11 @@ class TestShiftRegisterCarry:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[*ctx.module_globals.values(), func_def], type_ignores=[]
+            body=[
+                *(s for stmts in ctx.module_globals.values() for s in stmts),
+                func_def,
+            ],
+            type_ignores=[],
         )
         ast.fix_missing_locations(module)
         ns: dict = {}
@@ -1476,7 +1496,11 @@ class TestShiftRegisterCarry:
             ),
         ]
         module = ast.Module(
-            body=[*ctx.module_globals.values(), func_def], type_ignores=[]
+            body=[
+                *(s for stmts in ctx.module_globals.values() for s in stmts),
+                func_def,
+            ],
+            type_ignores=[],
         )
         ast.fix_missing_locations(module)
         ns: dict = {}
@@ -1571,7 +1595,7 @@ class TestTwoUninitializedShiftRegisters:
 
         body = ast.Module(
             body=[
-                *ctx.module_globals.values(),
+                *(s for stmts in ctx.module_globals.values() for s in stmts),
                 ast.FunctionDef(
                     name="step",
                     args=ast.arguments(

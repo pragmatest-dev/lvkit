@@ -6,6 +6,7 @@ resolve() queries the graph directly. One graph. No copies.
 from __future__ import annotations
 
 import ast
+import copy as copy_module
 import math
 import warnings
 from collections import deque
@@ -23,6 +24,7 @@ from lvkit.graph.models import (
     ConstantNode,
     DestinationInfo,
     PrimitiveNode,
+    Reentrancy,
     SourceInfo,
     VIContext,
     VINode,
@@ -39,8 +41,10 @@ from lvkit.models import (
     Tunnel,
     TunnelTerminal,
     TypeNamer,
+    _is_error_cluster,
     unique_names,
 )
+from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
@@ -60,9 +64,19 @@ from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
+from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .references import REFERENCE_KINDS, generated_nodes
+
+# A structure frame: the structure's node id and the frame's key
+# (``graph.operations.frame_key``; ``None`` for a loop's one diagram).
+StructureFrame = tuple[str, str | int | None]
+
+PREALLOCATED_CLONE_NOTE = (
+    "A preallocated clone keeps this value for each call site in LabVIEW; "
+    "here every call shares it."
+)
 
 
 @dataclass
@@ -97,14 +111,6 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
-    # Whether the VI has parallel branches with error wires: independent
-    # nodes then run as branches that hold their errors (see error_handler).
-    use_held_error_model: bool = False
-    # The name of the caught ``LabVIEWError`` while the code of an error handler
-    # (the error frame of an error case structure) is generated: an Unbundle of
-    # the error cluster there reads the caught error. None outside a handler,
-    # where an error cluster is the no-error one.
-    error_var: str | None = None
     # Every gap found while generating this module (see ``gaps.py``). Shared
     # across child contexts, so a gap nested in a loop or case is still listed.
     gaps: list[Gap] = field(default_factory=list, repr=False)
@@ -124,9 +130,6 @@ class CodeGenContext:
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
     module_stem: str = ""
-    # Lives on context (not builder) because child() must share it
-    # across the same generation pass.
-    _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     # The import statement of each subVI function this function calls -> the
     # import it is made under (see ``import_function``).
@@ -150,6 +153,9 @@ class CodeGenContext:
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
     formula_helpers: list[ast.stmt] = field(default_factory=list)
+    # The name each helper in ``formula_helpers`` was asked for, to the name it
+    # is written under (``add_module_function``). Shared like the helpers.
+    helper_names: dict[str, str] = field(default_factory=dict)
     # The names of the flatten / unflatten / byte-swap functions generated for
     # this module (keyed by function kind, byte order and type), so a type that
     # recurs is written once. Shared across child contexts like formula_helpers.
@@ -165,8 +171,9 @@ class CodeGenContext:
     # formula_helpers) since a loop nested inside a structure still needs
     # to register on the one VI-wide list. The builder emits these ABOVE
     # the VI function, sorted by name — dict/set iteration order is not
-    # a name, so insertion order alone would not be byte-reproducible.
-    module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # a name, so insertion order alone would not be byte-reproducible. Each
+    # name has its statements: its assignment, after a note when it has one.
+    module_globals: dict[str, list[ast.stmt]] = field(default_factory=dict, repr=False)
     # Who owns each module-level name (a global or a helper function): the id of
     # the node or terminal it was named from, None for a name every call site of
     # the module shares. One dict per module, shared by child contexts.
@@ -183,7 +190,11 @@ class CodeGenContext:
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
     _body_generator: (
-        Callable[[list[AnyGraphNode], CodeGenContext], list[ast.stmt]] | None
+        Callable[
+            [list[AnyGraphNode], CodeGenContext, StructureFrame | None],
+            list[ast.stmt],
+        ]
+        | None
     ) = field(default=None, repr=False)
 
     def parameter_var_names(self) -> set[str]:
@@ -191,11 +202,17 @@ class CodeGenContext:
         names: set[str] = set()
         for inp in self.vi_inputs:
             var = self.graph.get_var_name(inp.id) if self.graph is not None else None
-            names.add(var or to_var_name(inp.name or "input"))
+            names.add(var or to_var_name(python_label(inp) or "input"))
         return names
 
-    def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:
-        """Generate code for a list of operations.
+    def generate_body(
+        self,
+        operations: list[AnyGraphNode],
+        frame: StructureFrame | None = None,
+    ) -> list[ast.stmt]:
+        """Generate code for a list of operations: the diagram of the structure
+        ``frame`` (``StructureFrame``), which starts with the writes of the
+        indicators the frame's inside faces are wired to.
 
         Delegates to the registered body generator (set by builder.py).
         Used by case/loop/sequence codegen for recursive inner-node
@@ -207,12 +224,14 @@ class CodeGenContext:
         only reference CodeGenContext inside TYPE_CHECKING guards.
         """
         if self._body_generator is not None:
-            return self._body_generator(operations, self)
+            return self._body_generator(operations, self, frame)
 
         # Fallback: sequential dispatch (no parallel tiers)
         from .nodes import generate as generate_node
 
         stmts: list[ast.stmt] = []
+        if frame is not None:
+            stmts.extend(self.local_indicators.writes_in_frame(frame, self))
         for node in operations:
             fragment = generate_node(node, self)
             stmts.extend(fragment.statements)
@@ -297,8 +316,8 @@ class CodeGenContext:
     ) -> str | None:
         """The expression feeding input terminal ``terminal_id`` of ``node``.
 
-        None when the terminal is unwired, or it or the terminal feeding it
-        carries an error cluster (errors are exceptions, so it has no value).
+        None when the terminal is unwired. An error wire is a value like any
+        other (``None`` or a ``LabVIEWError``).
         A source that is a gap constant is bound to ``None``, so a wire from it
         reads ``"None"``: its function raises where it starts. A wired input
         with no variable at all is a bug in lvkit and raises ``CodeGenError``
@@ -311,11 +330,7 @@ class CodeGenContext:
         if self.graph is None:
             return None
         terminal = next((t for t in node.terminals if t.id == terminal_id), None)
-        if (
-            not self.graph.terminal_is_fed(terminal_id)
-            or (terminal is not None and terminal.is_error_cluster)
-            or self.graph.terminal_fed_by_error_cluster(terminal_id)
-        ):
+        if not self.graph.terminal_is_fed(terminal_id):
             return None
         value = self.resolve(terminal_id, allow_none=True)
         if value is None:
@@ -538,14 +553,8 @@ class CodeGenContext:
     def tunnels(node: AnyGraphNode) -> list[Tunnel]:
         """Reconstruct ``Tunnel`` objects from a structure node's terminal
         metadata. Pure function of the node's ``TunnelTerminal``s (no graph
-        needed).
-
-        A tunnel or shift register carrying an error cluster is left out: an
-        error is an exception in Python, so it has no value to bind, merge or
-        carry between iterations."""
-        return OperationsMixin._tunnels_from_terminals(
-            [t for t in node.terminals if not t.is_error_cluster]
-        )
+        needed)."""
+        return OperationsMixin._tunnels_from_terminals(list(node.terminals))
 
     def frame_children(
         self, node: AnyGraphNode
@@ -597,8 +606,6 @@ class CodeGenContext:
             imports=self.imports,
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
-            use_held_error_model=self.use_held_error_model,
-            error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
@@ -615,6 +622,7 @@ class CodeGenContext:
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
+            helper_names=self.helper_names,  # Shared with the helpers
             flat_functions=self.flat_functions,  # Shared — one dict
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
@@ -635,12 +643,18 @@ class CodeGenContext:
         if import_stmt:
             self.imports.add(import_stmt)
 
-    def import_labview_error(self) -> None:
-        """Import ``LabVIEWError`` from the package's ``errors`` module."""
+    def import_labview_error(self, *, at_run_time: bool = True) -> None:
+        """Import ``LabVIEWError`` from the package's ``errors`` module: for a
+        value the module builds, or (``at_run_time`` False) for its annotations
+        only."""
         if isinstance(self.import_resolver, ImportResolver):
-            self.add_import(self.import_resolver.error_import())
+            statement = self.import_resolver.error_import()
         else:
-            self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
+            statement = f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}"
+        if at_run_time:
+            self.add_import(statement)
+        else:
+            self.annotation_imports.add(statement)
 
     def function_import(
         self, vi_name: str, callee_key: str | None = None
@@ -739,24 +753,29 @@ class CodeGenContext:
 
     def _class_object(self, lv_type: LVType) -> str:
         """A new object of the class a class constant holds, the class imported:
-        a class constant is the class's default object. LabVIEW Object, the
-        class every class descends from, is Python's ``object`` (a generated
-        class with no parent has no base). A class that is not loaded, or has no
-        module, is a gap."""
+        a class constant is the class's default object."""
+        return f"{self.class_expression(lv_type, 'The class constant of')}()"
+
+    def class_expression(self, lv_type: LVType, what: str) -> str:
+        """The Python class of the LabVIEW class ``lv_type`` names, imported.
+        LabVIEW Object, the class every class descends from, is Python's
+        ``object`` (a generated class with no parent has no base). A class that
+        is not loaded, or has no module, is a gap whose reason starts with
+        ``what`` (the node it is for)."""
         if lv_type.classname == ROOT_CLASS:
-            return "object()"
+            return "object"
         class_key = (
             self.graph.class_type_key(lv_type) if self.graph is not None else None
         )
         if class_key is None or not isinstance(self.import_resolver, ImportResolver):
             raise ConversionGap(
-                f"The class constant of {lv_type.classname} names a class that is "
+                f"{what} {lv_type.classname} names a class that is "
                 "not loaded; add it to the project or a --search-path"
             )
         assert self.graph is not None
         imported = class_import(self.graph, class_key, self.import_resolver)
         self.add_import(imported.statement)
-        return f"{imported.name}()"
+        return imported.name
 
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
@@ -789,10 +808,42 @@ class CodeGenContext:
                 data_files=self.data_files,
                 whole_value=holds_array_whole(const.unwritable, lv_type),
             )
+        if lv_type is not None and _is_error_cluster(lv_type):
+            return self._error_constant(const)
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
         return _format_constant(const, names)
+
+    def _error_constant(self, const: Constant | ConstantNode) -> str:
+        """An error cluster constant as the value of an error wire: ``None`` when
+        its status is False and its code 0, else a ``LabVIEWError`` (a warning
+        when its status is False)."""
+        value = const.value
+        if isinstance(value, str):
+            try:
+                value = _literal_eval(value)
+            except (ValueError, SyntaxError):
+                value = const.value
+        if value is None:
+            return "None"
+        assert const.lv_type is not None and const.lv_type.fields is not None
+        if isinstance(value, dict):
+            keys = unique_names(f.name for f in const.lv_type.fields)
+            value = tuple(value.get(key) for key in keys)
+        if not isinstance(value, tuple | list) or len(value) != 3:
+            raise ConversionGap(
+                f"The error constant {const.label or ''!r} holds {value!r}, which "
+                "is not a status, a code and a source"
+            )
+        status, code, source = value
+        if not status and not code:
+            return "None"
+        self.import_labview_error()
+        return (
+            f"{LABVIEW_ERROR_NAME}(code={code!r}, source={source!r}, "
+            f"status={bool(status)!r})"
+        )
 
     def import_types(self, lv_type: LVType | None, *, at_run_time: bool) -> None:
         """Import the class of every class or typedef ``lv_type`` names: for the
@@ -833,20 +884,63 @@ class CodeGenContext:
         """
         self._claim_module_name(name, owner)
         assign = ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
-        held = self.module_globals.setdefault(name, assign)
-        _require_same_definition(name, held, assign)
+        held = self.module_globals.setdefault(name, [assign])
+        # The assignment is the last of the name's statements, after its note.
+        _require_same_definition(name, held[-1], assign)
+
+    def add_state_global(
+        self, name: str, value: ast.expr, owner: str | None = None
+    ) -> None:
+        """Register a module-level variable holding a value the VI keeps between
+        calls (an uninitialized shift register, First Call?, an indicator a
+        Local Variable reads), seeded to ``value``, owned like
+        ``add_module_global``. Every call of the function shares it, as every
+        call of a non-reentrant VI shares its data space. A preallocated clone
+        keeps one per call site in LabVIEW, so the variable of such a VI gets a
+        note saying so, a string statement above it (the way this generator
+        writes notes into code: an AST has no comments)."""
+        fresh = name not in self.module_globals
+        self.add_module_global(name, value, owner)
+        if fresh and self._is_preallocated_clone():
+            self.module_globals[name].insert(
+                0, ast.Expr(value=ast.Constant(value=PREALLOCATED_CLONE_NOTE))
+            )
+
+    def _is_preallocated_clone(self) -> bool:
+        if self.graph is None or not self.vi_name:
+            return False
+        reentrancy = self.graph.get_vi_properties(self.vi_name).execution.reentrancy
+        return reentrancy is Reentrancy.PREALLOCATED_CLONE
 
     def add_module_function(
-        self, func_def: ast.FunctionDef, owner: str | None = None
-    ) -> None:
-        """Register a module-level helper function, emitted above the VI function.
-        Idempotent like ``add_module_global``, with the same owner rule."""
-        self._claim_module_name(func_def.name, owner)
-        for stmt in self.formula_helpers:
-            if isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name:
-                _require_same_definition(func_def.name, stmt, func_def)
-                return
-        self.formula_helpers.append(func_def)
+        self, func_def: ast.FunctionDef | ast.ClassDef, owner: str | None = None
+    ) -> str:
+        """Register a module-level helper function or class, emitted above the VI
+        function, and return the name it is written under. Idempotent like
+        ``add_module_global``, with the same owner rule: the same definition
+        again gives the same name, a different one under that name is lvkit's
+        error. A name the module already holds (an import, a definition) is not
+        taken: the helper is written under the name the module's resolver gives
+        it (``ImportResolver.defined_name``, the alias rule of imports)."""
+        wanted = func_def.name
+        self._claim_module_name(wanted, owner)
+        if wanted in self.helper_names:
+            written = self.helper_names[wanted]
+            held = next(
+                s
+                for s in self.formula_helpers
+                if isinstance(s, (ast.FunctionDef, ast.ClassDef)) and s.name == written
+            )
+            _require_same_definition(wanted, held, _renamed(func_def, written))
+            return written
+        written = (
+            self.import_resolver.defined_name(wanted)
+            if isinstance(self.import_resolver, ImportResolver)
+            else wanted
+        )
+        self.helper_names[wanted] = written
+        self.formula_helpers.append(_renamed(func_def, written))
+        return written
 
     @classmethod
     def from_graph(
@@ -1016,12 +1110,11 @@ def _bind_inputs_and_constants(
 ) -> None:
     """Bind input and constant terminals on the context.
 
-    Shared by from_graph() and from_vi_context(). Skips error cluster
-    inputs (Python uses exceptions instead).
+    Shared by from_graph() and from_vi_context().
     """
     names = interface_names([i for i in inputs if i.id], [], []).parameters
     for inp in inputs:
-        if inp.id and not inp.is_error_cluster:
+        if inp.id:
             var = names[inp.id]
             ctx.bind(inp.id, var)
             # Track array-typed inputs so the final arrayify pass broadcasts
@@ -1298,6 +1391,15 @@ def _format_constant(
     if underlying == "Picture":
         # A Picture holding drawing data raised above; what is left is empty.
         return "None"
+    if holds_handle(const.lv_type):
+        # Not a Refnum is None; a saved handle names an object of the session
+        # that saved it and has no Python meaning.
+        if value == NULL_REFNUM:
+            return "None"
+        raise ConversionGap(
+            f"The refnum constant {const.label or ''!r} holds the handle {value}, "
+            "which names an object of the LabVIEW session that saved it"
+        )
     if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
@@ -1351,6 +1453,17 @@ def _format_constant(
             return str(ord(value))
         return repr(value)
     return repr(value)
+
+
+def _renamed(
+    definition: ast.FunctionDef | ast.ClassDef, name: str
+) -> ast.FunctionDef | ast.ClassDef:
+    """``definition`` under ``name`` (a copy when the name differs)."""
+    if definition.name == name:
+        return definition
+    renamed = copy_module.deepcopy(definition)
+    renamed.name = name
+    return renamed
 
 
 def _owner_label(owner: str | None) -> str:

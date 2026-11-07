@@ -32,6 +32,7 @@ from .glyph import (
     ClusterConstantGlyph,
     ConstantGlyph,
     ErrorClusterGlyph,
+    ErrorRingGlyph,
     EventDataGlyph,
     FeedbackNodeGlyph,
     FormulaNodeGlyph,
@@ -292,6 +293,7 @@ _OWN_ASPECT_GLYPHS = (
     UnbundleGlyph,
     EventDataGlyph,
     FeedbackNodeGlyph,
+    ErrorRingGlyph,
 )
 
 # Floor for the recovered icon footprint: a unary primitive (one input, one

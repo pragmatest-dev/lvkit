@@ -16,6 +16,9 @@ from lvkit.models import (
     ServerClass,
     Terminal,
 )
+from tests.helpers import error_cluster_type
+
+ERROR = error_cluster_type()
 
 CALLEE_FILE = "Callee_BDHb.xml"
 CALLEE_NAME = "Callee.vi"
@@ -24,6 +27,13 @@ CALLER_FILE = "Refs_BDHb.xml"
 # Terminals of the called VI's connector pane.
 CALLEE_INPUT = Terminal(id="x", index=0, direction="input", name="x")
 CALLEE_OUTPUT = Terminal(id="y", index=1, direction="output", name="y")
+CALLEE_ERROR_IN = Terminal(
+    id="error in", index=2, direction="input", name="error in", lv_type=ERROR
+)
+CALLEE_ERROR_OUT = Terminal(
+    id="error out", index=3, direction="output", name="error out", lv_type=ERROR
+)
+CALLEE_WITH_ERRORS = (CALLEE_INPUT, CALLEE_OUTPUT, CALLEE_ERROR_IN, CALLEE_ERROR_OUT)
 
 
 def label(uid: int, text: str) -> str:
@@ -164,11 +174,14 @@ def call_through_reference(
     *,
     save_style: str = "00",
     callee_terminals: bool = True,
+    callee_errors: bool = False,
 ) -> str:
     """A node that calls through a VI reference. Terminals: ``uid + 1`` the VI
-    reference in, ``uid + 3`` the VI reference out, then error in and out;
-    ``uid + 11`` the called VI's input at index 0, ``uid + 13`` its output at
-    index 1."""
+    reference in, ``uid + 3`` the VI reference out, ``uid + 5`` the node's error
+    in, ``uid + 7`` its error out; ``uid + 11`` the called VI's input at index
+    0, ``uid + 13`` its output at index 1 and, with ``callee_errors``,
+    ``uid + 15`` its error in at index 2 and ``uid + 17`` its error out at
+    index 3."""
     frame = [(uid + 2, 65536), (uid + 4, 262145), (uid + 6, 131072), (uid + 8, 524289)]
     terminals = "".join(
         f'<SL__arrayElement class="term" uid="{dco - 1}">'
@@ -184,6 +197,15 @@ def call_through_reference(
             f'<SL__arrayElement class="term" uid="{uid + 13}">'
             f'<dco class="iUseDCO" uid="{uid + 14}"><objFlags>65</objFlags>'
             "<paramIdx>1</paramIdx></dco></SL__arrayElement>"
+        )
+    if callee_errors:
+        terminals += (
+            f'<SL__arrayElement class="term" uid="{uid + 15}">'
+            f'<dco class="iUseDCO" uid="{uid + 16}"><objFlags>64</objFlags>'
+            "<paramIdx>2</paramIdx></dco></SL__arrayElement>"
+            f'<SL__arrayElement class="term" uid="{uid + 17}">'
+            f'<dco class="iUseDCO" uid="{uid + 18}"><objFlags>65</objFlags>'
+            "<paramIdx>3</paramIdx></dco></SL__arrayElement>"
         )
     perm = "".join(f'<SL__arrayElement uid="{dco}" />' for dco, _ in frame)
     title_label = label(uid + 9, title) if title else ""
@@ -236,9 +258,11 @@ def load(
     nodes: list[str],
     wires: list[str],
     constants: list[Constant] | tuple[Constant, ...] = (),
+    callee_terminals: tuple[Terminal, ...] = (CALLEE_INPUT, CALLEE_OUTPUT),
 ) -> Loaded:
     """A caller VI with the given diagram and the VI ``Callee.vi`` it can call,
-    in one graph. A Static VI Reference on the diagram names the callee."""
+    in one graph; ``callee_terminals`` are the callee's connector pane. A Static
+    VI Reference on the diagram names the callee."""
     (tmp_path / CALLEE_FILE).write_text(diagram([], []))
     (tmp_path / CALLER_FILE).write_text(diagram(nodes, wires))
     graph = InMemoryVIGraph()
@@ -249,7 +273,7 @@ def load(
     graph._vi_display_names[callee] = CALLEE_NAME  # noqa: SLF001
     callee_node = graph._graph.nodes[callee]["node"]  # noqa: SLF001
     assert isinstance(callee_node, VINode)
-    callee_node.terminals = [CALLEE_INPUT, CALLEE_OUTPUT]
+    callee_node.terminals = list(callee_terminals)
     for node in graph.iter_nodes(caller):
         if isinstance(node, ConstantNode) and node.lv_type is not None:
             if node.lv_type.underlying_type == "VIRefnum":
@@ -287,14 +311,22 @@ def _add_constant(graph: InMemoryVIGraph, vi: str, constant: Constant) -> None:
     )
 
 
-def typed_vi_reference(names: tuple[str, ...] = ("x", "y")) -> LVType:
+def typed_vi_reference(
+    names: tuple[str, ...] = ("x", "y"), *, errors: bool = False
+) -> LVType:
     """A strictly typed VI refnum whose connector pane has an input and an output
-    (slot 0 and slot 1) of the given names."""
+    (slot 0 and slot 1) of the given names and, with ``errors``, an error in and
+    an error out (slot 2 and slot 3)."""
     number = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
-    pane = (
+    pane: tuple[PaneSlot, ...] = (
         PaneSlot(0, False, number, names[0]),
         PaneSlot(1, True, number, names[1]),
     )
+    if errors:
+        pane += (
+            PaneSlot(2, False, ERROR, "error in"),
+            PaneSlot(3, True, ERROR, "error out"),
+        )
     return LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
@@ -341,6 +373,36 @@ def add_control(
     )
 
 
+def add_indicator(
+    loaded: Loaded, name: str, lv_type: LVType | None, source: int, index: int
+) -> None:
+    """A front-panel output named ``name`` of the caller, at connector pane slot
+    ``index``, wired from terminal ``source``."""
+    graph, vi = loaded.graph, loaded.caller
+    terminal = FPTerminal(
+        id=f"{vi}::indicator {name}",
+        index=index,
+        direction="output",
+        wiring_rule=2,
+        name=name,
+        lv_type=lv_type,
+        is_indicator=True,
+        is_public=True,
+    )
+    node = graph._graph.nodes[vi]["node"]  # noqa: SLF001
+    node.terminals = [*node.terminals, terminal]
+    graph._term_to_node[terminal.id] = vi  # noqa: SLF001
+    source_id = f"{vi}::{source}"
+    source_node = graph._term_to_node[source_id]  # noqa: SLF001
+    graph._graph.add_edge(  # noqa: SLF001
+        source_node,
+        vi,
+        vi=vi,
+        source=WireEnd(terminal_id=source_id, node_id=source_node),
+        dest=WireEnd(terminal_id=terminal.id, node_id=vi),
+    )
+
+
 def own_by_class(loaded: Loaded, class_name: str) -> None:
     """The callee is a method of the class ``class_name``, whose file sits in the
     callee's folder."""
@@ -355,6 +417,7 @@ def own_by_class(loaded: Loaded, class_name: str) -> None:
         is_static=False,
         is_accessor=False,
         accessor_field=None,
+        accessor_path=None,
         must_override=False,
         must_call_parent=False,
     )

@@ -812,6 +812,13 @@ class Terminal(BaseModel):
         return self.lv_type.type_descriptor() if self.lv_type else ""
 
     @property
+    def is_void_slot(self) -> bool:
+        """Whether this is an unused connector-pane position: the Function type a
+        caller records gives such a slot the ``Void`` type
+        (``labview-binary-format.md``)."""
+        return self.lv_type is not None and self.lv_type.type_descriptor() == "Void"
+
+    @property
     def type_kind(self) -> LVTypeKind | None:
         """The terminal's type KIND — from the resolved type, or derived from its
         FP control class when the type didn't resolve; None when genuinely

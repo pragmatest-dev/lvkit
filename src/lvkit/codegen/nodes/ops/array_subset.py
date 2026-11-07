@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from lvkit.graph.models import PrimitiveNode
 
-from ...ast_utils import build_assign, parse_expr
+from ...ast_utils import parse_expr
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from ...native_array import operand
+from ...output_binding import bind_output
 from ..terminal_roles import laid_out_roles
 from . import register_op_fragment
 
@@ -53,10 +54,5 @@ def array_subset(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | Non
     lengths += [None] * (count - len(lengths))
     if not ctx.is_wired(output_term.id):
         return CodeFragment.empty()
-    variable = ctx.make_output_var("subarray", node.id, terminal_id=output_term.id)
-    return CodeFragment(
-        statements=[
-            build_assign(variable, parse_expr(_subset(array, starts, lengths)))
-        ],
-        bindings={output_term.id: variable},
-    )
+    expression = parse_expr(_subset(array, starts, lengths))
+    return bind_output(node, output_term.id, "subarray", expression, ctx)

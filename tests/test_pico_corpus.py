@@ -66,7 +66,7 @@ def test_an_unbundle_element_stored_as_minus_one_is_a_gap_the_and_reads_as_none(
         "An element of 'Bundle/Unbundle By Name' stores its field index as -1, "
         "which lvkit does not decode yet"
     ) in source
-    assert "        if out_1 and greater_or_equal:" in source
+    assert " = out_1 and greater_or_equal\n" in source
     assert "'' and" not in source
 
 

@@ -14,7 +14,14 @@ from collections.abc import Sequence
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
 
-from .ast_utils import build_assign, distinct_names, param_default_expr, to_var_name
+from .ast_utils import (
+    build_assign,
+    control_default_expr,
+    distinct_names,
+    terminal_annotation,
+    to_var_name,
+)
+from .label_names import python_label
 
 _HEADING = "Front panel, not on the connector pane:"
 
@@ -25,9 +32,9 @@ def off_pane_locals(
     """The assignment of each off-pane control's saved default to its local
     variable (``names``: terminal id to name), in front-panel order."""
     return [
-        build_assign(names[c.id], param_default_expr(c))
+        build_assign(names[c.id], control_default_expr(c))
         for c in controls
-        if not c.is_error_cluster and c.id in names
+        if c.id in names
     ]
 
 
@@ -37,16 +44,16 @@ def front_panel_docstring(
     """The docstring that lists the off-pane controls (the local variable, type
     and saved default of each) and indicators (label and type); None when the VI
     has neither."""
-    controls = [c for c in vi_context.off_pane_inputs if not c.is_error_cluster]
-    indicators = [c for c in vi_context.off_pane_outputs if not c.is_error_cluster]
+    controls = list(vi_context.off_pane_inputs)
+    indicators = list(vi_context.off_pane_outputs)
     if not controls and not indicators:
         return None
     lines = [_HEADING]
     if controls:
         lines.append("  Controls (local variables, set to their saved default):")
         lines.extend(
-            f"    {names[c.id]}: {c.python_type(spell)} = "
-            f"{ast.unparse(param_default_expr(c))}"
+            f"    {names[c.id]}: {terminal_annotation(c, spell)} = "
+            f"{ast.unparse(control_default_expr(c))}"
             for c in controls
         )
     if indicators:
@@ -54,10 +61,11 @@ def front_panel_docstring(
         taken = [names[c.id] for c in vi_context.inputs if c.id in names]
         taken.extend(names[c.id] for c in controls)
         labels = distinct_names(
-            taken, [to_var_name(c.name or "indicator") for c in indicators]
+            taken,
+            [to_var_name(python_label(c) or "indicator") for c in indicators],
         )
         lines.extend(
-            f"    {label}: {c.python_type(spell)}"
+            f"    {label}: {terminal_annotation(c, spell)}"
             for label, c in zip(labels, indicators, strict=True)
         )
     text = "\n".join(lines)

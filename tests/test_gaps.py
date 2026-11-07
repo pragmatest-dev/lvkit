@@ -34,7 +34,7 @@ from lvkit.models import (
 )
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.vilib_resolver import ResolutionContext, VILibResolutionNeeded
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_module
 from tests.test_loop_codegen import _mk_loop, _output_tunnel
 
 # ---------------------------------------------------------------------------
@@ -226,8 +226,7 @@ def _with_the_raise_shown_as(source: str, marker: str) -> list[str]:
 
 
 def _run(source: str, function: str, *args):
-    namespace: dict = {}
-    exec(compile(source, "gap_test", "exec"), namespace)  # noqa: S102
+    namespace = exec_module(source, "gap_test").__dict__
     return namespace[function](*args)
 
 
@@ -244,9 +243,10 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
     source, gaps = _build(context, [_mystery()])
     assert _with_the_raise_shown_as(source, "<raise>") == [
         "from __future__ import annotations",
-        "from typing import NamedTuple",
+        "from dataclasses import dataclass",
         "",
-        "class GapResult(NamedTuple):",
+        "@dataclass(frozen=True)",
+        "class GapResult:",
         "    y: int",
         "",
         "def gap(x: int) -> GapResult:",
@@ -305,7 +305,7 @@ def test_an_unknown_primitive_in_a_loop_raises_in_the_loop() -> None:
         ],
     )
     source, gaps = _build(context, [loop, _mystery(parent="loop1")])
-    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[7:] == [
         "def gap(x: int) -> GapResult:",
         "    while True:",
         "        result = None",
@@ -363,7 +363,7 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
         ],
     )
     source, gaps = _build(context, [case, _mystery(parent="case1", frame="0")])
-    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[7:] == [
         "def gap(flag: bool) -> GapResult:",
         "    case_output = 0",
         "    if flag:",
@@ -420,7 +420,7 @@ def test_a_gap_takes_back_what_the_node_added_to_the_module() -> None:
         ctx.add_import("import ctypes")
         ctx.module_declarations.declare(("library", "x"), "_lib", lambda n: f"{n} = 1")
         ctx.formula_helpers.append(ast.parse("x = 1").body[0])
-        ctx.module_globals["g"] = ast.parse("g = 0").body[0]
+        ctx.module_globals["g"] = [ast.parse("g = 0").body[0]]
         ctx.flat_functions[("k",)] = "f"
         ctx.data_files = {"a.bin": b"1"}
         raise ConversionGap("no way", node)

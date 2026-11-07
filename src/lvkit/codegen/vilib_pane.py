@@ -24,7 +24,7 @@ from lvkit.lv_type_codes import (
 from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
 from lvkit.vilib_resolver import VIEntry, VILibResolver, VITerminal
 
-from .ast_utils import param_default_expr
+from .ast_utils import parameter_default_expr
 
 
 @dataclass(frozen=True)
@@ -134,7 +134,7 @@ def _saved_default(control: Terminal) -> dict[str, object]:
     lv_type = control.lv_type
     if lv_type is not None and lv_type.underlying_type == TD_FULL_TYPE.Path.name:
         return {"default": str(control.default_value), "type": "Path"}
-    saved = param_default_expr(control)
+    saved = parameter_default_expr(control)
     if isinstance(saved, ast.Constant) and saved.value is not None:
         return {"default": saved.value}
     return {}

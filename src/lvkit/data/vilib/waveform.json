@@ -6683,6 +6683,7 @@
     },
     {
       "name": "Digital Size",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-size-vi.html",
       "category": "Waveform",
       "description": "Returns the number of samples and signals contained in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. • DWDT Digital Size VI • DTbl Digital Size VI DWDT Digital Size VI DWDT Digital Size VI Returns the number of samples and signals contained in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. Functions © National I",
@@ -6731,6 +6732,7 @@
     },
     {
       "name": "Digital Signal Subset",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-signal-subset-vi.html",
       "category": "Waveform",
       "description": "Returns a subset of the digital input so you can plot the extracted signals individually or in subgroups on a graph. Wire data to the digital waveform input to determine the polymorphic instance to use or manually select the instance. Functions © National Instruments 1335 • DWDT Digital Signal Subset VI • DTbl Digital Signal Subset VI Use the Digital Signal Subset VI to extract individual signals from a digital waveform. The block diagram below shows how you can combine extracted individual sign",
@@ -6849,6 +6851,7 @@
     },
     {
       "name": "Uncompress Digital",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/uncompress-digital-vi.html",
       "category": "Waveform",
       "description": "Uncompresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Uncompress Digital VI • DTbl Uncompress Digital VI DWDT Uncompress Digital VI DWDT Uncompress Digital VI Uncompresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to d",
@@ -6885,6 +6888,7 @@
     },
     {
       "name": "Compress Digital",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/compress-digital-vi.html",
       "category": "Waveform",
       "description": "Compresses the digital signals in the digital input and returns the result in the digital output. Wire data to the uncompressed digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Compress Digital VI • DTbl Compress Digital VI Use the Compress Digital VI to compress digital data when you want to display two or more serial digital signals with the same bit sets on the same row to better visualize the data. For example, if you acquire 10 digi",
@@ -6927,6 +6931,7 @@
     },
     {
       "name": "Digital Comparison",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/digital-comparison-vi.html",
       "category": "Waveform",
       "description": "Compares a digital waveform to another digital waveform or to a specified value or compares a set of digital data to another set of digital data or to a specified value. You must manually select the polymorphic instance you want to use. Functions 1346 ni.com • DWDT Digital To Digital Comparison VI • DTbl Digital To Digital Comparison VI • DWDT Digital Comparison VI • DTbl Digital Comparison VI DWDT Digital To Digital Comparison VI DWDT Digital To Digital Comparison VI Compares a digital waveform",
@@ -7018,6 +7023,7 @@
     },
     {
       "name": "Search for Digital Pattern",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/search-for-digital-pattern-vi.html",
       "category": "Waveform",
       "description": "Searches for a digital pattern in the digital input. Wire data to the digital waveform in input to determine the polymorphic instance to use or manually select the instance. • DWDT Search for Digital Pattern VI • DTbl Search for Digital Pattern VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Controls and Indicators\\Graphs and Charts\\Digital Waveform Graph\\Search Digital Data for Pattern.vi DWDT Search for Digital Pattern VI DWDT Search for Digital Patte",
@@ -7109,6 +7115,7 @@
     },
     {
       "name": "Append Digital Signals",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/append-digital-signals-vi.html",
       "category": "Waveform",
       "description": "Appends the signals from digital waveform (low bits) to the LSB side of digital waveform (high bits). If the sampling rates do not match, error out returns a warning. The start time of digital waveform (low bits) is ignored. Wire data to the digital waveform (high bits) input to determine the polymorphic instance to use or manually select the instance. • DWDT Append Digital Signals VI • DTbl Append Digital Signals VI Use the Append Digital Signals VI to append the signals from two separate digit",
@@ -7157,6 +7164,7 @@
     },
     {
       "name": "Append Digital Samples",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/append-digital-samples-vi.html",
       "category": "Waveform",
       "description": "Appends all samples from digital waveform B to the end of digital waveform A. If the sampling rates do not match, error out returns a warning. The start time of digital waveform B is ignored. Wire data to the digital waveform A input to determine the polymorphic instance to use or manually select the instance. • DWDT Append Digital Samples VI • DTbl Append Digital Samples VI Examples Refer to the following example files included with LabVIEW. • labview\\examples\\Controls and Indicators\\Graphs and",
@@ -7205,6 +7213,7 @@
     },
     {
       "name": "Invert Digital",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdt-llb/invert-digital-vi.html",
       "category": "Waveform",
       "description": "Inverts the digital data in the digital input so that a 0 becomes a 1 and vice versa or an H becomes an L and vice versa. Wire data to the digital waveform input to determine the polymorphic instance to use or manually select the instance. • DWDT Invert Digital VI • DTbl Invert Digital VI DWDT Invert Digital VI DWDT Invert Digital VI Inverts the digital data in the digital input so that a 0 becomes a 1 and vice versa or an H becomes an L and vice versa. Wire data to the digital waveform input to",

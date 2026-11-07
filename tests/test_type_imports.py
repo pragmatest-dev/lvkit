@@ -169,8 +169,8 @@ class TestImportDepth:
 
 
 class TestErrorClusterTunnels:
-    """An error is an exception, so a structure tunnel or shift register that
-    carries an error cluster has no value to bind, merge or carry."""
+    """An error wire is a value, so a structure tunnel or shift register that
+    carries an error cluster binds, merges and carries it like any other."""
 
     @staticmethod
     def _pair(
@@ -196,7 +196,7 @@ class TestErrorClusterTunnels:
             ),
         ]
 
-    def test_tunnels_skip_the_error_cluster(self):
+    def test_tunnels_include_the_error_cluster(self):
         error = error_cluster_type()
         number = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
         node = CaseStructureNode(
@@ -208,7 +208,7 @@ class TestErrorClusterTunnels:
             ],
         )
         tunnels = CodeGenContext.tunnels(node)
-        assert [t.outer_terminal_uid for t in tunnels] == ["o_value"]
+        assert [t.outer_terminal_uid for t in tunnels] == ["o_value", "o_error"]
 
 
 class TestResolveStaysInTheVI:

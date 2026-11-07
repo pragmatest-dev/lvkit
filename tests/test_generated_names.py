@@ -221,10 +221,10 @@ def test_enum_constant_is_imported_at_run_time(tmp_path):
     assert "MethodEnum.setUp" in ast.unparse(run)
 
 
-def test_error_cluster_tunnels_have_no_value(tmp_path, monkeypatch):
+def test_error_cluster_tunnels_carry_the_error(tmp_path, monkeypatch):
     package = _generate(NAME_OR_FORMAT, tmp_path)
     module = _module_named(package, "get_name_or_data_format_as_string.py")
-    assert "error_out" not in module.read_text()
+    assert "    error_out: LabVIEWError | None\n" in module.read_text()
     assert _all_undefined(package) == {}
     assert list(package.rglob("*.error.py")) == []
     _import_all(package, monkeypatch)
@@ -237,7 +237,7 @@ def test_unbundling_an_error_cluster_takes_the_no_error_value(tmp_path):
     assert "selector" not in source
 
 
-def test_a_function_that_returns_only_an_error_has_no_result_class(
+def test_a_function_that_returns_only_an_error_returns_it_in_its_result(
     tmp_path, monkeypatch
 ):
     package = _generate(CLOSE_GENERIC_REFNUM, tmp_path)
@@ -249,7 +249,13 @@ def test_a_function_that_returns_only_an_error_has_no_result_class(
         if isinstance(n, ast.FunctionDef)
         and n.name == "close_generic_object_refnum_scalar__ogtk"
     )
-    assert scalar.returns is None
+    assert isinstance(scalar.returns, ast.Name)
+    result = next(
+        n
+        for n in ast.parse(module.read_text()).body
+        if isinstance(n, ast.ClassDef) and n.name == scalar.returns.id
+    )
+    assert [ast.unparse(f.target) for f in result.body] == ["error_out"]  # type: ignore[attr-defined]
     _import_all(package, monkeypatch)
 
 
@@ -291,7 +297,8 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     assert _unresolved_relative_imports(package) == []
     source = _module_named(package, "session_reservation/session_reservation.py")
     assert (
-        "is_dvr_valid(dvr_valid_in=self.__data_dvr[0].dvr_valid)"
+        "is_dvr_valid(dvr_error_in=None, "
+        "dvr_valid_in=self.__data_dvr[0].dvr_valid)"
     ) in source.read_text()
 
 

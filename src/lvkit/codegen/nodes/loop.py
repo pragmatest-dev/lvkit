@@ -6,7 +6,7 @@ import ast
 import keyword
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, ConstantNode, LoopNode
+from lvkit.graph.models import ConstantNode, LoopNode
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -18,13 +18,15 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    default_value_expr,
     node_owned_name,
     parse_expr,
     to_var_name,
+    type_default_expr,
 )
 from ..context import CodeGenContext
+from ..error_flow import error_occurred
 from ..fragment import CodeFragment
+from . import while_indexing
 
 
 def _when_condition(
@@ -125,8 +127,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     sr_lv_type = outer_sr_term.lv_type
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
-                ctx.add_module_global(
-                    global_name, default_value_expr(sr_lv_type), owner=outer_term
+                ctx.add_state_global(
+                    global_name, type_default_expr(sr_lv_type), owner=outer_term
                 )
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
@@ -213,7 +215,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # it (both would clobber into one variable otherwise).
                 ctx._allocated_vars.add(last_var)
                 outer_sr_term = term_by_id.get(outer_term)
-                seed = default_value_expr(
+                seed = type_default_expr(
                     outer_sr_term.lv_type if outer_sr_term else None
                 )
                 pre_loop_stmts.append(build_assign(last_var, seed))
@@ -350,18 +352,31 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A While Loop's iteration terminal counts from 0; Python has no counter in
     # `while True`, so a wired one is a local that starts at 0 and steps at the
-    # end of each iteration.
+    # end of each iteration. An auto-indexing input tunnel reads the element of
+    # that counter too (``while_indexing``).
     while_counter: str | None = None
+    element_stmts: list[ast.stmt] = []
     if loop_type == "whileLoop":
         iter_term = _iteration_terminal(node)
-        if iter_term is not None and ctx.is_wired(iter_term.id):
+        indexed = while_indexing.indexing_inputs(
+            tunnels, {t.id for t in node.terminals if t.direction == "input"}
+        )
+        counted = iter_term is not None and ctx.is_wired(iter_term.id)
+        if counted or indexed:
             depth = ctx.loop_depth
             while_counter = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
-            inner_ctx.bind(iter_term.id, while_counter)
             pre_loop_stmts.append(build_assign(while_counter, ast.Constant(value=0)))
+            if counted and iter_term is not None:
+                inner_ctx.bind(iter_term.id, while_counter)
+            element_stmts = while_indexing.bind_elements(
+                indexed, term_by_id, while_counter, ctx, inner_ctx, node.id
+            )
 
     # 4. Generate inner node code
-    inner_stmts = _generate_inner(inner_nodes, inner_ctx)
+    inner_stmts = [
+        *element_stmts,
+        *inner_ctx.generate_body(inner_nodes, (node.id, None)),
+    ]
 
     # 4. Add output-tunnel writes at end of loop body: append for indexed
     # accumulators, plain assignment for last-value (indexing-disabled) tunnels.
@@ -521,7 +536,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 pre_loop_stmts.append(
                     build_assign(
                         captured,
-                        default_value_expr(outer_t.lv_type if outer_t else None),
+                        type_default_expr(outer_t.lv_type if outer_t else None),
                     )
                 )
                 capture = build_assign(captured, parse_expr(inner_val))
@@ -539,7 +554,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 bindings[outer_term] = inner_val
 
     # Add initialization for while loop stop condition
-    # (condition is computed inside loop, so we init to False before)
+    # (condition is computed inside loop, so we init it before: False, or no
+    # error for an error wire)
     # Skip if the variable is already a function parameter or if the
     # resolved value is an expression or a constant such as True (not a valid
     # assignment target)
@@ -549,8 +565,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             stop_condition_var
         )
         if is_identifier and stop_condition_var not in param_names:
+            fed_by_error = node.stop_condition_terminal is not None and (
+                _fed_by_error(node.stop_condition_terminal, ctx)
+            )
             pre_loop_stmts.append(
-                build_assign(stop_condition_var, ast.Constant(value=False))
+                build_assign(
+                    stop_condition_var,
+                    ast.Constant(value=None if fed_by_error else False),
+                )
             )
 
     # Write uninitialized-SR locals back to their module globals so the
@@ -833,13 +855,6 @@ def _get_terminal_type(
     return None
 
 
-def _generate_inner(
-    inner_nodes: list[AnyGraphNode], ctx: CodeGenContext
-) -> list[ast.stmt]:
-    """Generate code for inner loop nodes."""
-    return ctx.generate_body(inner_nodes)
-
-
 def _iteration_terminal(node: LoopNode) -> Terminal | None:
     """The loop's iteration terminal (the LabVIEW `i` counter): its plain output
     terminal, not a tunnel."""
@@ -851,6 +866,27 @@ def _iteration_terminal(node: LoopNode) -> Terminal | None:
         ),
         None,
     )
+
+
+def _fed_by_error(stop_terminal: str, ctx: CodeGenContext) -> bool:
+    """The loop's conditional terminal is wired to an error."""
+    return ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
+        stop_terminal
+    )
+
+
+def _stop_test(
+    node: LoopNode, stop_terminal: str, value: str, ctx: CodeGenContext
+) -> ast.expr:
+    """The condition that ends the iteration, from ``value`` wired to the
+    conditional terminal: the value itself, or that an error occurred when the
+    wire is an error (a warning does not stop the loop); negated for Continue if
+    True."""
+    condition = error_occurred(value) if _fed_by_error(stop_terminal, ctx) else value
+    cond_expr = parse_expr(condition)
+    if node.stop_condition_inverted:
+        cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+    return cond_expr
 
 
 def _build_while_loop(
@@ -890,12 +926,13 @@ def _build_while_loop(
         # The cpdArith or other operation computes this inside the loop
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
             body = [
                 *body,
-                ast.If(test=cond_expr, body=[ast.Break()], orelse=[]),
+                ast.If(
+                    test=_stop_test(node, stop_terminal, stop_condition, ctx),
+                    body=[ast.Break()],
+                    orelse=[],
+                ),
             ]
             return ast.While(
                 test=ast.Constant(value=True),
@@ -948,9 +985,7 @@ def _build_for_loop(
     if stop_terminal:
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+            cond_expr = _stop_test(node, stop_terminal, stop_condition, ctx)
             body = [*body, ast.If(test=cond_expr, body=[ast.Break()], orelse=[])]
 
     # Auto-indexing input arrays, classified once by generate() (step 3) and

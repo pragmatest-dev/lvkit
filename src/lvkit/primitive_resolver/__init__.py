@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .exceptions import PrimitiveResolutionNeeded as PrimitiveResolutionNeeded
 from .exceptions import TerminalResolutionNeeded as TerminalResolutionNeeded
+from .models import NativeError as NativeError
 from .models import NodeIcon as NodeIcon
 from .models import PrimitiveEntry as PrimitiveEntry
 from .models import PrimitiveTerminal as PrimitiveTerminal

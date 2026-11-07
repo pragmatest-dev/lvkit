@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-from lvkit import catalogs
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import type_file_records
 from lvkit.graph.models import VINode
@@ -103,12 +102,12 @@ def _catalog_ports(
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     graph = InMemoryVIGraph()
     monkeypatch.setattr(graph, "loaded_callee_key", lambda node: None)
-    catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
+    # On the catalog's class: patching the shared catalog object would leave its
+    # original method stored on it when undone, hiding a later test's class patch.
     monkeypatch.setattr(
-        catalog,
+        type(get_resolver()),
         "resolve_recorded",
-        lambda path: VIEntry(name="Clear Errors", terminals=terminals),
+        lambda _self, path: VIEntry(name="Clear Errors", terminals=terminals),
     )
     return _subvi_ports(graph, call)
 

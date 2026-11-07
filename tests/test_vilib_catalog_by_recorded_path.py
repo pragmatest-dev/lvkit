@@ -53,7 +53,10 @@ def test_project_merge_errors_is_a_call_of_its_own_module() -> None:
     vilib = subvi.generate(
         merge("<vilib>/Utility/error.llb/Merge Errors.vi"), CodeGenContext()
     )
-    assert vilib.statements == []
+    # The vi.lib VI is the merge itself; with nothing wired it merges no error.
+    assert [ast.unparse(ast.fix_missing_locations(s)) for s in vilib.statements] == [
+        "merged_error = None"
+    ]
     project = subvi.generate(merge("/Helpers/Merge Errors.vi"), CodeGenContext())
     assert [ast.unparse(ast.fix_missing_locations(s)) for s in project.statements] == [
         "merge_errors_result = merge_errors()"

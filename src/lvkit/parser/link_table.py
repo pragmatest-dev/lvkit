@@ -150,6 +150,7 @@ _DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
 _NEXF_IDENT = b"NEXF"
+_XNXI_IDENT = b"XNXI"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -233,6 +234,16 @@ class ExtFuncLink:
     path_type: int | None
     path_tokens: tuple[str, ...]
     function: str
+    node_uids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class XNodeLink:
+    """One ``XNXI`` record ("XNode To XInterface"): the path LabVIEW recorded
+    for the XNode's library file (``<vilib>/ErrorRing/Error Ring.xnode``) and
+    the heap uid of every XNode of that library."""
+
+    path_tokens: tuple[str, ...]
     node_uids: tuple[int, ...]
 
 
@@ -978,6 +989,32 @@ def decode_ext_func_links(data: bytes, version: LinkTableVersion) -> list[ExtFun
             records.append(_decode_ext_func_record(data, start, version))
         except LinkTableError as exc:
             raise LinkTableError(f"NEXF record at offset {start}: {exc}") from exc
+    return records
+
+
+def _decode_xnode_record(
+    data: bytes, ident_pos: int, version: LinkTableVersion
+) -> XNodeLink:
+    """An ``XNXI`` record, as pylabview ``LinkObjXNodeToXInterface`` reads it: the
+    head an ``IUVI`` record has (``parseOffsetLinkSaveInfo``: the typed link head,
+    then the node uid list), then the generic link info, not read."""
+    r = _Reader(data, ident_pos + len(_XNXI_IDENT))
+    head = _read_link_head(r, version)
+    if version.at_least(12, 0, 0, 3):
+        r.u32()  # typed-link flags
+    return XNodeLink(path_tokens=head.path_tokens, node_uids=_read_node_uids(r))
+
+
+def decode_xnode_links(data: bytes, version: LinkTableVersion) -> list[XNodeLink]:
+    """Every ``XNXI`` record in a ``_LIbd.bin`` sidecar, in file order. An
+    unreadable record raises ``LinkTableError``, never skipped."""
+    records: list[XNodeLink] = []
+    for start in _record_starts(data, _XNXI_IDENT):
+        _require_supported(version)
+        try:
+            records.append(_decode_xnode_record(data, start, version))
+        except LinkTableError as exc:
+            raise LinkTableError(f"XNXI record at offset {start}: {exc}") from exc
     return records
 
 

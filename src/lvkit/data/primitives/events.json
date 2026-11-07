@@ -123,6 +123,7 @@
     },
     "2075": {
       "name": "Destroy User Event",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
       "verified": true,
       "placeholder": true,

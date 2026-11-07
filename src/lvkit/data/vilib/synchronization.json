@@ -322,6 +322,7 @@
     },
     {
       "name": "Release Notifier Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
       "category": "Synchronization",
       "description": "Releases a reference to a notifier.",
@@ -1004,6 +1005,7 @@
     },
     {
       "name": "Release Queue Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
       "category": "Synchronization",
       "description": "Releases a reference to a queue.",
@@ -1427,6 +1429,7 @@
     },
     {
       "name": "Acquire Semaphore",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/acquire-semaphore-vi.html",
       "category": "Synchronization",
       "description": "Acquires access to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW. Functions 1964 ni.com",
@@ -1493,6 +1496,7 @@
     },
     {
       "name": "Release Semaphore",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/release-semaphore-vi.html",
       "category": "Synchronization",
       "description": "Releases access to a semaphore. If the Acquire Semaphore VI is waiting for the semaphore this VI releases, it stops waiting and continues execution. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
@@ -1541,6 +1545,7 @@
     },
     {
       "name": "Release Semaphore Reference",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/release-semaphore-reference-vi.html",
       "category": "Synchronization",
       "description": "Releases a reference to a semaphore. Use this VI in conjunction with the other Semaphore VIs to implement a semaphore in LabVIEW.",
@@ -1919,6 +1924,7 @@
     },
     {
       "name": "Destroy Rendezvous",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/rendezvs-llb/destroy-rendezvous-vi.html",
       "category": "Synchronization",
       "description": "Destroys the specified rendezvous. All Wait at Rendezvous VIs that are currently waiting on this rendezvous time out immediately and return an error. Functions 1974 ni.com",

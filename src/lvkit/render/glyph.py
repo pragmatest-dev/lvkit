@@ -52,6 +52,7 @@ from .glyphs.nodes.constant import ConstantGlyph
 from .glyphs.nodes.control_ref_const import ControlRefConstGlyph
 from .glyphs.nodes.convert import ConvertGlyph
 from .glyphs.nodes.error_cluster import ErrorClusterGlyph
+from .glyphs.nodes.error_ring import ErrorRingGlyph
 from .glyphs.nodes.event_data import EventDataGlyph
 from .glyphs.nodes.event_reg_node import EventRegNodeGlyph
 from .glyphs.nodes.ext_func import ExtFuncGlyph
@@ -74,6 +75,7 @@ from .glyphs.nodes.xnode import XNodeGlyph
 
 __all__ = [
     "ArithGlyph",
+    "ErrorRingGlyph",
     "ArrayBuildGlyph",
     "ArrayReverseGlyph",
     "ArraySearchGlyph",

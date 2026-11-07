@@ -6,9 +6,12 @@ with a proper graph (required since bind/resolve store var_names on the graph).
 
 from __future__ import annotations
 
+import itertools
 import re
 import shutil
+import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from lvkit.codegen.context import CodeGenContext
@@ -333,6 +336,17 @@ def error_cluster_type() -> Any:
     )
 
 
+_generated_modules = itertools.count()
+
+
+def exec_module(source: str, filename: str = "<generated>") -> ModuleType:
+    """Run generated module ``source`` as a module registered in ``sys.modules``:
+    a result class is a ``dataclass``, which looks its module up while it is
+    defined."""
+    module = ModuleType(f"_generated_{next(_generated_modules)}")
+    sys.modules[module.__name__] = module
+    exec(compile(source, filename, "exec"), module.__dict__)  # noqa: S102
+    return module
 def vi_key(graph, text: str) -> str:
     """The key of the one VI of ``graph`` that ``text`` names: a key, a
     qualified name, or a file name. A test's way to say which VI it loaded."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from lvkit.models import TerminalDirection
+from lvkit.models import ScalarValue, TerminalDirection
 from lvkit.terminal_default import TerminalDefault
 
 
@@ -26,6 +26,12 @@ class PrimitiveTerminal(TerminalDefault):
     group: str | None = None
     # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
     dco_ref: str | None = None
+    # The value NI documents for this output when the node's operation fails
+    # (``codegen/native_failure.py``); none: the type's default.
+    on_failure: ScalarValue = None
+    # NI's page says that when an error cluster is wired to this input, only
+    # the error cluster's status passes to it.
+    error_cluster_status: bool = False
 
 
 class NodeIcon(BaseModel):
@@ -56,6 +62,23 @@ class TerminalAlias(BaseModel):
     terminal: int
 
 
+class NativeError(BaseModel):
+    """One way a catalog node's Python operation can fail, and the LabVIEW error
+    code that failure is: the Python exception class ``exception``, imported
+    from ``module`` (``None`` for a built-in one), and the code from NI's public
+    error-code list (``None`` for the generic code). ``since_python`` is the
+    Python version the module has the class from, when it is not every version
+    lvkit's generated code runs on. ``base`` makes ``exception`` a class of the
+    operation's own, which only its generated code raises: the generated module
+    defines it as a subclass of the built-in ``base``."""
+
+    exception: str
+    module: str | None = None
+    code: int | None = None
+    since_python: str | None = None
+    base: str | None = None
+
+
 class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
 
@@ -76,6 +99,11 @@ class PrimitiveEntry(BaseModel):
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     icon: NodeIcon | None = None
+    # NI's page says the node runs even when an error comes in on its error in.
+    runs_on_error: bool = False
+    # The failures of the node's Python operation that are its error out, in
+    # the order they are caught (``codegen/native_failure.py``).
+    errors: list[NativeError] = Field(default_factory=list)
 
 
 class ResolvedPrimitive(BaseModel):
@@ -109,6 +137,14 @@ class ResolvedPrimitive(BaseModel):
     # Public NI docs URL (labview-api-ref bundle) — surfaced in the rendered
     # SVG's hover tooltip (task #67). None when the primitive has no page.
     doc_url: str | None = None
+    # NI's page says the node runs even when an error comes in on its error in
+    # (``CodeFragment.runs_on_error``).
+    runs_on_error: bool = False
+    # NI's page says every input of the node takes only the status of an error
+    # cluster wired to it: a node whose inputs grow with it and have no catalog
+    # terminals (Compound Arithmetic). A fixed input says it on its own terminal
+    # (``PrimitiveTerminal.error_cluster_status``).
+    inputs_error_cluster_status: bool = False
 
 
 def _collect_icon(prim: dict) -> NodeIcon | None:

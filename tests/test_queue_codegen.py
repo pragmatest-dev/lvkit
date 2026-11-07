@@ -234,7 +234,9 @@ def test_unnamed_queue_is_a_local_queue_and_empty_get_times_out() -> None:
     assert (result.second, result.second_timed_out) == (0, True)
 
 
-def test_a_timeout_that_is_not_used_raises_empty() -> None:
+def test_a_timeout_whose_flag_is_not_used_gives_the_default_element() -> None:
+    """NI: a wait that times out returns no error; the element is the type's
+    default whether or not ``timed out?`` is wired."""
     vi = Vi()
     vi.add("obtain", "o")
     vi.add("dequeue", "d")
@@ -242,15 +244,13 @@ def test_a_timeout_that_is_not_used_raises_empty() -> None:
     vi.constant(0, INT, "d:timeout")
     vi.indicator("element", "d:element")
     source = vi.source()
-    assert "element = queue.get(timeout=0.0)\n" in source
-    with pytest.raises(queue_empty()):
-        run(source, "queue_test")()
-
-
-def queue_empty():
-    import queue
-
-    return queue.Empty
+    assert (
+        "    try:\n"
+        "        element = queue.get(timeout=0.0)\n"
+        "    except Empty:\n"
+        "        element = 0\n"
+    ) in source
+    assert run(source, "queue_test")().element == 0
 
 
 def test_a_wired_timeout_is_milliseconds_and_negative_waits_for_ever() -> None:
@@ -314,6 +314,8 @@ def test_enqueue_at_opposite_end_goes_to_the_front() -> None:
     source = vi.source()
     assert (
         "    with queue.mutex:\n"
+        "        if getattr(queue, 'is_shutdown', False):\n"
+        "            raise queue_ShutDown\n"
         "        queue.queue.appendleft(b)\n"
         "        queue.unfinished_tasks += 1\n"
         "        queue.not_empty.notify()\n"
@@ -395,7 +397,10 @@ def test_preview_waits_for_an_element_until_its_timeout() -> None:
     vi.indicator("peeked", "p:element")
     vi.indicator("timed_out", "p:timed_out", FLAG)
     source = vi.source()
-    assert "queue.not_empty.wait_for(lambda: queue.queue, 0.05)" in source
+    assert (
+        "queue.not_empty.wait_for(lambda: queue.queue or "
+        "getattr(queue, 'is_shutdown', False), 0.05)"
+    ) in source
     result = run(source, "queue_test")()
     assert (result.peeked, result.timed_out) == (0, True)
 

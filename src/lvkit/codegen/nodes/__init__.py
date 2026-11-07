@@ -28,10 +28,12 @@ from lvkit.graph.models import (
     VINode,
 )
 
+from .. import error_flow
 from ..context import CodeGenContext
 from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
 from ..gaps import catch_gap
+from ..native_failure import CatalogFailures, catch_failures
 
 # Import modules (not classes) for dispatch
 from . import (
@@ -58,17 +60,19 @@ from . import (
     shared_variable,
     subvi,
     vi_reference,
+    xnode,
 )
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate code for a graph node. A node that cannot be converted (a
+    """Generate code for a graph node, run only when no error came in on its
+    error in (``error_flow.guard``). A node that cannot be converted (a
     ``ConversionGap``) is recorded as a gap and generates the ``raise`` that
     stands where it would run (see ``gaps.py``)."""
-    with catch_gap(node, ctx) as guard:
-        return _generate(node, ctx)
-    assert guard.fragment is not None
-    return guard.fragment
+    with catch_gap(node, ctx) as caught:
+        return error_flow.guard(node, _generate(node, ctx), ctx)
+    assert caught.fragment is not None
+    return caught.fragment
 
 
 def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
@@ -117,7 +121,15 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
             return run_vi.generate(node, ctx)
         if node.method_name:
             return invoke_node.generate(node, ctx)
-        return _generate_primitive(node, ctx)
+        fragment = _generate_primitive(node, ctx)
+        entry = ctx.primitive_catalog.get_by_id(node.prim_id) if node.prim_id else None
+        if entry is None:
+            return fragment
+        # The catalog marks a primitive NI runs even when an error came in, and
+        # the failures of its operation that are its error out.
+        if entry.get("runs_on_error", False):
+            fragment.runs_on_error = True
+        return catch_failures(node, fragment, CatalogFailures.of_primitive(entry), ctx)
     if isinstance(node, ConstantNode):
         return constant.generate(node, ctx)
     if isinstance(node, LocalVariableNode):
@@ -143,6 +155,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "demux": nmux.generate,
     "printf": printf.generate,
     "extFunc": ext_func.generate,
+    "xNode": xnode.generate,
 }
 
 
