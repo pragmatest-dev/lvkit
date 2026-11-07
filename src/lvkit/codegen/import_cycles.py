@@ -16,6 +16,8 @@ import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
 
+from .ast_utils import with_statements_after_docstring
+
 _CYCLIC: weakref.WeakKeyDictionary[InMemoryVIGraph, frozenset[str]] = (
     weakref.WeakKeyDictionary()
 )
@@ -65,17 +67,4 @@ def imports_inside(
     local: list[ast.stmt] = []
     for statement in sorted(generated):
         local.extend(ast.parse(statement).body)
-    return with_imports_after_docstring(local, body), imports - generated
-
-
-def with_imports_after_docstring(
-    imports: list[ast.stmt], body: list[ast.stmt]
-) -> list[ast.stmt]:
-    """``body`` with ``imports`` at its start, after the docstring if it has one."""
-    first = body[0] if body else None
-    has_docstring = (
-        isinstance(first, ast.Expr)
-        and isinstance(first.value, ast.Constant)
-        and isinstance(first.value.value, str)
-    )
-    return [*body[:1], *imports, *body[1:]] if has_docstring else [*imports, *body]
+    return with_statements_after_docstring(local, body), imports - generated

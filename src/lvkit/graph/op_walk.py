@@ -430,6 +430,13 @@ def _selector_values(frame: CaseFrame, lv_type: LVType | None) -> list[str]:
     return list(frame.selector_strings)  # string selector: one frame, several
 
 
+def error_code_ranges(frame: CaseFrame) -> list[SelectorRange]:
+    """The error-code ranges one frame of an error case stores. The frame's
+    status value (0 for No Error, 1 for Error) is not a code."""
+    status = 0 if frame.is_no_error else 1
+    return [r for r in frame.selector_ranges if not (r.is_single and r.start == status)]
+
+
 def selector_frame_values(
     frame: CaseFrame, lv_type: LVType | None, is_error: bool
 ) -> tuple[str, ...]:
@@ -443,10 +450,7 @@ def selector_frame_values(
         # anything else is an error (LabVIEW: "No Error" / "Error", plus code
         # ranges like "Error 3..10" since 2019). A frame that stores status 1
         # alone is "Error"; a frame that stores no value is the default.
-        status = 0 if frame.is_no_error else 1
-        codes = [
-            r for r in frame.selector_ranges if not (r.is_single and r.start == status)
-        ]
+        codes = error_code_ranges(frame)
         listed = [f"Error {_format_ranges(codes, str)}"] if codes else []
         if frame.is_no_error:
             return ("No Error", *listed)

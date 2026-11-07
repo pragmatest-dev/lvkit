@@ -134,6 +134,13 @@
     },
     "8016": {
       "name": "To More Specific Class",
+      "op": "TO_MORE_SPECIFIC_CLASS",
+      "errors": [
+        {
+          "exception": "TypeError",
+          "code": 1448
+        }
+      ],
       "terminals": [
         {
           "index": 0,
@@ -175,15 +182,10 @@
           "type": "ErrorCluster"
         }
       ],
-      "python_code": {
-        "specific class reference": "in_3",
-        "error out": "in_4"
-      },
-      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
-      "note": "downcast is identity on the reference (in_3); error passed through"
+      "note": "a class wire is an isinstance check against the target class (error 1448); a VI Server reference passes through"
     },
     "8017": {
       "name": "To More Generic Class",
@@ -227,6 +229,7 @@
     },
     "8018": {
       "name": "Preserve Run-Time Class",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

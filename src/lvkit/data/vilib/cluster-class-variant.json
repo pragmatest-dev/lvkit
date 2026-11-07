@@ -310,6 +310,7 @@
     },
     {
       "name": "Preserve Run-Time Class Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preserve-run-time-class.html",
       "category": "Cluster, Class, & Variant",
       "description": "Checks at run time whether object in is of the same class as, or is a child class of, target object. Use this function on the block diagram of a subVI when you want to guarantee that LabVIEW downcasts a LabVIEW class output of the subVI node to the same class type as a LabVIEW class input when the subVI receives a child class of the expected input type. Functions 470 ni.com",

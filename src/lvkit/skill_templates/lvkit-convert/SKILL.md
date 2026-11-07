@@ -1,6 +1,6 @@
 ---
 name: lvkit-convert
-description: Use when the user wants to convert, port, or translate a LabVIEW VI (or a whole .lvclass/.lvlib) to Python or another language. Hand-writes an idiomatic port by understanding the VI's dataflow, then verifies it against lvkit's deterministic `lvkit generate` oracle. Teaches the LabVIEW-to-code gotchas an AI gets wrong by default (parallelism, held errors, value-copy semantics, loop/case defaults).
+description: Use when the user wants to convert, port, or translate a LabVIEW VI (or a whole .lvclass/.lvlib) to Python or another language. Hand-writes an idiomatic port by understanding the VI's dataflow, then verifies it against lvkit's deterministic `lvkit generate` oracle. Teaches the LabVIEW-to-code gotchas an AI gets wrong by default (parallel branches, errors as values, value-copy semantics, loop/case defaults).
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -94,38 +94,37 @@ reliably, is the LabVIEW-isms below — that's the value of this skill.
 operations with no wire between them ran in parallel in LabVIEW — don't
 invent a sequence.
 
-**Preserve real parallelism.** Independent branches (no wire between them)
-execute concurrently in LabVIEW; port that as real concurrency (e.g.
-`concurrent.futures.ThreadPoolExecutor` in Python), not a serialized
-sequence — and don't over-parallelize branches that DO share a hidden
-dependency (a global, a reference, a queue) the wiring alone won't show you.
+**Independent branches.** Branches with no wire between them may run in any
+order in LabVIEW; one after the other is a valid order, and it is what
+`lvkit generate` writes. Use real concurrency only where the VI needs it
+(timing, waits that must overlap) — and watch for branches that DO share a
+hidden dependency (a global, a reference, a queue) the wiring alone won't show
+you.
 
-**Held-error model, if the VI has error clusters AND parallel branches.**
-LabVIEW keeps running every parallel branch even after one raises, and
-raises the FIRST error at the merge point. Port that shape explicitly —
-don't let a bare `try/except` short-circuit the branches that still need to
-run:
+**Errors are values, as on the wire.** An error cluster is a value: no error,
+an error (`status` TRUE) or a warning (`status` FALSE with a code). A node
+skips its work when an error came in on its error in, and its error out passes
+that error on; a warning does not skip. A failure on one branch therefore does
+not stop another branch, and Merge Errors gives the first error in input order.
+`lvkit generate` writes exactly that: each VI takes `error_in` and returns a
+result object with `error_out`; `None` is no error, `LabVIEWError` (in the
+package's `errors.py`) is an error or warning; a guarded node is
+`if err is None or not err.status:`.
 
 ```python
-def my_vi(input_data):
-    _held_error = None
-    try:
-        branch_0_result = branch_0_operations()
-    except LabVIEWError as e:
-        _held_error = _held_error or e
-        branch_0_result = None
-    try:
-        branch_1_result = branch_1_operations()
-    except LabVIEWError as e:
-        _held_error = _held_error or e
-        branch_1_result = None
-    if _held_error:
-        raise _held_error
-    return result
+def my_vi(x, error_in=None):
+    if error_in is None or not error_in.status:
+        a = step_a(x=x, error_in=error_in)        # the called VI decides
+        b = step_b(x=x, error_in=error_in)        # another branch, same error in
+    ...
+    merged = next((e for e in (a.error_out, b.error_out)
+                   if e is not None and e.status), None)
+    return MyViResult(result=..., error_out=merged)
 ```
 
-If the VI has no error clusters, just let exceptions propagate naturally —
-don't manufacture a held-error scaffold where LabVIEW had none.
+Turning a VI into plain exceptions is a later, idiomatic step, and is safe
+only where the VI just passes its error along; keep the values wherever the
+diagram reads, merges or clears an error.
 
 **Value-copy at a wire branch — the aliasing trap.** LabVIEW arrays and
 clusters are value semantics: branching a wire to two consumers copies the
@@ -201,7 +200,7 @@ lifecycle, list comprehensions for clear loops.
 **Never change (behavioral):** operation order, parallel branches, loop
 structure, function parameters (front-panel controls — don't change types
 or defaults), return values (front-panel indicators — don't drop outputs),
-held-error handling if present.
+the error flow (which nodes skip on an error, what each error out carries).
 
 ## The oracle with gaps
 

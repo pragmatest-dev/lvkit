@@ -14,11 +14,20 @@ class CodeFragment:
     - statements: AST nodes to emit in the function body
     - bindings: New terminal → variable mappings this node creates
     - imports: Import statements this code requires
+    - runs_on_error: the statements run whatever error comes in on the node's
+      error in (a call passes it to the called function, which decides);
+      otherwise they are skipped when an error came in (``error_flow``)
+    - own_error: the variable holding the error the node's own work produced
+      (``None`` when it produced none); a node that runs despite an incoming
+      error keeps the incoming error and reports its own only when none came in
+      (``error_flow.incoming_error_wins``)
     """
 
     statements: list[ast.stmt] = field(default_factory=list)
     bindings: dict[str, str] = field(default_factory=dict)
     imports: set[str] = field(default_factory=set)
+    runs_on_error: bool = False
+    own_error: str | None = None
 
     @classmethod
     def empty(cls) -> CodeFragment:

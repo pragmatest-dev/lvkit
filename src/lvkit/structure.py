@@ -50,6 +50,11 @@ class LVMethod:
     # The name of the property (``NI.ClassItem.Property.LongName``) whose
     # ``Property Definition`` folder lists this VI; None for an ordinary method.
     property_name: str | None = None
+    # That property's path in the class's project tree: the names of the
+    # folders it sits in and of its ``Property Definition`` item, joined by
+    # ``PROPERTY_PATH_SEPARATOR``. A class Property Node row names the property
+    # it reads or writes by this path (``Accessor:Pin Map Context``).
+    property_path: str | None = None
     # NI.ClassItem.MustOverride -- a child class MUST provide its own
     # implementation of this dynamic-dispatch method. Default False when the
     # property is absent (the overwhelming common case).
@@ -600,11 +605,27 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     )
 
 
+# What joins the folders and the property in a class property's path: a class
+# Property Node row of the property ``Pin Map Context`` in the folder
+# ``Accessor`` records ``Accessor:Pin Map Context`` (its ``PropItemName``).
+PROPERTY_PATH_SEPARATOR = ":"
+
+
+@dataclass(frozen=True)
+class _Property:
+    """The property a ``Property Definition`` folder defines: its long name and
+    its path in the class's project tree."""
+
+    name: str
+    path: str
+
+
 def _parse_items(
     parent_elem: ET.Element,
     methods: list[LVMethod],
     private_data_ctl: str | None,
-    property_name: str | None = None,
+    folders: tuple[str, ...] = (),
+    accessed: _Property | None = None,
 ) -> None:
     """Recursively parse Item elements to find methods.
 
@@ -612,7 +633,9 @@ def _parse_items(
         parent_elem: Parent XML element to search
         methods: List to append methods to
         private_data_ctl: Name of private data control (if found)
-        property_name: The property whose folder ``parent_elem`` is, if it is one
+        folders: The names of the folders ``parent_elem`` sits in, outermost
+            first
+        accessed: The property whose folder ``parent_elem`` is, if it is one
     """
     for item in parent_elem.findall("Item"):
         item_name = item.get("Name", "")
@@ -620,22 +643,27 @@ def _parse_items(
 
         if item_type == "Folder":
             # Recurse into folders (private, protected, etc.)
-            _parse_items(item, methods, private_data_ctl, property_name)
+            _parse_items(
+                item, methods, private_data_ctl, (*folders, item_name), accessed
+            )
         elif item_type == "Property Definition":
             # The VIs listed in a property's folder are its accessors; the
-            # property is named by its long name.
+            # property is named by its long name and found by its path.
             long_name = item.find("Property[@Name='NI.ClassItem.Property.LongName']")
             name = (
                 long_name.text
                 if long_name is not None and long_name.text
                 else item_name
             )
-            _parse_items(item, methods, private_data_ctl, name)
+            path = PROPERTY_PATH_SEPARATOR.join((*folders, item_name))
+            _parse_items(
+                item, methods, private_data_ctl, folders, _Property(name, path)
+            )
         elif item_type == "VI" and is_vi_file(item_name):
-            methods.append(_parse_method(item, property_name))
+            methods.append(_parse_method(item, accessed))
 
 
-def _parse_method(item: ET.Element, property_name: str | None) -> LVMethod:
+def _parse_method(item: ET.Element, accessed: _Property | None) -> LVMethod:
     """The method a class ``Item`` of type VI records."""
     item_name = item.get("Name", "")
     scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
@@ -655,7 +683,8 @@ def _parse_method(item: ET.Element, property_name: str | None) -> LVMethod:
         vi_path=item.get("URL", ""),
         scope=SCOPE_MAP.get(scope_val, "public"),
         is_static=_bool_property(static_prop),
-        property_name=property_name,
+        property_name=accessed.name if accessed else None,
+        property_path=accessed.path if accessed else None,
         must_override=_bool_property(must_override_prop),
         must_call_parent=_bool_property(must_call_parent_prop),
     )

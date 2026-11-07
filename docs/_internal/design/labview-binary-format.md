@@ -1925,6 +1925,56 @@ Every link record starts with its name parts then its path (`_read_basic_head`, 
 
 The Function type a call's `<connectorTM>` names lists one child per pane position; a position the called VI does not use is `TypeID` of the `Void` type with `Flags="0x0000"`. Example: DCAF-DAQModule `module/execution/output.vi`, the Function type of `DAQmx Write (Analog 1D DBL NChan 1Samp).vi` (pattern `0x108`, 16 positions): positions 2, 3, 5, 6, 8, 12, 13 and 14 are `TypeID="4"` (`Void`), the others are `task/channels in`, `auto start`, `task out`, `data`, `timeout`, `number of samples written per channel`, `error in` and `error out`.
 
+## "Clear indicators when called" is bit 24 of the VI's second flag word (`ClearIndMask`)
+
+pylabview names it in `VI_FLAGS2` (`LVinstrument.py`): `ClearIndMask = 1 << 24  # Clear charts etc on call. in LV14: Execution -> Clear indicators when called`. Every extracted VI's main XML carries it as the attribute `ClearIndMask="0"` or `"1"` (in `<Execution2>`); lvkit parses it into `ExecutionProps.clear_indicators_when_called` (`parser/metadata.py`, `graph/models.py`). About a dozen distinct corpus VIs set it, among them the icon editor's `lv_icon`. What the flag means for generated code is decision 15 of `errors-as-values.md`.
+
+## A class Property Node row names its property by its project-tree path: folders and item, joined by `:`
+
+The row's `PropItemName` is the virtual folders the property sits in, then its Property Definition item, joined with `:` — `"Accessor:Pin Map Context"` in the measurement-plugin VIs that read Measure Call Context (folder `Accessor`, item `Pin Map Context`), `Customize:Properties:Rate` for a DCAF property nested two folders deep. The class file records the same folders and item (`structure.py:_parse_items`), so lvkit records each property's `accessor_path` in that form and matches a row to its accessor VI by it; `NI.ClassItem.Property.LongName` is the display name.
+
+## "Ignore Errors Inside Node" on a Property Node: not decoded
+
+pylabview names no field for it. A tally of the `objFlags` of every `propNode` in 20,000 extracted block diagrams finds about 35 distinct values that differ in several bits (`0x1000`, `0x10000`, `0x40000`, `0x200000`, `0x400000`, `0x2000000`, `0x8000000`, `0x10000000`), and no node is known to have the option set, so no bit can be tied to it. lvkit generates every Property Node with NI's default (stop at the first row's error).
+
+## An Error Ring XNode keeps its code, description, error/warning and call-chain choices in its `<StateData>`; the diagram inside it builds the error from them
+
+An Error Ring is a `class="xNode"` of the XNode library `<vilib>/ErrorRing/Error Ring.xnode`, which the VI's link table names (next section); its `<displayName>` is hex ASCII for `Error Ring` (`4572726F722052696E67`), a display name lvkit does not identify it by. NI's public page (`https://docs-be.ni.com/api/bundle/labview-api-ref/page/vi-lib/errorring/error-ring-xnode.html`) names its parts: an error/warning toggle, an include/exclude call chain toggle, the code and its description; the description takes Format Into String specifiers (`%s`, `%T`), and the ring grows one input per specifier (`https://docs-be.ni.com/api/bundle/labview/page/defining-a-custom-error-code-from-the-error-ring.html`).
+
+`<StateData>` is hex of big-endian fields; a string is a u32 byte count then its bytes (`parser/error_ring.py`):
+
+| Field | Example (`Wire FP Controls to Accessor UnBundler.vi`) |
+|---|---|
+| string: short label | `6005: Attributes don't match VI prototy...` |
+| string: full label | `6005: Attributes don't match VI prototype.` |
+| i32: error code | `00001775` = 6005 |
+| string: code range | `Custom` (`LabVIEW` for NI's codes, `No Error` for 0) |
+| string: description | `Attributes don't match VI prototype.` (empty for a `LabVIEW` code) |
+| u8: 1 = error, 0 = warning | `00` |
+| u32: format inputs | `00000000` |
+| one record per format input | not decoded (see below) |
+| u8: 1 = include the call chain | `01` |
+| u8: not decoded | `01` |
+
+Receipts, all from the actor-framework, configurable-dqmh-example and measurement-plugin-labview samples, 30 distinct rings in 52 cached block diagrams:
+
+- **Error / warning byte:** every ring has `01` except 6005 above, whose inside diagram wires `is warning? (False)` = TRUE into Error Cluster From Error Code. This rests on that one warning sample.
+- **Format inputs:** the count equals the node's input terminals (0, 1 or 2: the ring of code 1639 in `Testing Support/Test Launch For Nested Actor Without Caller.vi` has two, `parameter 0` and `parameter 1`, in the order of the description's two `%s`); its records name each input (`class name`, `Debug Alias ("")`). The records are not decoded: each holds a flattened type descriptor (`0008 0030 FFFFFFFF`, a String; `0014 4030 FFFFFFFF 0A "class name"`, a labelled String) after an 8-byte head whose first byte is `0x14` or `0x20` and is not the record's length (it is `0x20` for descriptors of 20 and of 26 bytes), and the 1639 ring has `01`, the string `wired` and a second copy of the record after each input where the DQMH rings have none. So for a ring with format inputs the two closing bytes are read from the end of the blob; for one without, the blob must end right after them.
+- **Call-chain byte:** where it is `00` (codes 6007 and 6011 in `MessageRescripter/Support/Find Target Actor.vi`, 1602 in `Tools/run_diff.vi`) the inside diagram is one error cluster constant, status TRUE, the code, source `<err>` + the description (`"<err>Rescripting failed. ..."`, empty when there is no description); where it is `01` the inside diagram is a call of Error Cluster From Error Code.vi with constants `show call chain? (False)` = TRUE, `error code (0)` = the code, `error message ("")` = the description (absent for a `LabVIEW` code) and `is warning? (False)`; with format inputs the description is the `format string` of a Format Into String node whose result is the error message.
+- **Last byte:** `00` or `01` with the same inside diagram either way (codes 21, 20, 1003, 6010 have `00`), so it does not change the error; not decoded.
+- **Code 0** (`No Error`): the inside diagram is an all-zero error cluster constant.
+
+Codegen (`codegen/nodes/error_ring.py`) writes what the inside diagram computes: with the call chain, `LabVIEWError(code, message=<description, formatted from the inputs; or NI's text for the code>, status)`, as Error Cluster From Error Code is generated; without it, `LabVIEWError(code, source="<err>" + description, status)`; code 0 is `None`. A ring whose blob does not read as these fields, a specifier other than `%s`, a non-string input, or format inputs with the call chain excluded (no sample) is a gap.
+
+## An XNode's library is named by an `XNXI` record of the block-diagram link table, found by the node's uid
+
+Every XNode library a block diagram uses has one `XNXI` ("XNode To XInterface") record in `LIbd` under `BDHP`: `LinkSaveQualName` is the `.xnode` file name, `LinkSavePathRef` its recorded path and `LinkOffsetList` the heap uid of each XNode of it. Receipt: `actor-framework` `vi-8c56194222b659ce/vi.xml` (code 0 ring), `LinkSaveQualName` `Error Ring.xnode`, `LinkSavePathRef` `<vilib>` / `ErrorRing` / `Error Ring.xnode`, `Offset` `0x024E` = uid 590, the ring's uid. pylabview reads it as `LinkObjXNodeToXInterface`: `parseOffsetLinkSaveInfo` (the typed link head an `IUVI` record starts with, then the uid list), then the generic link info (8.6.0.2 and later). For 8 of the 52 ring diagrams the link table stays the raw `_LIbd.bin` sidecar; `link_table.decode_xnode_links` reads the same fields there (e.g. `vi-29d48b8434b61e4c`, uids 497 and 1008). All 52 ring diagrams' rings, and the 8 diagrams with a Match Regular Expression XNode (`<vilib>/regexp/Match Regular Expression.xnode`), are named by their record (`parser/xnode_links.py`). The code generator picks an XNode's generator by this path (`codegen/nodes/xnode.py`).
+
+## Delete (8056): input 9 is `confirm`, input 10 is `entire hierarchy`
+
+Both are Boolean inputs, so the type cannot tell them apart and NI's page lists them in reading order only. The callers' wiring does: in measurement-plugin-labview `Source/Generator/Measurement V2 Client Generator Runtime/Cleanup Client If Error.vi` input 10 is fed by a constant whose own label is `entire hierarchy` (LabVIEW's Create Constant labels a constant with its terminal's name), and unattended VIs that delete folders wire TRUE to input 10 and leave 9 unwired (actor-framework `Core/Install Support/Stash Framework.vi`, ni-labview-icon-editor `resource/plugins/NIIconEditor/Delete Icon Editor Source Files.vi`, JKI-VI-Tester `LabVIEW Project Plugin/Build VI Tester Project Provider.vi`): a confirm dialog would defeat an unattended install. 104 cached block diagrams hold a Delete; no caller wires input 9. The other Delete primitive, 1417 (in 2 error in, 3 Path; out 0 error out, 1 Path), has no instance in the corpus; its terminal types name each role.
+
+An XNode's terminal is an `xTunnel` dco named by its `<englishName>` (hex ASCII, #107); when that is unset (a single null byte, as on every Error Ring and Match Regular Expression XNode in the corpus) its hex `<id>` names it: `6572726F72206F7574` = `error out`, `706172616D657465722030` = `parameter 0`, and NI's own terminal names for Match Regular Expression (`input string`, `regular expression`, `whole match`, …). The views name the XNode by its library file's stem (`Error Ring`, `Match Regular Expression`).
 ## Every link record's head ends path, then a link flag; bit 2 marks a file in the caller's own library or class, and the record omits the owners they share
 
 A link record starts (all versions) with the ident, a name list, and a typed path. The link flag follows the path: a u32 from LabVIEW 8.6, a u8 in 8.5, absent before (`link_table._read_link_flag`; in the XML form `LinkSaveFlag`). A type descriptor stores a class or typedef by name only (its owners, then the file), with no path; the file's own records give the path. Bit value 2 of the flag marks a file in the caller's own library or class, and the record's name then omits the owners the two share, not all of them and not a recorded number:

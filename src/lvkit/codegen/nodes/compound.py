@@ -8,15 +8,18 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.primitive_resolver import get_resolver
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
 from ..context import CodeGenContext
+from ..error_flow import status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_array import replace_subarray_statements
+from ..output_binding import bind_output
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -115,7 +118,22 @@ def generate_compound_arith(
 
     output_term = outputs[0]
     output_id = output_term.id
-    boolean = _is_boolean(output_term) or any(_is_boolean(t) for t in inputs)
+    # NI: an error cluster wired to a value input passes only its status, a
+    # Boolean.
+    entry = get_resolver().resolve_by_node_type(node.node_type or "")
+    reads_status = entry is not None and entry.inputs_error_cluster_status
+    status_inputs = {
+        t.id
+        for t in inputs
+        if reads_status
+        and ctx.graph is not None
+        and ctx.graph.terminal_fed_by_error_cluster(t.id)
+    }
+    boolean = (
+        _is_boolean(output_term)
+        or any(_is_boolean(t) for t in inputs)
+        or bool(status_inputs)
+    )
     # LabVIEW And/Or/Xor are bitwise on integer operands. Only go bitwise when
     # an operand is KNOWN to be an integer; unknown/boolean stays logical (both
     # idiomatic and behaviour-preserving).
@@ -135,22 +153,20 @@ def generate_compound_arith(
     for inp in sorted_inputs:
         val = ctx.wired_input(inp.id, node)
         if val:
+            if inp.id in status_inputs:
+                val = status_read(val, inp.id, ctx)
             expr = parse_expr(val)
             if inp.inverted:
                 expr = _invert_expr(expr, boolean, operation, inp.lv_type, ctx)
                 val = ast.unparse(expr)
             input_exprs.append(val)
 
-    var_name = ctx.make_output_var(
-        _arith_base_name(operation, output_term), node.id, terminal_id=output_id
-    )
+    base_name = _arith_base_name(operation, output_term)
 
     if not input_exprs:
         default_value = False if operation in ("or", "and") else 0
-        stmt = build_assign(var_name, ast.Constant(value=default_value))
-        return CodeFragment(
-            statements=[stmt],
-            bindings={output_id: var_name},
+        return bind_output(
+            node, output_id, base_name, ast.Constant(value=default_value), ctx
         )
 
     if len(input_exprs) == 1:
@@ -159,11 +175,7 @@ def generate_compound_arith(
             combined = _invert_expr(
                 combined, boolean, operation, output_term.lv_type, ctx
             )
-            stmt = build_assign(var_name, combined)
-            return CodeFragment(
-                statements=[stmt],
-                bindings={output_id: var_name},
-            )
+            return bind_output(node, output_id, base_name, combined, ctx)
         return CodeFragment(bindings={output_id: input_exprs[0]})
 
     combined = parse_expr(input_exprs[0])
@@ -221,11 +233,7 @@ def generate_compound_arith(
     if output_term.inverted:
         combined = _invert_expr(combined, boolean, operation, output_term.lv_type, ctx)
 
-    stmt = build_assign(var_name, combined)
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_id: var_name},
-    )
+    return bind_output(node, output_id, base_name, combined, ctx)
 
 
 def _arith_base_name(operation: str, output_term: Terminal) -> str:
@@ -281,18 +289,8 @@ def generate_array_build(
         else:
             parts.append(ast.Constant(value=None))
 
-    var_name = ctx.make_output_var(
-        _make_array_var_name(input_names), node.id, terminal_id=output_id
-    )
-
     expr: ast.expr = ast.List(elts=parts, ctx=ast.Load())
-
-    stmt = build_assign(var_name, expr)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_id: var_name},
-    )
+    return bind_output(node, output_id, _make_array_var_name(input_names), expr, ctx)
 
 
 def generate_concat_strings(
@@ -333,15 +331,8 @@ def generate_concat_strings(
         for part in parts[1:]:
             expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
 
-    out_name = outputs[0].name
-    var_name = ctx.make_output_var(
-        out_name or "concatenated_string", node.id, terminal_id=output_id
-    )
-
-    return CodeFragment(
-        statements=[build_assign(var_name, expr)],
-        bindings={output_id: var_name},
-    )
+    base_name = outputs[0].name or "concatenated_string"
+    return bind_output(node, output_id, base_name, expr, ctx)
 
 
 def _make_array_var_name(input_names: list[str]) -> str:
@@ -445,18 +436,9 @@ def generate_array_init(
                 ],
             )
 
-    var_name = ctx.make_output_var(
-        "initialized_array",
-        node.id,
-        terminal_id=output_term.id,
-    )
-    stmt = build_assign(var_name, expr)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_term.id: var_name},
-        imports=imports,
-    )
+    fragment = bind_output(node, output_term.id, "initialized_array", expr, ctx)
+    fragment.imports.update(imports)
+    return fragment
 
 
 def generate_array_replace(
@@ -624,17 +606,7 @@ def generate_array_insert(
         f"if 0 <= ({idx_str}) <= len({array_val}) else list({array_val})"
     )
 
-    var_name = ctx.make_output_var(
-        "output_array",
-        node.id,
-        terminal_id=output_term.id,
-    )
-    stmt = build_assign(var_name, parse_expr(expr_str))
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings={output_term.id: var_name},
-    )
+    return bind_output(node, output_term.id, "output_array", parse_expr(expr_str), ctx)
 
 
 def generate_array_reshape(
@@ -707,7 +679,7 @@ def generate_array_reshape(
         val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
-    default_expr = _reshape_default_element(lv_type.element_type)
+    default_expr = type_default_expr(lv_type.element_type)
 
     flat_var = "_flat"
     flat_stmt = build_assign(flat_var, flat_expr)
@@ -777,44 +749,3 @@ def _build_flatten_expr(array_val: str, source_ndim: int) -> ast.expr:
         elt=ast.Name(id=loop_vars[-1], ctx=ast.Load()),
         generators=generators,
     )
-
-
-def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
-    """Python literal AST for a LabVIEW element type's default (zero) value.
-
-    Used to pad a reshaped array when the source has fewer elements than
-    the requested shape -- LabVIEW pads with the array element type's
-    default rather than growing/erroring.
-    """
-    if elem_type is None:
-        return ast.Constant(value=None)
-
-    kind = elem_type.kind
-    underlying = elem_type.underlying_type
-
-    if kind == LVTypeKind.ARRAY:
-        return ast.List(elts=[], ctx=ast.Load())
-    if kind == LVTypeKind.CLUSTER:
-        return ast.Constant(value=None)
-    if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
-        return ast.Constant(value=0)
-    if kind == LVTypeKind.PRIMITIVE:
-        if is_string_type_name(underlying):
-            return ast.Constant(value="")
-        if is_boolean_type_name(underlying):
-            return ast.Constant(value=False)
-        if underlying in (
-            "NumInt8",
-            "NumInt16",
-            "NumInt32",
-            "NumInt64",
-            "NumUInt8",
-            "NumUInt16",
-            "NumUInt32",
-            "NumUInt64",
-        ):
-            return ast.Constant(value=0)
-        if underlying in ("NumFloat32", "NumFloat64"):
-            return ast.Constant(value=0.0)
-
-    return ast.Constant(value=None)

@@ -22,7 +22,12 @@ from dataclasses import dataclass
 
 from lvkit.graph.package_queries import SharedVariableUse
 
-from .ast_utils import default_value_expr, to_var_name, unique_names
+from .ast_utils import (
+    implicit_imports,
+    to_var_name,
+    type_default_expr,
+    unique_names,
+)
 
 SHARED_VARIABLES_MODULE = "shared_variables"
 
@@ -53,7 +58,7 @@ class PackageSharedVariables:
         ordered = sorted(uses, key=lambda u: (u.library_key, u.variable, u.node_id))
         defaults: dict[tuple[str, str], set[str]] = {}
         for use in ordered:
-            default = ast.unparse(default_value_expr(use.value_type))
+            default = ast.unparse(type_default_expr(use.value_type))
             defaults.setdefault((use.library_key, use.variable), set()).add(default)
         keys = list(defaults)
         names: dict[tuple[str, str], str] = {}
@@ -69,7 +74,7 @@ class PackageSharedVariables:
         for use in ordered:
             key = (use.library_key, use.variable)
             found = defaults[key]
-            default = ast.unparse(default_value_expr(use.value_type))
+            default = ast.unparse(type_default_expr(use.value_type))
             error = None
             if len(found) > 1:
                 error = (
@@ -117,6 +122,11 @@ class PackageSharedVariables:
                     simple=1,
                 )
             )
-        module = ast.Module(body=body, type_ignores=[])
+        imports = [
+            stmt
+            for statement in implicit_imports(body)
+            for stmt in ast.parse(statement).body
+        ]
+        module = ast.Module(body=[*body[:2], *imports, *body[2:]], type_ignores=[])
         ast.fix_missing_locations(module)
         return ast.unparse(module)

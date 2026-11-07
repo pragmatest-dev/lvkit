@@ -12,7 +12,7 @@ properties:
 
 A method's ``MethodShape`` is what the definition and every call read, so the two
 agree: its parameters (by keyword), what it returns (nothing, the one result, or
-a ``NamedTuple`` of two or more) and whether its class output is a result. A
+a result class of two or more) and whether its class output is a result. A
 dynamic-dispatch call names the declaration while the object may be a descendant,
 so the shape is computed over the declaration and every loaded override.
 
@@ -22,13 +22,14 @@ while a run generates)."""
 from __future__ import annotations
 
 import weakref
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.error_behaviour import ErrorBehaviour
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import derive_python_name
@@ -67,13 +68,14 @@ class MethodShape:
     """One member VI as a Python method.
 
     Only connector-pane terminals are in a shape. ``parameters`` maps the pane
-    index of each input other than the class wire and the error cluster to its
-    keyword, and ``required`` are the indices of those a caller must wire;
-    ``result_fields`` maps the pane index of each result to its field of the
-    ``NamedTuple`` ``result_class`` (named when there is a result). ``results`` are
-    the pane indices returned, in pane order, and include the class output when
-    ``returns_receiver``: the class output is not the object the method was
-    called on, changed in place, in this VI or in a VI that overrides it."""
+    index of each input other than the class wire to its keyword (a property
+    accessor leaves its error in out), and ``required`` are the indices of those a
+    caller must wire; ``result_fields`` maps the pane index of each result to its
+    field of the result class ``result_class`` (named when there is a result).
+    ``results`` are the pane indices returned, in pane order, and include the
+    class output when ``returns_receiver``: the class output is not the object
+    the method was called on, changed in place, in this VI or in a VI that
+    overrides it."""
 
     key: str
     class_key: str
@@ -212,6 +214,28 @@ def accessor_of(
     return accessor, accessor_pane(graph, class_key, vi_key)
 
 
+def property_accessor_vi(
+    graph: InMemoryVIGraph, class_key: str, path: str, role: PropertyRole
+) -> str | None:
+    """The accessor VI that reads (``GETTER``) or writes (``SETTER``) the class
+    property at ``path`` in the project tree of the class at ``class_key`` or of
+    the nearest class it descends from that lists one, as a class Property Node
+    row names it; None when none of them does."""
+    key: str | None = class_key
+    while key is not None:
+        for member in graph.class_member_keys(key):
+            access = graph.get_method_access(member)
+            if (
+                access is not None
+                and access.is_accessor
+                and access.accessor_path == path
+                and access.accessor_type == role.value
+            ):
+                return member
+        key = graph.class_parent_key(key)
+    return None
+
+
 def member_shape(graph: InMemoryVIGraph, vi_key: str) -> MethodShape | None:
     """The shape of the VI ``vi_key`` as a method of the class that lists it; None
     for a VI no class lists."""
@@ -237,19 +261,33 @@ def _build_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
         inherited=inherited,
     )
     for key in graph.class_member_keys(class_key):
-        shape = _shape(graph, class_key, key)
-        model.shapes[key] = shape
+        shape = _shape(graph, class_key, key, accessor=key in accessors)
         access = graph.get_method_access(key)
         if shape.receiver_in is None and access is not None and not access.is_static:
             model.unavailable[key] = (
                 f"The dynamic-dispatch VI {graph.vi_display_name(key)} has no input "
                 f"of its class {model.name}, so there is no object to dispatch on"
             )
-            accessors.pop(key, None)
+            if accessors.pop(key, None) is not None:
+                shape = _shape(graph, class_key, key, accessor=False)
         elif key in accessors and shape.returns_receiver:
             # An accessor that gives back another object is an ordinary method:
             # `obj.name` cannot stand for it.
             del accessors[key]
+            shape = _shape(graph, class_key, key, accessor=False)
+        elif key in accessors:
+            behaviour = _accessor_error_behaviour(graph, class_key, key)
+            if behaviour is None:
+                # Its error out can carry an error of its own: an ordinary method
+                # with error in and error out.
+                del accessors[key]
+                shape = _shape(graph, class_key, key, accessor=False)
+            else:
+                accessors[key] = replace(
+                    accessors[key],
+                    skips_on_error=behaviour is ErrorBehaviour.SKIPS_ON_ERROR,
+                )
+        model.shapes[key] = shape
 
     # The names the class body defines itself (``class_builder``) are taken.
     own: dict[str, tuple[MemberKind, str]] = {
@@ -394,6 +432,22 @@ def _own_returns_receiver(graph: InMemoryVIGraph, class_key: str, vi_key: str) -
     return result
 
 
+def _accessor_error_behaviour(
+    graph: InMemoryVIGraph, class_key: str, vi_key: str
+) -> ErrorBehaviour | None:
+    """What the accessor VI ``vi_key`` and every VI that overrides it, or that
+    it overrides, do with an incoming error, when they all do the same and it
+    leaves their error out the incoming error (``passes_error_along``); None
+    otherwise: a call of one of them may report an error of its own, so the
+    accessor is an ordinary method."""
+    _, _, keys = _family(graph, class_key, vi_key)
+    behaviours = {graph.vi_error_behaviour(key) for key in keys}
+    if len(behaviours) != 1:
+        return None
+    behaviour = behaviours.pop()
+    return behaviour if behaviour.passes_error_along else None
+
+
 def _family_returns_receiver(
     graph: InMemoryVIGraph, class_key: str, vi_key: str
 ) -> bool:
@@ -404,7 +458,12 @@ def _family_returns_receiver(
     )
 
 
-def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
+def _shape(
+    graph: InMemoryVIGraph, class_key: str, vi_key: str, *, accessor: bool
+) -> MethodShape:
+    """The method the member VI ``vi_key`` is. The error in and error out of a
+    property ``accessor`` are not a parameter or a result: ``obj.name`` reads and
+    ``obj.name = value`` writes the value alone."""
     access = graph.get_method_access(vi_key)
     receiver_in, receiver_out = _receivers(graph, class_key, vi_key)
     if receiver_in is None:
@@ -422,7 +481,9 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
     parameters = {
         t.index: names.parameters[t.id]
         for t in r_in
-        if t.id in names.parameters and t.index != root_receiver_index
+        if t.id in names.parameters
+        and t.index != root_receiver_index
+        and not (accessor and t.is_error_cluster)
     }
     required = frozenset(
         t.index
@@ -432,7 +493,7 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
     results: list[int] = []
     result_fields: dict[int, str] = {}
     for t in r_out:
-        if t.is_error_cluster or t.id not in names.fields:
+        if t.id not in names.fields or (accessor and t.is_error_cluster):
             continue
         is_receiver = receiver_out is not None and t.index == receiver_out.index
         if is_receiver and not returns:

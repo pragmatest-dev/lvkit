@@ -6,7 +6,7 @@ import ast
 import keyword
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, ConstantNode, LoopNode
+from lvkit.graph.models import ConstantNode, LoopNode
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -18,13 +18,15 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    default_value_expr,
     node_owned_name,
     parse_expr,
     to_var_name,
+    type_default_expr,
 )
 from ..context import CodeGenContext
+from ..error_flow import error_occurred
 from ..fragment import CodeFragment
+from . import while_indexing
 
 
 def _when_condition(
@@ -67,14 +69,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # Track shift register variable names for update statements
     shift_reg_vars: dict[str, str] = {}  # lSR outer_terminal -> var_name
-    # lSR outer terminals whose left side is wired from OUTSIDE the loop
-    # (an initializer). These are local accumulators: their right-side value
-    # must be fed back into the local each iteration so the loop advances.
-    # An UNINITIALIZED lSR (not in this set) is LabVIEW's functional-global
-    # idiom -- it persists across CALLS via a module global (see below), so
-    # its local must NOT be overwritten mid-loop; a separate branch reads the
-    # pre-update value after the loop (e.g. the OpenG "Changed?" family).
-    initialized_sr_outers: set[str] = set()
     # (global_name, lsr_outer_term, fallback_shift_var) for uninitialized
     # SRs -- written back to the module global after the loop so the next
     # VI call sees them. The final value used is looked up after step 5
@@ -105,7 +99,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 pre_loop_stmts.append(build_assign(shift_var, parse_expr(outer_var)))
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
-                initialized_sr_outers.add(outer_term)
                 # An array-typed shift register carries an array; track it so the
                 # module pass writes operators as comprehensions over it (e.g. an
                 # element-wise Add of the accumulator to a per-iteration array,
@@ -134,8 +127,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     sr_lv_type = outer_sr_term.lv_type
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
-                ctx.add_module_global(
-                    global_name, default_value_expr(sr_lv_type), owner=outer_term
+                ctx.add_state_global(
+                    global_name, type_default_expr(sr_lv_type), owner=outer_term
                 )
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
@@ -222,7 +215,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # it (both would clobber into one variable otherwise).
                 ctx._allocated_vars.add(last_var)
                 outer_sr_term = term_by_id.get(outer_term)
-                seed = default_value_expr(
+                seed = type_default_expr(
                     outer_sr_term.lv_type if outer_sr_term else None
                 )
                 pre_loop_stmts.append(build_assign(last_var, seed))
@@ -359,18 +352,31 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A While Loop's iteration terminal counts from 0; Python has no counter in
     # `while True`, so a wired one is a local that starts at 0 and steps at the
-    # end of each iteration.
+    # end of each iteration. An auto-indexing input tunnel reads the element of
+    # that counter too (``while_indexing``).
     while_counter: str | None = None
+    element_stmts: list[ast.stmt] = []
     if loop_type == "whileLoop":
         iter_term = _iteration_terminal(node)
-        if iter_term is not None and ctx.is_wired(iter_term.id):
+        indexed = while_indexing.indexing_inputs(
+            tunnels, {t.id for t in node.terminals if t.direction == "input"}
+        )
+        counted = iter_term is not None and ctx.is_wired(iter_term.id)
+        if counted or indexed:
             depth = ctx.loop_depth
             while_counter = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
-            inner_ctx.bind(iter_term.id, while_counter)
             pre_loop_stmts.append(build_assign(while_counter, ast.Constant(value=0)))
+            if counted and iter_term is not None:
+                inner_ctx.bind(iter_term.id, while_counter)
+            element_stmts = while_indexing.bind_elements(
+                indexed, term_by_id, while_counter, ctx, inner_ctx, node.id
+            )
 
     # 4. Generate inner node code
-    inner_stmts = _generate_inner(inner_nodes, inner_ctx)
+    inner_stmts = [
+        *element_stmts,
+        *inner_ctx.generate_body(inner_nodes, (node.id, None)),
+    ]
 
     # 4. Add output-tunnel writes at end of loop body: append for indexed
     # accumulators, plain assignment for last-value (indexing-disabled) tunnels.
@@ -442,42 +448,30 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             inner_val = inner_ctx.resolve(inner_term)
             if inner_val and inner_val != rsr_shift_var:
                 # Write the new value into a DISTINCT variable rather than
-                # mutating rsr_shift_var (the lSR-bound local) in place.
-                updated_var = ctx.make_output_var(
-                    f"{rsr_shift_var}_updated",
-                    node.id,
-                    terminal_id=outer_term,
-                )
+                # mutating rsr_shift_var (the lSR-bound local) in place. It is
+                # local to the body (readers after the loop read rsr_shift_var),
+                # so it is never named from what the right side feeds: that
+                # name can be rsr_shift_var's own.
+                updated_var = ctx.make_output_var(f"{rsr_shift_var}_updated", node.id)
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
-                # Feed the new value back into the lSR local for the NEXT
-                # iteration when the SR is INITIALIZED (a local accumulator):
-                # its next value is whatever the body wired to the right side
-                # -- `counter + 1`, a case-merged array, the found index + 1 --
-                # and it MUST advance each iteration regardless of whether that
-                # expression textually mentions the SR var. An UNINITIALIZED SR
-                # is skipped: it is the functional-global idiom whose state
-                # persists across CALLS via the module global below, and whose
-                # pre-update value is read by a post-loop branch (the OpenG
-                # "Changed?" `old != new`), so an in-loop write would clobber it.
-                if lsr_outer in initialized_sr_outers:
-                    sr_feedbacks.append((rsr_shift_var, updated_var))
-                    # A post-loop reader of an initialized SR reads the
-                    # loop-carried variable -- its initial value when the loop
-                    # runs 0 times, the last fed-back value otherwise -- NOT the
-                    # body-local updated_var, which is unbound if the body never
-                    # executes (e.g. an empty input array).
-                    bindings[outer_term] = rsr_shift_var
-                else:
-                    # Uninitialized (functional-global) SR: the module-global
-                    # writeback below reads this fresh updated_var.
-                    bindings[outer_term] = updated_var
+                # Every shift register carries: the value wired to the right
+                # side becomes the left side for the NEXT iteration, initialized
+                # or not (an uninitialized one starts from the module global).
+                sr_feedbacks.append((rsr_shift_var, updated_var))
+                # A post-loop reader (and the module-global writeback of an
+                # uninitialized register) reads the loop-carried variable --
+                # the entry value when the loop runs 0 times, the last fed-back
+                # value otherwise -- NOT the body-local updated_var, which is
+                # unbound if the body never executes.
+                bindings[outer_term] = rsr_shift_var
             else:
                 bindings[outer_term] = rsr_shift_var
 
-    for lsr_var, updated_var in sr_feedbacks:
-        inner_stmts.append(
-            build_assign(lsr_var, ast.Name(id=updated_var, ctx=ast.Load()))
-        )
+    feedback_stmts = [
+        build_assign(lsr_var, ast.Name(id=updated_var, ctx=ast.Load()))
+        for lsr_var, updated_var in sr_feedbacks
+    ]
+    inner_stmts.extend(feedback_stmts)
 
     # Resolve uninitialized-SR writebacks now that step 5 has run: use the
     # paired rSR's final bound value (the fresh "updated" variable above)
@@ -524,11 +518,44 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Only if not already bound (it might be an input tunnel)
         if outer_term not in bindings:
             inner_val = inner_ctx.resolve(inner_term)
-            if inner_val:
+            if (
+                inner_val
+                and feedback_stmts
+                and _reads_shift_variable(inner_val, shift_reg_vars)
+            ):
+                # The tunnel's value is computed from a shift register's left
+                # side, so it is the value of the LAST iteration (before that
+                # iteration's update). The feedback at the end of the body
+                # overwrites the shift variable, so evaluate it into its own
+                # variable just before the feedback, seeded with the tunnel's
+                # type default for a For Loop that runs zero times.
+                captured = ctx.make_output_var(
+                    f"{inner_val}_iter", node.id, terminal_id=outer_term
+                )
+                outer_t = term_by_id.get(outer_term)
+                pre_loop_stmts.append(
+                    build_assign(
+                        captured,
+                        type_default_expr(outer_t.lv_type if outer_t else None),
+                    )
+                )
+                capture = build_assign(captured, parse_expr(inner_val))
+                at = next(
+                    (
+                        i
+                        for i, stmt in enumerate(loop_ast.body)
+                        if any(stmt is f for f in feedback_stmts)
+                    ),
+                    0,
+                )
+                loop_ast.body.insert(at, capture)
+                bindings[outer_term] = captured
+            elif inner_val:
                 bindings[outer_term] = inner_val
 
     # Add initialization for while loop stop condition
-    # (condition is computed inside loop, so we init to False before)
+    # (condition is computed inside loop, so we init it before: False, or no
+    # error for an error wire)
     # Skip if the variable is already a function parameter or if the
     # resolved value is an expression or a constant such as True (not a valid
     # assignment target)
@@ -538,8 +565,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             stop_condition_var
         )
         if is_identifier and stop_condition_var not in param_names:
+            fed_by_error = node.stop_condition_terminal is not None and (
+                _fed_by_error(node.stop_condition_terminal, ctx)
+            )
             pre_loop_stmts.append(
-                build_assign(stop_condition_var, ast.Constant(value=False))
+                build_assign(
+                    stop_condition_var,
+                    ast.Constant(value=None if fed_by_error else False),
+                )
             )
 
     # Write uninitialized-SR locals back to their module globals so the
@@ -554,6 +587,15 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         statements=all_stmts,
         bindings=bindings,
         imports=inner_ctx.imports,
+    )
+
+
+def _reads_shift_variable(expr_text: str, shift_reg_vars: dict[str, str]) -> bool:
+    """True if the expression reads one of the loop's shift variables."""
+    shift_vars = set(shift_reg_vars.values())
+    return any(
+        isinstance(n, ast.Name) and n.id in shift_vars
+        for n in ast.walk(parse_expr(expr_text))
     )
 
 
@@ -813,13 +855,6 @@ def _get_terminal_type(
     return None
 
 
-def _generate_inner(
-    inner_nodes: list[AnyGraphNode], ctx: CodeGenContext
-) -> list[ast.stmt]:
-    """Generate code for inner loop nodes."""
-    return ctx.generate_body(inner_nodes)
-
-
 def _iteration_terminal(node: LoopNode) -> Terminal | None:
     """The loop's iteration terminal (the LabVIEW `i` counter): its plain output
     terminal, not a tunnel."""
@@ -831,6 +866,27 @@ def _iteration_terminal(node: LoopNode) -> Terminal | None:
         ),
         None,
     )
+
+
+def _fed_by_error(stop_terminal: str, ctx: CodeGenContext) -> bool:
+    """The loop's conditional terminal is wired to an error."""
+    return ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
+        stop_terminal
+    )
+
+
+def _stop_test(
+    node: LoopNode, stop_terminal: str, value: str, ctx: CodeGenContext
+) -> ast.expr:
+    """The condition that ends the iteration, from ``value`` wired to the
+    conditional terminal: the value itself, or that an error occurred when the
+    wire is an error (a warning does not stop the loop); negated for Continue if
+    True."""
+    condition = error_occurred(value) if _fed_by_error(stop_terminal, ctx) else value
+    cond_expr = parse_expr(condition)
+    if node.stop_condition_inverted:
+        cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+    return cond_expr
 
 
 def _build_while_loop(
@@ -870,12 +926,13 @@ def _build_while_loop(
         # The cpdArith or other operation computes this inside the loop
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
             body = [
                 *body,
-                ast.If(test=cond_expr, body=[ast.Break()], orelse=[]),
+                ast.If(
+                    test=_stop_test(node, stop_terminal, stop_condition, ctx),
+                    body=[ast.Break()],
+                    orelse=[],
+                ),
             ]
             return ast.While(
                 test=ast.Constant(value=True),
@@ -928,9 +985,7 @@ def _build_for_loop(
     if stop_terminal:
         stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
-            cond_expr = parse_expr(stop_condition)
-            if node.stop_condition_inverted:
-                cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
+            cond_expr = _stop_test(node, stop_terminal, stop_condition, ctx)
             body = [*body, ast.If(test=cond_expr, body=[ast.Break()], orelse=[])]
 
     # Auto-indexing input arrays, classified once by generate() (step 3) and

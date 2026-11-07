@@ -87,20 +87,79 @@ def _constant_pattern(node: PrimitiveNode, pattern: str) -> str:
     try:
         translated = pcre_to_python_regex(pattern)
         re.compile(translated, re.ASCII)
-    except (ValueError, re.error) as error:
+    except (NotImplementedError, re.error) as error:
         raise _gap(node, "regular expression", error) from error
     return translated
 
 
+# NI, Regular Expression Error Codes, -4702; the Search and Replace String page:
+# "If you include null characters in the strings you wire to this function,
+# LabVIEW returns an error". Checked in Regular Expression mode only: a shipped
+# example (PicoLog CM3, plcm3unitinfo) searches for a null character in plain
+# mode, so LabVIEW accepts one there (the maintainer's decision, 2026-11-04).
+# Raised as the class of the operation's own the catalog entry names (``base``).
+NULL_CHARACTER = (
+    "One of the string parameters contains a null character. LabVIEW does not "
+    "support null characters for regular expression matching."
+)
+
+
+def _null_character_check(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    texts: list[str],
+    statements: list[ast.stmt],
+) -> list[ast.stmt]:
+    """The check that no string wired to the node (``texts``: the input string,
+    search string and replace string) holds a null character; a constant one
+    that holds none is left out, and none left is no check."""
+    checked: list[str] = []
+    for text in texts:
+        value = literal(text)
+        if isinstance(value, str):
+            if "\0" in value:
+                checked.append(text)
+            continue
+        checked.append(string_variable(ctx, node, text, statements))
+    if not checked:
+        return []
+    return ast.parse(
+        f"if any('\\0' in text for text in ({', '.join(checked)},)):\n"
+        f"    raise NullCharacterError({NULL_CHARACTER!r})"
+    ).body
+
+
+# NI's pages do not say what a ``$n`` beyond the submatches of the regular
+# expression gives, so it is a gap: at generation for a constant pair, at run
+# time (``NotImplementedError``) when either is computed.
+MISSING_SUBMATCH = (
+    "Search and Replace String's replace string refers to a submatch the regular "
+    "expression does not have (NI does not say what LabVIEW gives)"
+)
+
+
+def _missing_submatch_check(
+    pattern: str, submatches: str, flags: str
+) -> list[ast.stmt]:
+    """The run-time check that ``pattern`` has every submatch the replace string
+    inserts (``submatches``, from ``pcre_to_python_template``); a pattern that
+    does not compile is ``re.error``, the node's error out."""
+    return ast.parse(
+        f"if any(n > re.compile({pattern}, {flags or 0}).groups"
+        f" for n in {submatches}):\n"
+        f"    raise NotImplementedError({MISSING_SUBMATCH!r})"
+    ).body
+
+
 def _constant_template(node: PrimitiveNode, pattern: str, replacement: str) -> str:
-    translated = pcre_to_python_template(replacement)
+    translated, submatches = pcre_to_python_template(replacement)
+    compiled = re.compile(_constant_pattern(node, pattern), re.ASCII)
+    for reference in submatches:
+        if reference > compiled.groups:
+            raise ConversionGap(f"{MISSING_SUBMATCH}: ${reference}", node)
     try:
-        compiled = re.compile(_constant_pattern(node, pattern), re.ASCII)
         compiled.sub(translated, "")
-        for reference in re.findall(r"\\g<(\d+)>", translated):
-            if int(reference) > compiled.groups:
-                raise ValueError(f"the submatch {reference} does not exist")
-    except (ValueError, re.error) as error:
+    except re.error as error:
         raise _gap(node, "replace string", error) from error
     return translated
 
@@ -124,6 +183,18 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
     string = string_variable(
         ctx, node, input_expression(ctx, node, 0) or "''", statements
     )
+    if regex_mode:
+        # A computed search or replace string is read once, into a variable, by
+        # the null-character check and the pattern / template translation alike.
+        if search is not None and not isinstance(literal(search), str):
+            search = string_variable(ctx, node, search, statements, "search")
+        if replace is not None and not isinstance(literal(replace), str):
+            replace = string_variable(ctx, node, replace, statements, "replace")
+        statements.extend(
+            _null_character_check(
+                ctx, node, [string, search or "''", replace or "''"], statements
+            )
+        )
     outputs = {
         index: terminal(node, "output", index)
         for index in wired
@@ -178,14 +249,25 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
             else:
                 regex = declare_translator(ctx, _REGEX_TRANSLATOR, pcre_to_python_regex)
                 pattern = f"{regex}({search_text})"
+            pattern = string_variable(ctx, node, pattern, statements, "pattern")
             if isinstance(replace_value, str):
-                template = repr(pcre_to_python_template(replace_value))
+                translated, numbers = pcre_to_python_template(replace_value)
+                replacement, submatches = repr(translated), repr(numbers)
             else:
                 translate = declare_translator(
                     ctx, _TEMPLATE_TRANSLATOR, pcre_to_python_template
                 )
-                template = f"{translate}({replace_text})"
-            replacement = template
+                replacement = ctx.make_output_var("template", node.id)
+                submatches = ctx.make_output_var("submatches", node.id)
+                statements.extend(
+                    ast.parse(
+                        f"{replacement}, {submatches} = {translate}({replace_text})"
+                    ).body
+                )
+            if submatches != "()":
+                statements.extend(
+                    _missing_submatch_check(pattern, submatches, " | ".join(flags))
+                )
     else:
         pattern = (
             repr(re.escape(search_value))

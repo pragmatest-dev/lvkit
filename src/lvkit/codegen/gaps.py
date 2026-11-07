@@ -200,25 +200,19 @@ def _outputs(node: AnyGraphNode) -> list[Terminal]:
     """The terminals other nodes read from ``node``: its outputs, and for a
     structure the outer side of its output tunnels (its other terminals belong to
     its diagram) and, for an In Place Element Structure, the output ports its data
-    comes back out on. An error cluster carries nothing (an error is an
-    exception)."""
+    comes back out on."""
     if isinstance(node, StructureNode):
         return [
             term
             for term in node.terminals
             if term.direction == "output"
-            and not term.is_error_cluster
             and (
                 term.boundary == "outer"
                 if isinstance(term, TunnelTerminal)
                 else isinstance(node, InPlaceNode)
             )
         ]
-    return [
-        term
-        for term in node.terminals
-        if term.direction == "output" and not term.is_error_cluster
-    ]
+    return [term for term in node.terminals if term.direction == "output"]
 
 
 def gap_fragment(node: AnyGraphNode, ctx: CodeGenContext, reason: str) -> CodeFragment:

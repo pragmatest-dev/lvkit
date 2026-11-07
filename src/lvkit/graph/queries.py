@@ -122,7 +122,6 @@ class QueryMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
-        def has_parallel_branches(self, vi_name: str) -> bool: ...
         def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
         def class_type_key(self, lv_type: LVType) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
@@ -1359,7 +1358,6 @@ class QueryMixin:
             data_flow=data_flow,
             subvi_calls=subvi_calls,
             poly_variants=self.get_poly_variants(vi_name),
-            has_parallel_branches=self.has_parallel_branches(vi_name),
             properties=self._vi_properties.get(vi_name, VIProperties()),
             health=self._vi_health.get(vi_name, VIHealth()),
             connector_pattern_id=pattern_id,
@@ -1685,6 +1683,7 @@ class QueryMixin:
             is_accessor=bool(edata.get("is_accessor")),
             accessor_type=role.value if role else None,
             accessor_field=edata.get("accessor_field"),
+            accessor_path=edata.get("accessor_path"),
             is_static=bool(edata.get("is_static")),
             must_override=bool(edata.get("must_override")),
             must_call_parent=bool(edata.get("must_call_parent")),

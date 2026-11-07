@@ -8,11 +8,15 @@ A queue is a ``queue.Queue``. An Obtain Queue with no name is a ``Queue`` made
 at that point. One with a constant name refers to the one queue of that name in
 the package's ``queues`` module (see ``queue_module``); one whose name is
 computed at run time is an entry of that module's ``by_name`` dict. A timeout
-is the ``timeout`` of ``put`` / ``get``,
-and a queue that times out raises ``queue.Full`` / ``queue.Empty``; when the
-operation's ``timed out?`` output is used, the call is wrapped in ``try`` /
-``except`` and the output is a local ``bool``. Release Queue shuts the queue
-down, which needs Python 3.13.
+is the ``timeout`` of ``put`` / ``get``, and a queue that times out raises
+``queue.Full`` / ``queue.Empty``; a timeout is no error (NI), so the call is
+wrapped in ``try`` / ``except`` and ``timed out?`` is a local ``bool``. Release
+Queue shuts the queue down, which needs Python 3.13: an Enqueue then raises
+``queue.ShutDown``, and so do a Preview and a Dequeue (waiting or not) once the
+queue is empty; the catalog makes that the node's error out
+(``native_failure``). Only Release Queue needs Python 3.13: the other queue
+functions run on earlier versions, where ``queue.ShutDown`` and the queue's
+``is_shutdown`` flag do not exist and nothing can shut a queue down.
 
 Get Queue Status's pane has four same-typed I32 outputs (max size, #pending
 remove, #pending insert, #elements) that type alone can't tell apart; they were
@@ -24,7 +28,7 @@ These are generic ``<Prim class="prim">`` XML nodes distinguished only by
 ``primResID``, so dispatch happens by primResID in ``nodes/__init__.py`` rather
 than by ``node_type``. Terminals are resolved by the connector-pane INDEX
 recorded in primitives.json, never by name. Error cluster terminals are left
-unwired here: errors are Python exceptions.
+to ``error_flow`` and ``native_failure``.
 """
 
 from __future__ import annotations
@@ -35,12 +39,14 @@ from enum import IntEnum
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
+from lvkit.primitive_resolver import NativeError
 
-from ..ast_utils import default_value_expr, parse_expr
+from ..ast_utils import parse_expr, type_default_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver, ModuleImport
+from ..native_failure import exception_import, exception_name
 from ..queue_module import PackageQueues, QueueUse
 
 
@@ -64,6 +70,15 @@ class QueueOp(IntEnum):
 QUEUE_PRIM_IDS = frozenset(QueueOp)
 
 _QUEUE_IMPORT = "from queue import Empty, Full, Queue"
+# The exception a queue that was shut down raises (Python 3.13), as the catalog
+# lists it for the queue functions.
+_SHUT_DOWN = NativeError(exception="ShutDown", module="queue", since_python="3.13")
+
+
+def _shut_down(queue: str) -> str:
+    """Whether the queue ``queue`` was shut down. A ``queue.Queue`` has the
+    flag only from Python 3.13; before it no queue can be shut down."""
+    return f"getattr({queue}, 'is_shutdown', False)"
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -281,20 +296,29 @@ def _generate_enqueue(
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Enqueue Element(queue, element, timeout_ms) -> timed out?. A full queue
-    waits for room; past the timeout ``put`` raises ``queue.Full``."""
+    waits for room; past the timeout ``put`` raises ``queue.Full``, which is no
+    error: the element is not added and ``timed out?`` is true."""
     queue = _queue_input(node, by_index, ctx)
     element = _input(by_index.get(1), node, ctx) or "None"
     timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
     put = ast.Expr(value=_call(queue, "put", [element], timeout))
     timed_out = _consumed(by_index.get(10), ctx)
-    if timed_out is None:
+    if timed_out is None and timeout is None:
         return CodeFragment(statements=[put], bindings=bindings)
-    flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
-    bindings[timed_out.id] = flag
-    attempt = _try_timeout([put, _flag(flag, False)], "Full", [_flag(flag, True)])
+    attempt: list[ast.stmt] = [put]
+    on_timeout: list[ast.stmt] = []
+    if timed_out is None:
+        on_timeout.append(ast.Pass())
+    else:
+        flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
+        bindings[timed_out.id] = flag
+        attempt.append(_flag(flag, False))
+        on_timeout.append(_flag(flag, True))
     return CodeFragment(
-        statements=[attempt], bindings=bindings, imports={_QUEUE_IMPORT}
+        statements=[_try_timeout(attempt, "Full", on_timeout)],
+        bindings=bindings,
+        imports={_QUEUE_IMPORT},
     )
 
 
@@ -305,12 +329,15 @@ def _generate_enqueue_opposite_end(
 ) -> CodeFragment:
     """Enqueue Element At Opposite End(queue, element, timeout_ms) -> timed out?.
     ``queue.Queue`` only puts at the back, so the element goes on the front of
-    its ``deque`` under the queue's lock, waking one waiting ``get``."""
+    its ``deque`` under the queue's lock, waking one waiting ``get``. A queue
+    that was shut down raises ``queue.ShutDown``, as ``put`` does."""
     queue = _queue_input(node, by_index, ctx)
     element = _input(by_index.get(1), node, ctx) or "None"
     bindings = _passthrough(by_index, 8, queue)
     front = ast.parse(
         f"with {queue}.mutex:\n"
+        f"    if {_shut_down(queue)}:\n"
+        f"        raise {exception_name(_SHUT_DOWN)}\n"
         f"    {queue}.queue.appendleft({element})\n"
         f"    {queue}.unfinished_tasks += 1\n"
         f"    {queue}.not_empty.notify()\n"
@@ -321,7 +348,9 @@ def _generate_enqueue_opposite_end(
         flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
         statements.append(_flag(flag, False))
         bindings[timed_out.id] = flag
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports={exception_import(_SHUT_DOWN)}
+    )
 
 
 def _generate_dequeue(
@@ -330,34 +359,35 @@ def _generate_dequeue(
     ctx: CodeGenContext,
 ) -> CodeFragment:
     """Dequeue Element(queue, timeout_ms) -> (element, timed out?). An empty
-    queue waits; past the timeout ``get`` raises ``queue.Empty``, or, when
-    ``timed out?`` is used, the element is the type's default and the flag
-    is true."""
+    queue waits; past the timeout ``get`` raises ``queue.Empty``, which is no
+    error: the element is the type's default and ``timed out?`` is true."""
     queue = _queue_input(node, by_index, ctx)
     timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
     get = _call(queue, "get", [], timeout)
     element_term = _consumed(by_index.get(9), ctx)
     timed_out = _consumed(by_index.get(10), ctx)
-    if timed_out is None:
-        if element_term is None:
-            return CodeFragment(statements=[ast.Expr(value=get)], bindings=bindings)
-        element = ctx.make_output_var("element", node.id, element_term.id)
+    element = (
+        ctx.make_output_var("element", node.id, element_term.id)
+        if element_term is not None
+        else None
+    )
+    if element_term is not None and element is not None:
         bindings[element_term.id] = element
-        return CodeFragment(statements=[_assign(element, get)], bindings=bindings)
-    flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
-    bindings[timed_out.id] = flag
-    attempt: list[ast.stmt] = []
+    taken = ast.Expr(value=get) if element is None else _assign(element, get)
+    if timed_out is None and timeout is None:
+        return CodeFragment(statements=[taken], bindings=bindings)
+    attempt: list[ast.stmt] = [taken]
     on_timeout: list[ast.stmt] = []
-    if element_term is None:
-        attempt.append(ast.Expr(value=get))
-    else:
-        element = ctx.make_output_var("element", node.id, element_term.id)
-        bindings[element_term.id] = element
-        attempt.append(_assign(element, get))
-        on_timeout.append(_assign(element, default_value_expr(element_term.lv_type)))
-    attempt.append(_flag(flag, False))
-    on_timeout.append(_flag(flag, True))
+    if element_term is not None and element is not None:
+        on_timeout.append(_assign(element, type_default_expr(element_term.lv_type)))
+    if timed_out is not None:
+        flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
+        bindings[timed_out.id] = flag
+        attempt.append(_flag(flag, False))
+        on_timeout.append(_flag(flag, True))
+    if not on_timeout:
+        on_timeout.append(ast.Pass())
     return CodeFragment(
         statements=[_try_timeout(attempt, "Empty", on_timeout)],
         bindings=bindings,
@@ -372,7 +402,9 @@ def _generate_preview(
 ) -> CodeFragment:
     """Preview Queue Element(queue, timeout_ms) -> (element, timed out?): the
     front element, left in the queue. Under the queue's lock, the condition
-    ``not_empty`` waits until the queue holds an element or the timeout passes."""
+    ``not_empty`` waits until the queue holds an element, is shut down, or the
+    timeout passes; an empty queue that was shut down raises ``queue.ShutDown``,
+    as ``get`` does."""
     queue = _queue_input(node, by_index, ctx)
     timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
@@ -388,20 +420,24 @@ def _generate_preview(
         if timed_out is not None
         else None
     )
-    default = default_value_expr(element_term.lv_type if element_term else None)
-    wait = f"{queue}.not_empty.wait_for(lambda: {queue}.queue"
+    default = type_default_expr(element_term.lv_type if element_term else None)
+    wait = f"{queue}.not_empty.wait_for(lambda: {queue}.queue or {_shut_down(queue)}"
     wait += ")" if timeout is None else f", {timeout})"
     peek = f"{queue}.queue[0] if {queue}.queue else {ast.unparse(default)}"
     statements = ast.parse(
         f"with {queue}.not_empty:\n"
         f"    {'found' if flag else '_'} = {wait}\n"
+        f"    if {_shut_down(queue)} and not {queue}.queue:\n"
+        f"        raise {exception_name(_SHUT_DOWN)}\n"
         f"    {element} = {peek}\n" + (f"    {flag} = not found\n" if flag else "")
     ).body
     if element_term is not None:
         bindings[element_term.id] = element
     if timed_out is not None and flag is not None:
         bindings[timed_out.id] = flag
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports={exception_import(_SHUT_DOWN)}
+    )
 
 
 def _drain(queue: str, into: str) -> list[ast.stmt]:
@@ -421,7 +457,8 @@ def _generate_flush(
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Flush Queue(queue) -> remaining elements: take every element out."""
+    """Flush Queue(queue) -> remaining elements: take every element out. A queue
+    that was shut down raises ``queue.ShutDown`` once it is empty."""
     queue = _queue_input(node, by_index, ctx)
     bindings = _passthrough(by_index, 8, queue)
     remaining = _consumed(by_index.get(9), ctx)

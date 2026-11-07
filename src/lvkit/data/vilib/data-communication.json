@@ -211,6 +211,7 @@
     },
     {
       "name": "Close Variable Connection Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-variable-connection.html",
       "category": "Data Communication",
       "description": "Closes a connection to a shared variable.",
@@ -1462,6 +1463,7 @@
     },
     {
       "name": "Destroy Stream Endpoint Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-stream-endpoint.html",
       "category": "Data Communication",
       "description": "Destroys the specified endpoint. To completely destroy a stream and free up the memory allocated to that stream, you must destroy both the reader and writer endpoints. To ensure that you do not lose any data when you destroy a stream, use the Flush Stream function before this function on the writer endpoint.",
@@ -2080,6 +2082,7 @@
     },
     {
       "name": "DataSocket Close Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/datasocket-close.html",
       "category": "Data Communication",
       "description": "Closes a data connection you specify in connection id.",
@@ -2371,6 +2374,7 @@
     },
     {
       "name": "TCP Close Connection Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-close-connection.html",
       "category": "Data Communication",
       "description": "Closes a TCP network connection.",
@@ -3034,6 +3038,7 @@
     },
     {
       "name": "UDP Close Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/udp-close.html",
       "category": "Data Communication",
       "description": "Closes a UDP socket.",
@@ -3364,6 +3369,7 @@
     },
     {
       "name": "IrDA Close Connection Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/irda-close-connection.html",
       "category": "Data Communication",
       "description": "Closes the open infrared connection to the IrDA device specified by connection ID. Functions 5216 ni.com",
@@ -3787,6 +3793,7 @@
     },
     {
       "name": "Bluetooth Close Connection Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/bluetooth-close-connection.html",
       "category": "Data Communication",
       "description": "Closes a Bluetooth network connection. Functions © National Instruments 5225",

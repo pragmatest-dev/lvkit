@@ -18,6 +18,7 @@ from pathlib import Path
 from types import ModuleType
 
 from lvkit.codegen import build_module
+from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
@@ -27,6 +28,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule
 from lvkit.pipeline import create_import_resolver
+from lvkit.structure import PROPERTY_PATH_SEPARATOR
 from tests.helpers import build_graph, key_graph_types
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
@@ -269,10 +271,12 @@ class Project:
         scope: str = "public",
         static: bool = False,
         property_name: str | None = None,
+        folders: tuple[str, ...] = (),
     ) -> str:
         """The method VI ``vi`` of the class ``cls``. ``static`` is a static
         (not dynamic-dispatch) VI; ``property_name`` lists it in the Property
-        Definition folder of that property."""
+        Definition folder of that property, which sits in the class's virtual
+        ``folders``."""
         key = self.key_of(cls, vi)
         class_key = self.classes[cls]
         self._register(key, recipe, f"{cls}.lvclass:{vi}.vi")
@@ -284,6 +288,11 @@ class Project:
         listed = self.graph.listed_members(class_key)
         listed[key] = ListedMethod(
             scope=scope,
+            accessor_path=(
+                PROPERTY_PATH_SEPARATOR.join((*folders, property_name))
+                if property_name is not None
+                else None
+            ),
             is_static=static,
             is_accessor=property_name is not None,
             accessor_field=property_name,
@@ -312,6 +321,7 @@ class Project:
         out = self.tmp_path / "pkg"
         out.mkdir(exist_ok=True)
         (out / "__init__.py").write_text("")
+        (out / f"{ERRORS_MODULE_NAME}.py").write_text(ERRORS_MODULE_SOURCE)
         for key in self.vis.values():
             for class_key in self.classes.values():
                 graph._dep_graph.add_edge(key, class_key)  # noqa: SLF001

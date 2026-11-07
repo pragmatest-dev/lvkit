@@ -10,7 +10,7 @@ import pylabview.LVdatatype  # noqa: F401 -- imported first: pylabview's modules
 import pylabview.LVdatatyperef as lv_ref
 import pytest
 
-from lvkit.codegen.ast_utils import default_value_expr
+from lvkit.codegen.ast_utils import type_default_expr
 from lvkit.lv_type_codes import (
     REFNUM_TYPE,
     is_boolean_type_name,
@@ -30,7 +30,7 @@ def _prim(name: str) -> LVType:
 @pytest.mark.parametrize("name", ["Boolean", "BooleanU16"])
 def test_every_boolean_storage_is_a_boolean(name):
     assert is_boolean_type_name(name)
-    assert ast.unparse(default_value_expr(_prim(name))) == "False"
+    assert ast.unparse(type_default_expr(_prim(name))) == "False"
     assert _prim(name).to_python() == "bool"
     assert _prim(name).type_descriptor() == "TF"
 
@@ -40,7 +40,7 @@ def test_every_boolean_storage_is_a_boolean(name):
 )
 def test_every_string_storage_is_a_string(name):
     assert is_string_type_name(name)
-    assert ast.unparse(default_value_expr(_prim(name))) == "''"
+    assert ast.unparse(type_default_expr(_prim(name))) == "''"
     assert _prim(name).to_python() == "str"
     assert _prim(name).type_descriptor() == "String"
 

@@ -42,12 +42,17 @@ def is_wired_output(ctx: CodeGenContext, node: PrimitiveNode, index: int) -> boo
 
 
 def string_variable(
-    ctx: CodeGenContext, node: PrimitiveNode, text: str, statements: list[ast.stmt]
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    text: str,
+    statements: list[ast.stmt],
+    base: str = "string",
 ) -> str:
-    """``text`` as a name: itself when it is one, else a variable assigned it."""
+    """``text`` as a name: itself when it is one, else a variable named after
+    ``base`` assigned it."""
     if text.isidentifier():
         return text
-    name = ctx.make_output_var("string", node.id)
+    name = ctx.make_output_var(base, node.id)
     statements.append(build_assign(name, parse_expr(text)))
     return name
 

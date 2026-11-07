@@ -226,6 +226,7 @@
     },
     "24113": {
       "name": "TDMS Close",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

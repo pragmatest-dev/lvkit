@@ -14,7 +14,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.pipeline import create_import_resolver
-from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
+from lvkit.vilib_resolver import VIEntry, VILibResolver, VITerminal
 from tests.helpers import build_graph
 
 KEY = "/vilib/Analysis/Inverse FFT.vi"
@@ -87,9 +87,9 @@ def _caller_source(
     )
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
-    monkeypatch.setattr(get_resolver(), "resolve_recorded", lambda path: entry)
+    monkeypatch.setattr(VILibResolver, "resolve_recorded", lambda _self, path: entry)
     monkeypatch.setattr(
-        get_resolver(), "catalog_file_name", lambda path: "Inverse FFT.vi"
+        VILibResolver, "catalog_file_name", lambda _self, path: "Inverse FFT.vi"
     )
     return build_module(
         context, "caller.vi", import_resolver=resolver, graph=built, gaps=gaps

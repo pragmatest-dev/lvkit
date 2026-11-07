@@ -4,7 +4,6 @@ passthrough elimination, expression inlining, enum sanitization."""
 from __future__ import annotations
 
 import ast
-import logging
 
 from lvkit.codegen.builder import topological_sort_tiered
 from lvkit.codegen.context import CodeGenContext
@@ -106,7 +105,7 @@ class TestErrorSelectorByType:
 
 
 class TestErrorCaseUnwrap:
-    """Error-cluster case structures emit only the no-error frame body."""
+    """An error case structure with empty frames emits no statements."""
 
     def test_empty_error_frame_emits_no_error_body(self):
         op = _make_case_op(
@@ -122,41 +121,15 @@ class TestErrorCaseUnwrap:
         # No statements for empty frames
         assert fragment.statements == []
 
-    def test_nonempty_error_frame_logs(self, caplog):
-        from lvkit.graph.models import VINode
-        from tests.helpers import register_nodes
-
-        inner_op = VINode(
-            id="cleanup",
-            vi_path="test.vi",
-            name="cleanup.vi",
-            node_type="iUse",
-            terminals=[],
-            parent="case_1",
-            frame="1",  # the "True" frame's position
-        )
-        op = _make_case_op(
-            "sel_1",
-            _error_cluster_type(),
-            frames=[
-                CaseFrame(selector_value="False"),
-                CaseFrame(selector_value="True"),
-            ],
-        )
-        ctx = _make_ctx_with_binding("sel_1", "err")
-        register_nodes(ctx.graph, [op, inner_op])
-        with caplog.at_level(logging.INFO):
-            case.generate(op, ctx)
-        assert any("error frame omitted" in r.message for r in caplog.records)
-
 
 # ── Error input not bound ──────────────────────────────────────────
 
 
-class TestErrorInputNotBound:
-    """from_vi_context should NOT bind error cluster inputs."""
+class TestErrorInputBound:
+    """from_vi_context binds an error cluster input like any other: an error wire
+    is a value."""
 
-    def test_error_input_skipped(self):
+    def test_error_input_bound(self):
         from lvkit.graph.models import VIContext
 
         error_term = Terminal(
@@ -181,8 +154,8 @@ class TestErrorInputNotBound:
             constants=[],
         )
         ctx = CodeGenContext.from_vi_context(vi_ctx)
-        assert ctx.resolve("err_in") is None  # NOT bound
-        assert ctx.resolve("data_in") == "data"  # bound
+        assert ctx.resolve("err_in") == "error_in"
+        assert ctx.resolve("data_in") == "data"
 
 
 # ── nMux role-based passthrough ────────────────────────────────────

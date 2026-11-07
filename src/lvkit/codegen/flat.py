@@ -362,6 +362,12 @@ class Text(Layout):
             count = out.temporary("count")
             out.add(f"{count} = struct.unpack_from({fns.order + 'i'!r}, data, pos)[0]")
             out.add("pos += 4")
+            # A string longer than the data left is truncated data, which a
+            # slice would hide; it is reported as struct.unpack_from reports it.
+            out.add(f"if {count} < 0 or pos + {count} > len(data):")
+            out.indent += 1
+            out.add("raise struct.error('a string runs past the end of the data')")
+            out.indent -= 1
             out.add(f"{target} = data[pos:pos + {count}].decode('latin-1')")
             out.add(f"pos += {count}")
         else:

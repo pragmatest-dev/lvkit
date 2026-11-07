@@ -46,6 +46,7 @@
     },
     "1085": {
       "name": "DataSocket Close",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

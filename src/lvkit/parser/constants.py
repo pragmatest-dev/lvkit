@@ -62,6 +62,7 @@ VI_NAME_MERGE_ERRORS = "Merge Errors.vi"
 # (exact canonical name).
 VI_NAME_CLEAR_ERRORS = "Clear Errors.vi"
 VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE = "Error Cluster From Error Code.vi"
+VI_NAME_SIMPLE_ERROR_HANDLER = "Simple Error Handler.vi"
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 NODE_CLASS_MUX = "mux"  # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)

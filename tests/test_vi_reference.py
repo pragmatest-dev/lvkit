@@ -21,6 +21,7 @@ import pytest
 
 from lvkit.codegen.ast_utils import module_part, to_function_name
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
 from lvkit.graph.describe import describe_vi
@@ -576,6 +577,7 @@ def _package(
     package = tmp_path / "generated_refs"
     package.mkdir()
     (package / "__init__.py").write_text("")
+    (package / "errors.py").write_text(ERRORS_MODULE_SOURCE)
     (package / f"{module}.py").write_text(callee)
     (package / "refs.py").write_text(source)
     sys.path.insert(0, str(tmp_path))
@@ -734,6 +736,210 @@ def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
         refs.refs()  # type: ignore[attr-defined]
         callee = sys.modules["generated_refs.callee"]
         assert callee.calls[0][0] == "refs"
+
+
+# --- the node's own error in and error out -----------------------------------
+#
+# A Call By Reference node has its own error in (-3) and error out (-4) beside the
+# called VI's error in and error out (connector pane slots 2 and 3). Each diagram
+# wires all four: the caller's control "error in" to the node's error in, its
+# control "callee error" to the called VI's error in, and the node's error out,
+# the called VI's error out and the output y to indicators.
+
+# The callee returns y = x + 1 and an error of its own, code 7.
+_CALLEE_WITH_ERRORS = (
+    "from types import SimpleNamespace\n"
+    "from .errors import LabVIEWError\n"
+    "calls = []\n"
+    "def callee(x=None, error_in=None):\n"
+    "    calls.append((x, error_in))\n"
+    "    return SimpleNamespace(\n"
+    "        y=x + 1, error_out=LabVIEWError(code=7, source='callee')\n"
+    "    )\n"
+)
+
+_I32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+
+
+def _errors_wired(loaded: d.Loaded, *, vi_outputs: bool = True) -> None:
+    """Wire the node's and the called VI's error terminals; ``vi_outputs`` wires
+    the called VI's outputs too (Start Asynchronous Call has none to read)."""
+    for uid in (35, 37, 45, 47):
+        d.type_terminal(loaded, uid, d.ERROR)
+    d.type_terminal(loaded, 43, _I32)
+    d.add_control(loaded, "error in", d.ERROR, 35, uid="node error")
+    d.add_control(loaded, "callee error", d.ERROR, 45, uid="callee error")
+    d.add_indicator(loaded, "error out", d.ERROR, 37, 2)
+    if vi_outputs:
+        d.add_indicator(loaded, "y", _I32, 43, 1)
+        d.add_indicator(loaded, "callee error out", d.ERROR, 47, 3)
+
+
+def _static_with_errors(tmp_path: Path, *, style: str = "00") -> d.Loaded:
+    call = d.call_through_reference(
+        30, "Call By Reference", save_style=style, callee_errors=True
+    )
+    loaded = d.load(
+        tmp_path,
+        [_STATIC, call],
+        [d.wire(100, 11, 31)],
+        [_X],
+        callee_terminals=d.CALLEE_WITH_ERRORS,
+    )
+    _errors_wired(loaded, vi_outputs=style == "00")
+    return loaded
+
+
+def _value_with_errors(tmp_path: Path) -> d.Loaded:
+    call = d.call_through_reference(30, "Call By Reference", callee_errors=True)
+    loaded = d.load(tmp_path, [call], [], [_X], callee_terminals=d.CALLEE_WITH_ERRORS)
+    reference = d.typed_vi_reference(errors=True)
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    _errors_wired(loaded)
+    return loaded
+
+
+def test_an_error_on_the_nodes_error_in_skips_the_call(tmp_path: Path) -> None:
+    for refs in _package(
+        tmp_path, _source(_static_with_errors(tmp_path)), _CALLEE_WITH_ERRORS
+    ):
+        callee = sys.modules["generated_refs.callee"]
+        errors = sys.modules["generated_refs.errors"]
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(error_in=incoming, callee_error=None)  # type: ignore[attr-defined]
+        assert callee.calls == []
+        assert result.error_out is incoming
+        assert result.callee_error_out is None
+        assert result.y == 0
+
+
+def test_with_no_error_in_the_call_is_made_and_reports_the_vis_own_error(
+    tmp_path: Path,
+) -> None:
+    for refs in _package(
+        tmp_path, _source(_static_with_errors(tmp_path)), _CALLEE_WITH_ERRORS
+    ):
+        callee = sys.modules["generated_refs.callee"]
+        errors = sys.modules["generated_refs.errors"]
+        given = errors.LabVIEWError(code=3, source="given")
+        result = refs.refs(error_in=None, callee_error=given)  # type: ignore[attr-defined]
+        assert callee.calls == [(5, given)]
+        assert result.y == 6
+        assert result.callee_error_out.code == 7
+        assert result.error_out is None
+        # A warning on the node's error in does not skip the call; it passes on.
+        warning = errors.LabVIEWError(code=9, source="w", status=False)
+        result = refs.refs(error_in=warning, callee_error=None)  # type: ignore[attr-defined]
+        assert len(callee.calls) == 2
+        assert result.error_out is warning
+
+
+def test_a_reference_value_that_is_not_a_refnum_is_error_1026(tmp_path: Path) -> None:
+    for refs in _package(
+        tmp_path, _source(_value_with_errors(tmp_path)), _CALLEE_WITH_ERRORS
+    ):
+        callee = importlib.import_module("generated_refs.callee")
+        errors = sys.modules["generated_refs.errors"]
+        result = refs.refs(vi_ref=None, error_in=None, callee_error=None)  # type: ignore[attr-defined]
+        assert callee.calls == []
+        assert result.error_out.status is True
+        assert result.error_out.code == 1026
+        assert result.error_out.source == "Call By Reference"
+        assert result.error_out.message == "VI Reference is invalid."
+        assert result.callee_error_out is None
+        assert result.y == 0
+        # An error that came in wins over the invalid reference.
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(vi_ref=None, error_in=incoming, callee_error=None)  # type: ignore[attr-defined]
+        assert result.error_out is incoming
+        # A reference that holds the VI is called.
+        result = refs.refs(vi_ref=callee.callee, error_in=None, callee_error=None)  # type: ignore[attr-defined]
+        assert callee.calls == [(5, None)]
+        assert result.error_out is None
+        assert result.callee_error_out.code == 7
+        assert result.y == 6
+
+
+def test_a_reference_value_with_an_incoming_error_is_not_called(
+    tmp_path: Path,
+) -> None:
+    for refs in _package(
+        tmp_path, _source(_value_with_errors(tmp_path)), _CALLEE_WITH_ERRORS
+    ):
+        callee = importlib.import_module("generated_refs.callee")
+        errors = sys.modules["generated_refs.errors"]
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(  # type: ignore[attr-defined]
+            vi_ref=callee.callee, error_in=incoming, callee_error=None
+        )
+        assert callee.calls == []
+        assert result.error_out is incoming
+        assert result.callee_error_out is None
+
+
+def test_start_asynchronous_call_with_an_incoming_error_starts_nothing(
+    tmp_path: Path,
+) -> None:
+    loaded = _static_with_errors(tmp_path, style="01")
+    for refs in _package(tmp_path, _source(loaded), _CALLEE_WITH_ERRORS):
+        callee = sys.modules["generated_refs.callee"]
+        errors = sys.modules["generated_refs.errors"]
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(error_in=incoming, callee_error=None)  # type: ignore[attr-defined]
+        refs._async_call_pool.shutdown(wait=True)  # type: ignore[attr-defined]
+        assert callee.calls == []
+        assert result.error_out is incoming
+
+
+def test_start_asynchronous_call_with_no_error_in_starts_the_call(
+    tmp_path: Path,
+) -> None:
+    loaded = _static_with_errors(tmp_path, style="01")
+    for refs in _package(tmp_path, _source(loaded), _CALLEE_WITH_ERRORS):
+        callee = sys.modules["generated_refs.callee"]
+        result = refs.refs(error_in=None, callee_error=None)  # type: ignore[attr-defined]
+        refs._async_call_pool.shutdown(wait=True)  # type: ignore[attr-defined]
+        assert callee.calls == [(5, None)]
+        assert result.error_out is None
+
+
+# The callee's connector pane has no error terminals: y = x + 1.
+_CALLEE_NO_ERRORS = (
+    "from types import SimpleNamespace\n"
+    "calls = []\n"
+    "def callee(x=None):\n"
+    "    calls.append(x)\n"
+    "    return SimpleNamespace(y=x + 1)\n"
+)
+
+
+def test_a_called_vi_with_no_error_terminals_is_skipped_on_the_nodes_error_in(
+    tmp_path: Path,
+) -> None:
+    """The called VI's connector pane has no error in or error out; the node's
+    own error in still skips the call and its error out passes the error on.
+    The call names only the pane's terminals."""
+    call = d.call_through_reference(30, "Call By Reference")
+    loaded = d.load(tmp_path, [_STATIC, call], [d.wire(100, 11, 31)], [_X])
+    for uid in (35, 37):
+        d.type_terminal(loaded, uid, d.ERROR)
+    d.type_terminal(loaded, 43, _I32)
+    d.add_control(loaded, "error in", d.ERROR, 35, uid="node error")
+    d.add_indicator(loaded, "error out", d.ERROR, 37, 2)
+    d.add_indicator(loaded, "y", _I32, 43, 1)
+    source = _source(loaded)
+    assert "callee(x=5)" in source
+    for refs in _package(tmp_path, source, _CALLEE_NO_ERRORS):
+        callee = sys.modules["generated_refs.callee"]
+        errors = importlib.import_module("generated_refs.errors")
+        result = refs.refs(error_in=None)  # type: ignore[attr-defined]
+        assert callee.calls == [5]
+        assert (result.y, result.error_out) == (6, None)
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(error_in=incoming)  # type: ignore[attr-defined]
+        assert callee.calls == [5]
+        assert (result.y, result.error_out) == (0, incoming)
 
 
 def test_the_resolver_names_the_module_it_writes_into(tmp_path: Path) -> None:

@@ -67,6 +67,7 @@
     },
     "9148": {
       "name": "Bluetooth Close Connection",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

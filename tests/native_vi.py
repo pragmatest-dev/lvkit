@@ -4,6 +4,7 @@ a construct and execute it."""
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from dataclasses import dataclass
 from types import ModuleType
@@ -69,6 +70,11 @@ class Generated:
     function: object
 
 
+def result_values(result: object) -> tuple:
+    """The fields of a VI's result object, in field order."""
+    return tuple(getattr(result, f.name) for f in dataclasses.fields(result))
+
+
 def generate(
     inputs: dict[str, LVType],
     outputs: dict[str, LVType],
@@ -124,9 +130,11 @@ def generate(
     )
     graph = build_graph(context, context.name, nodes)
     source = build_module(context, context.name, graph=graph, gaps=gaps)
-    namespace: dict = {"__name__": f"{_PACKAGE}.native_test", "__package__": _PACKAGE}
     _install_package()
-    exec(compile(source, "native_test.py", "exec"), namespace)
-    module = ModuleType("native_test")
-    module.__dict__.update(namespace)
-    return Generated(source, module, namespace["native_test"])
+    # The module is registered before its code runs: a result class is a
+    # ``dataclass``, which looks its module up while it is defined.
+    module = ModuleType(f"{_PACKAGE}.native_test")
+    module.__package__ = _PACKAGE
+    sys.modules[module.__name__] = module
+    exec(compile(source, "native_test.py", "exec"), module.__dict__)
+    return Generated(source, module, module.__dict__["native_test"])

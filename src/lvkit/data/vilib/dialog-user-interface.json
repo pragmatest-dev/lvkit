@@ -350,8 +350,6 @@
         }
       ],
       "python": "",
-      "python_code": "if error_in and error_in.get(\"status\"):\n    raise RuntimeError(f\"{error_in.get('source', 'Unknown')}: {error_in.get('code', 0)}\")",
-      "inline": true,
       "imports": [],
       "status": "complete",
       "is_variant": false
@@ -1320,6 +1318,7 @@
     },
     {
       "name": "Unregister For Events Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Dialog & User Interface",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
@@ -1566,6 +1565,7 @@
     },
     {
       "name": "Destroy User Event Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
       "category": "Dialog & User Interface",
       "description": "Releases a user event reference by destroying its associated user event refnum. Any Event structures registered for this user event no longer receive the event.",
@@ -2458,6 +2458,7 @@
     },
     {
       "name": "Unset Busy",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/cursorutil-llb/unset-busy-vi.html",
       "category": "Dialog & User Interface",
       "description": "Changes the appearance of the cursor on the front panel of a VI from a busy cursor to the default LabVIEW cursor and enables the mouse on the front panel. Functions 1920 ni.com Use this VI only after you use the Set Busy VI. (Real-Time Module) You cannot use this VI in VIs that run on RT targets.",

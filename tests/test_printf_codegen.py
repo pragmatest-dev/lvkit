@@ -57,6 +57,28 @@ def test_wired_format_string_is_applied_at_run_time() -> None:
     assert namespace["formatted"] == "found 3 items"
 
 
+def test_two_format_nodes_have_two_variables() -> None:
+    """Each Format Into String output is its own variable: a second node never
+    sets the first one's again."""
+    graph = InMemoryVIGraph()
+    nodes = [
+        PrimitiveNode(
+            id=f"fmt{i}",
+            vi_path="t.vi",
+            name="Format Into String",
+            terminals=[
+                Terminal(id=f"fmt{i}_in0", index=0, direction="input"),
+                Terminal(id=f"fmt{i}_out", index=2, direction="output", name="out"),
+            ],
+        )
+        for i in range(2)
+    ]
+    register_nodes(graph, nodes, vi_name="t.vi")
+    ctx = CodeGenContext(graph=graph)
+    names = [printf.generate(node, ctx).bindings[f"{node.id}_out"] for node in nodes]
+    assert names == ["out", "out_2"]
+
+
 def test_literal_format_string_is_inlined() -> None:
     source = _generate("'found %d items'", "count")
     namespace: dict[str, object] = {"count": 3}

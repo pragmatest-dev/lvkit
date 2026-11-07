@@ -9,7 +9,9 @@ no arguments:
 - Wait Until Done TRUE (its default, when unwired) is ``function()``;
 - Wait Until Done FALSE starts the function and goes on, on the thread pool
   Start Asynchronous Call uses (``vi_reference.submit_to_pool``);
-- Auto Dispose Ref only says who closes the reference: no Python meaning.
+- Auto Dispose Ref only says who closes the reference: no Python meaning;
+- error in and error out are the Invoke Node's own: the run happens only when
+  no error came in, and error out is error in (``error_flow.guard``).
 
 A gap where a call with no arguments cannot be that run: Wait Until Done computed
 when the diagram runs; a VI with a Required input; a dynamic dispatch member VI;

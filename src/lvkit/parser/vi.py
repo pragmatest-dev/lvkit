@@ -158,6 +158,7 @@ from .nodes import (
     is_disable_structure,
     parse_selector_tables,
 )
+from .refnum_value import TAG_FLATTENED_REFNUM_TYPE, TAG_REFNUM_TYPES, handle_text
 from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
@@ -173,6 +174,7 @@ from .utils import (
     strip_surrounding_quotes,
 )
 from .xml_trees import parsed_xml, xml_scope
+from .xnode_links import name_terminals_by_id, resolve_xnode_libraries
 
 # A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
 # bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
@@ -534,6 +536,7 @@ def _parse_block_diagram(
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
     resolve_ext_func_calls(nodes, main_xml, type_map)
+    resolve_xnode_libraries(nodes, main_xml)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
@@ -548,6 +551,7 @@ def _parse_block_diagram(
         type_map,
         srn_to_structure=srn_to_structure,
     )
+    name_terminals_by_id(root, nodes, terminal_info)
     loops = extract_loops(root)
     case_structures = extract_case_structures(
         root,
@@ -2681,13 +2685,6 @@ def _quad_to_float(raw: bytes | memoryview) -> float:
         return sign * math.inf
 
 
-# Refnums whose value is not a 4-byte handle but flattened strings (NI "Flattened
-# Data", "Refnums": type codes 0xE, 0xF and 0x15 store "a flattened string" holding
-# the refnum tag; 0x1D, with the tag, three more fields). Keyed by RefType.
-_TAG_REFNUM_TYPES = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"})
-_TAG_FLATTENED_REFNUM_TYPE = "UsrDefTagFlt"
-
-
 def _read_string(data: bytes | memoryview, idx: int) -> int | None:
     """The offset just past the flattened string at ``idx``, else None."""
     if idx + 4 > len(data):
@@ -2705,7 +2702,7 @@ def _decode_tag_refnum(
     if tag_end is None:
         return None, 0, None
     end = tag_end
-    if ref_type == _TAG_FLATTENED_REFNUM_TYPE:
+    if ref_type == TAG_FLATTENED_REFNUM_TYPE:
         for part in ("string", "string", "int", "string"):
             if part == "int":
                 end += 4
@@ -3123,11 +3120,10 @@ def _decode_element(
     if underlying == "Refnum":
         if elem_type.classname:
             return _decode_class_object(data, elem_type)
-        if elem_type.ref_type in _TAG_REFNUM_TYPES:
+        if elem_type.ref_type in TAG_REFNUM_TYPES:
             return _decode_tag_refnum(data, elem_type.ref_type)
         size = min(4, len(data))
-        val = int.from_bytes(data[:size], "big")
-        value = f"Refnum({val})" if val else "None"
+        value = handle_text(int.from_bytes(data[:size], "big"))
         return value, size, value
 
     # Set and Map: a 32-bit count, then each element (a Set) or each key and

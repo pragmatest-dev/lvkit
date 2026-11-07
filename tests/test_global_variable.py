@@ -33,7 +33,7 @@ from lvkit.parser import parse_vi
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.node_types import GRefNode
 from tests.corpus_graphs import load_corpus_vi
-from tests.helpers import register_nodes
+from tests.helpers import exec_module, register_nodes
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.xdist_group("lv_icon.vi")]
 
@@ -267,8 +267,7 @@ def test_generated_write_assigns_the_global_module_attribute() -> None:
 def test_global_module_keeps_cluster_saved_defaults() -> None:
     graph, key = load_corpus_vi(DATA_VI)
     source = build_module(graph.get_vi_context(key), key, graph=graph)
-    namespace: dict[str, object] = {}
-    exec(compile(source, "data", "exec"), namespace)
+    namespace = exec_module(source, "data").__dict__
     # An anonymous cluster is a positional tuple, in field order: the saved
     # defaults of Data.vi's two cluster controls.
     assert namespace["framework_templates"] == (0, 1, 5, 6)
@@ -411,7 +410,7 @@ def _caller_function(
     return f"{imports}\n{ast.unparse(ast.fix_missing_locations(module))}"
 
 
-def test_global_vi_module_keeps_saved_values_and_leaves_out_error_cluster() -> None:
+def test_global_vi_module_keeps_saved_values_and_holds_no_error() -> None:
     from lvkit.codegen.global_module import build_global_module
 
     source = build_global_module(_synthetic_global_vi())
@@ -419,16 +418,14 @@ def test_global_vi_module_keeps_saved_values_and_leaves_out_error_cluster() -> N
     exec(compile(source, "counter", "exec"), module.__dict__)
     assert module.count == 5
     assert module.settings == (3, 4)
-    assert not hasattr(module, "error_out")
+    assert module.error_out is None
 
 
-def test_global_variable_node_on_an_error_cluster_control_generates_nothing() -> None:
+def test_global_variable_node_on_an_error_cluster_control_reads_the_error() -> None:
     node = _global_node("ge", 1, "error out", is_write=False, caller="reader")
     graph = _synthetic_graph([node], "reader")
-    ctx = CodeGenContext(graph=graph)
-    ctx.vi_name = "reader"
-    fragment = global_variable_codegen.generate(node, ctx)
-    assert fragment.statements == [] and fragment.imports == set()
+    source = _caller_function(graph, node, "reader", value=None)
+    assert "counter_global.error_out" in source
 
 
 def test_one_vi_writes_a_global_and_another_reads_it_back() -> None:
@@ -497,12 +494,15 @@ def test_describe_json_shows_the_global_vi_verbose_and_not() -> None:
 
 
 def test_a_global_vi_module_imports_only_what_it_reads() -> None:
-    """Its controls are an ``int`` and a ``tuple``: no ``Any`` or ``Path``."""
+    """Its controls are an ``int``, an error and a ``tuple``: no ``Any`` or
+    ``Path``. With no package there is no ``errors`` module to import the
+    error's class from; the annotation is never evaluated."""
     from lvkit.codegen.global_module import build_global_module
 
     source = build_global_module(_synthetic_global_vi())
     assert source == (
         "from __future__ import annotations\n"
         "count: int = 5\n"
+        "error_out: LabVIEWError | None = None\n"
         "settings: tuple = (3, 4)"
     )

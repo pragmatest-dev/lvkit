@@ -113,6 +113,16 @@ class ImportResolver:
         self._module_names.add(name)
         return name
 
+    def defined_name(self, name: str) -> str:
+        """The name a module-level definition wanted as ``name`` is written
+        under: ``name`` when no top-level name of the module has it, else the
+        first free ``name_2``, ``name_3``… (as an import's alias is); it becomes
+        a top-level name of the module, so no import is spelled as it later."""
+        if name in self._module_names:
+            return self.alias_name(name, lambda _: False)
+        self._module_names.add(name)
+        return name
+
     def own_function(self, name: str) -> NameImport:
         """The import of the function ``name`` the module being generated defines,
         from that module itself (made inside a function, at run time)."""

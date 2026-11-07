@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from lvkit.codegen.builder import build_module, build_result_class
@@ -9,13 +11,13 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.subvi import _build_output_bindings
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph, error_cluster_type
+from tests.helpers import build_graph, error_cluster_type, exec_module
 
 
 @pytest.mark.parametrize("label", ["_status", "status", "class", "2nd result"])
 def test_caller_reads_the_callee_result_field(label: str):
     """A caller reads a SubVI output by the same field name the callee's
-    NamedTuple declares."""
+    result class declares."""
     callee = VIContext(name="Callee.vi", outputs=[output(label)])
     result_class = build_result_class(callee)
     assert result_class is not None
@@ -29,6 +31,10 @@ def test_caller_reads_the_callee_result_field(label: str):
     )
     bindings = _build_output_bindings(node, "callee_result", None, CodeGenContext())
     assert bindings["t:out"] == f"callee_result.{declared}"
+
+
+def field_names(result: object) -> tuple[str, ...]:
+    return tuple(f.name for f in dataclasses.fields(result))  # type: ignore[arg-type]
 
 
 def output(label: str, index: int = 0) -> FPTerminal:
@@ -83,8 +89,8 @@ def test_result_field_and_return_agree(label: str, field: str):
     namespace = {}
     exec(compile(source, context.name, "exec"), namespace)
     result = namespace["result_field"]()
-    assert result._fields == (field,)
-    assert result._asdict() == {field: 42.0}
+    assert field_names(result) == (field,)
+    assert dataclasses.asdict(result) == {field: 42.0}
 
 
 @pytest.mark.parametrize(
@@ -105,12 +111,11 @@ def test_colliding_labels_get_distinct_fields(
         outputs=[output(label, index) for index, label in enumerate(labels)],
     )
     source = build_module(context, context.name)
-    namespace: dict = {}
-    exec(compile(source, context.name, "exec"), namespace)
-    assert namespace["collision"]()._fields == fields
+    namespace = exec_module(source, context.name).__dict__
+    assert field_names(namespace["collision"]()) == fields
 
 
-def test_error_cluster_is_excluded_before_collision_check():
+def test_an_error_cluster_output_is_a_field_like_any_other():
     regular = output("error out")
     regular.lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     error = output("error out", 1)
@@ -118,4 +123,5 @@ def test_error_cluster_is_excluded_before_collision_check():
     context = VIContext(name="Error Output.vi", outputs=[regular, error])
     result_class = build_result_class(context)
     assert result_class is not None
-    assert len(result_class.body) == 1
+    fields = [stmt.target.id for stmt in result_class.body]  # type: ignore[attr-defined]
+    assert fields == ["error_out", "error_out_2"]
