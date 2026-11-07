@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 from lvkit._data import data_dir as _bundled_data_dir
+from lvkit.catalog_stamp import iter_category_entries
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 from .models import VIEntry
@@ -105,58 +106,43 @@ class _VILibLoaderMixin:
 
     def _load_vilib_data(self, vilib_dir: Path) -> None:
         """Load VI mappings from category files in data/vilib/."""
-        index_path = vilib_dir / "_index.json"
-        if not index_path.exists():
-            return
-
-        with open(index_path, encoding="utf-8") as f:
-            index = json.load(f)
-
-        for category, filename in index.get("categories", {}).items():
-            category_path = vilib_dir / filename
-            if not category_path.exists():
+        for category, entry_data in iter_category_entries(vilib_dir):
+            # Parse JSON into typed Pydantic model
+            entry = VIEntry.model_validate(entry_data)
+            if not entry.name:
                 continue
 
-            with open(category_path, encoding="utf-8") as f:
-                data = json.load(f)
+            # Apply default category if not set
+            if not entry.category:
+                entry.category = category
 
-            for entry_data in data.get("entries", []):
-                # Parse JSON into typed Pydantic model
-                entry = VIEntry.model_validate(entry_data)
-                if not entry.name:
-                    continue
+            # Store raw data for context in exceptions
+            self._pdf_entries[entry.name] = entry_data
 
-                # Apply default category if not set
-                if not entry.category:
-                    entry.category = category
+            # Create VI name with .vi extension for lookup
+            if not entry.name.endswith(".vi"):
+                vi_name = f"{entry.name}.vi"
+            else:
+                vi_name = entry.name
 
-                # Store raw data for context in exceptions
-                self._pdf_entries[entry.name] = entry_data
+            # Only add if not already present (legacy data takes priority)
+            if vi_name not in self._by_name:
+                self._by_name[vi_name] = entry
+                if entry.vi_path:
+                    self._vis[entry.vi_path] = entry
 
-                # Create VI name with .vi extension for lookup
-                if not entry.name.endswith(".vi"):
-                    vi_name = f"{entry.name}.vi"
-                else:
-                    vi_name = entry.name
+            # Register alternate match names
+            for alt_name in entry.match_names:
+                if not alt_name.endswith(".vi"):
+                    alt_name = f"{alt_name}.vi"
+                if alt_name not in self._by_name:
+                    self._by_name[alt_name] = entry
 
-                # Only add if not already present (legacy data takes priority)
-                if vi_name not in self._by_name:
-                    self._by_name[vi_name] = entry
-                    if entry.vi_path:
-                        self._vis[entry.vi_path] = entry
-
-                # Register alternate match names
-                for alt_name in entry.match_names:
-                    if not alt_name.endswith(".vi"):
-                        alt_name = f"{alt_name}.vi"
-                    if alt_name not in self._by_name:
-                        self._by_name[alt_name] = entry
-
-                # Register polySelector name lookups
-                # Key: (base_vi_name, poly_selector_name) → entry
-                if entry.poly_selector_names and entry.base_vi:
-                    for ps_name in entry.poly_selector_names:
-                        self._by_poly_selector[(entry.base_vi, ps_name)] = entry
+            # Register polySelector name lookups
+            # Key: (base_vi_name, poly_selector_name) → entry
+            if entry.poly_selector_names and entry.base_vi:
+                for ps_name in entry.poly_selector_names:
+                    self._by_poly_selector[(entry.base_vi, ps_name)] = entry
 
     def _load_types(self, types_path: Path) -> None:
         """Load type definitions from _types.json into LVType dataclasses.

@@ -233,7 +233,7 @@ def test_the_failed_shallow_load_is_not_lost_when_render_retries(
         return real(self, path, mode, *args, **kwargs)
 
     monkeypatch.setattr(InMemoryVIGraph, "load_vi", flaky)
-    svg, _, _, problems = render_vi_file_report(vi, mode=LoadMode.MINIMAL)
+    svg, _, _, problems, _ = render_vi_file_report(vi, mode=LoadMode.MINIMAL)
     assert svg is not None and calls == [LoadMode.MINIMAL, LoadMode.NONE]
     (problem,) = problems
     assert problem.kind is ProblemKind.LVKIT_ERROR

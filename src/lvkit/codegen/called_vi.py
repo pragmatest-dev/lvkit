@@ -13,8 +13,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.catalogs import vilib_catalog_for
 from lvkit.graph.models import VINode
-from lvkit.vilib_resolver import VILibResolver, get_resolver
+from lvkit.vilib_resolver import VILibResolver
 
 from .context import CodeGenContext
 from .import_resolver import ImportResolver
@@ -34,8 +35,10 @@ class RunCall:
 
 def vilib_resolver(ctx: CodeGenContext | None) -> VILibResolver:
     """The vi.lib resolver this run reads: its own copy once it has learned, else
-    the shared catalog."""
-    return ctx.learned_vilib[0] if ctx and ctx.learned_vilib else get_resolver()
+    the catalog of the run."""
+    if ctx is None:
+        return vilib_catalog_for(None)
+    return ctx.learned_vilib[0] if ctx.learned_vilib else ctx.vilib_catalog
 
 
 def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:

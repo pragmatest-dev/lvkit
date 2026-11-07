@@ -42,7 +42,7 @@ import os
 import shutil
 import threading
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 from lvkit import staging
@@ -531,7 +531,12 @@ def extraction_fingerprint() -> str:
     return h.hexdigest()
 
 
-def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> bool:
+def meta_fresh(
+    vi_path: Path,
+    meta_path: Path,
+    extra: dict | None = None,
+    check: Callable[[dict], bool] | None = None,
+) -> bool:
     """True if the cached artifact described by ``meta_path`` is still valid for
     ``vi_path``.
 
@@ -540,6 +545,8 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
     mtime on a content match. When ``extra`` is given (e.g. lvkit version +
     render options), every key must ALSO match the recorded meta — a version
     bump or an options change is a miss even when the VI bytes are unchanged.
+    ``check`` is given the recorded meta and says whether what it records besides
+    the VI is still current.
     """
     if not meta_path.exists():
         return False
@@ -552,6 +559,8 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
             if meta.get(k) != v:
                 return False
     if not dependencies_fresh(meta.get("dependencies")):
+        return False
+    if check is not None and not check(meta):
         return False
     try:
         st = vi_path.stat()
