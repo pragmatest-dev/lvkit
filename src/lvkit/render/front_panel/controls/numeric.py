@@ -71,14 +71,22 @@ class NumericControlGlyph(ControlGlyph):
     # The readout part's own literal fill, when it stores one.
     readout_fill: str | None = None
     is_indicator: bool = False
-    # Drawn greyed, the look of a field in an array with no saved elements.
+    # In an array with no saved elements. An element is drawn greyed; an index
+    # display is not (it only keeps the wash off, see ``draws_disabled``).
     disabled: bool = False
+    # The glyph is an array's index display.
+    is_index: bool = False
     # The array this is the index display of, when it is the array controller's
     # live target: its arrows page the array and its readout shows the index.
     live_struct: str | None = None
     # The readout part's first font run and its literal colour.
     value_font: ParsedFPFont | None = None
     value_color: str | None = None
+
+    @property
+    def greyed(self) -> bool:
+        """True when the Modern field is drawn in the disabled look."""
+        return self.disabled and not self.is_index
 
     @property
     def draws_disabled(self) -> bool:
@@ -115,18 +123,18 @@ class NumericControlGlyph(ControlGlyph):
     ) -> None:
         modern.draw_field(
             backend, frame, readout,
-            modern.field_fill(self.readout_fill, self.is_indicator, self.disabled),
+            modern.field_fill(self.readout_fill, self.is_indicator, self.greyed),
         )
         if self.show_spinner:
             for up, local in zip((True, False), self.spinner_halves_local):
                 half = scale_local(local, self.native_size, bounds)
                 if half is not None:
                     self._begin_arrow(backend, half, up)
-                    modern.draw_pill(backend, half, up)
+                    modern.draw_pill(backend, half, up, self.greyed)
                     self._end_group(backend)
         style = text_style(
             self.value_font,
-            modern.DISABLED_TEXT if self.disabled else self.value_color,
+            modern.DISABLED_TEXT if self.greyed else self.value_color,
             modern.TEXT_SIZE,
         )
         text = fit_value(
@@ -199,10 +207,12 @@ def numeric_from_parts(
     is_indicator: bool,
     disabled: bool = False,
     live_struct: str | None = None,
+    is_index: bool = False,
 ) -> NumericControlGlyph:
     """The numeric glyph of whatever holds the parts: a control, or a part with
     sub-parts of its own (an array's index display or element). ``value`` is the
-    display text. ``live_struct`` names the array it is the live index of."""
+    display text. ``live_struct`` names the array it is the live index of;
+    ``is_index`` marks an array's index display."""
     x1, y1, x2, y2 = value_extent(owner)
     origin = (x1, y1)
     frame = local_part_rect(owner, FRAME_PART_ID, origin)
@@ -210,7 +220,8 @@ def numeric_from_parts(
     readout = _readout(owner, origin)
     if frame is None or readout is None:
         return NumericControlGlyph(
-            value=value, disabled=disabled, live_struct=live_struct
+            value=value, disabled=disabled, live_struct=live_struct,
+            is_index=is_index,
         )
     halves = tuple(
         rect
@@ -241,6 +252,7 @@ def numeric_from_parts(
         readout_fill=readout_part.bg_color if readout_part is not None else None,
         is_indicator=is_indicator,
         disabled=disabled,
+        is_index=is_index,
         live_struct=live_struct,
         value_font=readout_part.font if readout_part is not None else None,
         value_color=readout_part.text_color if readout_part is not None else None,

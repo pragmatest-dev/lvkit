@@ -292,8 +292,8 @@ def _indices(
     ctrl: ParsedFPControl, origin: tuple[float, float], disabled: bool
 ) -> tuple[IndexDisplay, ...]:
     """One display per shown ``partID`` 8002 part, in heap order from the
-    top-most (dimension 0) down. ``disabled`` greys them (an array with no saved
-    elements)."""
+    top-most (dimension 0) down. ``disabled`` marks an array with no saved
+    elements; a Modern index looks the same then, other looks are washed."""
     ox, oy = origin
     shown = sorted(
         (
@@ -318,6 +318,7 @@ def _indices(
                     is_indicator(part.flags),
                     disabled,
                     live_struct=ctrl.uid if dimension == 0 else None,
+                    is_index=True,
                 ),
             )
         )

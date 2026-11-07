@@ -18,12 +18,18 @@ from ...text_style import TextStyle, draw_styled_text
 # A control's field is nearly white, an indicator's grey.
 CONTROL_FILL = "#FAFAFA"
 INDICATOR_FILL = "#D2D2D2"
-# A disabled field (an array's index or element while the array has no saved
-# elements) is this grey whether it is a control or an indicator; its text is
-# grey too. Measured on the Measurement UI template screenshot (the field in 24
-# empty arrays, controls and indicators alike).
-DISABLED_FILL = "#CCCCCC"
-DISABLED_TEXT = "#747474"
+# An array's element while the array has no saved elements is drawn disabled: a
+# control's field a little lighter than an enabled control's, an indicator's
+# much lighter than an enabled indicator's, with light grey text. Measured on
+# docs/images/Measurement UI.png of the measurement-plugin-labview sample (150%
+# scale): the "double array in" element field at (180, 325) is #FDFDFD, the
+# "double array out" element field at (420, 325) is #EDEDED, and the darkest
+# pixel of the element's "0" is #A7AAA8 at (146, 319) in the control and
+# #A3A7A7 at (384, 319) in the indicator, so the text is their mean. The array's
+# index readout beside it is not disabled: #FAFAFA with dark text in both.
+DISABLED_CONTROL_FILL = "#FDFDFD"
+DISABLED_INDICATOR_FILL = "#EDEDED"
+DISABLED_TEXT = "#A5A8A8"
 TEXT = "#0F0F0F"
 # Digits 10 px tall in the screenshots; this size draws digits about 9.5 px tall.
 TEXT_SIZE = 13.0
@@ -51,6 +57,15 @@ _PILL_BOTTOM = "#A9A9A9"
 _PILL_HIGHLIGHT = "#F4F4F4"
 _PILL_SHADOW = "#808080"
 _PILL_ARROW = "#3C3C3C"
+# A disabled element's spinner (same screenshot, "double array in" element
+# spinner, x 116-135, y 306-342): the body fades from #E8E8E8 (y 310) to #DBDBDB
+# (y 322-324), the lightest pixel is #FAFAFA, the darkest edge #B1B1B1, and the
+# darkest arrow pixels #B1B1B1 (up) and #BBBBBB (down), so the arrow is #B5B5B5.
+_DISABLED_PILL_TOP = "#E8E8E8"
+_DISABLED_PILL_BOTTOM = "#DBDBDB"
+_DISABLED_PILL_HIGHLIGHT = "#FAFAFA"
+_DISABLED_PILL_SHADOW = "#B1B1B1"
+_DISABLED_PILL_ARROW = "#B5B5B5"
 _PILL_RADIUS = 3.0
 _ARROW_HALF_WIDTH = 3.0
 _ARROW_HALF_HEIGHT = 1.5
@@ -61,7 +76,7 @@ def field_fill(stored: str | None, is_indicator: bool, disabled: bool = False) -
     the color its part stores when that is a literal, else the control's or
     indicator's own."""
     if disabled:
-        return DISABLED_FILL
+        return DISABLED_INDICATOR_FILL if is_indicator else DISABLED_CONTROL_FILL
     if stored is not None:
         return stored
     return INDICATOR_FILL if is_indicator else CONTROL_FILL
@@ -106,18 +121,27 @@ def draw_text(
     )
 
 
-def draw_pill(backend: Backend, rect: Rect, up: bool) -> None:
+def draw_pill(
+    backend: Backend, rect: Rect, up: bool, disabled: bool = False
+) -> None:
     """One half of the spinner: a rounded pill with a light line along its top,
-    a dark line along its bottom and a small arrow pointing ``up`` or down."""
+    a dark line along its bottom and a small arrow pointing ``up`` or down, in
+    the faded colors when ``disabled``."""
     x1, y1, x2, y2 = rect
+    top, bottom, highlight, shadow, arrow = (
+        (
+            _DISABLED_PILL_TOP, _DISABLED_PILL_BOTTOM, _DISABLED_PILL_HIGHLIGHT,
+            _DISABLED_PILL_SHADOW, _DISABLED_PILL_ARROW,
+        )
+        if disabled
+        else (_PILL_TOP, _PILL_BOTTOM, _PILL_HIGHLIGHT, _PILL_SHADOW, _PILL_ARROW)
+    )
     backend.gradient_rect(
-        x1, y1, x2, y2,
-        stops=((0.0, _PILL_TOP), (1.0, _PILL_BOTTOM)),
-        rx=_PILL_RADIUS,
+        x1, y1, x2, y2, stops=((0.0, top), (1.0, bottom)), rx=_PILL_RADIUS
     )
     inset = _PILL_RADIUS - 1
-    backend.line(x1 + inset, y1 + 0.5, x2 - inset, y1 + 0.5, stroke=_PILL_HIGHLIGHT)
-    backend.line(x1 + inset, y2 - 0.5, x2 - inset, y2 - 0.5, stroke=_PILL_SHADOW)
+    backend.line(x1 + inset, y1 + 0.5, x2 - inset, y1 + 0.5, stroke=highlight)
+    backend.line(x1 + inset, y2 - 0.5, x2 - inset, y2 - 0.5, stroke=shadow)
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     tip, base = (
         (cy - _ARROW_HALF_HEIGHT, cy + _ARROW_HALF_HEIGHT)
@@ -126,5 +150,5 @@ def draw_pill(backend: Backend, rect: Rect, up: bool) -> None:
     )
     backend.polygon(
         [(cx - _ARROW_HALF_WIDTH, base), (cx + _ARROW_HALF_WIDTH, base), (cx, tip)],
-        fill=_PILL_ARROW,
+        fill=arrow,
     )

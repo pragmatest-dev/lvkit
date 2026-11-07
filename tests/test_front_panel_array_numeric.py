@@ -90,11 +90,23 @@ def test_the_index_is_the_modern_numeric_and_the_element_its_own_fill() -> None:
     assert 'fill="#D2D2D2"' in indicator
 
 
-def test_an_array_with_no_saved_elements_is_greyed() -> None:
-    svg = _svg(_array(False, []))
-    assert 'fill="#CCCCCC"' in svg
-    assert 'fill="#FAFAFA"' not in svg
-    assert 'class="lv-disabled-mask"' not in svg
+def test_an_empty_array_has_a_disabled_element_and_a_plain_index() -> None:
+    control = _svg(_array(False, []))
+    # the element's field and text are the disabled look; the index readout
+    # beside it keeps the control's own fill
+    assert 'fill="#FDFDFD"' in control
+    assert 'fill="#FAFAFA"' in control
+    assert 'fill="#A5A8A8"' in control
+    # the element's spinner is the faded pill; the index's is the normal one
+    assert 'fill="#B5B5B5"' in control
+    assert 'fill="#3C3C3C"' in control
+    assert "#E8E8E8" in control and _PILL_TOP in control
+    assert 'fill="#CCCCCC"' not in control
+    assert 'class="lv-disabled-mask"' not in control
+    indicator = _svg(_array(True, []))
+    assert 'fill="#EDEDED"' in indicator
+    assert 'fill="#FAFAFA"' in indicator
+    assert 'fill="#D2D2D2"' not in indicator
 
 
 def test_the_elements_arrows_follow_their_own_hidden_bit() -> None:
