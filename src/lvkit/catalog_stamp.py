@@ -31,12 +31,25 @@ StoreStamp = tuple[tuple[str, int, int], ...]
 
 class CatalogKey(NamedTuple):
     """One catalog entry a VI looks up. ``kind`` is ``primitive`` (a primResID),
+    ``primitive_name`` (a primitive's name as :func:`primitive_name_key` gives
+    it: the render finds a primitive by name when its primResID is not listed),
     ``node_type`` (a node class such as ``aBuild``), ``vilib`` (the catalog file
     name of a vi.lib VI, as ``VILibResolver.catalog_file_name`` gives it) or
     ``type`` (a typedef's qualified name)."""
 
     kind: str
     key: str
+
+
+def primitive_name_key(name: str) -> str:
+    """The form the primitive catalog looks a primitive's name up by: lower case,
+    a trailing " function", " vi" or " primitive" left out, spaces and hyphens as
+    underscores."""
+    n = name.lower().strip()
+    for suffix in (" function", " vi", " primitive"):
+        if n.endswith(suffix):
+            n = n[: -len(suffix)]
+    return n.replace(" ", "_").replace("-", "_")
 
 
 def resolved_store(store: Path | None) -> Path | None:
@@ -95,6 +108,8 @@ def _collect(store: Path) -> dict[CatalogKey, list[str]]:
     prims = load_primitives(store / "primitives.json")
     for prim_id, entry in prims["primitives"].items():
         add(CatalogKey("primitive", str(prim_id)), entry)
+        if isinstance(entry, dict) and entry.get("name"):
+            add(CatalogKey("primitive_name", primitive_name_key(entry["name"])), entry)
     for node_type, entry in prims["node_types"].items():
         add(CatalogKey("node_type", node_type), entry)
     for subdir in ("vilib", "openg", "drivers"):

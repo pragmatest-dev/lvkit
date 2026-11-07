@@ -191,3 +191,25 @@ def test_an_edit_makes_the_cached_render_stale_only_for_a_vi_that_uses_it(
     assert hit()
     _write_entry(store, _P, "second")
     assert not hit()
+
+
+def test_a_store_primitive_is_also_keyed_by_its_name(tmp_path: Path) -> None:
+    """The render finds a primitive by name when its primResID is not listed, so
+    a store entry is hashed under its name too, and a primitive node carries its
+    name's key."""
+    store = init_project_store(tmp_path)
+    _write_entry(store, _P, "My Compare Function")
+    name_key = CatalogKey("primitive_name", "my_compare")
+    before = project_entry_hashes(store)
+    assert name_key in before
+    _write_entry(store, _P, "My Compare Function")
+    _write_entry(store, _Q, "Other")
+    assert project_entry_hashes(store)[name_key] == before[name_key]
+
+    graph = InMemoryVIGraph()
+    prim = PrimitiveNode(
+        id="x.vi::1", vi_path="x.vi", name="My Compare", prim_id=99999, terminals=[]
+    )
+    graph._graph.add_node(prim.id, node=prim)
+    graph._vi_nodes["x.vi"] = {prim.id}
+    assert name_key in catalog_keys(graph, "x.vi")

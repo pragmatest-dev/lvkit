@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .catalog_stamp import CatalogKey
+from .catalog_stamp import CatalogKey, primitive_name_key
 from .graph.models import PrimitiveNode, VINode
 from .models import LVType
 from .vilib_resolver import VILibResolver
@@ -48,6 +48,10 @@ def catalog_keys(graph: InMemoryVIGraph, vi_key: str) -> frozenset[CatalogKey]:
             keys.add(CatalogKey("node_type", node.node_type))
         if isinstance(node, PrimitiveNode) and node.prim_id:
             keys.add(CatalogKey("primitive", str(node.prim_id)))
+        if isinstance(node, PrimitiveNode) and node.name:
+            # The render finds a primitive by name when its primResID is not
+            # listed (render/nodes.py resolve(prim_id=..., name=...)).
+            keys.add(CatalogKey("primitive_name", primitive_name_key(node.name)))
         if isinstance(node, VINode) and node.id != node.vi_path:
             file_name = VILibResolver.catalog_file_name(graph.catalog_path(node))
             if file_name is not None:
