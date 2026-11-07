@@ -11,7 +11,13 @@ from .backend import Backend
 # A font's stored size is the height of its text line in pixels: a label's box
 # is that size + 2 px tall (``labview-binary-format.md`` "Front panel
 # structure"). The SVG font size whose line is that tall, for the predefined
-# font's face, is 0.75 of it (15 -> about 11 px glyphs, as measured).
+# font's face, is 0.75 of it (15 -> about 11 px glyphs, as measured). Checked
+# against docs/images/Measurement UI.png (150%): the first letter of "double array
+# in", "double in" and "double out" is 13, 14 and 14 px tall in the screenshot, 14,
+# 13 and 15 here; and New measurement client dialog.png (100%): the "A" of "Active
+# Project Name" and the "A" of "Available Measurements" are 9 px tall, 8 here. The
+# text is 5% wider here than there at the same height (116 vs 125, 73 vs 77, 85 vs
+# 89, 108 vs 114, 129 vs 135 px) while the heights agree, so the size stays.
 _LINE_HEIGHT_TO_FONT_SIZE = 0.75
 
 # The Application font's stored size (the table's first row in every VI

@@ -31,8 +31,13 @@ DISABLED_CONTROL_FILL = "#FDFDFD"
 DISABLED_INDICATOR_FILL = "#EDEDED"
 DISABLED_TEXT = "#A5A8A8"
 TEXT = "#0F0F0F"
-# Digits 10 px tall in the screenshots; this size draws digits about 9.5 px tall.
-TEXT_SIZE = 13.0
+# A value's digits are 13 px tall at 150% on docs/images/Measurement UI.png (the
+# "0" of "double in" at x 141-147, y 238-250; of "I32 in" at x 148-154, y 718-730;
+# of the index of "double array in" at x 79-85, y 311-323), 8.7 px at 100%, and 11
+# px at 125% on docs/images/Running Run Service VI.png ("56276", x 68-103, y
+# 196-206): 8.7-8.8 px tall. This size draws digits 8.75 px tall (13 drew 9.3, 14
+# px at 150%).
+TEXT_SIZE = 12.0
 # The field's text starts 1 px in from the field's left edge.
 TEXT_INSET = 1.0
 
