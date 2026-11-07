@@ -21,7 +21,8 @@ LABEL_SIZE = _DEFAULT_POINTS * _PT_TO_PX
 
 # The stack for the three predefined fonts (Application, System, Dialog), and
 # the fallback after a stored name.
-PREDEFINED_FAMILY = "'Segoe UI', Tahoma, sans-serif"
+_PREDEFINED_NAME = "Segoe UI"
+PREDEFINED_FAMILY = f"'{_PREDEFINED_NAME}', Tahoma, sans-serif"
 
 
 @dataclass(frozen=True)
@@ -51,11 +52,10 @@ def text_style(
         if font.size is not None
         else default_size
     )
-    if font.name:
-        family = f"'{font.name.replace(chr(39), '').replace(chr(34), '')}', "
-        family += PREDEFINED_FAMILY
-    else:
-        family = PREDEFINED_FAMILY
+    family = PREDEFINED_FAMILY
+    if font.name and font.name != _PREDEFINED_NAME:
+        stored = font.name.replace("'", "").replace('"', "")
+        family = f"'{stored}', {PREDEFINED_FAMILY}"
     return TextStyle(size, font.bold, family, color)
 
 

@@ -692,10 +692,10 @@ def _cluster_field_geoms(
     wrapper's top-left for a typedef, plus the array's top-left for an array
     element, and for a cluster inside another cluster the parent's ``FT + P``
     (the parent's own scroll never moves a child's frame). Measured on the
-    corpus (3,000 panels, 11,268 clusters, ``labview-binary-format.md``
-    "Front panel structure"): the first field lands at the pane's top-left (0
-    to 6 px) in 10,514; the other 754 have a larger inset or are scrolled; in
-    none is every field outside the pane. Fields are placed at scale 1 and the
+    corpus (14,947 clusters, ``labview-binary-format.md`` "Front panel
+    structure"): the first field lands at the pane's top-left (0 to 6 px) in
+    13,923; the other 1,024 have a larger inset or are scrolled; in none is
+    every field outside the pane. Fields are placed at scale 1 and the
     pane's inner rect is ``ClusterGeom.clip``: a pane scrolled to one field of
     several shows that field only.
 
