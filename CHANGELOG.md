@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a `.vi`, `.vim` and `.vit` of one name are three modules** — a `.vim` module ends in `_vim` and a `.vit` module in `_vit` (`lv_icon.vit` is `lv_icon_vit`), so they no longer stop the run as one module; a path computed when the code runs imports the same name.
 - **Fix: Format Into String writes its text exactly** — a format text holding `{`, `}`, `"""` or a backslash (a JSON template) generates an f-string built from nodes, no longer a parse error.
 - **Fix: a VI LabVIEW shows as broken is a gap, not an lvkit error** — a dynamic-dispatch call with no object wired, or a wire from a connector-pane position the called VI does not have, warns with that reason and the run ends Partial (exit 3).
 - **Generated code keeps errors as values on the wire, as LabVIEW does** — each VI takes `error_in` and returns `error_out` (`None` or a `LabVIEWError` from the package's `errors.py`); a node skips its work on an error but not on a warning, every branch runs, error case structures keep every frame's work, and Merge Errors, Clear Errors, Simple Error Handler and a loop stopped on an error read the value. No more `_held_error`, thread pools for branches or re-raised exceptions.
