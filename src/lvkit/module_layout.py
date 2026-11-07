@@ -6,22 +6,25 @@ into a Python name. The project is the one the generated VI belongs to (its
 ``.lvproj``, ``.git`` or ``.lvkit`` folder, else the VI's own folder), so the layout
 never depends on what else was loaded.
 
-A file outside the project is placed by the path its caller recorded for it when
-that path starts at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi``
-is ``vilib.utility.errorllb.x``), which names the same file for every caller; one
-under a configured vi.lib / user.lib / instr.lib folder with no such path, by its
-path in that folder as if recorded (``<userlib>/...``); any other under
-``external``, by its path from the folder it shares with the project. A VI with no
-file is placed by the path its caller recorded, whatever it starts at; one with
-neither a file nor a recorded path cannot be imported and stops generation, naming
-it. Paths are unique, so modules are unique: no collision numbering. Two files
-whose parts transform to the same name stop generation, naming both.
+A library file, inside or outside the project, is placed by its library path
+(``library_location``): the path its caller recorded for it when that path starts
+at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi`` is
+``vilib.utility.errorllb.x``), which names the same file for every caller; else,
+under a configured vi.lib / user.lib / instr.lib folder, its path in that folder
+as if recorded (``<userlib>/...``). Any other file in the project is placed by its
+project-relative path; any other outside it under ``external``, by the name of its
+own project folder (``outside_place``) and its path below that folder. A VI with no
+file is placed by the path its caller
+recorded, whatever it starts at; one with neither a file nor a recorded path
+cannot be imported and stops generation, naming it. Paths are unique, so modules
+are unique, and a module name is never numbered. Two files whose parts transform
+to the same name (two outside trees whose project folders share a name and hold
+the same file) stop generation, naming both by their paths from the project folder.
 """
 
 from __future__ import annotations
 
 import os
-import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,11 +32,10 @@ from pathlib import Path
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
-from lvkit.parser.models import is_symbolic_root
+from lvkit.graph.recorded_paths import walk_relative
+from lvkit.library_folders import path_tokens
+from lvkit.project_folders import outside_place, project_relative
 from lvkit.vi_files import class_stem, strip_vi_extension
-
-# The package a file outside the project and every library folder is placed in.
-EXTERNAL_PACKAGE = "external"
 
 
 class ModuleCollisionError(Exception):
@@ -58,21 +60,25 @@ class ModulePlace:
         return (*self.packages, self.module)
 
 
-def _tokens(path: str) -> list[str]:
-    return [t for t in re.split(r"[\\/]", path) if t]
+@dataclass(frozen=True)
+class _Location:
+    """The tokens that place a file: ``tree``, which names the folder tree it is
+    in (``()`` for the project, ``("<userlib>",)`` for a library folder,
+    ``("external", <its own project folder>)`` for any other file), then its
+    folders and file name ``below`` that tree."""
+
+    tree: tuple[str, ...]
+    below: tuple[str, ...]
+
+    @property
+    def tokens(self) -> list[str]:
+        return [*self.tree, *self.below]
 
 
-def _beside_project(key: str, root: str) -> tuple[str, ...]:
-    """The parts of ``key`` below the folder it shares with the project (all of
-    them, drive aside, when it shares none)."""
-    own, project = Path(key).parent.parts, Path(root).parts
-    shared = 0
-    while shared < min(len(own), len(project)) and own[shared] == project[shared]:
-        shared += 1
-    parts = Path(key).parts
-    return (
-        parts[shared:] if shared else tuple(p for p in parts if p != Path(key).anchor)
-    )
+def _outside_project(key: str) -> _Location:
+    """``key`` as ``outside_place`` places it: ``external`` and the name of its
+    own project folder, then its path below that folder."""
+    return _Location(*outside_place(key))
 
 
 def _packages(folders: Sequence[str]) -> tuple[str, ...]:
@@ -80,15 +86,8 @@ def _packages(folders: Sequence[str]) -> tuple[str, ...]:
     return tuple(module_part(f) for f in folders if f != ".")
 
 
-def _in_installation_folder(recorded: str) -> bool:
-    """Whether a recorded path starts at a LabVIEW installation folder
-    (``<vilib>/...``), which names the same file for every caller; any other
-    recorded path is relative to the caller that recorded it."""
-    return is_symbolic_root(_tokens(recorded)[0]) if _tokens(recorded) else False
-
-
 def _is_path(key: str) -> bool:
-    return os.path.isabs(key) or len(_tokens(key)) > 1
+    return os.path.isabs(key) or len(path_tokens(key)) > 1
 
 
 def _below(key: str, folder: str) -> tuple[str, ...] | None:
@@ -133,11 +132,20 @@ class ModuleLayout:
                 self.unplaced[key] = unplaced
         self._check_unique()
 
-    def placed_folder(self, folder: Path) -> tuple[str, ...] | None:
-        """The packages a project ``folder`` is generated as (the ones its VI
-        modules sit in); None when it is not inside the project."""
-        inside = _below(str(folder.resolve()), self._root)
-        return None if inside is None else _packages(inside)
+    def placed_beside(
+        self, key: str, recorded: Sequence[str], below: Sequence[str] = ()
+    ) -> tuple[str, ...] | None:
+        """The place in the package (its parts) of a file at ``below`` in the
+        folder that holds a file the VI ``key`` records relative to its own file
+        (``recorded``, LabVIEW's tokens: leading empty tokens and ``..`` go up):
+        the packages the same walk from the VI's own place gives
+        (``walk_relative``), then ``below`` under its own names, so a file beside
+        a VI is generated beside its module wherever the module is placed; None
+        when the walk leaves the VI's tree (above its project, its library folder
+        or its own outside project)."""
+        location = self._location(key)
+        walked = walk_relative(location.tokens, recorded, keep=len(location.tree))
+        return None if walked is None else (*_packages(walked[:-1]), *below)
 
     def _recorded_path(self, key: str) -> str | None:
         """The path a caller recorded for ``key`` (``recorded`` when given, else
@@ -148,6 +156,12 @@ class ModuleLayout:
 
     def _tokens_of(self, key: str) -> list[str]:
         """The folders and the file name that place ``key``."""
+        return self._location(key).tokens
+
+    def _location(self, key: str) -> _Location:
+        """Where ``key`` is placed: its library path, else its path below the
+        project, else (a VI with no file) the path its caller recorded, else
+        below ``external``."""
         recorded = self._recorded_path(key)
         if not _is_path(key):
             if recorded is None:
@@ -155,21 +169,18 @@ class ModuleLayout:
                     f"The VI {key!r} has neither a file nor a path its caller "
                     "recorded, so there is no module to import it from."
                 )
-            return _tokens(recorded)
+            return _Location((), tuple(path_tokens(recorded)))
         if not os.path.isabs(key):
-            return _tokens(key)
+            return _Location((), tuple(path_tokens(key)))
+        library = self._graph.library_location(key, recorded)
+        if library is not None:
+            return _Location(library[:1], library[1:])
         inside = _below(key, self._root)
         if inside is not None:
-            return list(inside)
-        if recorded is not None and (
-            self._graph.is_stub(key) or _in_installation_folder(recorded)
-        ):
-            return _tokens(recorded)
-        for token, library_root in self._graph.library_roots():
-            inside = _below(key, str(library_root.resolve()))
-            if inside is not None:
-                return [token, *inside]
-        return [EXTERNAL_PACKAGE, *_beside_project(key, self._root)]
+            return _Location((), inside)
+        if recorded is not None and self._graph.is_stub(key):
+            return _Location((), tuple(path_tokens(recorded)))
+        return _outside_project(key)
 
     def _place(self, key: str) -> ModulePlace:
         *folders, name = self._tokens_of(key)
@@ -207,20 +218,19 @@ class ModuleLayout:
         return self._place(name)
 
     def folders_of(self, key: str) -> tuple[str, ...]:
-        """The folders that hold ``key``'s file, as raw tokens: the path below the
-        project for a project file; the path its caller recorded (``<vilib>``,
-        ``<userlib>``, ...) for a file outside it that was recorded from an
-        installation folder, else the library folder's token (``<userlib>``) or
-        ``external`` and the path below it. The same tokens that place its module.
-        Raises
-        ``UnplacedVIError`` when nothing says where it is."""
+        """The folders that hold ``key``'s file, as raw tokens: its library path
+        (``<vilib>``, ``<userlib>``, ...) for a library file; the path below the
+        project for any other project file; ``external``, its own project
+        folder's name and the path below it for any other. The same tokens that
+        place its module. Raises ``UnplacedVIError`` when nothing says where it
+        is."""
         return tuple(self._tokens_of(key)[:-1])
 
     def display_path(self, key: str) -> str:
-        """The path a message shows for ``key``: the one that places it
-        (project-relative, the path its caller recorded from an installation
-        folder such as ``<userlib>/...``, or below a library folder's token),
-        never an absolute path; the file name alone when nothing places it."""
+        """The path a message shows for ``key``: the one that places it (its
+        library path such as ``<userlib>/...``, project-relative, or below
+        ``external``), never an absolute path; the file name alone when nothing
+        places it."""
         try:
             return "/".join(self._tokens_of(key))
         except UnplacedVIError:
@@ -232,15 +242,26 @@ class ModuleLayout:
         return _packages(self._tokens_of(key)[:-1])
 
     @property
+    def project_folder(self) -> str:
+        """The project folder messages name files from."""
+        return self._root
+
+    @property
     def root_names(self) -> set[str]:
         """The names at the package root that VI modules and packages take."""
         return {place.parts[0] for place in self.places.values()}
 
     def _shown(self, key: str) -> str:
-        """A key as a message shows it: a file below the project by its
-        project-relative path, never an absolute one."""
-        parts = _below(key, self._root) if os.path.isabs(key) else None
-        return "/".join(parts) if parts else key
+        """A key as a message shows it: a file by its path from this layout's
+        project folder (which ``key_label`` does not know: it names a file from
+        the run's folder), any other as the graph labels it (``key_label``)."""
+        if os.path.isabs(key):
+            return project_relative(key, self._root)
+        return self._graph.key_label(key)
+
+    def _pair(self, first: str, second: str) -> tuple[str, str]:
+        """Two keys as a message shows them side by side."""
+        return repr(self._shown(first)), repr(self._shown(second))
 
     def _check_unique(self) -> None:
         for key, place in self.places.items():
@@ -253,9 +274,9 @@ class ModuleLayout:
         owner: dict[tuple[str, ...], str] = {}
         for key, place in self.places.items():
             if place.parts in owner:
+                first, second = self._pair(owner[place.parts], key)
                 raise ModuleCollisionError(
-                    f"{self._shown(owner[place.parts])!r} and {self._shown(key)!r} "
-                    "both generate the module "
+                    f"{first} and {second} both generate the module "
                     f"{'.'.join(place.parts)}."
                 )
             owner[place.parts] = key
@@ -263,8 +284,9 @@ class ModuleLayout:
             for depth in range(1, len(place.parts)):
                 other = owner.get(place.parts[:depth])
                 if other is not None:
+                    first, second = self._pair(other, key)
                     raise ModuleCollisionError(
-                        f"{self._shown(other)!r} generates the module "
+                        f"{first} generates the module "
                         f"{'.'.join(place.parts[:depth])}, which is also the "
-                        f"package of {self._shown(key)!r}."
+                        f"package of {second}."
                     )

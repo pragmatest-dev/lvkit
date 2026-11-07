@@ -9,7 +9,7 @@ import traceback
 from collections.abc import Callable
 from pathlib import Path
 
-from .cache_paths import project_root
+from .project_folders import project_root
 from .run_report import (
     EXIT_STOPPED,
     Outcome,

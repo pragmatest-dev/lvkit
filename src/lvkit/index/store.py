@@ -59,6 +59,7 @@ from .store_typedefs import (
     TYPEDEFS_SCHEMA,
     delete_typedef,
     read_typedef_dependents,
+    read_typedef_libraries,
     read_typedef_shas,
     write_typedefs,
 )
@@ -258,7 +259,8 @@ CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
     content_sha TEXT NOT NULL,
-    facts_digest TEXT NOT NULL DEFAULT ''
+    facts_digest TEXT NOT NULL DEFAULT '',
+    libraries TEXT
 );
 """ + TYPES_SCHEMA + TYPEDEFS_SCHEMA
 
@@ -455,6 +457,7 @@ class _Prior:
     class_fact: ClassFact | None
     typedef_paths: list[str]
     typedef_versions: list[TypedefVersionFact]
+    libraries: str | None
 
 
 def facts_digest(f: VIFacts) -> str:
@@ -475,7 +478,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
     """The stored row for ``path`` (``None`` if never saved)."""
     row = conn.execute(
         "SELECT v.content_sha, m.facts_digest, v.is_stub, v.library, "
-        "v.impact_score, v.callers_count "
+        "v.impact_score, v.callers_count, m.libraries "
         "FROM vis v JOIN meta m ON m.vi_path = v.path WHERE v.path = ?",
         (path,),
     ).fetchone()
@@ -532,6 +535,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         class_fact=class_fact,
         typedef_paths=typedef_paths,
         typedef_versions=typedef_versions,
+        libraries=row[6],
     )
 
 
@@ -609,7 +613,8 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
       current shape to decide a rebuild, so the latest load that walked the VI's
       dependencies replaces them. A load that did not walk them
       (``dependencies_walked`` False) knows nothing about them, so the stored
-      lists stay.
+      lists stay, and so does ``libraries`` (the library folders a VI's facts
+      depend on come from the dependencies walked).
     * a stub never replaces a loaded VI.
     * ``impact_score`` / ``callers_count`` are whole-call-graph results: the
       stored ones stay unless ``f`` carries scores computed across the whole
@@ -633,6 +638,7 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             typedef_versions=(
                 f.typedef_versions if f.dependencies_walked else prior.typedef_versions
             ),
+            libraries=f.libraries if f.dependencies_walked else prior.libraries,
             impact_score=f.impact_score if f.scores_computed else prior.impact_score,
             callers_count=(
                 f.callers_count if f.scores_computed else prior.callers_count
@@ -854,8 +860,9 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
             ),
         )
     conn.execute(
-        "INSERT INTO meta(vi_path, content_sha, facts_digest) VALUES (?,?,?)",
-        (f.path, f.content_sha, facts_digest(f)),
+        "INSERT INTO meta(vi_path, content_sha, facts_digest, libraries) "
+        "VALUES (?,?,?,?)",
+        (f.path, f.content_sha, facts_digest(f), f.libraries),
     )
 
 
@@ -901,6 +908,16 @@ def load_typedef_shas(project_root: Path) -> dict[str, str]:
     conn = _connect(project_root)
     try:
         return read_typedef_shas(conn)
+    finally:
+        conn.close()
+
+
+def load_typedef_libraries(project_root: Path) -> dict[str, str | None]:
+    """``{path: library folders its facts depend on, or None}`` of every indexed
+    ``.ctl`` control."""
+    conn = _connect(project_root)
+    try:
+        return read_typedef_libraries(conn)
     finally:
         conn.close()
 
@@ -1178,6 +1195,10 @@ def load(project_root: Path) -> list[VIFacts]:
                 ancestors=json.loads(ancestors),
             )
 
+        libraries_by_vi: dict[str, str | None] = dict(
+            conn.execute("SELECT vi_path, libraries FROM meta")
+        )
+
         results: list[VIFacts] = []
         for row in vi_rows:
             base = row[:8]
@@ -1216,6 +1237,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     typedef_paths=typedef_paths_by_vi.get(path, []),
                     typedef_versions=typedef_versions_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
+                    libraries=libraries_by_vi.get(path),
                     impact_score=impact_score,
                     callers_count=callers_count,
                     **prop_kwargs,

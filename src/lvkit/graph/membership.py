@@ -231,6 +231,7 @@ class MembershipMixin:
             vi_key,
             Problem(
                 vi=self.key_label(vi_key),
+                key=vi_key,
                 stage=ProblemStage.LOAD,
                 kind=ProblemKind.MEMBERSHIP,
                 reason=reason,

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
@@ -30,11 +29,11 @@ import networkx as nx
 
 from lvkit.library_folders import Folders, SearchEntries
 
-from ..cache_paths import project_root
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
+from ..library_folders import is_symbolic_root
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType, Terminal
 from ..parser import (
@@ -48,7 +47,8 @@ from ..parser import (
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
-from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
+from ..parser.models import ABSOLUTE_PATH_TYPE
+from ..project_folders import project_relative, project_root
 from ..run_report import (
     CacheWriteError,
     Problem,
@@ -73,7 +73,11 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
-from .load_problems import repeated_frame_problems, unread_condition_problems
+from .load_problems import (
+    CLASS_MEMBER_ATTR,
+    repeated_frame_problems,
+    unread_condition_problems,
+)
 from .membership import ListedMethod
 from .models import (
     ExecSystem,
@@ -450,6 +454,9 @@ class LoadingMixin:
         def recorded_candidates(
             self, ref: ParsedDependencyRef, caller_file: Path
         ) -> list[Path]: ...
+        def library_location(
+            self, path: Path | str | None, recorded: str | None = None
+        ) -> tuple[str, ...] | None: ...
         def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]: ...
         def record_problem(
             self,
@@ -650,6 +657,7 @@ class LoadingMixin:
         caller: str | None,
         rel: EdgeRel | None = None,
         reason: str | None = None,
+        class_member: tuple[str, str] | None = None,
     ) -> None:
         """Add one path-keyed STUB node for a dependency whose file is absent
         (or unresolved) -- the single shape shared by every stub-creation site
@@ -667,13 +675,17 @@ class LoadingMixin:
         type reference); when None, no edge is added (a caller with no
         dep_graph node of its own, e.g. a ``.lvproj`` member, cannot be
         edged from). ``reason`` is why the dependency is missing when more than
-        its absence (``stub_reason``).
+        its absence (``stub_reason``). ``class_member`` is the file of the class a
+        method stub belongs to and the method's file name (``CLASS_MEMBER_ATTR``),
+        which name it (``key_label``).
         """
         if not self._dep_graph.has_node(key):
             self._dep_graph.add_node(key, node_type=node_type)
             self._stubs.add(key)
         if reason is not None and key in self._stubs:
             self._dep_graph.nodes[key]["stub_reason"] = reason
+        if class_member is not None and key in self._stubs:
+            self._dep_graph.nodes[key][CLASS_MEMBER_ATTR] = class_member
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
             if rel == EdgeRel.OWNS:
@@ -736,9 +748,13 @@ class LoadingMixin:
         and every dependency, resolved or not, records when its load returns. A
         class method's record names its class, not the method (``class_owner_ref``):
         the method's path follows from the class that lists it, so it records
-        none."""
+        none. The path as stored is kept apart (``note_stored``) for showing."""
         if dep_ref is None or not dep_ref.path_tokens:
             return
+        if caller_key is not None and caller_key != key:
+            self._recorded.note_stored(
+                key, caller_key, list(dep_ref.path_tokens), dep_ref.path_type
+            )
         if class_owner_ref(qualified_name, dep_ref) is not None:
             return
         leaf = qualified_name.rsplit(":", 1)[-1]
@@ -880,6 +896,7 @@ class LoadingMixin:
                         lvlib_path,
                         Problem(
                             vi=self.vi_label(lvlib_path),
+                            key=str(Path(lvlib_path).resolve()),
                             stage=ProblemStage.LOAD,
                             kind=ProblemKind.UNREADABLE,
                             reason=(
@@ -1655,6 +1672,7 @@ class LoadingMixin:
                 vi_key,
                 Problem(
                     vi=self.vi_label(source_file),
+                    key=vi_key,
                     stage=ProblemStage.LOAD,
                     kind=ProblemKind.UNLABELED_CONTROL,
                     reason=(
@@ -2136,6 +2154,7 @@ class LoadingMixin:
             caller_file,
             Problem(
                 vi=self.vi_label(caller_file),
+                key=str(Path(caller_file).resolve()),
                 stage=ProblemStage.LOAD,
                 kind=ProblemKind.FOUND_ELSEWHERE,
                 reason=(
@@ -2531,15 +2550,13 @@ class LoadingMixin:
         )
 
     def _display_path(self, path: Path, caller_file: Path) -> str:
-        """``path`` as a ``./``-prefixed, forward-slash path relative to the
-        project of ``caller_file`` (``project_root``); the file name alone when
-        no relative path exists."""
-        base = project_root(caller_file)
-        try:
-            rel = os.path.relpath(path.resolve(), base.resolve())
-        except (OSError, ValueError):
-            return path.name
-        return "./" + rel.replace(os.sep, "/")
+        """``path`` as a message shows it: its library path (``<userlib>/...``)
+        for a library file, else its path from the project of ``caller_file``
+        (``project_root``)."""
+        library = self.library_location(path)
+        if library is not None:
+            return "/".join(library)
+        return project_relative(path, project_root(caller_file))
 
     def _stub_undetermined(
         self,
@@ -2570,14 +2587,12 @@ class LoadingMixin:
             stub_key = (
                 f"{owner_name}@{class_path}:{leaf}" if class_path else qualified_name
             )
-            label = (
-                f"{self.vi_label(class_path)}:{leaf}" if class_path else qualified_name
-            )
+            member = (str(class_path), leaf) if class_path else None
             identity = None
         else:
             intended = self._intended_dep_path(qualified_name, dep_ref, caller_file)
             stub_key = str(intended) if intended is not None else qualified_name
-            label = self.vi_label(intended) if intended is not None else qualified_name
+            member = None
             identity = str(intended) if intended is not None else None
             self._note_recorded_path(stub_key, dep_ref, qualified_name, caller_qname)
         node_type = (
@@ -2596,11 +2611,12 @@ class LoadingMixin:
             qualified_name,
             caller=caller_qname,
             reason=reason,
+            class_member=member,
         )
         self.record_problem(
             stub_key,
             Problem(
-                vi=label,
+                vi=self.key_label(stub_key),
                 stage=ProblemStage.LOAD,
                 kind=ProblemKind.UNREADABLE,
                 reason=reason,

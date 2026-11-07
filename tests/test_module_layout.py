@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.cache_paths import project_root, store_root
+from lvkit.cache_paths import store_root
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.module_layout import (
@@ -16,6 +16,7 @@ from lvkit.module_layout import (
     ModulePlace,
     UnplacedVIError,
 )
+from lvkit.project_folders import project_root
 
 
 def _graph(*keys: str) -> InMemoryVIGraph:
@@ -116,10 +117,118 @@ def test_a_library_root_file_with_no_recorded_path_is_placed_as_recorded_there(
     assert layout.places[key] == ModulePlace(("userlib", "sub"), "b")
 
 
-def test_any_other_file_outside_the_project_is_under_external(tree: _Tree) -> None:
+def test_any_other_file_outside_the_project_is_under_external_by_its_own_project(
+    tree: _Tree,
+) -> None:
+    """Below ``external``: the name of the file's own project folder and its path
+    below it, never a folder above that tree."""
+    libs = tree.base / "Users" / "someone" / "Documents" / "libs"
+    (libs / "Sub").mkdir(parents=True)
+    (libs / "Libs.lvproj").write_text("")
+    key = tree.key("Sub", "Helper.vi", under=libs)
+    layout = _layout(tree.key("a.vi"), key, root=tree.proj)
+    assert layout.places[key] == ModulePlace(("external", "libs", "sub"), "helper")
+
+
+def test_an_outside_file_with_no_project_marker_is_under_its_own_folder(
+    tree: _Tree,
+) -> None:
     key = tree.key("other", "Deep", "c.vi", under=tree.base)
     layout = _layout(tree.key("a.vi"), key, root=tree.proj)
-    assert layout.places[key] == ModulePlace(("external", "other", "deep"), "c")
+    assert layout.places[key] == ModulePlace(("external", "deep"), "c")
+
+
+def test_outside_projects_in_one_git_repo_are_placed_by_the_repo(
+    tree: _Tree,
+) -> None:
+    """Two ``.lvproj`` folders of one name inside one git repository (the
+    measurement-plugin generated APIs, each ``.../v1``) give unique modules: an
+    outside file's project is its repository, not the nearer ``.lvproj``."""
+    repo = tree.base / "plugin"
+    (repo / ".git").mkdir(parents=True)
+    keys = []
+    for service in ("sessionmanagement", "discovery"):
+        v1 = repo / "gRPC" / service / "v1"
+        (v1 / "RPC Messages").mkdir(parents=True)
+        (v1 / f"{service}.lvproj").write_text("")
+        keys.append(tree.key("RPC Messages", "Register gRPC Messages.vi", under=v1))
+    layout = _layout(tree.key("a.vi"), *keys, root=tree.proj)
+    assert [layout.places[k] for k in keys] == [
+        ModulePlace(
+            ("external", "plugin", "grpc", service, "v1", "rpc_messages"),
+            "register_grpc_messages",
+        )
+        for service in ("sessionmanagement", "discovery")
+    ]
+
+
+def test_two_outside_trees_that_give_one_module_stop_generation(tree: _Tree) -> None:
+    first = tree.key("a", "libs", "Helper.vi", under=tree.base)
+    second = tree.key("b", "libs", "Helper.vi", under=tree.base)
+    with pytest.raises(ModuleCollisionError, match="external.libs.helper"):
+        _layout(tree.key("x.vi"), first, second, root=tree.proj)
+
+
+def test_a_library_folder_inside_the_project_places_its_files_as_library_files(
+    tree: _Tree,
+) -> None:
+    """A user.lib kept inside the project (a vendored copy in a git repo) is still
+    user.lib: its files are ``userlib.*``, the same as anywhere else."""
+    userlib = tree.proj / "vendor" / "user.lib"
+    key = tree.key("_OpenG.lib", "file", "file.llb", "Delete.vi", under=userlib)
+    layout = _layout(tree.key("a.vi"), key, root=tree.proj, userlib_root=userlib)
+    assert layout.places[key] == ModulePlace(
+        ("userlib", "_openglib", "file", "filellb"), "delete"
+    )
+    assert layout.places[tree.key("a.vi")] == ModulePlace((), "a")
+    assert layout.display_path(key) == "<userlib>/_OpenG.lib/file/file.llb/Delete.vi"
+    # A folder the VI names relative to itself is placed beside its module, never
+    # above its library folder.
+    library = ("userlib", "_openglib", "file", "filellb")
+    assert layout.placed_beside(key, ["", "x.dll"]) == library
+    up_three = ["", "..", "..", "..", "libs", "x.dll"]
+    assert layout.placed_beside(key, up_three) == ("userlib", "libs")
+    assert layout.placed_beside(key, ["", "", "", "", "", "x.dll"]) is None
+    own = tree.key("a.vi")
+    assert layout.placed_beside(own, ["", "sub", "a", "..", "x.dll"]) == ("sub",)
+    assert layout.placed_beside(own, ["", "..", "x.dll"]) is None
+
+
+def test_a_recorded_installation_path_places_a_file_inside_the_project(
+    tree: _Tree,
+) -> None:
+    key = tree.key("copies", "Build Path__ogtk.vi")
+    layout = _layout(
+        tree.key("a.vi"),
+        key,
+        root=tree.proj,
+        recorded={key: "<userlib>/_OpenG.lib/file/file.llb/Build Path__ogtk.vi"},
+    )
+    assert layout.places[key] == ModulePlace(
+        ("userlib", "_openglib", "file", "filellb"), "build_path__ogtk"
+    )
+    # A file beside it follows its module, not the folder the copy sits in.
+    assert layout.placed_beside(key, ["", "libs", "x.dll"]) == (
+        "userlib", "_openglib", "file", "filellb", "libs"
+    )
+
+
+def test_a_user_lib_vi_generated_alone_and_its_dependencies_share_one_tree(
+    tree: _Tree,
+) -> None:
+    """A user.lib VI given as the input, with no project marker above it: its
+    project is its own folder, yet it and the user.lib files it calls are all
+    placed under ``userlib``, never half at the top and half below."""
+    userlib = tree.base / "user.lib"
+    top = tree.key("_OpenG.lib", "file", "file.llb", "Top.vi", under=userlib)
+    dep = tree.key("_OpenG.lib", "array", "array.llb", "Dep.vi", under=userlib)
+    layout = _layout(top, dep, root=Path(top).parent, userlib_root=userlib)
+    assert layout.places[top] == ModulePlace(
+        ("userlib", "_openglib", "file", "filellb"), "top"
+    )
+    assert layout.places[dep] == ModulePlace(
+        ("userlib", "_openglib", "array", "arrayllb"), "dep"
+    )
 
 
 def test_a_vi_with_a_recorded_path_and_no_file_is_placed_by_it(tree: _Tree) -> None:
@@ -244,3 +353,16 @@ def test_an_unplaceable_vi_fails_only_what_imports_it(tree: _Tree) -> None:
     assert list(layout.unplaced) == ["Missing.vi"]
     with pytest.raises(UnplacedVIError, match="Missing.vi"):
         layout.place_of_name("Missing.vi")
+
+
+def test_two_unmarked_outside_files_alike_stop_generation_naming_their_paths(
+    tree: _Tree,
+) -> None:
+    first = tree.key("c1", "A", "P.vi", under=tree.base)
+    second = tree.key("c2", "A", "P.vi", under=tree.base)
+    with pytest.raises(ModuleCollisionError) as caught:
+        _layout(tree.key("x.vi"), first, second, root=tree.proj)
+    message = str(caught.value)
+    assert "'../c1/A/P.vi' and '../c2/A/P.vi'" in message
+    assert "external.a.p" in message
+    assert str(tree.base) not in message

@@ -15,7 +15,7 @@ lvkit describe <input_path> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `input_path` | Path to a `.vi` file. |
+| `input_path` | Path to a `.vi` file. The path may be written as lvkit prints it (`<userlib>/…`, `<vilib>/…`, `<instrlib>/…`, or a VI inside an `.llb` through its archive): it is found in the folders given by `--vilib`, `--userlib` and `--instrlib`. |
 
 ## Options
 

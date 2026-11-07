@@ -12,11 +12,10 @@ import re
 import shutil
 import sys
 import traceback
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lvkit.cache_paths import project_root
 from lvkit.codegen import build_module
 from lvkit.codegen.ast_optimizer import (
     remove_duplicate_imports,
@@ -47,7 +46,9 @@ from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
+from lvkit.package_copies import ModuleCopies, PackageCopies
 from lvkit.polymorphic_variants import variants_to_generate
+from lvkit.project_folders import project_root
 from lvkit.project_store import find_project_store
 from lvkit.run_report import (
     Outcome,
@@ -135,6 +136,7 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
+    copies: ModuleCopies | None = None,
     module_names: set[str] | None = None,
     spellings: dict[str, str] | None = None,
     module_key: str | None = None,
@@ -160,6 +162,10 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
+        copies: The files the module being generated names beside its VIs (a
+            Call Library Function Node's library), copied into the package when
+            the module is written; without it a module's text is generated and
+            no file is copied.
         module_names: The top-level names of the module, shared by every
             resolver that writes into it (the variants of a polymorphic VI);
             each name an import is spelled as is added to it.
@@ -332,14 +338,17 @@ def create_import_resolver(
         below_root = folder.relative_to(output_dir).parts
         return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
 
-    def project_file(folder: Path, source: Path) -> str | None:
-        """Where ``source``, a file at or below the project ``folder``, sits from
-        the calling module's folder once copied into the package: below the
-        package ``folder`` is generated as, under its own names."""
-        placed = layout.placed_folder(folder) if layout else None
+    def beside_vi(
+        vi_key: str, recorded: Sequence[str], below: Sequence[str]
+    ) -> str | None:
+        """Where a file at ``below`` in the folder of the file the VI ``vi_key``
+        records relative to itself sits from the calling module's folder once
+        copied into the package: in the package ``ModuleLayout.placed_beside``
+        gives; None when the walk leaves the VI's tree."""
+        placed = layout.placed_beside(vi_key, recorded, below) if layout else None
         if placed is None:
             return None
-        target = output_dir.joinpath(*placed, *source.relative_to(folder).parts)
+        target = output_dir.joinpath(*placed)
         return Path(os.path.relpath(target, caller_dir)).as_posix()
 
     def error_import() -> str:
@@ -359,9 +368,10 @@ def create_import_resolver(
         package_spec,
         package_modules,
         root_module_import,
-        project_file,
+        beside_vi,
         shown,
         names_import,
+        copies.register if copies is not None else None,
         taken,
         own_function_import,
         module_key if module_key is not None else caller_key,
@@ -411,6 +421,17 @@ def _warn_unimportable_paths(package_root: Path) -> None:
         )
 
 
+def _write_module_files(
+    module_path: Path, code: str, data_files: dict[str, bytes], copies: ModuleCopies
+) -> None:
+    """Write a generated module: the data files it reads at run time first, so a
+    module is never written without them, then its code; then keep the files it
+    named beside its VIs (``ModuleCopies.commit``)."""
+    _write_data_files(module_path.parent, data_files)
+    module_path.write_text(code, encoding="utf-8")
+    copies.commit()
+
+
 def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
     """Write the files a generated module reads at run time, each at its path from
     the module's folder."""
@@ -435,7 +456,7 @@ def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> Non
     """Record that generating ``vi_name`` failed with ``exc``; an lvkit error also
     prints its traceback, the same in every command."""
     problem = problem_for_exception(
-        graph.key_label(vi_name), ProblemStage.GENERATE, exc
+        graph.key_label(vi_name), ProblemStage.GENERATE, exc, vi_name
     )
     graph.record_problem(vi_name, problem)
     if problem.kind is ProblemKind.LVKIT_ERROR:
@@ -508,11 +529,13 @@ def _generate_polymorphic_module(
     data_files: dict[str, bytes] | None = None,
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
+    copies: ModuleCopies | None = None,
 ) -> str:
     """The module of the polymorphic VI ``wrapper_name``: the functions of its
     ``variants``, each called directly by the calls that record it. Data files
-    the variants read at run time are added to ``data_files``, and the gaps found
-    in the variants to ``gaps``."""
+    the variants read at run time are added to ``data_files``, the files they
+    name beside them to ``copies``, and the gaps found in the variants to
+    ``gaps``."""
     # repr() makes the VI path a valid string literal whatever it contains
     # (a Windows path holds backslashes).
     shown = layout.display_path(wrapper_name)
@@ -558,6 +581,7 @@ def _generate_polymorphic_module(
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
             layout=layout,
+            copies=copies,
             module_names=module_names,
             spellings=spellings,
             module_key=wrapper_name,
@@ -816,6 +840,7 @@ def generate_python(
     package_modules = PackageModules.from_graph(
         graph, order, reserved={*layout.root_names, ERRORS_MODULE_NAME}
     )
+    copies = PackageCopies(graph, layout, output_dir_resolved)
     vi_paths: dict[str, Path] = {
         key: output_dir_resolved.joinpath(*place.packages) / f"{place.module}.py"
         for key, place in layout.places.items()
@@ -877,6 +902,7 @@ def generate_python(
                     vi_name,
                     Problem(
                         vi=graph.key_label(vi_name),
+                        key=vi_name,
                         stage=ProblemStage.GENERATE,
                         kind=ProblemKind.UNWRITABLE,
                         reason=str(layout.unplaced[vi_name]),
@@ -906,6 +932,7 @@ def generate_python(
             elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
                 try:
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     code = build_type_module(
                         graph,
                         vi_name,
@@ -920,14 +947,14 @@ def generate_python(
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             package_modules=package_modules,
                             layout=layout,
+                            copies=module_copies,
                             module_key=vi_name,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
                     )
                     ast.parse(code)
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -945,6 +972,7 @@ def generate_python(
                 code = ""
                 try:
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     code = _generate_polymorphic_module(
                         vi_name,
                         variants,
@@ -956,11 +984,11 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
+                        copies=module_copies,
                         gaps=vi_gaps,
                     )
                     ast.parse(code)  # Validate syntax
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(
                         f"         -> polymorphic: {output_path.name}"
@@ -980,6 +1008,7 @@ def generate_python(
                 code = ""
 
                 try:
+                    module_copies = copies.module()
                     import_resolver = create_import_resolver(
                         vi_folder_name,
                         output_dir_resolved,
@@ -990,6 +1019,7 @@ def generate_python(
                         vilib_resolver=vilib_resolver,
                         package_modules=package_modules,
                         layout=layout,
+                        copies=module_copies,
                     )
                     data_files: dict[str, bytes] = {}
                     code = build_module(
@@ -1003,8 +1033,7 @@ def generate_python(
 
                     # Validate syntax
                     ast.parse(code)
-                    output_path.write_text(code, encoding="utf-8")
-                    _write_data_files(output_path.parent, data_files)
+                    _write_module_files(output_path, code, data_files, module_copies)
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -1036,6 +1065,7 @@ def generate_python(
                 try:
                     _ensure_packages(wrapper_path, output_dir_resolved)
                     data_files: dict[str, bytes] = {}
+                    module_copies = copies.module()
                     wrapper_gaps = GapLog(graph)
                     code = _generate_polymorphic_module(
                         wrapper_name,
@@ -1048,11 +1078,11 @@ def generate_python(
                         layout,
                         data_files=data_files,
                         package_modules=package_modules,
+                        copies=module_copies,
                         gaps=wrapper_gaps,
                     )
                     ast.parse(code)
-                    wrapper_path.write_text(code, encoding="utf-8")
-                    _write_data_files(wrapper_path.parent, data_files)
+                    _write_module_files(wrapper_path, code, data_files, module_copies)
                     _report_gaps(wrapper_gaps, all_gaps, graph)
                     generated.append((wrapper_name, wrapper_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
@@ -1070,9 +1100,15 @@ def generate_python(
         generated.append((current, None, "failed"))
         fail_fast_stop = True
 
+    # What every written module needs, whether the run ended or stopped: the
+    # errors module, the shared modules and the files copied beside its VIs.
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
+    copies.write()
+    # Two different files for one place stop generation, the package written
+    # whole.
+    copies.check()
 
     _warn_unimportable_paths(output_dir_resolved)
     print(f"\nOutput: {display_path(output_dir_resolved)}")
