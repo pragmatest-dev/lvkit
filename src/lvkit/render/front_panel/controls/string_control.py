@@ -25,7 +25,6 @@ from .base import (
     ControlGlyph,
     find_part,
     local_part_rect,
-    part_is_hidden,
     part_rect_of,
     value_box_bounds,
     value_extent,
@@ -194,7 +193,7 @@ def string_control(ctrl: ParsedFPControl) -> StringControlGlyph | None:
         bevel_local=_bevel(ctrl, origin) if style == ControlStyle.SILVER else (),
         browse_local=(
             local_part_rect(ctrl, _BROWSE_PART_ID, origin)
-            if is_path and browse is not None and not part_is_hidden(browse)
+            if is_path and browse is not None and not browse.hidden
             else None
         ),
     )

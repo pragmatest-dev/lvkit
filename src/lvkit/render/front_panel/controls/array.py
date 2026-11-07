@@ -39,7 +39,6 @@ from .base import (
     frame_colors,
     local_part_rect,
     part_hidden,
-    part_is_hidden,
     part_rect_of,
     value_box_bounds,
     value_extent,
@@ -249,7 +248,7 @@ def _indices(
         (
             p
             for p in ctrl.parts
-            if p.part_id == _INDEX_PART_ID and not part_is_hidden(p)
+            if p.part_id == _INDEX_PART_ID and not p.hidden
         ),
         key=lambda p: (part_rect_of(p)[1], part_rect_of(p)[0]),
     )

@@ -2016,11 +2016,10 @@ def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
         states = _part_states(part)
         parts.append(
             ParsedFPPart(
-                part_id,
-                part.get("class", ""),
-                _parse_bounds(bounds_elem.text),
-                {},
-                _parse_fp_parts_list(part),
+                part_id=part_id,
+                part_class=part.get("class", ""),
+                bounds=_parse_bounds(bounds_elem.text),
+                parts=_parse_fp_parts_list(part),
                 fg_color=heap_color(part.findtext("fgColor")),
                 bg_color=heap_color(part.findtext("bgColor")),
                 image_ids=_part_image_ids(part, states),

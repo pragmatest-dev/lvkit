@@ -79,15 +79,10 @@ def part_rect(ctrl: ParsedFPControl, part_id: int) -> Rect | None:
     return part_rect_of(part) if part is not None else None
 
 
-def part_is_hidden(part: ParsedFPPart) -> bool:
-    """True when ``part`` is flagged hidden (objFlags bit 0x8)."""
-    return part.hidden
-
-
 def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
     """True when the ``partID`` part is flagged hidden, or absent."""
     part = find_part(ctrl, part_id)
-    return True if part is None else part_is_hidden(part)
+    return True if part is None else part.hidden
 
 
 def value_extent(ctrl: ParsedFPControl) -> Rect:
@@ -109,7 +104,7 @@ def value_extent(ctrl: ParsedFPControl) -> Rect:
         for p in ctrl.parts
         if p.part_id is not None
         and p.part_id not in (LABEL_PART_ID, CAPTION_PART_ID)
-        and not part_is_hidden(p)
+        and not p.hidden
     ]
     if not rects:
         return (0.0, 0.0, width, height)

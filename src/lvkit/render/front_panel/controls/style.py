@@ -54,8 +54,12 @@ _STRING_FIELD_STYLE = {-302: ControlStyle.SYSTEM}
 
 # A Boolean's kind by the picture ids of its body (part 21): slide switch 2,958
 # controls, round LED 1,199, modern button 203, square LED 41, system button
-# 203, check box 520, radio button 426. The radio button ids are inferred from
-# the check box's neighbouring ids; no screenshot shows one.
+# 203, check box 520, radio button 426. The radio button ids ``(-292, -293)``
+# are the body ids of 304 Booleans that sit inside a ``radioClust`` (a Radio
+# Buttons control; ``.tmp/radio_ids.py`` over 3,000 panels). The same ids
+# appear on 124 Booleans outside one. A 15 by 15 body with ids
+# ``(-270, -271)`` and no label part is on 740 Booleans; the corpus shows no
+# screenshot or part layout that names its kind, so it stays ``OTHER``.
 _BOOLEAN_KIND: dict[int, BooleanKind] = {
     -407: BooleanKind.SLIDE_SWITCH,
     -404: BooleanKind.ROUND_LED,

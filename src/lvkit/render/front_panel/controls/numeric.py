@@ -34,7 +34,6 @@ from .base import (
     find_part,
     local_part_rect,
     part_hidden,
-    part_is_hidden,
     part_rect_of,
     value_box_bounds,
     value_extent,
@@ -186,7 +185,7 @@ def _readout_part(ctrl: ParsedFPControl) -> ParsedFPPart | None:
     the ring's item ``multiLabel``."""
     for part_id in _READOUT_PART_IDS:
         part = find_part(ctrl, part_id)
-        if part is not None and not part_is_hidden(part):
+        if part is not None and not part.hidden:
             return part
     return None
 
