@@ -1,7 +1,7 @@
 """A front-panel cluster's fields are placed by their stored positions:
 ``pane-local = stored + origin + FT + P`` (``layout._cluster_field_geoms``),
-clipped to the pane. Hand-made clusters, one per case, plus PCO's clipped
-"Sampling Rates" cluster."""
+drawn where the rule puts them, inside the cluster box or not. Hand-made
+clusters, one per case, plus PCO's "Sampling Rates" cluster."""
 
 from __future__ import annotations
 
@@ -77,7 +77,6 @@ def test_fields_land_at_stored_plus_origin_plus_frame() -> None:
     )
     geom = _cluster_field_geoms(ddo, (0.0, 0.0))
     assert geom is not None
-    assert geom.clip == (4.0, 4.0, 96.0, 56.0)
     assert [f.value_rect for f in geom.fields] == [
         (4.0, 4.0, 64.0, 24.0),
         (4.0, 28.0, 64.0, 48.0),
@@ -85,7 +84,7 @@ def test_fields_land_at_stored_plus_origin_plus_frame() -> None:
 
 
 def _pco_like() -> ET.Element:
-    # a 41 px tall pane of four 45 px fields; only the third is in view
+    # a 41 px tall pane over four 45 px fields; the cluster box is 60 px tall
     return ET.fromstring(
         _cluster(
             1, "(100, 200, 160, 300)", "(4, 4, 45, 96)", "(-4, -4)",
@@ -99,15 +98,16 @@ def _pco_like() -> ET.Element:
     )
 
 
-def test_clipped_cluster_draws_only_the_field_inside_it() -> None:
+def test_fields_outside_the_cluster_box_keep_their_stored_positions() -> None:
     geom = _cluster_field_geoms(_pco_like(), (0.0, 0.0))
-    assert geom is not None and geom.clip is not None
-    shown = [
-        f.name
-        for f in geom.fields
-        if f.value_rect[1] < geom.clip[3] and f.value_rect[3] > geom.clip[1]
+    assert geom is not None
+    assert geom.height == 60.0
+    assert [f.value_rect for f in geom.fields] == [
+        (4.0, 4.0, 64.0, 49.0),
+        (4.0, 51.0, 64.0, 96.0),
+        (4.0, 98.0, 64.0, 143.0),
+        (4.0, 145.0, 64.0, 190.0),
     ]
-    assert shown == ["A"]
 
 
 def _svg_of(ddo: ET.Element) -> str:
@@ -118,10 +118,10 @@ def _svg_of(ddo: ET.Element) -> str:
     )
 
 
-def test_a_field_outside_the_pane_is_not_drawn() -> None:
+def test_a_field_outside_the_cluster_box_is_drawn_there() -> None:
     svg = _svg_of(_pco_like())
     names = re.findall(r">([A-D])</text>", svg)
-    assert names == ["A"]
+    assert names == ["A", "B", "C", "D"]
 
 
 def test_typedef_cluster_sits_at_wrapper_plus_inner_top_left() -> None:
@@ -139,7 +139,6 @@ def test_typedef_cluster_sits_at_wrapper_plus_inner_top_left() -> None:
     assert ctrl is not None and ctrl.cluster_geom is not None
     # local x = -65 - 3 + 65 + 3 = 0, local y = -60 - 3 + 60 + 3 = 0; pane (3, 3)
     assert ctrl.cluster_geom.fields[0].value_rect[:2] == (3.0, 3.0)
-    assert ctrl.cluster_geom.clip is not None
 
 
 def test_nested_cluster_uses_its_parents_frame() -> None:
@@ -158,7 +157,7 @@ def test_nested_cluster_uses_its_parents_frame() -> None:
     assert geom is not None
     assert geom.fields[0].value_rect[:2] == (4.0, 4.0)
     nested = geom.fields[0].nested
-    assert nested is not None and nested.clip is not None
+    assert nested is not None
     # outer FT + P = (204, 104); inner FT = (-200, -100) + (204, 104) = (4, 4);
     # local = -4 - 3 + 4 + 3 = 0, so the field sits at the inner pane's top-left
     assert nested.fields[0].value_rect[:2] == (3.0, 3.0)
@@ -175,24 +174,23 @@ def test_without_a_frame_the_fields_are_fitted_into_the_pane() -> None:
         )
     )
     geom = _cluster_field_geoms(ddo)
-    assert geom is not None and geom.clip is None
+    assert geom is not None
     assert geom.fields[0].value_rect[:2] == (3.0, 3.0)
 
 
 @pytest.mark.needs_samples
-def test_pco_sampling_rates_draws_one_field() -> None:
+def test_pco_sampling_rates_draws_all_four_fields_where_the_file_puts_them() -> None:
     graph, key = load_corpus_vi(_PCO)
     front_panel = graph.get_vi_front_panel(key)
     assert front_panel is not None
     rates = next(c for c in front_panel.controls if c.name == "Sampling Rates")
-    assert rates.cluster_geom is not None and rates.cluster_geom.clip is not None
-    clip = rates.cluster_geom.clip
-    shown = [
-        f.name
-        for f in rates.cluster_geom.fields
-        if f.value_rect[1] < clip[3] and f.value_rect[3] > clip[1]
-    ]
-    assert shown == ["CBV Cam Fs"]
+    assert rates.cluster_geom is not None
+    assert {f.name: f.value_rect for f in rates.cluster_geom.fields} == {
+        "Pupil Cam Fs": (125.0, -87.0, 203.0, -42.0),
+        "Whisk Cam Fs": (125.0, -40.0, 203.0, 5.0),
+        "CBV Cam Fs": (125.0, 8.0, 203.0, 53.0),
+        "Web Cam Fs": (126.0, 56.0, 204.0, 101.0),
+    }
     svg = render_front_panel_svg(front_panel)
-    assert ">CBV Cam Fs</text>" in svg
-    assert ">30</text>" in svg
+    for name in ("Pupil Cam Fs", "Whisk Cam Fs", "CBV Cam Fs", "Web Cam Fs"):
+        assert f">{name}</text>" in svg

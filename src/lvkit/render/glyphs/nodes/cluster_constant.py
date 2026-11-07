@@ -10,18 +10,6 @@ from ...text_style import TextStyle, draw_styled_text
 from .base import Glyph
 
 
-def _in_window(rect: Rect, window: Rect | None) -> bool:
-    """True when ``rect`` is inside ``window`` at least in part; any rect is when
-    there is no window."""
-    return (
-        window is None
-        or rect[0] < window[2]
-        and rect[2] > window[0]
-        and rect[1] < window[3]
-        and rect[3] > window[1]
-    )
-
-
 @dataclass(frozen=True)
 class ClusterConstantGlyph:
     """A cluster constant drawn by COMPOSING each field's own constant glyph
@@ -140,16 +128,6 @@ class ClusterConstantGlyph:
         scale = min((bx2 - bx1) / cg.width, (by2 - by1) / cg.height)
         geom_by_name = {f.name: f for f in cg.fields}
         label_size = self.field_label_size
-        window = None
-        if cg.clip is not None:
-            cx1, cy1, cx2, cy2 = cg.clip
-            window = (
-                bx1 + cx1 * scale,
-                by1 + cy1 * scale,
-                bx1 + cx2 * scale,
-                by1 + cy2 * scale,
-            )
-            backend.begin_group(clip=window)
         for name, field_glyph in self.fields:
             geom = geom_by_name[name]
             vx1, vy1, vx2, vy2 = geom.value_rect
@@ -159,11 +137,7 @@ class ClusterConstantGlyph:
                 bx1 + vx2 * scale,
                 by1 + vy2 * scale,
             )
-            if (
-                abs_value[2] > abs_value[0]
-                and abs_value[3] > abs_value[1]
-                and _in_window(abs_value, window)
-            ):
+            if abs_value[2] > abs_value[0] and abs_value[3] > abs_value[1]:
                 field_glyph.draw(backend, abs_value, theme)
             if geom.label_rect is not None:
                 lx1, ly1, lx2, ly2 = geom.label_rect
@@ -173,11 +147,7 @@ class ClusterConstantGlyph:
                     bx1 + lx2 * scale,
                     by1 + ly2 * scale,
                 )
-                if (
-                    abs_label[2] > abs_label[0]
-                    and abs_label[3] > abs_label[1]
-                    and _in_window(abs_label, window)
-                ):
+                if abs_label[2] > abs_label[0] and abs_label[3] > abs_label[1]:
                     style = self.field_label_styles.get(name) or TextStyle(label_size)
                     draw_styled_text(
                         backend,
@@ -187,8 +157,6 @@ class ClusterConstantGlyph:
                         style,
                         theme.text,
                     )
-        if window is not None:
-            backend.end_group()
 
     def _draw_value_cells(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """Stack each field's VALUE glyph (no name label) to fill the box — one

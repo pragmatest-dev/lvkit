@@ -177,12 +177,6 @@ class ClusterGeom:
     width: float
     height: float
     fields: tuple[ClusterFieldGeom, ...]
-    # The pane's inner rect in the same box coordinates, when the fields were
-    # placed by their stored positions (a front-panel cluster): the cluster
-    # shows only what falls inside it, so a field outside is not drawn and one
-    # crossing the edge is clipped. None when the fields were fitted into the
-    # box instead (block-diagram constants).
-    clip: Rect | None = None
 
 
 @dataclass(frozen=True)
@@ -695,15 +689,13 @@ def _cluster_field_geoms(
     corpus (14,947 clusters, ``labview-binary-format.md`` "Front panel
     structure"): the first field lands at the pane's top-left (0 to 6 px) in
     13,923; the other 1,024 have a larger inset or lie partly outside the
-    pane; in none is every field outside the pane. Fields are placed at scale
-    1 and the pane's inner rect is ``ClusterGeom.clip``: a cluster drawn
-    smaller than its fields shows only those inside it.
+    pane. Every field is drawn where the rule puts it, at scale 1, even where
+    that is outside the saved cluster box.
 
     Without ``frame`` (a block-diagram constant, whose position is not the
-    frame the fields are stored in) or when the rule leaves no field inside the
-    pane, the fields' collective extent equals the pane's inner area, so it
-    is normalized by that extent and fitted into the pane with a single
-    uniform scale (pure translation when it fits).
+    frame the fields are stored in), the fields' collective extent equals the
+    pane's inner area, so it is normalized by that extent and fitted into the
+    pane with a single uniform scale (pure translation when it fits).
 
     ``paneHierarchy``'s own ``<bounds>`` is relative to ``cluster_el``'s RAW
     ``<bounds>`` origin (a heap-format fact, same convention
@@ -768,7 +760,6 @@ def _cluster_field_geoms(
     if not entries:
         return None
 
-    clip: Rect | None = None
     child_frame = (0.0, 0.0)
     placed: Callable[[Rect], Rect] | None = None
     if frame is not None:
@@ -780,10 +771,6 @@ def _cluster_field_geoms(
             pane_rel[1] + origin[1] + child_frame[1],
         )
         placed = _shifted(shift)
-        if any(_overlaps(placed(r), pane_rel) for r in extent_rects):
-            clip = pane_rel
-        else:
-            placed = None
     if placed is None:
         min_l = min(r[0] for r in extent_rects)
         min_t = min(r[1] for r in extent_rects)
@@ -821,7 +808,7 @@ def _cluster_field_geoms(
                 else child_frame
             )
             nested = _cluster_field_geoms(
-                nested_shape, nested_frame if clip is not None else None
+                nested_shape, nested_frame if frame is not None else None
             )
         result.append(
             ClusterFieldGeom(
@@ -838,7 +825,6 @@ def _cluster_field_geoms(
         width=value_box[2] - value_box[0],
         height=value_box[3] - value_box[1],
         fields=tuple(result),
-        clip=clip,
     )
 
 
@@ -869,10 +855,6 @@ def _shifted(shift: tuple[float, float]) -> Callable[[Rect], Rect]:
         )
 
     return move
-
-
-def _overlaps(a: Rect, b: Rect) -> bool:
-    return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
 
 
 class _LayoutBuilder:
