@@ -13,7 +13,7 @@ from ..style import Theme
 from .controls import control_value_bounds, draw_label, resolve_glyph
 from .controls.decoration import draw_decoration
 from .controls.free_label import draw_free_label
-from .geometry import FPBox, FPSplitterBar, FPWindowFrame
+from .geometry import FPBox, FPPaneBackground, FPSplitterBar, FPWindowFrame
 
 
 def draw_front_panel(boxes: list[FPBox], backend: Backend, theme: Theme) -> None:
@@ -36,6 +36,8 @@ def _draw_box(box: FPBox, backend: Backend, theme: Theme) -> None:
         draw_free_label(obj, box.bounds, backend, theme)
     elif isinstance(obj, ParsedFPDecoration):
         draw_decoration(obj, box.bounds, backend, theme)
+    elif isinstance(obj, FPPaneBackground):
+        backend.rect(*box.bounds, fill=obj.color)
     elif isinstance(obj, FPSplitterBar):
         backend.rect(*box.bounds, fill=theme.struct_border)
     elif isinstance(obj, FPWindowFrame):

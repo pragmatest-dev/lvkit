@@ -210,6 +210,18 @@ extent), in drawing order:
 - *Drawing.* `compose.draw_front_panel` draws a control by its resolved glyph (a tab control:
   `controls/tab.py`, from its own frame and tab-row parts), a free label (`free_label.py`), a
   decoration by its `ImageResID` (`decoration.py`), and wraps a clipped object in a clip group.
+- *A control's look.* `ParsedFPPart` keeps each part's picture ids, flags, `bigMultiCosm`
+  states and `multiLabel` texts, and `ParsedFPControl.shows_as_indicator` the control's own
+  indicator bit (`parser/vi.py` `_parse_fp_parts_list`). `controls/style.py` decides the look
+  from those ids in one place: `numeric_style`, `string_style`, `listbox_style` return a
+  `ControlStyle` (Modern, System, Silver, or Other = not measured) and `boolean_kind` a
+  `BooleanKind`. The resolver (`controls/resolve.py`) gives a measured look its own drawing
+  (`numeric.py` / `modern.py` for Modern numerics and rings, `string_control.py` for strings
+  and paths, `boolean.py` / `boolean_kinds.py`, `listbox.py`), each in the part rects the file
+  stores; Other keeps the generic drawing. The panel's canvas is the first pane's stored
+  color (`ParsedFPPane.background`, `geometry.panel_background`). Gradients are the backend's
+  `gradient_rect`. Part ids and measured colors:
+  `docs/_internal/design/labview-binary-format.md` "Front panel structure".
 The output cache keys the picture twice: the slot name (`vi.front-panel.html` beside
 `vi.html`, `_render_paths` in `output_cache.py`) and the options tag (`view=`,
 `render_options_tag`).

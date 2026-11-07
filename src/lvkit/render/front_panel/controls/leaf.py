@@ -16,6 +16,7 @@ from ...glyph import (
 from ...style import Theme, lv_type_label, type_repr, wire_style
 from .boolean import BooleanControlGlyph
 from .color import ColorControlGlyph
+from .display_text import path_text, string_text
 from .enum_control import EnumControlGlyph
 from .measure_data import MeasureDataGlyph
 from .number_format import format_number
@@ -137,11 +138,11 @@ def leaf_glyph(
         )
     if control_type == "stdString":
         return ConstantGlyph(
-            value=default_value or "", color=theme.struct_border,
+            value=string_text(default_value), color=theme.struct_border,
             fill_attr="fp_value_fill", text_attr="fp_value_text", multiline=True,
         )
     if control_type == "stdPath":
-        return PathGlyph(value=default_value or "", color=theme.struct_border)
+        return PathGlyph(value=path_text(default_value), color=theme.struct_border)
     if control_type in ("stdNum", "stdNumeric"):
         return NumericControlGlyph(
             value=format_number(default_value or "0", number_format),

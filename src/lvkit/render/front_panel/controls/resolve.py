@@ -17,10 +17,14 @@ from ...style import Theme
 from .array import array_control
 from .base import frame_colors
 from .boolean import boolean_control
+from .enum_control import selected_text
 from .graph import GraphControlGlyph
 from .label import LABEL_SIZE
 from .leaf import leaf_glyph
+from .listbox import listbox_control
 from .numeric import numeric_control
+from .string_control import string_control
+from .style import ControlStyle, has_dropdown, numeric_style
 from .tab import tab_control
 from .timestamp import timestamp_control
 from .values import with_value
@@ -41,10 +45,20 @@ def _cluster_glyph(
     )
 
 
+def _shown_fields(
+    ctrl: ParsedFPControl, theme: Theme
+) -> tuple[tuple[str, Glyph], ...]:
+    """The glyphs of ``ctrl``'s fields the panel shows: a field the author hid
+    is not drawn."""
+    return tuple(
+        (f.name, resolve_glyph(f, theme)) for f in ctrl.children if not f.hidden
+    )
+
+
 def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     if ctrl.control_type != "stdClust":
         return None
-    fields = tuple((f.name, resolve_glyph(f, theme)) for f in ctrl.children)
+    fields = _shown_fields(ctrl, theme)
     return _cluster_glyph(ctrl, fields)
 
 
@@ -58,8 +72,7 @@ def _element(ctrl: ParsedFPControl, theme: Theme, value: object = None) -> Glyph
     when neither is available."""
     if ctrl.children:
         row = with_value(ctrl, value) if isinstance(value, dict) else ctrl
-        fields = tuple((f.name, resolve_glyph(f, theme)) for f in row.children)
-        return _cluster_glyph(ctrl, fields)
+        return _cluster_glyph(ctrl, _shown_fields(row, theme))
     element_part: ParsedFPPart | None = next(
         (p for p in ctrl.parts if p.part_id is None), None
     )
@@ -101,6 +114,30 @@ def _numeric(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return numeric_control(ctrl)
 
 
+def _ring(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    """A Modern ring or enum with spinner arrows is drawn as the Modern numeric
+    is (its selected item in the readout); any other is the generic ring."""
+    if ctrl.control_type not in ("stdRing", "stdEnum"):
+        return None
+    if has_dropdown(ctrl) or numeric_style(ctrl) != ControlStyle.MODERN:
+        return None
+    text = selected_text(ctrl.default_value, tuple(ctrl.enum_values))
+    glyph = numeric_control(ctrl, text)
+    return glyph if glyph.readout_local is not None else None
+
+
+def _string(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type not in ("stdString", "stdPath"):
+        return None
+    return string_control(ctrl)
+
+
+def _listbox(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type != "listbox":
+        return None
+    return listbox_control(ctrl)
+
+
 def _boolean(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     if ctrl.control_type != "stdBool":
         return None
@@ -129,6 +166,9 @@ _RESOLVERS = (
     _cluster,
     _array,
     _numeric,
+    _ring,
+    _string,
+    _listbox,
     _boolean,
     _graph,
     _timestamp,

@@ -12,6 +12,7 @@ import pytest
 
 from lvkit.parser.fp_listbox import read_listbox
 from lvkit.parser.fp_structure import read_panel_layout
+from lvkit.parser.models import ParsedFPPane
 from lvkit.parser.vi import _parse_fp_parts_list
 from tests.corpus_graphs import load_corpus_vi
 
@@ -82,12 +83,22 @@ def test_hidden_is_the_part_flag_bit_8() -> None:
     assert hidden.hidden
 
 
-def test_multilabel_texts_are_its_buf_items() -> None:
+def test_multilabel_texts_are_its_buf_items_and_its_font_color() -> None:
     (part,) = _parts(
         '<SL__arrayElement class="multiLabel"><partID>22</partID>'
-        '<bounds>(0,0,12,12)</bounds><buf>(2)"Off""On"</buf></SL__arrayElement>'
+        '<bounds>(0,0,12,12)</bounds><textRec><fr><SL__arrayElement class="fontRun">'
+        "<fontcolor>00FF0000</fontcolor></SL__arrayElement></fr></textRec>"
+        '<buf>(2)"Off""On"</buf></SL__arrayElement>'
     )
     assert part.texts == ("Off", "On")
+    assert part.text_color == "#FF0000"
+    (system,) = _parts(
+        '<SL__arrayElement class="multiLabel"><partID>22</partID>'
+        '<bounds>(0,0,12,12)</bounds><textRec><fr><SL__arrayElement class="fontRun">'
+        "<fontcolor>0100003D</fontcolor></SL__arrayElement></fr></textRec>"
+        '<buf>(1)"x"</buf></SL__arrayElement>'
+    )
+    assert system.text_color is None
 
 
 def _pane(parts: str) -> ET.Element:
@@ -107,7 +118,7 @@ def _background(color: str, image: str, part_id: str = "28") -> str:
 
 def test_pane_background_is_the_part_28_cosm_of_image_minus_704() -> None:
     layout, _ = read_panel_layout(_pane(_background("00006698", "-704")), {})
-    assert layout is not None
+    assert isinstance(layout, ParsedFPPane)
     assert layout.background == "#006698"
 
 
@@ -119,7 +130,7 @@ def test_pane_background_needs_a_literal_colour_part_28_and_image_minus_704() ->
         "",
     ):
         layout, _ = read_panel_layout(_pane(parts), {})
-        assert layout is not None
+        assert isinstance(layout, ParsedFPPane)
         assert layout.background is None
 
 
@@ -198,5 +209,5 @@ def test_pco_panel_background_is_006698() -> None:
     )
     front_panel = graph.get_vi_front_panel(key)
     assert front_panel is not None
-    assert front_panel.layout is not None
+    assert isinstance(front_panel.layout, ParsedFPPane)
     assert front_panel.layout.background == "#006698"

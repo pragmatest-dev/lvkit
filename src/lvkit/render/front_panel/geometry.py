@@ -14,6 +14,8 @@ module is the one place that turns them into window positions:
 * a grouper's children, and the shown page of a tab control, are stored relative
   to the container's top-left, except in a VI saved before LabVIEW 9.0, where
   they are stored in the space of the pane that holds the container;
+* a pane's own colour fills the canvas when it is the panel's first pane, and
+  its own rect when it is a pane of a splitter;
 * every object list is stored front first, so it is placed last to first.
 
 A cluster's or array's INTERIOR (its fields / element) is placed by the resolved
@@ -60,12 +62,20 @@ class FPSplitterBar:
     """The band between the two panes of a splitter."""
 
 
+@dataclass(frozen=True)
+class FPPaneBackground:
+    """The fill of a pane of a splitter."""
+
+    color: str
+
+
 FPPlaced = (
     ParsedFPControl
     | ParsedFPLabel
     | ParsedFPDecoration
     | FPWindowFrame
     | FPSplitterBar
+    | FPPaneBackground
 )
 
 
@@ -138,6 +148,8 @@ class _Placer:
             offset[0] + (right - left),
             offset[1] + (bottom - top),
         )
+        if clipped and node.background is not None:
+            self.boxes.append(FPBox(FPPaneBackground(node.background), pane_rect))
         shift = (offset[0] + node.origin[0], offset[1] + node.origin[1])
         self._place_objects(node.objects, shift, pane_rect if clipped else None)
 
@@ -204,6 +216,15 @@ class _Placer:
         if self._container_local:
             return (container[0], container[1])
         return outer
+
+
+def panel_background(front_panel: ParsedFrontPanel) -> str | None:
+    """The colour of the panel's first pane (the top-left leaf of its splitters),
+    None when it records none."""
+    node = front_panel.layout
+    while isinstance(node, ParsedFPSplitter):
+        node = node.first
+    return node.background if node is not None else None
 
 
 def _window(front_panel: ParsedFrontPanel) -> Rect | None:

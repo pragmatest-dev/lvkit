@@ -650,6 +650,9 @@ class ParsedFPPart:
     # A ``multiLabel``'s texts, one per state, in stored order (a Boolean's
     # button text, a ring's items); empty for every other part.
     texts: tuple[str, ...] = ()
+    # The literal color of a text part's first font run (``#RRGGBB``); None for
+    # a system color or a part with no font run.
+    text_color: str | None = None
 
     @property
     def hidden(self) -> bool:

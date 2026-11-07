@@ -2027,6 +2027,9 @@ def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
                 flags=safe_int(part.find("objFlags")),
                 states=states,
                 texts=_part_texts(part),
+                text_color=heap_color(
+                    part.findtext("textRec/fr/SL__arrayElement/fontcolor")
+                ),
             )
         )
     return parts

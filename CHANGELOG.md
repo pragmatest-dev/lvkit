@@ -3,7 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **`lvkit render --view front-panel` draws a VI's front panel** — tab controls show their shown page, splitter panes, scrolled panels, free labels and decorations, class controls; `--view both` writes both pictures; MCP `render` takes `view`.
+- **`lvkit render --view front-panel` draws a VI's front panel** — tab controls show their shown page, splitter panes, scrolled panels, free labels and decorations, class controls, and Modern, System and Silver controls in their own look (numerics, rings, strings, paths, Booleans, listboxes, the panel's color); `--view both` writes both pictures; MCP `render` takes `view`.
 - **Fix: the project index keeps which VI a SubVI call goes to, and recalculated caller counts are written** — a call's callee is set when a VI is loaded, so `describe`, `render` and MCP `read_vi` no longer blank it; a refresh also writes the new `impact_score` / `callers_count` of unchanged VIs (#167).
 - **Generated code keeps errors as values on the wire, as LabVIEW does** — each VI takes `error_in` and returns `error_out` (`None` or a `LabVIEWError` from the package's `errors.py`); a node skips its work on an error but not on a warning, every branch runs, error case structures keep every frame's work, and Merge Errors, Clear Errors, Simple Error Handler and a loop stopped on an error read the value. No more `_held_error`, thread pools for branches or re-raised exceptions.
 - **A Python failure becomes LabVIEW's error code** — a missing file is 7, no permission 8, a released queue 1122, Variant To Data 91, Unflatten From String 116, anything else the entry names or 42.
