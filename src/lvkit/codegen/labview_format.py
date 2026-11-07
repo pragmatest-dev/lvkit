@@ -223,9 +223,7 @@ def _lv_exponent(value, precision, plus):
 
 def _lv_scientific(value, precision, plus, width, left, zero):
     """The number in scientific notation, in a field ``width`` wide."""
-    text = _lv_exponent(value, precision, plus)
-    finite = value - value == 0
-    return _lv_pad(text, width, left, zero and finite)
+    return _lv_pad(_lv_exponent(value, precision, plus), width, left, zero)
 
 
 def _lv_format_value(spec, value, kind, bits, signed):
@@ -262,8 +260,7 @@ def _lv_format_value(spec, value, kind, bits, signed):
                 width = bits if kind == "int" else 64
                 whole &= (1 << width) - 1
             text = format(whole, {"u": "d", "x": "X", "o": "o", "b": "b"}[code])
-    finite = number - number == 0
-    return _lv_pad(text, spec.width, spec.left, spec.zero and finite)
+    return _lv_pad(text, spec.width, spec.left, spec.zero)
 
 
 def _lv_format_into_string(format_string, initial, args):

@@ -70,7 +70,8 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
         return FormatKind("unknown")
     if lv_type.kind == LVTypeKind.ENUM:
         return FormatKind("enum")
-    if lv_type.kind != LVTypeKind.PRIMITIVE:
+    # A ring is an integer whose values have labels: it is written as that integer.
+    if lv_type.kind not in (LVTypeKind.PRIMITIVE, LVTypeKind.RING):
         return FormatKind(lv_type.kind.value)
     name = lv_type.underlying_type
     if name in INTEGER_BYTE_WIDTHS:

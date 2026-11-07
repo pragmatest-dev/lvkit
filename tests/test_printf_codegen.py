@@ -33,6 +33,7 @@ U8 = _primitive("NumUInt8")
 BOOL = _primitive("Boolean")
 COMPLEX = _primitive("NumComplex128")
 ENUM = LVType(kind=LVTypeKind.ENUM)
+RING_I16 = LVType(kind=LVTypeKind.RING, underlying_type="NumInt16")
 ARRAY = LVType(kind=LVTypeKind.ARRAY, element_type=DBL)
 TIME = _primitive("TimeStamp")
 
@@ -148,6 +149,12 @@ CASES: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%010.3e", [(12.67, DBL)], "001.267E+1"),
     ("%5.1f", [(3 + 4j, COMPLEX)], "  3.0"),
     ("%d", [(3, ENUM)], "3"),
+    ("%d", [(3, RING_I16)], "3"),
+    ("%x", [(-1, RING_I16)], "FFFF"),
+    ("%08.3f", [(NAN, DBL)], "00000nan"),
+    ("%010.3e", [(NAN, DBL)], "0000000nan"),
+    ("%b", [(True, BOOL)], "1"),
+    ("%x", [(False, BOOL)], "0"),
     ("Name: %s, %s.", [("Smith", STRING), ("John", STRING)], "Name: Smith, John."),
     ("String: %10.6s", [("Hello, World", STRING)], "String:     Hello,"),
     ("%2$s %1$s", [("Smith", STRING), ("John", STRING)], "John Smith"),
