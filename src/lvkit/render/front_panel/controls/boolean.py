@@ -10,6 +10,7 @@ that fills the box it is given.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 
 from ....parser.layout import Rect
@@ -31,6 +32,16 @@ from .style import BOOLEAN_BODY_PART_ID, BooleanKind, boolean_kind
 _BEZEL_PART_ID = 87
 _THUMB_PART_ID = 86
 _CAPTION_PART_ID = 22
+
+
+@dataclass(frozen=True)
+class PartPicture:
+    """A picture embedded in the VI, drawn into the rect of the part that names
+    it: ``href`` is its ``data:`` URL, ``rect`` is value-box-local."""
+
+    rect: Rect
+    href: str
+    is_body: bool
 
 
 @dataclass(frozen=True)
@@ -57,6 +68,8 @@ class BooleanControlGlyph(ControlGlyph):
     thumb_color: str | None = None
     caption: str = ""
     caption_style: TextStyle = TextStyle(kinds.CAPTION_SIZE)
+    # The pictures the Boolean's parts embed for its current state, body first.
+    pictures: tuple[PartPicture, ...] = ()
 
     def value_bounds(self, bounds: Rect) -> Rect:
         if self.native_size is None:
@@ -66,6 +79,20 @@ class BooleanControlGlyph(ControlGlyph):
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         button = scale_local(self.button_local, self.native_size, bounds)
         body = button if button is not None else bounds
+        if not any(picture.is_body for picture in self.pictures):
+            self._draw_kind(backend, body, bounds, theme)
+        for picture in self.pictures:
+            rect = scale_local(picture.rect, self.native_size, bounds)
+            if rect is not None:
+                x1, y1, x2, y2 = rect
+                backend.image(
+                    picture.href, x1, y1, x2 - x1, y2 - y1, pixelated=False
+                )
+
+    def _draw_kind(
+        self, backend: Backend, body: Rect, bounds: Rect, theme: Theme
+    ) -> None:
+        """The drawing of the Boolean's own kind, in its body rect."""
         color = self.state_color or (kinds.LED_ON if self.on else kinds.LED_OFF)
         kind = self.kind
         if kind == BooleanKind.ROUND_LED:
@@ -116,6 +143,26 @@ def _caption(ctrl: ParsedFPControl, on: bool) -> tuple[str, TextStyle]:
     return text, part_style(part, kinds.CAPTION_SIZE)
 
 
+def _pictures(
+    ctrl: ParsedFPControl, origin: tuple[float, float], on: bool
+) -> tuple[PartPicture, ...]:
+    """The pictures the shown parts of ``ctrl`` embed (a positive id), the one of
+    the current state when the part has one per state (off first, then on), the
+    body part first."""
+    found = []
+    for part in ctrl.parts:
+        if part.hidden or not part.image_ids:
+            continue
+        index = min(1 if on else 0, len(part.image_ids) - 1)
+        png = ctrl.pictures.get(part.image_ids[index])
+        rect = local_part_rect(ctrl, part.part_id, origin) if part.part_id else None
+        if png is None or rect is None:
+            continue
+        href = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+        found.append(PartPicture(rect, href, part.part_id == BOOLEAN_BODY_PART_ID))
+    return tuple(sorted(found, key=lambda picture: not picture.is_body))
+
+
 def boolean_control(ctrl: ParsedFPControl) -> BooleanControlGlyph:
     """``ctrl``'s boolean glyph, laid out from its body part when present."""
     on = ctrl.default_value in ("True", "1")
@@ -138,4 +185,5 @@ def boolean_control(ctrl: ParsedFPControl) -> BooleanControlGlyph:
         thumb_color=_state_color(find_part(ctrl, _THUMB_PART_ID), on),
         caption=caption,
         caption_style=caption_style,
+        pictures=_pictures(ctrl, origin, on),
     )

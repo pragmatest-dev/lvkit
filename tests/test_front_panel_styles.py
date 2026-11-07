@@ -4,6 +4,7 @@ colors and shapes, built from tiny hand-made part lists."""
 
 from __future__ import annotations
 
+import base64
 import re
 
 from lvkit.parser.models import (
@@ -523,3 +524,40 @@ def test_modern_field_right_and_bottom_edges_follow_the_fill() -> None:
     # the measured indicator edges: #E3 at the right, #DA at the bottom
     assert 'fill="#E3E3E3"' in svg
     assert 'fill="#DADADA"' in svg
+
+
+# ---- pictures embedded in the VI ---------------------------------------------
+
+
+def _picture_boolean(on: bool) -> ParsedFPControl:
+    """A Boolean whose body names pictures 3 (off) and 4 (on), and whose decal
+    part 87 names picture 2, all stored in the VI."""
+    ctrl = _boolean(
+        3,
+        on,
+        extra=[_part(87, "cosm", (5, 5, 18, 18), (2,))],
+    )
+    ctrl.parts[-1] = _part(21, "multiCosm", (0, 0, 32, 32), (3, 4, 3, 4))
+    ctrl.bounds = (0, 0, 32, 32)
+    ctrl.pictures = {2: b"decal", 3: b"off", 4: b"on"}
+    return ctrl
+
+
+def test_a_boolean_draws_the_pictures_its_parts_embed() -> None:
+    svg = _svg(_picture_boolean(on=False))
+    hrefs = re.findall(r'<image href="data:image/png;base64,([^"]+)"', svg)
+    # the body's picture of the current state first, then the decal
+    assert [base64.b64decode(h) for h in hrefs] == [b"off", b"decal"]
+    assert 'width="32.0" height="32.0"' in svg
+    assert 'x="5.0" y="5.0" width="13.0" height="13.0"' in svg
+    on = _svg(_picture_boolean(on=True))
+    assert [
+        base64.b64decode(h)
+        for h in re.findall(r'<image href="data:image/png;base64,([^"]+)"', on)
+    ] == [b"on", b"decal"]
+
+
+def test_a_boolean_whose_picture_is_missing_keeps_its_own_drawing() -> None:
+    ctrl = _picture_boolean(on=False)
+    ctrl.pictures = {}
+    assert "<image" not in _svg(ctrl)

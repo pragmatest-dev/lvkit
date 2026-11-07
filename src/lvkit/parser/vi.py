@@ -83,6 +83,7 @@ from .fp_heap_type import (
     ring_sparse_values,
 )
 from .fp_listbox import read_listbox
+from .fp_pictures import attach_panel_pictures
 from .fp_structure import read_panel_layout
 from .front_panel import (
     _lvtype_to_parsed,
@@ -748,6 +749,7 @@ def _parse_front_panel(
     layout, unread_objects = read_panel_layout(
         root, {c.uid: c for c in controls}, fonts
     )
+    attach_panel_pictures(fp_xml_path, controls)
     return ParsedFrontPanel(
         controls=controls,
         panel_bounds=panel_bounds,

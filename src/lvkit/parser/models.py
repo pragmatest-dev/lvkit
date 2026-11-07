@@ -739,6 +739,9 @@ class ParsedFPControl:
     # Constituent parts with control-local geometry (array index display /
     # element cell / frame). Empty for simple scalar controls.
     parts: list[ParsedFPPart] = field(default_factory=list)
+    # The PNG of each positive picture id its parts name (``fp_pictures``); an id
+    # the VI stores no picture for is absent.
+    pictures: dict[int, bytes] = field(default_factory=dict)
     # This control's REAL field geometry, decoded from the heap's own
     # front-panel-editor layout (`layout._cluster_field_geoms`) -- present when
     # `control_type == "stdClust"` (a standalone cluster, or a typedef-wrapped
