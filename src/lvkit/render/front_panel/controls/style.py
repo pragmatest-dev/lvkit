@@ -15,7 +15,7 @@ from __future__ import annotations
 from enum import Enum
 
 from ....parser.models import ParsedFPControl, ParsedFPPart
-from .base import FRAME_PART_ID, find_part
+from .base import FRAME_PART_ID, PartOwner, find_part
 
 STRING_FIELD_PART_ID = 11
 BOOLEAN_BODY_PART_ID = 21
@@ -80,7 +80,7 @@ def _first_style(
     return next((table[i] for i in part.image_ids if i in table), None)
 
 
-def numeric_style(ctrl: ParsedFPControl) -> ControlStyle:
+def numeric_style(ctrl: PartOwner) -> ControlStyle:
     """A numeric, ring or enum's look, from its frame."""
     style = _first_style(find_part(ctrl, FRAME_PART_ID), _FRAME_STYLE)
     return style or ControlStyle.OTHER

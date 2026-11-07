@@ -2064,7 +2064,8 @@ def _parse_fp_parts(
       each with a ``partID`` + local ``bounds`` -- the index display (``partID``
       8002), caption (16), and cosmetics;
     - the array's element type/cell is a direct ``<ddo>`` child -- recorded with
-      ``part_id=None`` and its element control class (``stdNum`` etc.).
+      ``part_id=None`` and its element control class (``stdNum`` etc.), its own
+      ``objFlags`` and its own parts (relative to the element's top-left).
 
     A plain (non-array) ddo has no ``<partsList>`` frame parts / nested element
     ddo of that shape, but it still records its OWN scalar-text PROPERTIES
@@ -2094,7 +2095,12 @@ def _parse_fp_parts(
             }
             parts.append(
                 ParsedFPPart(
-                    None, element.get("class", ""), _parse_bounds(eb.text), props
+                    None,
+                    element.get("class", ""),
+                    _parse_bounds(eb.text),
+                    props,
+                    parts=_parse_fp_parts_list(element, fonts),
+                    flags=safe_int(element.find("objFlags")),
                 )
             )
     else:

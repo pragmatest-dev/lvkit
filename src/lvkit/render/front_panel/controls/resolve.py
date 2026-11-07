@@ -11,11 +11,12 @@ own field/element glyphs.
 from __future__ import annotations
 
 from ....models import leading_element
+from ....parser.flags import is_indicator
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import ClusterConstantGlyph, Glyph
 from ...style import Theme
 from ...text_style import TextStyle, part_style
-from .array import array_control
+from .array import ElementRowGlyph, array_control
 from .base import CAPTION_PART_ID, LABEL_PART_ID, find_part, frame_colors
 from .boolean import boolean_control
 from .enum_control import selected_text
@@ -23,7 +24,8 @@ from .graph import GraphControlGlyph
 from .label import LABEL_SIZE
 from .leaf import leaf_glyph
 from .listbox import listbox_control
-from .numeric import numeric_control
+from .number_format import format_number
+from .numeric import numeric_control, numeric_from_parts
 from .string_control import string_control
 from .style import ControlStyle, has_dropdown, numeric_style
 from .tab import tab_control
@@ -74,14 +76,20 @@ def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return _cluster_glyph(ctrl, fields)
 
 
-def _element(ctrl: ParsedFPControl, theme: Theme, value: object = None) -> Glyph | None:
+def _element(
+    ctrl: ParsedFPControl,
+    theme: Theme,
+    value: object = None,
+    disabled: bool = False,
+) -> Glyph | None:
     """The array's ELEMENT type's own glyph -- at ``value`` (that element's
     saved value) when given, else at the real representative-row value the
     heap carries (``ctrl.element_default_value`` / each ``ctrl.children``
     field's own ``default_value``), else the type's bare default. A cluster
     element is built from ``ctrl.children``/``cluster_geom``; a scalar element
-    from the element ddo's own control-type part (``part_id=None``). ``None``
-    when neither is available."""
+    from the element ddo's own control-type part (``part_id=None``): a numeric
+    element is drawn by the numeric drawing from that part's own parts and
+    flags, greyed when ``disabled``. ``None`` when neither is available."""
     if ctrl.children:
         row = with_value(ctrl, value) if isinstance(value, dict) else ctrl
         return _cluster_glyph(ctrl, _shown_fields(row, theme))
@@ -90,7 +98,17 @@ def _element(ctrl: ParsedFPControl, theme: Theme, value: object = None) -> Glyph
     )
     if element_part is None:
         return None
-    # A scalar element goes straight to leaf_glyph, bypassing the _RESOLVERS
+    shown = value if isinstance(value, str) else ctrl.element_default_value
+    if element_part.part_class in ("stdNum", "stdNumeric"):
+        return ElementRowGlyph(
+            numeric_from_parts(
+                element_part,
+                format_number(shown or "0", ctrl.number_format),
+                is_indicator(element_part.flags),
+                disabled,
+            )
+        )
+    # Any other scalar element goes straight to leaf_glyph, bypassing the _RESOLVERS
     # list above -- so an element control_type only _graph (or a future
     # resolver) handles, never leaf_glyph, falls back to UnknownControlGlyph
     # here even though a bare control of that type renders correctly. No
@@ -98,7 +116,7 @@ def _element(ctrl: ParsedFPControl, theme: Theme, value: object = None) -> Glyph
     # corpus counts: stdGraph 9, all scalar controls).
     return leaf_glyph(
         element_part.part_class,
-        value if isinstance(value, str) else ctrl.element_default_value,
+        shown,
         ctrl.enum_values,
         theme,
         show_spinner=False,
@@ -117,7 +135,7 @@ def _array(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
         for value in ctrl.element_values
         if (glyph := _element(ctrl, theme, leading_element(value))) is not None
     )
-    return array_control(ctrl, _element(ctrl, theme), rows)
+    return array_control(ctrl, _element(ctrl, theme, disabled=True), rows)
 
 
 def _numeric(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:

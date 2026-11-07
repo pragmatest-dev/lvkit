@@ -10,6 +10,9 @@ layout:
   its part is not flagged hidden -- the control's "Show Index". Each is drawn
   inside its own frame (the index part's ``partID`` 9 sub-part); the bezel
   part (``partID`` 30) is larger than the index and is not drawn;
+- each index display is a numeric of its own: its sub-parts are drawn by the
+  numeric drawing (``numeric.numeric_from_parts``), as is a numeric element,
+  so the style tables apply to them as to any numeric;
 - the elements VIEWPORT (``partID`` 28) lives inside the frame; the vertical
   SCROLLBAR track (``partID`` 39) is drawn only when that part is not flagged
   hidden -- a per-control toggle, like the index;
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ....parser.flags import is_indicator
 from ....parser.layout import Rect
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...backend import Backend
@@ -40,9 +44,11 @@ from .base import (
     local_part_rect,
     part_hidden,
     part_rect_of,
+    value_bounds,
     value_box_bounds,
     value_extent,
 )
+from .numeric import NumericControlGlyph, numeric_from_parts
 
 _VIEWPORT_PART_ID = 28
 _SCROLLBAR_PART_ID = 39
@@ -62,6 +68,24 @@ class IndexDisplay:
     box: Rect
     frame: Rect | None
     pieces: tuple[Rect, Rect] | None
+    # The index drawn as the numeric its sub-parts make; None when they do not
+    # make one (``frame`` and ``pieces`` are then drawn).
+    numeric: NumericControlGlyph | None = None
+
+
+@dataclass(frozen=True)
+class ElementRowGlyph:
+    """An element drawn by its own control (``glyph``): ``draw`` takes the
+    element's row and puts the control's value box where its parts say."""
+
+    glyph: NumericControlGlyph
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        self.glyph.draw(backend, value_bounds(self.glyph, bounds), theme)
+
+
+def _draws_disabled(glyph: Glyph | None) -> bool:
+    return isinstance(glyph, ElementRowGlyph) and glyph.glyph.draws_disabled
 
 
 @dataclass(frozen=True)
@@ -87,6 +111,16 @@ class ArrayControlGlyph(ControlGlyph):
 
     def value_bounds(self, bounds: Rect) -> Rect:
         return value_box_bounds(bounds, self.value_origin, self.native_size)
+
+    @property
+    def _elements_are_controls(self) -> bool:
+        """True when the elements are numerics drawn from their own parts: each
+        fills its whole row, since its parts are placed from the row's top-left."""
+        glyph = self.default_element
+        return (
+            isinstance(glyph, ElementRowGlyph)
+            and glyph.glyph.native_size is not None
+        )
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         frame = scale_local(self.frame_local, self.native_size, bounds)
@@ -115,6 +149,8 @@ class ArrayControlGlyph(ControlGlyph):
             default_element=self.default_element,
             cell_h=self.cell_h,
             cell_w=self.cell_w,
+            cell_inset=0.0 if self._elements_are_controls else 1.0,
+            wash_default=not _draws_disabled(self.default_element),
         )
         scrollbar = scale_local(self.scrollbar_local, self.native_size, bounds)
         if scrollbar is not None:
@@ -139,9 +175,23 @@ class ArrayControlGlyph(ControlGlyph):
         drawn: list[Rect] = []
         for dimension, index in enumerate(self.indices):
             uid = self.struct_uid if dimension == 0 else None
-            box = scale_local(index.box, self.native_size, bounds)
+            box_local = index.box
+            box = scale_local(box_local, self.native_size, bounds)
             if box is None:
                 continue
+            if index.numeric is not None and index.numeric.readout_local is not None:
+                ox, oy = index.numeric.value_origin
+                nw, nh = index.numeric.native_size or (0.0, 0.0)
+                numeric_box = scale_local(
+                    (box_local[0] + ox, box_local[1] + oy,
+                     box_local[0] + ox + nw, box_local[1] + oy + nh),
+                    self.native_size, bounds,
+                )
+                if numeric_box is not None:
+                    index.numeric.draw(backend, numeric_box, theme)
+                    if not index.numeric.draws_disabled:
+                        drawn.append(numeric_box)
+                    continue
             frame = scale_local(index.frame, self.native_size, bounds)
             if frame is not None:
                 backend.rect(
@@ -234,15 +284,16 @@ def array_control(
             if part_hidden(ctrl, _SCROLLBAR_PART_ID)
             else local_part_rect(ctrl, _SCROLLBAR_PART_ID, origin)
         ),
-        indices=_indices(ctrl, origin),
+        indices=_indices(ctrl, origin, disabled=not elements),
     )
 
 
 def _indices(
-    ctrl: ParsedFPControl, origin: tuple[float, float]
+    ctrl: ParsedFPControl, origin: tuple[float, float], disabled: bool
 ) -> tuple[IndexDisplay, ...]:
     """One display per shown ``partID`` 8002 part, in heap order from the
-    top-most (dimension 0) down."""
+    top-most (dimension 0) down. ``disabled`` greys them (an array with no saved
+    elements)."""
     ox, oy = origin
     shown = sorted(
         (
@@ -253,10 +304,21 @@ def _indices(
         key=lambda p: (part_rect_of(p)[1], part_rect_of(p)[0]),
     )
     result = []
-    for part in shown:
+    for dimension, part in enumerate(shown):
         x1, y1, x2, y2 = part_rect_of(part)
         box = (x1 - ox, y1 - oy, x2 - ox, y2 - oy)
         result.append(
-            IndexDisplay(box, _index_frame(part, origin), _index_pieces(part, origin))
+            IndexDisplay(
+                box,
+                _index_frame(part, origin),
+                _index_pieces(part, origin),
+                numeric_from_parts(
+                    part,
+                    "0",
+                    is_indicator(part.flags),
+                    disabled,
+                    live_struct=ctrl.uid if dimension == 0 else None,
+                ),
+            )
         )
     return tuple(result)

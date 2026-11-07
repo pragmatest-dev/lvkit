@@ -32,6 +32,7 @@ from . import modern
 from .base import (
     FRAME_PART_ID,
     ControlGlyph,
+    PartOwner,
     find_part,
     local_part_rect,
     part_hidden,
@@ -70,9 +71,20 @@ class NumericControlGlyph(ControlGlyph):
     # The readout part's own literal fill, when it stores one.
     readout_fill: str | None = None
     is_indicator: bool = False
+    # Drawn greyed, the look of a field in an array with no saved elements.
+    disabled: bool = False
+    # The array this is the index display of, when it is the array controller's
+    # live target: its arrows page the array and its readout shows the index.
+    live_struct: str | None = None
     # The readout part's first font run and its literal colour.
     value_font: ParsedFPFont | None = None
     value_color: str | None = None
+
+    @property
+    def draws_disabled(self) -> bool:
+        """True when ``disabled`` is drawn by the glyph itself (the Modern look),
+        so the caller must not wash it again."""
+        return self.disabled and self.style == ControlStyle.MODERN
 
     def value_bounds(self, bounds: Rect) -> Rect:
         if self.native_size is None:
@@ -95,7 +107,7 @@ class NumericControlGlyph(ControlGlyph):
             )
             spinner = scale_local(self.spinner_local, self.native_size, bounds)
             if self.show_spinner and spinner is not None:
-                draw_spinner(backend, spinner, theme)
+                draw_spinner(backend, spinner, theme, self.live_struct)
             self._draw_readout(backend, readout, theme)
 
     def _draw_modern(
@@ -103,21 +115,49 @@ class NumericControlGlyph(ControlGlyph):
     ) -> None:
         modern.draw_field(
             backend, frame, readout,
-            modern.field_fill(self.readout_fill, self.is_indicator),
+            modern.field_fill(self.readout_fill, self.is_indicator, self.disabled),
         )
         if self.show_spinner:
             for up, local in zip((True, False), self.spinner_halves_local):
                 half = scale_local(local, self.native_size, bounds)
                 if half is not None:
+                    self._begin_arrow(backend, half, up)
                     modern.draw_pill(backend, half, up)
-        style = text_style(self.value_font, self.value_color, modern.TEXT_SIZE)
+                    self._end_group(backend)
+        style = text_style(
+            self.value_font,
+            modern.DISABLED_TEXT if self.disabled else self.value_color,
+            modern.TEXT_SIZE,
+        )
         text = fit_value(
             self.value or "0",
             readout[2] - readout[0] - 2 * modern.TEXT_INSET,
             backend,
             style.size,
         )
+        self._begin_index_text(backend)
         modern.draw_text(backend, readout, text, style=style)
+        self._end_group(backend)
+
+    def _begin_arrow(self, backend: Backend, half: Rect, up: bool) -> None:
+        """Open the click target of one arrow when the glyph is live."""
+        if self.live_struct is None:
+            return
+        backend.begin_group(
+            cls="lv-selector lv-clickable",
+            data={"lv-action": "next" if up else "prev", "lv-struct": self.live_struct},
+        )
+        backend.rect(*half, fill="transparent", stroke="none")
+
+    def _begin_index_text(self, backend: Backend) -> None:
+        if self.live_struct is not None:
+            backend.begin_group(
+                cls="lv-array-index", data={"lv-struct": self.live_struct}
+            )
+
+    def _end_group(self, backend: Backend) -> None:
+        if self.live_struct is not None:
+            backend.end_group()
 
     def _draw_plain(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """A value cell with no spinner: an array's default row."""
@@ -133,10 +173,12 @@ class NumericControlGlyph(ControlGlyph):
         text = fit_value(
             self.value or "0", x2 - x1 - 2 * _TEXT_PAD, backend, style.size
         )
+        self._begin_index_text(backend)
         draw_styled_text(
             backend, x1 + _TEXT_PAD, (y1 + y2) / 2 + style.size * (4 / _TEXT_SIZE),
             text, style, theme.fp_value_text,
         )
+        self._end_group(backend)
 
 
 def numeric_control(
@@ -148,18 +190,33 @@ def numeric_control(
     value = text if text is not None else format_number(
         ctrl.default_value or "0", ctrl.number_format
     )
-    x1, y1, x2, y2 = value_extent(ctrl)
+    return numeric_from_parts(ctrl, value, ctrl.shows_as_indicator)
+
+
+def numeric_from_parts(
+    owner: PartOwner,
+    value: str,
+    is_indicator: bool,
+    disabled: bool = False,
+    live_struct: str | None = None,
+) -> NumericControlGlyph:
+    """The numeric glyph of whatever holds the parts: a control, or a part with
+    sub-parts of its own (an array's index display or element). ``value`` is the
+    display text. ``live_struct`` names the array it is the live index of."""
+    x1, y1, x2, y2 = value_extent(owner)
     origin = (x1, y1)
-    frame = local_part_rect(ctrl, FRAME_PART_ID, origin)
-    readout_part = _readout_part(ctrl)
-    readout = _readout(ctrl, origin)
+    frame = local_part_rect(owner, FRAME_PART_ID, origin)
+    readout_part = _readout_part(owner)
+    readout = _readout(owner, origin)
     if frame is None or readout is None:
-        return NumericControlGlyph(value=value)
+        return NumericControlGlyph(
+            value=value, disabled=disabled, live_struct=live_struct
+        )
     halves = tuple(
         rect
         for pid in _SPINNER_PART_IDS
-        if not part_hidden(ctrl, pid)
-        if (rect := local_part_rect(ctrl, pid, origin)) is not None
+        if not part_hidden(owner, pid)
+        if (rect := local_part_rect(owner, pid, origin)) is not None
     )
     spinner = (
         (
@@ -180,15 +237,17 @@ def numeric_control(
         spinner_local=spinner,
         spinner_halves_local=halves,
         readout_local=readout,
-        style=numeric_style(ctrl),
+        style=numeric_style(owner),
         readout_fill=readout_part.bg_color if readout_part is not None else None,
-        is_indicator=ctrl.shows_as_indicator,
+        is_indicator=is_indicator,
+        disabled=disabled,
+        live_struct=live_struct,
         value_font=readout_part.font if readout_part is not None else None,
         value_color=readout_part.text_color if readout_part is not None else None,
     )
 
 
-def _readout_part(ctrl: ParsedFPControl) -> ParsedFPPart | None:
+def _readout_part(ctrl: PartOwner) -> ParsedFPPart | None:
     """The part whose text is the readout: the first shown of ``numLabel`` and
     the ring's item ``multiLabel``."""
     for part_id in _READOUT_PART_IDS:
@@ -198,7 +257,7 @@ def _readout_part(ctrl: ParsedFPControl) -> ParsedFPPart | None:
     return None
 
 
-def _readout(ctrl: ParsedFPControl, origin: tuple[float, float]) -> Rect | None:
+def _readout(ctrl: PartOwner, origin: tuple[float, float]) -> Rect | None:
     """The readout box: the bevel cosms around the ``numLabel`` when present,
     else the readout part itself."""
     ox, oy = origin

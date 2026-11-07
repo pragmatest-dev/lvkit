@@ -18,6 +18,12 @@ from ...text_style import TextStyle, draw_styled_text
 # A control's field is nearly white, an indicator's grey.
 CONTROL_FILL = "#FAFAFA"
 INDICATOR_FILL = "#D2D2D2"
+# A disabled field (an array's index or element while the array has no saved
+# elements) is this grey whether it is a control or an indicator; its text is
+# grey too. Measured on the Measurement UI template screenshot (the field in 24
+# empty arrays, controls and indicators alike).
+DISABLED_FILL = "#CCCCCC"
+DISABLED_TEXT = "#747474"
 TEXT = "#0F0F0F"
 # Digits 10 px tall in the screenshots; this size draws digits about 9.5 px tall.
 TEXT_SIZE = 13.0
@@ -50,9 +56,12 @@ _ARROW_HALF_WIDTH = 3.0
 _ARROW_HALF_HEIGHT = 1.5
 
 
-def field_fill(stored: str | None, is_indicator: bool) -> str:
-    """The fill of a Modern value field: the color its part stores when that is
-    a literal, else the control's or indicator's own."""
+def field_fill(stored: str | None, is_indicator: bool, disabled: bool = False) -> str:
+    """The fill of a Modern value field: the disabled grey when disabled, else
+    the color its part stores when that is a literal, else the control's or
+    indicator's own."""
+    if disabled:
+        return DISABLED_FILL
     if stored is not None:
         return stored
     return INDICATOR_FILL if is_indicator else CONTROL_FILL
