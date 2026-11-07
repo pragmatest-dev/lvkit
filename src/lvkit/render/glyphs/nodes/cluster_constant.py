@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 from ....parser.layout import ClusterGeom, Rect
 from ...backend import Backend
 from ...style import Theme
+from ...text_style import TextStyle, draw_styled_text
 from .base import Glyph
 
 
@@ -62,6 +64,9 @@ class ClusterConstantGlyph:
     cluster_geom: ClusterGeom | None = None
     # Font size of a field's name drawn at its real label rect.
     field_label_size: float = 7.0
+    # A field's name drawn in its own font and colour, by field name; a field
+    # without one is drawn at ``field_label_size``.
+    field_label_styles: Mapping[str, TextStyle] = field(default_factory=dict)
 
     # Below these, a stacked "name: value" row can't fit both a name AND a
     # value cell, so we drop the field-NAME labels and draw the field VALUES
@@ -173,13 +178,14 @@ class ClusterConstantGlyph:
                     and abs_label[3] > abs_label[1]
                     and _in_window(abs_label, window)
                 ):
-                    backend.text(
+                    style = self.field_label_styles.get(name) or TextStyle(label_size)
+                    draw_styled_text(
+                        backend,
                         abs_label[0] + 1.0,
-                        (abs_label[1] + abs_label[3]) / 2 + label_size * 0.34,
+                        (abs_label[1] + abs_label[3]) / 2 + style.size * 0.34,
                         geom.label_text or name,
-                        label_size,
-                        anchor="start",
-                        fill=theme.text,
+                        style,
+                        theme.text,
                     )
         if window is not None:
             backend.end_group()

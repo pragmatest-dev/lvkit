@@ -653,6 +653,9 @@ class ParsedFPPart:
     # The literal color of a text part's first font run (``#RRGGBB``); None for
     # a system color or a part with no font run.
     text_color: str | None = None
+    # The font of a text part's first font run; None for a part whose text has no
+    # run (it is drawn in the default font).
+    font: ParsedFPFont | None = None
 
     @property
     def hidden(self) -> bool:
@@ -804,6 +807,21 @@ class ParsedFPControl:
 
 
 @dataclass(frozen=True)
+class ParsedFPFont:
+    """One row of the VI's font table, with the props that are settled
+    (``parser/fp_fonts.py``): ``name`` is a real font name (None for a row that
+    refers to a predefined font), ``predefined`` the number of the predefined
+    font it is or refers to (0 Application, 1 System, 2 Dialog; None for a named
+    font past the first three rows), ``size`` the size in points (None: the
+    default size), ``bold`` whether it is drawn bold."""
+
+    name: str | None
+    predefined: int | None
+    size: int | None
+    bold: bool
+
+
+@dataclass(frozen=True)
 class ParsedFPFontRun:
     """One run of a free label's text: the character ``offset`` where it
     starts (0 when the file stores none), the index of its font in the VI's
@@ -827,6 +845,9 @@ class ParsedFPLabel:
     bg_color: str | None
     hidden: bool
     font_runs: list[ParsedFPFontRun]
+    # The font of the first run (a label with several runs is drawn in it); None
+    # for a label with no run.
+    font: ParsedFPFont | None = None
 
 
 @dataclass(frozen=True)
@@ -933,6 +954,8 @@ class ParsedFrontPanel:
     # records none. It decides how a tab page's or grouper's children are placed
     # (`render.front_panel.geometry`).
     lv_version: str | None = None
+    # The VI's font table (``fontid`` indexes it from 0); empty when it has none.
+    fonts: tuple[ParsedFPFont, ...] = ()
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None

@@ -7,9 +7,9 @@ from ....parser.layout import Rect
 from ....parser.models import ParsedFPLabel
 from ...backend import Backend
 from ...style import Theme
-from .label import LABEL_SIZE
+from ...text_style import TextStyle, draw_styled_text, text_style
 
-_LINE_HEIGHT = LABEL_SIZE + 2.0
+_LINE_GAP = 2.0
 
 
 def draw_free_label(
@@ -17,37 +17,40 @@ def draw_free_label(
 ) -> None:
     """The label's text from the top-left of its ``bounds``, one line per line
     of the text and each line broken at words to the width of ``bounds``. The
-    text takes the label's literal colour when the file records one. Font sizes
-    are not decoded, so the size is the one every front-panel label uses."""
+    text is drawn in the font and colour of the label's first run (the whole
+    text, when it has several), else the label's own colour, else the theme's."""
     if label.hidden or not label.text:
         return
-    colour = label.fg_color or theme.text
+    run_colour = label.font_runs[0].color if label.font_runs else None
+    style = text_style(label.font, run_colour or label.fg_color)
     x1, y1 = bounds[0], bounds[1]
     width = bounds[2] - bounds[0] - 2.0
     lines = [
         wrapped
         for line in label.text.splitlines()
-        for wrapped in _wrap(line, width, backend)
+        for wrapped in _wrap(line, width, backend, style)
     ]
     for index, line in enumerate(lines):
-        backend.text(
+        draw_styled_text(
+            backend,
             x1 + 1.0,
-            y1 + 1.0 + LABEL_SIZE * 0.8 + index * _LINE_HEIGHT,
+            y1 + 1.0 + style.size * 0.8 + index * (style.size + _LINE_GAP),
             line,
-            LABEL_SIZE,
-            fill=colour,
-            anchor="start",
+            style,
+            theme.text,
         )
 
 
-def _wrap(line: str, width: float, backend: Backend) -> list[str]:
+def _wrap(
+    line: str, width: float, backend: Backend, style: TextStyle
+) -> list[str]:
     """``line`` broken at spaces into lines that fit ``width``; a single word
     wider than that stays whole."""
     lines: list[str] = []
     current = ""
     for word in line.split(" "):
         candidate = f"{current} {word}" if current else word
-        if current and backend.measure_text(candidate, LABEL_SIZE) > width:
+        if current and backend.measure_text(candidate, style.size) > width:
             lines.append(current)
             current = word
         else:

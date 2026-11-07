@@ -17,6 +17,7 @@ from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...backend import Backend
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
+from ...text_style import TextStyle, part_style
 from . import boolean_kinds as kinds
 from .base import (
     ControlGlyph,
@@ -55,7 +56,7 @@ class BooleanControlGlyph(ControlGlyph):
     state_color: str | None = None
     thumb_color: str | None = None
     caption: str = ""
-    caption_color: str | None = None
+    caption_style: TextStyle = TextStyle(kinds.CAPTION_SIZE)
 
     def value_bounds(self, bounds: Rect) -> Rect:
         if self.native_size is None:
@@ -76,9 +77,9 @@ class BooleanControlGlyph(ControlGlyph):
                 backend, body, thumb, self.thumb_color or color
             )
         elif kind == BooleanKind.MODERN_BUTTON:
-            kinds.draw_modern_button(backend, body, self.caption, self.caption_color)
+            kinds.draw_modern_button(backend, body, self.caption, self.caption_style)
         elif kind == BooleanKind.SYSTEM_BUTTON:
-            kinds.draw_system_button(backend, body, self.caption, self.caption_color)
+            kinds.draw_system_button(backend, body, self.caption, self.caption_style)
         elif kind == BooleanKind.CHECK_BOX:
             kinds.draw_check_box(backend, body, self.on)
         elif kind == BooleanKind.RADIO:
@@ -105,13 +106,14 @@ def _state_color(part: ParsedFPPart | None, on: bool) -> str | None:
     return part.states[1 if on else 0].bg_color
 
 
-def _caption(ctrl: ParsedFPControl, on: bool) -> tuple[str, str | None]:
-    """The button text of the current state and its stored color. A part with
-    one text shows it in both states."""
+def _caption(ctrl: ParsedFPControl, on: bool) -> tuple[str, TextStyle]:
+    """The button text of the current state and its font and stored color. A
+    part with one text shows it in both states."""
     part = find_part(ctrl, _CAPTION_PART_ID)
     if part is None or part.hidden or not part.texts:
-        return "", None
-    return part.texts[min(1 if on else 0, len(part.texts) - 1)], part.text_color
+        return "", TextStyle(kinds.CAPTION_SIZE)
+    text = part.texts[min(1 if on else 0, len(part.texts) - 1)]
+    return text, part_style(part, kinds.CAPTION_SIZE)
 
 
 def boolean_control(ctrl: ParsedFPControl) -> BooleanControlGlyph:
@@ -123,7 +125,7 @@ def boolean_control(ctrl: ParsedFPControl) -> BooleanControlGlyph:
     if button is None:
         return BooleanControlGlyph(on=on)
     body = find_part(ctrl, BOOLEAN_BODY_PART_ID)
-    caption, caption_color = _caption(ctrl, on)
+    caption, caption_style = _caption(ctrl, on)
     return BooleanControlGlyph(
         on=on,
         value_origin=origin,
@@ -135,5 +137,5 @@ def boolean_control(ctrl: ParsedFPControl) -> BooleanControlGlyph:
         state_color=_state_color(body, on),
         thumb_color=_state_color(find_part(ctrl, _THUMB_PART_ID), on),
         caption=caption,
-        caption_color=caption_color,
+        caption_style=caption_style,
     )

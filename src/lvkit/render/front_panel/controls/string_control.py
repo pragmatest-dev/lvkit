@@ -13,12 +13,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ....parser.layout import Rect
-from ....parser.models import ParsedFPControl
+from ....parser.models import ParsedFPControl, ParsedFPFont
 from ...backend import Backend
 from ...glyph import fit_label
 from ...glyphs.nodes.base import wrap_label
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
+from ...text_style import draw_styled_text, text_style
 from . import modern
 from .base import (
     FRAME_PART_ID,
@@ -72,6 +73,9 @@ class StringControlGlyph(ControlGlyph):
     # The Silver bevel cosms in stored order (front first), each ``(rect, fill)``.
     bevel_local: tuple[tuple[Rect, str], ...] = ()
     browse_local: Rect | None = None
+    # The field part's first font run and its literal colour.
+    text_font: ParsedFPFont | None = None
+    text_color: str | None = None
 
     def value_bounds(self, bounds: Rect) -> Rect:
         return value_box_bounds(bounds, self.value_origin, self.native_size)
@@ -121,7 +125,8 @@ class StringControlGlyph(ControlGlyph):
 
     def _draw_text(self, backend: Backend, field: Rect, fill: str) -> None:
         x1, y1, x2, y2 = field
-        size = modern.TEXT_SIZE
+        style = text_style(self.text_font, self.text_color, modern.TEXT_SIZE)
+        size = style.size
         width = x2 - x1 - 2 * _TEXT_INSET
         line_h = size + _LINE_GAP
         max_lines = max(1, int((y2 - y1) / line_h))
@@ -133,15 +138,14 @@ class StringControlGlyph(ControlGlyph):
                 lines.extend(wrap_label(segment, width, backend, size, max_lines))
         if max_lines == 1:
             text = fit_label(" ".join(lines), width, backend, size)
-            backend.text(
-                x1 + _TEXT_INSET, (y1 + y2) / 2 + size * 0.36, text, size,
-                fill=fill, anchor="start",
+            draw_styled_text(
+                backend, x1 + _TEXT_INSET, (y1 + y2) / 2 + size * 0.36, text,
+                style, fill,
             )
             return
         for i, line in enumerate(lines[:max_lines]):
-            backend.text(
-                x1 + _TEXT_INSET, y1 + size + i * line_h, line, size,
-                fill=fill, anchor="start",
+            draw_styled_text(
+                backend, x1 + _TEXT_INSET, y1 + size + i * line_h, line, style, fill,
             )
 
 
@@ -191,6 +195,8 @@ def string_control(ctrl: ParsedFPControl) -> StringControlGlyph | None:
         frame_fill=frame_part.bg_color if frame_part is not None else None,
         frame_edge=frame_part.fg_color if frame_part is not None else None,
         bevel_local=_bevel(ctrl, origin) if style == ControlStyle.SILVER else (),
+        text_font=field_part.font,
+        text_color=field_part.text_color,
         browse_local=(
             local_part_rect(ctrl, _BROWSE_PART_ID, origin)
             if is_path and browse is not None and not browse.hidden

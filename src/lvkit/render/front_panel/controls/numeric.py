@@ -21,12 +21,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ....parser.layout import Rect
-from ....parser.models import ParsedFPControl, ParsedFPPart
+from ....parser.models import ParsedFPControl, ParsedFPFont, ParsedFPPart
 from ...backend import Backend
 from ...glyph import fit_value
 from ...glyphs.nodes.index_selector import draw_spinner
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
+from ...text_style import draw_styled_text, text_style
 from . import modern
 from .base import (
     FRAME_PART_ID,
@@ -69,6 +70,9 @@ class NumericControlGlyph(ControlGlyph):
     # The readout part's own literal fill, when it stores one.
     readout_fill: str | None = None
     is_indicator: bool = False
+    # The readout part's first font run and its literal colour.
+    value_font: ParsedFPFont | None = None
+    value_color: str | None = None
 
     def value_bounds(self, bounds: Rect) -> Rect:
         if self.native_size is None:
@@ -106,13 +110,14 @@ class NumericControlGlyph(ControlGlyph):
                 half = scale_local(local, self.native_size, bounds)
                 if half is not None:
                     modern.draw_pill(backend, half, up)
+        style = text_style(self.value_font, self.value_color, modern.TEXT_SIZE)
         text = fit_value(
             self.value or "0",
             readout[2] - readout[0] - 2 * modern.TEXT_INSET,
             backend,
-            modern.TEXT_SIZE,
+            style.size,
         )
-        modern.draw_text(backend, readout, text)
+        modern.draw_text(backend, readout, text, style=style)
 
     def _draw_plain(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         """A value cell with no spinner: an array's default row."""
@@ -124,12 +129,13 @@ class NumericControlGlyph(ControlGlyph):
             x1, y1, x2, y2, fill=theme.fp_value_fill,
             stroke=theme.struct_border, stroke_width=1.0,
         )
+        style = text_style(self.value_font, self.value_color, _TEXT_SIZE)
         text = fit_value(
-            self.value or "0", x2 - x1 - 2 * _TEXT_PAD, backend, _TEXT_SIZE
+            self.value or "0", x2 - x1 - 2 * _TEXT_PAD, backend, style.size
         )
-        backend.text(
-            x1 + _TEXT_PAD, (y1 + y2) / 2 + 4, text, _TEXT_SIZE,
-            fill=theme.fp_value_text, anchor="start",
+        draw_styled_text(
+            backend, x1 + _TEXT_PAD, (y1 + y2) / 2 + style.size * (4 / _TEXT_SIZE),
+            text, style, theme.fp_value_text,
         )
 
 
@@ -177,6 +183,8 @@ def numeric_control(
         style=numeric_style(ctrl),
         readout_fill=readout_part.bg_color if readout_part is not None else None,
         is_indicator=ctrl.shows_as_indicator,
+        value_font=readout_part.font if readout_part is not None else None,
+        value_color=readout_part.text_color if readout_part is not None else None,
     )
 
 

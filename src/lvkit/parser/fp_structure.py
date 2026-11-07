@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 
 from ..text_encoding import decode_labview_text
+from .fp_fonts import font_of_run, read_font_run
 from .models import (
     ParsedFPControl,
     ParsedFPDecoration,
-    ParsedFPFontRun,
+    ParsedFPFont,
     ParsedFPGrouper,
     ParsedFPLabel,
     ParsedFPObject,
@@ -46,6 +48,7 @@ _PANE_BACKGROUND_IMAGE = "-704"
 def read_panel_layout(
     root: ET.Element,
     controls_by_uid: dict[str, ParsedFPControl],
+    fonts: Sequence[ParsedFPFont] = (),
 ) -> tuple[ParsedFPPane | ParsedFPSplitter | None, list[str]]:
     """The panel's object tree (None when the heap has no ``paneHierarchy`` or
     one that cannot be read) and what lvkit could not read in it, each a phrase
@@ -54,12 +57,13 @@ def read_panel_layout(
     ``root`` is the front-panel heap root; ``controls_by_uid`` holds the
     controls the flat parse produced, keyed by fPDCO uid. An fPDCO with no
     control there is left out. A tab control reached in an object list gets
-    its ``tab_pages`` and ``tab_selected`` set.
+    its ``tab_pages`` and ``tab_selected`` set. ``fonts`` is the VI's font table,
+    which resolves a free label's font.
     """
     hierarchy = root.find("root/paneHierarchy")
     if hierarchy is None:
         return None, []
-    reader = _ObjectReader(controls_by_uid)
+    reader = _ObjectReader(controls_by_uid, fonts)
     return reader.read_node(hierarchy), reader.unread
 
 
@@ -74,8 +78,11 @@ def _pane_background(pane: ET.Element) -> str | None:
 
 
 class _ObjectReader:
-    def __init__(self, controls_by_uid: dict[str, ParsedFPControl]):
+    def __init__(
+        self, controls_by_uid: dict[str, ParsedFPControl], fonts: Sequence[ParsedFPFont]
+    ):
         self._controls = controls_by_uid
+        self._fonts = fonts
         self.unread: list[str] = []
 
     # --- panes and splitters -------------------------------------------
@@ -170,6 +177,9 @@ class _ObjectReader:
     def _read_label(
         self, elem: ET.Element, bounds: tuple[int, int, int, int]
     ) -> ParsedFPLabel:
+        runs = [
+            read_font_run(run) for run in elem.findall("textRec/fr/SL__arrayElement")
+        ]
         return ParsedFPLabel(
             uid=elem.get("uid", ""),
             bounds=bounds,
@@ -177,9 +187,8 @@ class _ObjectReader:
             fg_color=heap_color(elem.findtext("fgColor")),
             bg_color=heap_color(elem.findtext("bgColor")),
             hidden=bool(_int(elem.findtext("objFlags")) & HIDDEN_FLAG),
-            font_runs=[
-                _font_run(run) for run in elem.findall("textRec/fr/SL__arrayElement")
-            ],
+            font_runs=runs,
+            font=font_of_run(self._fonts, runs[0]) if runs else None,
         )
 
     def _read_decoration(
@@ -320,12 +329,3 @@ def _side_by_side(
 
 def _int(text: str | None) -> int:
     return int_or_none(text) or 0
-
-
-def _font_run(run: ET.Element) -> ParsedFPFontRun:
-    offset_text = (run.findtext("fontofst") or "").strip()
-    return ParsedFPFontRun(
-        offset=int(offset_text, 16) if offset_text else 0,
-        font_id=int_or_none(run.findtext("fontid")),
-        color=heap_color(run.findtext("fontcolor")),
-    )

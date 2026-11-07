@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from ....parser.layout import Rect
 from ...backend import Backend
+from ...text_style import TextStyle, draw_styled_text
 
 # A control's field is nearly white, an indicator's grey.
 CONTROL_FILL = "#FAFAFA"
@@ -71,16 +72,24 @@ def draw_field(backend: Backend, frame: Rect | None, field: Rect, fill: str) -> 
     backend.rect(fx1, fy1, fx2, fy2, fill=fill)
 
 
-def draw_text(backend: Backend, field: Rect, text: str, fill: str = TEXT) -> None:
-    """``text`` at the field's left, centered between its top and bottom."""
+def draw_text(
+    backend: Backend,
+    field: Rect,
+    text: str,
+    fill: str = TEXT,
+    style: TextStyle | None = None,
+) -> None:
+    """``text`` at the field's left, centered between its top and bottom, in
+    ``style`` (the field's default font at ``TEXT_SIZE`` when None)."""
     fx1, fy1, _fx2, fy2 = field
-    backend.text(
+    style = style or TextStyle(TEXT_SIZE)
+    draw_styled_text(
+        backend,
         fx1 + TEXT_INSET,
-        (fy1 + fy2) / 2 + TEXT_SIZE * 0.36,
+        (fy1 + fy2) / 2 + style.size * 0.36,
         text,
-        TEXT_SIZE,
-        fill=fill,
-        anchor="start",
+        style,
+        fill,
     )
 
 

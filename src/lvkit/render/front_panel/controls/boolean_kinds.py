@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from ....parser.layout import Rect
 from ...backend import Backend
+from ...text_style import TextStyle, draw_styled_text
 
 # The measured LED colors, used when the body stores none.
 LED_ON = "#64FF00"
@@ -94,8 +95,12 @@ def draw_slide_switch(
         )
 
 
+# The size a button's caption in the default font is drawn at.
+CAPTION_SIZE = 13.0
+
+
 def draw_modern_button(
-    backend: Backend, body: Rect, caption: str, color: str | None
+    backend: Backend, body: Rect, caption: str, style: TextStyle
 ) -> None:
     """A rounded rectangle with a vertical gradient, a 1 px lighter edge at the
     left and top and a darker one at the bottom and right."""
@@ -108,16 +113,16 @@ def draw_modern_button(
         x1 + 1, y1 + 1, x2 - 1, y2 - 1,
         stops=_MODERN_BUTTON_STOPS, rx=_MODERN_BUTTON_RADIUS - 1,
     )
-    _caption(backend, body, caption, color)
+    _caption(backend, body, caption, style)
 
 
 def draw_system_button(
-    backend: Backend, body: Rect, caption: str, color: str | None
+    backend: Backend, body: Rect, caption: str, style: TextStyle
 ) -> None:
     """A flat face with a 1 px border."""
     backend.rect(*body, fill=_SYSTEM_BUTTON_FACE, stroke=_SYSTEM_BUTTON_EDGE,
                  stroke_width=1.0)
-    _caption(backend, body, caption, color)
+    _caption(backend, body, caption, style)
 
 
 def draw_check_box(backend: Backend, body: Rect, on: bool) -> None:
@@ -161,12 +166,18 @@ def draw_square_led(backend: Backend, body: Rect, color: str) -> None:
     )
 
 
-def _caption(backend: Backend, body: Rect, caption: str, color: str | None) -> None:
-    """``caption`` centered on the button in its stored color (black when it
-    stores none)."""
+def _caption(backend: Backend, body: Rect, caption: str, style: TextStyle) -> None:
+    """``caption`` centered on the button in its font and stored color (black
+    when it stores none)."""
     if not caption:
         return
     x1, y1, x2, y2 = body
-    backend.text(
-        (x1 + x2) / 2, (y1 + y2) / 2 + 4.5, caption, 13.0, fill=color or _BLACK
+    draw_styled_text(
+        backend,
+        (x1 + x2) / 2,
+        (y1 + y2) / 2 + style.size * (4.5 / CAPTION_SIZE),
+        caption,
+        style,
+        _BLACK,
+        anchor="middle",
     )

@@ -7,11 +7,8 @@ from ....parser.models import ParsedFPControl
 from ...backend import Backend
 from ...glyph import fit_label
 from ...style import Theme
+from ...text_style import LABEL_SIZE, draw_styled_text, part_style
 from .base import CAPTION_PART_ID, LABEL_PART_ID, find_part, part_rect_of
-
-# Font size of every front-panel label: a control's own caption and each cluster
-# field's name. Chosen against the issue #101 reference screenshot.
-LABEL_SIZE = 11.0
 
 
 def shown_text(ctrl: ParsedFPControl) -> str | None:
@@ -54,13 +51,14 @@ def draw_label(
     if part is not None:
         ox, oy = control_box[0], control_box[1]
         x1, y1, _x2, y2 = part_rect_of(part)
-        backend.text(
+        style = part_style(part)
+        draw_styled_text(
+            backend,
             ox + x1 + 1.0,
-            oy + (y1 + y2) / 2 + LABEL_SIZE * 0.34,
+            oy + (y1 + y2) / 2 + style.size * 0.34,
             name,
-            LABEL_SIZE,
-            fill=theme.text,
-            anchor="start",
+            style,
+            theme.text,
         )
         return
     vx1, vy1, vx2, _vy2 = value_box

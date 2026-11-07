@@ -14,8 +14,9 @@ from ....models import leading_element
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import ClusterConstantGlyph, Glyph
 from ...style import Theme
+from ...text_style import TextStyle, part_style
 from .array import array_control
-from .base import frame_colors
+from .base import CAPTION_PART_ID, LABEL_PART_ID, find_part, frame_colors
 from .boolean import boolean_control
 from .enum_control import selected_text
 from .graph import GraphControlGlyph
@@ -30,12 +31,23 @@ from .timestamp import timestamp_control
 from .values import with_value
 
 
+def _field_label_styles(ctrl: ParsedFPControl) -> dict[str, TextStyle]:
+    """Each field's name in the font of its label (or caption) text."""
+    return {
+        f.name: part_style(
+            find_part(f, LABEL_PART_ID if f.label_visible else CAPTION_PART_ID)
+        )
+        for f in ctrl.children
+    }
+
+
 def _cluster_glyph(
     ctrl: ParsedFPControl, fields: tuple[tuple[str, Glyph], ...]
 ) -> ClusterConstantGlyph:
     """A cluster drawn in its own frame colors when the heap records them."""
     fill, outline = frame_colors(ctrl)
     return ClusterConstantGlyph(
+        field_label_styles=_field_label_styles(ctrl),
         fields=fields,
         cluster_geom=ctrl.cluster_geom,
         fill_attr="fp_panel",

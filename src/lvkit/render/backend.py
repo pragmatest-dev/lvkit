@@ -161,6 +161,7 @@ class Backend(Protocol):
         bold: bool = False,
         anchor: str = "middle",
         mono: bool = False,
+        family: str | None = None,
     ) -> None: ...
 
     def image(
@@ -366,12 +367,13 @@ class SvgBackend:
         bold: bool = False,
         anchor: str = "middle",
         mono: bool = False,
+        family: str | None = None,
     ) -> None:
         a = self._attrs(
             fill=fill,
             font_style="italic" if italic else None,
             font_weight="bold" if bold else None,
-            font_family="monospace" if mono else None,
+            font_family="monospace" if mono else family,
         )
         self._elements.append(
             f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" '
