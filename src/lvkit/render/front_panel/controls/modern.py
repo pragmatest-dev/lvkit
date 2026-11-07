@@ -231,16 +231,20 @@ def draw_field(
 
 
 def draw_frame(backend: Backend, frame: Rect, inner: Rect, fill: str) -> None:
-    """An array's frame in the Modern look: no outline; ``frame`` filled, with
-    the dark strips along its top and left toward ``inner`` (the room for the
-    elements), so the right and bottom are the pale fill alone. Measured on
-    docs/images/Measurement UI.png, "double array in" element frame: right
-    (x 208-214, y 328-336) #E6 #DF #E0 #E2 #E1 #E3 #F8 and bottom (x 180, y
-    337-345) #F8 #E4 #DF #E0 #E2 #E1 #E2 #E8 #F4, the frame fill (#E2) with soft
-    outer rows and no outline; top (x 180, y 298-304) #FC #F3 #E7 #DD #D6 #D1
-    #D0 fading toward the elements."""
-    backend.rect(*frame, fill=fill)
-    draw_shadow_strips(backend, frame, inner, _FRAME_SHADOW_STOPS)
+    """An array's frame in the Modern look: no outline; the fill and the dark
+    strips along the top and left run from ``frame``'s top-left to ``inner``'s
+    (the room for the elements) bottom-right, so ``frame``'s right and bottom
+    margin beyond ``inner`` is left unpainted. Measured on
+    docs/images/Measurement UI.png, "double array in": the fill ends at the
+    elements viewport's right and bottom (x 214, y 345) while the stored frame
+    (part 9) reaches x 220, y 351, and the page shows through that margin
+    (only a faint white veil over the grid); top (x 180, y 298-304) #FC #F3 #E7
+    #DD #D6 #D1 #D0 fading toward the elements."""
+    fx1, fy1, _fx2, _fy2 = frame
+    _ix1, _iy1, ix2, iy2 = inner
+    drawn = (fx1, fy1, ix2, iy2)
+    backend.rect(*drawn, fill=fill)
+    draw_shadow_strips(backend, drawn, inner, _FRAME_SHADOW_STOPS)
 
 
 def draw_text(

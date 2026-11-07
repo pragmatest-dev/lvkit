@@ -595,3 +595,16 @@ def test_a_cluster_without_a_modern_frame_keeps_its_outlined_box() -> None:
     svg = _svg(ctrl)
     assert 'stroke="#B3B3B3" stroke-width="1.5"' in svg
     assert "fill=\"rgba(" not in svg
+
+
+def test_modern_array_frame_stops_at_the_viewport_right_and_bottom() -> None:
+    """The fill and strips run from the stored frame's top-left to the viewport's
+    bottom-right; the frame's margin beyond the viewport stays unpainted."""
+    from lvkit.render.front_panel.controls import modern
+
+    backend = SvgBackend()
+    modern.draw_frame(backend, (0, 0, 73, 34), (4, 4, 69, 30), "#E2E2E2")
+    svg = backend.render((0, 0, 80, 40), root_id="r")
+    assert 'width="69.0" height="30.0"' in svg
+    assert 'width="73.0"' not in svg
+    assert 'height="34.0"' not in svg
