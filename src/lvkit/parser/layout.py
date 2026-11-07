@@ -25,6 +25,7 @@ before looking up geometry.
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -176,6 +177,12 @@ class ClusterGeom:
     width: float
     height: float
     fields: tuple[ClusterFieldGeom, ...]
+    # The pane's inner rect in the same box coordinates, when the fields were
+    # placed by their stored positions (a front-panel cluster): the cluster
+    # shows only what falls inside it, so a field outside is not drawn and one
+    # crossing the edge is clipped. None when the fields were fitted into the
+    # box instead (block-diagram constants).
+    clip: Rect | None = None
 
 
 @dataclass(frozen=True)
@@ -665,23 +672,38 @@ def _refnum_payload_layout(ddo: ET.Element) -> RefnumPayload | None:
     return RefnumPayload(offset=offset, geom=geom)
 
 
-def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
+def _cluster_field_geoms(
+    cluster_el: ET.Element, frame: tuple[float, float] | None = None
+) -> ClusterGeom | None:
     """A cluster's real geometry, decoded from its own ``paneHierarchy``/
     ``zPlaneList`` — see ``ClusterGeom`` for the coordinate contract (fields
-    are relative to the cluster's own (0, 0) origin at its NATIVE size;
-    callers fit that into wherever they actually draw it).
+    are relative to the cluster's own (0, 0) origin at its NATIVE size).
 
-    The field rects live in the typedef front-panel-editor's OWN (much
-    larger, unrelated-scale) coordinate space, not the pane's own tiny
-    content-area frame — verified on the corpus: a field's raw ``<bounds>``
-    numbers (e.g. in the hundreds) bear no relation to the pane's own
-    ``<bounds>`` (tens), yet the fields' COLLECTIVE extent exactly equals the
-    pane's real inner content area (both axes, to the pixel) — i.e. clusters
-    never scroll, every field is shown. So this NORMALIZES by that collective
-    extent (preserving every field's real relative position and size) and
-    fits it into the pane's real inner area with a SINGLE uniform scale (the
-    verified case is pure translation, scale 1.0; a uniform scale is the
-    documented fallback for a future cluster whose extent doesn't match).
+    A field's stored ``<bounds>`` are in a frame of their own, not the pane's.
+    Where the cluster's stored frame is known (``frame`` given: a front-panel
+    cluster), a field sits in the pane at
+
+        pane-local = stored + origin + FT + P
+
+    with ``origin`` the pane's ``origin`` (x, y), ``P`` its ``bounds``
+    top-left, and ``FT`` the cluster's frame top-left: its own raw top-left
+    plus ``frame``. ``frame`` is the offset a cluster's stored bounds are
+    expressed in: (0, 0) for a cluster in the panel, plus the typedef
+    wrapper's top-left for a typedef, plus the array's top-left for an array
+    element, and for a cluster inside another cluster the parent's ``FT + P``
+    (the parent's own scroll never moves a child's frame). Measured on the
+    corpus (3,000 panels, 11,268 clusters, ``labview-binary-format.md``
+    "Front panel structure"): the first field lands at the pane's top-left (0
+    to 6 px) in 10,514; the other 754 have a larger inset or are scrolled; in
+    none is every field outside the pane. Fields are placed at scale 1 and the
+    pane's inner rect is ``ClusterGeom.clip``: a pane scrolled to one field of
+    several shows that field only.
+
+    Without ``frame`` (a block-diagram constant, whose position is not the
+    frame the fields are stored in) or when the rule leaves no field inside the
+    pane, the fields' collective extent equals the pane's inner area, so it
+    is normalized by that extent and fitted into the pane with a single
+    uniform scale (pure translation when it fits).
 
     ``paneHierarchy``'s own ``<bounds>`` is relative to ``cluster_el``'s RAW
     ``<bounds>`` origin (a heap-format fact, same convention
@@ -746,32 +768,61 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     if not entries:
         return None
 
-    min_l = min(r[0] for r in extent_rects)
-    min_t = min(r[1] for r in extent_rects)
-    extent_l = max(r[2] for r in extent_rects) - min_l
-    extent_t = max(r[3] for r in extent_rects) - min_t
-    if extent_l <= 0 or extent_t <= 0:
-        return None
-    scale = min(inner_w / extent_l, inner_h / extent_t)
-    bx1, by1 = pane_rel[0], pane_rel[1]
-
-    def _map(rect: Rect) -> Rect:
-        x1, y1, x2, y2 = rect
-        return (
-            bx1 + (x1 - min_l) * scale,
-            by1 + (y1 - min_t) * scale,
-            bx1 + (x2 - min_l) * scale,
-            by1 + (y2 - min_t) * scale,
+    clip: Rect | None = None
+    child_frame = (0.0, 0.0)
+    placed: Callable[[Rect], Rect] | None = None
+    if frame is not None:
+        origin = _origin(pane)
+        frame_tl = (raw_box[0] + frame[0], raw_box[1] + frame[1])
+        child_frame = (frame_tl[0] + pane_local[0], frame_tl[1] + pane_local[1])
+        shift = (
+            pane_rel[0] + origin[0] + child_frame[0],
+            pane_rel[1] + origin[1] + child_frame[1],
         )
+        placed = _shifted(shift)
+        if any(_overlaps(placed(r), pane_rel) for r in extent_rects):
+            clip = pane_rel
+        else:
+            placed = None
+    if placed is None:
+        min_l = min(r[0] for r in extent_rects)
+        min_t = min(r[1] for r in extent_rects)
+        extent_l = max(r[2] for r in extent_rects) - min_l
+        extent_t = max(r[3] for r in extent_rects) - min_t
+        if extent_l <= 0 or extent_t <= 0:
+            return None
+        scale = min(inner_w / extent_l, inner_h / extent_t)
+        bx1, by1 = pane_rel[0], pane_rel[1]
+
+        def fitted(rect: Rect) -> Rect:
+            x1, y1, x2, y2 = rect
+            return (
+                bx1 + (x1 - min_l) * scale,
+                by1 + (y1 - min_t) * scale,
+                bx1 + (x2 - min_l) * scale,
+                by1 + (y2 - min_t) * scale,
+            )
+
+        placed = fitted
+
+    _map = placed
 
     result = []
     for name, field_value_box, label_box, label_text, f in entries:
         mapped_value = _map(field_value_box)
         mapped_label = _map(label_box) if label_box is not None else None
         nested_shape = _cluster_shape(f)
-        nested = (
-            _cluster_field_geoms(nested_shape) if nested_shape is not None else None
-        )
+        nested = None
+        if nested_shape is not None:
+            wrapper = _rect(f) if nested_shape is not f else None
+            nested_frame = (
+                (child_frame[0] + wrapper[0], child_frame[1] + wrapper[1])
+                if wrapper is not None
+                else child_frame
+            )
+            nested = _cluster_field_geoms(
+                nested_shape, nested_frame if clip is not None else None
+            )
         result.append(
             ClusterFieldGeom(
                 name,
@@ -787,7 +838,50 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
         width=value_box[2] - value_box[0],
         height=value_box[3] - value_box[1],
         fields=tuple(result),
+        clip=clip,
     )
+
+
+def stored_top_left(el: ET.Element) -> tuple[float, float]:
+    """An object's stored top-left as (x, y); (0, 0) when it records none."""
+    r = _rect(el)
+    return (r[0], r[1]) if r is not None else (0.0, 0.0)
+
+
+def cluster_child_frame(
+    cluster_el: ET.Element, frame: tuple[float, float]
+) -> tuple[float, float]:
+    """The ``frame`` of the objects inside a cluster's pane (see
+    ``_cluster_field_geoms``): the cluster's frame top-left plus its pane's."""
+    tl = stored_top_left(cluster_el)
+    pane = cluster_el.find("paneHierarchy")
+    pane_tl = stored_top_left(pane) if pane is not None else (0.0, 0.0)
+    return (tl[0] + frame[0] + pane_tl[0], tl[1] + frame[1] + pane_tl[1])
+
+
+def _origin(pane: ET.Element) -> tuple[float, float]:
+    """A pane's ``<origin>`` as (x, y); (0, 0) when it records none."""
+    text = pane.findtext("origin")
+    if not text:
+        return (0.0, 0.0)
+    x, y = (int(v) for v in text.strip("()").split(","))
+    return (float(x), float(y))
+
+
+def _shifted(shift: tuple[float, float]) -> Callable[[Rect], Rect]:
+    def move(rect: Rect) -> Rect:
+        return (
+            rect[0] + shift[0],
+            rect[1] + shift[1],
+            rect[2] + shift[0],
+            rect[3] + shift[1],
+        )
+
+    return move
+
+
+def _overlaps(a: Rect, b: Rect) -> bool:
+    return a[0] < b[2] and a[2] > b[0] and a[1] < b[3] and a[3] > b[1]
 
 
 class _LayoutBuilder:

@@ -97,6 +97,8 @@ from .layout import (
     _icon_for_heap,
     _part_shown,
     build_layout_from_root,
+    cluster_child_frame,
+    stored_top_left,
 )
 from .link_table import (
     DotNetAssemblyLink,
@@ -710,6 +712,7 @@ def _parse_front_panel(
             field_defaults=field_defaults,
             type_map=type_map,
             own_lv_type=lv_type,
+            frame=(0.0, 0.0),
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -2114,11 +2117,18 @@ def _enum_labels_of(ddo: ET.Element) -> list[str]:
     return []
 
 
+def _shift_frame(
+    frame: tuple[float, float] | None, by: tuple[float, float]
+) -> tuple[float, float] | None:
+    return None if frame is None else (frame[0] + by[0], frame[1] + by[1])
+
+
 def _parse_cluster_fields(
     cluster_ddo: ET.Element,
     unresolved_uids: set[str],
     field_defaults: dict[str, object] | None = None,
     type_map: dict[int, LVType] | None = None,
+    frame: tuple[float, float] | None = None,
 ) -> list[ParsedFPControl]:
     """Parse a cluster's DIRECT field controls, in cluster (``ddoList``) order,
     each by its own type -- so a nested cluster field recurses (via ``_parse_ddo``)
@@ -2147,8 +2157,14 @@ def _parse_cluster_fields(
     Each field also gets its own resolved type (``ParsedFPControl.lv_type``,
     see there) from its own ``<typeDesc>`` child -- ``_parse_ddo`` never
     resolves this itself, only a caller that already has ``type_map`` does.
+
+    ``frame`` is the cluster's own frame (``layout._cluster_field_geoms``); its
+    fields are parsed in the frame the cluster's pane gives them.
     """
     direct = _direct_fields(cluster_ddo)
+    child_frame = (
+        cluster_child_frame(cluster_ddo, frame) if frame is not None else None
+    )
 
     fields: list[ParsedFPControl] = []
     labels = [extract_label_strict(field_elem) for field_elem in direct]
@@ -2184,6 +2200,7 @@ def _parse_cluster_fields(
             ),
             type_map=type_map,
             own_lv_type=field_lv_type,
+            frame=child_frame,
         )
         if child:
             # Force the child's own identity to the SAME strict label used for
@@ -2206,8 +2223,13 @@ def _parse_ddo(
     field_defaults: object | None = None,
     type_map: dict[int, LVType] | None = None,
     own_lv_type: LVType | None = None,
+    frame: tuple[float, float] | None = None,
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl.
+
+    ``frame`` is the frame this ddo's stored bounds are expressed in (see
+    ``layout._cluster_field_geoms``): (0, 0) for a control in the panel, None
+    when unknown. It places a cluster's fields.
 
     ``own_lv_type`` is this control's own resolved type (the caller's
     ``fPDCO/typeDesc`` already resolved against the VCTP ``type_map``) --
@@ -2253,6 +2275,7 @@ def _parse_ddo(
                 field_defaults=field_defaults,
                 type_map=type_map,
                 own_lv_type=own_lv_type,
+                frame=_shift_frame(frame, stored_top_left(ddo)),
             )
             if inner_control:
                 # The wrapped control's bounds are local to the typeDef: it sits
@@ -2332,8 +2355,10 @@ def _parse_ddo(
     element_lv_type: LVType | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
-        children = _parse_cluster_fields(ddo, unresolved_uids, clust_defaults, type_map)
-        cluster_geom = _cluster_field_geoms(ddo)
+        children = _parse_cluster_fields(
+            ddo, unresolved_uids, clust_defaults, type_map, frame
+        )
+        cluster_geom = _cluster_field_geoms(ddo, frame)
     elif control_type == "indArr":
         element = ddo.find("ddo")
         # field_defaults for an array is a list of PER-ELEMENT structured
@@ -2351,7 +2376,9 @@ def _parse_ddo(
         # real corpus) -- unwrap it the same way a top-level typeDef control
         # is unwrapped above, so its real class (stdClust/stdEnum/stdRing)
         # is what gets checked, not the "typeDef" wrapper's own class.
+        element_frame = _shift_frame(frame, stored_top_left(ddo))
         if element is not None and element.get("class") == "typeDef":
+            element_frame = _shift_frame(element_frame, stored_top_left(element))
             element = _wrapped_control(element)
 
         # The element's own resolved type (its RefnumKind, an lvVariant's
@@ -2413,9 +2440,10 @@ def _parse_ddo(
                     elem_defaults if isinstance(elem_defaults, dict) else None
                 )
                 children = _parse_cluster_fields(
-                    element, unresolved_uids, elem_clust_defaults, type_map
+                    element, unresolved_uids, elem_clust_defaults, type_map,
+                    element_frame,
                 )
-                cluster_geom = _cluster_field_geoms(element)
+                cluster_geom = _cluster_field_geoms(element, element_frame)
             else:
                 if element_class in ("stdEnum", "stdRing"):
                     enum_values = _enum_labels_of(element)
