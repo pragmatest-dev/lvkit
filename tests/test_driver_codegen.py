@@ -227,9 +227,10 @@ class TestPolyVariantExtraction:
         from lvkit.graph import connect
 
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        vi = mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        assert vi is not None
 
-        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
+        for op in _walk_ops(mg, vi, mg.top_level_nodes(vi)):
             is_target = (
                 isinstance(op, VINode) and op.name == "DAQmx Create Virtual Channel.vi"
             )
@@ -243,9 +244,10 @@ class TestPolyVariantExtraction:
         from lvkit.graph import connect
 
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        vi = mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        assert vi is not None
 
-        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
+        for op in _walk_ops(mg, vi, mg.top_level_nodes(vi)):
             if isinstance(op, VINode) and op.name == "DAQmx Write.vi":
                 assert op.poly_variant_name is not None
                 assert "Analog" in op.poly_variant_name
@@ -257,9 +259,10 @@ class TestPolyVariantExtraction:
         from lvkit.graph import connect
 
         mg = connect()
-        mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        vi = mg.load_vi(DAQMX_CALLER_VI, mode=LoadMode.NONE)
+        assert vi is not None
 
-        for op in _walk_ops(mg, "DAQ AO.vi", mg.top_level_nodes("DAQ AO.vi")):
+        for op in _walk_ops(mg, vi, mg.top_level_nodes(vi)):
             if isinstance(op, VINode) and op.name == "DAQmx Start Task.vi":
                 assert op.poly_variant_name is None
                 return

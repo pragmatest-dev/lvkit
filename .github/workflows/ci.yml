@@ -54,6 +54,10 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # The runner image ships Google Chrome, so the diff viewer's browser tests
+    # must run here rather than skip.
+    env:
+      LVKIT_REQUIRE_CHROME: "1"
     strategy:
       fail-fast: false
       matrix:

@@ -26,8 +26,17 @@ if TYPE_CHECKING:
 # the specific commands that build/analyze — see the function-local imports.
 from . import __version__, cache_paths, staging
 from .build_options import BuildOptions
+from .cli_input import (
+    DESCRIBE_INPUTS,
+    DIFF_INPUTS,
+    DOCS_INPUTS,
+    GENERATE_INPUTS,
+    RENDER_INPUTS,
+    VISUALIZE_INPUTS,
+    input_usage_error,
+)
 from .cli_run import add_fail_fast_arg, command_run, finish, run_command, stop_on
-from .console import use_utf8_output
+from .console import use_utf8_output, write_whole_lines
 from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
@@ -37,7 +46,7 @@ from .project_store import (
     install_copilot_skills,
 )
 from .run_report import CacheWriteError, ProblemKind, ProblemStage, declined
-from .vi_files import VI_EXTENSIONS, is_vi_file, strip_vi_extension
+from .vi_files import VI_EXTENSIONS, strip_vi_extension
 
 
 def _add_load_mode_arg(parser: argparse.ArgumentParser) -> None:
@@ -288,6 +297,7 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
 def main() -> int:
     """Main CLI entry point."""
     use_utf8_output()
+    write_whole_lines()
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
@@ -1257,22 +1267,14 @@ def cmd_describe(args: argparse.Namespace) -> int:
     from .graph.describe import describe_vi
 
     input_path = Path(args.input_path)
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, DESCRIBE_INPUTS)
+    if usage is not None:
+        return usage
     if input_path.suffix.lower() == ".ctl":
         if args.original_path is not None:
             print("Error: --original-path applies to a VI, not a .ctl", file=sys.stderr)
             return 2
         return _describe_ctl(args, input_path)
-
-    if not (is_vi_file(input_path) or input_path.name.endswith("_BDHb.xml")):
-        print(
-            f"Error: expected a VI file ({', '.join(VI_EXTENSIONS)}) or a .ctl: "
-            f"{input_path.name}",
-            file=sys.stderr,
-        )
-        return 2
 
     _configure_resolvers(args)
 
@@ -1683,9 +1685,9 @@ def cmd_render(args: argparse.Namespace) -> int:
     single-file viewer page. A cached output
     for unchanged inputs is reused verbatim, skipping the build."""
     input_path = Path(args.input_path)
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, RENDER_INPUTS)
+    if usage is not None:
+        return usage
 
     if args.original_path is not None and (
         input_path.is_dir() or input_path.suffix.lower() == ".ctl"
@@ -1889,9 +1891,9 @@ def cmd_diff(args: argparse.Namespace) -> int:
     path_a = Path(args.vi_a)
     path_b = Path(args.vi_b)
     for p in (path_a, path_b):
-        if not p.exists():
-            print(f"Error: Path not found: {p}", file=sys.stderr)
-            return 2
+        usage = input_usage_error(p, DIFF_INPUTS)
+        if usage is not None:
+            return usage
 
     fmt = args.format or ("html" if args.open else "text")
     if args.open and args.format in ("text", "json"):
@@ -1945,9 +1947,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     input_path = Path(args.input_path)
 
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, GENERATE_INPUTS)
+    if usage is not None:
+        return usage
 
     _configure_resolvers(args)
 
@@ -1965,7 +1967,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             search_path=search_path,
             run=run,
         )
-        return finish(run, bool(result["error"] or result["failed"]))
+        return finish(run, result["stopped"])
 
     except (ModuleCollisionError, ConversionGap) as e:
         # A collision stops the package; a gap found while loading the graph
@@ -1986,9 +1988,9 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     from .unresolved import collect_unresolved, format_unresolved_report
 
     input_path = Path(args.input_path)
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, GENERATE_INPUTS)
+    if usage is not None:
+        return usage
 
     _configure_resolvers(args)
 
@@ -2042,9 +2044,9 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
     input_path = Path(args.input_path)
 
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, DOCS_INPUTS)
+    if usage is not None:
+        return usage
 
     _configure_resolvers(args)
 
@@ -2076,9 +2078,9 @@ def cmd_docs(args: argparse.Namespace) -> int:
 def cmd_visualize(args: argparse.Namespace) -> int:
     """Handle the visualize command — interactive graph in browser."""
     input_path = Path(args.input_path)
-    if not input_path.exists():
-        print(f"Error: Path not found: {input_path}", file=sys.stderr)
-        return 2
+    usage = input_usage_error(input_path, VISUALIZE_INPUTS)
+    if usage is not None:
+        return usage
 
     _configure_resolvers(args)
 

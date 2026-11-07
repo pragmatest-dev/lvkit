@@ -104,14 +104,14 @@ def test_a_member_that_cannot_be_extracted_is_a_problem_on_its_own_vi(
     from lvkit.run_report import ProblemKind, ProblemStage
 
     archive = _write_archive(tmp_path, "UCRF", _MEMBERS)
-    real = extractor._atomic_write_bytes
+    real = extractor.atomic_write_bytes
 
     def write(path, data):
         if path.name == "second.vi":
             raise OSError("boom")
         real(path, data)
 
-    monkeypatch.setattr(extractor, "_atomic_write_bytes", write)
+    monkeypatch.setattr(extractor, "atomic_write_bytes", write)
     first = extractor.extract_llb_members(archive)
     assert first.failures == (extractor.LlbFailure("second.vi", "boom"),)
     # A later call finds the folder extracted and still reports it.

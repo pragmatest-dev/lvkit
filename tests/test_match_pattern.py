@@ -292,7 +292,7 @@ def test_constant_pattern_is_written_as_a_regex_literal() -> None:
     generated = _constant_pattern("^Lev.*")
     body = generated.source.split("def native_test", 1)[1]
     assert body == (
-        "(s: str='') -> NativeTestResult:\n"
+        "(s: str) -> NativeTestResult:\n"
         "    pattern_match = re.search('\\\\ALev.*', s)\n"
         "    before_substring = s if pattern_match is None "
         "else s[:pattern_match.start()]\n"

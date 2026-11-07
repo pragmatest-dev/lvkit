@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+import pytest
+
 from lvkit.parser.nodes.disable import (
     extract_disable_structures,
     is_disable_structure,
 )
+from lvkit.parser.nodes.disable_condition import Condition, read_condition
+from tests.structure_diagrams import condition_tree, expression_tree
 
 
 def _build_disable_xml(
@@ -118,6 +122,8 @@ def _build_disable_xml(
                 ET.SubElement(tag, "SL__arrayElement").text = (
                     tok.encode("ascii").hex().upper()
                 )
+            if tokens:
+                expr.append(ET.fromstring(condition_tree()))
 
     if type_spec:
         ET.SubElement(comment, "Tag0273").text = "True"
@@ -303,3 +309,53 @@ class TestExtractDisableStructures:
             },
         )
         assert extract_disable_structures(root) == []
+
+
+def _selector_info(tree: str) -> ET.Element:
+    """A ``SelectorInfoElement`` for ``TARGET <?> Windows`` with ``tree``."""
+    strings = "".join(
+        f"<SL__arrayElement>{s.encode().hex().upper()}</SL__arrayElement>"
+        for s in ("TARGET", "Windows")
+    )
+    return ET.fromstring(
+        '<SL__arrayElement class="SelectorInfoElement"><activeDiag>'
+        f"<Tag0000>{strings}</Tag0000>{tree}</activeDiag></SL__arrayElement>"
+    )
+
+
+def test_a_condition_is_read_from_its_expression_tree() -> None:
+    assert read_condition(_selector_info(condition_tree())) == Condition(
+        "TARGET==Windows"
+    )
+
+
+def test_an_unknown_operator_code_shows_as_a_question_mark() -> None:
+    assert read_condition(_selector_info(condition_tree("F0"))) == Condition(
+        "TARGET ? Windows",
+        "lvkit could not read the operator of its condition (code 0xF0)",
+    )
+
+
+def test_a_condition_with_no_tree_shows_its_strings() -> None:
+    assert read_condition(_selector_info("")) == Condition(
+        "TARGET Windows", "lvkit could not follow its condition"
+    )
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # Two nodes whose parent is FF: two roots.
+        [("FF", "01", "2", "FD"), ("FF", "FF", "-1", "00"), ("00", "FF", "-1", "01")],
+        # An operand whose parent index is not its operator's.
+        [("FF", "01", "2", "FD"), ("02", "FF", "-1", "00"), ("00", "FF", "-1", "01")],
+        # An operator that is its own operand.
+        [("FF", "00", "2", "FD"), ("00", "FF", "-1", "00"), ("00", "FF", "-1", "01")],
+    ],
+)
+def test_a_malformed_tree_is_one_lvkit_could_not_follow(
+    rows: list[tuple[str, str, str, str]],
+) -> None:
+    assert read_condition(_selector_info(expression_tree(rows))) == Condition(
+        "TARGET Windows", "lvkit could not follow its condition"
+    )

@@ -28,6 +28,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import LVType, LVTypeKind
+from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
 
 _X = d.Constant(200, "5", "NumInt32", 41)
@@ -337,6 +338,17 @@ def test_a_computed_path_opens_and_calls_the_vi_at_that_path(tmp_path: Path) -> 
         assert len(callee.calls) == 2
 
 
+def test_a_computed_path_to_a_polymorphic_vi_says_it_has_no_function(
+    tmp_path: Path,
+) -> None:
+    """The module of a polymorphic VI holds only its variants' functions."""
+    loaded = _computed(tmp_path, _PATH_TYPE)
+    variants = "def wrap_scalar():\n    pass\n"
+    for refs in _package(tmp_path, _source(loaded), variants, module="wrap"):
+        with pytest.raises(LookupError, match="module of 'Wrap' has no function"):
+            refs.refs(Path("Wrap.vi"))  # type: ignore[attr-defined]
+
+
 def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
     loaded = _computed(tmp_path, _PATH_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
     d.type_terminal(loaded, 21, d.typed_vi_reference())
@@ -644,7 +656,7 @@ def test_a_reference_that_is_a_value_is_called_with_the_panes_names(
     reference = d.typed_vi_reference()
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
-    assert _source(loaded).endswith("def refs(vi_ref: Any=None):\n    vi_ref(x=5)")
+    assert _source(loaded).endswith("def refs(vi_ref: Any):\n    vi_ref(x=5)")
 
 
 def test_a_reference_whose_pane_has_a_dynamic_dispatch_terminal_is_a_gap(
@@ -671,7 +683,7 @@ def test_a_started_call_of_a_reference_value_is_submitted(tmp_path: Path) -> Non
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
     assert _source(loaded).endswith(
-        "def refs(vi_ref: Any=None):\n    _async_call_pool.submit(vi_ref, x=5)"
+        "def refs(vi_ref: Any):\n    _async_call_pool.submit(vi_ref, x=5)"
     )
 
 
@@ -722,3 +734,23 @@ def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
         refs.refs()  # type: ignore[attr-defined]
         callee = sys.modules["generated_refs.callee"]
         assert callee.calls[0][0] == "refs"
+
+
+def test_the_resolver_names_the_module_it_writes_into(tmp_path: Path) -> None:
+    """A path a diagram computes is read from the folder of the module being
+    written, which the pipeline names when it makes the resolver (a variant's
+    polymorphic VI, a class); by default the file the resolver is made for."""
+    out = tmp_path / "pkg"
+    variant = create_import_resolver(
+        "pkg",
+        out,
+        {},
+        out / "wrap.py",
+        caller_key="/p/Two/scalar.vi",
+        module_key="/p/wrap.vi",
+    )
+    own = create_import_resolver(
+        "pkg", out, {}, out / "main.py", caller_key="/p/Main.vi"
+    )
+    assert variant.module_key == "/p/wrap.vi"
+    assert own.module_key == "/p/Main.vi"

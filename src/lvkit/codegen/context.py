@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.core import uid_of
 from lvkit.graph.models import (
@@ -41,15 +42,17 @@ from lvkit.models import (
 )
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.string_literal import quote_string
+from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
     field_attribute_names,
     interface_names,
+    numbered_name,
     to_function_name,
     to_var_name,
 )
-from .class_model import member_reference, member_shape
+from .class_model import class_import, member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -123,6 +126,12 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
+    # The import statement of each subVI function this function calls -> the
+    # import it is made under (see ``import_function``).
+    _function_imports: dict[str, NameImport] = field(default_factory=dict, repr=False)
+    # Imports the function makes inside its body, after its docstring (a VI
+    # that calls itself while a variable holds its name).
+    inside_imports: set[str] = field(default_factory=set, repr=False)
     # Output tunnel (outer terminal id) -> the variable that is its merge.
     _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
     # Variable names bound to array-typed values, with each array's dimension
@@ -156,6 +165,10 @@ class CodeGenContext:
     # the VI function, sorted by name — dict/set iteration order is not
     # a name, so insertion order alone would not be byte-reproducible.
     module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # Who owns each module-level name (a global or a helper function): the id of
+    # the node or terminal it was named from, None for a name every call site of
+    # the module shares. One dict per module, shared by child contexts.
+    _module_owners: dict[str, str | None] = field(default_factory=dict, repr=False)
     # Nodes that lie on a cycle of the wires of one structure level, found by
     # the dependency sort, with why. One dict per module, shared by child contexts.
     circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
@@ -345,9 +358,10 @@ class CodeGenContext:
                 return tunnel_name
 
         var_name = to_var_name(base_name)
-        if var_name in self._allocated_vars:
-            op_suffix = node_id.split("::")[-1] if "::" in node_id else node_id
-            var_name = f"{var_name}_{op_suffix}"
+        count = 1
+        while var_name in self._allocated_vars:
+            count += 1
+            var_name = f"{to_var_name(base_name)}_{count}"
         self._allocated_vars.add(var_name)
         return var_name
 
@@ -576,6 +590,8 @@ class CodeGenContext:
             module_stem=self.module_stem,
             function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            _function_imports=self._function_imports,  # Shared — same scope
+            inside_imports=self.inside_imports,  # Shared — same function
             _tunnel_var_names=self._tunnel_var_names,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
@@ -584,6 +600,7 @@ class CodeGenContext:
             flat_functions=self.flat_functions,  # Shared — one dict
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
+            _module_owners=self._module_owners,  # Shared — one dict
             _body_generator=self._body_generator,
         )
 
@@ -620,10 +637,58 @@ class CodeGenContext:
 
     def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
         """Import the function of a VI at the top of the module and return the
-        name this module calls it by."""
+        name this function calls it by.
+
+        A name a Python function assigns is its local everywhere in it, so a
+        variable named like a function it calls would be called instead. A
+        function whose name a parameter, control or variable of this VI already
+        holds (``_holds``) is imported under a name of its own, one no
+        top-level name of the module has (``from .fill import fill as fill_2``),
+        and the name it is called by is taken, so no variable named later takes
+        it. A VI that calls itself defines the function it calls; when a
+        variable holds its name, the function imports its own module's function
+        under a name of its own, inside the function (``inside_imports``), where
+        the module has finished loading by the time it runs."""
         imported = self.function_import(vi_name, callee_key)
-        self.add_import(imported.statement)
-        return imported.name
+        known = self._function_imports.get(imported.statement)
+        if known is None:
+            known = imported
+            if self._holds(imported.name):
+                known = self._own_import(imported).aliased(
+                    self._alias_name(imported.name)
+                )
+            self._allocated_vars.add(known.name)
+            self._function_imports[imported.statement] = known
+        if imported.statement:
+            self.add_import(known.statement)
+        elif known.statement:
+            self.inside_imports.add(known.statement)
+        return known.name
+
+    def _own_import(self, imported: NameImport) -> NameImport:
+        """``imported``, or for the function of the module being generated (an
+        empty statement) the import of it from this module itself."""
+        if imported.statement:
+            return imported
+        if not isinstance(self.import_resolver, ImportResolver):
+            raise CodeGenError(
+                f"{imported.name!r} calls itself while a variable holds its name, "
+                "and there is no package to import it from"
+            )
+        return self.import_resolver.own_function(imported.name)
+
+    def _alias_name(self, derived: str) -> str:
+        """A name of its own for an import of ``derived``, which a variable of
+        this function holds: free here and, with a resolver, at module level."""
+        if isinstance(self.import_resolver, ImportResolver):
+            return self.import_resolver.alias_name(derived, self._holds)
+        return numbered_name(
+            derived, lambda n: n == self.function_name or self._holds(n)
+        )
+
+    def _holds(self, name: str) -> bool:
+        """Whether a parameter or variable of this function has ``name``."""
+        return self.var_name_in_use(name) or name in self.parameter_var_names()
 
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for
@@ -643,6 +708,38 @@ class CodeGenContext:
         self.add_import(statement)
         return expression
 
+    def this_vi_expression(self) -> str:
+        """The expression that is the function of the VI being generated (LabVIEW's
+        "This VI"): its name in its own module, or for a member VI of a class the
+        method on its class (``vi_reference_expression``), since a method's bare
+        name is not defined inside the class."""
+        if self.graph is None or self.vi_name is None:
+            return self.function_name
+        if member_shape(self.graph, self.vi_name) is None:
+            return self.function_name
+        return self.vi_reference_expression(self.function_name, self.vi_name)
+
+    def _class_object(self, lv_type: LVType) -> str:
+        """A new object of the class a class constant holds, the class imported:
+        a class constant is the class's default object. LabVIEW Object, the
+        class every class descends from, is Python's ``object`` (a generated
+        class with no parent has no base). A class that is not loaded, or has no
+        module, is a gap."""
+        if lv_type.classname == ROOT_CLASS:
+            return "object()"
+        class_key = (
+            self.graph.class_type_key(lv_type) if self.graph is not None else None
+        )
+        if class_key is None or not isinstance(self.import_resolver, ImportResolver):
+            raise ConversionGap(
+                f"The class constant of {lv_type.classname} names a class that is "
+                "not loaded; add it to the project or a --search-path"
+            )
+        assert self.graph is not None
+        imported = class_import(self.graph, class_key, self.import_resolver)
+        self.add_import(imported.statement)
+        return f"{imported.name}()"
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""
@@ -650,8 +747,8 @@ class CodeGenContext:
 
     def constant_expression(self, const: Constant | ConstantNode) -> str:
         """The Python expression for a constant, importing the enum class when
-        the constant is one of its members, and the function when it is a
-        reference to a VI."""
+        the constant is one of its members, the function when it is a reference
+        to a VI, and the class when it is an object of a class."""
         lv_type = const.lv_type
         if (
             lv_type is not None
@@ -659,6 +756,8 @@ class CodeGenContext:
             and isinstance(const.value, str)
         ):
             return self.vi_reference_expression(const.value, const.referenced_vi_key)
+        if lv_type is not None and lv_type.ref_type == "UDClassInst":
+            return self._class_object(lv_type)
         if const.unwritable is not None:
             for statement in DATA_FILE_IMPORTS.splitlines():
                 self.add_import(statement)
@@ -685,33 +784,51 @@ class CodeGenContext:
             return
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
-            type_ref = named.type_ref()
-            imported = self.import_resolver.type_import(type_ref) if type_ref else None
+            imported = self.import_resolver.type_import(named)
             if imported is not None:
                 target.add(imported.statement)
 
-    def add_module_global(self, name: str, value: ast.expr) -> None:
-        """Register a module-level global variable, seeded to ``value``.
-
-        Idempotent by name: a second registration for the same name is a
-        no-op (the same call site is only lowered once per generation
-        pass). The builder emits these above the VI function, sorted by
-        name (see ``module_globals`` docstring for why).
-        """
-        if name not in self.module_globals:
-            self.module_globals[name] = ast.Assign(
-                targets=[ast.Name(id=name, ctx=ast.Store())],
-                value=value,
+    def _claim_module_name(self, name: str, owner: str | None) -> None:
+        """Record ``owner`` as the owner of module-level ``name``. A name two
+        different owners claim would silently share one definition: an lvkit
+        bug, even when their definitions read the same."""
+        held = self._module_owners.setdefault(name, owner)
+        if held != owner:
+            raise CodeGenError(
+                f"Two nodes were given one module-level name, {name}: "
+                f"{_owner_label(held)} and {_owner_label(owner)}"
             )
 
-    def add_module_function(self, func_def: ast.FunctionDef) -> None:
+    def add_module_global(
+        self, name: str, value: ast.expr, owner: str | None = None
+    ) -> None:
+        """Register a module-level global variable, seeded to ``value``.
+
+        ``owner`` is the id of the node or terminal the name was made from
+        (None for a name every call site of the module shares). A name two
+        different owners register is a bug in lvkit, whatever their values.
+        Idempotent: the same owner registering the same name with the same
+        value again is a no-op (one call site lowered again); the same name
+        with another value is two pieces of state given one name. The builder
+        emits these above the VI function, sorted by name (see
+        ``module_globals`` docstring for why).
+        """
+        self._claim_module_name(name, owner)
+        assign = ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
+        held = self.module_globals.setdefault(name, assign)
+        _require_same_definition(name, held, assign)
+
+    def add_module_function(
+        self, func_def: ast.FunctionDef, owner: str | None = None
+    ) -> None:
         """Register a module-level helper function, emitted above the VI function.
-        Idempotent by name."""
-        if not any(
-            isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name
-            for stmt in self.formula_helpers
-        ):
-            self.formula_helpers.append(func_def)
+        Idempotent like ``add_module_global``, with the same owner rule."""
+        self._claim_module_name(func_def.name, owner)
+        for stmt in self.formula_helpers:
+            if isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name:
+                _require_same_definition(func_def.name, stmt, func_def)
+                return
+        self.formula_helpers.append(func_def)
 
     @classmethod
     def from_graph(
@@ -884,7 +1001,7 @@ def _bind_inputs_and_constants(
     Shared by from_graph() and from_vi_context(). Skips error cluster
     inputs (Python uses exceptions instead).
     """
-    names = interface_names([i for i in inputs if i.id], [], [], []).parameters
+    names = interface_names([i for i in inputs if i.id], [], []).parameters
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
             var = names[inp.id]
@@ -1069,8 +1186,7 @@ def type_namer(
     resolver = import_resolver
 
     def names(lv_type: LVType) -> str | None:
-        type_ref = lv_type.type_ref()
-        imported = resolver.type_import(type_ref) if type_ref else None
+        imported = resolver.type_import(lv_type) if lv_type.type_ref() else None
         return imported.name if imported is not None else None
 
     return names
@@ -1217,3 +1333,17 @@ def _format_constant(
             return str(ord(value))
         return repr(value)
     return repr(value)
+
+
+def _owner_label(owner: str | None) -> str:
+    """An owner for a message: its uid, never its file path."""
+    return "a shared name" if owner is None else f"uid {uid_of(owner)}"
+
+
+def _require_same_definition(name: str, held: ast.stmt, new: ast.stmt) -> None:
+    """A module-level name registered twice must be one definition; two
+    different ones under one name would silently share it."""
+    if ast.dump(held) != ast.dump(new):
+        raise CodeGenError(
+            f"Two different module-level definitions were given one name, {name}"
+        )

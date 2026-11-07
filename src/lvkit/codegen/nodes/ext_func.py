@@ -2,9 +2,10 @@
 
 The node lowers to ``ctypes`` code written out in the module (see
 ``lvkit.parser.extfunc_prototype`` for how the node's prototype is read). The
-library named in the node's setup is loaded once at module level and the
-function's ``argtypes`` and ``restype`` are set there; a library named by a wired
-``path in`` is loaded at the call instead (see ``ext_func_library`` for the
+library named in the node's setup is loaded the first time a node that uses it
+runs, by a cached function, and a second cached function looks up the function
+and sets its ``argtypes`` and ``restype``; a library named by a wired ``path in``
+is loaded at the call instead (see ``ext_func_library`` for the
 loader, wildcards and library files). Each
 parameter is packed into the C type the prototype names right before the call (a
 LabVIEW string or array handle and an Adapt to Type cluster are ``ctypes``
@@ -174,20 +175,25 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         library = call.library or ""
         name, needed = static_name(ctx, node, call, module)
         imports |= needed
+        imports.add("import functools")
         library_name = module.declare(
             ("library", load, name),
             f"_{_library_name(library)}",
-            lambda n: f"{n} = {load}({name})",
+            lambda n: f"@functools.cache\ndef {n}():\n    return {load}({name})\n",
         )
-        callee = module.declare(
+        accessor = module.declare(
             ("function", library_name, call.function, argtypes, restype),
             f"{library_name}_{function}",
             lambda n: (
-                f"{n} = {library_name}[{call.function!r}]\n"
-                f"{n}.argtypes = [{argtypes}]\n"
-                f"{n}.restype = {restype}\n"
+                f"@functools.cache\n"
+                f"def {n}():\n"
+                f"    function = {library_name}()[{call.function!r}]\n"
+                f"    function.argtypes = [{argtypes}]\n"
+                f"    function.restype = {restype}\n"
+                f"    return function\n"
             ),
         )
+        callee = f"{accessor}()"
     for m in marshalled:
         lines += m.setup
     arguments = ", ".join(m.passed for m in marshalled)

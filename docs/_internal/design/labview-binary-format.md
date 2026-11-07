@@ -649,6 +649,56 @@ Value Change. To extend: add confirmed type codes to `_CONFIRMED_EVENT_TYPES` as
 Related: [[reference_case_selector_dataspace]] (case selector values live in dataspace DFDS, a
 DIFFERENT mechanism — event labels are in the BD heap EventSpec, not the dataspace).
 
+## A Conditional Disable condition is an expression tree; a node's `Tag0000` is its parent, an operator's `activePlot` its code (`FB` `||`, `FC` `&&`, `FD` `==`, `FE` `!=`)
+
+Each frame of a Conditional Disable structure (`class="commentNode"`) has one
+`SelectorInfoElement` in `commentSelInfoArray`, in frame order. Its
+`activeDiag class="ExpressionInfo"` holds two lists:
+
+- `Tag0000`: the condition's strings, hex-encoded (`[TARGET_TYPE, Windows]`). An empty
+  list is the Default frame.
+- `activeDiag`: the tree, one `TreeElt` per node. Frame 0 of an outside tester's VI
+  (`Conditional Disable OR.vi`, LabVIEW 2025, condition
+  `TARGET_TYPE == Windows OR TARGET_TYPE == Mac`, strings
+  `[TARGET_TYPE, Windows, Mac]`):
+
+  | node | `Tag0000` | `activeDiag` | `activeMarker` | `activePlot` |
+  |---|---|---|---|---|
+  | 0 | `FF` | `03` | `4` | `FB` |
+  | 1 | `03` | `FF` | `-1` | `00` |
+  | 2 | `03` | `FF` | `-1` | `01` |
+  | 3 | `00` | `01` | `2` | `FD` |
+  | 4 | `00` | `05` | `6` | `FD` |
+  | 5 | `04` | `FF` | `-1` | `00` |
+  | 6 | `04` | `FF` | `-1` | `02` |
+
+  Read as: `Tag0000` is the index of the node's PARENT (`FF` for the one root). A node
+  with no operands (`activeDiag` `FF`, `activeMarker` `-1`) is a string, and its
+  `activePlot` (hex) is its index in the string list. Every other node is an operator:
+  its `activeDiag` (hex) and `activeMarker` (decimal) are its two operands' node
+  indexes, and its `activePlot` is the operator code. A single comparison is three
+  nodes (root `FF`, two strings whose parent is `00`), so reading `Tag0000` as a node
+  kind only happens to work there.
+
+Evidence:
+- 2026-11-03, a scan of all 5719 extracted `*_BDHb.xml` in the user cache after
+  `scripts/extract_corpus.py` over the whole samples corpus: 113 conditions, every one a
+  single comparison with code `FD`. **`FD` is `==`** by deduction: structures whose
+  frames are `TARGET_TYPE` Unix / Windows / Mac (no Default) only work if each frame
+  tests equality, since NI's docs say the first frame whose condition is TRUE is enabled
+  (https://docs-be.ni.com/api/bundle/labview/page/configuring-conditions-for-conditional-disable-structures.html).
+- 2026-11-04, the outside tester's own VI (shared on PR #241, Apache 2.0) with four
+  frames: `TARGET_TYPE == Windows OR TARGET_TYPE == Mac`, `TARGET_TYPE == Unix`,
+  `TARGET_BITNESS == 64 AND TARGET_TYPE != Mac`, and Default. **`FB` is `||`, `FC` `&&`,
+  `FE` `!=`** from the tester's description of the conditions they entered. The parent
+  layout above was checked against that VI's own bytes (lvkit extraction): every tree
+  has exactly one node with parent `FF`, every leaf has `FF`/`-1` operands, and each
+  operand's `Tag0000` is its operator's index.
+
+`parser/nodes/disable_condition.py` reads the tree from its root by structure and checks
+each operand's parent; an unknown code shows as `?` in the label
+(`TARGET_TYPE ? Windows`) and is reported as a `value not read` problem on the VI.
+
 ## "BD <compressedWireTable> = LabVIEW's real routed wire geometry — DECODED + rendered by default (FAITHFUL_WIRE_TABLE=True, task #84 DONE); auto-router is the fallback"
 <!-- was memory: reference_compressed_wire_table -->
 
@@ -738,17 +788,17 @@ HARD GATE: scan every output segment, assert zero diagonals (both dx,dy nonzero)
 ## "LabVIEW Formula Node numeric oracle (issue #8) — source of the locked semantics test + the open ~/negative-bitwise anomaly and still-unsupported funcs"
 <!-- was memory: reference_formula_node_oracle_issue8 -->
 
-**Oracle source:** github.com/pragmatest-dev/lvkit **issue #8** — @Himmelt ran `docs/formula_semantics_probe.md` (Script 1 main, Script 2 edge) in a real LabVIEW Formula Node and pasted RI (int32) / RF (double) / RX (edge) results in the comments. This is the ground truth the NI docs leave underspecified. The understood, consistent rows are locked as executing assertions in `tests/test_formula_semantics.py`. The repo holds the semantics; this note holds what is deliberately NOT locked (the open questions).
+**Oracle source:** github.com/pragmatest-dev/lvkit **issue #8** — an outside tester ran `docs/formula_semantics_probe.md` (Script 1 main, Script 2 edge) in a real LabVIEW Formula Node and pasted RI (int32) / RF (double) / RX (edge) results in the comments. This is the ground truth the NI docs leave underspecified. The understood, consistent rows are locked as executing assertions in `tests/test_formula_semantics.py`. The repo holds the semantics; this note holds what is deliberately NOT locked (the open questions).
 
-**Open anomaly — needs rfried/Himmelt interpretation, do NOT guess a fix:** LV returned **2147483647 (INT32_MAX)** for `~0`, `~5`, and `-1 & 255`, while ordinary bitwise is normal (`12&10=8`, `12|10=14`, `12^10=6`, `1<<31=-2147483648` wraps, `-8>>1=-4`). So bitwise-complement and a negative `&` operand behave unlike two's complement (our Python `~` gives -1/-6, `&` gives 255). Inconsistent with both pure-wrap and pure-saturate (since `1<<31` wrapped to MIN, not MAX). Likely a probe/indicator artifact or a real LV quirk — excluded from the locked test until clarified. See [[feedback_no_heuristics]].
+**Open anomaly — needs the maintainer's or the issue #8 tester's interpretation, do NOT guess a fix:** LV returned **2147483647 (INT32_MAX)** for `~0`, `~5`, and `-1 & 255`, while ordinary bitwise is normal (`12&10=8`, `12|10=14`, `12^10=6`, `1<<31=-2147483648` wraps, `-8>>1=-4`). So bitwise-complement and a negative `&` operand behave unlike two's complement (our Python `~` gives -1/-6, `&` gives 255). Inconsistent with both pure-wrap and pure-saturate (since `1<<31` wrapped to MIN, not MAX). Likely a probe/indicator artifact or a real LV quirk — excluded from the locked test until clarified. See [[feedback_no_heuristics]].
 
 **getexp/getman — DONE (2026-06-22):** added `_lv.getexp`/`_lv.getman` (frexp-based, mantissa ∈ [1,2)).
 
-**rand / sizeOfDim / N-D indexing — DONE (2026-06-23):** `rand()`→`_lv.rand` (`random.random()`; runtime-nondeterministic by design, codegen stable). `sizeOfDim`→`_lv.size_of_dim(arr, dim)` (natural nested convention: dim 0 = `len(arr)`, deeper dims descend; oracle `sizeOfDim(A,0)=5` ✓). N-D indexing: AST `Index.name:str`→`Index.base:Expr` + parser chained-subscript loop, so `a[i][j]` reads and writes emit native nested Python indexing. The oracle's apparent 2-D dim *reversal* dissolved — `sizeOfDim(B,0)=3` means Himmelt's B was entered 3×2, so the natural convention is correct (not a guess). **Still a known divergence (not implemented):** LabVIEW array index OOB → element default (0); lvkit raises `IndexError` for ALL dimensions — orthogonal, would require routing every `a[i]` through a safe-index helper.
+**rand / sizeOfDim / N-D indexing — DONE (2026-06-23):** `rand()`→`_lv.rand` (`random.random()`; runtime-nondeterministic by design, codegen stable). `sizeOfDim`→`_lv.size_of_dim(arr, dim)` (natural nested convention: dim 0 = `len(arr)`, deeper dims descend; oracle `sizeOfDim(A,0)=5` ✓). N-D indexing: AST `Index.name:str`→`Index.base:Expr` + parser chained-subscript loop, so `a[i][j]` reads and writes emit native nested Python indexing. The oracle's apparent 2-D dim *reversal* dissolved — `sizeOfDim(B,0)=3` means the tester's B was entered 3×2, so the natural convention is correct (not a guess). **Still a known divergence (not implemented):** LabVIEW array index OOB → element default (0); lvkit raises `IndexError` for ALL dimensions — orthogonal, would require routing every `a[i]` through a safe-index helper.
 
 Still UNSUPPORTED (fail loud): nothing from the probe remains except the `~`/negative-bitwise anomaly below.
 
-**Script 2 edges (div0 / sqrt(-1) / domain) — DONE (2026-06-22):** rfried confirmed the rationale — *a Formula Node has no error terminal, so LV coerces to IEEE `inf`/`nan` instead of trapping*. Implemented non-raising `_lv` wrappers (`div`, `powf`, `sqrt`, `ln`, `log10`, `log2`, `asin`, `acos`, `acosh`, `atanh`; `rem`/`lvmod` guard zero divisor). Emitter routes domain funcs through them; `/` wraps to `_lv.div` unless the divisor is a nonzero literal; `**` wraps to `_lv.powf` unless the base is a non-negative literal (so `2**n` stays the plain operator, no churn). Locked in `tests/test_formula_semantics.py`. Matches oracle: `1/0→inf`, `0/0→nan`, `sqrt(-1)→nan`, `ln(0)→-inf`, `(-8)**(1/3)→nan` (was a Python *complex*, a latent bug), `0**0→1`. See [[project_formula_node_rc1]].
+**Script 2 edges (div0 / sqrt(-1) / domain) — DONE (2026-06-22):** the maintainer confirmed the rationale — *a Formula Node has no error terminal, so LV coerces to IEEE `inf`/`nan` instead of trapping*. Implemented non-raising `_lv` wrappers (`div`, `powf`, `sqrt`, `ln`, `log10`, `log2`, `asin`, `acos`, `acosh`, `atanh`; `rem`/`lvmod` guard zero divisor). Emitter routes domain funcs through them; `/` wraps to `_lv.div` unless the divisor is a nonzero literal; `**` wraps to `_lv.powf` unless the base is a non-negative literal (so `2**n` stays the plain operator, no churn). Locked in `tests/test_formula_semantics.py`. Matches oracle: `1/0→inf`, `0/0→nan`, `sqrt(-1)→nan`, `ln(0)→-inf`, `(-8)**(1/3)→nan` (was a Python *complex*, a latent bug), `0**0→1`. See [[project_formula_node_rc1]].
 
 **Pre-existing non-determinism — FIXED (2026-06-23, branch `deterministic-codegen-ordering`, commit `ebc6daa`).** Codegen output varied with `PYTHONHASHSEED`: per-VI node UIDs live in sets, and ordering-sensitive steps iterated them, so independent parallel ops (and their collision-suffix names `output_array_696`↔`_999`) swapped between runs. Root: `get_operation_order` / `_sort_inner_uids` did `add_nodes_from(set)` + `nx.topological_sort` (hash-tied), plus `_get_children_of` and the `get_operations` disconnected-append iterated sets. Fix: shared `_node_order_key` (VI base, then numeric object id) in `graph/core.py`, applied at every order-materializing site + `nx.lexicographical_topological_sort(key=...)`. Regression guard: `tests/test_determinism.py` generates `samples/DAQmx-Digital-IO/In.vi` (a parallel-tier VI) under 3 hash seeds and asserts byte-identical output. See [[project_parallel_execution_gap]].
 
@@ -1294,6 +1344,38 @@ Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
 the node, the term's `<dco uid=...>` only references it, and its
 `propItemInfo` carries no `PropItemName` (the name is empty).
 
+## A Property Node row's `propItemInfo` carries `dataTypeDesc`, the property's declared type; a row saved with a `Void` terminal type keeps it there (issue #181)
+
+Each `propItemInfo` of a row's `propList` has a `<dataTypeDesc>` (a
+`TypeID(n)` into the VI's type table) next to its `<omidTypeDesc>`, `PropItemName`
+and `PropItemCode`. The terminal's own type is the row dco's `<typeDesc>`.
+Across the 1,681 `propItem` rows with a `propList` in the pre-extracted corpus
+the two types are the same in all but 6:
+
+- 2 rows have a `Void` terminal `typeDesc` while `dataTypeDesc` is `NumUInt32`:
+  `NumChans` (code 8577) on a DAQmx Task Property Node in
+  `LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/Setup AI.vi` (terminal
+  `TypeID(238)`, `dataTypeDesc` `TypeID(240)`, `omidTypeDesc` `TypeID(239)` =
+  `VoidBlock`) and the same row in `.../Digital Input/DI_class/Setup DI.vi`.
+  Both VIs are saved broken: their main `.xml` has `<Execution ...
+  BadSignal="1" BadNode="1">`. The sibling `.../Digital Output/DO_class/Setup
+  DO.vi` has the same property, is saved working (every `Bad*` is `0`), and its
+  terminal `typeDesc` is `NumUInt32`. So a `Void` terminal type on a row is not
+  the property's type; `dataTypeDesc` is.
+- 4 rows have a terminal `UnitUInt8` (the U8 an enum or ring is stored as) and a plain `NumUInt8`
+  `dataTypeDesc`. The terminal is the more exact type there.
+
+lvkit types a row's terminal from its own `typeDesc`, and only when that is
+`Void` uses `dataTypeDesc` (`parser/vi.py`, `_process_element_terminals`;
+`PropertySegment.data_type_desc`). For a two-segment row (`Image Parameters :
+Image Type`) the type is the last segment's: of the 52 two-segment rows in the
+corpus with a non-`Void` terminal type, the last segment's `dataTypeDesc` equals
+the terminal type in 52 and the first segment's in none.
+
+The dco `<objFlags>` of those 2 `Void` rows is 65537: bit 0x10000 is set. No
+other of the 1,681 rows has that bit. Its meaning is not decoded; lvkit does not
+read it.
+
 ## A reentrant VI is recorded with EITHER the `IsReentrant` OR the `SaveParallel` Execution flag; `PooledReentrancy` then picks shared vs preallocated clones (issue #132)
 
 In the main XML's `<LVSR><Section><Execution .../>`, pylabview names two flag
@@ -1823,10 +1905,40 @@ The `.lvclass`/`.lvlib` XML may also hold `<Property Name="NI.Lib.LocalName" Typ
 
 Type descriptors can still carry an old name. Three `Temp.lvclass` files (`utils/Temp_New.vi`, `utils/Temp_GetAttributes.vi`, `protected/ObjectAttributes.ctl`) hold a second pair of class-refnum types (`reference in`/`reference out`) whose `Item Text` is `Temperature.lvclass`, beside the `Temp.lvclass` pair their front panel controls use. That fits types saved before a rename (`Temperature` → `Temp`), but the file records no history, so this is an inference. lvkit names that class `Temp.lvclass` everywhere (the class file, the `LIBN` chains, the loaded callee's pane).
 
+## Membership: a class's or library's file lists its members; a VI's `VILB` record is only its claim
+
+A `.lvclass` or `.lvlib` lists its members by URL (`Item` elements), and a VI records, in its `VILB` link record, the class or library it says it is in. The container's list decides. NI's error page (verbatim, docs-be.ni.com `labview-api-ref/page/errors/library-does-not-claim-vi.html`, under *Project Library Errors*): "This VI claims to be part of a library, but that library does not claim to own this VI. If a project library owns a VI, the VI cannot be executed or edited unless that project library is loaded into memory. LabVIEW cannot load the project library that owns this VI. To correct this error, find and load the project library or select File»Disconnect from Library on the VI." Community sources (LAVA, *Find Items Incorrectly Claimed by a Library*) describe the reverse, a library listing an item that does not claim it back, as broken too.
+
+Measured over the sample corpus (the 916 VIs already extracted whose own record names a class; 162 classes): 15 VIs claim a class whose file does not list them, in any form (the raw class XML and every decoded binary property were searched): 12 are not in the class file at all (JKI-VI-Tester `Classes/TestSuite/New.vi`, `Classes/TextTestRunner/run.vi`, `Prototype/.../MyTestCase/MyNewVI.vi`; LabVIEW-OOP-Classes `Timer_class/wfg.vi`, …) and 3 are stray copies of a file the class lists elsewhere (JKI-EasyXML `EasyXMLTest/testNestedElementWithAttributes.vi`, listed under `testAttributes/`; DCAF `editor node/Read Data Rate.vi`; LabVIEW-OOP-Classes `DI_class/Set DO.vi`, claiming `DO.lvclass`). No class lists a VI whose own record names another owner. lvkit keeps both sides by path (`owns` from the list, `claims_owner` from the `VILB` record, `graph/membership.py`), treats only the listed VI as a member, and reports either one-sided case as a note on the VI (both files are read whole).
+
+## A class records the library chain it is in: `NI.Lib.ContainingLib` and `NI.Lib.ContainingLibPath`
+
+A `.lvclass` in a library carries `<Property Name="NI.Lib.ContainingLib" Type="Str">` with the full library chain, outermost first (`MyParentLibrary.lvlib:MyLibrary.lvlib`), and `NI.Lib.ContainingLibPath` with the path of the library that lists it (`../../Actor Framework.lvlib`, a member URL, so relative per the save version, above). Corpus: 85 of 162 classes carry both; every recorded path names an existing library that lists the class, and the chain's last part is that library's file name. The other 77 carry neither and are in no library. lvkit names a class by this chain plus its file name (`LVClass.containing_library`), never by a caller's spelling of it. (9 of 89 `.lvlib` files carry the pair too.)
+
+The private-data control's URL follows the same version rule: the 6 LabVIEW 8.2 classes write `X.lvclass/X.ctl` (relative to the class's folder), the 149 classes saved by 2010–2021 write `X.ctl` (relative to the class file as a folder); both name the control inside the class (`structure.member_url_base`).
+
 ## A link record's name parts end at the file its path names; a record in the caller's own library or class omits that owner
 
-Every link record starts with its name parts then its path (`_read_basic_head`, the same in every saving version), in the raw `_LI*.bin` sidecars as in the decoded `LinkSaveQualName`. The parts up to the one that equals the path's last component (case-insensitive) are the qualified name the record gives that file; parts after it (a method of a class, the `\x07\x00` part of a `VIPI`/`FPPI`/`TCPI` record) are not that file's. Examples from the icon-editor `Apply Body Text.vi` (`LIBN` `["lv_icon.lvlib"]`): `FPPI` `["History.lvlib", "History.lvclass", "\x07\x00"]` with path `.../History/History.lvclass` names `History.lvlib:History.lvclass`, which the VI's types spell `lv_icon.lvlib:History.lvlib:History.lvclass` (the caller's own library is left out); `TDCC` `["Font.ctl"]` names `Font.ctl`. A `PTH0` that no record head ends at (a record's second path, such as the absolute `Measurement Plugin Service.lvclass` path that follows the VI's own class path in a `VIPI` record of measurement-plugin `Post-Build Action.vi`) gives its file no qualified name. Some records name only `\x07\x00` (AF Debug `Ping.vi`'s `FPPI`/`DDPI` records of its own class's path); they name no file. Such a record is still the VI's record of that file: a record of the same path that does name it gives the name (Ping.vi's `VILB`), else the file is named by its file name, as LabVIEW names a class.
+Every link record starts with its name parts then its path (`_read_basic_head`, the same in every saving version), in the raw `_LI*.bin` sidecars as in the decoded `LinkSaveQualName`. The parts up to the one that equals the path's last component (case-insensitive) are the qualified name the record gives that file; parts after it (a method of a class, the `\x07\x00` part of a `VIPI`/`FPPI`/`TCPI` record) are not that file's. Examples from the icon-editor `Apply Body Text.vi` (`LIBN` `["lv_icon.lvlib"]`): `FPPI` `["History.lvlib", "History.lvclass", "\x07\x00"]` with path `.../History/History.lvclass` names `History.lvlib:History.lvclass`, which the VI's types spell `lv_icon.lvlib:History.lvlib:History.lvclass` (the caller's own library is left out); `TDCC` `["Font.ctl"]` names `Font.ctl`. A record can name a second file after its own path: a second name list (u32 count, Pascal name parts, no padding) ends exactly where that file's `PTH0` starts. In measurement-plugin `Post-Build Action.vi` (`_LIbd.bin`, offsets 0x1c5–0x207), the `TCPI` record's own path is the VI's class `Measurement Plugin Template.lvclass`; then count 2, `NI Measurement Plug-In SDK.lvlib`, `Measurement Plugin Service.lvclass`, then the absolute path of that class: the record names `NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass` (`decode_record_names`). Some records name only `\x07\x00` (AF Debug `Ping.vi`'s `FPPI`/`DDPI` records of its own class's path); they name no file. Such a record is still the VI's record of that file: a record of the same path that does name it gives the name (Ping.vi's `VILB`), else the file is named by its file name, as LabVIEW names a class.
 
 ## A call's connector pane records an unused position as a `Void` slot
 
 The Function type a call's `<connectorTM>` names lists one child per pane position; a position the called VI does not use is `TypeID` of the `Void` type with `Flags="0x0000"`. Example: DCAF-DAQModule `module/execution/output.vi`, the Function type of `DAQmx Write (Analog 1D DBL NChan 1Samp).vi` (pattern `0x108`, 16 positions): positions 2, 3, 5, 6, 8, 12, 13 and 14 are `TypeID="4"` (`Void`), the others are `task/channels in`, `auto start`, `task out`, `data`, `timeout`, `number of samples written per channel`, `error in` and `error out`.
+
+## Every link record's head ends path, then a link flag; bit 2 marks a file in the caller's own library or class, and the record omits the owners they share
+
+A link record starts (all versions) with the ident, a name list, and a typed path. The link flag follows the path: a u32 from LabVIEW 8.6, a u8 in 8.5, absent before (`link_table._read_link_flag`; in the XML form `LinkSaveFlag`). A type descriptor stores a class or typedef by name only (its owners, then the file), with no path; the file's own records give the path. Bit value 2 of the flag marks a file in the caller's own library or class, and the record's name then omits the owners the two share, not all of them and not a recorded number:
+
+- `ni-labview-icon-editor/resource/plugins/NIIconEditor/History/Add Data to History.vi` (owners `lv_icon.lvlib`, `History.lvlib`): record `History.lvclass` has flag 2 and the type is `lv_icon.lvlib:History.lvlib:History.lvclass` (both owners left out); record `Global Data.ctl` has flag 3 and the type is `lv_icon.lvlib:Global Data.ctl` (one owner left out).
+- `DCAF-DAQModule/source/editor node/Add Channel to Objects.vi`: record `Map.ctl` has `LinkSaveFlag=2` and the type is `DAQmx Module editor node.lvclass:Map.ctl`.
+
+So a type name denotes a record when it equals the record's name, or the record has bit 2 and the name is the caller's first k owners (outermost first, k >= 1) plus `:` and the record's name; names compare without regard to case. The corpus has about 3,600 owner-omitted matches, all with the bit set. A name no record of the file matches is nested in one of the file's dependencies and is found in their records, nearest first. The file's own class is often recorded only by its `VILB` record. Two records of one name at different paths (`GET_LayerData.vi` records `Layer.ctl` as `/Layer.lvclass/Layer.ctl` and as `///Controls/Layer.ctl`) name two files unless only one is on the machine.
+
+## A typedef record's offset list names the heap objects that are its instances
+
+In `IUVI` and `TDCC` records, as in `NEXF` (above), the `LinkOffsetList/Offset` values are heap object uids.
+
+- `IUVI` (subVI call) records in `LIbd` list the block-diagram call node's uid. DCAF `source/editor node/Add Channel to Objects.vi`: `Add Line.vi` 0x040D = 1037 → node `Add_Line_1037`; `Read UID.vi` 0x03B8 = 952; `read engine configuration.vi` 0x024A = 586; `Connect Channels.vi` 0x016F = 367.
+- `TDCC` (typedef) records in `LIfp` list front-panel heap objects of class `typeDef`: the typedef's instances. Same VI: `object ref.ctl` 0x005A = 90, the `typeDef` ddo of front-panel terminal `fPDCO` uid 152, whose `typeDesc` is `TypeID(76)` = the type `Table Manager.lvlib:Table Manager.lvclass:object ref.ctl`. `Mappings.ctl` 0x009F = 159, `Map.ctl` 0x02FB = 763, `Line.ctl` 0x00C0 = 192 (a `typeDef` element inside the `Mappings` cluster), `Measurement Type.ctl` 0x0749 = 1865, `Parameters.ctl` 0x076B = 1899 — every one a `class="typeDef"` object in `vi_FPHb.xml`.
+- So a typedef type is tied to its record (and so its path) by ids alone: record → object uid → the object's (or its enclosing terminal's) `typeDesc` heap type id. A nested typedef takes its type from its position in the parent cluster type.
+- In 3,000 extracted corpus VIs every `TDCC` (3,297) and `IUVI` (4,459) record carries an offset list; `FPPI`, `DDPI`, `VIPI`, `VICC` and `VILB` records carry none, so a class type is tied to its record by the record's qualified name (`graph/type_records.py` `tie_class`), a typedef by these uids (`tie_typedef`, `parser/typedef_ties.py`).

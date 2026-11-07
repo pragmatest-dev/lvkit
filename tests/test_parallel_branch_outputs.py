@@ -47,7 +47,7 @@ def _case(tunnel: bool) -> tuple[CaseStructureNode, list[PrimitiveNode]]:
                 boundary="inner",
                 tunnel_type="csTun",
                 paired_id="outer",
-                frame="True",
+                frame="0",  # the "True" frame's position
             ),
         ]
     case = CaseStructureNode(
@@ -68,7 +68,7 @@ def _case(tunnel: bool) -> tuple[CaseStructureNode, list[PrimitiveNode]]:
         name="Op",
         terminals=[Terminal(id="op_out", index=0, direction="output")],
         parent="case1",
-        frame="True",
+        frame="0",  # the "True" frame's position
     )
     return case, [op]
 

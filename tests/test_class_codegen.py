@@ -8,6 +8,7 @@ field is ``self.__<field>``, which Python stores as ``_<Class>__<field>``."""
 
 from __future__ import annotations
 
+import ast
 import copy
 import queue
 from pathlib import Path
@@ -31,8 +32,10 @@ from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
 from lvkit.graph.op_walk import stamp_nmux_lane_names
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
+from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
+    Package,
     Project,
     Recipe,
     add,
@@ -62,7 +65,7 @@ def bump(owner: LVType, field_index: int, by_pane: bool) -> Recipe:
                 name=vi,
                 inputs=[
                     pane(vi, "input", "in", owner, "Self", 0),
-                    pane(vi, "input", "n", INT, "n", 2),
+                    pane(vi, "input", "n", INT, "n", 2, ParsedWiringRule.RECOMMENDED),
                 ],
                 outputs=[pane(vi, "output", "out", owner, "Self out", 1)],
                 data_flow=[
@@ -405,7 +408,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
     base_source, child_source = package.sources["base"], package.sources["child"]
     assert "lvkit" not in base_source + child_source
     assert "class Base:" in base_source and "class Child(Base):" in child_source
-    assert "def __add(self, n" in base_source
+    assert "def __add(self, *, n: int=0)" in base_source
     assert "self.__add(n=n)" in base_source
     assert "super().increment(n=n)" in child_source
     # The members have no module of their own.
@@ -854,7 +857,7 @@ def test_a_static_member_with_no_class_input_is_a_static_method(tmp_path: Path) 
     assert "from .base import Base" in package.sources["use"]
     with package.use() as module:
         assert module("use").use(x=4).y == 4
-        assert module("base").Base.make(seed=7) == 7
+        assert module("base").Base.make(seed=7).value == 7
 
 
 # --- 11: a method named like a property -------------------------------------------
@@ -959,7 +962,7 @@ def test_a_method_that_cannot_be_written_is_that_vis_gap_not_the_classs(
         with pytest.raises(NotImplementedError, match="no object wired"):
             base.broken()
         with pytest.raises(NotImplementedError, match="no input of its class"):
-            module("base").Base.noobject()
+            module("base").Base.noobject(seed=0)
 
 
 def _structure_project(reader_first: bool):
@@ -996,7 +999,7 @@ def _structure_project(reader_first: bool):
     reader = mux(vi, "get", False, BASE, INT, 0)
     for node in (changer, reader):
         node.parent = "s:case"
-        node.frame = "True"
+        node.frame = "0"  # the "True" frame's position
     wires = [
         wire(vi, "obj", "1o"),
         wire(vi, "1o", "1i"),
@@ -1069,7 +1072,7 @@ def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> N
     with package.use() as module:
         holding = module("holder").Holder()
         holding._Holder__inner = module("counter").Counter()
-        result = holding.take(v=5)
+        result = holding.take(v=5).out
         assert holding._Holder__inner._Counter__count == 0
         assert result._Counter__count == 5 and result is not holding._Holder__inner
 
@@ -1172,7 +1175,7 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
     assert "copy.deepcopy(" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
-        result = original.run(v=7, n=2)
+        result = original.run(v=7, n=2).out
         assert original._Counter__count == 0
         assert result._Counter__count == 7
 
@@ -1180,7 +1183,8 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
 def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
     tmp_path: Path,
 ) -> None:
-    from lvkit.codegen.class_model import lazy_imports
+    from lvkit.codegen import import_cycles
+    from lvkit.codegen.import_cycles import in_import_cycle
 
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
@@ -1188,13 +1192,12 @@ def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
     free = project.add_vi("Helper", passthrough(BASE))
     graph = project.graph
     graph._dep_graph.add_edge(method, free)  # noqa: SLF001
-    assert not lazy_imports(graph, project.classes["Base"])
+    assert not in_import_cycle(graph, project.classes["Base"])
     # The free VI names the class only for a class constant.
     graph._dep_graph.add_edge(free, project.classes["Base"])  # noqa: SLF001
-    from lvkit.codegen import class_model
-
-    class_model._STATES.pop(graph, None)  # noqa: SLF001
-    assert lazy_imports(graph, project.classes["Base"])
+    import_cycles._CYCLIC.pop(graph, None)  # noqa: SLF001
+    assert in_import_cycle(graph, project.classes["Base"])
+    assert in_import_cycle(graph, free)
 
 
 def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:
@@ -1411,7 +1414,7 @@ def test_a_child_method_reads_a_parent_property_never_the_parents_field(
         obj = module("child").Child()
         obj.count = 7
         obj._Child__count = 1
-        assert obj.parent_count() == 7
+        assert obj.parent_count().seen == 7
 
 
 # --- Call By Reference of a member VI -----------------------------------------------
@@ -1555,9 +1558,7 @@ def _call_held(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
 
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
         terminals = [
-            Terminal(
-                id=f"{vi}:c.ref", index=-1, direction="input", lv_type=reference
-            ),
+            Terminal(id=f"{vi}:c.ref", index=-1, direction="input", lv_type=reference),
             *(
                 Terminal(
                     id=f"{vi}:c.{name}",
@@ -1604,9 +1605,7 @@ def _function(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
                 name=vi,
                 inputs=[pane(vi, "input", n, t, n, i) for i, _, t, n in ins],
                 outputs=[pane(vi, "output", n, t, n, i) for i, o, t, n in slots if o],
-                data_flow=[
-                    wire(vi, ins[0][3], n) for _, o, _, n in slots if o and ins
-                ],
+                data_flow=[wire(vi, ins[0][3], n) for _, o, _, n in slots if o and ins],
             ),
             [],
         )
@@ -1670,19 +1669,25 @@ def test_a_reference_value_to_a_plain_vi_reads_its_result_fields(
 def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
     tmp_path: Path,
 ) -> None:
+    # The member takes its class input as `self`; the VI names it by its label.
+    slots = [
+        (0, False, BASE, "Base in"),
+        (1, True, BASE, "Base out"),
+        (2, False, INT, "n"),
+    ]
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
-    project.add_method("Base", "Make", static_make, static=True)
-    project.add_vi("Twice", _function(SEED))
-    project.add_vi("Caller", _call_held(SEED))
+    project.add_method("Base", "Bump", bump(BASE, 0, True), static=True)
+    project.add_vi("Twice", _function(slots))
+    project.add_vi("Caller", _call_held(slots))
     gaps: list[Gap] = []
     package = project.generate(gaps)
     (gap,) = gaps
-    assert "Base.lvclass:Make.vi" in gap.reason and "Twice.vi" in gap.reason
+    assert "Base.lvclass:Bump.vi" in gap.reason and "Twice.vi" in gap.reason
     assert "not all called the same way" in gap.reason
     with package.use() as module:
         with pytest.raises(NotImplementedError, match="not all called the same"):
-            module("caller").caller(ref=module("twice").twice, seed=1)
+            module("caller").caller(ref=module("twice").twice, base_in=None, n=1)
 
 
 def test_a_member_and_a_vi_called_the_same_way_share_the_call(
@@ -1845,3 +1850,222 @@ def test_a_private_member_of_another_class_is_no_candidate(tmp_path: Path) -> No
     assert package.gaps == []
     with package.use() as module:
         assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
+
+
+def class_constant(owner: str) -> Recipe:
+    """A VI whose class constant of ``owner`` is its output ``obj``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        from lvkit.graph.models import Constant
+
+        owner_type = class_type(owner)
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "obj", owner_type, "obj", 0)],
+                constants=[
+                    Constant(
+                        id=f"{vi}:const", value=f"{owner}.lvclass", lv_type=owner_type
+                    )
+                ],
+                data_flow=[wire(vi, "const", "obj")],
+            ),
+            [],
+        )
+
+    return build
+
+
+def test_a_class_constant_is_a_new_default_object_of_the_class(
+    tmp_path: Path,
+) -> None:
+    """A class constant is the class's default object: ``Base()`` in a method of
+    the class and in a VI of no class (which imports the class), never the
+    class file's name."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", class_constant("Base"), static=True)
+    project.add_vi("Build", class_constant("Base"))
+    package = project.generate()
+    assert package.gaps == []
+    assert "return MakeResult(obj=Base())" in package.sources["base"]
+    assert "from .base import Base" in package.sources["build"]
+    assert "return BuildResult(obj=Base())" in package.sources["build"]
+    with package.use() as module:
+        base = module("base").Base
+        made = base.make().obj
+        assert isinstance(made, base) and made._Base__count == 0
+        built = module("build").build().obj
+        assert isinstance(built, base) and built is not base.make().obj
+
+
+def test_a_labview_object_constant_is_a_python_object(tmp_path: Path) -> None:
+    """LabVIEW Object, the root of every class, is never a file: its constant is
+    ``object()``, the root of every Python class."""
+    from lvkit.graph.models import Constant
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        root = LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            ref_type="UDClassInst",
+            classname="LabVIEW Object",
+        )
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "obj", root, "obj", 0)],
+                constants=[
+                    Constant(id=f"{vi}:const", value="LabVIEW Object", lv_type=root)
+                ],
+                data_flow=[wire(vi, "const", "obj")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Root", build)
+    package = project.generate()
+    assert package.gaps == []
+    assert "return RootResult(obj=object())" in package.sources["root"]
+    with package.use() as module:
+        assert type(module("root").root().obj) is object
+
+
+def test_a_class_constant_of_a_class_not_loaded_is_a_gap(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Build", class_constant("Gone"))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert [g.reason for g in gaps] == [
+        "The class constant of Gone.lvclass names a class that is not loaded; add "
+        "it to the project or a --search-path"
+    ]
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="Gone.lvclass"):
+            module("build").build()
+
+
+def test_a_lazy_class_module_keeps_only_the_method_imports_each_method_reads(
+    tmp_path: Path,
+) -> None:
+    """A class in an import cycle imports a generated module inside the method
+    that runs it; the method that reads the import keeps it, and no method holds
+    an import it never reads."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    helper = project.add_vi("Helper", static_make)
+
+    def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "x", INT, "x", 0)],
+                outputs=[pane(vi, "output", "y", INT, "y", 1)],
+                data_flow=[wire(vi, "x", "c.seed"), wire(vi, "c.value", "y")],
+            ),
+            [call(vi, "c", helper, "iUse", [("seed", 0, INT)], [("value", 1, INT)])],
+        )
+
+    method = project.add_method("Base", "Twice", twice, static=True)
+    project.add_method("Base", "Probe", passthrough(BASE))
+    graph = project.graph
+    graph._dep_graph.add_edge(method, helper)  # noqa: SLF001
+    graph._dep_graph.add_edge(helper, project.classes["Base"])  # noqa: SLF001
+    package = project.generate()
+    source = package.sources["base"]
+    from lvkit.codegen.import_cycles import in_import_cycle
+
+    assert in_import_cycle(project.graph, project.classes["Base"])
+    module_ast = ast.parse(source)
+    methods = {
+        node.name: node
+        for node in ast.walk(module_ast)
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert isinstance(methods["twice"].body[0], ast.ImportFrom)
+    assert_method_imports_are_read(source)
+    with package.use() as module:
+        assert module("base").Base.twice(x=5).y == 5
+
+
+def assert_method_imports_are_read(source: str) -> None:
+    """Every import at the top of a method binds a name that method's body
+    reads."""
+    from lvkit.codegen.ast_optimizer import _used_names
+
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef):
+            read = _used_names(node.body)
+            for stmt in node.body:
+                if isinstance(stmt, ast.Import | ast.ImportFrom):
+                    names = {a.asname or a.name.split(".")[0] for a in stmt.names}
+                    assert names <= read, source
+
+
+def test_a_lazy_class_module_drops_the_method_imports_its_methods_never_read(
+    tmp_path: Path,
+) -> None:
+    """The two shapes the measurement-plugin classes had, through the pass the
+    class module goes through: a method import of `LabVIEWError` the method
+    never raises, beside one that repeats the module's own import; and a
+    method copy of a typedef the module imports under TYPE_CHECKING for a
+    result annotation only. A method that builds the typedef keeps its own
+    import."""
+    from lvkit.codegen.ast_optimizer import optimize_module
+
+    source = """
+from __future__ import annotations
+from typing import TYPE_CHECKING, NamedTuple
+from .errors import LabVIEWError
+if TYPE_CHECKING:
+    from .typedefs import Annotation
+
+class DetailsResult(NamedTuple):
+    annotations: list[Annotation]
+
+def check(code):
+    if code:
+        raise LabVIEWError(code)
+    return code
+
+class Service:
+    def stop(self):
+        from .errors import LabVIEWError
+        from .helper import helper
+        return helper(1)
+
+    def fail(self):
+        from .errors import LabVIEWError
+        raise LabVIEWError(2)
+
+    def details(self):
+        from .typedefs import Annotation
+        return DetailsResult(annotations=[])
+
+    def build(self):
+        from .typedefs import Annotation
+        return Annotation(name="a")
+"""
+    written = ast.unparse(optimize_module(ast.parse(source)))
+    assert written.count("from .errors import LabVIEWError") == 1
+    assert written.count("from .typedefs import Annotation") == 2
+    assert "def details(self):\n        return DetailsResult" in written
+    assert "from .helper import helper" in written
+    assert_method_imports_are_read(written)
+    out = tmp_path / "pkg"
+    out.mkdir()
+    (out / "__init__.py").write_text("")
+    (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
+    (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
+    (out / "typedefs.py").write_text(
+        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n"
+    )
+    (out / "service.py").write_text(written + "\n")
+    with Package(out, {"service": written}, []).use() as module:
+        service = module("service").Service()
+        assert service.stop() == 2
+        assert service.details().annotations == []
+        assert service.build().name == "a"
+        with pytest.raises(module("errors").LabVIEWError):
+            service.fail()

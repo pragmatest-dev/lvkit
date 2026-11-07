@@ -24,6 +24,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
 from lvkit.pipeline import create_import_resolver
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import vi_key
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -83,6 +84,7 @@ def assert_no_garbage(code: str, vi_name: str) -> None:
 
 def _generate(graph: InMemoryVIGraph, vi_name: str) -> str:
     """Generate Python code for a VI via the full pipeline."""
+    vi_name = vi_key(graph, vi_name)
     ctx = graph.get_vi_context(vi_name)
     return build_module(ctx, vi_name, graph=graph)
 
@@ -326,26 +328,38 @@ class TestIPESDeleteLine:
 
     def test_graph_has_ipes_operation(self, delete_line_graph):
         """Parser → graph → InPlaceNode with boundary children."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes_nodes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes_nodes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )
         assert len(ipes_nodes) >= 1, "Expected at least one IPES"
 
     def test_ipes_has_decompose_and_recompose(self, delete_line_graph):
         """IPES must have decompose and recompose boundary children."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )[0]
         decompose, recompose = _ipes_decompose_recompose(
-            delete_line_graph, self.VI_NAME, ipes
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), ipes
         )
         assert len(decompose) >= 1
         assert len(recompose) >= 1
 
     def test_decompose_has_agg_and_list_terminals(self, delete_line_graph):
         """Decompose op must have agg input + list outputs."""
-        top = delete_line_graph.top_level_nodes(self.VI_NAME)
-        ipes = _find_ipes_nodes(delete_line_graph, self.VI_NAME, top)[0]
+        top = delete_line_graph.top_level_nodes(
+            vi_key(delete_line_graph, self.VI_NAME)
+        )
+        ipes = _find_ipes_nodes(
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
+        )[0]
         decompose, _recompose = _ipes_decompose_recompose(
-            delete_line_graph, self.VI_NAME, ipes
+            delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), ipes
         )
         dec = decompose[0]
         agg = [t for t in dec.terminals if t.nmux_role == "agg"]
@@ -395,7 +409,7 @@ class TestClassPrivateDataNmux:
         graph = InMemoryVIGraph()
         graph.load_vi(str(GET_TESTS_RUN_VI))
 
-        vi_name = "TestResult.lvclass:GetTestsRun.vi"
+        vi_name = vi_key(graph, "TestResult.lvclass:GetTestsRun.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -421,7 +435,7 @@ class TestClassPrivateDataNmux:
         graph = InMemoryVIGraph()
         graph.load_vi(str(TESTRESULT_INIT_VI))
 
-        vi_name = "TestResult.lvclass:TestResult_Init.vi"
+        vi_name = vi_key(graph, "TestResult.lvclass:TestResult_Init.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -429,7 +443,9 @@ class TestClassPrivateDataNmux:
         ns: dict = {}
         exec(compile(code, "<TestResult_Init.vi>", "exec"), ns)  # noqa: S102
         this = types.SimpleNamespace()
-        result = ns["testresult_init"](this, "event_ref")
+        result = ns["testresult_init"](
+            testresult_in=this, resultstatuschangedeventref="event_ref"
+        )
         out = result.testresult_out
         assert out is this
         fields = vars(out)
@@ -461,7 +477,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
@@ -484,7 +500,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
 
@@ -527,7 +543,7 @@ class TestU16ChangedPersistentState:
         graph = InMemoryVIGraph()
         graph.load_vi(str(U16_CHANGED_VI))
 
-        vi_name = "U16 Changed__ogtk.vi"
+        vi_name = vi_key(graph, "U16 Changed__ogtk.vi")
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
 
@@ -614,13 +630,13 @@ class TestClusterBundleUnbundle:
 
     def test_ascending_sorts_and_tracks_pointers(self):
         func = self._func()
-        r = func([3, 1, 2], 0)  # order 0 = ascending
+        r = func([3, 1, 2], order=0)  # order 0 = ascending
         assert list(r.sorted_array_out) == [1, 2, 3]
         assert list(r.sorted_pointers) == [1, 2, 0]  # original indices
 
     def test_descending(self):
         func = self._func()
-        r = func([3, 1, 2], 1)  # order 1 = descending
+        r = func([3, 1, 2], order=1)  # order 1 = descending
         assert list(r.sorted_array_out) == [3, 2, 1]
 
 
@@ -646,18 +662,21 @@ class TestTrimWhitespace:
 
     def test_trims_leading_and_trailing_whitespace(self):
         func = self._func()
+        mode = "remove_leading_and_trailing"
         # The enum "Remove (leading and trailing)" is 0=leading, 1=trailing,
         # 2=both (from the VI's own enum labels + the case selector tables) —
         # mode 2 is "both", NOT mode 0.
-        assert func("  hi there  ", 2).string_out == "hi there"
-        assert func("\t\tabc\t", 2).string_out == "abc"
-        assert func("nows", 2).string_out == "nows"  # no whitespace, unchanged
-        assert func("   ", 2).string_out == ""  # all whitespace
-        assert func("  lead", 2).string_out == "lead"
-        assert func("trail  ", 2).string_out == "trail"
+        assert func("  hi there  ", **{mode: 2}).string_out == "hi there"
+        assert func("\t\tabc\t", **{mode: 2}).string_out == "abc"
+        # no whitespace: unchanged
+        assert func("nows", **{mode: 2}).string_out == "nows"
+        assert func("   ", **{mode: 2}).string_out == ""  # all whitespace
+        assert func("  lead", **{mode: 2}).string_out == "lead"
+        assert func("trail  ", **{mode: 2}).string_out == "trail"
 
     def test_trims_one_side_per_mode(self):
         func = self._func()
+        mode = "remove_leading_and_trailing"
         # 0 = leading only, 1 = trailing only (per the enum labels).
-        assert func("  hi  ", 0).string_out == "hi  "
-        assert func("  hi  ", 1).string_out == "  hi"
+        assert func("  hi  ", **{mode: 0}).string_out == "hi  "
+        assert func("  hi  ", **{mode: 1}).string_out == "  hi"

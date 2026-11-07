@@ -11,6 +11,7 @@ from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvkit.parser.metadata import parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import vi_key
 
 # Regression suite over the local-only sample corpus.
 pytestmark = pytest.mark.needs_samples
@@ -121,26 +122,32 @@ class TestMemoryGraph:
     def test_vi_loaded(self, graph):
         vi_name = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
         # VIs are keyed by path (identity) now; the qname resolves to that key.
-        assert graph.resolve_vi_name(vi_name) in graph._loaded_vis
+        assert vi_key(graph, vi_name) in graph._loaded_vis
 
     def test_multiple_vis_loaded(self, graph):
         assert len(graph._loaded_vis) > 1
 
     def test_dependencies_exist(self, graph):
-        vi_name = "GraphicalTestRunner.lvlib:Get Settings Path.vi"
+        vi_name = vi_key(graph, "GraphicalTestRunner.lvlib:Get Settings Path.vi")
         deps = graph.get_vi_dependencies(vi_name)
         assert len(deps) > 0
 
     def test_vi_context_has_operations(self, graph):
-        nodes = graph.top_level_nodes("GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        nodes = graph.top_level_nodes(
+            vi_key(graph, "GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        )
         assert len(nodes) > 0
 
     def test_vi_context_has_inputs(self, graph):
-        ctx = graph.get_vi_context("GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        ctx = graph.get_vi_context(
+            vi_key(graph, "GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        )
         assert ctx.inputs is not None
 
     def test_dataflow_not_empty(self, graph):
-        df = graph.get_dataflow_graph("GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        df = graph.get_dataflow_graph(
+            vi_key(graph, "GraphicalTestRunner.lvlib:Get Settings Path.vi")
+        )
         assert df is not None
         assert df.number_of_nodes() > 0
 

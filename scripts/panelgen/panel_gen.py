@@ -239,15 +239,18 @@ def _match_args(
     param_names: list[str],
     input_controls: list[ParsedFPControl],
     field_names: dict[str, str],
-) -> list[str]:
-    """Map each logic-function parameter to a `state.<field>` expression: by
-    NAME first (against the input controls' own field names), then by
-    position for whatever's left -- never a hand-picked mapping."""
+) -> list[tuple[str, str | None]]:
+    """Map each logic-function parameter (a connector-pane input) to a
+    `state.<field>` expression, as (parameter, expression) pairs (None when no
+    control is left for it): by NAME first
+    (against the input controls' own field names), then by position for
+    whatever's left -- never a hand-picked mapping. A control that is not on the
+    connector pane is not a parameter, so nothing is passed for it."""
     ordered = [field_names[c.uid] for c in input_controls]
     remaining = list(ordered)
     name_set = set(ordered)
 
-    args: list[str] = []
+    args: list[tuple[str, str | None]] = []
     for param in param_names:
         if param in name_set and param in remaining:
             fname = param
@@ -257,9 +260,9 @@ def _match_args(
         else:
             fname = None
         if fname:
-            args.append(f"state.{fname}")
+            args.append((param, f"state.{fname}"))
         else:
-            args.append("None  # TODO: no matching input control")
+            args.append((param, None))
     return args
 
 
@@ -275,11 +278,8 @@ def _match_outputs(
     ordered = [field_names[c.uid] for c in output_controls]
 
     if not result_fields:
-        # No NamedTuple result -- a single bare return value maps to the
-        # sole output indicator; more than one indicator has nothing to
-        # disambiguate against, so only the first is wired.
-        if ordered:
-            return [(ordered[0], "result")]
+        # A VI with no connector-pane output returns nothing: its indicators
+        # are not on the pane, so there is nothing to write into them.
         return []
 
     remaining_fields = list(result_fields)
@@ -377,8 +377,13 @@ def build_panel_module(
     if call_args:
         lines.append("        result = await run.io_bound(")
         lines.append(f"            {logic_func_name},")
-        for arg in call_args:
-            lines.append(f"            {arg},")
+        for param, expression in call_args:
+            if expression is None:
+                lines.append(
+                    f"            {param}=None,  # TODO: no matching input control"
+                )
+            else:
+                lines.append(f"            {param}={expression},")
         lines.append("        )")
     else:
         lines.append(f"        result = await run.io_bound({logic_func_name})")

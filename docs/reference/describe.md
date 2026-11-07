@@ -86,10 +86,10 @@ Case Structure (2 frames)
 ## Errors
 
 If `input_path` doesn't exist, `describe` prints `Error: Path not found: <path>`
-and exits `2` (a usage error). If it isn't a `.vi`, `.vim`, `.vit` or `.ctl` (a
-`.lvlib`, `.lvclass`, or directory), it prints `Error: expected a VI file (...)
-or a .ctl: <name>` and exits `2` — use [`structure`](structure.md) for those
-instead. A VI that exists but cannot be read is a problem, not a usage error: see
+and exits `2` (a usage error). If it isn't a `.vi`, `.vim`, `.vit`, `.ctl` or a
+block-diagram `_BDHb.xml` (a `.lvlib`, `.lvclass`, or directory), it prints
+`Error: expected a VI file (...), a .ctl or a block-diagram _BDHb.xml: <name>`
+and exits `2` — use [`structure`](structure.md) for those instead. A VI that exists but cannot be read is a problem, not a usage error: see
 [problems](problems.md) (`Stopped`, exit `1`).
 
 ## See also

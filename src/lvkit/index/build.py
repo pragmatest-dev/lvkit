@@ -44,6 +44,7 @@ from ..graph.models import (
 from ..graph.models import FormulaNode as GraphFormulaNode
 from ..graph.models import PrimitiveNode as GraphPrimitiveNode
 from ..graph.node_kinds import NodeType
+from ..graph.operations import shown_frame_value, structure_frames
 from ..models import FPTerminal
 from ..parser.node_types import get_display_name
 from ..run_report import (
@@ -238,40 +239,10 @@ def build_one_vi(
             "(unexpected — every repo .vi should be individually loadable)"
         )
     # A class method's own directory holds its .lvclass (LabVIEW's convention);
-    # scoped to this VI's directory since only ONE VI is projected here. A
-    # class nested inside one or more .lvlib embeds a FULLY qualified name in
-    # its method VIs (e.g. "A.lvlib:B.lvlib:C.lvclass:m.vi") — load_lvclass
-    # must register the class under that SAME qualified qname (via
-    # owner_chain) or its "owns" edge lands on an under-qualified key that
-    # doesn't match the VI's actual node, and get_owning_class silently
-    # returns None (see _owner_chain_for_class).
-    chain, class_seg = _owner_chain_for_class(vi_name)
+    # scoped to this VI's directory since only ONE VI is projected here.
     for cls_path in sorted(cp.parent.glob("*.lvclass")):
-        oc = (
-            chain
-            if (chain and class_seg and cls_path.name.lower() == class_seg.lower())
-            else None
-        )
-        cgraph.load_lvclass(
-            cls_path,
-            LoadMode.NONE,
-            owner_chain=oc,
-        )
+        cgraph.load_lvclass(cls_path, LoadMode.NONE)
     return project_vi_facts(cgraph, vi_name, cp, project_root)
-
-
-def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
-    """From a fully-qualified VI key like
-    ``"A.lvlib:B.lvlib:C.lvclass:m.vi"``, return the ``.lvlib`` segments
-    BEFORE the class (``["A.lvlib", "B.lvlib"]``) and the class segment
-    filename (``"C.lvclass"``), so ``build_one_vi`` registers the class
-    under the SAME qualified qname its method VIs embed. ``(None, None)``
-    when the VI isn't a class method."""
-    parts = vi_name.split(":")
-    for i, seg in enumerate(parts):
-        if seg.endswith(".lvclass"):
-            return (parts[:i] or None), seg
-    return None, None
 
 
 def _warming_failed(
@@ -288,9 +259,7 @@ def _warming_failed(
     lvkit error."""
     if isinstance(exc, (OSError, sqlite3.Error)):
         exc = index_write_error(root, exc)
-    problem = problem_for_exception(
-        graph.vi_label(first), ProblemStage.INDEX, exc
-    )
+    problem = problem_for_exception(graph.vi_label(first), ProblemStage.INDEX, exc)
     graph.record_file_problem(first, problem, node_type, may_stop=False)
 
 
@@ -326,10 +295,13 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
     """Index the ``.ctl`` controls the graph has loaded that lie under one of the
     project ``roots`` just warmed, so a VI's ``typedef_use`` rows have their
     ``typedef`` rows. A control outside every root belongs to another project's
-    index and is left to it. Best-effort like the VI warming."""
+    index and is left to it, and one the index does not track
+    (:func:`_tracked_control`) is skipped. Best-effort like the VI warming."""
     roots = list(roots)
     by_root: dict[Path, list[Path]] = defaultdict(list)
     for key in graph.list_typedefs():
+        if not _tracked_control(graph, key):
+            continue
         p = Path(key).resolve()
         for root in roots:
             if p.is_relative_to(root):
@@ -339,6 +311,14 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
             warm_typedefs(root, paths)
         except Exception as exc:
             _warming_failed(graph, root, paths[0], exc, NodeType.TYPEDEF)
+
+
+def _tracked_control(graph: InMemoryVIGraph, key: str) -> bool:
+    """Whether the index tracks the control at ``key``: a file of its own, keyed
+    by its content, or a placeholder whose file is missing (tracked once the
+    file appears). The private-data control a class keeps inside its
+    ``.lvclass`` has no file of its own: it changes with the class file."""
+    return graph.is_stub(key) or Path(key).is_file()
 
 
 def warm_all_loaded(graph: InMemoryVIGraph) -> None:
@@ -669,7 +649,7 @@ def project_vi_facts(
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
-    catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
+    catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
     all_terminals = [
         *graph.get_inputs(vi_name, public_only=False),
         *graph.get_outputs(vi_name, public_only=False),
@@ -678,7 +658,7 @@ def project_vi_facts(
         field_names: list[str] = []
         enum_values: list[str] = []
         if t.lv_type is not None:
-            fields = graph.get_type_fields(t.lv_type, vi_name)
+            fields = graph.get_type_fields(t.lv_type)
             if fields:
                 field_names = [f.name for f in fields]
             if t.lv_type.classname:
@@ -754,7 +734,7 @@ def project_vi_facts(
                 gn.library_unreadable if isinstance(gn, SharedVariableNode) else None
             ),
             parent_uid=gn.parent,
-            frame=str(gn.frame) if gn.frame is not None else None,
+            frame=_shown_frame(graph, gn),
         )
         for gn in graph.iter_nodes(vi_name)
     ]
@@ -769,7 +749,9 @@ def project_vi_facts(
     typedef_deps = sorted(
         dep
         for dep in graph.get_vi_dependencies(vi_name)
-        if graph.is_typedef(dep) and Path(dep).resolve().is_relative_to(real_root)
+        if graph.is_typedef(dep)
+        and _tracked_control(graph, dep)
+        and Path(dep).resolve().is_relative_to(real_root)
     )
     typedef_paths = [dep for dep in typedef_deps if not graph.is_stub(dep)]
     # A dependency's own type_id is recorded for invalidation ONLY (compared
@@ -778,7 +760,7 @@ def project_vi_facts(
     # nested under it) would count as a type THIS VI uses even when no
     # terminal/constant of its own ever reaches it. type_id is a pure function
     # of structure, so a throwaway catalog computes the identical id.
-    version_catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
+    version_catalog = TypeCatalog(lambda t: graph.get_type_fields(t))
     typedef_versions = [
         TypedefVersionFact(dep, _typedef_root_type_id(graph, dep, version_catalog))
         for dep in typedef_deps
@@ -853,6 +835,16 @@ def project_vi_facts(
         health_broken_poly=health.broken_poly,
         health_is_broken=health.is_broken,
     )
+
+
+def _shown_frame(graph: InMemoryVIGraph, node: AnyGraphNode) -> str | None:
+    """The frame the index records a node in: the selector value of its case
+    or disable frame, the key of its sequence or event frame
+    (``shown_frame_value``); ``None`` outside any frame."""
+    if node.frame is None:
+        return None
+    parent = graph.get_graph_node(node.parent) if node.parent else None
+    return str(shown_frame_value(structure_frames(parent), node.frame))
 
 
 def _constant_wired_to(

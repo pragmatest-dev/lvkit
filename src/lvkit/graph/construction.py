@@ -78,6 +78,7 @@ from .models import (
     VINode,
     WireEnd,
 )
+from .operations import frame_key
 from .terminal_layout import array_rank
 from .terminal_names import NodeSlot, catalog_terminal_names
 
@@ -342,17 +343,15 @@ class ConstructionMixin:
         def _enrich_type(
             self,
             _parsed_type: ParsedType | None,
+            _file_key: str,
         ) -> LVType | None: ...
-        def resolve_vi_name(self, _vi_name: str) -> str: ...
         def catalog_path_of(
             self,
             _interface_key: str | None,
             _qualified_path: str | None,
             _caller: str,
         ) -> str | None: ...
-        def with_class_levels(
-            self, _lv_type: LVType | None, _caller_vi_key: str | None = None
-        ) -> LVType | None: ...
+        def with_class_levels(self, _lv_type: LVType | None) -> LVType | None: ...
 
     @staticmethod
     def _enrich_nmux_terminals(
@@ -508,13 +507,13 @@ class ConstructionMixin:
 
             term_info = bd.terminal_info.get(fp_term.uid)
             if term_info and term_info.parsed_type:
-                lv_type = self._enrich_type(term_info.parsed_type)
+                lv_type = self._enrich_type(term_info.parsed_type, vi_key)
 
             if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
             lv_type = _control_ring_type(lv_type, ctrl)
-            lv_type = self.with_class_levels(lv_type, vi_key)
+            lv_type = self.with_class_levels(lv_type)
 
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
@@ -603,9 +602,9 @@ class ConstructionMixin:
             lv_type = None
             term_info = bd.terminal_info.get(const.uid)
             if term_info and term_info.parsed_type:
-                lv_type = self._enrich_type(term_info.parsed_type)
+                lv_type = self._enrich_type(term_info.parsed_type, vi_key)
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
-            lv_type = self.with_class_levels(lv_type, vi_key)
+            lv_type = self.with_class_levels(lv_type)
 
             _, decoded_value, display_value, unwritable = decode_constant(
                 const, lv_type=lv_type
@@ -726,7 +725,7 @@ class ConstructionMixin:
                 if t_info.parent_uid == node.uid:
                     lv_type = None
                     if t_info.parsed_type:
-                        lv_type = self._enrich_type(t_info.parsed_type)
+                        lv_type = self._enrich_type(t_info.parsed_type, vi_key)
                     raw_terms.append((term_uid, t_info, lv_type))
 
             # Get known terminal layout for index matching.
@@ -999,13 +998,13 @@ class ConstructionMixin:
         # and that sRN is one of the frame's inner_node_uids.
         frame_owner: dict[str, tuple[str, str | int | None]] = {}
 
-        def _stamp(uid: str, struct_id: str, frame_key: str | int | None) -> None:
-            frame_owner[uid] = (struct_id, frame_key)
+        def _stamp(uid: str, struct_id: str, key: str | int | None) -> None:
+            frame_owner[uid] = (struct_id, key)
             q_uid = self._qid(vi_key, uid)
             if q_uid in g and "node" in g.nodes[q_uid]:
                 inner_node = g.nodes[q_uid]["node"]
                 inner_node.parent = struct_id
-                inner_node.frame = frame_key
+                inner_node.frame = key
 
         for loop in bd.loops:
             q_loop_uid = self._qid(vi_key, loop.uid)
@@ -1014,9 +1013,9 @@ class ConstructionMixin:
 
         for cs in bd.case_structures:
             q_cs_uid = self._qid(vi_key, cs.uid)
-            for frame in cs.frames:
+            for idx, frame in enumerate(cs.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_cs_uid, frame.selector_value)
+                    _stamp(uid, q_cs_uid, frame_key(frame, idx))
 
         for fs in bd.flat_sequences:
             q_fs_uid = self._qid(vi_key, fs.uid)
@@ -1031,18 +1030,15 @@ class ConstructionMixin:
 
         for disable in bd.disable_structures:
             q_disable_uid = self._qid(vi_key, disable.uid)
-            for frame in disable.frames:
+            for idx, frame in enumerate(disable.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_disable_uid, frame.selector_value)
+                    _stamp(uid, q_disable_uid, frame_key(frame, idx))
 
-        # Event structure frames are keyed by INDEX (str(idx)) — like a
-        # stacked sequence, not a case — since the active frame is chosen at
-        # runtime by whichever event fires, not a selector wire/value.
         for es in bd.event_structures:
             q_es_uid = self._qid(vi_key, es.uid)
             for idx, frame in enumerate(es.frames):
                 for uid in frame.inner_node_uids:
-                    _stamp(uid, q_es_uid, str(idx))
+                    _stamp(uid, q_es_uid, frame_key(frame, idx))
 
         # Attribute constants to the frame that contains them. A constant
         # wired inside a structure is a diagram constant whose output
@@ -1054,10 +1050,10 @@ class ConstructionMixin:
                 continue
             q_const_uid = self._qid(vi_key, const.uid)
             if q_const_uid in g and "node" in g.nodes[q_const_uid]:
-                struct_id, frame_key = frame_owner[ct.parent_uid]
+                struct_id, key = frame_owner[ct.parent_uid]
                 cnode = g.nodes[q_const_uid]["node"]
                 cnode.parent = struct_id
-                cnode.frame = frame_key
+                cnode.frame = key
 
         # Attribute FP terminals (front-panel controls placed on a diagram
         # via an sRN — e.g. an Event Structure's registered event-source
@@ -1084,9 +1080,9 @@ class ConstructionMixin:
             terminal = vi_terminal_by_id.get(self._qid(vi_key, fp_term.uid))
             if terminal is None:
                 continue
-            struct_id, frame_key = frame_owner[ct.parent_uid]
+            struct_id, key = frame_owner[ct.parent_uid]
             terminal.parent = struct_id
-            terminal.frame = frame_key
+            terminal.frame = key
 
         # === 5. Register remaining terminal_info entries in term_lookup ===
         # Most tunnel/sRN terminals are already registered by
@@ -1258,11 +1254,11 @@ class ConstructionMixin:
         if ctrl.lv_type is not None and not (
             ctrl.lv_type.underlying_type or ""
         ).startswith("TypeID"):
-            lv_type = self._enrich_type(_lvtype_to_parsed(ctrl.lv_type))
+            lv_type = self._enrich_type(_lvtype_to_parsed(ctrl.lv_type), vi_key)
         if lv_type is None:
             lv_type = control_type_to_lvtype(ctrl.control_type)
         lv_type = _control_ring_type(lv_type, ctrl)
-        lv_type = self.with_class_levels(lv_type, vi_key)
+        lv_type = self.with_class_levels(lv_type)
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
@@ -1350,9 +1346,7 @@ class ConstructionMixin:
         for call_term in gnode.terminals:
             callee_t = None
             if call_term.index is not None and call_term.index >= 0:
-                callee_t = callee_term_map.get(
-                    (call_term.index, call_term.direction)
-                )
+                callee_t = callee_term_map.get((call_term.index, call_term.direction))
             else:
                 # idx=-1: match by elimination — find unmatched callee
                 # terminal with same direction
@@ -1540,10 +1534,7 @@ class ConstructionMixin:
             if hasattr(gnode, "prim_id") and gnode.prim_id:
                 prim_resolved = resolve_primitive(
                     prim_id=gnode.prim_id,
-                    node_slots={
-                        (t.index, t.direction)
-                        for t in gnode.terminals
-                    },
+                    node_slots={(t.index, t.direction) for t in gnode.terminals},
                 )
                 if prim_resolved and prim_resolved.terminals:
                     prim_terminals = prim_resolved.terminals
@@ -1602,7 +1593,7 @@ class ConstructionMixin:
         PER FRAME (parser_tunnels lists them grouped by outer_terminal_uid,
         in frame order — see case.py::_extract_case_tunnels). When
         case_frames is provided, each inner TunnelTerminal is stamped with
-        the selector_value of the frame it belongs to, correlated
+        the ``frame_key`` of the frame it belongs to, correlated
         positionally: the Nth tunnel entry sharing an outer_terminal_uid
         belongs to case_frames[N]. This lets renderers exclude tunnel wires
         belonging to hidden frames.
@@ -1666,7 +1657,7 @@ class ConstructionMixin:
             # Outer terminal
             outer_lv_type = None
             if outer_ti and outer_ti.parsed_type:
-                outer_lv_type = self._enrich_type(outer_ti.parsed_type)
+                outer_lv_type = self._enrich_type(outer_ti.parsed_type, vi_key)
 
             outer_terminal = TunnelTerminal(
                 id=q_outer_uid,
@@ -1690,7 +1681,7 @@ class ConstructionMixin:
             # Inner terminal
             inner_lv_type = None
             if inner_ti and inner_ti.parsed_type:
-                inner_lv_type = self._enrich_type(inner_ti.parsed_type)
+                inner_lv_type = self._enrich_type(inner_ti.parsed_type, vi_key)
 
             # Correlate this inner tunnel to its owning case frame by
             # position: the Nth inner tunnel for a given outer_uid belongs
@@ -1700,7 +1691,7 @@ class ConstructionMixin:
                 position = outer_tunnel_position.get(outer_uid, 0)
                 outer_tunnel_position[outer_uid] = position + 1
                 if position < len(case_frames):
-                    inner_frame = case_frames[position].selector_value
+                    inner_frame = frame_key(case_frames[position], position)
 
             # Inner direction is opposite of outer for data flow
             inner_terminal = TunnelTerminal(
@@ -1807,7 +1798,7 @@ class ConstructionMixin:
                 q_uid = self._qid(vi_key, uid)
                 lv_type = None
                 if ti.parsed_type:
-                    lv_type = self._enrich_type(ti.parsed_type)
+                    lv_type = self._enrich_type(ti.parsed_type, vi_key)
 
                 structure_terminals.append(
                     Terminal(

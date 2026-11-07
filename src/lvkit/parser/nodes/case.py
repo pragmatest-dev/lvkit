@@ -656,29 +656,26 @@ def parse_selector_tables(main_root: ET.Element) -> list[SelectorTable]:
 
     LabVIEW stores each case structure's per-frame selector values once, in the
     default-data space (the main ``*.xml``), as a ``DataFill`` with the
-    :class:`SelectorTable` cluster shape. pylabview emits each such default
-    twice (an edit-time and a run-time copy); we deduplicate by content and
-    return the surviving tables sorted by ``DataFill`` ``TypeID`` — the order in
-    which LabVIEW assigned them, matching the case structures' selector-type
-    VCTP order (see :func:`_apply_selector_tables`).
+    :class:`SelectorTable` cluster shape. Every table is kept, by its
+    ``DataFill`` ``TypeID``, sorted in the order LabVIEW assigned them: two case
+    structures with the same values (a copy of a case) each have their own
+    table, which their ``tdOffset`` names (see :func:`_apply_selector_tables`).
     """
     tables: list[SelectorTable] = []
-    seen: set[tuple[object, ...]] = set()
     for df in main_root.iter("DataFill"):
         tid = df.get("TypeID")
         cluster = df.find("Cluster")
         if tid is None or cluster is None:
             continue
         table = _decode_selector_table(int(tid), cluster)
-        if table is None:
-            continue
-        key = (tuple(table.ranges), tuple(table.strings))
-        if key in seen:
-            continue
-        seen.add(key)
-        tables.append(table)
+        if table is not None:
+            tables.append(table)
     tables.sort(key=lambda t: t.type_id)
     return tables
+
+
+def _table_content(table: SelectorTable) -> tuple[object, ...]:
+    return (tuple(table.ranges), tuple(table.strings))
 
 
 def _decode_selector_table(
@@ -762,7 +759,15 @@ def _apply_selector_tables(
             used_type_ids.add(table.type_id)
 
     leftover_cases = [c for c in cases if id(c) not in applied]
-    leftover_tables = [t for t in tables if t.type_id not in used_type_ids]
+    # pylabview can emit a table twice (an edit-time and a run-time copy): an
+    # unlinked table with the content of another table is not a case's own.
+    seen = {_table_content(t) for t in tables if t.type_id in used_type_ids}
+    leftover_tables: list[SelectorTable] = []
+    for table in tables:
+        content = _table_content(table)
+        if table.type_id not in used_type_ids and content not in seen:
+            seen.add(content)
+            leftover_tables.append(table)
     if not leftover_cases or not leftover_tables:
         return
     with_vctp = [c for c in leftover_cases if c.selector_vctp_index is not None]
@@ -805,12 +810,26 @@ def _try_apply_selector_tables(
     return True
 
 
-def _apply_error_status(frame: CaseFrame, ranges: list[tuple[int, int]]) -> None:
-    """Set one frame of a table-based error case. These VIs were saved before
-    error-code frames existed, so the case switches on the status Boolean: the
-    frame whose values hold 0 (status False) is No Error, the other is Error.
-    Both frames are described, so neither is a default."""
-    no_error = any(start <= 0 <= end for start, end in ranges)
+def _apply_error_statuses(case: ParsedCaseStructure, table: SelectorTable) -> None:
+    """Set the frames of a table-based error case. These VIs were saved before
+    error-code frames existed, so the case switches on the status Boolean: a
+    frame whose values hold 0 (status False) is No Error, a frame with other
+    values is Error. A table can list only one of the two frames; the frame it
+    does not list is then the other status."""
+    no_error: list[bool | None] = []
+    for idx in range(len(case.frames)):
+        ranges = [(s, e) for s, e, d in table.ranges if d == idx]
+        no_error.append(any(s <= 0 <= e for s, e in ranges) if ranges else None)
+    if len(no_error) == 2 and no_error.count(None) == 1:
+        listed = next(v for v in no_error if v is not None)
+        no_error = [listed if v is not None else not listed for v in no_error]
+    for frame, frame_no_error in zip(case.frames, no_error, strict=True):
+        _apply_error_status(frame, bool(frame_no_error))
+
+
+def _apply_error_status(frame: CaseFrame, no_error: bool) -> None:
+    """Set one frame of a table-based error case to No Error (status 0) or
+    Error (status 1). Both frames are described, so neither is a default."""
     status = 0 if no_error else 1
     frame.is_default = False
     frame.is_no_error = no_error
@@ -834,11 +853,11 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
     # case's own displayed_frame (from dIdx) rather than overwrite with -1.
     if table.displayed_frame >= 0:
         case.displayed_frame = table.displayed_frame
+    if case.selector_type == SelectorKind.ERROR:
+        _apply_error_statuses(case, table)
+        return
     for idx, frame in enumerate(case.frames):
         my_ranges = [(s, e) for s, e, d in table.ranges if d == idx]
-        if case.selector_type == SelectorKind.ERROR:
-            _apply_error_status(frame, my_ranges)
-            continue
         if not my_ranges:
             # No value maps here → this is the implicit Default frame.
             frame.is_default = True
@@ -871,9 +890,7 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             ]
             frame.selector_strings = []
             first = my_ranges[0]
-            frame.is_no_error = (
-                case.selector_type == SelectorKind.ERROR and first[0] == 0
-            )
+            frame.is_no_error = False
             frame.selector_value = (
                 str(first[0]) if first[0] == first[1] else f"{first[0]}..{first[1]}"
             )

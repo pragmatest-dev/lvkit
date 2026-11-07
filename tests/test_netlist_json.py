@@ -230,10 +230,12 @@ def test_case_scope_outputs_carries_output_tunnel_shape():
                     GammaCase(
                         frame_key="True",
                         source=_ref("Subtract", "difference", "difference"),
+                        position=0,
                     ),
                     GammaCase(
                         frame_key="default",
                         source=DefaultValue(literal="0", type_descriptor="I32"),
+                        position=1,
                     ),
                 ],
             )

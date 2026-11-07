@@ -103,7 +103,7 @@ def test_a_behaviour_the_function_writes_is_executed(tmp_path: Path) -> None:
     )
     views = load(tmp_path, xml)
     context = views.graph.get_vi_context(views.vi)
-    source = build_module(context, "T.vi", graph=views.graph)
+    source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
     assert namespace["t"]().result == "7"  # type: ignore[operator]
@@ -116,7 +116,7 @@ def test_an_unwired_input_nothing_documents_is_a_gap_in_the_generated_code(
     views = _views(tmp_path, primitive(10, MULTIPLY, [(2, I32)], out_type=I32))
     gaps: list = []
     build_module(
-        views.graph.get_vi_context(views.vi), "T.vi", graph=views.graph, gaps=gaps
+        views.graph.get_vi_context(views.vi), views.vi, graph=views.graph, gaps=gaps
     )
     assert [g.kind for g in gaps] == ["unknown_default"]
     assert "its default is not known" in gaps[0].reason
@@ -169,6 +169,7 @@ def test_a_project_vi_call_shows_the_default_its_uses_entry_shows(
             id="x",
             index=0,
             direction="input",
+            wiring_rule=1,
             name="x",
             lv_type=number,
             is_public=True,
@@ -178,6 +179,7 @@ def test_a_project_vi_call_shows_the_default_its_uses_entry_shows(
             id="z",
             index=1,
             direction="input",
+            wiring_rule=1,
             name="z",
             lv_type=number,
             is_public=True,
@@ -289,7 +291,7 @@ def test_string_subset_with_length_unwired_returns_the_rest_of_the_string(
     )
     views = load(tmp_path, xml)
     context = views.graph.get_vi_context(views.vi)
-    source = build_module(context, "T.vi", graph=views.graph)
+    source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
     assert namespace["t"]().result == "cdef"  # type: ignore[operator]

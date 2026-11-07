@@ -475,9 +475,8 @@ def test_build_module_real_vi():
 
     graph = InMemoryVIGraph()
     graph.set_library_roots(userlib_root=OPENG_USERLIB)
-    graph.load_vi(vi_path)
-
-    vi_name = vi_path.name
+    vi_name = graph.load_vi(vi_path)
+    assert vi_name is not None
     ctx = graph.get_vi_context(vi_name)
 
     # Should have operations
@@ -1642,9 +1641,10 @@ class TestErrorClusterFiltering:
 
         args = build_args(inputs)
 
-        # Should only have "value" - error in/out filtered
-        assert len(args.args) == 1
-        assert args.args[0].arg == "value"
+        # Should only have "value" - error in/out filtered. Its wiring rule is
+        # unknown, so it is not Required: keyword-only.
+        assert args.args == []
+        assert [a.arg for a in args.kwonlyargs] == ["value"]
 
     def test_error_cluster_output_filtered_by_name(self):
         """Test that error cluster outputs are filtered by name pattern."""

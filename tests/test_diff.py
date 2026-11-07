@@ -16,6 +16,7 @@ from lvkit.graph.diff import (
     format_diff,
     netlist_diff_rows,
 )
+from lvkit.graph.diff_frames import FramePairs, FrameStep
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
     CaseStructureNode,
@@ -39,6 +40,7 @@ from lvkit.models import (
     TunnelTerminal,
 )
 from lvkit.parser.layout import Layout
+from tests.helpers import vi_key
 
 # Two structurally different, real permissively-licensed VIs (no relation to
 # each other) stand in for the old In.vi/Out.vi pair — genuinely different
@@ -64,7 +66,7 @@ def _load(vi_path: Path, *, layout: bool = False) -> tuple[InMemoryVIGraph, str]
         pytest.skip(f"{vi_path} not present on this machine")
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
-    vi_name = graph.resolve_vi_name(vi_path.name)
+    vi_name = vi_key(graph, vi_path.name)
     return graph, vi_name
 
 
@@ -555,12 +557,13 @@ class TestModifiedConstant:
         gb = _real_graph([_const("100", 5)])
         assert diff_uid(ga, gb, "vi", "vi").changes == []
 
-    def test_type_change_is_not_a_modification(self):
-        # Same UID but a different type is a LabVIEW UID recycle, not an in-place
-        # edit — must NOT be reported as modified.
+    def test_type_change_is_a_modification(self):
+        # A constant keeps its UID across saves, so the same UID with a new
+        # type is one modified constant.
         ga = _real_graph([_const("100", 5, "NumInt32")])
         gb = _real_graph([_const("100", "hi", "String")])
-        assert diff_uid(ga, gb, "vi", "vi").changes == []
+        (c,) = diff_uid(ga, gb, "vi", "vi").changes
+        assert (c.uid, c.kind, c.change) == ("100", "constant", "modified")
 
     def test_string_detail_has_no_repr_quotes(self):
         # A string value change's detail shows the strings as-is (no repr quote
@@ -575,14 +578,13 @@ class TestModifiedConstant:
         assert c.label == "String constant"
 
 
-# ── Locality stamping: container_uid / frame_path ───────────────────────
+# ── Locality stamping: container_uid / location_after / location_before ─
 #
 # Every ElementChange records WHERE it lives: the innermost enclosing Case/
-# stacked-Sequence structure (container_uid) and the full frame-addressing
-# chain (frame_path), formatted exactly like render/draw.py's
-# ``encode_frame_path`` token baked into the SVG's ``<g class="lv-frame"
-# data-path="...">`` attribute, so a downstream viewer can correlate a change
-# straight onto the rendered frame group with no reconciliation.
+# stacked-Sequence structure (container_uid) and, for each version it is in,
+# every frame it is inside (structure uid, frame position, shown value) --
+# the position is what the SVG's ``<g class="lv-frame" data-path="...">``
+# attribute addresses, so a viewer can find the rendered frame group.
 
 
 class TestLocalityStamping:
@@ -598,8 +600,10 @@ class TestLocalityStamping:
         by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
         inside_new_case = by_uid["4117"]
         assert inside_new_case.container_uid == "3870"
-        assert inside_new_case.frame_path is not None
-        assert inside_new_case.frame_path.endswith("3870=True")
+        assert inside_new_case.location_after is not None
+        leaf = inside_new_case.location_after[-1]
+        assert (leaf.structure, leaf.values) == ("3870", ("True",))
+        assert inside_new_case.location_before is None
 
         # A DIFFERENT added node (1065) sits in an existing, UNRELATED case
         # (753) -- not the new one -- proving container_uid is the actual
@@ -622,7 +626,8 @@ class TestLocalityStamping:
         top_level = by_uid["509"]
         assert top_level.label == "Tick Count (ms)"
         assert top_level.container_uid is None
-        assert top_level.frame_path is None
+        assert top_level.location_after == ()
+        assert top_level.location_before is None
 
     def test_to_dict_serializes_locality_fields(self, vi_diff_pair):
         ga, na = _load(vi_diff_pair.base, layout=True)
@@ -631,7 +636,9 @@ class TestLocalityStamping:
 
         entry = next(c for c in d["changes"] if c["uid"] == "4117")
         assert entry["container_uid"] == "3870"
-        assert entry["frame_path"] is not None
+        assert entry["location_after"][-1]["structure"] == "3870"
+        assert entry["location_after"][-1]["value"] == ["True"]
+        assert entry["location_before"] is None
 
 
 # ── Frame set diff: added/removed/value-changed frames ──────────────────
@@ -700,28 +707,34 @@ class TestFrameSetChanges:
         assert removed.change == "removed"
         assert removed.label == "1"
         assert removed.container_uid == "500"
-        assert removed.frame_path == "500=1"
+        assert removed.location_before == (FrameStep("500", 0, ("1",)),)
+        assert removed.location_after is None
 
         added = frame_changes["~4"]
         assert added.kind == "frame"
         assert added.change == "added"
         assert added.label == "4"
         assert added.container_uid == "500"
-        assert added.frame_path == "500=4"
+        assert added.location_after == (FrameStep("500", 2, ("4",)),)
+        assert added.location_before is None
 
         value_by_fallback = frame_changes["~2"]
         assert value_by_fallback.kind == "value"
         assert value_by_fallback.change == "modified"
         assert value_by_fallback.detail == "2 → 2, 3"
         assert value_by_fallback.container_uid == "500"
-        assert value_by_fallback.frame_path == "500=2"
+        assert value_by_fallback.location_after == (FrameStep("500", 0, ("2", "3")),)
+        assert value_by_fallback.location_before == (FrameStep("500", 1, ("2",)),)
 
         value_by_uid = frame_changes["900"]
         assert value_by_uid.kind == "value"
         assert value_by_uid.change == "modified"
         assert value_by_uid.detail == "2 → Default"
         assert value_by_uid.container_uid == "500"
-        assert value_by_uid.frame_path == "500=Default"
+        assert value_by_uid.location_after == (FrameStep("500", 1, ("Default",)),)
+        assert value_by_uid.location_before == (FrameStep("500", 2, ("2",)),)
+        # Frames 1 and 2 of the before version are frames 0 and 1 after.
+        assert cmap.frame_pairs == [FramePairs("500", "500", [(1, 0), (2, 1)])]
 
     def test_unchanged_case_frame_set_has_no_frame_changes(self):
         case_a = CaseStructureNode(
@@ -751,7 +764,7 @@ class TestFrameSetChanges:
         # ("1 -> 0"), NOT remove "1" + add "0". (The reality-grounded MainUI
         # 36:1->0 case; the shared node itself stays unchanged, not reported.)
         # The shared node lives in the frame as a real child graph node
-        # (parent=the case uid, frame=the selector value) — the SAME
+        # (parent=the case uid, frame=the frame's position) — the SAME
         # containment construction.py stamps; _populate_frame_operations then
         # projects it back into the frame's operations for the content-overlap
         # matcher. A fresh node per side (same uid) so the two graphs don't
@@ -766,7 +779,7 @@ class TestFrameSetChanges:
             )
 
         node_a = _add_child()
-        node_a.frame = "1"
+        node_a.frame = "0"
         case_a = CaseStructureNode(
             id="vi::500",
             vi_path="vi",
@@ -797,17 +810,18 @@ class TestFrameSetChanges:
         assert (c.kind, c.change) == ("value", "modified")
         assert c.detail == "1 → 0"
         assert c.container_uid == "500"
-        # after pane addresses the frame as 500=0; before pane as 500=1 — the
-        # viewer drives each pane from its own side so both reveal the frame.
-        assert c.frame_path == "500=0"
-        assert c.frame_path_before == "500=1"
+        # Each side's location names the frame by its own value; the viewer
+        # drives each pane from its own side so both reveal the frame.
+        assert c.location_after == (FrameStep("500", 0, ("0",)),)
+        assert c.location_before == (FrameStep("500", 0, ("1",)),)
+        assert cmap.frame_pairs == [FramePairs("500", "500", [(0, 0)])]
 
     def test_stacked_sequence_frame_reorder_by_real_uid(self):
         # SequenceFrame DOES get a real, stable uid from the parser (see
         # parser/nodes/sequence.py) -- unlike CaseFrame. A stacked sequence
         # (node_type != "flatSequence") is INTERACTIVE (render/scene.py wraps
         # it in a togglable lv-frame group), so its frame changes extend the
-        # frame_path with their own segment.
+        # location with their own step.
         # A stacked sequence's real parser class is "seq"/"sequence" (is_flat
         # False), NOT "flatSequence" — that's what makes it interactive
         # (_is_interactive_struct: a SequenceNode with node_type !=
@@ -850,14 +864,15 @@ class TestFrameSetChanges:
         assert reordered.change == "modified"
         assert reordered.detail == "1 → 0"
         assert reordered.container_uid == "700"
-        assert reordered.frame_path == "700=0"
+        assert reordered.location_after == (FrameStep("700", 0, ("0",)),)
+        assert reordered.location_before == (FrameStep("700", 1, ("1",)),)
 
-    def test_flat_sequence_frame_change_gets_no_new_frame_path_segment(self):
+    def test_flat_sequence_frame_change_gets_no_new_location_step(self):
         # A FLAT sequence shows every frame simultaneously (film-strip) --
         # never hidden -- so render/scene.py never wraps it in a togglable
         # lv-frame group (_is_interactive_struct is False for it). Its frame
         # changes still get a real container_uid (the structure exists) but
-        # must NOT gain a frame_path segment nothing in the SVG would match.
+        # must NOT gain a location step nothing in the SVG would match.
         seq_a = SequenceNode(
             id="vi::800",
             vi_path="vi",
@@ -887,7 +902,8 @@ class TestFrameSetChanges:
         assert added.uid == "21"
         assert added.change == "added"
         assert added.container_uid == "800"
-        assert added.frame_path is None  # non-interactive: no new segment
+        assert added.location_after == ()  # non-interactive: no new step
+        assert added.location_before is None
 
 
 # ── Wire endpoint diff (#10) ────────────────────────────────────────────
@@ -942,7 +958,7 @@ class TestWireChanges:
     def test_run_vi_removed_wire_endpoints_translated_to_other_pane(self, vi_diff_pair):
         # The viewer's revealFrame(c) needs to open the case frame in the
         # OTHER (head/after) pane that contains this removed wire's
-        # surviving endpoint -- its own frame_path only ever addresses the
+        # surviving endpoint -- its own location only ever addresses the
         # BASE pane it lives in. ``endpoints`` carries the wire's source +
         # sink node uids, resolved as they'd appear in HEAD's SVG:
         #   - sink (the "Not" node, uid 1781) keeps the SAME uid in both
@@ -1390,7 +1406,7 @@ class TestQualifiedSubVINames:
             pytest.skip("measurement sample not present")
         g = InMemoryVIGraph()
         g.load_vi(str(self.SAMPLE), mode=LoadMode.MINIMAL)
-        vn = g.resolve_vi_name(self.SAMPLE.name)
+        vn = vi_key(g, self.SAMPLE.name)
         calls = [
             op
             for op in g.top_level_nodes(vn)
@@ -1477,3 +1493,35 @@ def test_unchanged_conditional_tunnel_reports_nothing():
     ga, va = _load(_FORCE_UNLOAD_VI, layout=True)
     gb, vb = _load(_FORCE_UNLOAD_VI, layout=True)
     assert diff_uid(ga, gb, va, vb).changes == []
+
+
+class TestConstantTypeChange:
+    """A constant that keeps its uid but changes type is one modified constant:
+    in Build VI Tester Project Provider.vi, constant 890 goes from a Boolean to
+    an error cluster."""
+
+    REPO = ".lvkit/cache/samples/JKI-VI-Tester"
+    FILE_PATH = "source/LabVIEW Project Plugin/Build VI Tester Project Provider.vi"
+    HEAD_REF = "83bdadf"
+    BASE_REF = "83bdadf~1"
+
+    def _extract(self, tmp_path: Path, ref: str, name: str) -> Path:
+        if not (Path(self.REPO) / ".git").exists():
+            pytest.skip("JKI-VI-Tester sample repo not present")
+        r = subprocess.run(
+            ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
+            capture_output=True,
+        )
+        if r.returncode != 0 or not r.stdout:
+            pytest.skip(f"ref {ref} unavailable")
+        p = tmp_path / name
+        p.write_bytes(r.stdout)
+        return p
+
+    def test_the_constant_is_reported_modified(self, tmp_path: Path):
+        ga, na = _load(self._extract(tmp_path, self.BASE_REF, "a.vi"), layout=False)
+        gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "b.vi"), layout=False)
+        cmap = diff_uid(ga, gb, na, nb)
+        found = [(c.kind, c.change) for c in cmap.changes if c.uid == "890"]
+        assert found == [("constant", "modified")]
+        assert [c["uid"] for c in cmap.to_dict()["changes"]].count("890") == 1

@@ -626,7 +626,8 @@ def test_each_generated_caller_imports_its_own_callee_and_runs(
     for caller, owner in (("caller_case", "testcase"), ("caller_suite", "testsuite")):
         package = _generate(tree, tmp_path, caller)
         source = (package / f"{caller}.py").read_text()
-        assert source.splitlines()[2:] == [
+        assert source.splitlines() == [
+            "from __future__ import annotations",
             f"from .{owner}.skip import skip",
             "",
             f"def {caller}():",
