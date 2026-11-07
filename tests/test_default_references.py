@@ -16,10 +16,10 @@ pytestmark = pytest.mark.needs_samples
 
 SAMPLES = Path(".lvkit/cache/samples")
 CONFIG_VI = SAMPLES / "DCAF-DAQModule/source/testing/Config.vi"
-CURRENT_VI_PATH_VI = (
+OBTAIN_BROADCAST_EVENTS_VI = (
     SAMPLES
-    / "OpenG/extracted/File Group 0/user.lib/_OpenG.lib/file/file.llb"
-    / "Current VI's Path__ogtk.vi"
+    / "configurable-dqmh-example/source/LabVIEW Data/DQMH Module Templates"
+    / "Source/Delacor/ConfigurableQMH/Obtain Broadcast Events.vi"
 )
 
 
@@ -37,8 +37,8 @@ def test_unwired_daqmx_reference_raises_naming_class_and_property():
 
 
 def test_a_primitive_without_an_implementation_raises_where_it_runs():
-    source = _generate(CURRENT_VI_PATH_VI)
+    source = _generate(OBTAIN_BROADCAST_EVENTS_VI)
     assert (
-        'raise NotImplementedError("Close Reference is not converted yet\\n'
+        "raise NotImplementedError('Create User Event is not converted yet\\n"
         "gap kind: placeholder_primitive\\n"
     ) in source

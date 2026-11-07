@@ -180,10 +180,7 @@ def _generate_primitive(
     if node.node_type == "prim":
         if node.prim_id == vi_reference.OPEN_VI_REFERENCE_PRIM_ID:
             return vi_reference.generate_open(node, ctx)
-        if (
-            node.prim_id == vi_reference.CLOSE_REFERENCE_PRIM_ID
-            and vi_reference.closes_vi_reference(node, ctx)
-        ):
+        if node.prim_id == vi_reference.CLOSE_REFERENCE_PRIM_ID:
             return CodeFragment.empty()
     handler = _PRIM_CODEGEN.get(node.node_type or "", primitive.generate)
     return handler(node, ctx)

@@ -561,11 +561,79 @@ def test_close_reference_of_a_vi_reference_generates_nothing(tmp_path: Path) -> 
     )
 
 
-def test_close_reference_of_an_unwired_reference_is_not_a_vi_reference(
+def _refs_source_is_only(loaded: d.Loaded) -> str:
+    """The generated source, with no gap in it."""
+    gaps: list[Gap] = []
+    source = build_module(
+        loaded.graph.get_vi_context(loaded.caller),
+        loaded.caller,
+        graph=loaded.graph,
+        gaps=gaps,
+    )
+    assert gaps == []
+    assert "NotImplementedError" not in source
+    return source
+
+
+def test_close_reference_of_a_reference_control_generates_nothing(
     tmp_path: Path,
 ) -> None:
     loaded = d.load(tmp_path, [d.close_reference(70)], [])
-    assert not loaded.graph.holds_vi_reference(f"{loaded.caller}::71")
+    d.type_terminal(loaded, 71, d.application_type())
+    d.add_control(loaded, "app_ref", d.application_type(), 71)
+    source = _refs_source_is_only(loaded)
+    assert source.endswith("def refs(app_ref: Any):\n    pass")
+    for refs in _package(tmp_path, source, _CALLEE):
+        assert refs.refs(object()) is None  # type: ignore[attr-defined]
+
+
+def test_close_reference_of_an_array_of_references_generates_nothing(
+    tmp_path: Path,
+) -> None:
+    loaded = d.load(tmp_path, [d.close_reference(70)], [])
+    array = LVType(
+        kind=LVTypeKind.ARRAY,
+        element_type=d.this_vi_type(),
+    )
+    d.type_terminal(loaded, 71, array)
+    d.add_control(loaded, "refs_in", array, 71)
+    source = _refs_source_is_only(loaded)
+    assert source.endswith(
+        "def refs(refs_in: list[Any] | None):\n    refs_in = refs_in or []"
+    )
+    for refs in _package(tmp_path, source, _CALLEE):
+        assert refs.refs([object(), object()]) is None  # type: ignore[attr-defined]
+
+
+def test_close_reference_of_an_unwired_reference_generates_nothing(
+    tmp_path: Path,
+) -> None:
+    loaded = d.load(tmp_path, [d.close_reference(70)], [])
+    source = _refs_source_is_only(loaded)
+    assert source.endswith("def refs():\n    pass")
+    for refs in _package(tmp_path, source, _CALLEE):
+        assert refs.refs() is None  # type: ignore[attr-defined]
+
+
+def test_close_reference_runs_on_an_error_and_passes_it_on(tmp_path: Path) -> None:
+    loaded = d.load(tmp_path, [d.close_reference(70, errors=True)], [])
+    d.type_terminal(loaded, 71, d.application_type())
+    d.type_terminal(loaded, 73, d.ERROR)
+    d.type_terminal(loaded, 75, d.ERROR)
+    d.add_control(loaded, "app_ref", d.application_type(), 71)
+    d.add_control(loaded, "error in", d.ERROR, 73, uid="node error")
+    d.add_indicator(loaded, "error out", d.ERROR, 75, 2)
+    source = _refs_source_is_only(loaded)
+    for refs in _package(tmp_path, source, _CALLEE):
+        errors = importlib.import_module("generated_refs.errors")
+        result = refs.refs(app_ref=object(), error_in=None)  # type: ignore[attr-defined]
+        assert result.error_out is None
+        incoming = errors.LabVIEWError(code=5, source="before")
+        result = refs.refs(app_ref=object(), error_in=incoming)  # type: ignore[attr-defined]
+        assert result.error_out is incoming
+        warning = errors.LabVIEWError(code=9, source="w", status=False)
+        result = refs.refs(app_ref=object(), error_in=warning)  # type: ignore[attr-defined]
+        assert result.error_out is warning
 
 
 # --- the generated package runs ----------------------------------------------

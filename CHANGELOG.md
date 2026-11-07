@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Close Reference of any reference generates nothing**, no longer a gap — a VI, Application or other VI Server reference, an array of references, or one wired to nothing; its error out passes the error in.
 - **Generated code keeps errors as values on the wire, as LabVIEW does** — each VI takes `error_in` and returns `error_out` (`None` or a `LabVIEWError` from the package's `errors.py`); a node skips its work on an error but not on a warning, every branch runs, error case structures keep every frame's work, and Merge Errors, Clear Errors, Simple Error Handler and a loop stopped on an error read the value. No more `_held_error`, thread pools for branches or re-raised exceptions.
 - **A Python failure becomes LabVIEW's error code** — a missing file is 7, no permission 8, a released queue 1122, Variant To Data 91, Unflatten From String 116, anything else the entry names or 42.
 - **A VI's results are a frozen dataclass read by name**, not a `NamedTuple`; an output wired to nothing returns its indicator's default.

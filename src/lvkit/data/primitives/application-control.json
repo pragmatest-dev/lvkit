@@ -296,10 +296,8 @@
           "type": "cluster"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
       "verified": false,
-      "note": "Close Reference (renamed from a mislabelled 'Close File') -- in#11 accepts Array|Refnum; all call sites are VI-server/appcontrol. Closing a VI reference generates nothing (codegen/nodes/vi_reference.py); closing any other reference is still placeholder codegen."
+      "note": "Close Reference (renamed from a mislabelled 'Close File') -- in#11 accepts Array|Refnum; all call sites are VI-server/appcontrol. NI: closes a refnum of an open VI, VI object, application instance, or a .NET, ActiveX or Python object; the reference also accepts 1D arrays of references; it runs even if an error occurred before. Closing any reference generates nothing (codegen/nodes/__init__.py): Python frees an object when nothing refers to it, and the node that made a reference Python has no meaning for is its own gap."
     },
     "8012": {
       "name": "Open Application Reference",
