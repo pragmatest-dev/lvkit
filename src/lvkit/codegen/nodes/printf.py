@@ -23,6 +23,43 @@ def _is_runtime_value(expr: str) -> bool:
     return not isinstance(tree.body, ast.Constant)
 
 
+_PLACEHOLDER = re.compile(r"%[sdfeEgGoxXcr]")
+
+
+def _literal_text(source: str) -> str:
+    """The text of the string literal ``source`` (its escapes decoded), or the
+    source itself when it is not a literal."""
+    try:
+        value = ast.literal_eval(source)
+    except (ValueError, SyntaxError):
+        return source
+    return value if isinstance(value, str) else str(value)
+
+
+def _format_text(text: str, args: list[str]) -> ast.JoinedStr:
+    """An f-string with each placeholder of ``text`` replaced by the next of
+    ``args`` (a placeholder with no argument stays as text). The pieces are
+    nodes, so any character of the text is written exactly."""
+    values: list[ast.expr] = []
+    literal = ""
+    position = 0
+    used = 0
+    for match in _PLACEHOLDER.finditer(text):
+        if used == len(args):
+            break
+        literal += text[position : match.start()]
+        if literal:
+            values.append(ast.Constant(value=literal))
+        literal = ""
+        values.append(ast.FormattedValue(value=parse_expr(args[used]), conversion=-1))
+        used += 1
+        position = match.end()
+    literal += text[position:]
+    if literal:
+        values.append(ast.Constant(value=literal))
+    return ast.JoinedStr(values=values)
+
+
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a printf (Format String) node."""
     inputs = sorted(
@@ -45,36 +82,19 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         input_values.append(val)
 
     # First input is format string, rest are arguments.
+    expr: ast.expr
     if len(input_values) >= 2 and _is_runtime_value(input_values[0]):
         # A format string that is a wired value is applied at run time; Python's
         # ``%`` takes the same ``%s``/``%d``/``%f``/... directives.
         args_tuple = ", ".join(input_values[1:])
-        expr_str = f"{input_values[0]} % ({args_tuple},)"
+        expr = parse_expr(f"{input_values[0]} % ({args_tuple},)")
     elif len(input_values) >= 2:
-        fmt_str = input_values[0].strip("'\"")
-        args = input_values[1:]
-        arg_idx = 0
-
-        def _replace_placeholder(m: re.Match) -> str:
-            nonlocal arg_idx
-            if arg_idx < len(args):
-                replacement = f"{{{args[arg_idx]}}}"
-                arg_idx += 1
-                return replacement
-            return m.group()
-
-        result = re.sub(r"%[sdfeEgGoxXcr]", _replace_placeholder, fmt_str)
-        # Unescape LabVIEW backslash-quoted characters that survive strip().
-        result = re.sub(r"""\\(['"])""", r"\1", result)
-        # A trailing bare backslash would break the triple-quote delimiter.
-        if result.endswith("\\"):
-            result = result[:-1]
-        expr_str = f'f"""{result}"""'
+        expr = _format_text(_literal_text(input_values[0]), input_values[1:])
     elif len(input_values) == 1:
-        expr_str = f"str({input_values[0]})"
+        expr = parse_expr(f"str({input_values[0]})")
     else:
-        expr_str = "''"
+        expr = ast.Constant(value="")
 
     out_term = outputs[0]
     base_name = out_term.name or "formatted"
-    return bind_output(node, out_term.id, base_name, parse_expr(expr_str), ctx)
+    return bind_output(node, out_term.id, base_name, expr, ctx)

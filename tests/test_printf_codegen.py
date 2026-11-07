@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import printf
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import Terminal
+from lvkit.string_literal import quote_string
 from tests.helpers import register_nodes
 
 
@@ -84,3 +87,30 @@ def test_literal_format_string_is_inlined() -> None:
     namespace: dict[str, object] = {"count": 3}
     exec(compile(source, "printf", "exec"), namespace)
     assert namespace["formatted"] == "found 3 items"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ('{\n    "AddonName": "%s"\n}', '{\n    "AddonName": "<7>"\n}'),
+        ("a } b { c %d", "a } b { c <7>"),
+        ('say """%s"""', 'say """<7>"""'),
+        ("C:\\temp\\%s", "C:\\temp\\<7>"),
+        ("%s\\", "<7>\\"),
+        ("it's %s", "it's <7>"),
+        ("%s and %d", "<7> and %d"),
+        ("100%% of %s", "100%% of <7>"),
+        ("no placeholder {x}", "no placeholder {x}"),
+    ],
+)
+def test_the_text_is_written_exactly(text: str, expected: str) -> None:
+    source = _generate(quote_string(text), "arg")
+    compile(source, "printf", "exec")
+    namespace: dict[str, object] = {"arg": "<7>"}
+    exec(source, namespace)
+    assert namespace["formatted"] == expected
+
+
+def test_the_text_is_one_f_string_of_nodes() -> None:
+    source = _generate(quote_string('{"k": %s}'), "arg")
+    assert source == "formatted = f'{{\"k\": {arg}}}'"

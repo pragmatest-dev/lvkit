@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Format Into String writes its text exactly** — a format text holding `{`, `}`, `"""` or a backslash (a JSON template) generates an f-string built from nodes, no longer a parse error.
 - **Fix: a VI LabVIEW shows as broken is a gap, not an lvkit error** — a dynamic-dispatch call with no object wired, or a wire from a connector-pane position the called VI does not have, warns with that reason and the run ends Partial (exit 3).
 - **Generated code keeps errors as values on the wire, as LabVIEW does** — each VI takes `error_in` and returns `error_out` (`None` or a `LabVIEWError` from the package's `errors.py`); a node skips its work on an error but not on a warning, every branch runs, error case structures keep every frame's work, and Merge Errors, Clear Errors, Simple Error Handler and a loop stopped on an error read the value. No more `_held_error`, thread pools for branches or re-raised exceptions.
 - **A Python failure becomes LabVIEW's error code** — a missing file is 7, no permission 8, a released queue 1122, Variant To Data 91, Unflatten From String 116, anything else the entry names or 42.
