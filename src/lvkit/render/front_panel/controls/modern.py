@@ -34,6 +34,9 @@ _SHADOW_STOPS = (
     (0.8, "#D3D3D3"),
     (1.0, "#CFCFCF"),
 )
+# The last row of the shadow, the one against the field, is lighter than the
+# fade before it.
+_EDGE_TOP = "#E4E4E4"
 _EDGE_RIGHT = "#E3E3E3"
 _EDGE_BOTTOM = "#DADADA"
 
@@ -62,7 +65,8 @@ def draw_field(backend: Backend, frame: Rect | None, field: Rect, fill: str) -> 
     if frame is not None:
         ax1, ay1, ax2, ay2 = frame
         if fy1 > ay1:
-            backend.gradient_rect(ax1, ay1, ax2, fy1, stops=_SHADOW_STOPS)
+            backend.gradient_rect(ax1, ay1, ax2, fy1 - 1, stops=_SHADOW_STOPS)
+            backend.rect(ax1, fy1 - 1, ax2, fy1, fill=_EDGE_TOP)
         if fx1 > ax1:
             backend.gradient_rect(
                 ax1, fy1, fx1, ay2, stops=_SHADOW_STOPS, end=(1.0, 0.0)

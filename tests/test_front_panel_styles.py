@@ -474,3 +474,25 @@ def test_display_text_of_strings_and_paths() -> None:
     assert path_text('Path("/")') == ""
     assert path_text("NotAPath") == "<Not A Path>"
     assert path_text('Path("/<vilib>/x.vi")') == "<vilib>\\x.vi"
+
+
+def test_modern_field_shadow_ends_in_a_lighter_row() -> None:
+    from lvkit.render.front_panel.controls import modern
+
+    backend = SvgBackend()
+    modern.draw_field(backend, (0, 0, 60, 30), (4, 10, 56, 26), "#FAFAFA")
+    svg = backend.render((0, 0, 60, 30), root_id="r")
+    # the fade covers the strip down to the last row, which is one flat row
+    assert 'y="9.0" width="60.0" height="1.0" fill="#E4E4E4"' in svg
+
+
+def test_square_led_has_no_white_gloss_at_the_top() -> None:
+    from lvkit.render.front_panel.controls import boolean_kinds
+
+    backend = SvgBackend()
+    boolean_kinds.draw_square_led(backend, (0, 0, 40, 40), "#64FF00")
+    svg = backend.render((0, 0, 40, 40), root_id="r")
+    first = re.search(r'<stop offset="0[^"]*" stop-color="(#[0-9A-F]{6})"', svg)
+    assert first is not None
+    red, green, blue = (int(first.group(1)[i : i + 2], 16) for i in (1, 3, 5))
+    assert red <= 0x74 and blue <= 0x30

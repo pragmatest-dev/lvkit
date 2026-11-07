@@ -151,16 +151,27 @@ def draw_radio_button(backend: Backend, body: Rect, on: bool) -> None:
         backend.circle(cx, cy, r * 0.45, fill=_BLACK)
 
 
+# The square LED's vertical fade, measured on PCO's lit LED: a faint tint of
+# white over the top half, then a darker green (the state color toward
+# ``_LED_SHADE``) to the bottom edge. Each stop is (position, toward, amount).
+_LED_SHADE = "#006E00"
+_SQUARE_LED_STOPS = (
+    (0.0, _WHITE, 0.06),
+    (0.2, _WHITE, 0.12),
+    (0.4, _WHITE, 0.10),
+    (0.55, _WHITE, 0.04),
+    (0.75, _LED_SHADE, 0.15),
+    (1.0, _LED_SHADE, 0.41),
+)
+
+
 def draw_square_led(backend: Backend, body: Rect, color: str) -> None:
-    """A rounded rectangle with a vertical gloss: a lighter tint of the state
-    color at the top, a darker shade at the bottom."""
+    """A rounded rectangle with a vertical fade of the state color."""
     backend.gradient_rect(
         *body,
-        stops=(
-            (0.0, blend(color, _WHITE, 0.38)),
-            (0.25, blend(color, _WHITE, 0.09)),
-            (0.5, blend(color, _WHITE, 0.05)),
-            (1.0, blend(color, _BLACK, 0.4)),
+        stops=tuple(
+            (position, blend(color, toward, amount))
+            for position, toward, amount in _SQUARE_LED_STOPS
         ),
         rx=_SQUARE_LED_RADIUS,
     )
