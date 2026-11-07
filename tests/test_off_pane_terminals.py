@@ -5,8 +5,10 @@ and in generated Python -- never fabricated connector-pane slots.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -34,6 +36,7 @@ from lvkit.graph.netlist_models import (
 from lvkit.load_mode import LoadMode
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.models import ParsedWiringRule
+from tests.helpers import exec_module
 from tests.test_lvnet_identity import _assert_graph_identity
 
 _ISSUES = Path(__file__).resolve().parent / "corpus" / "issues"
@@ -161,8 +164,7 @@ def test_unwired_pane_codegen_takes_its_controls_as_local_variables() -> None:
     assert "def zorder_not_respected() -> None:" in code
     assert "numeric = 0" in code
     assert "Front panel, not on the connector pane:" in code
-    namespace: dict[str, object] = {}
-    exec(compile(code, "<zorder>", "exec"), namespace)  # noqa: S102
+    namespace = exec_module(code, "<zorder>").__dict__
     function = namespace["zorder_not_respected"]
     assert callable(function)
     # No control is on the connector pane: no parameter, no result.
@@ -210,10 +212,9 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         pytest.skip(f"sample corpus VI not present: {vi}")
     graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
-    assert "task_" not in code.split("):", 1)[0]
-    assert "task_ = ''" in code
-    namespace: dict[str, object] = {}
-    exec(compile(code, "<failUnlessError>", "exec"), namespace)  # noqa: S102
+    assert "task" not in code.split("):", 1)[0]
+    assert "task = ''" in code
+    namespace = exec_module(code, "<failUnlessError>").__dict__
     function = namespace["failunlesserror"]
     assert callable(function)
 
@@ -221,8 +222,9 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         def __init__(self) -> None:
             self.messages: list[str] = []
 
-        def fail(self, message_: str) -> None:
-            self.messages.append(message_)
+        def fail(self, message: str, error_in: object = None) -> SimpleNamespace:
+            self.messages.append(message)
+            return SimpleNamespace(error_out=error_in)
 
     default_case, named_case = Recorder(), Recorder()
     function(testcase_in=default_case)
@@ -230,7 +232,7 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     # holds its saved default, the empty string.
     assert default_case.messages == ["no error when expected"]
     with pytest.raises(TypeError):
-        function(testcase_in=named_case, task_="parsing")
+        function(testcase_in=named_case, task="parsing")
 
 
 def _fp(tid: str, name: str, direction: str, index: int | None, default=None):
@@ -264,14 +266,14 @@ def test_colliding_control_names_get_distinct_parameters_and_fields() -> None:
     assert "def collide(*, xy: int=1)" in code
     assert "    xy_2: int = 2\n    x_y: int = 3\n" in code
     assert "    out: int\n" in code
-    namespace: dict[str, object] = {}
-    exec(compile(code, "<collide>", "exec"), namespace)  # noqa: S102
+    namespace = exec_module(code, "<collide>").__dict__
     function = namespace["collide"]
     assert callable(function)
     assert function() is not None
     assert function(xy=7) is not None
     # The off-pane indicator is not a result field.
-    assert list(namespace["CollideResult"]._fields) == ["out"]
+    fields = dataclasses.fields(namespace["CollideResult"])
+    assert [f.name for f in fields] == ["out"]
 
 
 def _duplicate_indicator_module(wired: tuple[bool, bool]) -> NetlistModule:

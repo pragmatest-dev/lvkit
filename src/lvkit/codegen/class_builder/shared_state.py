@@ -22,7 +22,11 @@ class ModuleParts:
     annotation_imports: set[str] = field(default_factory=set)
     declarations: ModuleDeclarations = field(default_factory=ModuleDeclarations)
     helpers: list[ast.stmt] = field(default_factory=list)
-    globals: dict[str, ast.stmt] = field(default_factory=dict)
+    # The name each helper was asked for, to the name it is written under
+    # (``CodeGenContext.add_module_function``): shared with the helpers, so a
+    # second method asking for a helper gets the one the first wrote.
+    helper_names: dict[str, str] = field(default_factory=dict)
+    globals: dict[str, list[ast.stmt]] = field(default_factory=dict)
     flat_functions: dict[tuple[Any, ...], str] = field(default_factory=dict)
 
     def share_with(self, ctx: CodeGenContext) -> None:
@@ -30,6 +34,7 @@ class ModuleParts:
         methods never declare one name twice."""
         ctx.module_declarations = self.declarations
         ctx.formula_helpers = self.helpers
+        ctx.helper_names = self.helper_names
         ctx.module_globals = self.globals
         ctx.flat_functions = self.flat_functions
 
@@ -42,5 +47,5 @@ class ModuleParts:
         return [
             *self.helpers,
             *self.declarations.statements,
-            *(self.globals[name] for name in sorted(self.globals)),
+            *(stmt for name in sorted(self.globals) for stmt in self.globals[name]),
         ]

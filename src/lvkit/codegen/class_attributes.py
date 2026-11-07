@@ -15,7 +15,10 @@ Access levels belong to the VIs: a name is ``name`` for a public VI, ``_name`` f
 a protected or community one and ``__name`` for a private one; a property takes
 the widest level of its read and write VIs. An accessor whose connector pane is
 not a getter or a setter, or a setter that does not hand back the object it
-changed, is an ordinary method.
+changed, is an ordinary method. So is one whose diagram can put an error of its
+own on its error out, or whose work depends on the incoming error other than by
+skipping all of it (``class_model``, from ``graph.vi_error_behaviour``): a
+Python property has no error in or error out.
 
 This module is the one place that names a class's members and fields;
 ``__init__``, Bundle/Unbundle By Name, In Place Element and the calls of methods
@@ -100,12 +103,15 @@ def method_name(graph: InMemoryVIGraph, vi_key: str) -> str:
 @dataclass(frozen=True)
 class Accessor:
     """One VI of a property folder: its role and ``python_name``, the name of the
-    property it is the getter or the setter of."""
+    property it is the getter or the setter of. ``skips_on_error``: the VI does
+    its work only when no error comes in (``ErrorBehaviour.SKIPS_ON_ERROR``), so
+    a read or write of the property is skipped on an incoming error."""
 
     key: str
     property_name: str
     role: PropertyRole
     python_name: str
+    skips_on_error: bool = False
 
 
 @dataclass(frozen=True)

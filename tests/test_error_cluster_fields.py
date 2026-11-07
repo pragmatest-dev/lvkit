@@ -121,11 +121,13 @@ def test_a_cluster_typedef_named_error_is_an_output_of_the_generated_function() 
     assert generated.function((7, "src")).details_out == (7, "src")
 
 
-def test_a_real_error_cluster_is_still_not_an_output() -> None:
+def test_a_real_error_cluster_is_an_error_value() -> None:
     generated = generate(
         {"error in": _ERROR},
         {"error out": _ERROR},
         [],
         [("fp:error in", "fp:error out")],
     )
-    assert "error_out" not in generated.source.split("def native_test")[1]
+    assert "error_in: LabVIEWError | None" in generated.source
+    error = object()  # the wire passes its value on, whatever it is
+    assert generated.function(error_in=error).error_out is error

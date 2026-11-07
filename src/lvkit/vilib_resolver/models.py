@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from lvkit.models import TerminalDirection
-from lvkit.primitive_resolver import NodeIcon
+from lvkit.models import ScalarValue, TerminalDirection
+from lvkit.primitive_resolver import NativeError, NodeIcon
 from lvkit.terminal_default import TerminalDefault
 
 
@@ -19,6 +19,9 @@ class VITerminal(TerminalDefault):
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None
     python_param: str | None = None
+    # The value NI documents for this output when the VI's operation fails
+    # (``codegen/native_failure.py``); none: the type's default.
+    on_failure: ScalarValue = None
 
 
 class VIEntry(BaseModel):
@@ -35,6 +38,12 @@ class VIEntry(BaseModel):
     # template (``codegen/nodes/vilib_op.py``).
     op: str | None = None
     inline: bool = False
+    # NI's page says the VI runs even when an error comes in on its error in
+    # (``CodeFragment.runs_on_error``).
+    runs_on_error: bool = False
+    # The failures of the VI's Python operation that are its error out, in the
+    # order they are caught (``codegen/native_failure.py``).
+    errors: list[NativeError] = Field(default_factory=list)
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
     # Public NI docs URL (labview-api-ref bundle). Replaces the old `page` PDF

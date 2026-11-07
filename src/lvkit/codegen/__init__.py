@@ -11,7 +11,6 @@ from .context import CodeGenContext
 from .dataflow import DataFlowTracer
 from .expressions import ExpressionBuilder
 from .fragment import CodeFragment
-from .function import FunctionBuilder
 from .imports import ImportBuilder
 from .nodes import CodeGenError, UnknownNodeError
 
@@ -19,7 +18,6 @@ __all__ = [
     "DataFlowTracer",
     "ImportBuilder",
     "ExpressionBuilder",
-    "FunctionBuilder",
     # New API
     "build_module",
     "build_class_module",

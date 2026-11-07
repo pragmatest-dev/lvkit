@@ -24,7 +24,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
 from lvkit.pipeline import create_import_resolver
 from tests.corpus_graphs import OPENG_USERLIB
-from tests.helpers import vi_key
+from tests.helpers import exec_module, vi_key
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -139,10 +139,10 @@ class TestGetSettingsPath:
         code = _generate(get_settings_path_graph, self.VI_NAME)
         assert "import SystemDirectoryType" in code
 
-    def test_result_namedtuple(self, get_settings_path_graph):
+    def test_result_class(self, get_settings_path_graph):
         code = _generate(get_settings_path_graph, self.VI_NAME)
         assert "GetSettingsPathResult" in code
-        assert "NamedTuple" in code
+        assert "@dataclass(frozen=True)" in code
 
     def test_path_operations(self, get_settings_path_graph):
         code = _generate(get_settings_path_graph, self.VI_NAME)
@@ -415,8 +415,7 @@ class TestClassPrivateDataNmux:
         assert_valid_python(code, vi_name)
         assert ".__testsrun" in code, "Expected attribute access on the class field"
 
-        ns: dict = {}
-        exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<GetTestsRun.vi>").__dict__
         # Generated alone, outside its class body, the field keeps the name it
         # is written with (the class module stores it as `_TestResult__testsrun`).
         this = types.SimpleNamespace(**{"__testsrun": 42})
@@ -440,8 +439,7 @@ class TestClassPrivateDataNmux:
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
 
-        ns: dict = {}
-        exec(compile(code, "<TestResult_Init.vi>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<TestResult_Init.vi>").__dict__
         this = types.SimpleNamespace()
         result = ns["testresult_init"](
             testresult_in=this, resultstatuschangedeventref="event_ref"
@@ -504,8 +502,7 @@ class TestU16ChangedPersistentState:
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
 
-        ns: dict = {}
-        exec(compile(code, "<U16 Changed__ogtk.vi>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<U16 Changed__ogtk.vi>").__dict__
         func = ns["u16_changed__ogtk"]
 
         state_globals = [k for k in ns if k.startswith("_lv_state_")]
@@ -577,8 +574,7 @@ class TestShiftRegisterAccumulation:
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         assert_no_garbage(code, self.VI_NAME)
-        ns: dict = {}
-        exec(compile(code, "<search_1d_array_i32>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<search_1d_array_i32>").__dict__
         return ns["search_1d_array_i32__ogtk"]
 
     def test_accumulates_every_matching_index(self):
@@ -624,8 +620,7 @@ class TestClusterBundleUnbundle:
         assert_no_garbage(code, self.VI_NAME)
         # The anonymous (value, index) cluster is a tuple, not attribute access.
         assert ".numeric" not in code
-        ns: dict = {"__name__": "m"}
-        exec(compile(code, "<sort_1d_array_i32>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<sort_1d_array_i32>").__dict__
         return ns["sort_1d_array_i32__ogtk"]
 
     def test_ascending_sorts_and_tracks_pointers(self):
@@ -656,8 +651,7 @@ class TestTrimWhitespace:
         graph.load_vi(str(TRIM_WHITESPACE_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
-        ns: dict = {"__name__": "m"}
-        exec(compile(code, "<trim>", "exec"), ns)  # noqa: S102
+        ns = exec_module(code, "<trim>").__dict__
         return ns["trim_whitespace_string__ogtk"]
 
     def test_trims_leading_and_trailing_whitespace(self):

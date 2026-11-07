@@ -311,7 +311,7 @@ class TestBuildFramePattern:
 # an unwired frame emits the LabVIEW type default, not None.
 # ---------------------------------------------------------------------------
 
-from lvkit.codegen.ast_utils import default_value_expr  # noqa: E402
+from lvkit.codegen.ast_utils import type_default_expr  # noqa: E402
 from lvkit.models import LVType, LVTypeKind, TunnelTerminal  # noqa: E402
 
 
@@ -321,17 +321,17 @@ def _lv(underlying, kind: LVTypeKind = LVTypeKind.PRIMITIVE):
 
 class TestDefaultValueExpr:
     def test_scalar_defaults(self):
-        assert ast.unparse(default_value_expr(_lv("NumInt32"))) == "0"
-        assert ast.unparse(default_value_expr(_lv("NumFloat64"))) == "0.0"
-        assert ast.unparse(default_value_expr(_lv("Boolean"))) == "False"
-        assert ast.unparse(default_value_expr(_lv("String"))) == "''"
+        assert ast.unparse(type_default_expr(_lv("NumInt32"))) == "0"
+        assert ast.unparse(type_default_expr(_lv("NumFloat64"))) == "0.0"
+        assert ast.unparse(type_default_expr(_lv("Boolean"))) == "False"
+        assert ast.unparse(type_default_expr(_lv("String"))) == "''"
 
     def test_enum_default_is_zero(self):
-        assert ast.unparse(default_value_expr(_lv("", kind=LVTypeKind.ENUM))) == "0"
+        assert ast.unparse(type_default_expr(_lv("", kind=LVTypeKind.ENUM))) == "0"
 
-    def test_complex_and_unknown_default_none(self):
-        assert ast.unparse(default_value_expr(_lv("", kind=LVTypeKind.ARRAY))) == "None"
-        assert ast.unparse(default_value_expr(None)) == "None"
+    def test_array_default_is_empty_and_unknown_default_none(self):
+        assert ast.unparse(type_default_expr(_lv("", kind=LVTypeKind.ARRAY))) == "[]"
+        assert ast.unparse(type_default_expr(None)) == "None"
 
 
 class TestPreDeclareOutputsTypeDefault:

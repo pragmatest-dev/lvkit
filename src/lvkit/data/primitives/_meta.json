@@ -282,7 +282,8 @@
     },
     "cpdArith": {
       "name": "Compound Arithmetic",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html",
+      "inputs_error_cluster_status": true
     },
     "unbundle": {
       "name": "Unbundle",

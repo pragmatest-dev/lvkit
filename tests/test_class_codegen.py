@@ -416,6 +416,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         "__init__",
         "base",
         "child",
+        "errors",
     ]
     with package.use() as module:
         base, child = module("base").Base, module("child").Child
@@ -502,14 +503,16 @@ def test_a_dispatch_with_two_results_reads_one_shape_from_either_class(
     project.add_vi("Probe", probe)
     package = project.generate()
     assert package.gaps == []
-    assert "class InfoResult(NamedTuple)" in package.sources["base"]
+    assert "@dataclass(frozen=True)\nclass InfoResult:" in package.sources["base"]
     assert "from .base import InfoResult" in package.sources["child"]
     assert "obj.info()" in package.sources["probe"]
     with package.use() as module:
         base, child = module("base").Base(), module("child").Child()
         base._Base__count = child._Base__count = 3
-        assert tuple(module("probe").probe(obj=base)) == (3, 6)
-        assert tuple(module("probe").probe(obj=child)) == (6, 3)
+        of_base = module("probe").probe(obj=base)
+        of_child = module("probe").probe(obj=child)
+        assert (of_base.a, of_base.b) == (3, 6)
+        assert (of_child.a, of_child.b) == (6, 3)
         assert isinstance(child.info(), module("base").InfoResult)
 
 
@@ -958,7 +961,8 @@ def test_a_method_that_cannot_be_written_is_that_vis_gap_not_the_classs(
     with package.use() as module:
         base = module("base").Base()
         base._Base__count = 4
-        assert tuple(base.info()) == (4, 8)
+        result = base.info()
+        assert (result.a, result.b) == (4, 8)
         with pytest.raises(NotImplementedError, match="no object wired"):
             base.broken()
         with pytest.raises(NotImplementedError, match="no input of its class"):
@@ -1693,7 +1697,7 @@ def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
 def test_a_member_and_a_vi_called_the_same_way_share_the_call(
     tmp_path: Path,
 ) -> None:
-    # Two outputs: both return a NamedTuple with the same fields.
+    # Two outputs: both return a result object with the same fields.
     slots = [(0, False, INT, "seed"), (1, True, INT, "a"), (2, True, INT, "b")]
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
@@ -1704,8 +1708,10 @@ def test_a_member_and_a_vi_called_the_same_way_share_the_call(
     assert package.gaps == []
     with package.use() as module:
         caller = module("caller").caller
-        assert tuple(caller(ref=module("base").Base.pair, seed=2)) == (2, 2)
-        assert tuple(caller(ref=module("pair2").pair2, seed=5)) == (5, 5)
+        pair = caller(ref=module("base").Base.pair, seed=2)
+        assert (pair.a, pair.b) == (2, 2)
+        pair2 = caller(ref=module("pair2").pair2, seed=5)
+        assert (pair2.a, pair2.b) == (5, 5)
 
 
 def test_a_member_and_a_vi_with_no_outputs_share_the_call(tmp_path: Path) -> None:
@@ -1723,7 +1729,7 @@ def test_a_member_and_a_vi_with_no_outputs_share_the_call(tmp_path: Path) -> Non
         assert caller(ref=module("take2").take2, seed=1) is None
 
 
-def test_an_error_cluster_output_is_no_result_for_either(tmp_path: Path) -> None:
+def test_an_error_cluster_output_is_a_result_of_either(tmp_path: Path) -> None:
     error = LVType(
         kind=LVTypeKind.CLUSTER,
         fields=[
@@ -1759,8 +1765,8 @@ def test_an_error_cluster_output_is_no_result_for_either(tmp_path: Path) -> None
     assert package.gaps == []
     with package.use() as module:
         caller = module("caller").caller
-        assert caller(ref=module("base").Base.quiet, seed=1) is None
-        assert caller(ref=module("quiet2").quiet2, seed=1) is None
+        assert caller(ref=module("base").Base.quiet, seed=1).error_out is None
+        assert caller(ref=module("quiet2").quiet2, seed=1).error_out is None
 
 
 def test_a_pane_typed_with_a_class_that_is_not_loaded_is_a_vis_call(

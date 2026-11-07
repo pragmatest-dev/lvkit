@@ -424,6 +424,9 @@ VIEWS: dict[str, _View] = {
             "scope": "member scope (public/private/protected/community), or NULL",
             "is_accessor": "1 if the class lists this VI in a property folder",
             "accessor_field": "the property whose folder lists this VI, or NULL",
+            "accessor_path": "that property's path in the class's project tree "
+            "(folders and property, ':'-separated), the name a class Property "
+            "Node row uses, or NULL",
             "private_data": "JSON array of the owning class's private-data fields "
             "(incl. inherited), each rendered 'name: <type_descriptor>', e.g. "
             '\'["testName: String", "result: TestResult.lvclass"]\'',

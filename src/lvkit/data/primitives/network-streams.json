@@ -2,6 +2,7 @@
   "primitives": {
     "23794": {
       "name": "Destroy Stream Endpoint",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

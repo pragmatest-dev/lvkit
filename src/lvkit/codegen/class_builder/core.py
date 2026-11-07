@@ -16,7 +16,12 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import build_type_checking_block, os_imports, to_module_name
+from ..ast_utils import (
+    RESULT_CLASS_IMPORT,
+    build_type_checking_block,
+    implicit_imports,
+    to_module_name,
+)
 from ..class_attributes import Accessor
 from ..class_model import (
     ClassModel,
@@ -41,8 +46,9 @@ from .properties import _PropertyBuilderMixin
 from .shared_state import ModuleParts
 
 _COMMON_IMPORTS: tuple[str, ...] = (
+    RESULT_CLASS_IMPORT,
     "from pathlib import Path",
-    "from typing import Any, NamedTuple, NoReturn",
+    "from typing import Any, NoReturn",
 )
 
 
@@ -96,8 +102,9 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             body=body,
             decorator_list=[],
         )
-        definitions = [*self._result_classes(), *self._parts.statements(), class_def]
-        self._parts.imports.update(os_imports(definitions))
+        results = self._result_classes()
+        definitions = [*results, *self._parts.statements(), class_def]
+        self._parts.imports.update(implicit_imports(definitions))
         module_body = [*self._build_imports(base), *definitions]
         module = ast.Module(body=module_body, type_ignores=[])
         return optimize_module(module)
@@ -165,7 +172,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         )
 
     def _result_classes(self) -> list[ast.stmt]:
-        """The ``NamedTuple`` of each method of the class that returns two or more
+        """The result class of each method of the class that returns two or more
         results, defined once."""
         defined: dict[str, ast.stmt] = {}
         for shape in self._model.shapes.values():
@@ -193,7 +200,11 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         statements.extend(sorted(self._parts.imports))
         for statement in statements:
             imports.extend(ast.parse(statement).body)
-        imports.extend(build_type_checking_block(self._parts.annotation_imports))
+        imports.extend(
+            build_type_checking_block(
+                self._parts.annotation_imports - self._parts.imports
+            )
+        )
         return imports
 
 

@@ -22,9 +22,10 @@ from lvkit.lv_type_codes import type_descriptor_code
 from lvkit.models import TerminalDirection
 from lvkit.vilib_resolver import VIEntry
 
-from ..ast_utils import build_assign, parse_expr
+from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..output_binding import bind_output
 
 _VARIANT_TYPES = ("LVVariant", "Variant")
 
@@ -75,15 +76,8 @@ def _type_descriptor_code(
             "as a LabVIEW type descriptor",
             node,
         )
-    variable = ctx.make_output_var(
-        result.python_param or "type_descriptor_enumeration",
-        node.id,
-        terminal_id=out.id,
-    )
-    return CodeFragment(
-        statements=[build_assign(variable, parse_expr(str(code)))],
-        bindings={out.id: variable},
-    )
+    base_name = result.python_param or "type_descriptor_enumeration"
+    return bind_output(node, out.id, base_name, parse_expr(str(code)), ctx)
 
 
 _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] = {

@@ -570,7 +570,8 @@
           "index": 2,
           "direction": "input",
           "name": "selector",
-          "type": "Boolean"
+          "type": "Boolean",
+          "error_cluster_status": true
         },
         {
           "index": 3,

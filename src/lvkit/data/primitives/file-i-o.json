@@ -2,6 +2,7 @@
   "primitives": {
     "1405": {
       "name": "Close File",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,
@@ -191,6 +192,20 @@
     },
     "8050": {
       "name": "Open/Create/Replace File",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 6,
@@ -259,6 +274,12 @@
     },
     "8051": {
       "name": "Read from Binary File",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 5,
@@ -332,6 +353,13 @@
     },
     "8052": {
       "name": "Close File",
+      "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 4,
@@ -359,15 +387,30 @@
         }
       ],
       "python_code": {
+        "_body": "in_7.close()",
         "path": "getattr(in_7, 'name', None)",
         "error_out": "in_4"
       },
-      "note": "runtime: in_7.close(); path output is the closed file's path",
+      "note": "closes the file; the path output is the closed file's path",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "verified": false
     },
     "8070": {
       "name": "Read from Text File",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-text-file.html",
       "terminals": [
         {
@@ -431,6 +474,12 @@
     },
     "8078": {
       "name": "Write to Binary File",
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
           "index": 5,

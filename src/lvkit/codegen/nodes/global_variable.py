@@ -48,9 +48,11 @@ def generate(node: GlobalVariableNode, ctx: CodeGenContext) -> CodeFragment:
     assert isinstance(global_vi, VINode)
     attr = parameter_names(global_vi.terminals).get(control.id)
     if attr is None:
-        # An error cluster has no Python value: errors are exceptions, so the
-        # node's wire carries nothing (as for a property node's error terminals).
-        return CodeFragment.empty()
+        raise CodeGenError(
+            f"Global variable '{node.control_name}' names no control of its "
+            "Global VI",
+            node,
+        )
     module = _module_import(node, global_vi_key, ctx)
     target = ast.Attribute(
         value=ast.Name(id=module.alias, ctx=ast.Load()),

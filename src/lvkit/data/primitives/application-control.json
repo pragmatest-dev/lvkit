@@ -274,6 +274,7 @@
     },
     "8011": {
       "name": "Close Reference",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "terminals": [
         {

@@ -56,6 +56,7 @@
     },
     "9102": {
       "name": "Release Notifier",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
       "terminals": [
         {

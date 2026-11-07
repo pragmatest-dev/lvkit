@@ -976,6 +976,7 @@ def _build_class_fact(
         scope=access.scope if access else None,
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,
+        accessor_path=access.accessor_path if access else None,
         private_data=private_data,
         is_static=bool(access and access.is_static),
         must_override=bool(access and access.must_override),

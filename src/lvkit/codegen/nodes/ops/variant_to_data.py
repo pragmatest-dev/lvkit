@@ -10,18 +10,20 @@ generated code checks the value against the Python type of ``data``
   floating-point number to an integer; a floating-point type takes ``float``,
   a complex type ``complex``);
 * any other value must already be of the data type's Python class;
-* otherwise the node raises ``LabVIEWError`` code 91, NI's general error "The
-  data type of the variant is not compatible with the data type wired to the
-  type input"
-  (https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/general-labview-error-codes.html).
+* otherwise the node fails with a ``TypeError`` of NI's message for general
+  error 91, "The data type of the variant is not compatible with the data type
+  wired to the type input."
+  (https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/general-labview-error-codes.html);
+  the catalog lists ``TypeError`` as code 91, so it is the node's error out
+  (``native_failure``) and ``data`` its type's default.
 
 A data type whose Python type is ``Any`` (a variant, a refnum, a type that did
 not resolve) takes the value as it is. Which terminal is which is the catalog
 entry's, by position, in the node's own numbering (LabVIEW versions number this
 node two ways, ``primitive_resolver.terminal_sets``): the second input is
 ``variant``, the second output ``data``; a call without the ``variant`` input is
-a ``TerminalNotOnCall`` gap. Errors are exceptions, so ``error in`` and ``error
-out`` generate nothing.
+a ``TerminalNotOnCall`` gap. The node runs only when no error came in on its
+``error in`` (``error_flow``).
 """
 
 from __future__ import annotations
@@ -42,13 +44,11 @@ from lvkit.primitive_resolver.models import PrimitiveTerminal
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
 from ...errors import TerminalNotOnCall
-from ...errors_module import LABVIEW_ERROR_NAME
 from ...fragment import CodeFragment
 from ...import_resolver import ImportResolver
 from ...type_fields import annotation_imports
 from . import register_op_fragment
 
-INCOMPATIBLE_VARIANT_CODE = 91
 INCOMPATIBLE_VARIANT_MESSAGE = (
     "The data type of the variant is not compatible with the data type wired to "
     "the type input."
@@ -135,19 +135,12 @@ def _isinstance_target(annotation: ast.expr) -> ast.expr | None:
 
 
 def _raise_incompatible() -> ast.Raise:
+    """``raise TypeError(<NI's message for code 91>)``."""
     return ast.Raise(
         exc=ast.Call(
-            func=ast.Name(id=LABVIEW_ERROR_NAME, ctx=ast.Load()),
-            args=[],
-            keywords=[
-                ast.keyword(
-                    arg="code", value=ast.Constant(INCOMPATIBLE_VARIANT_CODE)
-                ),
-                ast.keyword(arg="source", value=ast.Constant(_SOURCE)),
-                ast.keyword(
-                    arg="message", value=ast.Constant(INCOMPATIBLE_VARIANT_MESSAGE)
-                ),
-            ],
+            func=ast.Name(id="TypeError", ctx=ast.Load()),
+            args=[ast.Constant(INCOMPATIBLE_VARIANT_MESSAGE)],
+            keywords=[],
         ),
         cause=None,
     )
@@ -228,7 +221,6 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         )
         result = parse_expr(value)
 
-    ctx.import_labview_error()
     variable = ctx.make_output_var("data", node.id, terminal_id=data.id)
     statements: list[ast.stmt] = [
         *prelude,

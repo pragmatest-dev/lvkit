@@ -22,7 +22,7 @@ from lvkit.models import LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
 from lvkit.terminal_default import DefaultBehavior
 
-from ...ast_utils import default_value_expr
+from ...ast_utils import type_default_expr
 from ...native_array import guarded_index
 from . import register_op, register_op_behaviors
 
@@ -44,7 +44,7 @@ def delete_from_array(
     if dt is not None and dt.kind == LVTypeKind.ARRAY:
         deleted_expr = "array[index:index + length]"
     else:
-        default = ast.unparse(default_value_expr(dt))
+        default = ast.unparse(type_default_expr(dt))
         deleted_expr = guarded_index("array", "index", default)
     return {
         # Dict order mirrors output-index order (0 then 3) — the ordinal the

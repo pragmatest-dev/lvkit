@@ -17,6 +17,7 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
+from .error_ring import ErrorRing
 from .extfunc import (
     ExtFuncRow,
     extfunc_call,
@@ -915,6 +916,22 @@ class XNodeNode(ParsedNode):
     # visibly misaligns every row against its own real wire. (0.0, 0.0) for
     # a terminal whose termBounds couldn't be read.
     terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
+    # Each terminal's own termBounds box (x1, y1, x2, y2) as fractions of the
+    # node's ``<bounds>`` width and height, in termList order
+    # (``_xnode_terminal_boxes``): an Error Ring's body is left of and above
+    # its error out terminal's edges, its format inputs below it.
+    terminal_boxes: list[tuple[float, float, float, float]] = field(
+        default_factory=list
+    )
+    # The node's ``<StateData>`` hex, which its library reads.
+    state_data: str | None = None
+    # The recorded path of the XNode's library file
+    # (``<vilib>/ErrorRing/Error Ring.xnode``), from its ``XNXI`` link record
+    # (``parser/xnode_links.py``); "" when no record names the node.
+    library_path: str = ""
+    # An Error Ring's configuration (``parser/error_ring.py``); ``None`` for
+    # another XNode and for an Error Ring whose ``<StateData>`` does not decode.
+    error_ring: ErrorRing | None = None
 
 
 def property_rows(elem: ET.Element) -> list[ET.Element]:
@@ -1256,6 +1273,33 @@ def _xnode_class_method_name(class_name: str, state_data_hex: str | None) -> str
     return candidate if candidate in strings else ""
 
 
+def _xnode_terminal_boxes(
+    elem: ET.Element,
+) -> list[tuple[float, float, float, float]]:
+    """Each terminal's own termBounds box ``(x1, y1, x2, y2)`` as fractions of
+    the node's ``<bounds>`` width and height, in ``termList`` order. A
+    terminal's ``termBounds`` is relative to the node's own origin (a
+    heap-format fact; an Error Ring with one format input is 252 x 30, its error
+    out ``(0, 243, 22, 252)`` and its input ``(22, 0, 29, 9)``). ``(0, 0, 0, 0)``
+    for a terminal whose termBounds can't be read."""
+    bounds = _rect(elem, "bounds")
+    term_list = elem.find("termList")
+    if bounds is None or term_list is None:
+        return []
+    width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+    if width <= 0 or height <= 0:
+        return []
+    boxes: list[tuple[float, float, float, float]] = []
+    for term in term_list.findall("SL__arrayElement"):
+        tb = _rect(term, ".//termBounds")
+        boxes.append(
+            (0.0, 0.0, 0.0, 0.0)
+            if tb is None
+            else (tb[0] / width, tb[1] / height, tb[2] / width, tb[3] / height)
+        )
+    return boxes
+
+
 def _xnode_terminal_y_fracs(elem: ET.Element) -> list[tuple[float, float]]:
     """Each real terminal's own ``(y1, y2)`` vertical span, as a fraction of
     the node's own VISUAL height, in ``termList`` order -- the same order
@@ -1306,6 +1350,11 @@ class XNodeHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> XNodeNode:
         common = self._extract_common(elem)
         class_name = decode_hex_ascii(elem.findtext("displayName")) or ""
+        # The name the views show is the one LabVIEW shows, the recorded
+        # displayName ("Error Ring", "Invoke Method"); the node is identified
+        # by its library's path (``parser/xnode_links.py``), never by it.
+        if class_name and not common["label"]:
+            common["name"] = class_name
         state_data = elem.findtext("StateData")
         if class_name == "Invoke Method":
             method_name = _xnode_state_method_name(state_data)
@@ -1333,6 +1382,8 @@ class XNodeHandler(NodeTypeHandler):
             state_row_names=row_names,
             resource_name=resource_name,
             terminal_y_fracs=_xnode_terminal_y_fracs(elem),
+            terminal_boxes=_xnode_terminal_boxes(elem),
+            state_data=state_data,
         )
 
 

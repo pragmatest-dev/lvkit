@@ -127,6 +127,7 @@
     },
     "1713": {
       "name": "TCP Close Connection",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

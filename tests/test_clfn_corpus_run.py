@@ -125,7 +125,7 @@ def test_file_info_update_sets_the_permissions_and_modification_date(
     info.permissions = 0o640
     info.modification_date = 3_900_000_000
 
-    result = module.file_info__ogtk(file=target, file_info=info, update_f=True)
+    result = module.file_info__ogtk(file=target, file_info=info, update=True)
 
     assert result.file_out == target
     assert stat.S_IMODE(target.stat().st_mode) == 0o640
@@ -172,7 +172,7 @@ def test_large_file_vis_write_then_read_a_file(
 
     handle = opener.lf_open_file__ogtk(file_path=target, open_mode_0=_READ).refnum_out
     read = reader.lf_read_file_str__ogtk(
-        refnum=handle, pos_mode_current=0, offset_in_0=6.0, bytes_to_read=5
+        refnum=handle, pos_mode=0, offset_in=6.0, bytes_to_read=5
     )
     assert read.string == "world"
     assert read.offset_out == 11.0
@@ -217,7 +217,7 @@ def test_large_file_vis_read_and_write_numbers(
         if "count" in inspect.signature(read_vi).parameters
         else "elements_to_read"
     )
-    read = read_vi(refnum=handle, pos_mode_current=0, **{count_name: len(values)})
+    read = read_vi(refnum=handle, pos_mode=0, **{count_name: len(values)})
     assert read.data == pytest.approx(values)
     assert read.offset_out == len(expected)
 
@@ -236,9 +236,7 @@ def test_file_pointer_size_and_end_of_file_vis(
     handle = retrieve.lfu_retrieve_file_handle__ogtk(file_refnum=refnum).handle_out
 
     assert size.lfu_get_file_size__ogtk(handle=handle).file_size == 11.0
-    moved = pointer.lfu_set_file_pointer__ogtk(
-        handle=handle, pos_mode_current=0, offset_in_0=5.0
-    )
+    moved = pointer.lfu_set_file_pointer__ogtk(handle=handle, pos_mode=0, offset_in=5.0)
     assert moved.offset_out == 5.0
     end.lfu_set_end_of_file__ogtk(handle=handle)
     assert target.read_bytes() == b"hello"
@@ -250,18 +248,21 @@ def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
     handler.lfu_error_handler__ogtk(retval=1)  # a succeeded call: nothing to report
     kernel32.last_error = 5
     # a failed call reports error 6
-    with pytest.raises(_generated_error(handler)) as raised:
-        handler.lfu_error_handler__ogtk(retval=0, prepend_string="test")
-    assert raised.value.code == 6
-    assert "WinError: test; " in raised.value.source
+    error = handler.lfu_error_handler__ogtk(retval=0, prepend_string="test").error_out
+    assert isinstance(error, _generated_error(handler))
+    assert (error.status, error.code) == (True, 6)
+    assert "WinError: test; " in error.source
 
 
 def test_a_missing_file_fails_to_open(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
     opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
-    with pytest.raises(_generated_error(opener)):
-        opener.lf_open_file__ogtk(file_path=tmp_path / "nope.bin", open_mode_0=_READ)
+    result = opener.lf_open_file__ogtk(
+        file_path=tmp_path / "nope.bin", open_mode_0=_READ
+    )
+    assert isinstance(result.error_out, _generated_error(opener))
+    assert result.error_out.status is True
     assert kernel32.last_error == 2  # ERROR_FILE_NOT_FOUND
 
 
@@ -344,7 +345,7 @@ def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
     """CreateFileA answers INVALID_HANDLE_VALUE, so GetFileSizeEx fails and the
     VI builds error 5054 through Error Cluster From Error Code. The Clear Errors
     after the read only clears the wire to the handle close: the close still runs,
-    and the error still reaches the caller."""
+    and the error is the VI's error out."""
     module = generated_vi(_vi(_KEY_FILE_VI))
     closed: list[int] = []
     close_handle = kernel32.CloseHandle
@@ -354,10 +355,13 @@ def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
         return close_handle(handle)
 
     monkeypatch.setattr(kernel32, "CloseHandle", record)
-    with pytest.raises(_generated_error(module)) as raised:
-        module.read_discovery_service_key_file(key_file_path=tmp_path / "nope.json")
-    assert raised.value.code == 5054
-    assert raised.value.message == "Failed to get the discovery service key file size."
+    result = module.read_discovery_service_key_file(
+        key_file_path=tmp_path / "nope.json"
+    )
+    error = result.error_out
+    assert isinstance(error, _generated_error(module))
+    assert (error.status, error.code) == (True, 5054)
+    assert error.message == "Failed to get the discovery service key file size."
     assert len(closed) == 1
 
 
@@ -367,10 +371,11 @@ def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
     """CreateFileA answering 0 is the case the VI reports as error 5053."""
     module = generated_vi(_vi(_KEY_FILE_VI))
     monkeypatch.setattr(kernel32, "CreateFileA", lambda *args: 0)
-    with pytest.raises(_generated_error(module)) as raised:
-        module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")
-    assert raised.value.code == 5053
-    assert raised.value.message == (
+    result = module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")
+    error = result.error_out
+    assert isinstance(error, _generated_error(module))
+    assert (error.status, error.code) == (True, 5053)
+    assert error.message == (
         "Failed to read the discovery service key file.\n"
         "Ensure that the discovery service is running."
     )

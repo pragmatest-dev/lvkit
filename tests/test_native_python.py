@@ -7,11 +7,20 @@ The generated module imports nothing from ``lvkit``.
 from __future__ import annotations
 
 import math
+import struct
 
 import pytest
 
 from lvkit.models import ClusterField, LVType, LVTypeKind
-from tests.native_vi import Generated, array, generate, node, scalar
+from tests.helpers import error_cluster_type
+from tests.native_vi import (
+    Generated,
+    array,
+    generate,
+    node,
+    result_values,
+    scalar,
+)
 
 DBL = scalar("NumFloat64")
 I32 = scalar("NumInt32")
@@ -29,7 +38,7 @@ def body(generated: Generated) -> str:
 
 
 def run(generated: Generated, *arguments):
-    return generated.function(*arguments)[0]
+    return result_values(generated.function(*arguments))[0]
 
 
 def no_lvkit(generated: Generated) -> None:
@@ -93,9 +102,8 @@ def test_array_minus_array_is_a_zip_comprehension():
     generated = binary(
         1051, array("NumFloat64"), array("NumFloat64"), array("NumFloat64")
     )
-    assert "return NativeTestResult(r=[_e0 - _e1 for _e0, _e1 in zip(x, y)])" in body(
-        generated
-    )
+    # The element-wise form calls zip, so it is kept in a variable.
+    assert "difference = [_e0 - _e1 for _e0, _e1 in zip(x, y)]" in body(generated)
     assert run(generated, [5.0, 7.0], [1.0, 2.0]) == [4.0, 5.0]
     no_lvkit(generated)
 
@@ -294,7 +302,7 @@ def array_subset(rank: int, with_length: bool):
 
 def test_array_subset_is_a_slice():
     generated = array_subset(1, True)
-    assert "subarray = values[i:i + n]" in body(generated)
+    assert "return NativeTestResult(r=values[i:i + n])" in body(generated)
     assert run(generated, [1.0, 2.0, 3.0, 4.0], 1, 2) == [2.0, 3.0]
     assert run(generated, [1.0, 2.0, 3.0], 2, 10) == [3.0]
     no_lvkit(generated)
@@ -302,7 +310,7 @@ def test_array_subset_is_a_slice():
 
 def test_array_subset_without_length_runs_to_the_end():
     generated = array_subset(1, False)
-    assert "subarray = values[i:]" in body(generated)
+    assert "return NativeTestResult(r=values[i:])" in body(generated)
     assert run(generated, [1.0, 2.0, 3.0, 4.0], 1) == [2.0, 3.0, 4.0]
 
 
@@ -520,25 +528,89 @@ def test_extended_precision_complex_is_two_floats():
 def test_unflatten_number_and_rest():
     generated = unflatten(U32)
     assert "struct.unpack_from('>I', flattened)[0]" in body(generated)
-    assert tuple(generated.function("\x00\x00\x00\x07xyz")) == (7, "xyz")
+    assert result_values(generated.function("\x00\x00\x00\x07xyz")) == (7, "xyz")
     no_lvkit(generated)
 
 
 def test_unflatten_string_reads_its_length_prefix():
     generated = unflatten(STR)
-    assert tuple(generated.function("\x00\x00\x00\x02hiXX")) == ("hi", "XX")
+    assert result_values(generated.function("\x00\x00\x00\x02hiXX")) == ("hi", "XX")
+
+
+def unflatten_with_error_out(target: LVType):
+    """Unflatten From String whose error out is the VI's ``error_out``."""
+    return generate(
+        {"s": STR},
+        {"v": target, "error_out": error_cluster_type()},
+        [
+            node(
+                "uf",
+                1165,
+                [
+                    (0, "output", error_cluster_type()),
+                    (2, "output", target),
+                    (7, "input", target),
+                    (8, "input", error_cluster_type()),
+                    (11, "input", STR),
+                ],
+            )
+        ],
+        [("fp:s", "uf:11"), ("uf:2", "fp:v"), ("uf:0", "fp:error_out")],
+    )
+
+
+TRUNCATED = (
+    "Unflatten or byte stream read operation failed due to corrupt, unexpected, "
+    "or truncated data."
+)
+
+
+@pytest.mark.parametrize(
+    ("target", "data", "default"),
+    [
+        (U32, "\x00\x07", 0),  # four bytes needed, two given
+        (STR, "\x00\x00\x00\x09hi", ""),  # nine characters promised, two given
+        (array("NumInt16"), "\x00\x00\x00\x03\x00\x01", []),  # three, one given
+    ],
+)
+def test_unflatten_of_truncated_data_is_error_116(
+    target: LVType, data: str, default: object
+):
+    generated = unflatten_with_error_out(target)
+    assert "except struct_error as exception:" in body(generated)
+    result = generated.function(data)
+    assert result.v == default
+    error = result.error_out
+    assert (error.code, error.status, error.source) == (
+        116,
+        True,
+        "Unflatten From String",
+    )
+    assert error.message
+    no_lvkit(generated)
+
+
+def test_unflatten_of_whole_data_has_no_error():
+    generated = unflatten_with_error_out(STR)
+    result = generated.function("\x00\x00\x00\x02hi")
+    assert (result.v, result.error_out) == ("hi", None)
+
+
+def test_unflatten_of_truncated_data_with_its_error_out_unwired_raises():
+    with pytest.raises(struct.error):
+        unflatten(STR).function("\x00\x00\x00\x09hi")
 
 
 def test_unflatten_one_dimensional_array():
     generated = unflatten(array("NumFloat64"))
     data = "\x00\x00\x00\x01" + "\x3f\xf0" + "\x00" * 6
-    assert tuple(generated.function(data)) == ([1.0], "")
+    assert result_values(generated.function(data)) == ([1.0], "")
 
 
 def test_unflatten_two_dimensional_array_reshapes_by_its_sizes():
     generated = unflatten(array("NumInt16", 2))
     data = "\x00\x00\x00\x02\x00\x00\x00\x02\x00\x01\x00\x02\x00\x03\x00\x04"
-    assert tuple(generated.function(data)) == ([[1, 2], [3, 4]], "")
+    assert result_values(generated.function(data)) == ([[1, 2], [3, 4]], "")
     no_lvkit(generated)
 
 
@@ -555,7 +627,7 @@ def test_unflatten_cluster_reads_its_numbers_in_one_call():
     generated = unflatten(record)
     assert "struct.unpack_from('>iHd', data, pos)" in generated.source
     data = "\x00\x00\x00\x05\x00\x07" + "\x3f\xf0" + "\x00" * 6 + "\x00\x00\x00\x01Z"
-    assert tuple(generated.function(data)) == ((5, 7, 1.0, "Z"), "")
+    assert result_values(generated.function(data)) == ((5, 7, 1.0, "Z"), "")
 
 
 def swap(data: LVType, prim_id: int):
@@ -607,7 +679,7 @@ def test_unflatten_reads_byte_order_and_size_flag_from_constants():
         constants={"c9": (2, u16)},
     )
     assert "struct.unpack_from('<H', flattened)[0]" in body(generated)
-    assert generated.function("\x05\x00")[0] == 5
+    assert result_values(generated.function("\x05\x00"))[0] == 5
 
 
 def test_unflatten_without_size_prefix_takes_the_whole_string():
@@ -630,7 +702,7 @@ def test_unflatten_without_size_prefix_takes_the_whole_string():
         [("fp:s", "uf:11"), ("c10", "uf:10"), ("uf:2", "fp:v"), ("uf:3", "fp:rest")],
         constants={"c10": (False, BOOL)},
     )
-    assert tuple(generated.function("rawtext")) == ("rawtext", "")
+    assert result_values(generated.function("rawtext")) == ("rawtext", "")
 
 
 def test_rotate_matches_the_documented_examples_in_eight_bits():

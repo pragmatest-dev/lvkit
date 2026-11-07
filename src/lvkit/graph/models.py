@@ -30,6 +30,7 @@ from ..models import (
     UnwritableValue,
     VIKind,
 )
+from ..parser.error_ring import ErrorRing
 from ..parser.extfunc_prototype import ExtFuncCall
 from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
@@ -205,6 +206,15 @@ class PrimitiveNode(GraphNode):
     # uniform, so the drawer glyph positions each row at its own real
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
+    # XNode only: each terminal's own termBounds box as fractions of the
+    # node's bounds (parser.node_types.XNodeNode.terminal_boxes).
+    xnode_terminal_boxes: list[tuple[float, float, float, float]] = []
+    # XNode only: the recorded path of its library file, from its XNXI link
+    # record (parser/xnode_links.py); "" when no record names the node.
+    xnode_library_path: str = ""
+    # Error Ring XNode only: its configuration (parser/error_ring.py); None
+    # when its StateData does not decode.
+    error_ring: ErrorRing | None = None
     # Call Library Function Node only: its drawn rows top to bottom, each
     # ``(top, bottom, has_input, has_output, fixed)`` with the span as a fraction
     # of the node's height (parser.extfunc.ExtFuncRow); ``fixed`` marks the path
@@ -869,6 +879,8 @@ class ExecutionProps:
     auto_error_handling: bool = False  # DefaultErrorHandling (<Execution2>)
     allow_debugging: bool = False  # DebugCapable (<Instrument>)
     always_calls_parent: bool = False  # AlwaysCallsParent (<Execution2>)
+    # "Clear indicators when called": ClearIndMask (<Execution2>)
+    clear_indicators_when_called: bool = False
     print_after_exec: bool = False  # PrintAfterExec (<Instrument>)
 
 
@@ -1095,7 +1107,6 @@ class VIContext(BaseModel):
     off_pane_outputs: list[Terminal] = []
     constants: list[Constant] = []
     labels: list[Label] = []
-    has_parallel_branches: bool = False
     terminals: list[TerminalRef] = []
     data_flow: list[Wire] = []
     subvi_calls: list[SubVICall] = []
@@ -1212,32 +1223,6 @@ class StubVIInfo:
 
 
 # ============================================================
-# Error handling types
-# ============================================================
-
-
-@dataclass
-class BranchPoint:
-    """A point where one output feeds multiple inputs (fork)."""
-
-    source_terminal: str
-    source_operation: str | None
-    destinations: list[str]
-    vi_name: str | None = None
-
-
-@dataclass
-class ParallelBranch:
-    """A single branch from a branch point to a merge point."""
-
-    branch_id: int
-    source_terminal: str
-    operation_ids: list[str]
-    merge_terminal: str | None
-    merge_operation: str | None
-
-
-# ============================================================
 # Class hierarchy types (docs: class landing pages + navigation)
 # ============================================================
 
@@ -1292,10 +1277,14 @@ class MethodAccessInfo:
     scope: str
     # ``is_accessor``: the class lists the VI in a property folder (named
     # ``accessor_field``); ``accessor_type`` is "getter" or "setter" from the
-    # VI's own connector pane, None when the pane is neither.
+    # VI's own connector pane, None when the pane is neither. ``accessor_path``
+    # is the property's path in the class's project tree
+    # (``structure.LVMethod.property_path``), the name a class Property Node row
+    # gives it.
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None
+    accessor_path: str | None = None
     is_static: bool = False
     must_override: bool = False
     must_call_parent: bool = False

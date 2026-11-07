@@ -98,7 +98,8 @@ def test_vis_that_import_each_other_import_inside_their_functions(
         package.sources["caller"]
     )
     assert package.sources["plain"].startswith(
-        "from __future__ import annotations\nfrom typing import Any, NamedTuple\n"
+        "from __future__ import annotations\nfrom dataclasses import dataclass\n"
+        "from typing import Any\n"
         "from .opener import opener\n"
     )
     with package.use() as module:
