@@ -316,3 +316,69 @@ def _draw_arrow(
     backend.line(*left, *tip, stroke=edge)
     if not up:
         backend.line(*left, *right, stroke=edge)
+
+
+# A cluster's Modern frame (``partID`` 9, picture id -412) holds the cluster's
+# viewport (``partID`` 28) filled with the frame's own color, inside a 4 px bevel
+# lit from the bottom right, drawn over the panel's own color. Measured on
+# PCO_FrontPanel.PNG of the LabVIEW-DAQ sample (100%), cluster "roi": frame x
+# 238-310, y 500-675 (stored 73 x 176), viewport x 242-306, y 504-671 (65 x 168)
+# filled #B3B3B3 (the frame's stored color). Over the panel's #006698: the top
+# rows (y 500-503) are #0D6778 (a grid line), #004678, #003B6D, #003567 and the
+# left columns (x 238-241) #005789, #005667, #003B6D, #003567 -- the darkening
+# grows toward the fill, 32, 43 and 49 less on green and blue, 0.26, 0.36 and 0.40
+# of the way to black in mean -- and the bottom rows (y 672-675) and right columns
+# (x 307-310) are #086EA0, #0B71A3, #1076A8, #0C72A4, 8, 11, 16 and 12 more, 0.065,
+# 0.09, 0.125 and 0.095 of the way to white in mean. Each strip meets the next in a
+# mitred corner (the top-right pixel of the viewport row is half dark).
+_BEVEL_DARK_ALPHA = (0.14, 0.26, 0.36, 0.40)
+_BEVEL_LIGHT_ALPHA = (0.065, 0.09, 0.125, 0.095)
+
+
+def _band_alpha(alphas: tuple[float, ...], i: int, n: int) -> float:
+    """Band ``i`` of ``n``: the measured alpha, by position along ``alphas``."""
+    return alphas[min(len(alphas) - 1, int(i * len(alphas) / n))]
+
+
+def draw_inset_bevel(backend: Backend, outer: Rect, inner: Rect, fill: str) -> None:
+    """``inner`` filled with ``fill`` inside a bevel between ``outer`` and
+    ``inner``: dark at the top and left, light at the bottom and right, each a
+    stack of one-pixel bands that grows toward the fill and meets its neighbors
+    in a mitred corner, drawn translucent over whatever is behind."""
+    ox1, oy1, ox2, oy2 = outer
+    ix1, iy1, ix2, iy2 = inner
+    top, left, right, bottom = iy1 - oy1, ix1 - ox1, ox2 - ix2, oy2 - iy2
+    backend.rect(ix1, iy1, ix2, iy2, fill=fill)
+
+    def band(points: list[tuple[float, float]], color: str) -> None:
+        backend.polygon(points, fill=color)
+
+    dark, light = "rgba(0,0,0,{})", "rgba(255,255,255,{})"
+    for i in range(max(0, round(top))):
+        a, b = top * i / round(top), top * (i + 1) / round(top)
+        color = dark.format(_band_alpha(_BEVEL_DARK_ALPHA, i, round(top)))
+        la, lb = left * a / top, left * b / top
+        ra, rb = right * a / top, right * b / top
+        band([(ox1 + la, oy1 + a), (ox2 - ra, oy1 + a),
+              (ox2 - rb, oy1 + b), (ox1 + lb, oy1 + b)], color)
+    for i in range(max(0, round(left))):
+        a, b = left * i / round(left), left * (i + 1) / round(left)
+        color = dark.format(_band_alpha(_BEVEL_DARK_ALPHA, i, round(left)))
+        ta, tb = top * a / left, top * b / left
+        ba, bb = bottom * a / left, bottom * b / left
+        band([(ox1 + a, oy1 + ta), (ox1 + b, oy1 + tb),
+              (ox1 + b, oy2 - bb), (ox1 + a, oy2 - ba)], color)
+    for i in range(max(0, round(bottom))):
+        a, b = bottom * i / round(bottom), bottom * (i + 1) / round(bottom)
+        color = light.format(_band_alpha(_BEVEL_LIGHT_ALPHA, i, round(bottom)))
+        la, lb = left * a / bottom, left * b / bottom
+        ra, rb = right * a / bottom, right * b / bottom
+        band([(ox1 + la, oy2 - a), (ox2 - ra, oy2 - a),
+              (ox2 - rb, oy2 - b), (ox1 + lb, oy2 - b)], color)
+    for i in range(max(0, round(right))):
+        a, b = right * i / round(right), right * (i + 1) / round(right)
+        color = light.format(_band_alpha(_BEVEL_LIGHT_ALPHA, i, round(right)))
+        ta, tb = top * a / right, top * b / right
+        ba, bb = bottom * a / right, bottom * b / right
+        band([(ox2 - a, oy1 + ta), (ox2 - b, oy1 + tb),
+              (ox2 - b, oy2 - bb), (ox2 - a, oy2 - ba)], color)

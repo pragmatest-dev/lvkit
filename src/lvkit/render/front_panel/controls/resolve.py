@@ -10,6 +10,8 @@ own field/element glyphs.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ....models import leading_element
 from ....parser.flags import is_indicator
 from ....parser.models import ParsedFPControl, ParsedFPPart
@@ -19,6 +21,7 @@ from ...text_style import TextStyle, part_style
 from .array import ElementRowGlyph, array_control
 from .base import CAPTION_PART_ID, LABEL_PART_ID, find_part, frame_colors
 from .boolean import boolean_control
+from .cluster import modern_cluster
 from .enum_control import selected_text
 from .graph import GraphControlGlyph
 from .label import LABEL_SIZE
@@ -44,11 +47,12 @@ def _field_label_styles(ctrl: ParsedFPControl) -> dict[str, TextStyle]:
 
 
 def _cluster_glyph(
-    ctrl: ParsedFPControl, fields: tuple[tuple[str, Glyph], ...]
-) -> ClusterConstantGlyph:
-    """A cluster drawn in its own frame colors when the heap records them."""
+    ctrl: ParsedFPControl, fields: tuple[tuple[str, Glyph], ...], theme: Theme
+) -> Glyph:
+    """A cluster drawn in its own frame colors when the heap records them; a
+    Modern frame is the bevel around the viewport (``cluster.py``)."""
     fill, outline = frame_colors(ctrl)
-    return ClusterConstantGlyph(
+    inner = ClusterConstantGlyph(
         field_label_styles=_field_label_styles(ctrl),
         fields=fields,
         cluster_geom=ctrl.cluster_geom,
@@ -57,6 +61,10 @@ def _cluster_glyph(
         border_color=outline,
         field_label_size=LABEL_SIZE,
     )
+    framed = modern_cluster(
+        ctrl, replace(inner, fill_color="none", border_color="none"), theme.fp_panel
+    )
+    return framed or inner
 
 
 def _shown_fields(
@@ -73,7 +81,7 @@ def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     if ctrl.control_type != "stdClust":
         return None
     fields = _shown_fields(ctrl, theme)
-    return _cluster_glyph(ctrl, fields)
+    return _cluster_glyph(ctrl, fields, theme)
 
 
 def _element(
@@ -92,7 +100,7 @@ def _element(
     flags, greyed when ``disabled``. ``None`` when neither is available."""
     if ctrl.children:
         row = with_value(ctrl, value) if isinstance(value, dict) else ctrl
-        return _cluster_glyph(ctrl, _shown_fields(row, theme))
+        return _cluster_glyph(ctrl, _shown_fields(row, theme), theme)
     element_part: ParsedFPPart | None = next(
         (p for p in ctrl.parts if p.part_id is None), None
     )

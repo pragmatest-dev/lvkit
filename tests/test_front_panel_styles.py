@@ -561,3 +561,37 @@ def test_a_boolean_whose_picture_is_missing_keeps_its_own_drawing() -> None:
     ctrl = _picture_boolean(on=False)
     ctrl.pictures = {}
     assert "<image" not in _svg(ctrl)
+
+
+# ---- Modern cluster frame -----------------------------------------------------
+
+
+def _modern_cluster(frame_fg: str | None = "#B3B3B3") -> ParsedFPControl:
+    return _control(
+        "stdClust",
+        [
+            _part(28, "cosm", (4, 4, 40, 70), (0,), bg_color="#A6A6A6"),
+            _part(9, "cosm", (0, 0, 44, 74), (-412,), fg_color=frame_fg),
+        ],
+        bounds=(0, 0, 44, 74),
+    )
+
+
+def test_modern_cluster_frame_is_the_viewport_filled_inside_a_bevel() -> None:
+    svg = _svg(_modern_cluster())
+    # the viewport (x 4-70, y 4-40) is filled with the frame's own color, no outline
+    assert '<rect x="4.0" y="4.0" width="66.0" height="36.0" fill="#B3B3B3"/>' in svg
+    assert 'stroke="#B3B3B3"' not in svg
+    # four mitred bands per side: dark at the top and left, light at the bottom
+    # and right, each growing toward the fill
+    assert svg.count("fill=\"rgba(0,0,0,") == 8
+    assert svg.count("fill=\"rgba(255,255,255,") == 8
+    assert 'points="0.0,0.0 74.0,0.0 73.0,1.0 1.0,1.0" fill="rgba(0,0,0,0.14)"' in svg
+
+
+def test_a_cluster_without_a_modern_frame_keeps_its_outlined_box() -> None:
+    ctrl = _modern_cluster()
+    ctrl.parts[-1] = _part(9, "cosm", (0, 0, 44, 74), (-301,), fg_color="#B3B3B3")
+    svg = _svg(ctrl)
+    assert 'stroke="#B3B3B3" stroke-width="1.5"' in svg
+    assert "fill=\"rgba(" not in svg
