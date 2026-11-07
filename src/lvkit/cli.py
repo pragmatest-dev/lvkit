@@ -856,6 +856,7 @@ def main() -> int:
 
 def cmd_structure(args: argparse.Namespace) -> int:
     """Handle the structure command."""
+    from .cache_paths import LibraryRoots
     from .structure import (
         discover_project_structure,
         discover_structure_from_lvproj,
@@ -874,7 +875,8 @@ def cmd_structure(args: argparse.Namespace) -> int:
     try:
         if input_path.suffix == ".lvclass":
             # Single class
-            cls = parse_lvclass(input_path)
+            # The command takes no library folders: this run has none.
+            cls = parse_lvclass(input_path, LibraryRoots())
             if args.json:
                 data = {
                     "name": cls.name,
@@ -931,9 +933,11 @@ def cmd_structure(args: argparse.Namespace) -> int:
             # A .lvproj uses the project's explicit member list; a directory is
             # scanned. Both produce the same structure dict, rendered the same.
             if input_path.suffix == ".lvproj":
-                structure = discover_structure_from_lvproj(input_path)
+                structure = discover_structure_from_lvproj(
+                    input_path, LibraryRoots()
+                )
             else:
-                structure = discover_project_structure(input_path)
+                structure = discover_project_structure(input_path, LibraryRoots())
 
             if args.plan:
                 plan = generate_python_structure_plan(structure)
@@ -1655,13 +1659,16 @@ def _build_render_body(
         fmt=args.format,
         options=options,
         version=__version__,
+        roots=build.library_roots(),
         return_cached=False,
         run_settings=run.settings,
         **kw,
     )
 
 
-def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
+def _emit_render(
+    args: argparse.Namespace, input_path: Path, body: str, build: BuildOptions
+) -> int:
     """Deliver a render body: to ``-o`` if given; otherwise the render lives in
     the cache slot (always written by the caller) and we report its path — every
     render warms the cache, ``-o`` is the switch that also writes a file."""
@@ -1674,7 +1681,7 @@ def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
     from .output_cache import render_slot
 
     stem = input_path.stem.replace("_BDHb", "")
-    slot = render_slot(input_path, args.format)
+    slot = render_slot(input_path, args.format, build.library_roots())
     print(f"Rendered {stem} → cached ({slot}). Pass -o FILE to write a file.")
     return 0
 
@@ -1713,10 +1720,11 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not args.no_cache:
         from .output_cache import lookup_render, render_problems
 
-        cached = lookup_render(input_path, args.format, options, __version__)
+        roots = build.library_roots()
+        cached = lookup_render(input_path, args.format, options, __version__, roots)
         if cached is not None:
-            run.take(render_problems(input_path, args.format), announce=True)
-            code = _emit_render(args, input_path, cached)
+            run.take(render_problems(input_path, args.format, roots), announce=True)
+            code = _emit_render(args, input_path, cached, build)
             return code or finish(run)
 
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
@@ -1732,7 +1740,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     if built is None:
         return stop_on(run, input_path, ProblemStage.RENDER, declined(input_path))
     run.take(built.problems, announce=False)
-    return _emit_render(args, input_path, built.body) or finish(run)
+    return _emit_render(args, input_path, built.body, build) or finish(run)
 
 
 # The file kinds ``lvkit render`` draws: a VI's block diagram, a control's front panel.
@@ -1767,9 +1775,14 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
         # no per-VI ref in batch
         options = _render_options_tag(args, theme_mode, None, build)
         if not args.no_cache:
-            body = lookup_render(vi, args.format, options, __version__)
+            body = lookup_render(
+                vi, args.format, options, __version__, build.library_roots()
+            )
             if body is not None:
-                run.take(render_problems(vi, args.format), announce=True)
+                run.take(
+                    render_problems(vi, args.format, build.library_roots()),
+                    announce=True,
+                )
         if body is not None:
             fresh += 1
         else:
@@ -1910,9 +1923,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
     if not args.no_cache:
         from .output_cache import diff_problems, lookup_diff
 
-        cached = lookup_diff(path_a, path_b, fmt, options, __version__)
+        roots = build.library_roots()
+        cached = lookup_diff(path_a, path_b, fmt, options, __version__, roots)
         if cached is not None:
-            run.take(diff_problems(path_a, path_b, fmt), announce=True)
+            run.take(diff_problems(path_a, path_b, fmt, roots), announce=True)
             return _emit_diff(args, path_a, path_b, fmt, cached) or finish(run)
 
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
@@ -1927,6 +1941,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             fmt=fmt,
             options=options,
             version=__version__,
+            roots=build.library_roots(),
             return_cached=False,
             run_settings=run.settings,
             **_diff_build_kw(args, build, verbose),

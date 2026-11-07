@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.index import sql as isql
 from lvkit.index.build import BuildResult
 from lvkit.index.project import resolve_project
@@ -228,7 +229,7 @@ class TestQ2VilibVsInRepoParent:
             / "TextTestRunner.Ant"
             / "TextTestRunner.JUnitXML.lvclass"
         )
-        lv = parse_lvclass(path)
+        lv = parse_lvclass(path, LibraryRoots())
         assert lv.is_vilib_parent is True
         assert lv.parent_class == "TextTestRunner"
 
@@ -240,13 +241,13 @@ class TestQ2VilibVsInRepoParent:
             / "TextTestRunner"
             / "TextTestRunner.lvclass"
         )
-        lv = parse_lvclass(path)
+        lv = parse_lvclass(path, LibraryRoots())
         assert lv.is_vilib_parent is False
         assert lv.parent_class == "TestRunner"
 
     def test_testcase_is_root_no_parent(self):
         path = JKI_ROOT / "source" / "Classes" / "TestCase" / "TestCase.lvclass"
-        lv = parse_lvclass(path)
+        lv = parse_lvclass(path, LibraryRoots())
         assert lv.is_vilib_parent is False
         assert lv.parent_class is None
 

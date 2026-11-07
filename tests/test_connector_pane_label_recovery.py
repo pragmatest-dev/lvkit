@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.parser.front_panel import parse_connector_pane_labels
 
@@ -72,7 +73,7 @@ def test_recovers_real_label_from_type_table_alone(vi_filename: str) -> None:
     if not vi_path.exists():
         pytest.skip(f"{vi_filename} not present in sample corpus")
 
-    _, _, main_xml = extract_vi_xml(vi_path)
+    _, _, main_xml = extract_vi_xml(vi_path, roots=LibraryRoots())
     labels = parse_connector_pane_labels(main_xml)
 
     out_idx, out_label, in_idx, in_label = _CLEAN_ERROR_SLOTS[vi_filename]
@@ -96,7 +97,7 @@ def test_built_copy_type_table_is_also_stripped(vi_filename: str) -> None:
     if not vi_path.exists():
         pytest.skip(f"{vi_filename} not present in sample corpus")
 
-    _, _, main_xml = extract_vi_xml(vi_path)
+    _, _, main_xml = extract_vi_xml(vi_path, roots=LibraryRoots())
     labels = parse_connector_pane_labels(main_xml)
 
     out_idx, _out_label, in_idx, _in_label = _CLEAN_ERROR_SLOTS[vi_filename]
@@ -124,7 +125,7 @@ def test_resolves_own_connector_pane_not_an_unrelated_same_shaped_function() -> 
     if not vi_path.exists():
         pytest.skip("VITester_Global_Init.vi not present in sample corpus")
 
-    _, _, main_xml = extract_vi_xml(vi_path)
+    _, _, main_xml = extract_vi_xml(vi_path, roots=LibraryRoots())
     labels = parse_connector_pane_labels(main_xml)
 
     # The only real wired slot on this VI's actual connector pane is index

@@ -33,6 +33,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.parser.layout import _LayoutBuilder
 from lvkit.parser.wire_table import DIR, _decode_chain, _decode_lengths, _flip
@@ -191,7 +192,7 @@ def measure(faithful_px: float = 20.0) -> None:
         if not matches:
             print(f"  MISS {name}")
             continue
-        bd, _, _ = extract_vi_xml(matches[0])
+        bd, _, _ = extract_vi_xml(matches[0], roots=LibraryRoots())
         root = ET.parse(bd).getroot()
         rr = root.find("root")
         if rr is not None:

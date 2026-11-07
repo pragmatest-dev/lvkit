@@ -48,6 +48,7 @@ from typing import NamedTuple
 
 from lvkit import cache_paths, staging
 from lvkit.build_options import BuildOptions
+from lvkit.cache_paths import LibraryRoots
 from lvkit.run_report import Problem, ProblemStage, RunSettings, problem_from_json
 from lvkit.text_encoding import labview_text_encoding
 
@@ -97,7 +98,9 @@ def _ext_for(fmt: str) -> str:
 # ── path resolution ─────────────────────────────────────────────────────────
 
 
-def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, str, bool]:
+def _render_paths(
+    input_path: Path, fmt: str, roots: LibraryRoots
+) -> tuple[Path, Path, str, bool]:
     """``(body_path, meta_path, source_label, is_adhoc)`` for a render of
     ``input_path``.
 
@@ -107,7 +110,7 @@ def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, str, bool]:
     meta so the fixed ``vi.<ext>`` body name doesn't lose which VI it is.
     """
     ext = _ext_for(fmt)
-    d, source_label, ns = cache_paths.classify(input_path, "render")
+    d, source_label, ns = cache_paths.classify(input_path, "render", roots)
     if ns == "adhoc":
         # Flat content-addressed pool, but still per-build: the <fp> keeps two
         # lvkit builds from colliding on the same <sha>.<ext> (classify's dir is
@@ -133,7 +136,7 @@ def _diff_ext(fmt: str) -> str:
 
 
 def _diff_paths(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[Path, Path, str, str, bool]:
     """``(body_path, meta_path, before_sha, source_label, is_adhoc)`` for a diff.
 
@@ -147,7 +150,7 @@ def _diff_paths(
     """
     ext = _diff_ext(fmt)
     before_sha = cache_paths.sha256_file(before_path)
-    d, source_label, ns = cache_paths.classify(after_path, "diff")
+    d, source_label, ns = cache_paths.classify(after_path, "diff", roots)
     if ns == "adhoc":
         after_sha = cache_paths.sha256_file(after_path)
         d = (
@@ -228,31 +231,37 @@ def _read_problems(meta_path: Path) -> tuple[Problem, ...]:
         return ()
 
 
-def render_problems(input_path: Path, fmt: str) -> tuple[Problem, ...]:
+def render_problems(
+    input_path: Path, fmt: str, roots: LibraryRoots
+) -> tuple[Problem, ...]:
     """The problems stored with the cached render of ``input_path``/``fmt``."""
-    return _read_problems(_render_paths(input_path, fmt)[1])
+    return _read_problems(_render_paths(input_path, fmt, roots)[1])
 
 
 def diff_problems(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[Problem, ...]:
     """The problems stored with the cached diff of ``(before, after)``/``fmt``."""
-    return _read_problems(_diff_paths(before_path, after_path, fmt)[1])
+    return _read_problems(_diff_paths(before_path, after_path, fmt, roots)[1])
 
 
-def render_slot(input_path: Path, fmt: str) -> Path:
+def render_slot(input_path: Path, fmt: str, roots: LibraryRoots) -> Path:
     """The cache slot path a render of ``input_path`` occupies (for reporting)."""
-    return _render_paths(input_path, fmt)[0]
+    return _render_paths(input_path, fmt, roots)[0]
 
 
-def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
+def diff_slot(
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
+) -> Path:
     """The cache slot path a diff of ``(before, after)`` occupies."""
-    return _diff_paths(before_path, after_path, fmt)[0]
+    return _diff_paths(before_path, after_path, fmt, roots)[0]
 
 
-def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str | None:
+def lookup_render(
+    input_path: Path, fmt: str, options: str, version: str, roots: LibraryRoots
+) -> str | None:
     """Return cached render output for ``input_path`` if fresh, else ``None``."""
-    body_path, meta_path, _, _ = _render_paths(input_path, fmt)
+    body_path, meta_path, _, _ = _render_paths(input_path, fmt, roots)
     return _read_if_fresh(
         input_path,
         body_path,
@@ -272,6 +281,7 @@ def store_render(
     version: str,
     body: str,
     *,
+    roots: LibraryRoots,
     name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
@@ -290,7 +300,7 @@ def store_render(
     cache HIT answer "what VI is this" without a second graph load (#114's
     follow-up — the name was already in hand at build time, from the SAME
     graph that produced ``body``)."""
-    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt)
+    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt, roots)
     extra: dict[str, object] = {
         "lvkit_version": version,
         "options": options,
@@ -308,13 +318,15 @@ def store_render(
     return body_path
 
 
-def read_render_identity(input_path: Path, fmt: str) -> str | None:
+def read_render_identity(
+    input_path: Path, fmt: str, roots: LibraryRoots
+) -> str | None:
     """The VI's qualified name recorded by the last :func:`store_render` for
     ``input_path``/``fmt``, or ``None`` when there's no slot or it predates
     this field. A pure metadata read (no freshness check, no graph load) —
     the caller already has a fresh body (or doesn't care) and just wants the
     identity that went with it."""
-    _, meta_path, _, _ = _render_paths(input_path, fmt)
+    _, meta_path, _, _ = _render_paths(input_path, fmt, roots)
     if not meta_path.exists():
         return None
     try:
@@ -326,10 +338,17 @@ def read_render_identity(input_path: Path, fmt: str) -> str | None:
 
 
 def lookup_diff(
-    before_path: Path, after_path: Path, fmt: str, options: str, version: str
+    before_path: Path,
+    after_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    roots: LibraryRoots,
 ) -> str | None:
     """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _, _ = _diff_paths(before_path, after_path, fmt)
+    body_path, meta_path, before_sha, _, _ = _diff_paths(
+        before_path, after_path, fmt, roots
+    )
     return _read_if_fresh(
         after_path,
         body_path,
@@ -351,6 +370,7 @@ def store_diff(
     version: str,
     body: str,
     *,
+    roots: LibraryRoots,
     before_name: str | None = None,
     after_name: str | None = None,
     dependencies: Iterable[Path] = (),
@@ -364,7 +384,7 @@ def store_diff(
     freshness key, just an extra informational field alongside ``source``.
     Same rationale as :func:`store_render`'s ``name`` (#114's follow-up)."""
     body_path, meta_path, before_sha, source_label, _ = _diff_paths(
-        before_path, after_path, fmt
+        before_path, after_path, fmt, roots
     )
     extra: dict[str, object] = {
         "lvkit_version": version,
@@ -387,13 +407,13 @@ def store_diff(
 
 
 def read_diff_identity(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[str, str] | None:
     """``(before_name, after_name)`` recorded by the last :func:`store_diff`
     for this ``(before, after, fmt)``, or ``None`` when there's no slot, it
     predates this field, or either half is missing. A pure metadata read (no
     freshness check, no graph load)."""
-    _, meta_path, _, _, _ = _diff_paths(before_path, after_path, fmt)
+    _, meta_path, _, _, _ = _diff_paths(before_path, after_path, fmt, roots)
     if not meta_path.exists():
         return None
     try:
@@ -465,6 +485,7 @@ def cached_render(
     fmt: str,
     options: str,
     version: str,
+    roots: LibraryRoots,
     return_cached: bool = True,
     run_settings: RunSettings | None = None,
     **build_kw: object,
@@ -480,9 +501,9 @@ def cached_render(
     problems of the VIs the render loaded: stored with a hit, found by a miss
     (announced per ``run_settings`` as they are recorded)."""
     if return_cached:
-        hit = lookup_render(input_path, fmt, options, version)
+        hit = lookup_render(input_path, fmt, options, version, roots)
         if hit is not None:
-            return CachedBody(hit, render_problems(input_path, fmt), True)
+            return CachedBody(hit, render_problems(input_path, fmt, roots), True)
     from lvkit.render.body import render_body_with_name
 
     # render_body_with_name has already loaded the graph to build the body --
@@ -502,6 +523,7 @@ def cached_render(
         options,
         version,
         result.body,
+        roots=roots,
         name=result.name,
         dependencies=result.dependencies,
         problems=result.problems,
@@ -516,6 +538,7 @@ def cached_diff(
     fmt: str,
     options: str,
     version: str,
+    roots: LibraryRoots,
     return_cached: bool = True,
     run_settings: RunSettings | None = None,
     **build_kw: object,
@@ -525,9 +548,11 @@ def cached_diff(
     semantics). ``build_kw`` forwards to :func:`lvkit.vi_diff.diff_vi_files` on a
     miss. Returns the body, or ``None`` if the diff declines."""
     if return_cached:
-        hit = lookup_diff(before_path, after_path, fmt, options, version)
+        hit = lookup_diff(before_path, after_path, fmt, options, version, roots)
         if hit is not None:
-            return CachedBody(hit, diff_problems(before_path, after_path, fmt), True)
+            return CachedBody(
+                hit, diff_problems(before_path, after_path, fmt, roots), True
+            )
     from lvkit.vi_diff import diff_vi_files
 
     # diff_vi_files has already loaded both graphs -- capturing each side's
@@ -549,6 +574,7 @@ def cached_diff(
         options,
         version,
         result.body,
+        roots=roots,
         before_name=result.before_name,
         after_name=result.after_name,
         dependencies=result.dependencies,

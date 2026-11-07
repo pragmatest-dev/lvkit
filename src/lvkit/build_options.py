@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .cache_paths import LibraryRoots
 from .library_folders import folder_list
 from .load_mode import LoadMode
 
@@ -43,6 +44,14 @@ class BuildOptions:
             f"vilib={_all(self.vilib_root)}|userlib={_all(self.userlib_root)}"
             f"|instrlib={_all(self.instrlib_root)}|search={search}"
             f"|mode={self.mode.name}|store={_one(self.project_store)}"
+        )
+
+    def library_roots(self) -> LibraryRoots:
+        """The library folders as the cache classifier takes them."""
+        return LibraryRoots.of(
+            vilib_root=self.vilib_root,
+            userlib_root=self.userlib_root,
+            instrlib_root=self.instrlib_root,
         )
 
     def build_kwargs(self) -> dict[str, Any]:

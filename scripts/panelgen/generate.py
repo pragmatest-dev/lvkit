@@ -12,6 +12,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser import parse_vi
 
 from .logic_gen import generate_logic
@@ -67,7 +68,7 @@ def generate_panel(
     if logic_result.polymorphic_note:
         print(f"NOTE: {logic_result.polymorphic_note}")
 
-    parsed = parse_vi(logic_result.entry_vi_path)
+    parsed = parse_vi(logic_result.entry_vi_path, roots=LibraryRoots())
     front_panel = parsed.front_panel
 
     logic_path = output_dir / f"{logic_result.entry_module_stem}.py"

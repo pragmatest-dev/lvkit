@@ -14,6 +14,9 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, output_cache
+from lvkit.cache_paths import LibraryRoots
+
+NO_ROOTS = LibraryRoots()
 
 V = "0.5.7"
 OPT = "html|auto"
@@ -39,9 +42,14 @@ def _project_vi(
 class TestRenderCache:
     def test_miss_then_store_then_hit(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path)
-        assert output_cache.lookup_render(vi, "html", OPT, V) is None
-        slot = output_cache.store_render(vi, "html", OPT, V, "<html>BODY</html>")
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "<html>BODY</html>"
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) is None
+        slot = output_cache.store_render(
+            vi, "html", OPT, V, "<html>BODY</html>", roots=NO_ROOTS
+        )
+        assert (
+            output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS)
+            == "<html>BODY</html>"
+        )
         # Path-addressed under projects/<slug>/render (project-first). The slot
         # dir is a bounded per-VI ``vi-<hash>`` and the body has a fixed short
         # name (no source stem) so a deep tree / long VI name can't overflow it.
@@ -53,20 +61,20 @@ class TestRenderCache:
 
     def test_content_edit_invalidates(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path, b"original")
-        output_cache.store_render(vi, "html", OPT, V, "OUT")
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "OUT"
+        output_cache.store_render(vi, "html", OPT, V, "OUT", roots=NO_ROOTS)
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) == "OUT"
         vi.write_bytes(b"changed bytes now")  # edit the VI
-        assert output_cache.lookup_render(vi, "html", OPT, V) is None
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) is None
 
     def test_version_bump_invalidates(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path)
-        output_cache.store_render(vi, "html", OPT, V, "OUT")
-        assert output_cache.lookup_render(vi, "html", OPT, "0.5.8") is None
+        output_cache.store_render(vi, "html", OPT, V, "OUT", roots=NO_ROOTS)
+        assert output_cache.lookup_render(vi, "html", OPT, "0.5.8", NO_ROOTS) is None
 
     def test_options_change_invalidates(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path)
-        output_cache.store_render(vi, "html", OPT, V, "OUT")
-        assert output_cache.lookup_render(vi, "html", "svg|dark", V) is None
+        output_cache.store_render(vi, "html", OPT, V, "OUT", roots=NO_ROOTS)
+        assert output_cache.lookup_render(vi, "html", "svg|dark", V, NO_ROOTS) is None
 
 
 class TestRenderIdentity:
@@ -77,23 +85,29 @@ class TestRenderIdentity:
     def test_round_trips_the_name(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path)
         output_cache.store_render(
-            vi, "html", OPT, V, "<html/>", name="TestCase.lvclass:run.vi"
+            vi,
+            "html",
+            OPT,
+            V,
+            "<html/>",
+            name="TestCase.lvclass:run.vi",
+            roots=NO_ROOTS,
         )
         assert (
-            output_cache.read_render_identity(vi, "html")
+            output_cache.read_render_identity(vi, "html", NO_ROOTS)
             == "TestCase.lvclass:run.vi"
         )
 
     def test_no_slot_returns_none(self, tmp_path: Path) -> None:
         vi = _project_vi(tmp_path)
-        assert output_cache.read_render_identity(vi, "html") is None
+        assert output_cache.read_render_identity(vi, "html", NO_ROOTS) is None
 
     def test_slot_without_a_name_returns_none(self, tmp_path: Path) -> None:
         # A slot written before this field existed (or by a caller that never
         # passed `name`) must degrade gracefully, not raise.
         vi = _project_vi(tmp_path)
-        output_cache.store_render(vi, "html", OPT, V, "<html/>")
-        assert output_cache.read_render_identity(vi, "html") is None
+        output_cache.store_render(vi, "html", OPT, V, "<html/>", roots=NO_ROOTS)
+        assert output_cache.read_render_identity(vi, "html", NO_ROOTS) is None
 
     def test_source_fingerprint_change_invalidates(
         self,
@@ -106,10 +120,14 @@ class TestRenderIdentity:
         fingerprint, a different fingerprint (= edited source) is a miss."""
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "fp-A")
-        output_cache.store_render(vi, "html", OPT, V, "OUT")
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "OUT"  # same code
+        output_cache.store_render(vi, "html", OPT, V, "OUT", roots=NO_ROOTS)
+        assert (
+            output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) == "OUT"
+        )  # same code
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "fp-B")
-        assert output_cache.lookup_render(vi, "html", OPT, V) is None  # edited code
+        assert (
+            output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) is None
+        )  # edited code
 
     def test_text_encoding_change_invalidates(
         self,
@@ -118,24 +136,24 @@ class TestRenderIdentity:
     ) -> None:
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(output_cache, "labview_text_encoding", lambda: "gbk")
-        output_cache.store_render(vi, "html", OPT, V, "OUT")
+        output_cache.store_render(vi, "html", OPT, V, "OUT", roots=NO_ROOTS)
         monkeypatch.setattr(
             output_cache,
             "labview_text_encoding",
             lambda: "cp1252",
         )
 
-        assert output_cache.lookup_render(vi, "html", OPT, V) is None
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) is None
 
     def test_overwrite_in_place_one_slot(self, tmp_path: Path) -> None:
         """A path-addressed VI has exactly ONE render slot; a re-store after an
         edit overwrites it (no accumulation)."""
         vi = _project_vi(tmp_path, b"v1")
-        s1 = output_cache.store_render(vi, "html", OPT, V, "one")
+        s1 = output_cache.store_render(vi, "html", OPT, V, "one", roots=NO_ROOTS)
         vi.write_bytes(b"v2")
-        s2 = output_cache.store_render(vi, "html", OPT, V, "two")
+        s2 = output_cache.store_render(vi, "html", OPT, V, "two", roots=NO_ROOTS)
         assert s1 == s2
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "two"
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) == "two"
 
 
 class TestAdhocContentAddressed:
@@ -144,12 +162,12 @@ class TestAdhocContentAddressed:
         bytes at a DIFFERENT throwaway path reuse the slot — the git-blob /
         temp-file case."""
         a = _vi(tmp_path / "tmpA" / "blob.vi", b"identical blob")
-        output_cache.store_render(a, "html", OPT, V, "RENDERED")
+        output_cache.store_render(a, "html", OPT, V, "RENDERED", roots=NO_ROOTS)
         # A different temp dir, same bytes (a fresh mkdtemp of the same commit).
         b = _vi(tmp_path / "tmpB" / "blob.vi", b"identical blob")
-        assert output_cache.lookup_render(b, "html", OPT, V) == "RENDERED"
+        assert output_cache.lookup_render(b, "html", OPT, V, NO_ROOTS) == "RENDERED"
         # It lives in the flat adhoc/render pool, named by content hash.
-        slot, _, _, is_adhoc = output_cache._render_paths(b, "html")
+        slot, _, _, is_adhoc = output_cache._render_paths(b, "html", NO_ROOTS)
         assert is_adhoc
         assert (
             slot.parent
@@ -167,9 +185,14 @@ class TestDiffCache:
     def test_store_then_hit(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
-        slot = output_cache.store_diff(before, after, "html", OPT, V, "<diff/>")
-        assert output_cache.lookup_diff(before, after, "html", OPT, V) == "<diff/>"
+        assert output_cache.lookup_diff(before, after, "html", OPT, V, NO_ROOTS) is None
+        slot = output_cache.store_diff(
+            before, after, "html", OPT, V, "<diff/>", roots=NO_ROOTS
+        )
+        assert (
+            output_cache.lookup_diff(before, after, "html", OPT, V, NO_ROOTS)
+            == "<diff/>"
+        )
         # Fixed short base + the before-content hash prefix (no after-VI stem);
         # the slot dir is a bounded per-VI ``vi-<hash>``.
         assert slot.name.startswith("vi.")
@@ -180,19 +203,25 @@ class TestDiffCache:
         after = _project_vi(tmp_path, b"AFTER")
         before1 = _vi(tmp_path / "t" / "b1.vi", b"BEFORE-1")
         before2 = _vi(tmp_path / "t" / "b2.vi", b"BEFORE-2")
-        output_cache.store_diff(before1, after, "html", OPT, V, "D1")
+        output_cache.store_diff(before1, after, "html", OPT, V, "D1", roots=NO_ROOTS)
         # A different before (history moved) is a different key -> miss, not D1.
-        assert output_cache.lookup_diff(before2, after, "html", OPT, V) is None
-        output_cache.store_diff(before2, after, "html", OPT, V, "D2")
-        assert output_cache.lookup_diff(before1, after, "html", OPT, V) == "D1"
-        assert output_cache.lookup_diff(before2, after, "html", OPT, V) == "D2"
+        assert (
+            output_cache.lookup_diff(before2, after, "html", OPT, V, NO_ROOTS) is None
+        )
+        output_cache.store_diff(before2, after, "html", OPT, V, "D2", roots=NO_ROOTS)
+        assert (
+            output_cache.lookup_diff(before1, after, "html", OPT, V, NO_ROOTS) == "D1"
+        )
+        assert (
+            output_cache.lookup_diff(before2, after, "html", OPT, V, NO_ROOTS) == "D2"
+        )
 
     def test_after_edit_invalidates(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        output_cache.store_diff(before, after, "html", OPT, V, "D")
+        output_cache.store_diff(before, after, "html", OPT, V, "D", roots=NO_ROOTS)
         after.write_bytes(b"AFTER-EDITED")
-        assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
+        assert output_cache.lookup_diff(before, after, "html", OPT, V, NO_ROOTS) is None
 
 
 class TestDiffIdentity:
@@ -211,8 +240,9 @@ class TestDiffIdentity:
             "<diff/>",
             before_name="TestCase.lvclass:run.vi",
             after_name="TestSuite.lvclass:run.vi",
+            roots=NO_ROOTS,
         )
-        assert output_cache.read_diff_identity(before, after, "html") == (
+        assert output_cache.read_diff_identity(before, after, "html", NO_ROOTS) == (
             "TestCase.lvclass:run.vi",
             "TestSuite.lvclass:run.vi",
         )
@@ -220,13 +250,15 @@ class TestDiffIdentity:
     def test_no_slot_returns_none(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        assert output_cache.read_diff_identity(before, after, "html") is None
+        assert output_cache.read_diff_identity(before, after, "html", NO_ROOTS) is None
 
     def test_slot_without_names_returns_none(self, tmp_path: Path) -> None:
         before = _vi(tmp_path / "t" / "old.vi", b"BEFORE")
         after = _project_vi(tmp_path, b"AFTER")
-        output_cache.store_diff(before, after, "html", OPT, V, "<diff/>")
-        assert output_cache.read_diff_identity(before, after, "html") is None
+        output_cache.store_diff(
+            before, after, "html", OPT, V, "<diff/>", roots=NO_ROOTS
+        )
+        assert output_cache.read_diff_identity(before, after, "html", NO_ROOTS) is None
 
 
 # ── compatibility: coexist, never clobber (the anti-thrash property) ─────────
@@ -242,9 +274,9 @@ class TestCompatibilityCoexistence:
     ) -> None:
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
-        a_slot = output_cache.store_render(vi, "html", OPT, V, "A")
+        a_slot = output_cache.store_render(vi, "html", OPT, V, "A", roots=NO_ROOTS)
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildBBB")
-        b_slot = output_cache.store_render(vi, "html", OPT, V, "B")
+        b_slot = output_cache.store_render(vi, "html", OPT, V, "B", roots=NO_ROOTS)
         assert a_slot != b_slot
         assert a_slot.exists() and b_slot.exists()  # neither overwrote the other
 
@@ -253,13 +285,15 @@ class TestCompatibilityCoexistence:
     ) -> None:
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
-        output_cache.store_render(vi, "html", OPT, V, "A")
+        output_cache.store_render(vi, "html", OPT, V, "A", roots=NO_ROOTS)
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildBBB")
-        assert output_cache.lookup_render(vi, "html", OPT, V) is None  # B: cold
-        output_cache.store_render(vi, "html", OPT, V, "B")
+        assert (
+            output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) is None
+        )  # B: cold
+        output_cache.store_render(vi, "html", OPT, V, "B", roots=NO_ROOTS)
         # Back to build A -> still cached, NOT rebuilt (its slot was never touched).
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "buildAAA")
-        assert output_cache.lookup_render(vi, "html", OPT, V) == "A"
+        assert output_cache.lookup_render(vi, "html", OPT, V, NO_ROOTS) == "A"
 
 
 # ── TTL sweep: whole-<fp>-dir retirement, extract stickier ───────────────────
@@ -288,7 +322,7 @@ class TestTTLSweep:
         root = cache_paths.global_cache_root()
 
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "oldbuild")
-        output_cache.store_render(vi, "html", OPT, V, "OLD")
+        output_cache.store_render(vi, "html", OPT, V, "OLD", roots=NO_ROOTS)
         old_dir = root / "projects" / slug / "render" / "oldbuild"
         assert old_dir.is_dir()
         _age_dir(old_dir, 30)
@@ -297,7 +331,7 @@ class TestTTLSweep:
         # so the old one stays idle and is retired whole.
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "newbuild")
         monkeypatch.setattr(output_cache, "_swept", False)
-        output_cache.store_render(vi, "html", OPT, V, "NEW")
+        output_cache.store_render(vi, "html", OPT, V, "NEW", roots=NO_ROOTS)
 
         assert not old_dir.exists()  # idle build reclaimed
         assert (root / "projects" / slug / "render" / "newbuild").is_dir()
@@ -314,13 +348,13 @@ class TestTTLSweep:
         monkeypatch.setenv("LVKIT_SWEEP_INTERVAL_HOURS", "0")  # never skip the walk
         after = _project_vi(tmp_path, b"A", name="After.vi")
         b1 = _vi(tmp_path / "t" / "b1.vi", b"B1")
-        old = output_cache.store_diff(b1, after, "html", OPT, V, "D1")
+        old = output_cache.store_diff(b1, after, "html", OPT, V, "D1", roots=NO_ROOTS)
         aged = time.time() - 30 * 86400
         os.utime(old, (aged, aged))
         # A fresh diff in the SAME <fp> dir keeps the whole dir active.
         monkeypatch.setattr(output_cache, "_swept", False)
         b2 = _vi(tmp_path / "t" / "b2.vi", b"B2")
-        output_cache.store_diff(b2, after, "html", OPT, V, "D2")
+        output_cache.store_diff(b2, after, "html", OPT, V, "D2", roots=NO_ROOTS)
         assert old.exists()  # kept: the fingerprint is still in use
 
     def test_extract_stickier_than_render(
@@ -342,7 +376,7 @@ class TestTTLSweep:
 
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(output_cache, "_swept", False)
-        output_cache.store_render(vi, "html", OPT, V, "TRIGGER")
+        output_cache.store_render(vi, "html", OPT, V, "TRIGGER", roots=NO_ROOTS)
 
         assert not aged_render.exists()  # past its 7d render TTL
         assert aged_extract.exists()  # within its 60d extract TTL
@@ -365,6 +399,6 @@ class TestTTLSweep:
 
         vi = _project_vi(tmp_path)
         monkeypatch.setattr(output_cache, "_swept", False)
-        output_cache.store_render(vi, "html", OPT, V, "X")
+        output_cache.store_render(vi, "html", OPT, V, "X", roots=NO_ROOTS)
 
         assert aged.exists()  # swept recently -> not retired this run

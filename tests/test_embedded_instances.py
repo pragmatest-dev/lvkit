@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.embedded_instances import read_instance_sources
 from lvkit.parser.link_table import (
     LinkTableError,
@@ -159,14 +160,14 @@ def test_instance_sources_are_keyed_by_vins_name_and_caller_relative(
         ),
     }
 
-    def fake_extract(path: Path):
+    def fake_extract(path: Path, roots: object):
         xml = tmp_path / f"{path.stem}.instance.xml"
         xml.write_text(instance_xmls[path.name], encoding="utf-8")
         return xml, None, xml
 
     monkeypatch.setattr("lvkit.embedded_instances.extract_vi_xml", fake_extract)
 
-    sources = read_instance_sources(tmp_path, files)
+    sources = read_instance_sources(tmp_path, files, LibraryRoots())
 
     assert sorted(sources) == ["aaaa.vi", "bbbb.vi"]
     first = sources["aaaa.vi"]
@@ -201,17 +202,18 @@ def test_instance_source_is_read_from_the_raw_table_when_extraction_left_one(
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        "lvkit.embedded_instances.extract_vi_xml", lambda _p: (xml, None, xml)
+        "lvkit.embedded_instances.extract_vi_xml",
+        lambda _p, roots: (xml, None, xml),
     )
 
-    sources = read_instance_sources(tmp_path, files)
+    sources = read_instance_sources(tmp_path, files, LibraryRoots())
 
     assert list(sources) == ["aaaa.vi"]
     assert sources["aaaa.vi"].path_tokens == ["", "Helpers", "Adapt.vim"]
 
 
 def test_caller_without_instances_has_no_sources(tmp_path: Path) -> None:
-    assert read_instance_sources(tmp_path, []) == {}
+    assert read_instance_sources(tmp_path, [], LibraryRoots()) == {}
 
 
 def test_parse_instance_files_lists_vins_sections_in_section_order() -> None:
