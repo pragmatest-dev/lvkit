@@ -73,7 +73,11 @@ from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
-from .load_problems import repeated_frame_problems, unread_condition_problems
+from .load_problems import (
+    repeated_frame_problems,
+    unread_condition_problems,
+    unread_panel_problems,
+)
 from .membership import ListedMethod
 from .models import (
     ExecSystem,
@@ -1670,6 +1674,7 @@ class LoadingMixin:
         for problem in (
             *repeated_frame_problems(vi.block_diagram, shown_as),
             *unread_condition_problems(vi.block_diagram, shown_as),
+            *unread_panel_problems(vi.front_panel, shown_as),
         ):
             self.record_problem(vi_key, problem)
 

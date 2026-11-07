@@ -810,16 +810,18 @@ class ParsedFPPane:
     """A pane of the front panel: the whole panel, or one leaf of a splitter.
 
     ``bounds`` is ``(top, left, bottom, right)`` in the parent splitter's
-    space. ``origin`` is the stored ``origin`` field read as ``(x, y)``: the
-    first number is the horizontal offset and the second the vertical one
-    (decoded the way the corpus fits best, ``docs/_internal/design/
-    labview-binary-format.md`` "Front panel structure"); ``(0, 0)`` when the
-    file stores none. ``objects`` keep the stored order: the first object is
-    the topmost."""
+    space; its size is the size of the saved window. ``origin`` is the pane's
+    scroll offset ``(x, y)``: the saved window shows the stored positions
+    shifted by it; ``(0, 0)`` when the file stores none. ``doc_bounds`` is the
+    scroll extent in stored space (``docBounds``), None when absent
+    (``docs/_internal/design/labview-binary-format.md`` "Front panel
+    structure"). ``objects`` keep the stored order: the first object is the
+    topmost."""
 
     bounds: tuple[int, int, int, int]
     origin: tuple[int, int]
     objects: list[ParsedFPObject]
+    doc_bounds: tuple[int, int, int, int] | None = None
 
 
 @dataclass
@@ -860,6 +862,9 @@ class ParsedFrontPanel:
     # labels, decorations), holding the same control objects as ``controls``.
     # None when the heap carries no ``paneHierarchy``.
     layout: ParsedFPPane | ParsedFPSplitter | None = None
+    # What lvkit could not read in that tree, each a phrase ("a tab page with no
+    # bounds"); every one is a problem on the VI (``unread_panel_problems``).
+    unread_objects: list[str] = field(default_factory=list)
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None

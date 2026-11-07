@@ -29,6 +29,7 @@ from .utils import (
     clean_labview_string,
     decode_xml_entities_to_bytes,
     heap_color,
+    heap_rect,
     strip_surrounding_quotes,
 )
 
@@ -40,32 +41,27 @@ _TAB_CONTROL_CLASS = "tabControl"
 def read_panel_layout(
     root: ET.Element,
     controls_by_uid: dict[str, ParsedFPControl],
-    skipped: list[str] | None = None,
-) -> ParsedFPPane | ParsedFPSplitter | None:
-    """The panel's object tree, or None when the heap has no ``paneHierarchy``
-    (or one that cannot be read).
+) -> tuple[ParsedFPPane | ParsedFPSplitter | None, list[str]]:
+    """The panel's object tree (None when the heap has no ``paneHierarchy`` or
+    one that cannot be read) and what lvkit could not read in it, each a phrase
+    for a problem's reason (``ParsedFrontPanel.unread_objects``).
 
     ``root`` is the front-panel heap root; ``controls_by_uid`` holds the
     controls the flat parse produced, keyed by fPDCO uid. An fPDCO with no
     control there is left out. A tab control reached in an object list gets
     its ``tab_pages`` and ``tab_selected`` set.
-
-    ``skipped``, if given, collects what could not be read: an object's class
-    (``"cosm (no bounds)"`` when its bounds are missing, ``"cosm (no image)"``
-    when a decoration names no shape), or ``"paneHierarchy: ..."`` when the
-    tree itself is unreadable.
     """
     hierarchy = root.find("root/paneHierarchy")
     if hierarchy is None:
-        return None
-    reader = _ObjectReader(controls_by_uid, skipped if skipped is not None else [])
-    return reader.read_node(hierarchy)
+        return None, []
+    reader = _ObjectReader(controls_by_uid)
+    return reader.read_node(hierarchy), reader.unread
 
 
 class _ObjectReader:
-    def __init__(self, controls_by_uid: dict[str, ParsedFPControl], skipped: list[str]):
+    def __init__(self, controls_by_uid: dict[str, ParsedFPControl]):
         self._controls = controls_by_uid
-        self._skipped = skipped
+        self.unread: list[str] = []
 
     # --- panes and splitters -------------------------------------------
 
@@ -73,17 +69,18 @@ class _ObjectReader:
         node_class = elem.get("class")
         bounds = _bounds(elem)
         if bounds is None:
-            self._skipped.append(f"paneHierarchy: {node_class} without bounds")
+            self.unread.append(f"the panel's {node_class} with no bounds")
             return None
         if node_class == "pane":
             return ParsedFPPane(
                 bounds=bounds,
                 origin=_origin(elem),
                 objects=self._read_objects(elem.find("zPlaneList")),
+                doc_bounds=heap_rect(elem.find("docBounds")),
             )
         if node_class == "splitter":
             return self._read_splitter(elem, bounds)
-        self._skipped.append(f"paneHierarchy: {node_class}")
+        self.unread.append(f"the panel's {node_class} (an unknown pane kind)")
         return None
 
     def _read_splitter(
@@ -93,7 +90,7 @@ class _ObjectReader:
         second_elem = elem.find("botOrRight")
         ratio = _ratio(elem.findtext("ratio"))
         if first_elem is None or second_elem is None or ratio is None:
-            self._skipped.append("paneHierarchy: splitter missing a child or ratio")
+            self.unread.append("a splitter missing a pane or its ratio")
             return None
         first = self.read_node(first_elem)
         second = self.read_node(second_elem)
@@ -101,8 +98,8 @@ class _ObjectReader:
             return None
         side_by_side = _side_by_side(first.bounds, second.bounds)
         if side_by_side is None:
-            self._skipped.append(
-                "paneHierarchy: splitter children neither side by side nor stacked"
+            self.unread.append(
+                "a splitter whose panes are neither side by side nor stacked"
             )
             return None
         return ParsedFPSplitter(
@@ -137,11 +134,11 @@ class _ObjectReader:
         }
         read = readers.get(object_class)
         if read is None:
-            self._skipped.append(object_class)
+            self.unread.append(f"an object of kind {object_class}")
             return None
         bounds = _bounds(elem)
         if bounds is None:
-            self._skipped.append(f"{object_class} (no bounds)")
+            self.unread.append(f"a {object_class} with no bounds")
             return None
         return read(elem, bounds)
 
@@ -174,7 +171,7 @@ class _ObjectReader:
     ) -> ParsedFPDecoration | None:
         image_res_id = _int_or_none(elem.findtext("image/ImageResID"))
         if image_res_id is None:
-            self._skipped.append("cosm (no image)")
+            self.unread.append("a decoration with no shape (ImageResID)")
             return None
         return ParsedFPDecoration(
             uid=elem.get("uid", ""),
@@ -209,7 +206,7 @@ class _ObjectReader:
         for index, page in enumerate(page_elems):
             page_bounds = _bounds(page)
             if page_bounds is None:
-                self._skipped.append("page (no bounds)")
+                self.unread.append("a tab page with no bounds")
                 continue
             pages.append(
                 ParsedFPTabPage(
@@ -275,10 +272,7 @@ def _numbers(text: str | None) -> list[int] | None:
 
 
 def _bounds(elem: ET.Element) -> tuple[int, int, int, int] | None:
-    nums = _numbers(elem.findtext("bounds"))
-    if nums is None or len(nums) != 4:
-        return None
-    return (nums[0], nums[1], nums[2], nums[3])
+    return heap_rect(elem.find("bounds"))
 
 
 def _origin(elem: ET.Element) -> tuple[int, int]:

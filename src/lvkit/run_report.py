@@ -69,8 +69,10 @@ class ProblemKind(str, Enum):
     # The VI's module could not be written (it has no file and no recorded path).
     UNWRITABLE = "unwritable"
     # lvkit read the VI but not a value it stores: two frames of one case or
-    # disable-family structure show one value. The VI is read and every view
-    # shows it; those frames show the value lvkit read.
+    # disable-family structure show one value (those frames show the value lvkit
+    # read), a Conditional Disable condition read only in part, or a front-panel
+    # object lvkit could not read (the panel is shown without it). The VI is read
+    # and every view shows it.
     VALUE_NOT_READ = "value not read"
     # A dependency was not at the path its caller records, and was loaded from
     # the VI search path instead (LabVIEW warns of the same). A note, not a

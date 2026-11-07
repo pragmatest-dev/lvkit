@@ -306,6 +306,20 @@ def _first_text(label: ET.Element) -> str | None:
     return None
 
 
+def heap_rect(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
+    """A heap rect element's ``(top, left, bottom, right)``, or None when it is
+    absent or not four integers."""
+    if elem is None or not elem.text:
+        return None
+    try:
+        nums = [int(x.strip()) for x in elem.text.strip().strip("()").split(",")]
+    except ValueError:
+        return None
+    if len(nums) != 4:
+        return None
+    return (nums[0], nums[1], nums[2], nums[3])
+
+
 def heap_color(text: str | None) -> str | None:
     """A heap ``fgColor``/``bgColor`` (``00RRGGBB`` hex) as ``#RRGGBB``. Only a
     literal color has a ``00`` high byte; any other value (e.g. ``01000000``,

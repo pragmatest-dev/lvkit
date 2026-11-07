@@ -726,11 +726,13 @@ def _parse_front_panel(
         if (uid := elem.get("uid"))
     ]
 
+    layout, unread_objects = read_panel_layout(root, {c.uid: c for c in controls})
     return ParsedFrontPanel(
         controls=controls,
         panel_bounds=panel_bounds,
         dco_order=dco_order,
-        layout=read_panel_layout(root, {c.uid: c for c in controls}),
+        layout=layout,
+        unread_objects=unread_objects,
     )
 
 

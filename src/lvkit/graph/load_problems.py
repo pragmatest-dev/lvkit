@@ -29,7 +29,7 @@ from .node_kinds import NodeType
 if TYPE_CHECKING:
     from ..load_mode import LoadMode
     from ..models import CaseFrame
-    from ..parser import ParsedBlockDiagram
+    from ..parser import ParsedBlockDiagram, ParsedFrontPanel
 
 # The dependency-node attribute holding a VI's problems: a tuple of ``Problem``.
 PROBLEMS_ATTR = "problems"
@@ -85,6 +85,23 @@ def unread_condition_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
         )
         for ds in bd.disable_structures
         for position, why in ds.unread_conditions
+    ]
+
+
+def unread_panel_problems(fp: ParsedFrontPanel | None, vi: str) -> list[Problem]:
+    """One problem for each object of the front panel's tree lvkit could not
+    read (``ParsedFrontPanel.unread_objects``); the panel is shown without it.
+    ``vi`` is the VI as the user sees it."""
+    if fp is None:
+        return []
+    return [
+        Problem(
+            vi=vi,
+            stage=ProblemStage.LOAD,
+            kind=ProblemKind.VALUE_NOT_READ,
+            reason=f"front panel: lvkit could not read {what}",
+        )
+        for what in fp.unread_objects
     ]
 
 

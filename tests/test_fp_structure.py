@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.extractor import resolve_extracted
+from lvkit.graph.load_problems import unread_panel_problems
 from lvkit.parser.fp_structure import read_panel_layout
 from lvkit.parser.models import (
     ParsedBlockDiagram,
@@ -23,6 +24,7 @@ from lvkit.parser.models import (
 )
 from lvkit.parser.vi import _parse_front_panel, parse_vi
 from lvkit.parser.xml_trees import parsed_xml
+from lvkit.run_report import ProblemKind
 
 from .conftest import SAMPLES_ROOT
 
@@ -204,6 +206,16 @@ def test_a_pane_without_origin_has_origin_zero(tmp_path: Path) -> None:
     assert isinstance(layout, ParsedFPPane)
     assert layout.origin == (0, 0)
     assert layout.objects == []
+    assert layout.doc_bounds is None
+
+
+def test_a_pane_keeps_its_scroll_extent(tmp_path: Path) -> None:
+    hierarchy = _pane("paneHierarchy", "(0, 0, 300, 400)", origin="(5, 7)").replace(
+        "<zPlaneList", "<docBounds>(50, -81, 610, 453)</docBounds><zPlaneList"
+    )
+    layout = _panel(tmp_path, hierarchy).layout
+    assert isinstance(layout, ParsedFPPane)
+    assert layout.doc_bounds == (50, -81, 610, 453)
 
 
 def test_splitter_side_by_side(tmp_path: Path) -> None:
@@ -360,11 +372,25 @@ def test_unknown_object_classes_and_missing_bounds_are_reported(
         )
         + "</root></SL__rootObject>"
     )
-    skipped: list[str] = []
-    layout = read_panel_layout(parsed_xml(path), {}, skipped)
+    layout, unread = read_panel_layout(parsed_xml(path), {})
     assert isinstance(layout, ParsedFPPane)
     assert layout.objects == []
-    assert skipped == ["mystery", "cosm (no bounds)"]
+    assert unread == ["an object of kind mystery", "a cosm with no bounds"]
+
+
+def test_an_unread_panel_object_is_a_problem_on_the_vi(tmp_path: Path) -> None:
+    panel = ParsedFrontPanel(
+        controls=[],
+        panel_bounds=(0, 0, 10, 10),
+        unread_objects=["a tab page with no bounds"],
+    )
+    (problem,) = unread_panel_problems(panel, "A.vi")
+    assert problem.vi == "A.vi"
+    assert problem.kind == ProblemKind.VALUE_NOT_READ
+    assert problem.reason == (
+        "front panel: lvkit could not read a tab page with no bounds"
+    )
+    assert unread_panel_problems(None, "A.vi") == []
 
 
 def test_layout_does_not_change_the_flat_controls(tmp_path: Path) -> None:
@@ -408,13 +434,8 @@ _RUNNER = (
 def _real_panel(path: Path) -> tuple[ParsedFrontPanel, list[str]]:
     bd_xml, fp_xml, main_xml = resolve_extracted(path)
     vi = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
-    skipped: list[str] = []
-    assert fp_xml is not None
-    again = read_panel_layout(
-        parsed_xml(fp_xml), {c.uid: c for c in vi.front_panel.controls}, skipped
-    )
-    assert again is not None
-    return vi.front_panel, skipped
+    assert vi.front_panel.layout is not None
+    return vi.front_panel, vi.front_panel.unread_objects
 
 
 def _tree_objects(layout) -> list:
