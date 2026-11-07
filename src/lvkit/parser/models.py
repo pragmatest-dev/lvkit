@@ -865,6 +865,10 @@ class ParsedFrontPanel:
     # What lvkit could not read in that tree, each a phrase ("a tab page with no
     # bounds"); every one is a problem on the VI (``unread_panel_problems``).
     unread_objects: list[str] = field(default_factory=list)
+    # The LabVIEW version the file was saved with ("8.5.0"), None when the file
+    # records none. It decides how a tab page's or grouper's children are placed
+    # (`render.front_panel.geometry`).
+    lv_version: str | None = None
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None

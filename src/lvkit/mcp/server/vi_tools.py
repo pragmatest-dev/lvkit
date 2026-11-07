@@ -41,6 +41,7 @@ from ...output_cache import (
     render_options_tag,
     render_slot,
 )
+from ...render_view import RenderView, views_for
 from ...run_report import ProblemStage, RunProblems, declined
 from ._compat import Context
 from .app import mcp
@@ -269,20 +270,28 @@ async def render(
     userlib: str | list[str] | None = None,
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
+    view: str = "block-diagram",
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Render one VI's **block diagram** — or a ``.ctl`` control's **front
-    panel** — to a self-contained interactive **HTML viewer** and return its path:
-    the faithful visual (node positions, wires, structures, constants; or a
-    control's nested clusters, arrays and saved values) as it appears in LabVIEW,
-    reconstructed from the ``.vi`` / ``.ctl`` binary, in a zoom/pan page with a
-    light/dark toggle. This is the tool for "show me / draw / what does this look
-    like".
+    """Render one VI's **block diagram**, its **front panel**, or both — or a
+    ``.ctl`` control's **front panel** — to a self-contained interactive **HTML
+    viewer** and return its path: the faithful visual (node positions, wires,
+    structures, constants; or the panel's controls, tab pages, splitter panes,
+    labels and decorations; or a control's nested clusters, arrays and saved
+    values) as it appears in LabVIEW, reconstructed from the ``.vi`` / ``.ctl``
+    binary, in a zoom/pan page with a light/dark toggle. This is the tool for
+    "show me / draw / what does this look like".
+
+    ``view`` is ``"block-diagram"`` (the default), ``"front-panel"`` or
+    ``"both"``. A ``.ctl`` has only a front panel, so every ``view`` gives that
+    one picture. Any other value is an error.
 
     Returns ``{render_path, bytes, vi_name, vi_path, status, problems}``:
     ``render_path`` is a
     local ``.html`` file to open in a browser (same shape as ``diff``'s
-    output); ``vi_name`` (the VI's qualified name, e.g. ``Class.lvclass:vi.vi``)
+    output; for ``"both"`` it is the block diagram's, and ``render_paths`` is
+    ``{"block_diagram": ..., "front_panel": ...}`` with both files);
+    ``vi_name`` (the VI's qualified name, e.g. ``Class.lvclass:vi.vi``)
     and ``vi_path`` identify the INPUT VI this render is of (read these, not
     the request you sent, to tell results apart when several render/diff
     calls are in flight at once). The markup is written to disk,
@@ -304,28 +313,34 @@ async def render(
         p = Path(vi_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"File not found: {vi_path}")
+        views = views_for(p, view)
         store = _configure_resolvers_for_vi(p)
         build = _build(vilib, userlib, instrlib, search_path, store)
-        opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
         run = new_run(p)
-        try:
-            built = cached_render(
-                p,
-                fmt="html",
-                options=opts,
-                version=__version__,
-                theme_mode="auto",
-                run_settings=run.settings,
-                **build.build_kwargs(),
-            )
-        except Exception as exc:
-            return stopped_on(run, p, ProblemStage.RENDER, exc)
-        if built is None:
-            return stopped_on(run, p, ProblemStage.RENDER, declined(p))
-        html = built.body
-        run.take(built.problems, announce=False)
+        bodies: dict[RenderView, str] = {}
+        for picture in views:
+            opts = render_options_tag("html", "auto", None, build, view=picture)
+            try:
+                built = cached_render(
+                    p,
+                    fmt="html",
+                    options=opts,
+                    version=__version__,
+                    theme_mode="auto",
+                    run_settings=run.settings,
+                    view=picture,
+                    **build.build_kwargs(),
+                )
+            except Exception as exc:
+                return stopped_on(run, p, ProblemStage.RENDER, exc)
+            if built is None:
+                return stopped_on(run, p, ProblemStage.RENDER, declined(p))
+            bodies[picture] = built.body
+            run.take(built.problems, announce=False)
+        shown = views[0]
+        html = bodies[shown]
         # vi_name/vi_path identify the INPUT (#114: a tool result read apart
         # from the call that produced it -- several render/diff calls run
         # concurrently, not serialized -- had no way to say which VI it was
@@ -336,16 +351,19 @@ async def render(
         # alongside the body, so this is a cheap metadata read, never a second
         # graph load, on either a hit or a miss. Only an old slot written
         # before this field existed falls back to the bare filename.
-        name = read_render_identity(p, "html") or p.name
-        return with_problems(
-            {
-                "render_path": str(render_slot(p, "html")),
-                "bytes": len(html),
-                "vi_name": name,
-                "vi_path": str(p),
-            },
-            run,
-        )
+        name = read_render_identity(p, "html", shown) or p.name
+        result: dict[str, Any] = {
+            "render_path": str(render_slot(p, "html", shown)),
+            "bytes": len(html),
+            "vi_name": name,
+            "vi_path": str(p),
+        }
+        if len(views) > 1:
+            result["render_paths"] = {
+                "block_diagram": str(render_slot(p, "html", RenderView.BLOCK_DIAGRAM)),
+                "front_panel": str(render_slot(p, "html", RenderView.FRONT_PANEL)),
+            }
+        return with_problems(result, run)
 
     return await asyncio.to_thread(_work)
 

@@ -344,6 +344,7 @@ def parse_vi(
     file_metadata = None
     if main_path is not None and main_path.exists():
         file_metadata = parse_vi_metadata(main_path)
+        front_panel.lv_version = file_metadata.get("lv_version")
         if connector_pane:
             wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(

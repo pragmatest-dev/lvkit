@@ -1,7 +1,7 @@
 # render
 
-Render a VI's block diagram to an interactive SVG — the same wiring and
-structure layout as the LabVIEW editor, without opening LabVIEW. lvkit draws
+Render a VI's block diagram or front panel to an interactive SVG — the same
+wiring and structure layout as the LabVIEW editor, without opening LabVIEW. lvkit draws
 primitives as clean-room glyphs (it ships no LabVIEW-derived artwork) and
 gives SubVIs their own icons from the VI file. Like [`describe`](describe.md),
 `render` never requires primitive or vi.lib mappings — a primitive lvkit
@@ -24,6 +24,7 @@ lvkit render <input_path> [options]
 | Option | Description |
 |--------|-------------|
 | `-o FILE`, `--output FILE` | Output SVG path. Defaults to `<vi-stem>.svg` next to the input. |
+| `--view VIEW` | Which picture of a VI to draw: `block-diagram` (the default), `front-panel`, or `both`. `both` writes two files: with `-o out/X.svg`, `out/X.block-diagram.svg` and `out/X.front-panel.svg` (the same for `.html`); without `-o`, both pictures go to the cache and both paths are printed. A `.ctl` control has only a front panel, so that is its default and `--view block-diagram` on a `.ctl` is a usage error (exit 2). |
 | `--load-mode MODE` | How deep to load dependencies: `minimal` (default), `none`, or `full`. `minimal` loads this VI plus each **direct** SubVI's connector pane and the field definitions of referenced classes/typedefs — enough to render the diagram exactly, while skipping the transitive SubVI tree the render never needs (8–40× faster on a deep hierarchy). `none` loads this VI only, so SubVIs render as plain boxes. `full` walks the whole SubVI tree; its output is identical to `minimal`, just slower. |
 | SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
@@ -37,6 +38,28 @@ lvkit render "Convert File Extension (String).vi" \
 
 This writes a single self-contained SVG to `outputs/convert-file-extension.svg`
 and prints `Rendered outputs/convert-file-extension.svg`.
+
+## Front panel
+
+`--view front-panel` draws the whole front panel as it was saved: every control,
+free label and decoration, with the saved window's edge as a thin frame.
+
+- A tab control shows its tabs and the objects of the page that was shown when the
+  VI was saved.
+- A panel split into panes (a splitter) draws each pane at its place, clipped to the
+  pane, with the splitter bar between them.
+- A scrolled panel is placed by its scroll position, so objects sit where the saved
+  window showed them; objects outside the window are drawn too.
+- Objects stack as in LabVIEW: the first object in a list is the front one.
+- A LabVIEW class control draws as the class cube with the class's name.
+
+```bash
+lvkit render "Main.vi" --view both -o outputs/main.svg
+```
+
+This writes `outputs/main.block-diagram.svg` and `outputs/main.front-panel.svg`.
+With `--format html`, the front-panel page is the same zoom and pan viewer a `.ctl`
+control gets.
 
 ## Interactive output
 

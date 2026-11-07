@@ -5,6 +5,7 @@ from __future__ import annotations
 from ....models import LVType
 from ....parser.utils import heap_color
 from ...glyph import (
+    ClassGlyph,
     ConstantGlyph,
     Glyph,
     PathGlyph,
@@ -12,7 +13,7 @@ from ...glyph import (
     TypeTerminalGlyph,
     VariantGlyph,
 )
-from ...style import Theme, type_repr, wire_style
+from ...style import Theme, lv_type_label, type_repr, wire_style
 from .boolean import BooleanControlGlyph
 from .color import ColorControlGlyph
 from .enum_control import EnumControlGlyph
@@ -86,6 +87,13 @@ def leaf_glyph(
     ``slide_min``/``slide_max`` are ``stdSlide``'s own recorded range."""
     if control_type == "stdRefNum":
         return _refnum_glyph(lv_type, theme)
+    if control_type == "udClassDDO":
+        # A LabVIEW class, drawn as the block diagram draws one: the class cube
+        # and the class's short name.
+        named = lv_type is not None and lv_type.classname
+        return ClassGlyph(
+            lv_type_label(lv_type) if named else "", wire_style(lv_type, theme).color
+        )
     if control_type == "stdMeasureData":
         return MeasureDataGlyph(
             border_color=theme.struct_border,

@@ -54,11 +54,16 @@ def frame_colors(ctrl: ParsedFPControl) -> tuple[str | None, str | None]:
     return part.bg_color, part.fg_color
 
 
-def part_rect_of(part: ParsedFPPart) -> Rect:
-    """A heap part's rect: ``ParsedFPPart.bounds`` is ``(top, left, bottom,
-    right)``, ``Rect`` is ``(x1, y1, x2, y2)`` = ``(left, top, right, bottom)``."""
-    top, left, bottom, right = part.bounds
+def stored_rect(bounds: tuple[int, int, int, int]) -> Rect:
+    """A stored ``(top, left, bottom, right)`` as a ``Rect``, which is ``(x1, y1,
+    x2, y2)`` = ``(left, top, right, bottom)``."""
+    top, left, bottom, right = bounds
     return (float(left), float(top), float(right), float(bottom))
+
+
+def part_rect_of(part: ParsedFPPart) -> Rect:
+    """A heap part's rect (``ParsedFPPart.bounds`` is stored bounds)."""
+    return stored_rect(part.bounds)
 
 
 def find_part(ctrl: ParsedFPControl, part_id: int) -> ParsedFPPart | None:
