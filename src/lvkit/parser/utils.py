@@ -122,6 +122,14 @@ def safe_int(elem: ET.Element | None, default: int = 0) -> int:
     return default
 
 
+def int_or_none(text: str | None) -> int | None:
+    """``text`` as an integer, or None when it is absent or not one."""
+    try:
+        return int((text or "").strip())
+    except ValueError:
+        return None
+
+
 def safe_attr(elem: ET.Element | None, attr: str, default: str = "") -> str:
     """Safely get an attribute from an XML element.
 

@@ -120,6 +120,25 @@ class Backend(Protocol):
         stroke_dasharray: str | None = None,
     ) -> None: ...
 
+    def gradient_rect(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        stops: tuple[tuple[float, str], ...],
+        end: tuple[float, float] = (0.0, 1.0),
+        stroke: str | None = None,
+        stroke_width: float | None = None,
+        rx: float | None = None,
+    ) -> None:
+        """A rectangle filled with a linear gradient. ``stops`` are
+        ``(offset, color)`` pairs. The gradient runs from the rectangle's
+        top-left corner (0, 0) to ``end``, in fractions of its width and height:
+        ``(0, 1)`` top to bottom, ``(1, 0)`` left to right, ``(1, 1)`` diagonal."""
+        ...
+
     def path(
         self,
         points: list[Point],
@@ -251,6 +270,11 @@ class SvgBackend:
         # in render() with the per-SVG root_id prefix (so many inlined SVGs on
         # one page don't collide on url(#id)); begin_group emits a placeholder.
         self._clip_ids: dict[tuple[float, float, float, float], int] = {}
+        # Linear gradients, deduped by their stops and direction the same way;
+        # ``gradient_rect`` emits a ``__LVGRAD{idx}__`` placeholder.
+        self._gradient_ids: dict[
+            tuple[tuple[tuple[float, str], ...], tuple[float, float]], int
+        ] = {}
 
     @staticmethod
     def _attrs(**attrs: str | float | None) -> str:
@@ -287,6 +311,29 @@ class SvgBackend:
         self._elements.append(
             f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{x2 - x1:.1f}" '
             f'height="{y2 - y1:.1f}" {a}/>'
+        )
+
+    def gradient_rect(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        *,
+        stops: tuple[tuple[float, str], ...],
+        end: tuple[float, float] = (0.0, 1.0),
+        stroke: str | None = None,
+        stroke_width: float | None = None,
+        rx: float | None = None,
+    ) -> None:
+        key = (stops, end)
+        idx = self._gradient_ids.setdefault(key, len(self._gradient_ids))
+        h = _stroke_inset(stroke, stroke_width)
+        x1, y1, x2, y2 = x1 + h, y1 + h, x2 - h, y2 - h
+        a = self._attrs(stroke=stroke, stroke_width=stroke_width, rx=rx)
+        self._elements.append(
+            f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{x2 - x1:.1f}" '
+            f'height="{y2 - y1:.1f}" fill="url(#__LVGRAD{idx}__)" {a}/>'
         )
 
     def path(
@@ -552,22 +599,33 @@ class SvgBackend:
             prefix = root_id
         else:
             prefix = f"lv{self.content_digest()}"
-        defs_el = None
+        defs: list[str] = []
+        sub: dict[str, str] = {}
+        for (cx1, cy1, cx2, cy2), idx in self._clip_ids.items():
+            cid = f"{prefix}-c{idx}"
+            sub[f"__LVCLIP{idx}__"] = cid
+            defs.append(
+                f'<clipPath id="{cid}"><rect x="{cx1:.1f}" y="{cy1:.1f}" '
+                f'width="{cx2 - cx1:.1f}" height="{cy2 - cy1:.1f}"/></clipPath>'
+            )
+        for (stops, end), idx in self._gradient_ids.items():
+            gid = f"{prefix}-g{idx}"
+            sub[f"__LVGRAD{idx}__"] = gid
+            end_attrs = f'x2="{end[0]:g}" y2="{end[1]:g}"'
+            stop_els = "".join(
+                f'<stop offset="{offset:g}" stop-color="{color}"/>'
+                for offset, color in stops
+            )
+            defs.append(
+                f'<linearGradient id="{gid}" x1="0" y1="0" {end_attrs}>{stop_els}'
+                "</linearGradient>"
+            )
+        defs_el = "<defs>" + "".join(defs) + "</defs>" if defs else None
         elements = self._elements
-        if self._clip_ids:
-            clips = []
-            sub: dict[str, str] = {}
-            for (cx1, cy1, cx2, cy2), idx in self._clip_ids.items():
-                cid = f"{prefix}-c{idx}"
-                sub[f"__LVCLIP{idx}__"] = cid
-                clips.append(
-                    f'<clipPath id="{cid}"><rect x="{cx1:.1f}" y="{cy1:.1f}" '
-                    f'width="{cx2 - cx1:.1f}" height="{cy2 - cy1:.1f}"/></clipPath>'
-                )
-            defs_el = "<defs>" + "".join(clips) + "</defs>"
+        if sub:
 
             def _resolve(el: str) -> str:
-                if "__LVCLIP" not in el:
+                if "__LV" not in el:
                     return el
                 for k, v in sub.items():
                     el = el.replace(k, v)

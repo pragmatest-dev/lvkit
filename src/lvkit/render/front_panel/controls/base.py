@@ -9,12 +9,14 @@ from ....parser.layout import Rect
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import Glyph
 
-# objFlags bit 0x8 = hidden -- the same convention ``layout._field_label_hidden``
-# reads for a cluster field's label part.
-HIDDEN_FLAG_BIT = 0x8
-
 # The frame every framed control (a cluster, an array) is drawn inside.
 FRAME_PART_ID = 9
+
+# The two parts that carry the text shown above a control: its label and its
+# caption. A part of class ``label`` with any other id (a string's field, 11) is
+# part of the control's value.
+LABEL_PART_ID = 16
+CAPTION_PART_ID = 82
 
 
 class ControlGlyph:
@@ -79,11 +81,7 @@ def part_rect(ctrl: ParsedFPControl, part_id: int) -> Rect | None:
 
 def part_is_hidden(part: ParsedFPPart) -> bool:
     """True when ``part`` is flagged hidden (objFlags bit 0x8)."""
-    try:
-        flags = int(part.props.get("objFlags", "0"))
-    except ValueError:
-        return True
-    return bool(flags & HIDDEN_FLAG_BIT)
+    return part.hidden
 
 
 def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
@@ -110,7 +108,7 @@ def value_extent(ctrl: ParsedFPControl) -> Rect:
         part_rect_of(p)
         for p in ctrl.parts
         if p.part_id is not None
-        and p.part_class != "label"
+        and p.part_id not in (LABEL_PART_ID, CAPTION_PART_ID)
         and not part_is_hidden(p)
     ]
     if not rects:

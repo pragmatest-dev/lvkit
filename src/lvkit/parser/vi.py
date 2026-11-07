@@ -81,6 +81,7 @@ from .fp_heap_type import (
     reconstruct_control_lvtype,
     ring_sparse_values,
 )
+from .fp_listbox import read_listbox
 from .fp_structure import read_panel_layout
 from .front_panel import (
     _lvtype_to_parsed,
@@ -132,6 +133,7 @@ from .models import (
     ParsedDependencyRef,
     ParsedFPControl,
     ParsedFPPart,
+    ParsedFPPartState,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedNode,
@@ -173,6 +175,7 @@ from .utils import (
     extract_xtunnel_name,
     heap_color,
     heap_rect,
+    int_or_none,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -1952,6 +1955,46 @@ def _recover_unresolved_labels(
     return unlabeled
 
 
+def _part_states(part: ET.Element) -> tuple[ParsedFPPartState, ...]:
+    """A ``bigMultiCosm`` part's ``SubCosm`` states, in stored order; empty for
+    every other part class."""
+    return tuple(
+        ParsedFPPartState(
+            bounds=heap_rect(sub.find("Bounds")) or (0, 0, 0, 0),
+            fg_color=heap_color(sub.findtext("FGColor")),
+            bg_color=heap_color(sub.findtext("BGColor")),
+            image_id=int_or_none(sub.findtext("Image/ImageResID")),
+        )
+        for sub in part.findall("table/SL__arrayElement[@class='SubCosm']")
+    )
+
+
+def _part_texts(part: ET.Element) -> tuple[str, ...]:
+    """A ``multiLabel`` part's texts (its ``buf``), in stored order."""
+    if part.get("class") != MULTI_LABEL_CLASS:
+        return ()
+    return tuple(_parse_multi_label_buf(part.findtext("buf") or ""))
+
+
+def _part_image_ids(
+    part: ET.Element, states: tuple[ParsedFPPartState, ...]
+) -> tuple[int, ...]:
+    """The picture ids a part records, in stored order, whichever of the three
+    forms it uses: ``image/ImageResID`` (``cosm``, ``label``, ``numLabel``), one
+    ``table`` ``Image`` per state (``multiCosm``), or one ``SubCosm`` ``Image``
+    per state (``bigMultiCosm``, already read into ``states``)."""
+    if states:
+        return tuple(st.image_id for st in states if st.image_id is not None)
+    single = int_or_none(part.findtext("image/ImageResID"))
+    if single is not None:
+        return (single,)
+    return tuple(
+        image_id
+        for sub in part.findall("table/SL__arrayElement[@class='Image']")
+        if (image_id := int_or_none(sub.findtext("ImageResID"))) is not None
+    )
+
+
 def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
     """``owner``'s ``partsList`` entries as parts (each with its own bounds,
     objFlags, and -- recursively -- its own sub-parts). objFlags bit 0x8 =
@@ -1970,21 +2013,20 @@ def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
         pid_elem = part.find("partID")
         pid_text = pid_elem.text if pid_elem is not None else None
         part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
-        flags_elem = part.find("objFlags")
-        props = (
-            {"objFlags": flags_elem.text.strip()}
-            if flags_elem is not None and flags_elem.text
-            else {}
-        )
+        states = _part_states(part)
         parts.append(
             ParsedFPPart(
                 part_id,
                 part.get("class", ""),
                 _parse_bounds(bounds_elem.text),
-                props,
+                {},
                 _parse_fp_parts_list(part),
                 fg_color=heap_color(part.findtext("fgColor")),
                 bg_color=heap_color(part.findtext("bgColor")),
+                image_ids=_part_image_ids(part, states),
+                flags=safe_int(part.find("objFlags")),
+                states=states,
+                texts=_part_texts(part),
             )
         )
     return parts
@@ -2387,6 +2429,7 @@ def _parse_ddo(
         control_type=control_type,
         bounds=bounds,
         is_indicator=control_is_indicator,
+        shows_as_indicator=is_indicator(safe_int(ddo.find("objFlags"))),
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),
@@ -2411,6 +2454,7 @@ def _parse_ddo(
         slide_min=slide_min,
         slide_max=slide_max,
         hidden=_is_hidden(ddo),
+        listbox=read_listbox(ddo) if control_type == "listbox" else None,
     )
 
 

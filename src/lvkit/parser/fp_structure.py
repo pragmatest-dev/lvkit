@@ -31,10 +31,16 @@ from .utils import (
     decode_xml_entities_to_bytes,
     heap_color,
     heap_rect,
+    int_or_none,
     strip_surrounding_quotes,
 )
 
 _TAB_CONTROL_CLASS = "tabControl"
+
+# The pane's background is the cosm of this part id whose picture is this
+# built-in id.
+_PANE_BACKGROUND_PART = "28"
+_PANE_BACKGROUND_IMAGE = "-704"
 
 
 def read_panel_layout(
@@ -57,6 +63,16 @@ def read_panel_layout(
     return reader.read_node(hierarchy), reader.unread
 
 
+def _pane_background(pane: ET.Element) -> str | None:
+    for part in pane.findall("partsList/SL__arrayElement[@class='cosm']"):
+        if (
+            part.findtext("partID") == _PANE_BACKGROUND_PART
+            and part.findtext("image/ImageResID") == _PANE_BACKGROUND_IMAGE
+        ):
+            return heap_color(part.findtext("fgColor"))
+    return None
+
+
 class _ObjectReader:
     def __init__(self, controls_by_uid: dict[str, ParsedFPControl]):
         self._controls = controls_by_uid
@@ -76,6 +92,7 @@ class _ObjectReader:
                 origin=_origin(elem),
                 objects=self._read_objects(elem.find("zPlaneList")),
                 doc_bounds=heap_rect(elem.find("docBounds")),
+                background=_pane_background(elem),
             )
         if node_class == "splitter":
             return self._read_splitter(elem, bounds)
@@ -168,7 +185,7 @@ class _ObjectReader:
     def _read_decoration(
         self, elem: ET.Element, bounds: tuple[int, int, int, int]
     ) -> ParsedFPDecoration | None:
-        image_res_id = _int_or_none(elem.findtext("image/ImageResID"))
+        image_res_id = int_or_none(elem.findtext("image/ImageResID"))
         if image_res_id is None:
             self.unread.append("a decoration with no shape (ImageResID)")
             return None
@@ -301,21 +318,14 @@ def _side_by_side(
     return None
 
 
-def _int_or_none(text: str | None) -> int | None:
-    try:
-        return int((text or "").strip())
-    except ValueError:
-        return None
-
-
 def _int(text: str | None) -> int:
-    return _int_or_none(text) or 0
+    return int_or_none(text) or 0
 
 
 def _font_run(run: ET.Element) -> ParsedFPFontRun:
     offset_text = (run.findtext("fontofst") or "").strip()
     return ParsedFPFontRun(
         offset=int(offset_text, 16) if offset_text else 0,
-        font_id=_int_or_none(run.findtext("fontid")),
+        font_id=int_or_none(run.findtext("fontid")),
         color=heap_color(run.findtext("fontcolor")),
     )

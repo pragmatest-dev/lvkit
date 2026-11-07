@@ -25,6 +25,7 @@ from .link_table import (
     SharedVariableLink,
     SharedVariableRecordFailure,
 )
+from .utils import HIDDEN_FLAG
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -598,6 +599,17 @@ class ParsedFPDCOTypeMap:
 
 
 @dataclass(frozen=True)
+class ParsedFPPartState:
+    """One state of a ``bigMultiCosm`` part (an LED's off and on, a switch's
+    up and down): the state's own bounds, literal colors and picture id."""
+
+    bounds: tuple[int, int, int, int]  # top, left, bottom, right, part-local
+    fg_color: str | None = None
+    bg_color: str | None = None
+    image_id: int | None = None
+
+
+@dataclass(frozen=True)
 class ParsedFPPart:
     """A constituent part of a composite front-panel control, with its geometry
     in the CONTROL'S OWN local coordinate space (the FPHb heap records these; the
@@ -625,6 +637,42 @@ class ParsedFPPart:
     # None for a default/system color, which the view themes.
     fg_color: str | None = None
     bg_color: str | None = None
+    # The picture ids of the part, in stored order: a ``cosm``/``label``/
+    # ``numLabel`` has one, a ``multiCosm`` one per state, a ``bigMultiCosm``
+    # one per ``states`` entry. A negative id is a built-in shape, a positive id
+    # a picture embedded in the VI. They carry the control's look (Modern,
+    # System, Silver; ``labview-binary-format.md`` "Front panel structure").
+    image_ids: tuple[int, ...] = ()
+    # The part's ``objFlags``; bit 0x8 is "hidden".
+    flags: int = 0
+    # A ``bigMultiCosm``'s per-state bounds, colors and picture, in stored order.
+    states: tuple[ParsedFPPartState, ...] = ()
+    # A ``multiLabel``'s texts, one per state, in stored order (a Boolean's
+    # button text, a ring's items); empty for every other part.
+    texts: tuple[str, ...] = ()
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self.flags & HIDDEN_FLAG)
+
+
+@dataclass(frozen=True)
+class ParsedFPListbox:
+    """A listbox's own table settings (``ddo`` children and its ``grid`` part).
+    ``frozen_rows`` / ``label_pos_row`` are the grid's header-row settings;
+    ``column_widths`` has one width per column; ``flags`` is ``listboxFlags``
+    (not decoded)."""
+
+    frozen_rows: int = 0
+    label_pos_row: int = 0
+    column_headers: tuple[str, ...] = ()
+    column_widths: tuple[int, ...] = ()
+    flags: int = 0
+    border_color: str | None = None
+
+    @property
+    def has_header(self) -> bool:
+        return self.frozen_rows > 0 and self.label_pos_row > 0
 
 
 @dataclass
@@ -636,6 +684,11 @@ class ParsedFPControl:
     control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.
     bounds: tuple[int, int, int, int]  # top, left, bottom, right
     is_indicator: bool = False  # True if output, False if input
+    # The control's own ddo ``objFlags`` bit 0: how it LOOKS (an indicator is
+    # drawn read-only). ``is_indicator`` follows the block diagram's terminal
+    # (and so a cluster field or array element takes its container's); this is
+    # the control's own.
+    shows_as_indicator: bool = False
     # This control's own resolved LabVIEW type, from the VI's VCTP type map
     # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
     # connector-pane terminal's type comes from. Real per-control identity
@@ -743,6 +796,8 @@ class ParsedFPControl:
     # Hidden on the panel (bit 0x8 of the control's own ddo ``objFlags``): the
     # control exists (terminal, local variables) but the panel does not show it.
     hidden: bool = False
+    # For ``control_type == "listbox"``: its table settings; None otherwise.
+    listbox: ParsedFPListbox | None = None
 
 
 @dataclass(frozen=True)
@@ -825,6 +880,9 @@ class ParsedFPPane:
     origin: tuple[int, int]
     objects: list[ParsedFPObject]
     doc_bounds: tuple[int, int, int, int] | None = None
+    # The pane's own colour (``#RRGGBB``): the ``fgColor`` of its ``partID`` 28
+    # background cosm; None when it records none or a system colour.
+    background: str | None = None
 
 
 @dataclass

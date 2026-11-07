@@ -7,14 +7,11 @@ from ....parser.models import ParsedFPControl
 from ...backend import Backend
 from ...glyph import fit_label
 from ...style import Theme
-from .base import find_part, part_rect_of
+from .base import CAPTION_PART_ID, LABEL_PART_ID, find_part, part_rect_of
 
 # Font size of every front-panel label: a control's own caption and each cluster
 # field's name. Chosen against the issue #101 reference screenshot.
 LABEL_SIZE = 11.0
-
-_LABEL_PART_ID = 16
-_CAPTION_PART_ID = 82
 
 
 def shown_text(ctrl: ParsedFPControl) -> str | None:
@@ -32,7 +29,7 @@ def shown_text(ctrl: ParsedFPControl) -> str | None:
 def _label_part_id(ctrl: ParsedFPControl) -> int:
     """The part whose text is shown: the label (16) when it is the visible
     text, else the caption (82)."""
-    return _LABEL_PART_ID if ctrl.label_visible else _CAPTION_PART_ID
+    return LABEL_PART_ID if ctrl.label_visible else CAPTION_PART_ID
 
 
 def draw_label(
