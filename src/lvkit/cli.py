@@ -1680,7 +1680,9 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not args.no_cache:
         from .output_cache import lookup_render, render_problems
 
-        cached = lookup_render(input_path, args.format, options, __version__)
+        cached = lookup_render(
+            input_path, args.format, options, __version__, build.project_store
+        )
         if cached is not None:
             run.take(render_problems(input_path, args.format), announce=True)
             code = _emit_render(args, input_path, cached)
@@ -1732,7 +1734,9 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
         # no per-VI ref in batch
         options = _render_options_tag(args, theme_mode, None, build)
         if not args.no_cache:
-            body = lookup_render(vi, args.format, options, __version__)
+            body = lookup_render(
+                vi, args.format, options, __version__, build.project_store
+            )
             if body is not None:
                 run.take(render_problems(vi, args.format), announce=True)
         if body is not None:
@@ -1875,7 +1879,9 @@ def cmd_diff(args: argparse.Namespace) -> int:
     if not args.no_cache:
         from .output_cache import diff_problems, lookup_diff
 
-        cached = lookup_diff(path_a, path_b, fmt, options, __version__)
+        cached = lookup_diff(
+            path_a, path_b, fmt, options, __version__, build.project_store
+        )
         if cached is not None:
             run.take(diff_problems(path_a, path_b, fmt), announce=True)
             return _emit_diff(args, path_a, path_b, fmt, cached) or finish(run)

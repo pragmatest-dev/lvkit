@@ -17,12 +17,13 @@ import threading
 from pathlib import Path
 from typing import TypeVar
 
+from .catalog_stamp import StoreStamp, resolved_store, store_stamp
 from .primitive_resolver.resolver import PrimitiveResolver
 from .vilib_resolver.resolver import VILibResolver
 
 # Each JSON file of a store with its modification time and size: equal stamps
 # mean the catalog built from the store is still the store's catalog.
-_Stamp = tuple[tuple[str, int, int], ...]
+_Stamp = StoreStamp
 _C = TypeVar("_C", VILibResolver, PrimitiveResolver)
 
 _lock = threading.Lock()
@@ -30,28 +31,11 @@ _vilib: dict[Path | None, tuple[_Stamp, VILibResolver]] = {}
 _primitive: dict[Path | None, tuple[_Stamp, PrimitiveResolver]] = {}
 
 
-def _key(store: Path | None) -> Path | None:
-    return store.resolve() if store is not None else None
-
-
-def _stamp(store: Path | None) -> _Stamp:
-    if store is None or not store.is_dir():
-        return ()
-    stamps = []
-    for path in sorted(store.rglob("*.json")):
-        try:
-            stat = path.stat()
-        except OSError:
-            continue
-        stamps.append((str(path), stat.st_mtime_ns, stat.st_size))
-    return tuple(stamps)
-
-
 def _catalog_for(
     built: dict[Path | None, tuple[_Stamp, _C]], make: type[_C], store: Path | None
 ) -> _C:
-    key = _key(store)
-    stamp = _stamp(key)
+    key = resolved_store(store)
+    stamp = store_stamp(key)
     with _lock:
         held = built.get(key)
         if held is None or held[0] != stamp:

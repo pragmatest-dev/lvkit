@@ -48,6 +48,7 @@ from typing import NamedTuple
 
 from lvkit import cache_paths, staging
 from lvkit.build_options import BuildOptions
+from lvkit.catalog_stamp import CatalogKey, catalog_stamp, catalog_stamp_fresh
 from lvkit.run_report import Problem, ProblemStage, RunSettings, problem_from_json
 from lvkit.text_encoding import labview_text_encoding
 
@@ -170,11 +171,21 @@ def _diff_paths(
 
 
 def _read_if_fresh(
-    vi_path: Path, body_path: Path, meta_path: Path, extra: dict
+    vi_path: Path,
+    body_path: Path,
+    meta_path: Path,
+    extra: dict,
+    project_store: Path | None,
 ) -> str | None:
     if not body_path.exists():
         return None
-    if not cache_paths.meta_fresh(vi_path, meta_path, extra=extra):
+
+    def _catalog_current(meta: dict) -> bool:
+        return catalog_stamp_fresh(project_store, meta.get("catalog"))
+
+    if not cache_paths.meta_fresh(
+        vi_path, meta_path, extra=extra, check=_catalog_current
+    ):
         return None
     try:
         text = body_path.read_text(encoding="utf-8")
@@ -250,8 +261,16 @@ def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
     return _diff_paths(before_path, after_path, fmt)[0]
 
 
-def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str | None:
-    """Return cached render output for ``input_path`` if fresh, else ``None``."""
+def lookup_render(
+    input_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    project_store: Path | None = None,
+) -> str | None:
+    """Return cached render output for ``input_path`` if fresh, else ``None``.
+    ``project_store`` is the ``.lvkit/`` folder the render reads: an edit to an
+    entry the VI uses makes the cached render stale."""
     body_path, meta_path, _, _ = _render_paths(input_path, fmt)
     return _read_if_fresh(
         input_path,
@@ -262,6 +281,7 @@ def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str
             "options": options,
             "text_encoding": labview_text_encoding(),
         },
+        project_store,
     )
 
 
@@ -275,9 +295,14 @@ def store_render(
     name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
+    project_store: Path | None = None,
+    catalog_keys: Iterable[CatalogKey] = (),
 ) -> Path:
     """Cache ``body`` as the render of ``input_path``; return the slot path.
     ``problems`` are stored with it, so a hit reports what the build did.
+    ``catalog_keys`` are the catalog entries the VI looked up; the hash of the
+    ``project_store`` entries for them is recorded, so a lookup is a miss once
+    one of those entries was edited.
 
     ``dependencies`` are the files the render read besides the VI (its SubVIs
     and controls); their content stamps are recorded so a later lookup is a miss
@@ -300,6 +325,7 @@ def store_render(
         # itself — record the real path (mirrors extraction's meta.json).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "catalog": catalog_stamp(project_store, list(catalog_keys)),
         "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if name is not None:
@@ -326,9 +352,15 @@ def read_render_identity(input_path: Path, fmt: str) -> str | None:
 
 
 def lookup_diff(
-    before_path: Path, after_path: Path, fmt: str, options: str, version: str
+    before_path: Path,
+    after_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    project_store: Path | None = None,
 ) -> str | None:
-    """Return cached diff output for the ``(before, after)`` pair if fresh."""
+    """Return cached diff output for the ``(before, after)`` pair if fresh (see
+    :func:`lookup_render` for ``project_store``)."""
     body_path, meta_path, before_sha, _, _ = _diff_paths(before_path, after_path, fmt)
     return _read_if_fresh(
         after_path,
@@ -340,6 +372,7 @@ def lookup_diff(
             "before_sha": before_sha,
             "text_encoding": labview_text_encoding(),
         },
+        project_store,
     )
 
 
@@ -355,9 +388,12 @@ def store_diff(
     after_name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
+    project_store: Path | None = None,
+    catalog_keys: Iterable[CatalogKey] = (),
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path.
-    ``dependencies`` are recorded the way :func:`store_render` records them.
+    ``dependencies`` and ``catalog_keys`` are recorded the way
+    :func:`store_render` records them.
 
     ``before_name``/``after_name`` (each side's qualified name) are recorded
     purely for :func:`read_diff_identity` to read back later — not a
@@ -376,6 +412,7 @@ def store_diff(
         # itself — record the AFTER VI's real path (mirrors extraction).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "catalog": catalog_stamp(project_store, list(catalog_keys)),
         "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if before_name is not None:
@@ -479,8 +516,9 @@ def cached_render(
     ``None`` if the render declines (nothing is stored then). The result carries the
     problems of the VIs the render loaded: stored with a hit, found by a miss
     (announced per ``run_settings`` as they are recorded)."""
+    project_store = run_settings.project_store if run_settings else None
     if return_cached:
-        hit = lookup_render(input_path, fmt, options, version)
+        hit = lookup_render(input_path, fmt, options, version, project_store)
         if hit is not None:
             return CachedBody(hit, render_problems(input_path, fmt), True)
     from lvkit.render.body import render_body_with_name
@@ -505,6 +543,8 @@ def cached_render(
         name=result.name,
         dependencies=result.dependencies,
         problems=result.problems,
+        project_store=project_store,
+        catalog_keys=result.catalog_keys,
     )
     return CachedBody(result.body, result.problems, False)
 
@@ -524,8 +564,9 @@ def cached_diff(
     of :func:`cached_render` (same ``return_cached`` read-gate / always-refresh
     semantics). ``build_kw`` forwards to :func:`lvkit.vi_diff.diff_vi_files` on a
     miss. Returns the body, or ``None`` if the diff declines."""
+    project_store = run_settings.project_store if run_settings else None
     if return_cached:
-        hit = lookup_diff(before_path, after_path, fmt, options, version)
+        hit = lookup_diff(before_path, after_path, fmt, options, version, project_store)
         if hit is not None:
             return CachedBody(hit, diff_problems(before_path, after_path, fmt), True)
     from lvkit.vi_diff import diff_vi_files
@@ -553,6 +594,8 @@ def cached_diff(
         after_name=result.after_name,
         dependencies=result.dependencies,
         problems=result.problems,
+        project_store=project_store,
+        catalog_keys=result.catalog_keys,
     )
     return CachedBody(result.body, result.problems, False)
 

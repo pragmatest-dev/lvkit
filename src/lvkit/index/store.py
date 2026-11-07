@@ -257,7 +257,8 @@ CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
     content_sha TEXT NOT NULL,
-    facts_digest TEXT NOT NULL DEFAULT ''
+    facts_digest TEXT NOT NULL DEFAULT '',
+    catalog_stamp TEXT NOT NULL DEFAULT ''
 );
 """ + TYPES_SCHEMA + TYPEDEFS_SCHEMA
 
@@ -840,8 +841,9 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
             ),
         )
     conn.execute(
-        "INSERT INTO meta(vi_path, content_sha, facts_digest) VALUES (?,?,?)",
-        (f.path, f.content_sha, facts_digest(f)),
+        "INSERT INTO meta(vi_path, content_sha, facts_digest, catalog_stamp) "
+        "VALUES (?,?,?,?)",
+        (f.path, f.content_sha, facts_digest(f), f.catalog_stamp),
     )
 
 
@@ -1161,6 +1163,9 @@ def load(project_root: Path) -> list[VIFacts]:
                 ancestors=json.loads(ancestors),
             )
 
+        catalog_stamps = dict(
+            conn.execute("SELECT vi_path, catalog_stamp FROM meta").fetchall()
+        )
         results: list[VIFacts] = []
         for row in vi_rows:
             base = row[:8]
@@ -1191,6 +1196,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     library=library,
                     is_stub=bool(is_stub),
                     content_sha=content_sha,
+                    catalog_stamp=catalog_stamps.get(path, ""),
                     terminals=terminals_by_vi.get(path, []),
                     constants=constants_by_vi.get(path, []),
                     nodes=nodes_by_vi.get(path, []),
