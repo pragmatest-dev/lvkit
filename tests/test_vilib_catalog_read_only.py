@@ -117,7 +117,7 @@ def _generate(
     monkeypatch: pytest.MonkeyPatch,
     vi: str = "Learn Me.vi",
 ) -> str:
-    monkeypatch.setitem(catalogs._vilib, None, resolver)
+    monkeypatch.setitem(catalogs._vilib, None, ((), resolver))
     context, node = _caller(wired, value, vi)
     graph = build_graph(context, context.name, [node])
     return build_module(context, context.name, graph=graph)

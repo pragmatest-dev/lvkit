@@ -104,7 +104,7 @@ def _catalog_ports(
     graph = InMemoryVIGraph()
     monkeypatch.setattr(graph, "loaded_callee_key", lambda node: None)
     catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, catalog)
+    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
     monkeypatch.setattr(
         catalog,
         "resolve_recorded",

@@ -73,7 +73,7 @@ def _generate(
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
     catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, catalog)
+    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
     monkeypatch.setattr(catalog, "resolve_recorded", lambda path: _ENTRY)
     monkeypatch.setattr(catalog, "catalog_file_name", lambda path: _FILE)
     return build_module(context, "caller.vi", graph=built, gaps=gaps)

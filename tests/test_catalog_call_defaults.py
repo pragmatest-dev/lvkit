@@ -89,7 +89,7 @@ def _caller_source(
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
     catalog = get_resolver().fork()
-    monkeypatch.setitem(catalogs._vilib, None, catalog)
+    monkeypatch.setitem(catalogs._vilib, None, ((), catalog))
     monkeypatch.setattr(catalog, "resolve_recorded", lambda path: entry)
     monkeypatch.setattr(catalog, "catalog_file_name", lambda path: "Inverse FFT.vi")
     return build_module(

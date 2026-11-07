@@ -117,3 +117,29 @@ def test_two_mcp_calls_for_one_project_build_its_catalog_once(
         assert run.settings.project_store == store
         assert catalogs.vilib_catalog_for(run.settings.project_store)
     assert built == [store.resolve()]
+
+
+def test_a_store_edit_reaches_the_next_lookup_and_an_unchanged_store_is_kept(
+    tmp_path: Path,
+) -> None:
+    """lvkit and the user write into ``.lvkit/`` during a session (a vi.lib VI's
+    terminal layout, a fixed entry): the next lookup builds the catalog again, and
+    a store whose files are unchanged keeps the catalog it has."""
+    store = init_project_store(tmp_path)
+    entries = store / "primitives.json"
+    shipped = dict(PrimitiveResolver().get_by_id(int(_PRIM_ID)) or {})
+
+    def write(name: str) -> None:
+        entry = {**shipped, "name": name}
+        entries.write_text(
+            json.dumps({"primitives": {_PRIM_ID: entry}}), encoding="utf-8"
+        )
+
+    write("Before")
+    first = catalogs.primitive_catalog_for(store)
+    assert catalogs.primitive_catalog_for(store) is first
+    assert (first.get_by_id(int(_PRIM_ID)) or {})["name"] == "Before"
+    write("After, a longer name")
+    second = catalogs.primitive_catalog_for(store)
+    assert second is not first
+    assert (second.get_by_id(int(_PRIM_ID)) or {})["name"] == "After, a longer name"
