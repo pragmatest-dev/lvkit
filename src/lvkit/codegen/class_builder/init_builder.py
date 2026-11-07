@@ -6,7 +6,7 @@ import ast
 
 from lvkit.models import ClusterField, TypeNamer
 
-from ..ast_utils import default_value_expr
+from ..ast_utils import type_default_expr
 from ..class_model import ClassModel
 from ..gaps import raise_statement
 from ..type_fields import field_annotations
@@ -49,7 +49,7 @@ class _InitBuilderMixin:
                                 ctx=ast.Store(),
                             )
                         ],
-                        value=default_value_expr(field.type),
+                        value=type_default_expr(field.type),
                     )
                 )
         return ast.FunctionDef(

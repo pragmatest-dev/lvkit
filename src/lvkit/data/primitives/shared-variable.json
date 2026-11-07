@@ -137,6 +137,7 @@
     },
     "23783": {
       "name": "Close Variable Connection",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

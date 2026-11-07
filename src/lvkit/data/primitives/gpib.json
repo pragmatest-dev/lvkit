@@ -377,6 +377,7 @@
     },
     "1959": {
       "name": "GPIB Status",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

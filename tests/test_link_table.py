@@ -16,9 +16,11 @@ from lvkit.parser.link_table import (
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableRecordKind,
+    XNodeLink,
     decode_dyn_links,
     decode_iuse_links,
     decode_shared_variable_links,
+    decode_xnode_links,
     qualified_link_name,
     read_iuse_links,
     read_shared_variable_links,
@@ -755,3 +757,26 @@ def test_the_saved_version_comes_from_the_save_record_else_the_version_block() -
     assert LinkTableVersion.of_vi(save_record) == V82
     assert LinkTableVersion.of_vi(version_block) == V82
     assert LinkTableVersion.of_vi(ET.fromstring("<VI />")) is None
+
+
+@pytest.mark.parametrize("version", [V20, V12, V86], ids=["20", "12", "8.6"])
+def test_decodes_an_xnode_record_with_its_library_path_and_uids(
+    version: LinkTableVersion,
+) -> None:
+    """An ``XNXI`` record starts as an ``IUVI`` record does (pylabview
+    ``LinkObjXNodeToXInterface``: ``parseOffsetLinkSaveInfo``); the decoder reads
+    its library path and the uid of every XNode of the library."""
+    record = build_iuvi_record(
+        offset=0,
+        name_parts=[b"Error Ring.xnode"],
+        path_tokens=[b"<vilib>", b"ErrorRing", b"Error Ring.xnode"],
+        node_uids=[497, 1008],
+        version=version,
+        ident=b"XNXI",
+    )
+    assert decode_xnode_links(record, version) == [
+        XNodeLink(
+            path_tokens=("<vilib>", "ErrorRing", "Error Ring.xnode"),
+            node_uids=(497, 1008),
+        )
+    ]

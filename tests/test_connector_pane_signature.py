@@ -7,6 +7,7 @@ returned. A VI's function and a class's method follow the same rule."""
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import sys
 from pathlib import Path
@@ -210,7 +211,7 @@ def test_a_dynamic_method_takes_required_then_keyword_only(tmp_path: Path) -> No
     assert package.gaps == []
     source = package.sources["base"]
     assert "def scale(self, req: int, *, opt: int=10) -> ScaleResult:" in source
-    assert "class ScaleResult(NamedTuple):\n    total: int" in source
+    assert "@dataclass(frozen=True)\nclass ScaleResult:\n    total: int" in source
     # The off-pane controls are locals in front-panel order, each its own name,
     # and the docstring lists every off-pane control and indicator.
     assert "gain = 5\n" in source and "gain_2 = 7\n" in source
@@ -222,7 +223,7 @@ def test_a_dynamic_method_takes_required_then_keyword_only(tmp_path: Path) -> No
     with package.use() as module:
         base = module("base").Base()
         result = base.scale(1)
-        assert result == (23,) and result.total == 23
+        assert result.total == 23
         assert base.scale(req=1, opt=0).total == 13
         with pytest.raises(TypeError):
             base.scale(1, 2)
@@ -275,13 +276,13 @@ def test_a_vi_has_required_positional_and_the_rest_keyword_only(
     package = project.generate()
     source = package.sources["mix"]
     assert "def mix(a: int, *, b: int=0, c: int=4) -> MixResult:" in source
-    assert "class MixResult(NamedTuple):\n    out: int" in source
+    assert "@dataclass(frozen=True)\nclass MixResult:\n    out: int" in source
     assert "Offset" not in source.split('"""')[0]
     with package.use() as module:
         function = module("mix").mix
         assert function(1).out == 1 + 0 + 4 + 9
         assert function(a=1, b=2, c=3).out == 15
-        assert list(module("mix").MixResult._fields) == ["out"]
+        assert [f.name for f in dataclasses.fields(module("mix").MixResult)] == ["out"]
         parameters = inspect.signature(function).parameters
         assert [p.kind.name for p in parameters.values()] == [
             "POSITIONAL_OR_KEYWORD",
@@ -500,15 +501,15 @@ def test_a_call_that_leaves_a_required_input_unwired_is_a_gap(tmp_path: Path) ->
 def test_a_lazy_import_goes_after_the_docstring() -> None:
     import ast
 
-    from lvkit.codegen.import_cycles import with_imports_after_docstring
+    from lvkit.codegen.ast_utils import with_statements_after_docstring
 
     imports = ast.parse("import os").body
     documented = ast.parse('"""Doc."""\nx = 1').body
-    assert ast.unparse(with_imports_after_docstring(imports, documented)) == (
+    assert ast.unparse(with_statements_after_docstring(imports, documented)) == (
         "'Doc.'\nimport os\nx = 1"
     )
     plain = ast.parse("x = 1").body
-    assert ast.unparse(with_imports_after_docstring(imports, plain)) == (
+    assert ast.unparse(with_statements_after_docstring(imports, plain)) == (
         "import os\nx = 1"
     )
 

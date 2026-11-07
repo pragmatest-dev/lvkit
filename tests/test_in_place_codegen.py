@@ -24,7 +24,7 @@ from lvkit.models import (
     Terminal,
     Tunnel,
 )
-from tests.helpers import make_ctx, register_nodes, tunnel_terminals
+from tests.helpers import error_cluster_type, make_ctx, register_nodes, tunnel_terminals
 
 
 def _mk_ipes(
@@ -790,3 +790,52 @@ class TestIPESBorderDataFlowIds:
         assert ctx.resolve("r_data") == "ref[0]"
         assert "ref[0] = updated" in code
         assert frag.bindings["dvr_out"] == "ref"
+
+
+def test_a_border_tile_error_out_is_the_error_out_of_its_port():
+    """A data value reference tile has no error coming in, so its error out is
+    ``None``; the structure's error out port with the same data-flow id carries
+    it on to what the diagram wires it to."""
+    ctx = make_ctx(
+        "dvr", "dvr_out", "r_in", "r_data", "r_err", "w_data", "w_out", "w_err"
+    )
+    ctx.bind("dvr", "ref")
+    ctx.bind("w_data", "updated")
+    reference = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
+    )
+    error = error_cluster_type()
+    tiles = [
+        _tile(
+            "read",
+            "decomposeDataValRefNode",
+            None,
+            [
+                _term("r_in", "input", dco="DVR", lv_type=reference),
+                _term("r_data", "output", 1),
+                _term("r_err", "output", 2, dco="ERR1", lv_type=error),
+            ],
+        ),
+        _tile(
+            "write",
+            "decomposeDataValRefNode",
+            None,
+            [
+                _term("w_data", "input"),
+                _term("w_out", "output", 1, dco="DVR2", lv_type=reference),
+                _term("w_err", "output", 2, dco="ERR2", lv_type=error),
+            ],
+        ),
+    ]
+    ports = [
+        _term("dvr", "input", 0, dco="DVR"),
+        _term("dvr_out", "output", 1, dco="DVR2"),
+        _term("err_read", "output", 2, dco="ERR1", lv_type=error),
+        _term("err_write", "output", 3, dco="ERR2", lv_type=error),
+    ]
+    node = _ipes_with_tiles(ctx, ports, tiles)
+
+    frag = in_place.generate(node, ctx)
+
+    assert frag.bindings["err_read"] == "None"
+    assert frag.bindings["err_write"] == "None"

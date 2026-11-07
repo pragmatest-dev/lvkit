@@ -839,7 +839,7 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
 # (codegen still resolves it however it already does, untouched) -- so this
 # widening lives here, netlist-build-local, rather than in the shared
 # ``_OPERATION_KINDS`` constant every other consumer (``operations.py``,
-# ``analysis.py``, ``queries.py``'s own top-level scan) relies on. Used by
+# ``queries.py``'s own top-level scan) relies on. Used by
 # ``_owning_node_gn`` (a local-variable node becomes a resolvable WIRE-SOURCE
 # owner, so a downstream reader's ``NetRef`` points at the read node itself --
 # never hops through to the tapped control) and ``_resolve_op_nodes_gn`` (a
@@ -1200,8 +1200,8 @@ def _is_real_terminal(t: Terminal) -> bool:
     parameter (never wired, never named -- e.g. a big class-method VI's
     spare/reserved pane slots). The SAME signal ``render/draw.py``'s
     ``_terminal_is_informative`` checks ("A Void terminal is a dead pane
-    slot with no data"), reproduced here via ``Terminal.type_descriptor()``
-    directly (never a new import -- ``graph/`` does not depend on
+    slot with no data"), read here through ``Terminal.is_void_slot``
+    (never a new import -- ``graph/`` does not depend on
     ``render/``) so Phase A's "keep every terminal" doesn't surface pane
     geometry noise that was never a genuine terminal.
     """

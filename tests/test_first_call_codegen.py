@@ -54,7 +54,7 @@ class TestModuleGlobalRegistration:
         assert len(ctx.module_globals) == 1
         name = next(iter(ctx.module_globals))
         assert name.startswith("_lv_first_call_")
-        stmt = ctx.module_globals[name]
+        [stmt] = ctx.module_globals[name]
         ast.fix_missing_locations(stmt)
         assert ast.unparse(stmt) == f"{name} = True"
 
@@ -105,7 +105,7 @@ class TestExecutesAndPersistsAcrossCalls:
             decorator_list=[],
         )
         module = ast.Module(
-            body=[ctx.module_globals[global_name], func_def],
+            body=[*ctx.module_globals[global_name], func_def],
             type_ignores=[],
         )
         ast.fix_missing_locations(module)

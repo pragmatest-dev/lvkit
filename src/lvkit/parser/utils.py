@@ -286,6 +286,16 @@ def extract_xtunnel_name(elem: ET.Element) -> str | None:
     return decode_hex_ascii(elem.findtext("englishName"))
 
 
+def extract_xtunnel_id(elem: ET.Element) -> str | None:
+    """A ``dco class="xTunnel"`` terminal's hex ``<id>``, decoded (an Error
+    Ring's ``error out``, ``parameter 0``; a Match Regular Expression XNode's
+    ``input string``); ``None`` for another dco or an unset id. Only the XNode
+    libraries ``xnode_links`` lists are named by it."""
+    if elem.get("class") != "xTunnel":
+        return None
+    return decode_hex_ascii(elem.findtext("id"))
+
+
 def _first_text(label: ET.Element) -> str | None:
     """First non-empty cleaned text anywhere inside a label's own subtree."""
     for t in label.iter("text"):

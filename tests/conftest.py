@@ -94,6 +94,33 @@ def _hermetic_cache(request, tmp_path_factory, monkeypatch):
     staging.release_all()
 
 
+@pytest.fixture(autouse=True)
+def _catalogs_keep_their_methods():
+    """A test leaves no method stored on a shared catalog object (the vi.lib and
+    primitive resolvers every test in a worker shares). ``monkeypatch.setattr`` on
+    the object itself puts the bound method back when undone, as an attribute of
+    the object: a later test's patch of the class is then never called, and that
+    test fails only when it runs after this one in the same worker. Patch the
+    class instead. The method is removed so the following tests are unaffected."""
+    yield
+    from lvkit import primitive_resolver, vilib_resolver
+
+    for catalog in (primitive_resolver._resolver, vilib_resolver._resolver):
+        if catalog is None:
+            continue
+        cls = type(catalog)
+        stored = sorted(
+            name for name in vars(catalog) if callable(getattr(cls, name, None))
+        )
+        for name in stored:
+            delattr(catalog, name)
+        if stored:
+            pytest.fail(
+                f"the test left {stored} stored on the shared {cls.__name__}: "
+                "patch the class, not the shared object"
+            )
+
+
 @pytest.fixture
 def graph_factory():
     """Fixture providing graph construction helpers."""

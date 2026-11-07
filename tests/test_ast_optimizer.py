@@ -6,8 +6,85 @@ from lvkit.codegen.ast_optimizer import (
     DeadCodeEliminator,
     eliminate_dead_code,
     remove_duplicate_imports,
+    remove_self_assignments,
     remove_unused_imports,
 )
+
+
+def _without_self_assignments(code: str) -> str:
+    module = ast.parse(code)
+    return ast.unparse(ast.fix_missing_locations(remove_self_assignments(module)))
+
+
+def test_a_self_assignment_in_an_else_is_removed_with_the_else():
+    code = """
+def f(err):
+    if err is None:
+        err = g()
+    else:
+        err = err
+    return err
+"""
+    assert _without_self_assignments(code) == (
+        "def f(err):\n    if err is None:\n        err = g()\n    return err"
+    )
+
+
+def test_an_if_whose_body_is_only_a_self_assignment_tests_the_opposite():
+    code = """
+def f(err, x):
+    if err is None:
+        err = err
+    else:
+        x = 0
+    return (err, x)
+"""
+    assert _without_self_assignments(code) == (
+        "def f(err, x):\n    if not err is None:\n        x = 0\n    return (err, x)"
+    )
+
+
+def test_an_if_left_empty_goes_and_a_body_left_empty_holds_pass():
+    code = """
+def f(err, items):
+    for item in items:
+        if err is None:
+            err = err
+    try:
+        err = err
+    except ValueError:
+        err = err
+    return err
+"""
+    assert _without_self_assignments(code) == (
+        "def f(err, items):\n    for item in items:\n        pass\n"
+        "    try:\n        pass\n    except ValueError:\n        pass\n"
+        "    return err"
+    )
+
+
+def test_an_emptied_if_that_calls_keeps_its_test():
+    code = """
+def f(err):
+    if check(err):
+        err = err
+    return err
+"""
+    assert _without_self_assignments(code) == (
+        "def f(err):\n    check(err)\n    return err"
+    )
+
+
+def test_other_assignments_stay():
+    code = """
+def f(a, b):
+    a = b
+    a.x = a.x
+    return a
+"""
+    assert _without_self_assignments(code) == (
+        "def f(a, b):\n    a = b\n    a.x = a.x\n    return a"
+    )
 
 
 def test_eliminate_unused_assignment():

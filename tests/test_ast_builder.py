@@ -1596,14 +1596,14 @@ class TestToModuleName:
         ast.parse(f"from {module} import {func}")
 
 
-# === Error Cluster Filtering Tests ===
+# === Error Cluster Terminals ===
 
 
-class TestErrorClusterFiltering:
-    """Tests for error cluster filtering in code generation."""
+class TestErrorClusterTerminals:
+    """An error cluster is a parameter and a result field like any other."""
 
-    def test_error_cluster_input_filtered_by_name(self):
-        """Test that error cluster inputs are filtered by name pattern."""
+    def test_error_cluster_inputs_are_parameters(self):
+        """Error cluster inputs are parameters, annotated as an error value."""
         from lvkit.codegen.builder import build_args
         from lvkit.models import FPTerminal, Terminal
 
@@ -1641,13 +1641,17 @@ class TestErrorClusterFiltering:
 
         args = build_args(inputs)
 
-        # Should only have "value" - error in/out filtered. Its wiring rule is
-        # unknown, so it is not Required: keyword-only.
+        # No wiring rule is known, so none is Required: all keyword-only.
         assert args.args == []
-        assert [a.arg for a in args.kwonlyargs] == ["value"]
+        assert [a.arg for a in args.kwonlyargs] == [
+            "error_in",
+            "value",
+            "error_out",
+        ]
+        assert ast.unparse(args.kwonlyargs[0].annotation) == "LabVIEWError | None"
 
-    def test_error_cluster_output_filtered_by_name(self):
-        """Test that error cluster outputs are filtered by name pattern."""
+    def test_error_cluster_output_is_a_result_field(self):
+        """An error cluster output is a field of the result class."""
         from lvkit.codegen.builder import build_result_class
         from lvkit.models import FPTerminal
 
@@ -1676,18 +1680,16 @@ class TestErrorClusterFiltering:
 
         result_class = build_result_class(vi_context)
 
-        # Should only have "result" field - error out filtered
         assert result_class is not None
-        # Check class body has only one field annotation
         field_names = [
             stmt.target.id
             for stmt in result_class.body
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name)
         ]
-        assert field_names == ["result"]
+        assert field_names == ["error_out", "result"]
 
-    def test_all_error_outputs_returns_none(self):
-        """Test that if all outputs are error clusters, no result class is created."""
+    def test_an_error_out_alone_is_a_result_class(self):
+        """A VI whose only output is an error cluster returns it in its result."""
         from lvkit.codegen.builder import build_result_class
         from lvkit.models import FPTerminal
 
@@ -1708,5 +1710,7 @@ class TestErrorClusterFiltering:
 
         result_class = build_result_class(vi_context)
 
-        # Should be None - no non-error outputs
-        assert result_class is None
+        assert result_class is not None
+        assert [ast.unparse(stmt) for stmt in result_class.body] == [
+            "error_out: LabVIEWError | None"
+        ]

@@ -15,7 +15,7 @@ from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from . import vi_reference
+from . import class_property_node, vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -96,7 +96,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     nested property is an attribute chain (``ref.label.text``). Implicit
     control bindings require a separate runtime model and are rejected
     instead of fabricating reference values. Error-cluster terminals are
-    skipped: errors surface as Python exceptions.
+    not read here: the node's error out is its error in, and the node is
+    skipped when an error comes in (``error_flow.guard``).
     """
     properties = node.properties or []
     value_ids = node.property_value_terminal_ids
@@ -110,7 +111,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "Implicit property reference requires a binding model", node
         )
-    fixed = [term for term in node.terminals if term.id not in value_ids]
+    if ctx.graph is not None and class_property_node.is_class_property_node(node):
+        return class_property_node.generate(node, ctx)
+    fixed =[term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
 
@@ -174,7 +177,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise CodeGenError("Property value direction is unresolved", node)
 
     for term in fixed:
-        # Error clusters become Python exceptions, so their wires carry nothing.
+        # The error out is the error in (``error_flow.guard``); nothing to bind.
         if term.is_error_cluster:
             continue
         if term.direction != "output" or not ctx.is_wired(term.id):

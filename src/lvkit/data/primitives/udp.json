@@ -178,6 +178,7 @@
     },
     "1726": {
       "name": "UDP Close",
+      "runs_on_error": true,
       "terminals": [
         {
           "index": 0,

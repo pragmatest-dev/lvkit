@@ -382,6 +382,7 @@
     },
     {
       "name": "Close Pipe",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/system-llb/close-pipe-vi.html",
       "category": "Connectivity",
       "description": "Closes a pipe. Other processes reading the pipe will receive EOF (end-of-file).",
@@ -1993,6 +1994,7 @@
     },
     {
       "name": "Close Reference Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object.",
@@ -2239,6 +2241,7 @@
     },
     {
       "name": "Unregister For Events Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Connectivity",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
@@ -3501,6 +3504,7 @@
     },
     {
       "name": "Close Reference Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object.",
@@ -3825,6 +3829,7 @@
     },
     {
       "name": "Unregister For Events Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "category": "Connectivity",
       "description": "Unregisters all events associated with an event registration refnum. Event structures that use this event registration refnum no longer receive any dynamic events. National Instruments recommends that you unregister for events when you no longer need to handle them. If you do not unregister for events, LabVIEW continues to generate and queue the events as long as the VI runs, even if no Event structure is waiting to handle them, which consumes memory and can hang the VI if you enable front panel",
@@ -4289,6 +4294,7 @@
     },
     {
       "name": "Close Registry Key",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/close-registry-key-vi.html",
       "category": "Connectivity",
       "description": "Closes a key in the Windows registry.",
@@ -5166,6 +5172,7 @@
     },
     {
       "name": "Close Python Session Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-python-session.html",
       "category": "Connectivity",
       "description": "Closes a Python session.",
@@ -5205,6 +5212,7 @@
     },
     {
       "name": "Close Reference Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Connectivity",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object. Functions © National Instruments 5707",

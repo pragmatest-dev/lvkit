@@ -10,7 +10,7 @@ from lvkit.graph.models import DisableStructureNode
 from lvkit.graph.operations import frame_key
 from lvkit.models import CaseFrame
 
-from ..ast_utils import build_assign, default_value_expr
+from ..ast_utils import build_assign, type_default_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -46,7 +46,9 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
             if outer_var:
                 ctx.bind(tunnel.inner_terminal_uid, outer_var)
 
-    statements: list[ast.stmt] = ctx.generate_body(operations)
+    statements: list[ast.stmt] = ctx.generate_body(
+        operations, (node.id, key)
+    )
     for stmt in statements:
         ast.fix_missing_locations(stmt)
 
@@ -64,7 +66,7 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
                     "tunnel_default", tunnel.outer_terminal_uid
                 )
                 statements.append(
-                    build_assign(default, default_value_expr(outer.lv_type))
+                    build_assign(default, type_default_expr(outer.lv_type))
                 )
                 bindings[tunnel.outer_terminal_uid] = default
 

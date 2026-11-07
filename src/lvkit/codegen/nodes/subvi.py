@@ -35,6 +35,8 @@ from ..error_path import is_error_wire_vi
 from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..label_names import python_label
+from ..native_failure import CatalogFailures, catch_failures
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -54,7 +56,8 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     node, callee_name, callee_key = run.node, run.name, run.key
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
-    # Code, the error handlers) are exception handling, not calls of a module.
+    # Code, the error handlers) work on error wire values at the call site; they
+    # are not calls of a module.
     catalog_path = ctx.catalog_path(node)
     if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)
@@ -85,20 +88,28 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
 
-    # A catalog VI the generator writes from the graph.
-    if vilib_vi and vilib_vi.op:
-        return vilib_op.generate(node, ctx, vilib_vi)
-
-    # Check for inline replacement first
-    if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
-        return _generate_inline(node, ctx, vilib_vi)
+    # A catalog VI the generator writes from the graph, or from its inline
+    # template.
+    if vilib_vi and (vilib_vi.op or (vilib_vi.python_code and vilib_vi.inline)):
+        fragment = (
+            vilib_op.generate(node, ctx, vilib_vi)
+            if vilib_vi.op
+            else _generate_inline(node, ctx, vilib_vi)
+        )
+        fragment.runs_on_error = vilib_vi.runs_on_error
+        return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
 
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
     stmt = ast.Assign(
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
         value=parts.call,
     )
-    return CodeFragment(statements=[*parts.prelude, stmt], bindings=parts.bindings)
+    # The called function takes the error in and decides whether to skip.
+    return CodeFragment(
+        statements=[*parts.prelude, stmt],
+        bindings=parts.bindings,
+        runs_on_error=True,
+    )
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
@@ -199,40 +210,30 @@ def _generate_inline(
             param_key = vt.python_param or to_var_name(vt.name)
             vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
-    # Substitute input placeholders with wired values
+    # The value of each input placeholder: the wired value, else the default.
+    # The placeholders are read from the catalog template only, never from a
+    # value written into it (a value can hold braces of its own, an f-string).
+    values: dict[str, str] = {}
     for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
+        if term.direction != "input" or term.index not in vilib_inputs:
             continue
-
-        term_index = term.index
-        term_id = term.id
-        value = ctx.wired_input(term_id, node)
-
-        if term_index in vilib_inputs:
-            param_key = vilib_inputs[term_index]
-            placeholder = "{" + param_key + "}"
-            if not value and template_reads(template, placeholder):
-                if term.is_error_cluster:
-                    value = "None"
-                elif param_key in vilib_defaults:
-                    value = vilib_defaults[param_key]
-                else:
-                    raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
-            template = template.replace(placeholder, value or "None")
-
-    # Substitute any remaining unresolved input placeholders with defaults
+        param_key = vilib_inputs[term.index]
+        value = ctx.wired_input(term.id, node)
+        if not value and template_reads(template, "{" + param_key + "}"):
+            if term.is_error_cluster:
+                value = "None"
+            elif param_key in vilib_defaults:
+                value = vilib_defaults[param_key]
+            else:
+                raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
+        values[param_key] = value or "None"
     for param_key, default in vilib_defaults.items():
-        placeholder = "{" + param_key + "}"
-        if placeholder in template:
-            template = template.replace(placeholder, default)
+        values.setdefault(param_key, default)
 
-    # Check for unresolved input placeholders — same as vilib resolution
-    unresolved_inputs = {
-        m
-        for m in re.findall(r"\{(\w+)\}", template)
-        if m not in set(vilib_outputs.values())
-    }
-    if unresolved_inputs:
+    # A placeholder that is neither an input with a value nor an output is
+    # unresolved — same as vilib resolution.
+    placeholders = set(re.findall(r"\{(\w+)\}", template))
+    if placeholders - values.keys() - set(vilib_outputs.values()):
         _raise_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
@@ -260,9 +261,6 @@ def _generate_inline(
     for term in ctx.enriched_terminals(node):
         if term.direction != "output":
             continue
-        # Skip error cluster outputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
 
         term_index = term.index
         term_id = term.id
@@ -278,18 +276,20 @@ def _generate_inline(
                 var_name = f"{func_name}_{param_key}"
                 output_var_map[param_key] = var_name
                 bindings[term_id] = var_name
-            elif ctx.is_wired(term_id):
+            elif ctx.is_wired(term_id) and not term.is_error_cluster:
                 # Output not in template but wired downstream — bind to None
                 bindings[term_id] = "None"
-            # else: not in template, not wired — skip entirely
-        else:
+            # else: not in template, not wired — skip entirely; an error out the
+            # template does not set is the node's error in (``error_flow``)
+        elif not term.is_error_cluster:
             # Output not in vilib definition - bind to None
             bindings[term_id] = "None"
 
-    # Replace output placeholders in template
-    for param_key, var_name in output_var_map.items():
-        placeholder = "{" + param_key + "}"
-        template = template.replace(placeholder, var_name)
+    # Write every placeholder in one pass over the catalog template.
+    names = {**values, **output_var_map}
+    template = re.sub(
+        r"\{(\w+)\}", lambda m: names.get(m.group(1), m.group(0)), template
+    )
 
     # Parse as statement(s) - supports multi-line
     try:
@@ -467,10 +467,6 @@ def _build_arguments(
         )
         wired = value is not None
 
-        # Skip error cluster terminals — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-
         # An unwired input of a catalog VI runs with the default the catalog (or
         # the loaded VI's control) gives it; any other unwired input uses the
         # called function's own default.
@@ -494,8 +490,8 @@ def _build_arguments(
         elif names is not None and term_index in names.parameters:
             param_name = names.parameters[term_index]
         elif term_name:
-            # Use terminal name from node
-            param_name = to_var_name(term_name)
+            # The callee is not loaded: the call's own terminal names it.
+            param_name = to_var_name(python_label(term) or term_name)
         else:
             _raise_terminal_resolution(subvi_name, "input", term, ctx, vilib_vi)
 
@@ -590,12 +586,13 @@ def _build_vilib_terminal_map(
     vilib_vi: VIEntry | None,
     direction: TerminalDirection,
 ) -> dict[int, str]:
-    """Build index → terminal name mapping from vilib VI.
-
-    Prefers python_param if available, otherwise uses terminal name.
-    """
+    """Index -> the name the catalog gives each terminal of a vi.lib VI whose
+    module the catalog writes (its ``python_code``): ``python_param``, else the
+    terminal's name. Empty for any other VI: its module is generated from its
+    diagram, so a call names its terminals as that module does
+    (``callee_names``)."""
     result: dict[int, str] = {}
-    if vilib_vi:
+    if vilib_vi and vilib_vi.python_code is not None:
         for vt in vilib_vi.terminals:
             if vt.direction == direction and vt.index is not None:
                 result[vt.index] = vt.python_param or vt.name
@@ -626,17 +623,13 @@ def _build_output_bindings(
         term_index = term.index
         term_name = term.name or ""
 
-        # Skip error terminals — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:
             field = result_field_name(vilib_outputs[term_index])
         elif names is not None and term_index in names.fields:
             field = names.fields[term_index]
         elif term_name:
-            field = result_field_name(term_name)
+            field = result_field_name(python_label(term) or term_name)
         else:
             _raise_terminal_resolution(subvi_name, "output", term, ctx, vilib_vi)
 

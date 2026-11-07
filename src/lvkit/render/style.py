@@ -63,6 +63,15 @@ class Theme:
     xnode_fill: str = "#ffffff"  # row background (never prim_fill's tan)
     xnode_header_fill: str = "#efb8ff"  # header band fill
     xnode_stroke: str = "#9f008e"  # border + row dividers
+    # An Error Ring (colours measured from NI's public Error Ring page image,
+    # loc_ErrorRing.gif): the border, the dropdown arrow, and lvkit's own
+    # error / warning / call-chain toggle marks.
+    error_ring_stroke: str = "#b4ab00"
+    error_ring_arrow: str = "#a57b39"
+    error_ring_error: str = "#e00000"
+    error_ring_warning: str = "#e8b400"
+    error_ring_mark: str = "#ffffff"  # the mark drawn on a toggle
+    error_ring_chain: str = "#5d6677"
     # A Call Library Function Node (colours measured from LabVIEW's own node
     # pixels): the top band is orange when the node runs in the UI thread. The
     # any-thread yellow is LabVIEW's pale-yellow primitive fill, measured on a

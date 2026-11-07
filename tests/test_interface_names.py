@@ -10,7 +10,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from tests import vi_reference_diagrams as d
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_module
 
 _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
@@ -80,17 +80,15 @@ def test_a_caller_reads_the_fields_and_passes_the_keywords_the_callee_names(
     caller_source = build_module(context, "caller.vi", graph=graph)
 
     # The callee's body swaps its inputs: the first result is the second input.
-    namespace: dict = {"__name__": "generated"}
-    exec(  # noqa: S102
-        "from typing import NamedTuple\n"
-        "class Result(NamedTuple):\n    r_1: int\n    r_1_2: int\n"
-        "def callee(a_b=0, a_b_2=0):\n    return Result(r_1=a_b_2, r_1_2=a_b)\n",
-        namespace,
+    # It is defined beside the caller, whose import of its module is dropped.
+    callee = (
+        "from types import SimpleNamespace\n"
+        "def callee(a_b=0, a_b_2=0):\n"
+        "    return SimpleNamespace(r_1=a_b_2, r_1_2=a_b)\n"
     )
-    # The callee is already in the namespace: drop the import of its module.
     body = "\n".join(
         line for line in caller_source.splitlines() if not line.startswith("from .")
     )
-    exec(compile(body, "caller", "exec"), namespace)  # noqa: S102
+    namespace = exec_module(body + "\n" + callee, "caller").__dict__
     result = namespace["caller"](first=1, second=2)
     assert (result.r1, result.r2) == (2, 1)

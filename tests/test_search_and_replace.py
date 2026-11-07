@@ -15,7 +15,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
-from tests.native_vi import Generated, generate, node, scalar
+from tests.native_vi import Generated, generate, node, result_values, scalar
 
 STR = scalar("String")
 I32 = scalar("NumInt32")
@@ -122,9 +122,9 @@ class TestPlainMode:
             "    result_string = s[:search_start] + replaced\n"
             "    return NativeTestResult(r=result_string, n=number_of_replacements)"
         )
-        assert tuple(run.function("AaAa", 1)) == ("Axxx", 3)
-        assert tuple(run.function("AaAa", -4)) == ("xxxx", 4)
-        assert tuple(run.function("AaAa", 9)) == ("AaAa", 0)
+        assert result_values(run.function("AaAa", 1)) == ("Axxx", 3)
+        assert result_values(run.function("AaAa", -4)) == ("xxxx", 4)
+        assert result_values(run.function("AaAa", 9)) == ("AaAa", 0)
 
     def test_replace_string_named_match_is_not_the_lambda_parameter(self) -> None:
         run = build(
@@ -133,14 +133,14 @@ class TestPlainMode:
             names={"repl": "match"},
         )
         assert "lambda matched: match" in body(run)
-        assert tuple(run.function("banana", "X", 0)) == ("bXnana", 1)
+        assert result_values(run.function("banana", "X", 0)) == ("bXnana", 1)
 
     def test_search_string_is_text_not_a_pattern(self) -> None:
         run = build({"search": "a.c", "repl": "-", "o": "ctl"}, outs=("r", "n"))
-        assert tuple(run.function("abc a.c", 0)) == ("abc -", 1)
+        assert result_values(run.function("abc a.c", 0)) == ("abc -", 1)
         # The replacement is inserted as it is: no backslash or $ reads.
         literal = build({"search": "a", "repl": "\\1$1", "o": "ctl"}, outs=("r", "n"))
-        assert tuple(literal.function("ba", 0)) == ("b\\1$1", 1)
+        assert result_values(literal.function("ba", 0)) == ("b\\1$1", 1)
 
     def test_offset_past_replacement(self) -> None:
         run = build({"search": "a", "repl": "xx", "o": "ctl"}, outs=("r", "n", "p"))
@@ -164,9 +164,9 @@ class TestPlainMode:
         )
         # NI: the offset in result string just after the last replacement; the
         # next match, if any, is after it; -1 when nothing was found.
-        assert tuple(run.function("a-a-a", 2)) == ("a-xx-a", 1, 4)
-        assert tuple(run.function("a-a-a", 0)) == ("xx-a-a", 1, 2)
-        assert tuple(run.function("bbb", 0)) == ("bbb", 0, -1)
+        assert result_values(run.function("a-a-a", 2)) == ("a-xx-a", 1, 4)
+        assert result_values(run.function("a-a-a", 0)) == ("xx-a-a", 1, 2)
+        assert result_values(run.function("bbb", 0)) == ("bbb", 0, -1)
 
     def test_offset_past_the_last_of_all_replacements(self) -> None:
         run = build({"search": "a", "repl": "xx", "ra": "True"}, outs=("p",))
@@ -177,8 +177,8 @@ class TestPlainMode:
     def test_replace_all_computed_with_the_offset_past(self) -> None:
         run = build({"search": "a", "repl": "x", "ra": "ctl"}, outs=("r", "p"))
         assert "[:None if ra else 1]" in body(run)
-        assert tuple(run.function("aaa", True)) == ("xxx", 3)
-        assert tuple(run.function("aaa", False)) == ("xaa", 1)
+        assert result_values(run.function("aaa", True)) == ("xxx", 3)
+        assert result_values(run.function("aaa", False)) == ("xaa", 1)
 
 
 class TestRegularExpressionMode:
@@ -189,13 +189,20 @@ class TestRegularExpressionMode:
             {"search": "(LabVIEW)", "repl": "to $1!"}, regex=True, outs=("r", "n")
         )
         assert body(run) == (
+            "    if any(('\\x00' in text for text in (s,))):\n"
+            "        raise NullCharacterError('One of the string parameters contains "
+            "a null character. LabVIEW does not support null characters for "
+            "regular expression matching.')\n"
             "    result_string, number_of_replacements = re.subn('(LabVIEW)', "
             "'to \\\\g<1>!', s, count=1, flags=re.ASCII)\n"
             "    return NativeTestResult(r=result_string, n=number_of_replacements)"
         )
         assert "lvkit" not in run.source
         assert "_pcre_regex" not in run.source
-        assert tuple(run.function("Welcome LabVIEW")) == ("Welcome to LabVIEW!", 1)
+        assert result_values(run.function("Welcome LabVIEW")) == (
+            "Welcome to LabVIEW!",
+            1,
+        )
 
     def test_ni_examples_run(self) -> None:
         doc = build(
@@ -229,11 +236,19 @@ class TestRegularExpressionMode:
     def test_pattern_computed_at_run_time_writes_the_translators_once(self) -> None:
         run = build({"search": "ctl", "repl": "ctl", "ra": "True"}, regex=True)
         assert run.source.count("def _pcre_regex(pattern: str) -> str:") == 1
-        assert run.source.count("def _pcre_template(replacement: str) -> str:") == 1
+        assert (
+            run.source.count(
+                "def _pcre_template(replacement: str) -> tuple[str, tuple[int, ...]]:"
+            )
+            == 1
+        )
         assert "re.subn" not in run.source
         assert (
-            "    result_string = re.sub(_pcre_regex(search), _pcre_template(repl), s, "
-            "flags=re.ASCII)\n"
+            "    pattern = _pcre_regex(search)\n"
+            "    template, submatches = _pcre_template(repl)\n"
+        ) in body(run)
+        assert (
+            "    result_string = re.sub(pattern, template, s, flags=re.ASCII)\n"
         ) in body(run)
         assert "lvkit" not in run.source
         assert run.function("a1b22", "(\\d+)", "<$1>").r == "a<1>b<22>"
@@ -244,9 +259,9 @@ class TestRegularExpressionMode:
             regex=True,
             outs=("r", "n", "p"),
         )
-        assert tuple(run.function("a1b2", 0)) == ("a[1]b[2]", 2, 8)
-        assert tuple(run.function("a1b2c", 2)) == ("a1b[2]c", 1, 6)
-        assert tuple(run.function("abc", 0)) == ("abc", 0, -1)
+        assert result_values(run.function("a1b2", 0)) == ("a[1]b[2]", 2, 8)
+        assert result_values(run.function("a1b2c", 2)) == ("a1b[2]c", 1, 6)
+        assert result_values(run.function("abc", 0)) == ("abc", 0, -1)
 
     def test_constant_pattern_with_a_construct_python_cannot_read_is_a_gap(
         self,
@@ -254,7 +269,7 @@ class TestRegularExpressionMode:
         gaps: list[Gap] = []
         run = build({"search": "a\\h", "repl": "x"}, regex=True, gaps=gaps)
         (gap,) = gaps
-        assert "the escape \\h" in gap.reason
+        assert "the PCRE escape \\h has no Python re form" in gap.reason
         with pytest.raises(NotImplementedError):
             run.function("a")
 
@@ -262,7 +277,8 @@ class TestRegularExpressionMode:
         gaps: list[Gap] = []
         build({"search": "(a)", "repl": "$2"}, regex=True, gaps=gaps)
         (gap,) = gaps
-        assert "invalid group reference 2" in gap.reason
+        assert "refers to a submatch the regular expression does not have" in gap.reason
+        assert gap.reason.endswith(": $2")
 
 
 def test_unwired_outputs_make_no_code() -> None:

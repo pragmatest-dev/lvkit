@@ -21,7 +21,7 @@ def match(string: str, pattern: str, flags: int = 0) -> str | None:
 def replaced(string: str, pattern: str, replacement: str, count: int = 0) -> str:
     return re.sub(
         pcre_to_python_regex(pattern),
-        pcre_to_python_template(replacement),
+        pcre_to_python_template(replacement)[0],
         string,
         count=count,
         flags=re.ASCII,
@@ -146,13 +146,17 @@ class TestBackslash:
         assert match("ab\n", r"b\Z") == "b"
 
     def test_an_escape_python_cannot_express_raises_naming_it(self) -> None:
-        with pytest.raises(ValueError, match=r"the escape \\h"):
+        with pytest.raises(NotImplementedError, match=r"the PCRE escape \\h"):
             pcre_to_python_regex(r"a\h")
 
+    def test_a_letter_escape_pcre_does_not_have_is_a_pattern_error(self) -> None:
+        with pytest.raises(re.error, match=r"the escape \\y is no PCRE escape"):
+            pcre_to_python_regex(r"a\y")
+
     def test_unclosed_class_and_trailing_backslash_raise(self) -> None:
-        with pytest.raises(ValueError, match="no closing"):
+        with pytest.raises(re.error, match="no closing"):
             pcre_to_python_regex("[ab")
-        with pytest.raises(ValueError, match="backslash at the end"):
+        with pytest.raises(re.error, match="backslash at the end"):
             pcre_to_python_regex("ab\\")
 
 
@@ -201,3 +205,11 @@ def test_translators_are_written_into_a_module_from_the_same_source() -> None:
     for pattern in [r"a\x21[b-d]+{,2}", r"(?<n>a)|\cb", "[[]"]:
         assert namespace["translate"](pattern) == pcre_to_python_regex(pattern)
     assert namespace["template"]("$1${2}\\$") == pcre_to_python_template("$1${2}\\$")
+
+
+def test_the_template_names_the_submatches_it_inserts() -> None:
+    """The numbers come from the replace string's own ``$n`` / ``${n}``, never
+    from the translated text: a literal backslash followed by ``g<5>`` inserts
+    no submatch."""
+    assert pcre_to_python_template("$1${12}") == ("\\g<1>\\g<12>", (1, 12))
+    assert pcre_to_python_template("\\\\g<5>") == ("\\\\g<5>", ())

@@ -5,7 +5,7 @@ project with the connector pane its strictly typed refnum records: the slots of
 the pane, each with its direction and type. A VI's function and a method of a
 class are called differently (``class_model.MethodShape``): a method takes its
 class input as ``self``. Both return nothing when the connector pane has no
-output, else a ``NamedTuple`` of the pane's outputs.
+output, else their result class of the pane's outputs.
 ``call_form`` finds the VIs of the project whose pane is that pane, slot by slot
 and type by type, and the way each is called; the call is right only when they
 are all called the same way."""
@@ -31,14 +31,14 @@ class ResultStyle(Enum):
     """How a call gives its results back."""
 
     NONE = "none"  # nothing
-    FIELDS = "fields"  # the fields of a NamedTuple
+    FIELDS = "fields"  # the fields of a result class
 
 
 @dataclass(frozen=True)
 class CallForm:
     """How one VI is called by keyword: ``keywords`` by pane index (the class
     input is ``self``), the results by pane index and how they come back
-    (``fields`` names a NamedTuple's field by pane index), and the pane index of
+    (``fields`` names a result field by pane index), and the pane index of
     a class output that is the object the call was made on. ``member`` is the
     method of a class the form was read from; ``class_key`` its class when the
     call takes the class input."""

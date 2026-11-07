@@ -81,6 +81,7 @@ def _add_method(
         is_static=False,
         is_accessor=is_accessor,
         accessor_field=accessor_field,
+        accessor_path=None,
         must_override=False,
         must_call_parent=False,
     )

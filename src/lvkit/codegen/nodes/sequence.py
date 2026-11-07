@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import SequenceNode
+from lvkit.graph.operations import frame_key
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
@@ -36,8 +37,8 @@ def generate(node: SequenceNode, ctx: CodeGenContext) -> CodeFragment:
                 ctx.bind(tunnel.inner_terminal_uid, outer_var)
 
     # Generate code for each frame sequentially
-    for _frame, ops in ctx.frame_children(node):
-        frame_stmts = ctx.generate_body(ops)
+    for position, (frame, ops) in enumerate(ctx.frame_children(node)):
+        frame_stmts = ctx.generate_body(ops, (node.id, frame_key(frame, position)))
         for stmt in frame_stmts:
             ast.fix_missing_locations(stmt)
         all_statements.extend(frame_stmts)

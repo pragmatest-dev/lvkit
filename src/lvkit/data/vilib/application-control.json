@@ -156,6 +156,7 @@
     },
     {
       "name": "Close Reference Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
       "category": "Application Control",
       "description": "Closes a refnum associated with an open VI, VI object, an open application instance, or a .NET, ActiveX or Python object.",
@@ -1022,6 +1023,7 @@
     },
     {
       "name": "Delete Data Value Reference Function",
+      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-data-value-reference.html",
       "category": "Application Control",
       "description": "Removes LabVIEW access to the data that the data value reference or the external data value reference points to. This function deletes the reference but leaves the data intact. Memory leakage might occur if you do not delete the reference.",

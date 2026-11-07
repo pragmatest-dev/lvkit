@@ -58,10 +58,6 @@ class ImportBuilder:
         """Add typing imports."""
         self.add_from("typing", *names)
 
-    def add_namedtuple(self) -> None:
-        """Add NamedTuple import."""
-        self.add_typing("NamedTuple")
-
     def add_dependency(self, sig: VISignature) -> None:
         """Add imports for a converted dependency.
 

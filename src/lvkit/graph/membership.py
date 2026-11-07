@@ -64,6 +64,9 @@ class ListedMethod:
     is_static: bool
     is_accessor: bool
     accessor_field: str | None
+    # The property's path in the class's project tree (its folders and its
+    # Property Definition item, ':'-joined), the name a Property Node row records.
+    accessor_path: str | None
     must_override: bool
     must_call_parent: bool
 
@@ -74,6 +77,7 @@ class ListedMethod:
             is_static=method.is_static,
             is_accessor=method.property_name is not None,
             accessor_field=method.property_name,
+            accessor_path=method.property_path,
             must_override=method.must_override,
             must_call_parent=method.must_call_parent,
         )
@@ -376,6 +380,7 @@ def _edge_attrs(item: ListedMethod) -> dict[str, object]:
         "is_static": item.is_static,
         "is_accessor": item.is_accessor,
         "accessor_field": item.accessor_field,
+        "accessor_path": item.accessor_path,
         "must_override": item.must_override,
         "must_call_parent": item.must_call_parent,
     }

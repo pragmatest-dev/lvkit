@@ -12,8 +12,9 @@ A private member is called only from its class's own VIs, written in the class
 body (``class_model.check_private_access``). A member with no method (its name is
 another member's, its VI was not found) makes the call a gap. Arguments go by
 keyword. A connector-pane input the method requires and the call leaves unwired is a
-gap. The results are the fields of the method's ``NamedTuple`` (``MethodShape``),
-read by name; the class output is the receiver, which the method changed in
+gap. The error in is passed like any input and the method decides whether to skip.
+The results are the fields of the method's result class (``MethodShape``), read
+by name; the class output is the receiver, which the method changed in
 place, unless the shape returns it.
 """
 
@@ -84,7 +85,12 @@ def generate(node: VINode, ctx: CodeGenContext, shape: MethodShape) -> CodeFragm
         if call.result_var is not None
         else ast.Expr(value=invoke)
     )
-    return CodeFragment(statements=[*call.prelude, statement], bindings=call.bindings)
+    # The method takes the error in and decides whether to skip.
+    return CodeFragment(
+        statements=[*call.prelude, statement],
+        bindings=call.bindings,
+        runs_on_error=True,
+    )
 
 
 def build_call(
@@ -130,7 +136,7 @@ def build_call(
     if receiver_keyword is not None and receiver is not None:
         keywords.append(ast.keyword(arg=receiver_keyword, value=parse_expr(receiver)))
     for term in terminals:
-        if term.direction != "input" or term.is_error_cluster:
+        if term.direction != "input":
             continue
         if term.index == shape.receiver_in or term.index not in shape.parameters:
             continue
@@ -159,7 +165,7 @@ def build_call(
     if shape.results:
         result_var = ctx.make_output_var(f"{shape.name.lstrip('_')}_result", node.id)
     for term in terminals:
-        if term.direction != "output" or term.is_error_cluster:
+        if term.direction != "output":
             continue
         if term.index in shape.results and result_var is not None:
             bindings[term.id] = (

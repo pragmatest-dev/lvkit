@@ -17,7 +17,7 @@ that gap instead of emitting plausible-looking but wrong pixel math.
 Only ``bind_value`` targets are data-driven: which State attribute a widget
 binds to. The one-shot Run handler match is also data-driven, by NAME
 against the *real* signature of the generated logic entry function
-(introspected via ``inspect``/``typing.get_type_hints`` on the freshly
+(introspected via ``inspect`` and the result class on the freshly
 written ``<vi>.py``), falling back to positional order when a name doesn't
 match -- never a hand-picked mapping.
 
@@ -29,6 +29,7 @@ control's strategy for its emitted source and its runtime import needs.
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import inspect
 import sys
@@ -89,23 +90,20 @@ def introspect_entry(
     logic_path: Path, func_name: str
 ) -> tuple[list[str], list[str] | None]:
     """Import the freshly-written <vi>.py and read the REAL signature of its
-    entry function: (parameter names in order, return NamedTuple field names
-    or None). Runtime introspection, not a guess -- `from __future__ import
-    annotations` makes every annotation a string, so this resolves them via
-    `typing.get_type_hints` rather than trusting `Signature.return_annotation`
-    directly (which would just be the unresolved string).
+    entry function: (parameter names in order, the field names of the result
+    dataclass it returns, or None). Runtime introspection, not a guess --
+    `from __future__ import annotations` makes every annotation a string, so the
+    return annotation is the result class's name, looked up in the module (the
+    other annotations name types imported only for a type checker).
     """
     func = _load_entry_function(logic_path, func_name)
     sig = inspect.signature(func)
     param_names = list(sig.parameters.keys())
 
     result_fields: list[str] | None = None
-    hints = typing.get_type_hints(func)
-    return_type = hints.get("return")
-    if return_type is not None:
-        fields = getattr(return_type, "_fields", None)
-        if fields:
-            result_fields = list(fields)
+    return_type = func.__globals__.get(str(sig.return_annotation))
+    if isinstance(return_type, type) and dataclasses.is_dataclass(return_type):
+        result_fields = [f.name for f in dataclasses.fields(return_type)] or None
     return param_names, result_fields
 
 
@@ -272,7 +270,7 @@ def _match_outputs(
     field_names: dict[str, str],
 ) -> list[tuple[str, str]]:
     """Map each output indicator's field name to how to pull it out of the
-    logic call's result: by NAME against the result NamedTuple's fields
+    logic call's result: by NAME against the result dataclass's fields
     first, then by position. Returns (state_field_name, result_access_expr)
     pairs."""
     ordered = [field_names[c.uid] for c in output_controls]

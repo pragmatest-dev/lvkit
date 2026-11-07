@@ -102,10 +102,12 @@ def _catalog_ports(
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     graph = InMemoryVIGraph()
     monkeypatch.setattr(graph, "loaded_callee_key", lambda node: None)
+    # On the catalog's class: patching the shared catalog object would leave its
+    # original method stored on it when undone, hiding a later test's class patch.
     monkeypatch.setattr(
-        get_resolver(),
+        type(get_resolver()),
         "resolve_recorded",
-        lambda path: VIEntry(name="Clear Errors", terminals=terminals),
+        lambda _self, path: VIEntry(name="Clear Errors", terminals=terminals),
     )
     return _subvi_ports(graph, call)
 

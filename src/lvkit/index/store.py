@@ -230,6 +230,7 @@ CREATE TABLE IF NOT EXISTS class_facts (
     scope TEXT,
     is_accessor INTEGER NOT NULL DEFAULT 0,
     accessor_field TEXT,
+    accessor_path TEXT,
     private_data TEXT NOT NULL DEFAULT '[]',
     is_static INTEGER NOT NULL DEFAULT 0,
     must_override INTEGER NOT NULL DEFAULT 0,
@@ -482,7 +483,8 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
     cf_row = conn.execute(
         "SELECT owning_class, parent, scope, is_accessor, accessor_field, "
         "private_data, is_static, must_override, must_call_parent, "
-        "class_version, ancestors FROM class_facts WHERE vi_path = ?",
+        "class_version, ancestors, accessor_path FROM class_facts "
+        "WHERE vi_path = ?",
         (path,),
     ).fetchone()
     class_fact = (
@@ -492,6 +494,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
             scope=cf_row[2],
             is_accessor=bool(cf_row[3]),
             accessor_field=cf_row[4],
+            accessor_path=cf_row[11],
             private_data=json.loads(cf_row[5]),
             is_static=bool(cf_row[6]),
             must_override=bool(cf_row[7]),
@@ -542,16 +545,18 @@ def _coalesce_class_fact(
         return prior
     if prior is None:
         return cfc
-    # Coalesce the accessor PAIR atomically: is_accessor and accessor_field are
-    # one fact from the owns edge, so a partial load with no accessor info must
-    # not leave is_accessor=False beside a preserved accessor_field (a
-    # self-contradictory row).
+    # Coalesce the accessor facts atomically: is_accessor, accessor_field and
+    # accessor_path are one fact from the owns edge, so a partial load with no
+    # accessor info must not leave is_accessor=False beside a preserved
+    # accessor_field (a self-contradictory row).
     if cfc.is_accessor or cfc.accessor_field is not None:
         is_accessor = cfc.is_accessor
         accessor_field = cfc.accessor_field
+        accessor_path = cfc.accessor_path
     else:
         is_accessor = prior.is_accessor
         accessor_field = prior.accessor_field
+        accessor_path = prior.accessor_path
     # scope/is_static/must_override/must_call_parent all come from the SAME
     # "owns" edge lookup (get_method_access) -- gate the whole group on scope
     # (like the accessor pair above) so a partial load with no access info at
@@ -575,6 +580,7 @@ def _coalesce_class_fact(
         scope=scope,
         is_accessor=is_accessor,
         accessor_field=accessor_field,
+        accessor_path=accessor_path,
         private_data=cfc.private_data if cfc.private_data else prior.private_data,
         is_static=is_static,
         must_override=must_override,
@@ -820,10 +826,10 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
         cf = f.class_fact
         conn.execute(
             "INSERT INTO class_facts(vi_path, owning_class, parent, "
-            "scope, is_accessor, accessor_field, private_data, "
+            "scope, is_accessor, accessor_field, accessor_path, private_data, "
             "is_static, must_override, must_call_parent, "
             "class_version, ancestors) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 f.path,
                 cf.owning_class,
@@ -831,6 +837,7 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
                 cf.scope,
                 int(cf.is_accessor),
                 cf.accessor_field,
+                cf.accessor_path,
                 json.dumps(cf.private_data),
                 int(cf.is_static),
                 int(cf.must_override),
@@ -1130,8 +1137,9 @@ def load(project_root: Path) -> list[VIFacts]:
         class_fact_by_vi: dict[str, ClassFact] = {}
         for row in conn.execute(
             "SELECT vi_path, owning_class, parent, scope, is_accessor, "
-            "accessor_field, private_data, is_static, must_override, "
-            "must_call_parent, class_version, ancestors FROM class_facts"
+            "accessor_field, accessor_path, private_data, is_static, "
+            "must_override, must_call_parent, class_version, ancestors "
+            "FROM class_facts"
         ):
             (
                 vi_path,
@@ -1140,6 +1148,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 scope,
                 is_accessor,
                 accessor_field,
+                accessor_path,
                 private_data,
                 is_static,
                 must_override,
@@ -1153,6 +1162,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 scope=scope,
                 is_accessor=bool(is_accessor),
                 accessor_field=accessor_field,
+                accessor_path=accessor_path,
                 private_data=json.loads(private_data),
                 is_static=bool(is_static),
                 must_override=bool(must_override),
