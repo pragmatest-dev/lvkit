@@ -334,7 +334,7 @@ def heap_rect(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
 
 
 def heap_origin(elem: ET.Element) -> tuple[int, int]:
-    """A pane's stored ``origin`` (its scroll offset) as ``(x, y)``; ``(0, 0)``
+    """A pane's stored ``origin`` (the offset of its contents) as ``(x, y)``; ``(0, 0)``
     when it is absent or not two integers."""
     text = (elem.findtext("origin") or "").strip().strip("()")
     try:

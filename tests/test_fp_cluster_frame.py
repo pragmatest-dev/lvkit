@@ -1,6 +1,6 @@
 """A front-panel cluster's fields are placed by their stored positions:
 ``pane-local = stored + origin + FT + P`` (``layout._cluster_field_geoms``),
-clipped to the pane. Hand-made clusters, one per case, plus PCO's scrolled
+clipped to the pane. Hand-made clusters, one per case, plus PCO's clipped
 "Sampling Rates" cluster."""
 
 from __future__ import annotations
@@ -99,7 +99,7 @@ def _pco_like() -> ET.Element:
     )
 
 
-def test_scrolled_cluster_draws_only_the_field_in_view() -> None:
+def test_clipped_cluster_draws_only_the_field_inside_it() -> None:
     geom = _cluster_field_geoms(_pco_like(), (0.0, 0.0))
     assert geom is not None and geom.clip is not None
     shown = [

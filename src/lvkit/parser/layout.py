@@ -691,13 +691,13 @@ def _cluster_field_geoms(
     expressed in: (0, 0) for a cluster in the panel, plus the typedef
     wrapper's top-left for a typedef, plus the array's top-left for an array
     element, and for a cluster inside another cluster the parent's ``FT + P``
-    (the parent's own scroll never moves a child's frame). Measured on the
+    (the parent's own offset never moves a child's frame). Measured on the
     corpus (14,947 clusters, ``labview-binary-format.md`` "Front panel
     structure"): the first field lands at the pane's top-left (0 to 6 px) in
-    13,923; the other 1,024 have a larger inset or are scrolled; in none is
-    every field outside the pane. Fields are placed at scale 1 and the
-    pane's inner rect is ``ClusterGeom.clip``: a pane scrolled to one field of
-    several shows that field only.
+    13,923; the other 1,024 have a larger inset or lie partly outside the
+    pane; in none is every field outside the pane. Fields are placed at scale
+    1 and the pane's inner rect is ``ClusterGeom.clip``: a cluster drawn
+    smaller than its fields shows only those inside it.
 
     Without ``frame`` (a block-diagram constant, whose position is not the
     frame the fields are stored in) or when the rule leaves no field inside the
