@@ -42,7 +42,7 @@ def _subset(array: str, starts: list[str | None], lengths: list[str | None]) -> 
 
 @register_op_fragment("ARRAY_SUBSET")
 def array_subset(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
-    roles = laid_out_roles(node, "subset")
+    roles = laid_out_roles(ctx, node, "subset")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
     array = ctx.wired_input(array_term.id, node) or "[]"

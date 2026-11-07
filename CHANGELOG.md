@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: MCP calls for two projects at once each use their own project's catalog additions**, and a call no longer reloads the catalog.
 - **An uninitialized shift register carries its value from one iteration to the next** in generated code, and a For Loop that runs zero times no longer leaves it unbound; a last-value tunnel off a register's left side gives the last iteration's left value (#245).
 - **Fix: a VI its class does not list that reaches the class's private data or calls its private VI is a gap, not an lvkit error** — the reason says the VI is broken in LabVIEW (and when the VI claims that class); `generate`'s closing line says how each VI failed instead of `Stopped` for a run that went on, and progress and warnings no longer interleave mid-line in one pipe.
 - **Fix: a file of a kind a command does not take is a usage error (exit 2) in generate, unresolved, docs, render, visualize and diff** — `Error: expected a VI file (.vi, .vim, .vit), …: Bad.txt`, never an lvkit error.

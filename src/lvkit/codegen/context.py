@@ -13,6 +13,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lvkit.catalogs import primitive_catalog_for, vilib_catalog_for
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.core import uid_of
@@ -41,6 +42,7 @@ from lvkit.models import (
     unique_names,
 )
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
 from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
@@ -217,6 +219,22 @@ class CodeGenContext:
             self.merge(fragment.bindings)
             self.imports.update(fragment.imports)
         return stmts
+
+    @property
+    def vilib_catalog(self) -> VILibResolver:
+        """The vi.lib catalog of the run this code is generated for (the shipped
+        catalog when there is no graph)."""
+        if self.graph is None:
+            return vilib_catalog_for(None)
+        return self.graph.vilib_catalog
+
+    @property
+    def primitive_catalog(self) -> PrimitiveResolver:
+        """The primitive catalog of the run this code is generated for (the
+        shipped catalog when there is no graph)."""
+        if self.graph is None:
+            return primitive_catalog_for(None)
+        return self.graph.primitive_catalog
 
     def catalog_path(self, node: VINode) -> str | None:
         """The path the vi.lib catalog looks the VI ``node`` calls up by."""

@@ -23,8 +23,6 @@ from ..graph.models import (
 )
 from ..graph.op_walk import _terminal_display_name
 from ..models import FPTerminal, LVType, LVTypeKind, Terminal
-from ..primitive_resolver import get_resolver as get_prim_resolver
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
 from .ext_func_prototype import ext_func_prototype
 from .glyph import (
@@ -48,7 +46,7 @@ from .glyph import (
 )
 from .glyphs.nodes.terminal_frame import draw_terminal_frame
 from .glyphs.terminals.factory import border_terminal_glyph
-from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
+from .nodes import _CLUSTER_MUX_TYPES, mux_display_name
 from .scene import (
     RenderBorderTerminal,
     RenderLabel,
@@ -377,7 +375,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     # ``draw_scene``) so it always paints over every other diagram element,
     # not just this node's later siblings. The native <title> tooltip stays
     # as a text fallback (e.g. no-JS consumers).
-    tooltip = _node_tooltip(node.node, node.catalog_path)
+    tooltip = _node_tooltip(node.node, node.doc_url)
     if tooltip is None and isinstance(node.glyph, ConstantGlyph):
         # A constant's in-box text is fit to the box and may be ellipsized/clipped
         # ("…"). When it is — for ANY type (numeric, string, path, enum) — expose
@@ -406,7 +404,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             cls="lv-node",
             data=data,
             title=tooltip,
-            href=_node_doc_url(node.node, node.catalog_path),
+            href=node.doc_url,
         )
 
     if isinstance(node.node, FormulaNode):
@@ -515,7 +513,7 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
     return header, clean_help_text(getattr(node, "description", None))
 
 
-def _node_tooltip(node: AnyGraphNode, catalog_path: str | None = None) -> str | None:
+def _node_tooltip(node: AnyGraphNode, doc_url: str | None = None) -> str | None:
     """Context-help hover text for a node: its identity, description (when
     known), and its connector pane — every terminal with direction, type, and
     label (when the heap carries one). Returns None for nodes without a useful
@@ -529,38 +527,9 @@ def _node_tooltip(node: AnyGraphNode, catalog_path: str | None = None) -> str | 
     if desc:
         lines.append(desc)
     lines.extend(_terminal_help_lines(node))
-    doc_url = _node_doc_url(node, catalog_path)
     if doc_url:
         lines.append(doc_url)
     return "\n".join(lines)
-
-
-def _node_doc_url(node: AnyGraphNode, catalog_path: str | None = None) -> str | None:
-    """Public NI docs URL for a resolvable node — a primitive (primitives.json)
-    or a vi.lib VI (vilib catalog, found by ``catalog_path``), both carrying
-    ``doc_url`` since #87. Shown
-    as the last line of the hover ``<title>`` (task #67). None when the node has
-    no catalog page (unresolved prim, user subVI, structure, constant)."""
-    if isinstance(node, PrimitiveNode):
-        # Cluster-mux: node-type flavor, but direction-polymorphic — link by the
-        # resolved DISPLAY name (Bundle vs Unbundle), not the raw ambiguous name.
-        if node.node_type in _CLUSTER_MUX_TYPES:
-            return mux_doc_url(node)
-        resolver = get_prim_resolver()
-        # primResID flavor first (prim_id / name), then the node-type flavor
-        # (Build Array, Index Array, Compound Arithmetic, ... resolve_by_node_type).
-        resolved = resolver.resolve(prim_id=node.prim_id, name=node.name)
-        if resolved is not None and resolved.doc_url:
-            return resolved.doc_url
-        if node.node_type:
-            nt = resolver.resolve_by_node_type(node.node_type)
-            if nt is not None and nt.doc_url:
-                return nt.doc_url
-        return None
-    if isinstance(node, VINode):
-        entry = get_vilib_resolver().resolve_recorded(catalog_path)
-        return entry.doc_url if entry else None
-    return None
 
 
 def _terminal_label(t: Terminal) -> str:

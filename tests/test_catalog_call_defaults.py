@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import catalogs
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
@@ -87,10 +88,10 @@ def _caller_source(
     )
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
-    monkeypatch.setattr(get_resolver(), "resolve_recorded", lambda path: entry)
-    monkeypatch.setattr(
-        get_resolver(), "catalog_file_name", lambda path: "Inverse FFT.vi"
-    )
+    catalog = get_resolver().fork()
+    monkeypatch.setitem(catalogs._vilib, None, catalog)
+    monkeypatch.setattr(catalog, "resolve_recorded", lambda path: entry)
+    monkeypatch.setattr(catalog, "catalog_file_name", lambda path: "Inverse FFT.vi")
     return build_module(
         context, "caller.vi", import_resolver=resolver, graph=built, gaps=gaps
     )

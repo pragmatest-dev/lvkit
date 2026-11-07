@@ -35,11 +35,17 @@ from .cli_input import (
     VISUALIZE_INPUTS,
     input_usage_error,
 )
-from .cli_run import add_fail_fast_arg, command_run, finish, run_command, stop_on
+from .cli_run import (
+    add_fail_fast_arg,
+    command_run,
+    finish,
+    project_store_for_args,
+    run_command,
+    stop_on,
+)
 from .console import use_utf8_output, write_whole_lines
 from .load_mode import LoadMode
 from .project_store import (
-    find_project_store,
     init_project_store,
     install_claude_skills,
     install_codex_skills,
@@ -256,42 +262,6 @@ def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -
             instrlib_root=instrlib_root,
             search_path=search_path,
         )
-
-
-def _find_project_store(args: argparse.Namespace) -> Path | None:
-    """The project store directory for this run: ``--project-root`` in either
-    form (the parent of ``.lvkit/``, or ``.lvkit/`` itself), else the nearest
-    ``.lvkit/`` above the working directory; ``None`` when there is none."""
-    project_root = getattr(args, "project_root", None)
-    if project_root:
-        candidate = Path(project_root)
-        # Accept both "project root" and ".lvkit/" itself
-        if candidate.name == ".lvkit" and candidate.is_dir():
-            return candidate
-        if (candidate / ".lvkit").is_dir():
-            return candidate / ".lvkit"
-        return None
-    return find_project_store()
-
-
-def _configure_resolvers(args: argparse.Namespace) -> Path | None:
-    """Discover the project store and reset resolver singletons.
-
-    Must be called BEFORE any load_vi() so graph construction sees the
-    project mappings (used for terminal-index disambiguation).
-
-    Accepts --project-root in either form: the parent of .lvkit/ (the
-    project root), or the .lvkit/ directory itself.
-
-    Returns the project store directory if one was found, else None.
-    """
-    store = _find_project_store(args)
-
-    from . import primitive_resolver, vilib_resolver
-
-    primitive_resolver.reset_resolver(project_data_dir=store)
-    vilib_resolver.reset_resolver(project_data_dir=store)
-    return store
 
 
 def main() -> int:
@@ -1276,8 +1246,6 @@ def cmd_describe(args: argparse.Namespace) -> int:
             return 2
         return _describe_ctl(args, input_path)
 
-    _configure_resolvers(args)
-
     run = command_run(args, args.original_path or input_path)
     try:
         from .graph import load_vi_by_path
@@ -1591,7 +1559,7 @@ def _build_options(
         instrlib_root=instrlib_root,
         search_path=search_path,
         mode=_resolve_load_mode(args, LoadMode.MINIMAL),
-        project_store=_find_project_store(args),
+        project_store=project_store_for_args(args),
     )
 
 
@@ -1704,8 +1672,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # Fast path: a fresh cached render is served here before ANY miss-path setup.
     # cached_render(return_cached=True) would also skip the heavy render import on a
     # hit (its lookup precedes the lazy import), so what this outer path uniquely
-    # saves on a hit is the CLI's own setup: _configure_resolvers (which imports the
-    # resolver modules + loads project/JSON data) and _render_build_kw. That matters
+    # saves on a hit is the CLI's own setup (_render_build_kw). That matters
     # for a short-lived CLI; MCP/web (warm processes) skip this and call the wrapper
     # directly. --no-cache skips this read (forcing a rebuild) but the rebuild below
     # still refreshes the slot.
@@ -1722,7 +1689,6 @@ def cmd_render(args: argparse.Namespace) -> int:
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
     # because we already did the one read above (or were told to skip it) — no
     # double-check. The build refreshes the slot, except --no-cache with -o.
-    _configure_resolvers(args)
     try:
         built = _build_render_body(
             args, input_path, options, build, theme_mode, args.ref, run
@@ -1757,7 +1723,6 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     roots = _parse_library_roots(args)  # once for the whole batch
     ext = "html" if args.format == "html" else "svg"
     outdir = Path(args.output) if args.output else None
-    _configure_resolvers(args)  # once for the whole batch, not per VI
 
     run = command_run(args, root)
     rendered = fresh = failed = 0
@@ -1904,7 +1869,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
     options = _diff_options_tag(args, fmt, verbose, build)
 
     # Fast path: a cached diff is served before any miss-path setup (see cmd_render
-    # — the unique saving on a hit is _configure_resolvers + _diff_build_kw, not the
+    # — the unique saving on a hit is _diff_build_kw, not the
     # heavy import, which cached_diff also defers). path_a is BEFORE, path_b AFTER.
     run = command_run(args, args.after_original_path or path_b)
     if not args.no_cache:
@@ -1919,7 +1884,6 @@ def cmd_diff(args: argparse.Namespace) -> int:
     # because the read above already happened (or was skipped) — no double-check.
     from .output_cache import cached_diff
 
-    _configure_resolvers(args)
     try:
         built = cached_diff(
             path_a,
@@ -1950,8 +1914,6 @@ def cmd_generate(args: argparse.Namespace) -> int:
     usage = input_usage_error(input_path, GENERATE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     try:
@@ -1991,8 +1953,6 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     usage = input_usage_error(input_path, GENERATE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     try:
@@ -2048,8 +2008,6 @@ def cmd_docs(args: argparse.Namespace) -> int:
     if usage is not None:
         return usage
 
-    _configure_resolvers(args)
-
     run = command_run(args, input_path)
     try:
         roots = _parse_library_roots(args)
@@ -2081,8 +2039,6 @@ def cmd_visualize(args: argparse.Namespace) -> int:
     usage = input_usage_error(input_path, VISUALIZE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     graph = run.new_graph()

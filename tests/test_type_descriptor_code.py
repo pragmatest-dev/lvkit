@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import catalogs
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
@@ -71,8 +72,10 @@ def _generate(
     )
     built = build_graph(context, "caller.vi", [call], graph=graph)
     monkeypatch.setattr(built, "loaded_callee_key", lambda node: None)
-    monkeypatch.setattr(get_resolver(), "resolve_recorded", lambda path: _ENTRY)
-    monkeypatch.setattr(get_resolver(), "catalog_file_name", lambda path: _FILE)
+    catalog = get_resolver().fork()
+    monkeypatch.setitem(catalogs._vilib, None, catalog)
+    monkeypatch.setattr(catalog, "resolve_recorded", lambda path: _ENTRY)
+    monkeypatch.setattr(catalog, "catalog_file_name", lambda path: _FILE)
     return build_module(context, "caller.vi", graph=built, gaps=gaps)
 
 

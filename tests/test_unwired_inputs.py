@@ -6,11 +6,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.catalogs import primitive_catalog_for, vilib_catalog_for
 from lvkit.codegen.errors import TerminalNotOnCall, UnknownDefault
 from lvkit.codegen.gaps import Gap, gap_of
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.unwired_default import BARE, instance_default, unwired_behavior
 from lvkit.unresolved import _item_key
 from tests.native_vi import array, generate, node, scalar
+
+PRIMITIVES = primitive_catalog_for(None)
+VILIB = vilib_catalog_for(None)
 
 I32 = scalar("NumInt32")
 STRING = scalar("String")
@@ -115,11 +120,12 @@ def _index_array(rank_two: bool = False):
 def test_a_later_unwired_index_shows_what_the_code_does() -> None:
     index_array = _index_array()
     first, second = index_array.terminals[2], index_array.terminals[4]
-    assert unwired_behavior(index_array, first) is None
-    assert unwired_behavior(index_array, second) is not None
-    shown = instance_default(None, index_array, second, "Index Array")  # type: ignore[arg-type]
+    assert unwired_behavior(PRIMITIVES, VILIB, index_array, first) is None
+    assert unwired_behavior(PRIMITIVES, VILIB, index_array, second) is not None
+    shown = instance_default(InMemoryVIGraph(), index_array, second, "Index Array")
     assert shown.literal == "(previous index + 1)"
-    assert instance_default(None, index_array, first, "Index Array").literal == "0"  # type: ignore[arg-type]
+    first_shown = instance_default(InMemoryVIGraph(), index_array, first, "Index Array")
+    assert first_shown.literal == "0"
 
 
 def test_a_later_unwired_index_follows_the_previous_one_in_the_code() -> None:

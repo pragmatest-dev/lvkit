@@ -36,7 +36,6 @@ from lvkit.lv_type_codes import (
     is_numeric_type_name,
 )
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
-from lvkit.primitive_resolver import get_resolver
 from lvkit.primitive_resolver.models import PrimitiveTerminal
 
 from ...ast_utils import build_assign, parse_expr
@@ -61,11 +60,14 @@ _DATA_POSITION = 1
 
 
 def _catalog_terminal(
-    node: PrimitiveNode, direction: TerminalDirection, position: int
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    direction: TerminalDirection,
+    position: int,
 ) -> PrimitiveTerminal | None:
     """The catalog terminal at ``position`` among the entry's ``direction``
     terminals, numbered as the node is."""
-    resolved = get_resolver().resolve(
+    resolved = ctx.primitive_catalog.resolve(
         prim_id=node.prim_id,
         node_slots={(t.index, t.direction) for t in node.terminals},
     )
@@ -167,10 +169,10 @@ def _type_imports(ctx: CodeGenContext, data: Terminal, annotation: str) -> None:
 @register_op_fragment("VARIANT_TO_DATA")
 def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     variant_entry = _catalog_terminal(
-        node, TerminalDirection.INPUT, _VARIANT_POSITION
+        ctx, node, TerminalDirection.INPUT, _VARIANT_POSITION
     )
     data = _node_terminal(
-        node, _catalog_terminal(node, TerminalDirection.OUTPUT, _DATA_POSITION)
+        node, _catalog_terminal(ctx, node, TerminalDirection.OUTPUT, _DATA_POSITION)
     )
     if variant_entry is None:
         raise ConversionGap(

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import catalogs
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import type_file_records
 from lvkit.graph.models import VINode
@@ -102,8 +103,10 @@ def _catalog_ports(
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     graph = InMemoryVIGraph()
     monkeypatch.setattr(graph, "loaded_callee_key", lambda node: None)
+    catalog = get_resolver().fork()
+    monkeypatch.setitem(catalogs._vilib, None, catalog)
     monkeypatch.setattr(
-        get_resolver(),
+        catalog,
         "resolve_recorded",
         lambda path: VIEntry(name="Clear Errors", terminals=terminals),
     )

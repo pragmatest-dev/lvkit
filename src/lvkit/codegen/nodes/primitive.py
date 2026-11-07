@@ -18,7 +18,6 @@ from lvkit.primitive_resolver import (
     PrimitiveTerminal,
     ResolvedPrimitive,
     TerminalResolutionNeeded,
-    get_resolver,
 )
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 from lvkit.terminal_default import DefaultBehavior
@@ -121,7 +120,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     # functions (e.g., 1516 = both Array Subset and Select, distinguished
     # by XML class). Generic "prim" nodes use prim_id lookup.
     # If node_type resolves but has no usable code, fall through to prim_id.
-    resolver = get_resolver()
+    resolver = ctx.primitive_catalog
     resolved = None
     node_type = getattr(node, "node_type", None)
     if node_type and node_type != "prim":

@@ -11,7 +11,6 @@ import ast
 from lvkit.graph.models import VINode
 from lvkit.models import TerminalDirection
 from lvkit.parser.constants import VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE
-from lvkit.vilib_resolver import get_resolver
 
 from ..ast_utils import parse_expr
 from ..context import CodeGenContext
@@ -37,7 +36,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     A constant code is known here, so its description is written into the module
     as the message (the wired message wins when there is one).
     """
-    resolver = get_resolver()
+    resolver = ctx.vilib_catalog
     catalog_path = ctx.catalog_path(node)
     if (
         resolver.catalog_file_name(catalog_path)

@@ -485,7 +485,7 @@ def generate_array_replace(
     subarray runs along when only a trailing index is wired, so a subarray
     whose leading indices are not all wired raises a diagnostic.
     """
-    roles = laid_out_roles(node, "aReplace")
+    roles = laid_out_roles(ctx, node, "aReplace")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
@@ -574,7 +574,7 @@ def generate_array_insert(
     necessary" and does not say which cells are padded or with what, so a
     diagnostic is raised instead of guessing.
     """
-    roles = laid_out_roles(node, "aInsert")
+    roles = laid_out_roles(ctx, node, "aInsert")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
