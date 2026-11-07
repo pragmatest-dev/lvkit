@@ -131,8 +131,9 @@ def test_modern_control_numeric_has_no_outline_and_a_spinner() -> None:
     svg = _svg(_modern_numeric(indicator=False, arrows=_SHOWN, bg="#FAFAFA"))
     assert 'fill="#FAFAFA"' in svg
     assert "linearGradient" in svg
-    assert 'fill="#3C3C3C"' in svg  # the two pill arrows
-    assert svg.count('fill="#3C3C3C"') == 2
+    assert svg.count('fill="#9A9A9A"') == 2  # the two arrows
+    assert svg.count("clip-path") == 2  # one oval, cut by the gap between its halves
+    assert svg.count('rx="6.0" ry="13.0"') == 2  # an ellipse, drawn once per half
     assert f'stroke="{DEFAULT_THEME.struct_border}"' not in svg
     assert ">42<" in svg
 
@@ -140,8 +141,8 @@ def test_modern_control_numeric_has_no_outline_and_a_spinner() -> None:
 def test_modern_indicator_numeric_draws_no_spinner_and_the_indicator_fill() -> None:
     svg = _svg(_modern_numeric(indicator=True, arrows=_HIDDEN))
     assert 'fill="#D2D2D2"' in svg
-    assert "#3C3C3C" not in svg
-    assert "#D1D1D1" not in svg
+    assert "#9A9A9A" not in svg
+    assert "#D5D5D5" not in svg
 
 
 def test_modern_numeric_uses_the_readouts_stored_fill() -> None:
@@ -164,7 +165,7 @@ def test_modern_ring_shows_its_selected_item_with_a_spinner() -> None:
     )
     svg = _svg(ctrl)
     assert ">Dog<" in svg
-    assert svg.count('fill="#3C3C3C"') == 2
+    assert svg.count('fill="#9A9A9A"') == 2
 
 
 def test_dropdown_ring_keeps_its_chevron_and_outline() -> None:

@@ -24,11 +24,11 @@ _MUI = (
 )
 _SHOWN = 0x932
 _HIDDEN = 0x93A
-_PILL_TOP = "#D1D1D1"  # the Modern spinner pill's gradient start
+_OVAL_START = "#D5D5D5"  # the Modern spinner oval's gradient start
 
 
 def _numeric_parts(arrows: int, readout_fill: str | None = None) -> list[ParsedFPPart]:
-    """A Modern numeric's parts: readout, two arrow pills, frame."""
+    """A Modern numeric's parts: readout, two arrow halves, frame."""
     return [
         ParsedFPPart(10, "numLabel", (7, 17, 24, 37), image_ids=(-239,),
                      bg_color=readout_fill, flags=0x40972),
@@ -83,10 +83,10 @@ def _svg(ctrl: ParsedFPControl) -> str:
 
 def test_the_index_is_the_modern_numeric_and_the_element_its_own_fill() -> None:
     control = _svg(_array(False, ["5"]))
-    assert _PILL_TOP in control
+    assert _OVAL_START in control
     assert 'fill="#FAFAFA"' in control and 'fill="#D2D2D2"' not in control
     indicator = _svg(_array(True, ["5"]))
-    assert _PILL_TOP in indicator
+    assert _OVAL_START in indicator
     assert 'fill="#D2D2D2"' in indicator
 
 
@@ -97,11 +97,10 @@ def test_an_empty_array_has_a_disabled_element_and_a_plain_index() -> None:
     assert 'fill="#FDFDFD"' in control
     assert 'fill="#FAFAFA"' in control
     assert 'fill="#A5A8A8"' in control
-    # the element's spinner is the faded pill; the index's is the normal one
-    assert 'fill="#B5B5B5"' in control
-    assert 'fill="#3C3C3C"' in control
-    assert "#E8E8E8" in control and _PILL_TOP in control
-    assert 'fill="#CCCCCC"' not in control
+    # the element's spinner is the faded oval; the index's is the normal one
+    assert 'fill="#CCCCCC"' in control
+    assert 'fill="#9A9A9A"' in control
+    assert "#DCDCDC" in control and _OVAL_START in control
     assert 'class="lv-disabled-mask"' not in control
     indicator = _svg(_array(True, []))
     assert 'fill="#EDEDED"' in indicator

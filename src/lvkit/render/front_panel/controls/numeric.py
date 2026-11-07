@@ -8,8 +8,8 @@ cluster's / the top-level label's job, so the drawn box is the control's VALUE
 box (``base.value_extent``).
 
 Modern numerics (``style.numeric_style``) are drawn in their own look
-(``modern.py``): a field with no outline and an inner shadow, and a spinner of
-two pills that is absent when the arrows are hidden (every Modern indicator).
+(``modern.py``): a field with no outline and an inner shadow, and a spinner that
+is one capsule, absent when the arrows are hidden (every Modern indicator).
 Every other style keeps the generic drawing below.
 
 Without heap parts (an array's disabled default row, a hand-built control) the
@@ -126,12 +126,15 @@ class NumericControlGlyph(ControlGlyph):
             modern.field_fill(self.readout_fill, self.is_indicator, self.greyed),
         )
         if self.show_spinner:
-            for up, local in zip((True, False), self.spinner_halves_local):
-                half = scale_local(local, self.native_size, bounds)
-                if half is not None:
-                    self._begin_arrow(backend, half, up)
-                    modern.draw_pill(backend, half, up, self.greyed)
-                    self._end_group(backend)
+            halves = tuple(
+                half
+                for local in self.spinner_halves_local
+                if (half := scale_local(local, self.native_size, bounds)) is not None
+            )
+            modern.draw_spinner(backend, halves, self.greyed)
+            for up, half in zip((True, False), halves):
+                self._begin_arrow(backend, half, up)
+                self._end_group(backend)
         style = text_style(
             self.value_font,
             modern.DISABLED_TEXT if self.greyed else self.value_color,

@@ -1,5 +1,5 @@
 """The Modern look's shared pieces: a value field with its inner shadow, the
-spinner's two pills, and the value text. Colors and sizes are the ones measured
+spinner oval, and the value text. Colors and sizes are the ones measured
 on real screenshots of Modern controls (``labview-binary-format.md`` "Front
 panel structure"); every shape is drawn here from them, never copied.
 
@@ -52,23 +52,59 @@ _EDGE_TOP = "#E4E4E4"
 _EDGE_RIGHT = "#E3E3E3"
 _EDGE_BOTTOM = "#DADADA"
 
-_PILL_TOP = "#D1D1D1"
-_PILL_BOTTOM = "#A9A9A9"
-_PILL_HIGHLIGHT = "#F4F4F4"
-_PILL_SHADOW = "#808080"
-_PILL_ARROW = "#3C3C3C"
-# A disabled element's spinner (same screenshot, "double array in" element
-# spinner, x 116-135, y 306-342): the body fades from #E8E8E8 (y 310) to #DBDBDB
-# (y 322-324), the lightest pixel is #FAFAFA, the darkest edge #B1B1B1, and the
-# darkest arrow pixels #B1B1B1 (up) and #BBBBBB (down), so the arrow is #B5B5B5.
-_DISABLED_PILL_TOP = "#E8E8E8"
-_DISABLED_PILL_BOTTOM = "#DBDBDB"
-_DISABLED_PILL_HIGHLIGHT = "#FAFAFA"
-_DISABLED_PILL_SHADOW = "#B1B1B1"
-_DISABLED_PILL_ARROW = "#B5B5B5"
-_PILL_RADIUS = 3.0
-_ARROW_HALF_WIDTH = 3.0
-_ARROW_HALF_HEIGHT = 1.5
+# The spinner is one oval (an ellipse: the sides curve all the way, rows 227 and
+# 231 are 10 and 14 px wide of 18) spanning both arrow parts (``partID`` 2 and 3),
+# the two parts' 2 px gap showing the page through. Measured on
+# docs/images/Measurement UI.png of the measurement-plugin-labview sample (150%
+# scale), "double in" spinner, x 113-131, y 225-262 (the parts are stored 12 x
+# 12 px, 2 px apart: 18 x 39 px at 150%).
+# Body, shaded left to right (row 239, x 114..131): #CE #D5 #D5 #CF #C4 #BE #BD
+# #C1 #C1 #C0 #C0 #BE #B9 #AE #A2 #92 #71 #9F -- light at the left, the darkest
+# rim 2 px in from the right edge. The upper half's last 2 rows (y 240-241) are
+# flat #B2 and its row 242 is the faint light edge; the lower half's first row
+# (y 244) is #F7 and the next (y 245) #E0 at the left, the lighter lip.
+_CAPSULE_STOPS = (
+    (0.0, "#D5D5D5"),
+    (0.25, "#C4C4C4"),
+    (0.45, "#C0C0C0"),
+    (0.65, "#BCBCBC"),
+    (0.78, "#AAAAAA"),
+    (0.86, "#929292"),
+    (0.92, "#717171"),
+    (1.0, "#9F9F9F"),
+)
+_CAPSULE_BOTTOM_BAND = "#B2B2B2"
+_CAPSULE_TOP_LIP = "#E4E4E4"
+# Arrows (same shot): a bevelled triangle 7 px wide and 7 px tall, centered in its
+# half. The up arrow's apex is at (121.5, 231), its left edge runs to (119, 238),
+# darkest pixels #3C-#78 along that edge; the down arrow's top bar is y 248
+# (x 119-124, #56-#80) and its left edge runs down to its apex at y 255. The rest
+# of the triangle is about #9A, hardly darker than the body.
+_ARROW_EDGE = "#505050"
+_ARROW_FILL = "#9A9A9A"
+# A disabled element's spinner (same screenshot, "double array in" element,
+# x 116-133, y 306-343, the frame's pale surround behind it). Body, left to right
+# (row 319, x 116..132): #DC #EC #EF #EF #EB ... #E8 #DF #D9 #D2. Upper half's
+# last rows (y 322-324) flat #DB, lower half's first rows (y 326-327) #ED-#EF.
+# Arrows: the up arrow's apex is at (124, 312) and its left edge's darkest pixels
+# are #B1-#C4 down to y 318; the down arrow's top bar is y 329 (x 122-127,
+# #BB-#CC) with the left edge #BC-#C5 below it. The inside is about #CC.
+_DISABLED_CAPSULE_STOPS = (
+    (0.0, "#DCDCDC"),
+    (0.1, "#ECECEC"),
+    (0.25, "#EFEFEF"),
+    (0.6, "#E8E8E8"),
+    (0.8, "#DFDFDF"),
+    (0.9, "#D9D9D9"),
+    (1.0, "#D2D2D2"),
+)
+_DISABLED_CAPSULE_BOTTOM_BAND = "#DBDBDB"
+_DISABLED_CAPSULE_TOP_LIP = "#EEEEEE"
+_DISABLED_ARROW_EDGE = "#B5B5B5"
+_DISABLED_ARROW_FILL = "#CCCCCC"
+_BAND_HEIGHT = 1.3
+_LIP_HEIGHT = 0.8
+_ARROW_HALF_SIZE = 2.4
 
 
 def field_fill(stored: str | None, is_indicator: bool, disabled: bool = False) -> str:
@@ -121,34 +157,55 @@ def draw_text(
     )
 
 
-def draw_pill(
-    backend: Backend, rect: Rect, up: bool, disabled: bool = False
+def draw_spinner(
+    backend: Backend, halves: tuple[Rect, ...], disabled: bool = False
 ) -> None:
-    """One half of the spinner: a rounded pill with a light line along its top,
-    a dark line along its bottom and a small arrow pointing ``up`` or down, in
-    the faded colors when ``disabled``."""
-    x1, y1, x2, y2 = rect
-    top, bottom, highlight, shadow, arrow = (
+    """The spinner: one oval spanning ``halves`` (the arrow parts, up first),
+    the gap between them showing the page, with a small arrow pointing up in the
+    first half and down in the second; the faded colors when ``disabled``."""
+    if not halves:
+        return
+    stops, band, lip, edge, fill = (
         (
-            _DISABLED_PILL_TOP, _DISABLED_PILL_BOTTOM, _DISABLED_PILL_HIGHLIGHT,
-            _DISABLED_PILL_SHADOW, _DISABLED_PILL_ARROW,
+            _DISABLED_CAPSULE_STOPS, _DISABLED_CAPSULE_BOTTOM_BAND,
+            _DISABLED_CAPSULE_TOP_LIP, _DISABLED_ARROW_EDGE, _DISABLED_ARROW_FILL,
         )
         if disabled
-        else (_PILL_TOP, _PILL_BOTTOM, _PILL_HIGHLIGHT, _PILL_SHADOW, _PILL_ARROW)
+        else (
+            _CAPSULE_STOPS, _CAPSULE_BOTTOM_BAND, _CAPSULE_TOP_LIP,
+            _ARROW_EDGE, _ARROW_FILL,
+        )
     )
-    backend.gradient_rect(
-        x1, y1, x2, y2, stops=((0.0, top), (1.0, bottom)), rx=_PILL_RADIUS
-    )
-    inset = _PILL_RADIUS - 1
-    backend.line(x1 + inset, y1 + 0.5, x2 - inset, y1 + 0.5, stroke=highlight)
-    backend.line(x1 + inset, y2 - 0.5, x2 - inset, y2 - 0.5, stroke=shadow)
+    cx1 = min(r[0] for r in halves)
+    cy1 = min(r[1] for r in halves)
+    cx2 = max(r[2] for r in halves)
+    cy2 = max(r[3] for r in halves)
+    for index, (x1, y1, x2, y2) in enumerate(halves):
+        up = index == 0
+        backend.begin_group(clip=(x1, y1, x2, y2))
+        backend.gradient_rect(
+            cx1, cy1, cx2, cy2, stops=stops, end=(1.0, 0.0),
+            rx=(cx2 - cx1) / 2, ry=(cy2 - cy1) / 2,
+        )
+        if up:
+            backend.rect(x1, y2 - _BAND_HEIGHT, x2, y2, fill=band)
+        else:
+            backend.rect(x1, y1, x2, y1 + _LIP_HEIGHT, fill=lip)
+        backend.end_group()
+        _draw_arrow(backend, (x1, y1, x2, y2), up, edge, fill)
+
+
+def _draw_arrow(
+    backend: Backend, half: Rect, up: bool, edge: str, fill: str
+) -> None:
+    """A triangle centered in ``half``: the fill, and the dark edge a bevel
+    leaves along its left side (and its top bar when it points down)."""
+    x1, y1, x2, y2 = half
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
-    tip, base = (
-        (cy - _ARROW_HALF_HEIGHT, cy + _ARROW_HALF_HEIGHT)
-        if up
-        else (cy + _ARROW_HALF_HEIGHT, cy - _ARROW_HALF_HEIGHT)
-    )
-    backend.polygon(
-        [(cx - _ARROW_HALF_WIDTH, base), (cx + _ARROW_HALF_WIDTH, base), (cx, tip)],
-        fill=arrow,
-    )
+    h = _ARROW_HALF_SIZE
+    tip_y, base_y = (cy - h, cy + h) if up else (cy + h, cy - h)
+    left, right, tip = (cx - h, base_y), (cx + h, base_y), (cx, tip_y)
+    backend.polygon([left, right, tip], fill=fill)
+    backend.line(*left, *tip, stroke=edge)
+    if not up:
+        backend.line(*left, *right, stroke=edge)

@@ -132,11 +132,14 @@ class Backend(Protocol):
         stroke: str | None = None,
         stroke_width: float | None = None,
         rx: float | None = None,
+        ry: float | None = None,
     ) -> None:
         """A rectangle filled with a linear gradient. ``stops`` are
         ``(offset, color)`` pairs. The gradient runs from the rectangle's
         top-left corner (0, 0) to ``end``, in fractions of its width and height:
-        ``(0, 1)`` top to bottom, ``(1, 0)`` left to right, ``(1, 1)`` diagonal."""
+        ``(0, 1)`` top to bottom, ``(1, 0)`` left to right, ``(1, 1)`` diagonal.
+        ``rx`` and ``ry`` are the corner radii (``ry`` follows ``rx`` when None);
+        half the width and half the height make the rectangle an ellipse."""
         ...
 
     def path(
@@ -326,12 +329,13 @@ class SvgBackend:
         stroke: str | None = None,
         stroke_width: float | None = None,
         rx: float | None = None,
+        ry: float | None = None,
     ) -> None:
         key = (stops, end)
         idx = self._gradient_ids.setdefault(key, len(self._gradient_ids))
         h = _stroke_inset(stroke, stroke_width)
         x1, y1, x2, y2 = x1 + h, y1 + h, x2 - h, y2 - h
-        a = self._attrs(stroke=stroke, stroke_width=stroke_width, rx=rx)
+        a = self._attrs(stroke=stroke, stroke_width=stroke_width, rx=rx, ry=ry)
         self._elements.append(
             f'<rect x="{x1:.1f}" y="{y1:.1f}" width="{x2 - x1:.1f}" '
             f'height="{y2 - y1:.1f}" fill="url(#__LVGRAD{idx}__)" {a}/>'
