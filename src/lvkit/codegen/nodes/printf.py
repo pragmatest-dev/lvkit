@@ -37,7 +37,9 @@ from .ops._numeric import FormatKind, format_kind
 _FORMAT_INDEX = 0
 _INITIAL_INDEX = 1
 _FIRST_VALUE_INDEX = 5
-_STRING_KINDS = ("string", "path")
+# The inputs a Format Into String with no format string writes as ``%s``: a string,
+# a path, and an enum (its item label, as ``%s`` writes it).
+_DEFAULT_TEXT_KINDS = ("string", "path", "enum")
 
 
 def _literal_text(source: str) -> str | None:
@@ -287,11 +289,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         expr = _runtime_format(format_value, arguments, initial, ctx)
     else:
         if format_value is None:
-            odd = next((k for _, k in arguments if k.kind not in _STRING_KINDS), None)
+            odd = next(
+                (k for _, k in arguments if k.kind not in _DEFAULT_TEXT_KINDS), None
+            )
             if odd is not None:
                 raise ConversionGap(
                     "Format Into String has no format string, and its default "
-                    f"format only writes strings and paths, not a {odd.kind} input",
+                    "format only writes strings, paths and enums, not a "
+                    f"{odd.kind} input",
                     node,
                 )
             text = "%s" * len(arguments)

@@ -240,6 +240,15 @@ def test_no_format_string_joins_strings_and_paths() -> None:
     assert _run(None, [("ab", STRING), ("cd", PATH)]) == "abcd"
 
 
+def test_no_format_string_writes_an_enum_label() -> None:
+    assert _run(None, [(3, ENUM)]) == "Max Power"
+
+
+def test_no_format_string_and_an_enum_with_no_labels_is_a_gap() -> None:
+    with pytest.raises(ConversionGap, match="enum with no item labels input"):
+        _build(None, [(1, UNLABELLED_ENUM)])
+
+
 def test_no_format_string_and_a_number_is_a_gap() -> None:
     with pytest.raises(ConversionGap, match="no format string"):
         _build(None, [(1.5, DBL)])
