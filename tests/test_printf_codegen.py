@@ -13,7 +13,7 @@ from lvkit.codegen.nodes import printf
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal, enum_values_from_labels
 from lvkit.string_literal import quote_string
 from tests.helpers import register_nodes
 
@@ -32,7 +32,11 @@ I32 = _primitive("NumInt32")
 U8 = _primitive("NumUInt8")
 BOOL = _primitive("Boolean")
 COMPLEX = _primitive("NumComplex128")
-ENUM = LVType(kind=LVTypeKind.ENUM)
+ENUM = LVType(
+    kind=LVTypeKind.ENUM,
+    values=enum_values_from_labels(["Off", "Low", "High", "Max Power"]),
+)
+UNLABELLED_ENUM = LVType(kind=LVTypeKind.ENUM)
 RING_I16 = LVType(kind=LVTypeKind.RING, underlying_type="NumInt16")
 ARRAY = LVType(kind=LVTypeKind.ARRAY, element_type=DBL)
 TIME = _primitive("TimeStamp")
@@ -149,6 +153,9 @@ CASES: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%010.3e", [(12.67, DBL)], "001.267E+1"),
     ("%5.1f", [(3 + 4j, COMPLEX)], "  3.0"),
     ("%d", [(3, ENUM)], "3"),
+    ("Mode: %s|", [(3, ENUM)], "Mode: Max Power|"),
+    ("%-6s|", [(1, ENUM)], "Low   |"),
+    ("%.2s", [(2, ENUM)], "Hi"),
     ("%d", [(3, RING_I16)], "3"),
     ("%x", [(-1, RING_I16)], "FFFF"),
     ("%08.3f", [(NAN, DBL)], "00000nan"),
@@ -262,7 +269,7 @@ GAPS: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%+x", [(1, I32)], "'%+x' ('+' flag with code 'x')"),
     ("%d", [("a", STRING)], "'%d' (code 'd' with a string input)"),
     ("%s", [(1.5, DBL)], "'%s' ('s' with a numeric (float) input)"),
-    ("%s", [(1, ENUM)], "'%s' ('s' with an enum input)"),
+    ("%s", [(1, UNLABELLED_ENUM)], "'%s' (enum with no item labels input)"),
     ("%d", [([1.0], ARRAY)], "'%d' (array input)"),
     ("%d", [(0, TIME)], "'%d' (TimeStamp input)"),
     ("%s %s", [("a", STRING)], "specifier '%s' has no input to take"),

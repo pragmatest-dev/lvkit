@@ -8,8 +8,8 @@ calls only each other: the code generator uses them while generating, and their
 source is copied into a generated module (``helper_sources``) for a format string
 that is wired at run time, so the text comes out the same either way. A value is
 described to them by its kind: ``string``, ``path``, ``bool``, ``int`` (with its
-bit width and signedness), ``float``, ``complex`` or ``enum``; any other kind is
-an input they have no conversion for.
+bit width), ``float``, ``complex`` or ``enum`` (with its items' labels); any other
+kind is an input they have no conversion for.
 """
 
 from __future__ import annotations
@@ -174,11 +174,9 @@ def _lv_unsupported(spec, kind):
     elif spec.code in tuple("duxob") and spec.precision is not None:
         part = f"precision with code {spec.code!r}"
     elif spec.code == "s":
-        if kind == "enum":
-            part = "'s' with an enum input"
-        elif kind in ("int", "float", "complex"):
+        if kind in ("int", "float", "complex"):
             part = f"'s' with a numeric ({kind}) input"
-        elif kind not in ("string", "path", "bool"):
+        elif kind not in ("string", "path", "bool", "enum"):
             part = f"{kind} input"
     elif kind in ("string", "path"):
         part = f"code {spec.code!r} with a {kind} input"
@@ -226,13 +224,16 @@ def _lv_scientific(value, precision, plus, width, left, zero):
     return _lv_pad(_lv_exponent(value, precision, plus), width, left, zero)
 
 
-def _lv_format_value(spec, value, kind, bits, signed):
+def _lv_format_value(spec, value, kind, bits, labels):
     """The text of one value written for ``spec`` (one ``_lv_unsupported`` has
-    accepted for this kind)."""
+    accepted for this kind). ``labels`` maps an enum's values to its items'
+    labels: ``%s`` writes the label."""
     code = spec.code
     if code == "s":
         if kind == "bool":
             text = "TRUE" if value else "FALSE"
+        elif kind == "enum":
+            text = labels[int(value)]
         else:
             text = str(value)
         if spec.precision is not None:
@@ -266,20 +267,20 @@ def _lv_format_value(spec, value, kind, bits, signed):
 def _lv_format_into_string(format_string, initial, args):
     """What Format Into String writes: ``initial`` followed by the format string
     with each specifier replaced by the value it takes from ``args``, a list of
-    ``(value, kind, bits, signed)``."""
+    ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels)."""
     text = initial
     for piece in _lv_parse(format_string):
         if isinstance(piece, str):
             text += _lv_decode_escapes(piece)
             continue
         if piece.position < len(args):
-            value, kind, bits, signed = args[piece.position]
+            value, kind, bits, labels = args[piece.position]
         else:
-            value, kind, bits, signed = None, None, 0, False
+            value, kind, bits, labels = None, None, 0, {}
         reason = _lv_unsupported(piece, kind)
         if reason:
             raise NotImplementedError(reason)
-        text += _lv_format_value(piece, value, kind, bits, signed)
+        text += _lv_format_value(piece, value, kind, bits, labels)
     return text
 
 

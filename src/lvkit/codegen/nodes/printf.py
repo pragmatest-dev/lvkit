@@ -101,6 +101,14 @@ def _formatted(value: ast.expr, spec_text: str) -> ast.FormattedValue:
     )
 
 
+def _labels(kind: FormatKind) -> ast.Dict:
+    """An enum's items as a dict literal from value to label."""
+    return ast.Dict(
+        keys=[ast.Constant(value=value) for value, _ in kind.labels],
+        values=[ast.Constant(value=label) for _, label in kind.labels],
+    )
+
+
 def _string_value(
     spec: _LvSpecifier, arg: ast.expr, kind: FormatKind
 ) -> ast.FormattedValue:
@@ -109,6 +117,11 @@ def _string_value(
             test=arg,
             body=ast.Constant(value="TRUE"),
             orelse=ast.Constant(value="FALSE"),
+        )
+    elif kind.kind == "enum":
+        # NI: with %s, "Enums: Interprets the string label of the enum item".
+        value = ast.Subscript(
+            value=_labels(kind), slice=_call("int", arg), ctx=ast.Load()
         )
     elif kind.kind == "path":
         value = _call("str", arg)
@@ -218,7 +231,7 @@ def _runtime_format(
                     arg,
                     ast.Constant(value=kind.kind),
                     ast.Constant(value=kind.bits),
-                    ast.Constant(value=kind.signed),
+                    _labels(kind),
                 ],
                 ctx=ast.Load(),
             )
