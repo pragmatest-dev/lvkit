@@ -165,12 +165,14 @@ from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
 from .typedef_ties import tie_typedef_records
 from .utils import (
+    HIDDEN_FLAG,
     decode_xml_entities_to_bytes,
     extract_caption,
     extract_label,
     extract_label_strict,
     extract_xtunnel_name,
     heap_color,
+    heap_rect,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -2209,6 +2211,20 @@ def _parse_ddo(
                 own_lv_type=own_lv_type,
             )
             if inner_control:
+                # The wrapped control's bounds are local to the typeDef: it sits
+                # at the typeDef's top-left plus its own bounds (3,133 of the
+                # corpus's 3,164 top-level typeDef controls fit only that way,
+                # none only as panel-absolute).
+                wrapper = heap_rect(ddo.find("bounds"))
+                if wrapper is not None:
+                    top, left, bottom, right = inner_control.bounds
+                    inner_control.bounds = (
+                        wrapper[0] + top,
+                        wrapper[1] + left,
+                        wrapper[0] + bottom,
+                        wrapper[1] + right,
+                    )
+                inner_control.hidden = _is_hidden(ddo)
                 inner_control.name = name
                 inner_control.caption = extract_caption(ddo)
                 inner_control.label_visible = _part_shown(ddo, 16) is not None
@@ -2394,7 +2410,15 @@ def _parse_ddo(
         ),
         slide_min=slide_min,
         slide_max=slide_max,
+        hidden=_is_hidden(ddo),
     )
+
+
+def _is_hidden(ddo: ET.Element) -> bool:
+    """A control is hidden when bit 0x8 of its own ddo's ``objFlags`` is set
+    (the hidden bit ``_parse_fp_parts_list`` reads for a part; for a control it
+    is the ddo's DIRECT ``objFlags``, never a nested payload ddo's)."""
+    return bool(safe_int(ddo.find("objFlags")) & HIDDEN_FLAG)
 
 
 def _numeric_format(ddo: ET.Element | None) -> str | None:

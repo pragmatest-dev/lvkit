@@ -178,7 +178,7 @@ class _Placer:
     ) -> None:
         """``shift`` turns the objects' stored positions into window positions."""
         for obj in reversed(objects):
-            if isinstance(obj, ParsedFPLabel) and obj.hidden:
+            if isinstance(obj, (ParsedFPLabel, ParsedFPControl)) and obj.hidden:
                 continue
             rect = _shifted(obj.bounds, shift)
             if isinstance(obj, ParsedFPGrouper):
@@ -224,7 +224,11 @@ def build_boxes(
     panel with no object tree draws its controls at their stored bounds."""
     layout = front_panel.layout
     if layout is None:
-        return [FPBox(ctrl, stored_rect(ctrl.bounds)) for ctrl in front_panel.controls]
+        return [
+            FPBox(ctrl, stored_rect(ctrl.bounds))
+            for ctrl in front_panel.controls
+            if not ctrl.hidden
+        ]
     placer = _Placer(_container_local(front_panel))
     placer.place_node(layout, (0.0, 0.0), clipped=False)
     boxes = placer.boxes

@@ -393,6 +393,33 @@ def test_an_unread_panel_object_is_a_problem_on_the_vi(tmp_path: Path) -> None:
     assert unread_panel_problems(None, "A.vi") == []
 
 
+def test_a_typedef_control_sits_at_the_typedef_plus_its_own_bounds(
+    tmp_path: Path,
+) -> None:
+    """Main.vi's "Shape": the typeDef at (96, 48, 117, 180) wraps a ring at
+    (0, 36, 21, 132), local to the typeDef."""
+    typedef = (
+        '<SL__arrayElement class="fPDCO" uid="68">'
+        '<ddo class="typeDef" uid="69"><bounds>(96, 48, 117, 180)</bounds>'
+        '<ddo class="stdRing" uid="70"><bounds>(0, 36, 21, 132)</bounds></ddo>'
+        "</ddo></SL__arrayElement>"
+    )
+    (control,) = _plain(tmp_path, typedef).controls
+    assert control.control_type == "stdRing"
+    assert control.bounds == (96, 84, 117, 180)
+
+
+def test_a_control_whose_ddo_has_the_hidden_bit_is_hidden(tmp_path: Path) -> None:
+    shown = _fpdco(5, "(0, 0, 10, 10)", extra="")
+    hidden = (
+        '<SL__arrayElement class="fPDCO" uid="7">'
+        '<ddo class="stdBool" uid="1007"><objFlags>41</objFlags>'
+        "<bounds>(0, 0, 10, 10)</bounds></ddo></SL__arrayElement>"
+    )
+    controls = _plain(tmp_path, shown, hidden).controls
+    assert [(c.uid, c.hidden) for c in controls] == [("5", False), ("7", True)]
+
+
 def test_layout_does_not_change_the_flat_controls(tmp_path: Path) -> None:
     """The flat list is what the fPDCO walk always produced: every fPDCO, in
     document order, with its stored bounds -- tab-page and grouper controls

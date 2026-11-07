@@ -26,6 +26,7 @@ from .models import (
     ParsedFPTabPage,
 )
 from .utils import (
+    HIDDEN_FLAG,
     clean_labview_string,
     decode_xml_entities_to_bytes,
     heap_color,
@@ -33,8 +34,6 @@ from .utils import (
     strip_surrounding_quotes,
 )
 
-# objFlags bit 0x8 = hidden, the convention ``_parse_fp_parts_list`` reads.
-_HIDDEN_FLAG = 0x8
 _TAB_CONTROL_CLASS = "tabControl"
 
 
@@ -160,7 +159,7 @@ class _ObjectReader:
             text=clean_labview_string(elem.findtext("textRec/text")),
             fg_color=heap_color(elem.findtext("fgColor")),
             bg_color=heap_color(elem.findtext("bgColor")),
-            hidden=bool(_int(elem.findtext("objFlags")) & _HIDDEN_FLAG),
+            hidden=bool(_int(elem.findtext("objFlags")) & HIDDEN_FLAG),
             font_runs=[
                 _font_run(run) for run in elem.findall("textRec/fr/SL__arrayElement")
             ],

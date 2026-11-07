@@ -306,6 +306,11 @@ def _first_text(label: ET.Element) -> str | None:
     return None
 
 
+# objFlags bit 0x8: the object (a control's own ddo, a part, a free label) is
+# hidden on the panel.
+HIDDEN_FLAG = 0x8
+
+
 def heap_rect(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
     """A heap rect element's ``(top, left, bottom, right)``, or None when it is
     absent or not four integers."""

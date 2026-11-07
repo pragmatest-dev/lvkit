@@ -740,6 +740,9 @@ class ParsedFPControl:
     # the VI was saved. Empty / None for every other control.
     tab_pages: list[ParsedFPTabPage] = field(default_factory=list)
     tab_selected: int | None = None
+    # Hidden on the panel (bit 0x8 of the control's own ddo ``objFlags``): the
+    # control exists (terminal, local variables) but the panel does not show it.
+    hidden: bool = False
 
 
 @dataclass(frozen=True)
