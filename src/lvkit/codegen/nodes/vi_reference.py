@@ -504,9 +504,13 @@ else:
 """
 
 _IMPORT_MODULE = """\
+{suffix} = ""
 if {stem}.lower().endswith((".vi", ".vim", ".vit")):
-    {stem} = {stem}.rsplit(".", 1)[0]
-{module} = importlib.import_module({package} + _module_part({stem}), __package__)
+    {stem}, {suffix} = {stem}.rsplit(".", 1)
+    {suffix} = {{"vim": "_vim", "vit": "_vit"}}.get({suffix}.lower(), "")
+{module} = importlib.import_module(
+    {package} + _module_part({stem} + {suffix}), __package__
+)
 {reference} = getattr({module}, _function_name({stem}), None)
 if {reference} is None:
     raise LookupError(
@@ -538,7 +542,17 @@ def _generate_lookup(
     )
     names = {
         key: f"{reference_var}_{key}"
-        for key in ("here", "path", "parts", "up", "stem", "package", "owner", "module")
+        for key in (
+            "here",
+            "path",
+            "parts",
+            "up",
+            "stem",
+            "suffix",
+            "package",
+            "owner",
+            "module",
+        )
     }
     names.update(value=value, reference=reference_var)
     names["rel"] = f"{reference_var}_rel"
