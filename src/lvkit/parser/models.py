@@ -735,6 +735,106 @@ class ParsedFPControl:
     # other unresolvable range, never a wrong one).
     slide_min: float | None = None
     slide_max: float | None = None
+    # For ``control_type == "tabControl"`` in a pane's, page's or grouper's
+    # object list: its pages in tab order, and the index of the page shown when
+    # the VI was saved. Empty / None for every other control.
+    tab_pages: list[ParsedFPTabPage] = field(default_factory=list)
+    tab_selected: int | None = None
+
+
+@dataclass(frozen=True)
+class ParsedFPFontRun:
+    """One run of a free label's text: the character ``offset`` where it
+    starts (0 when the file stores none), the index of its font in the VI's
+    font table, and its literal text color (``#RRGGBB``, None when absent)."""
+
+    offset: int
+    font_id: int | None
+    color: str | None
+
+
+@dataclass(frozen=True)
+class ParsedFPLabel:
+    """A free label on a front panel (a text object that is not a control's
+    own label). ``bounds`` is ``(top, left, bottom, right)`` in the space of
+    the pane, tab page or grouper that holds it."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    text: str
+    fg_color: str | None
+    bg_color: str | None
+    hidden: bool
+    font_runs: list[ParsedFPFontRun]
+
+
+@dataclass(frozen=True)
+class ParsedFPDecoration:
+    """A free decoration on a front panel. ``image_res_id`` is the stored
+    number that says which shape it is; ``bounds`` is ``(top, left, bottom,
+    right)`` in the space of the holder."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    image_res_id: int
+    fg_color: str | None
+    bg_color: str | None
+
+
+@dataclass
+class ParsedFPGrouper:
+    """A group of front-panel objects. ``bounds`` is in the space of the
+    holder; the bounds of ``objects`` are relative to the grouper's own
+    top-left, as stored. List order is front to back."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    objects: list[ParsedFPObject]
+
+
+ParsedFPObject = ParsedFPControl | ParsedFPLabel | ParsedFPDecoration | ParsedFPGrouper
+
+
+@dataclass
+class ParsedFPTabPage:
+    """One page of a tab control. ``bounds`` is as stored (tab-local); the
+    page's ``objects`` keep the stored order, first = topmost."""
+
+    name: str
+    bounds: tuple[int, int, int, int]
+    objects: list[ParsedFPObject]
+
+
+@dataclass
+class ParsedFPPane:
+    """A pane of the front panel: the whole panel, or one leaf of a splitter.
+
+    ``bounds`` is ``(top, left, bottom, right)`` in the parent splitter's
+    space. ``origin`` is the stored ``origin`` field read as ``(x, y)``: the
+    first number is the horizontal offset and the second the vertical one
+    (decoded the way the corpus fits best, ``docs/_internal/design/
+    labview-binary-format.md`` "Front panel structure"); ``(0, 0)`` when the
+    file stores none. ``objects`` keep the stored order: the first object is
+    the topmost."""
+
+    bounds: tuple[int, int, int, int]
+    origin: tuple[int, int]
+    objects: list[ParsedFPObject]
+
+
+@dataclass
+class ParsedFPSplitter:
+    """A splitter: two panes (or nested splitters) divided by a bar.
+
+    ``ratio`` is the first side's share of the splitter's size.
+    ``side_by_side`` is True when ``first`` is left of ``second``, False when
+    it is above it; it is read from the two children's bounds."""
+
+    bounds: tuple[int, int, int, int]
+    ratio: float
+    side_by_side: bool
+    first: ParsedFPPane | ParsedFPSplitter
+    second: ParsedFPPane | ParsedFPSplitter
 
 
 @dataclass
@@ -756,6 +856,10 @@ class ParsedFrontPanel:
     # The fPDCO uids of the controls that record no label anywhere the VI
     # keeps one: each is named ``control_<uid>``. Sorted.
     unlabeled_controls: list[str] = field(default_factory=list)
+    # The panel's object tree (panes, splitters, tab pages, groupers, free
+    # labels, decorations), holding the same control objects as ``controls``.
+    # None when the heap carries no ``paneHierarchy``.
+    layout: ParsedFPPane | ParsedFPSplitter | None = None
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None

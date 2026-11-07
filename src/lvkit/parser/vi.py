@@ -81,6 +81,7 @@ from .fp_heap_type import (
     reconstruct_control_lvtype,
     ring_sparse_values,
 )
+from .fp_structure import read_panel_layout
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -729,6 +730,7 @@ def _parse_front_panel(
         controls=controls,
         panel_bounds=panel_bounds,
         dco_order=dco_order,
+        layout=read_panel_layout(root, {c.uid: c for c in controls}),
     )
 
 

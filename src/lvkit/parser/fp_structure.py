@@ -1,0 +1,328 @@
+"""The front panel's object tree: panes, splitters, tab pages, groupers, free
+labels and decorations, read from the panel heap's ``paneHierarchy``.
+
+Every position stays as stored; placing an object in the window is the
+renderer's job. The tree holds the SAME ``ParsedFPControl`` objects the flat
+``ParsedFrontPanel.controls`` list holds (looked up by the fPDCO's uid), so one
+control is one object however it is reached. Format facts:
+``docs/_internal/design/labview-binary-format.md`` "Front panel structure".
+"""
+
+from __future__ import annotations
+
+import struct
+import xml.etree.ElementTree as ET
+
+from ..text_encoding import decode_labview_text
+from .models import (
+    ParsedFPControl,
+    ParsedFPDecoration,
+    ParsedFPFontRun,
+    ParsedFPGrouper,
+    ParsedFPLabel,
+    ParsedFPObject,
+    ParsedFPPane,
+    ParsedFPSplitter,
+    ParsedFPTabPage,
+)
+from .utils import (
+    clean_labview_string,
+    decode_xml_entities_to_bytes,
+    heap_color,
+    strip_surrounding_quotes,
+)
+
+# objFlags bit 0x8 = hidden, the convention ``_parse_fp_parts_list`` reads.
+_HIDDEN_FLAG = 0x8
+_TAB_CONTROL_CLASS = "tabControl"
+
+
+def read_panel_layout(
+    root: ET.Element,
+    controls_by_uid: dict[str, ParsedFPControl],
+    skipped: list[str] | None = None,
+) -> ParsedFPPane | ParsedFPSplitter | None:
+    """The panel's object tree, or None when the heap has no ``paneHierarchy``
+    (or one that cannot be read).
+
+    ``root`` is the front-panel heap root; ``controls_by_uid`` holds the
+    controls the flat parse produced, keyed by fPDCO uid. An fPDCO with no
+    control there is left out. A tab control reached in an object list gets
+    its ``tab_pages`` and ``tab_selected`` set.
+
+    ``skipped``, if given, collects what could not be read: an object's class
+    (``"cosm (no bounds)"`` when its bounds are missing, ``"cosm (no image)"``
+    when a decoration names no shape), or ``"paneHierarchy: ..."`` when the
+    tree itself is unreadable.
+    """
+    hierarchy = root.find("root/paneHierarchy")
+    if hierarchy is None:
+        return None
+    reader = _ObjectReader(controls_by_uid, skipped if skipped is not None else [])
+    return reader.read_node(hierarchy)
+
+
+class _ObjectReader:
+    def __init__(self, controls_by_uid: dict[str, ParsedFPControl], skipped: list[str]):
+        self._controls = controls_by_uid
+        self._skipped = skipped
+
+    # --- panes and splitters -------------------------------------------
+
+    def read_node(self, elem: ET.Element) -> ParsedFPPane | ParsedFPSplitter | None:
+        node_class = elem.get("class")
+        bounds = _bounds(elem)
+        if bounds is None:
+            self._skipped.append(f"paneHierarchy: {node_class} without bounds")
+            return None
+        if node_class == "pane":
+            return ParsedFPPane(
+                bounds=bounds,
+                origin=_origin(elem),
+                objects=self._read_objects(elem.find("zPlaneList")),
+            )
+        if node_class == "splitter":
+            return self._read_splitter(elem, bounds)
+        self._skipped.append(f"paneHierarchy: {node_class}")
+        return None
+
+    def _read_splitter(
+        self, elem: ET.Element, bounds: tuple[int, int, int, int]
+    ) -> ParsedFPSplitter | None:
+        first_elem = elem.find("topOrLeft")
+        second_elem = elem.find("botOrRight")
+        ratio = _ratio(elem.findtext("ratio"))
+        if first_elem is None or second_elem is None or ratio is None:
+            self._skipped.append("paneHierarchy: splitter missing a child or ratio")
+            return None
+        first = self.read_node(first_elem)
+        second = self.read_node(second_elem)
+        if first is None or second is None:
+            return None
+        side_by_side = _side_by_side(first.bounds, second.bounds)
+        if side_by_side is None:
+            self._skipped.append(
+                "paneHierarchy: splitter children neither side by side nor stacked"
+            )
+            return None
+        return ParsedFPSplitter(
+            bounds=bounds,
+            ratio=ratio,
+            side_by_side=side_by_side,
+            first=first,
+            second=second,
+        )
+
+    # --- object lists --------------------------------------------------
+
+    def _read_objects(self, list_elem: ET.Element | None) -> list[ParsedFPObject]:
+        """The objects of a ``zPlaneList`` / ``partsList``, in stored order."""
+        objects: list[ParsedFPObject] = []
+        if list_elem is None:
+            return objects
+        for elem in list_elem.findall("SL__arrayElement"):
+            obj = self._read_object(elem)
+            if obj is not None:
+                objects.append(obj)
+        return objects
+
+    def _read_object(self, elem: ET.Element) -> ParsedFPObject | None:
+        object_class = elem.get("class", "")
+        if object_class == "fPDCO":
+            return self._read_control(elem)
+        readers = {
+            "label": self._read_label,
+            "cosm": self._read_decoration,
+            "grouper": self._read_grouper,
+        }
+        read = readers.get(object_class)
+        if read is None:
+            self._skipped.append(object_class)
+            return None
+        bounds = _bounds(elem)
+        if bounds is None:
+            self._skipped.append(f"{object_class} (no bounds)")
+            return None
+        return read(elem, bounds)
+
+    def _read_control(self, fpdco: ET.Element) -> ParsedFPControl | None:
+        control = self._controls.get(fpdco.get("uid", ""))
+        if control is None:
+            return None
+        ddo = fpdco.find("ddo")
+        if ddo is not None and ddo.get("class") == _TAB_CONTROL_CLASS:
+            self._fill_tab(control, fpdco, ddo)
+        return control
+
+    def _read_label(
+        self, elem: ET.Element, bounds: tuple[int, int, int, int]
+    ) -> ParsedFPLabel:
+        return ParsedFPLabel(
+            uid=elem.get("uid", ""),
+            bounds=bounds,
+            text=clean_labview_string(elem.findtext("textRec/text")),
+            fg_color=heap_color(elem.findtext("fgColor")),
+            bg_color=heap_color(elem.findtext("bgColor")),
+            hidden=bool(_int(elem.findtext("objFlags")) & _HIDDEN_FLAG),
+            font_runs=[
+                _font_run(run) for run in elem.findall("textRec/fr/SL__arrayElement")
+            ],
+        )
+
+    def _read_decoration(
+        self, elem: ET.Element, bounds: tuple[int, int, int, int]
+    ) -> ParsedFPDecoration | None:
+        image_res_id = _int_or_none(elem.findtext("image/ImageResID"))
+        if image_res_id is None:
+            self._skipped.append("cosm (no image)")
+            return None
+        return ParsedFPDecoration(
+            uid=elem.get("uid", ""),
+            bounds=bounds,
+            image_res_id=image_res_id,
+            fg_color=heap_color(elem.findtext("fgColor")),
+            bg_color=heap_color(elem.findtext("bgColor")),
+        )
+
+    def _read_grouper(
+        self, elem: ET.Element, bounds: tuple[int, int, int, int]
+    ) -> ParsedFPGrouper:
+        return ParsedFPGrouper(
+            uid=elem.get("uid", ""),
+            bounds=bounds,
+            objects=self._read_objects(elem.find("partsList")),
+        )
+
+    # --- tab controls --------------------------------------------------
+
+    def _fill_tab(
+        self, control: ParsedFPControl, fpdco: ET.Element, ddo: ET.Element
+    ) -> None:
+        captions = [
+            _caption(caption)
+            for caption in ddo.findall(
+                "tabControlPageInfoArray/SL__arrayElement/caption"
+            )
+        ]
+        pages: list[ParsedFPTabPage] = []
+        page_elems = ddo.findall("pageList/SL__arrayElement")
+        for index, page in enumerate(page_elems):
+            page_bounds = _bounds(page)
+            if page_bounds is None:
+                self._skipped.append("page (no bounds)")
+                continue
+            pages.append(
+                ParsedFPTabPage(
+                    name=captions[index] if index < len(captions) else "",
+                    bounds=page_bounds,
+                    objects=self._read_objects(page.find("zPlaneList")),
+                )
+            )
+        control.tab_pages = pages
+        control.tab_selected = _selected_page(fpdco, ddo, captions, len(page_elems))
+
+
+def _selected_page(
+    fpdco: ET.Element, ddo: ET.Element, captions: list[str], page_count: int
+) -> int | None:
+    """The page shown when the VI was saved: the stored index when the file
+    records one (the fPDCO's ``DefaultData``, then the ddo's
+    ``tabControlPageSelValue``), else the caption equal to the shown tab text
+    in the tab array's own label."""
+    stored = _stored_page_index(fpdco, ddo)
+    if stored is not None and stored < page_count:
+        return stored
+    shown = ddo.findtext(
+        "partsList/SL__arrayElement[@class='tabArray']"
+        "/partsList/SL__arrayElement[@class='label']/textRec/text"
+    )
+    text = clean_labview_string(shown)
+    return captions.index(text) if text and text in captions else None
+
+
+def _stored_page_index(fpdco: ET.Element, ddo: ET.Element) -> int | None:
+    default = fpdco.findtext("DefaultData")
+    if default:
+        raw = decode_xml_entities_to_bytes(strip_surrounding_quotes(default))
+        if len(raw) == 4:
+            return int.from_bytes(raw, "big")
+    selected = (ddo.findtext("tabControlPageSelValue") or "").strip()
+    if selected:
+        try:
+            return int.from_bytes(bytes.fromhex(selected), "big")
+        except ValueError:
+            return None
+    return None
+
+
+def _caption(elem: ET.Element) -> str:
+    """A tab caption: hex of the VI's text bytes, in the VI's own encoding."""
+    try:
+        raw = bytes.fromhex((elem.text or "").strip())
+    except ValueError:
+        return ""
+    return decode_labview_text(raw).strip("\x00")
+
+
+# --- field readers -----------------------------------------------------
+
+
+def _numbers(text: str | None) -> list[int] | None:
+    try:
+        return [int(part) for part in (text or "").strip().strip("()").split(",")]
+    except ValueError:
+        return None
+
+
+def _bounds(elem: ET.Element) -> tuple[int, int, int, int] | None:
+    nums = _numbers(elem.findtext("bounds"))
+    if nums is None or len(nums) != 4:
+        return None
+    return (nums[0], nums[1], nums[2], nums[3])
+
+
+def _origin(elem: ET.Element) -> tuple[int, int]:
+    """The pane's stored ``origin`` as ``(x, y)``; ``(0, 0)`` when absent."""
+    nums = _numbers(elem.findtext("origin"))
+    if nums is None or len(nums) != 2:
+        return (0, 0)
+    return (nums[0], nums[1])
+
+
+def _ratio(text: str | None) -> float | None:
+    try:
+        return float(struct.unpack(">f", bytes.fromhex((text or "").strip()))[0])
+    except (ValueError, struct.error):
+        return None
+
+
+def _side_by_side(
+    first: tuple[int, int, int, int], second: tuple[int, int, int, int]
+) -> bool | None:
+    """True when the two panes share top and bottom (one left of the other),
+    False when they share left and right (one above the other)."""
+    if first[0] == second[0] and first[2] == second[2]:
+        return True
+    if first[1] == second[1] and first[3] == second[3]:
+        return False
+    return None
+
+
+def _int_or_none(text: str | None) -> int | None:
+    try:
+        return int((text or "").strip())
+    except ValueError:
+        return None
+
+
+def _int(text: str | None) -> int:
+    return _int_or_none(text) or 0
+
+
+def _font_run(run: ET.Element) -> ParsedFPFontRun:
+    offset_text = (run.findtext("fontofst") or "").strip()
+    return ParsedFPFontRun(
+        offset=int(offset_text, 16) if offset_text else 0,
+        font_id=_int_or_none(run.findtext("fontid")),
+        color=heap_color(run.findtext("fontcolor")),
+    )

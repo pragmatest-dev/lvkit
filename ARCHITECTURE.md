@@ -176,6 +176,16 @@ shared catalog) and `store_typedefs.py` (controls); a VI's dependency edges to c
 `typedef_uses`. All of it surfaces as views in `index/sql.py` (`type*`, `vi_used_type`,
 `typedef*`).
 
+**A front panel's object tree.** `ParsedFrontPanel.layout` (`parser/models.py`) is the
+panel's tree of panes, splitters, tab pages, groupers, free labels and decorations, read
+from the heap's `paneHierarchy` by `read_panel_layout` (`parser/fp_structure.py`, called at
+the end of `_parse_front_panel`). It holds the SAME `ParsedFPControl` objects as
+`ParsedFrontPanel.controls` (looked up by the fPDCO's uid), so `controls`, `dco_order` and
+everything built on them are unchanged. Positions stay as stored (each object's own
+`bounds`, a pane's `origin`, a splitter's `ratio`); the renderer places the objects from the
+tree. `layout` is None when the heap has no `paneHierarchy`. Format facts:
+`docs/_internal/design/labview-binary-format.md` "Front panel structure".
+
 ### Global VIs and the block-diagram link table
 
 - **Marker.** A global variable node is a `gRef` that carries a connector type: `GRefNode.connector_tm_type_id` is the TypeID of its `<connectorTM>`, and `is_global_variable` is true when it is set (`parser/node_types.py:134-158`; read at `parser/node_types.py:1628`). That type is a cluster of the Global VI's controls and `paramIdx` indexes it. A `gRef` without one is an ordinary local variable.
