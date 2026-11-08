@@ -8,15 +8,7 @@ from dataclasses import dataclass
 
 from .layout import Box
 from .model import PanelControl
-
-BUILDERS = (
-    "bool_control",
-    "bool_indicator",
-    "number_control",
-    "number_indicator",
-    "string_control",
-    "string_indicator",
-)
+from .widget_call import builders_used, widget_call
 
 
 @dataclass(frozen=True)
@@ -59,15 +51,7 @@ def _gap_message(control: PanelControl, vi_label: str) -> str:
 def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) -> str:
     if control.kind is None:
         return f"raise NotImplementedError({_gap_message(control, vi_label)!r})"
-    builder = (
-        control.kind.indicator_builder
-        if control.is_indicator
-        else control.kind.control_builder
-    )
-    arguments = f"values, {_key(control, enum_name)}, {control.default!r}"
-    if control.kind.name == "NUMBER":
-        arguments += f", {control.integer}"
-    return f"{builder}({arguments})"
+    return widget_call(control, control.kind, _key(control, enum_name))
 
 
 def panel_source(spec: PanelSource) -> str:
@@ -75,11 +59,10 @@ def panel_source(spec: PanelSource) -> str:
     enum = spec.enum_name
     used = sorted(
         {
-            (
-                c.kind.indicator_builder if c.is_indicator else c.kind.control_builder
-            )
+            name
             for c in spec.controls
             if c.kind is not None
+            for name in builders_used(c, c.kind)
         }
     )
     imports = ", ".join(["LiveValues", "RunController", "caption", *used])

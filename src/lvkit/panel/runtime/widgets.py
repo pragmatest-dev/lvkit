@@ -1,6 +1,6 @@
-"""The widgets of a front panel: a numeric, a Boolean and a string, each as a
-control (the user changes it, the function reads it) and as an indicator (the
-function writes it, the panel shows it).
+"""The widgets of a front panel for a numeric, a Boolean and a string, each built as
+a ``Port`` (``port.py``) and as a control (the user changes it, the function reads
+it) or an indicator (the function writes it, the panel shows it).
 
 A control keeps the ``LiveValues`` holder up to date from its change handler. An
 indicator registers the function that shows a value in it; the holder calls that
@@ -14,6 +14,7 @@ from typing import Any
 from nicegui import ui
 
 from .live import LiveValues
+from .port import Port, bind_control, bind_indicator
 
 CAPTION_CLS = "text-xs font-semibold text-gray-500 truncate leading-none"
 
@@ -29,69 +30,88 @@ def _number(value: Any, integer: bool) -> Any:
     return int(round(float(value))) if integer else float(value)
 
 
-def number_control(
-    live: LiveValues, name: Any, default: float, integer: bool
-) -> ui.number:
-    live.add_control(name, _number(default, integer))
+def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
+    if readonly:
+        shown = ui.input(value=str(_number(default, integer)))
+        shown.props("outlined dense readonly").classes("w-full")
+        current = _number(default, integer)
+
+        def show_number(value: Any) -> None:
+            nonlocal current
+            current = value
+            shown.set_value(str(value))
+
+        return Port(lambda: current, show_number)
+    held = _number(default, integer)
+    port: Port
 
     def changed(event: Any) -> None:
+        nonlocal held
         if event.value is not None:
-            live.set_control(name, _number(event.value, integer))
+            held = _number(event.value, integer)
+            port.changed()
 
     widget = ui.number(value=default, on_change=changed).props("outlined dense")
     if integer:
         widget.props("step=1")
         widget.format = "%d"
-    return widget.classes("w-full")
+    widget.classes("w-full")
+    port = Port(lambda: held, lambda value: widget.set_value(value))
+    return port
+
+
+def bool_port(default: bool, *, readonly: bool) -> Port:
+    if readonly:
+        light = ui.icon("circle", size="28px")
+        lit = bool(default)
+
+        def show_light(value: Any) -> None:
+            nonlocal lit
+            lit = bool(value)
+            light.classes(replace="text-green-500" if lit else "text-gray-400")
+
+        show_light(default)
+        return Port(lambda: lit, show_light)
+    port: Port
+    switch = ui.switch(value=bool(default), on_change=lambda e: port.changed())
+    port = Port(lambda: bool(switch.value), lambda value: switch.set_value(bool(value)))
+    return port
+
+
+def string_port(default: str, *, readonly: bool) -> Port:
+    port: Port
+    widget = ui.input(
+        value=str(default),
+        on_change=None if readonly else lambda e: port.changed(),
+    ).props("outlined dense readonly" if readonly else "outlined dense")
+    widget.classes("w-full")
+    port = Port(
+        lambda: str(widget.value or ""), lambda value: widget.set_value(str(value))
+    )
+    return port
+
+
+def number_control(live: LiveValues, name: Any, default: float, integer: bool) -> Port:
+    return bind_control(live, name, number_port(default, integer, readonly=False))
 
 
 def number_indicator(
     live: LiveValues, name: Any, default: float, integer: bool
-) -> ui.input:
-    widget = (
-        ui.input(value=str(_number(default, integer)))
-        .props("outlined dense readonly")
-        .classes("w-full")
-    )
-    live.add_indicator(name, lambda value: widget.set_value(str(value)))
-    return widget
+) -> Port:
+    return bind_indicator(live, name, number_port(default, integer, readonly=True))
 
 
-def bool_control(live: LiveValues, name: Any, default: bool) -> ui.switch:
-    live.add_control(name, bool(default))
-    return ui.switch(
-        value=bool(default), on_change=lambda e: live.set_control(name, bool(e.value))
-    )
+def bool_control(live: LiveValues, name: Any, default: bool) -> Port:
+    return bind_control(live, name, bool_port(default, readonly=False))
 
 
-def bool_indicator(live: LiveValues, name: Any, default: bool) -> ui.icon:
-    widget = ui.icon("circle", size="28px")
-
-    def show(value: Any) -> None:
-        widget.classes(
-            replace="text-green-500" if value else "text-gray-400",
-        )
-
-    show(default)
-    live.add_indicator(name, show)
-    return widget
+def bool_indicator(live: LiveValues, name: Any, default: bool) -> Port:
+    return bind_indicator(live, name, bool_port(default, readonly=True))
 
 
-def string_control(live: LiveValues, name: Any, default: str) -> ui.input:
-    live.add_control(name, str(default))
-    return (
-        ui.input(
-            value=str(default),
-            on_change=lambda e: live.set_control(name, str(e.value or "")),
-        )
-        .props("outlined dense")
-        .classes("w-full")
-    )
+def string_control(live: LiveValues, name: Any, default: str) -> Port:
+    return bind_control(live, name, string_port(default, readonly=False))
 
 
-def string_indicator(live: LiveValues, name: Any, default: str) -> ui.input:
-    widget = (
-        ui.input(value=str(default)).props("outlined dense readonly").classes("w-full")
-    )
-    live.add_indicator(name, lambda value: widget.set_value(str(value)))
-    return widget
+def string_indicator(live: LiveValues, name: Any, default: str) -> Port:
+    return bind_indicator(live, name, string_port(default, readonly=True))

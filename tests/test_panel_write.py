@@ -19,7 +19,7 @@ from nicegui.testing.user_simulation import user_simulation
 
 from lvkit.cli import main
 from tests.error_diagrams import (  # noqa: F401
-    PATH,
+    I32,
     REQUIRED,
     Package,
     Project,
@@ -62,9 +62,12 @@ def test_the_panel_is_written_next_to_the_module_with_the_controls_package(
     assert (package.root / f"{STEM}_panel.py").exists()
     assert {p.name for p in (package.root / "controls").glob("*.py")} == {
         "__init__.py",
+        "filepicker.py",
         "live.py",
+        "port.py",
         "runtoolbar.py",
         "widgets.py",
+        "widgets_path.py",
     }
     assert package.gaps == []
 
@@ -273,10 +276,10 @@ def test_abort_in_the_panel_ends_a_run_that_is_waiting_for_stop(
     _simulate(panel.build_panel, scenario)
 
 
-def _path_control_vi() -> Vi:
+def _slide_control_vi() -> Vi:
     vi = counting_vi()
     vi.control(
-        "Folder", PATH, REQUIRED, ddo_class="stdPath", bounds=(250, 20, 272, 260)
+        "Level", I32, REQUIRED, ddo_class="stdSlide", bounds=(250, 20, 272, 260)
     )
     return vi
 
@@ -285,18 +288,18 @@ def _path_control_vi() -> Vi:
 def test_a_control_the_panel_has_no_widget_for_is_a_gap_that_raises_when_built(
     project: Project,  # noqa: F811
 ) -> None:
-    project.add(_path_control_vi())
+    project.add(_slide_control_vi())
     package = project.generate(NAME, panel=True)
     assert [(g.kind, g.node_name) for g in package.gaps] == [
-        ("unsupported_control", "Folder")
+        ("unsupported_control", "Level")
     ]
     assert package.gaps[0].reason == (
-        "the panel has no widget for a stdPath control of type Path | None"
+        "the panel has no widget for a stdSlide control of type int"
     )
     source = (package.root / f"{STEM}_panel.py").read_text()
     assert "raise NotImplementedError(" in source
     panel = _panel(package)
-    with pytest.raises(NotImplementedError, match="stdPath control of type Path"):
+    with pytest.raises(NotImplementedError, match="stdSlide control of type int"):
         _build_in_a_page(panel.build_panel)
 
 
@@ -321,11 +324,11 @@ def test_the_command_reports_a_panel_gap_as_a_partial_run(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    path = project.add(_path_control_vi())
+    path = project.add(_slide_control_vi())
     out = project.base / "cli"
     assert _generate(monkeypatch, str(path), "-o", str(out)) == 3
     captured = capsys.readouterr()
-    assert "Folder" in captured.err
+    assert "Level" in captured.err
     assert "unsupported_control" in captured.err
     assert (out / STEM / f"{STEM}_panel.py").exists()
 

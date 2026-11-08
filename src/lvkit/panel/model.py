@@ -18,19 +18,20 @@ class PanelKind(Enum):
     """The kinds of control the panel builds, each with the builder functions of
     the ``controls`` package that draw it."""
 
-    NUMBER = ("number_control", "number_indicator", "stdNum", ("int", "float"))
-    BOOLEAN = ("bool_control", "bool_indicator", "stdBool", ("bool",))
-    STRING = ("string_control", "string_indicator", "stdString", ("str",))
+    NUMBER = ("number", "stdNum", ("int", "float"))
+    BOOLEAN = ("bool", "stdBool", ("bool",))
+    STRING = ("string", "stdString", ("str",))
+    PATH = ("path", "stdPath", ("Path | None",))
 
     def __init__(
         self,
-        control_builder: str,
-        indicator_builder: str,
+        stem: str,
         control_type: str,
         python_types: tuple[str, ...],
     ) -> None:
-        self.control_builder = control_builder
-        self.indicator_builder = indicator_builder
+        self.control_builder = f"{stem}_control"
+        self.indicator_builder = f"{stem}_indicator"
+        self.port_builder = f"{stem}_port"
         self.control_type = control_type
         self.python_types = python_types
 
@@ -69,7 +70,7 @@ class PanelControl:
 def _default(kind: PanelKind | None, value: object) -> str | int | float | bool:
     if kind is PanelKind.BOOLEAN:
         return bool(value)
-    if kind is PanelKind.STRING:
+    if kind in (PanelKind.STRING, PanelKind.PATH):
         return "" if value is None else str(value)
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return value
