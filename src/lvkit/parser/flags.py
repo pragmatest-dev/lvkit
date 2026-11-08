@@ -42,8 +42,10 @@ def is_ext_func_return_value(dco_class: str | None, flags: int) -> bool:
     return dco_class == "extFuncArg" and bool(flags & EXT_FUNC_ARG_RETURN_VALUE)
 
 
-# Front panel control flags
-FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)
+# Front panel control flags: bit 0 of a control's own ``ddo`` ``objFlags`` is set
+# for an indicator (``docs/_internal/design/labview-binary-format.md`` "Front
+# panel structure").
+FP_IS_INDICATOR = 0x1
 
 # Connector-pane TypeDesc ``Flags`` (the Function TypeDesc that CONP points to,
 # one child per connector slot). Bit 8 marks an output; bits 11 and 12 are the
@@ -73,7 +75,7 @@ def is_inverted_terminal(flags: int) -> bool:
 
 
 def is_indicator(flags: int) -> bool:
-    """Check if control flags indicate an indicator."""
+    """Check if a front-panel control's ``ddo`` ``objFlags`` mark an indicator."""
     return bool(flags & FP_IS_INDICATOR)
 
 

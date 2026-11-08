@@ -186,6 +186,56 @@ with other folders rebuilds just those (`_sync_index`'s `force` set,
 tools get their folders from one function, `library_folders.run_folders`, which finds an
 installed LabVIEW when no `vilib` is given.
 
+**A front panel's object tree.** `ParsedFrontPanel.layout` (`parser/models.py`) is the
+panel's tree of panes, splitters, tab pages, groupers, free labels and decorations, read
+from the heap's `paneHierarchy` by `read_panel_layout` (`parser/fp_structure.py`, called at
+the end of `_parse_front_panel`). It holds the SAME `ParsedFPControl` objects as
+`ParsedFrontPanel.controls` (looked up by the fPDCO's uid), so `controls`, `dco_order` and
+everything built on them are unchanged. Positions stay as stored (each object's own
+`bounds`, a pane's `origin`, a splitter's `ratio`); the renderer places the objects from the
+tree. `layout` is None when the heap has no `paneHierarchy`. Format facts:
+`docs/_internal/design/labview-binary-format.md` "Front panel structure".
+
+**Drawing a front panel.** `render_vi_front_panel` / `render_ctl_front_panel`
+(`render/front_panel/__init__.py`) draw the tree; `render --view block-diagram|front-panel|both`
+chooses the picture of a VI (`render_view.py` `views_for`: a `.ctl` has only its front panel,
+`both` is two files). `build_boxes` (`render/front_panel/geometry.py`) is the one place that
+places objects, each as an `FPBox` (object, rect in window coordinates, clip rect, painted
+extent), in drawing order:
+- *Window coordinates.* A plain pane's object is at its stored position plus the pane's scroll
+  `origin`; the saved window is `(0, 0, pane width, pane height)`. The pane's own top-left is
+  the window's place on the screen and is not added.
+- *Splitters.* The root splitter's local space starts at `(0, 0)`; each child's `bounds` is in
+  its parent splitter's space, so a leaf pane's offset is the sum of the pane `bounds`
+  top-lefts down the tree. A leaf pane of a splitter clips its objects to the pane (a plain
+  pane does not: the whole panel is drawn); a 2 px bar is placed between the panes.
+- *Containers.* A grouper's children, and the shown page of a tab control (`tab_selected`,
+  else the first), sit at the container's top-left plus their stored position. A VI saved
+  before LabVIEW 9.0 stores them in the space of the pane that holds the container
+  (`ParsedFrontPanel.lv_version`, read from the file's version in `parse_vi`); with no version
+  recorded they are container-local.
+- *Order and canvas.* Every list is placed last to first, the window frame last; the viewBox is
+  the union of every placed object (cut to its clip) and the window frame, padded. A `.ctl`
+  draws no window frame (`window_frame=False`).
+- *Drawing.* `compose.draw_front_panel` draws a control by its resolved glyph (a tab control:
+  `controls/tab.py`, from its own frame and tab-row parts), a free label (`free_label.py`), a
+  decoration by its `ImageResID` (`decoration.py`), and wraps a clipped object in a clip group.
+- *A control's look.* `ParsedFPPart` keeps each part's picture ids, flags, `bigMultiCosm`
+  states and `multiLabel` texts, and `ParsedFPControl.shows_as_indicator` the control's own
+  indicator bit (`parser/vi.py` `_parse_fp_parts_list`). `controls/style.py` decides the look
+  from those ids in one place: `numeric_style`, `string_style`, `listbox_style` return a
+  `ControlStyle` (Modern, System, Silver, or Other = not measured) and `boolean_kind` a
+  `BooleanKind`. The resolver (`controls/resolve.py`) gives a measured look its own drawing
+  (`numeric.py` / `modern.py` for Modern numerics and rings, `string_control.py` for strings
+  and paths, `boolean.py` / `boolean_kinds.py`, `listbox.py`), each in the part rects the file
+  stores; Other keeps the generic drawing. The panel's canvas is the first pane's stored
+  color (`ParsedFPPane.background`, `geometry.panel_background`). Gradients are the backend's
+  `gradient_rect`. Part ids and measured colors:
+  `docs/_internal/design/labview-binary-format.md` "Front panel structure".
+The output cache keys the picture twice: the slot name (`vi.front-panel.html` beside
+`vi.html`, `_render_paths` in `output_cache.py`) and the options tag (`view=`,
+`render_options_tag`).
+
 ### Global VIs and the block-diagram link table
 
 - **Marker.** A global variable node is a `gRef` that carries a connector type: `GRefNode.connector_tm_type_id` is the TypeID of its `<connectorTM>`, and `is_global_variable` is true when it is set (`parser/node_types.py:134-158`; read at `parser/node_types.py:1628`). That type is a cluster of the Global VI's controls and `paramIdx` indexes it. A `gRef` without one is an ordinary local variable.
