@@ -55,11 +55,8 @@ from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
 from ..parser.vi import _decode_element
-from ..primitive_resolver import get_resolver as get_prim_resolver
-from ..primitive_resolver import resolve_primitive
 from ..text_encoding import decode_labview_text
 from ..type_defaults import get_default_for_type
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders import (
     DEFAULT_NODE_BUILD_HANDLER,
     NODE_BUILD_HANDLERS,
@@ -328,6 +325,11 @@ def _lv_type_category(underlying: str, kind: LVTypeKind) -> str:
     return "unknown"
 
 
+if TYPE_CHECKING:
+    from ..primitive_resolver import PrimitiveResolver
+    from ..vilib_resolver import VILibResolver
+
+
 class ConstructionMixin:
     """Mixin providing graph construction methods."""
 
@@ -335,6 +337,8 @@ class ConstructionMixin:
     _graph: nx.MultiDiGraph
     _vi_nodes: dict[str, set[str]]
     _term_to_node: dict[str, str]
+    vilib_catalog: VILibResolver
+    primitive_catalog: PrimitiveResolver
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -736,7 +740,7 @@ class ConstructionMixin:
             # using.
             terminals_are_complete = True
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
-                prim_resolved = resolve_primitive(
+                prim_resolved = self.primitive_catalog.resolve(
                     prim_id=node.prim_res_id,
                     node_slots={
                         (t_info.index, TerminalDirection.of(t_info.is_output))
@@ -746,12 +750,14 @@ class ConstructionMixin:
                 if prim_resolved and prim_resolved.terminals:
                     known_terminals = prim_resolved.terminals
             if not known_terminals and node.node_type:
-                nt_resolved = get_prim_resolver().resolve_by_node_type(node.node_type)
+                nt_resolved = self.primitive_catalog.resolve_by_node_type(
+                    node.node_type
+                )
                 if nt_resolved and nt_resolved.terminals:
                     known_terminals = nt_resolved.terminals
             if not known_terminals and isinstance(node, SubVINode):
                 # SubVI calls: look up vilib terminal layout
-                vilib_r = get_vilib_resolver()
+                vilib_r = self.vilib_catalog
                 callee, variant = callee_keys(
                     node.node_type,
                     node.uid,
@@ -848,12 +854,14 @@ class ConstructionMixin:
                 and node.prim_res_id
                 and node.node_type == "prim"
             ):
-                resolved = resolve_primitive(prim_id=node.prim_res_id)
+                resolved = self.primitive_catalog.resolve(prim_id=node.prim_res_id)
                 if resolved:
                     node_name = resolved.name
 
             if not node_name and node.node_type:
-                resolved_nt = get_prim_resolver().resolve_by_node_type(node.node_type)
+                resolved_nt = self.primitive_catalog.resolve_by_node_type(
+                    node.node_type
+                )
                 if resolved_nt:
                     node_name = resolved_nt.name
 
@@ -868,7 +876,7 @@ class ConstructionMixin:
             # Get description for SubVIs from vilib
             description = None
             if node.node_type in _SUBVI_CALL_NODE_TYPES and node_name:
-                vilib_r = get_vilib_resolver()
+                vilib_r = self.vilib_catalog
                 callee, variant = callee_keys(
                     node.node_type,
                     node.uid,
@@ -1532,7 +1540,7 @@ class ConstructionMixin:
 
             prim_terminals = None
             if hasattr(gnode, "prim_id") and gnode.prim_id:
-                prim_resolved = resolve_primitive(
+                prim_resolved = self.primitive_catalog.resolve(
                     prim_id=gnode.prim_id,
                     node_slots={(t.index, t.direction) for t in gnode.terminals},
                 )

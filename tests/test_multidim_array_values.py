@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.codegen.context import _format_constant
 from lvkit.extractor import resolve_extracted
 from lvkit.graph.construction import decode_constant
@@ -298,7 +299,7 @@ def test_typedef_clusters_and_enums_keep_their_fields_and_labels(tmp_path):
 
 
 def _control(vi: str, name: str):
-    parsed = parse_vi(SAMPLES / vi)
+    parsed = parse_vi(SAMPLES / vi, roots=LibraryRoots())
     return next(c for c in parsed.front_panel.controls if c.name == name)
 
 
@@ -366,7 +367,7 @@ _ICON_PLUGINS = "ni-labview-icon-editor/resource/plugins"
 
 def _default_blobs(vi: str) -> list[bytes]:
     """Every non-empty front-panel ``DefaultData`` blob of ``vi``, as stored."""
-    _bd, fp, _main = resolve_extracted(SAMPLES / vi)
+    _bd, fp, _main = resolve_extracted(SAMPLES / vi, roots=LibraryRoots())
     return [
         blob
         for elem in ET.parse(fp).getroot().iter("DefaultData")
@@ -494,7 +495,7 @@ def test_corpus_class_objects_in_clusters_consume_the_whole_default():
         f"{_ICON_PLUGINS}/NIIconEditor/Class/Ants/Initialization/Ants Initialization.vi"
     )
     blobs = {len(b): b for b in _default_blobs(vi)}
-    parsed = parse_vi(SAMPLES / vi)
+    parsed = parse_vi(SAMPLES / vi, roots=LibraryRoots())
     assert any(
         (result := _decode_element(blobs[3592], c.lv_type))[0] is not None
         and result[1] == 3592
@@ -509,7 +510,7 @@ def test_corpus_fields_after_an_array_of_class_objects_are_aligned():
         "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon/Support/"
         "Extract Default Icon Data.vi"
     )
-    controls = parse_vi(SAMPLES / vi).front_panel.controls
+    controls = parse_vi(SAMPLES / vi, roots=LibraryRoots()).front_panel.controls
     lv_type = next(
         c.lv_type
         for c in controls

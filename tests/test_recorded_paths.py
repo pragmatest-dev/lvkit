@@ -337,3 +337,24 @@ def test_a_member_name_recorded_with_a_leading_separator_is_the_file_name() -> N
 
     tokens = member_tokens(["", "Editor.lvclass"], "/filter tags.vi")
     assert tokens == ["", "filter tags.vi"]
+
+
+def test_a_stored_path_is_kept_as_stored_and_takes_no_part_in_resolution() -> None:
+    """A class method named through its class stores the class's path; a library
+    member stores the library's. Both show as stored, and neither places a file."""
+    recorded = _paths()
+    class_tokens = ["", "Cls", "Cls.lvclass"]
+    lib_tokens = ["<userlib>", "_OpenG.lib", "file", "file.llb"]
+    recorded.note_stored("/p/Cls/Run.vi", "/p/a.vi", class_tokens, 1)
+    recorded.note_stored("/p/Delete.vi", "/p/a.vi", lib_tokens, None)
+    method = recorded.stored_by("/p/Cls/Run.vi", "/p/a.vi")
+    assert method is not None
+    assert (method.path_tokens, method.path_type) == (class_tokens, 1)
+    member = recorded.stored_by("/p/Delete.vi", "/p/a.vi")
+    assert member is not None and member.path_tokens == lib_tokens
+    assert recorded.stored_by("/p/Cls/Run.vi", "/p/other.vi") is None
+    assert recorded.resolved("/p/Cls/Run.vi") is None
+    assert recorded.resolved("/p/Delete.vi") is None
+    assert recorded.recorded_by("/p/Cls/Run.vi", "/p/a.vi") is None
+    recorded.clear()
+    assert recorded.stored_by("/p/Cls/Run.vi", "/p/a.vi") is None

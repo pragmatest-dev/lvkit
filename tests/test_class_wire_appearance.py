@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.models import WireLineStyle
@@ -41,7 +42,7 @@ pytestmark = pytest.mark.skipif(
 def test_class_pen_decodes_to_its_wire_style() -> None:
     """Actor.lvclass sets a custom pen — its wire is the Actor-Framework blue,
     total width 3, solid."""
-    cls = parse_lvclass(ACTOR_CLASS)
+    cls = parse_lvclass(ACTOR_CLASS, LibraryRoots())
     assert cls.wire_style is not None
     assert cls.wire_style.color == "#006CFF"
     assert cls.wire_style.width == 3
@@ -52,7 +53,7 @@ def test_class_pen_decodes_to_its_wire_style() -> None:
 def test_each_class_decodes_its_own_color() -> None:
     """A different class decodes a different color — the style is data-driven,
     not a shared constant."""
-    cls = parse_lvclass(TESTLOADER_CLASS)
+    cls = parse_lvclass(TESTLOADER_CLASS, LibraryRoots())
     assert cls.wire_style is not None
     assert cls.wire_style.color == "#94A27C"
 
@@ -61,7 +62,7 @@ def test_each_class_decodes_its_own_color() -> None:
 def test_no_pen_is_none() -> None:
     """A class that never customized its wire has no pen properties → None
     (it uses the default/inherited look)."""
-    cls = parse_lvclass(CONFIG_ACTOR_CLASS)
+    cls = parse_lvclass(CONFIG_ACTOR_CLASS, LibraryRoots())
     assert cls.wire_style is None
 
 

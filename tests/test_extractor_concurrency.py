@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
@@ -36,7 +37,7 @@ def test_concurrent_extraction_never_corrupts_cache():
 
     def _extract_and_parse(_: int) -> int:
         # force=True so every worker hits the write/publish path simultaneously.
-        bd, fp, main = extract_vi_xml(_VI, force=True)
+        bd, fp, main = extract_vi_xml(_VI, force=True, roots=LibraryRoots())
         ET.parse(bd)  # raises on a partial/corrupt (interleaved) write
         if fp:
             ET.parse(fp)
@@ -51,5 +52,5 @@ def test_concurrent_extraction_never_corrupts_cache():
     assert all(s > 0 for s in sizes)
     assert len(set(sizes)) == 1  # every worker saw the same complete file size
     # and the committed cache is valid afterwards
-    bd, _, _ = extract_vi_xml(_VI)
+    bd, _, _ = extract_vi_xml(_VI, roots=LibraryRoots())
     ET.parse(bd)

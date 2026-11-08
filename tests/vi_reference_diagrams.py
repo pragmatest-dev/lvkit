@@ -131,14 +131,25 @@ def build_path(uid: int) -> str:
     )
 
 
-def close_reference(uid: int) -> str:
-    """Terminal ``uid + 1`` the reference in."""
+def close_reference(uid: int, *, errors: bool = False) -> str:
+    """Terminal ``uid + 1`` the reference in; with ``errors``, ``uid + 3`` the
+    error in and ``uid + 5`` the error out."""
+    error_terminals = (
+        f'<SL__arrayElement class="term" uid="{uid + 3}">'
+        f'<dco class="parm" uid="{uid + 4}"><parmIndex>8</parmIndex></dco>'
+        "</SL__arrayElement>"
+        f'<SL__arrayElement class="term" uid="{uid + 5}">'
+        f'<dco class="parm" uid="{uid + 6}"><objFlags>1</objFlags>'
+        "<parmIndex>0</parmIndex></dco></SL__arrayElement>"
+        if errors
+        else ""
+    )
     return (
         f'<SL__arrayElement class="prim" uid="{uid}"><primResID>8011</primResID>'
-        '<termList elements="1">'
+        f'<termList elements="{3 if errors else 1}">'
         f'<SL__arrayElement class="term" uid="{uid + 1}">'
         f'<dco class="parm" uid="{uid + 2}"><parmIndex>11</parmIndex></dco>'
-        "</SL__arrayElement></termList></SL__arrayElement>"
+        f"</SL__arrayElement>{error_terminals}</termList></SL__arrayElement>"
     )
 
 

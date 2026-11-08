@@ -22,10 +22,12 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
-from .cache_paths import project_root
+from .library_folders import library_location
 from .llb_origin import llb_container_of
+from .project_folders import project_root
 
 if TYPE_CHECKING:
+    from .build_options import BuildOptions
     from .graph.core import InMemoryVIGraph
 
 EXIT_COMPLETE = 0
@@ -127,6 +129,11 @@ class Problem:
     hint: str | None = None
     # What the problem is, finer than ``kind`` (a gap's kind, ``unsupported_node``).
     code: str | None = None
+    # The graph key of the VI (or file) the problem is about, when it is one: the
+    # report names it from the graph's final state (``labelled``), so a VI whose
+    # callers record its installation path later is named the same everywhere.
+    # Never shown, never stored with a cached output.
+    key: str | None = field(default=None, compare=False, repr=False)
 
     @property
     def is_note(self) -> bool:
@@ -188,15 +195,19 @@ def problem_from_json(data: Mapping[str, Any]) -> Problem:
     )
 
 
-def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Problem:
+def problem_for_exception(
+    vi: str, stage: ProblemStage, exc: Exception, key: str | None = None
+) -> Problem:
     """The problem a VI's failure is: an ``UnreadableVIError`` says the file could
-    not be read; any other exception is lvkit's own failure on that VI."""
+    not be read; any other exception is lvkit's own failure on that VI. ``key``
+    is the VI's graph key (``Problem.key``)."""
     if isinstance(exc, CacheWriteError):
         return Problem(
             vi=vi,
             stage=ProblemStage.CACHE,
             kind=ProblemKind.ENVIRONMENT,
             reason=exc.reason,
+            key=key,
         )
     if isinstance(exc, UnreadableVIError):
         return Problem(
@@ -205,6 +216,7 @@ def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Probl
             kind=ProblemKind.UNREADABLE,
             reason=exc.reason,
             detail=exc.warnings,
+            key=key,
         )
     return Problem(
         vi=vi,
@@ -212,6 +224,7 @@ def problem_for_exception(vi: str, stage: ProblemStage, exc: Exception) -> Probl
         kind=ProblemKind.LVKIT_ERROR,
         reason=f"{type(exc).__name__}: {exc}",
         hint=LVKIT_ERROR_HINT,
+        key=key,
     )
 
 
@@ -257,6 +270,9 @@ class RunStopped(BaseException):
         super().__init__(problem.reason)
 
 
+# How a message names a project folder whose own name is not shown.
+
+
 @dataclass
 class RunSettings:
     """How a run treats the problems it finds: ``echo`` prints each warning when it
@@ -273,22 +289,33 @@ class RunSettings:
     # The LabVIEW library folders (``<vilib>``, ``<userlib>``, ``<instrlib>`` -> its
     # folders on disk, in order); a graph sets them with its library roots.
     library_roots: dict[str, tuple[Path, ...]] = field(default_factory=dict)
+    # The project's ``.lvkit/`` folder whose catalog additions the run reads
+    # (``None``: the shipped catalogs alone).
+    project_store: Path | None = None
     _roots: dict[Path, Path] = field(default_factory=dict, repr=False)
 
-    def label(self, path: Path | str) -> str:
-        """How a user sees the file at ``path``: relative to its project, the
-        ``<vilib>/...`` path below a library folder (likewise ``<userlib>``,
-        ``<instrlib>``), or, for a VI inside an ``.llb``, the archive's label plus
-        its name. Never an absolute path; a project folder itself is its name."""
+    def label(self, path: Path | str, recorded: str | None = None) -> str:
+        """How a user sees the file at ``path``: its library path
+        (``library_location``: the installation path its callers recorded,
+        ``recorded``, else its path below a library folder, ``<vilib>/...``,
+        likewise ``<userlib>``, ``<instrlib>``), else relative to its project, or,
+        for a VI inside an ``.llb``, the archive's label plus its name. Never an
+        absolute path; a project folder itself is its name."""
         resolved = Path(path).resolve()
+        roots = [
+            (token, library)
+            for token, libraries in self.library_roots.items()
+            for library in libraries
+        ]
+        installed = library_location(None, roots, recorded)
+        if installed is not None:
+            return "/".join(installed)
         container = llb_container_of(resolved)
         if container is not None:
             return f"{self.label(container)}/{resolved.name}"
-        for token, libraries in self.library_roots.items():
-            for library in libraries:
-                if resolved.is_relative_to(library.resolve()):
-                    rel = resolved.relative_to(library.resolve()).as_posix()
-                    return f"{token}/{rel}"
+        library_path = library_location(resolved, roots)
+        if library_path is not None:
+            return "/".join(library_path)
         base = self.root.resolve() if self.root is not None else None
         if base is None or not resolved.is_relative_to(base):
             folder = resolved.parent
@@ -297,7 +324,9 @@ class RunSettings:
             base = self._roots[folder]
         if resolved.is_relative_to(base):
             rel = resolved.relative_to(base).as_posix()
-            return base.name if rel == "." else rel
+            if rel == ".":
+                return base.name
+            return rel
         return resolved.name
 
     def announce(self, problem: Problem, may_stop: bool = True) -> None:
@@ -414,8 +443,11 @@ class RunProblems:
         # whose result is a data line, e.g. ``index``).
         self.on_stop: Callable[[RunReport], None] | None = None
 
-    def new_graph(self, tracked: bool = True) -> InMemoryVIGraph:
-        """A graph whose problems are announced per this run's settings. A tracked
+    def new_graph(
+        self, tracked: bool = True, build: BuildOptions | None = None
+    ) -> InMemoryVIGraph:
+        """A graph whose problems are announced per this run's settings, with the
+        library folders and VI Search Path of ``build`` when given. A tracked
         graph is part of the run's report for as long as the run lives; an
         untracked one (one of many short-lived graphs) is ``collect``ed by hand."""
         # Imported here: the graph is the heavy engine, and a command that is
@@ -424,6 +456,13 @@ class RunProblems:
         from .graph.core import InMemoryVIGraph
 
         graph = InMemoryVIGraph(self.settings)
+        if build is not None:
+            graph.set_library_roots(
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
+                search_path=build.search_path,
+            )
         if tracked:
             self._graphs.append(graph)
         return graph
@@ -465,16 +504,30 @@ class RunProblems:
         if isinstance(exc, UnreadableVIError) and exc.path is not None:
             path = exc.path
         label = self.settings.label(path)
+        key = str(Path(path).resolve())
         problem = (
-            Problem(vi=label, stage=stage, kind=kind, reason=str(exc))
+            Problem(vi=label, stage=stage, kind=kind, reason=str(exc), key=key)
             if kind is not None
-            else problem_for_exception(label, stage, exc)
+            else problem_for_exception(label, stage, exc, key)
         )
         self._found.append(problem)
         self.settings.announce(problem, may_stop=may_stop)
         return problem
 
     def report(self) -> RunReport:
+        """Every problem of the run, each VI named from its graph's final state
+        (``InMemoryVIGraph.labelled``)."""
         return RunReport.of(
-            [*self._found, *(p for graph in self._graphs for p in graph.problems())]
+            [
+                *(self._labelled(p) for p in self._found),
+                *(p for graph in self._graphs for p in graph.problems()),
+            ]
         )
+
+    def _labelled(self, problem: Problem) -> Problem:
+        """``problem`` named by the first of the run's graphs that holds its VI;
+        as it is when none does."""
+        for graph in self._graphs:
+            if problem.key is not None and graph.has_key(problem.key):
+                return graph.labelled(problem)
+        return problem

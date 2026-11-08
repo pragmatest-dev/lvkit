@@ -17,6 +17,7 @@ from dataclasses import replace as dc_replace
 from pathlib import Path
 from typing import Any
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.models import (
     _LV_TO_PYTHON_TYPE,
@@ -296,7 +297,7 @@ def _fields_from_xml(
 
 
 def _parse_private_data_fields(
-    lvclass_path: Path, private_data_ctl: str | None
+    lvclass_path: Path, private_data_ctl: str | None, roots: LibraryRoots
 ) -> list[LVPrivateDataField]:
     """Parse THIS class's own private data fields from a method VI's XML in
     the class directory.
@@ -335,7 +336,7 @@ def _parse_private_data_fields(
 
     for vi_path in glob_vi_files(class_dir):
         try:
-            _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
+            _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path, roots=roots)
         except RuntimeError:
             continue
         if main_xml is None:
@@ -511,11 +512,13 @@ def _lv_type_to_python(lv_type: str) -> str:
     return _LV_TO_PYTHON_TYPE.get(lv_type, extra_types.get(lv_type, "Any"))
 
 
-def parse_lvclass(lvclass_path: Path | str) -> LVClass:
+def parse_lvclass(lvclass_path: Path | str, roots: LibraryRoots) -> LVClass:
     """Parse a .lvclass file to extract class structure.
 
     Args:
         lvclass_path: Path to the .lvclass file
+        roots: The library folders of the run asking (they file the method VIs'
+            extractions)
 
     Returns:
         LVClass with methods, inheritance, and private data info
@@ -579,7 +582,9 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # Parse items recursively (methods and private data can be in folders)
     _parse_items(root, methods, private_data_ctl)
 
-    private_data_fields = _parse_private_data_fields(lvclass_path, private_data_ctl)
+    private_data_fields = _parse_private_data_fields(
+        lvclass_path, private_data_ctl, roots
+    )
     base = member_url_base(lvclass_path, root.get("LVVersion"))
     private_data_path = (
         (base / private_data_url).resolve() if private_data_url else None
@@ -1326,7 +1331,9 @@ def _rel_str(path: Path, root: Path) -> str:
         return path.name
 
 
-def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
+def discover_project_structure(
+    root_path: Path | str, roots: LibraryRoots
+) -> dict[str, Any]:
     """Discover LabVIEW project structure from a directory.
 
     Scans for .lvlib, .lvclass, and .vi files to build a complete
@@ -1355,7 +1362,7 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
 
     # Find all classes
     for lvclass_path in root_path.rglob("*.lvclass"):
-        cls = parse_lvclass(lvclass_path)
+        cls = parse_lvclass(lvclass_path, roots)
         structure["classes"].append(
             _class_entry(cls, str(lvclass_path.relative_to(root_path)))
         )
@@ -1372,7 +1379,9 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
     return structure
 
 
-def discover_structure_from_lvproj(lvproj_path: Path | str) -> dict[str, Any]:
+def discover_structure_from_lvproj(
+    lvproj_path: Path | str, roots: LibraryRoots
+) -> dict[str, Any]:
     """Discover project structure from a .lvproj's EXPLICIT member list.
 
     Same output shape as ``discover_project_structure`` (so ``--json`` /
@@ -1403,7 +1412,7 @@ def discover_structure_from_lvproj(lvproj_path: Path | str) -> dict[str, Any]:
     for _name, class_path in get_project_classes(project):
         if not class_path.exists():
             continue
-        cls = parse_lvclass(class_path)
+        cls = parse_lvclass(class_path, roots)
         structure["classes"].append(_class_entry(cls, _rel_str(class_path, proj_dir)))
 
     # Standalone = project VIs that don't live under a class directory (class

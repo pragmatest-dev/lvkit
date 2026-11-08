@@ -15,10 +15,13 @@ the generated module.
 
 A library with no folder in its recorded path, or a path rooted in a LabVIEW
 folder, is loaded by its name: the operating system searches for it. A library
-recorded relative to the VI and inside the project is copied into the generated
-package at the same project-relative path (with every file another expansion of a
-wildcard name selects, and the libraries it needs that sit in its folder), and the
-module loads it by its path from the module's own folder.
+recorded relative to the VI is copied into the generated package by the same walk
+from the VI's own module (``ModuleLayout.placed_beside``: in the project, a
+library folder or an outside project alike), with every file another expansion of
+a wildcard name selects and the libraries it needs that sit in its folder, and the
+module loads it by its path from the module's own folder. A library whose path
+leaves the VI's tree (above its project, library folder or outside project) is
+loaded by its name.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from pathlib import Path
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.recorded_paths import walk_relative
 from lvkit.parser.extfunc_prototype import ExtFuncCall, LibraryPathKind
 
 from ..context import CodeGenContext
@@ -104,8 +108,8 @@ def _fail(ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, why: str)
 def _location(
     ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall
 ) -> LibraryLocation:
-    """The folder a library recorded relative to the VI is in: from the VI's folder,
-    one folder up for each empty token after the first."""
+    """The folder a library recorded relative to the VI is in: the recorded path
+    walked from the VI's own file (``walk_relative``)."""
     source = (
         ctx.graph.get_vi_source_path(ctx.vi_name)
         if ctx.graph is not None and ctx.vi_name
@@ -113,18 +117,15 @@ def _location(
     )
     if source is None:
         raise _fail(ctx, node, call, "the VI's file is not known to resolve it from")
-    tokens = call.library_path_tokens
-    empties = next((i for i, t in enumerate(tokens) if t), len(tokens))
-    folder = source.resolve().parent
-    for _ in range(empties - 1):
-        folder = folder.parent
-    rest = tokens[empties:]
-    return LibraryLocation(folder.joinpath(*rest[:-1]), call.library or rest[-1])
+    walked = walk_relative(source.resolve().parts, call.library_path_tokens, keep=1)
+    if not walked:
+        raise _fail(ctx, node, call, "that path leads above the drive's root folder")
+    return LibraryLocation(Path(*walked[:-1]), call.library or walked[-1])
 
 
 def _copied_files(candidates: list[Path]) -> list[Path]:
     """``candidates`` (a file, or a folder's files) and, recursively, the libraries
-    they need that sit beside them inside the project."""
+    they need that sit beside them."""
     ordered: list[Path] = []
     seen: set[Path] = set()
     pending = list(candidates)
@@ -147,17 +148,20 @@ def _copied_files(candidates: list[Path]) -> list[Path]:
     return ordered
 
 
-def _project_copy(
+def _copy_beside_vi(
     ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall
 ) -> str | None:
-    """Copy the library into the package and return the expression of its path
-    from the module, or None when it lies outside the project."""
+    """Copy the library into the package beside the VI's own module, by the
+    path the VI records relative to itself, and return the expression of its
+    path from the module; None when that folder leaves the VI's tree (above its
+    project, its library folder or its own outside project)."""
     location = _location(ctx, node, call)
-    resolver = ctx.import_resolver
-    folder = (
-        resolver.project_file(location.folder, location.folder) if resolver else None
-    )
-    if resolver is None or folder is None:
+    resolver, vi_key = ctx.import_resolver, ctx.vi_name
+    if resolver is None or not vi_key:
+        return None
+    recorded = call.library_path_tokens
+    folder = resolver.beside_vi(vi_key, recorded, ())
+    if folder is None:
         return None
     candidates = [
         location.folder / name
@@ -174,7 +178,7 @@ def _project_copy(
             call,
             f"no file {' or '.join(expansions(location.name))} is in {location.folder}",
         )
-    if ctx.data_files is None:
+    if ctx.data_files is None or not resolver.copies_files:
         raise _fail(
             ctx,
             node,
@@ -184,9 +188,8 @@ def _project_copy(
             "get the file",
         )
     for path in _copied_files(candidates):
-        target = resolver.project_file(location.folder, path)
-        if target is not None:
-            ctx.data_files[target] = path.read_bytes()
+        below = path.relative_to(location.folder).parts
+        resolver.register_beside_vi(vi_key, recorded, below, path)
     parts = [p for p in folder.split("/") if p != "."]
     leaf = (
         f"{_LIBRARY_FILE_NAME}({location.name!r})"
@@ -226,7 +229,7 @@ def static_name(
     imports: set[str] = set()
     expression = None
     if call.library_path_kind is LibraryPathKind.RELATIVE_TO_VI:
-        expression = _project_copy(ctx, node, call)
+        expression = _copy_beside_vi(ctx, node, call)
         imports.add("import os")
     if expression is None:
         expression = repr(library)

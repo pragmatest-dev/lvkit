@@ -25,12 +25,15 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, extractor, output_cache
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph import InMemoryVIGraph
 from lvkit.index.build import build_index
 from lvkit.index.store import db_path as index_db_path
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
 from lvkit.load_mode import LoadMode
+
+NO_ROOTS = LibraryRoots()
 
 _CORPUS = Path(__file__).parent / "corpus" / "issues"
 
@@ -80,8 +83,8 @@ class TestBoundedDepth:
         deep = _touch_vi(proj / _deep_rel(_DEEP))  # rel string > 600 chars
         assert len(str(_deep_rel(_DEEP))) > 600
 
-        s_dir, _, _ = cache_paths.classify(shallow, "extract")
-        d_dir, _, _ = cache_paths.classify(deep, "extract")
+        s_dir, _, _ = cache_paths.classify(shallow, "extract", NO_ROOTS)
+        d_dir, _, _ = cache_paths.classify(deep, "extract", NO_ROOTS)
 
         # Slot dir is the bounded ``vi-<16hex>`` in both cases.
         assert s_dir.name.startswith("vi-") and len(s_dir.name) == len("vi-") + 16
@@ -100,8 +103,8 @@ class TestBoundedDepth:
         _mark_project(proj)
         shallow = _touch_vi(proj / "a.vi")
         deep = _touch_vi(proj / _deep_rel(_DEEP))
-        s_dir, _, _ = cache_paths.classify(shallow, kind)
-        d_dir, _, _ = cache_paths.classify(deep, kind)
+        s_dir, _, _ = cache_paths.classify(shallow, kind, NO_ROOTS)
+        d_dir, _, _ = cache_paths.classify(deep, kind, NO_ROOTS)
         # The cache DIR below the root is bounded (a fixed set of short segments
         # + one hash), regardless of the 600+ char source depth.
         assert d_dir.name == d_dir.name  # exists / no exception
@@ -119,7 +122,7 @@ class TestBoundedDepth:
         proj = tmp_path / "proj"
         _mark_project(proj)
         deep = _touch_vi(proj / _deep_rel(_DEEP))
-        d_dir, _, _ = cache_paths.classify(deep, "extract")
+        d_dir, _, _ = cache_paths.classify(deep, "extract", NO_ROOTS)
         art = d_dir / "vi_BDHb.xml"
         assert len(str(art)) < extractor._WIN_MAX_PATH
 
@@ -133,16 +136,16 @@ class TestSlotIdentity:
         _mark_project(proj)
         a = _touch_vi(proj / "dirA" / "Do.vi")
         b = _touch_vi(proj / "dirB" / "Do.vi")  # SAME basename, different path
-        da, _, _ = cache_paths.classify(a, "extract")
-        db, _, _ = cache_paths.classify(b, "extract")
+        da, _, _ = cache_paths.classify(a, "extract", NO_ROOTS)
+        db, _, _ = cache_paths.classify(b, "extract", NO_ROOTS)
         assert da != db  # same-named VIs never share a slot
 
     def test_same_vi_is_deterministic(self, tmp_path: Path) -> None:
         proj = tmp_path / "proj"
         _mark_project(proj)
         vi = _touch_vi(proj / "sub" / "x.vi")
-        first, _, _ = cache_paths.classify(vi, "extract")
-        second, _, _ = cache_paths.classify(vi, "extract")
+        first, _, _ = cache_paths.classify(vi, "extract", NO_ROOTS)
+        second, _, _ = cache_paths.classify(vi, "extract", NO_ROOTS)
         assert first == second
 
     def test_vi_slot_is_bounded_and_prefixed(self) -> None:
@@ -157,7 +160,7 @@ class TestSlotIdentity:
 class TestFixedNames:
     def test_managed_extract_uses_fixed_names_and_records_real_source(self) -> None:
         vi = (_CORPUS / "29" / "Test LVKit" / "Lib1" / "Class" / "Do.vi").resolve()
-        bd_xml, fp_xml, main_xml = extractor.extract_vi_xml(vi)
+        bd_xml, fp_xml, main_xml = extractor.extract_vi_xml(vi, roots=NO_ROOTS)
         # Fixed short names, NOT the source stem — under a bounded ``vi-`` slot.
         assert bd_xml.name == "vi_BDHb.xml"
         assert bd_xml.parent.name.startswith("vi-")
@@ -171,7 +174,7 @@ class TestFixedNames:
         vi = (_CORPUS / "29" / "Test LVKit" / "Lib1" / "Class" / "Do.vi").resolve()
         out = tmp_path / "out"
         out.mkdir()
-        bd_xml, _, _ = extractor.extract_vi_xml(vi, output_dir=out)
+        bd_xml, _, _ = extractor.extract_vi_xml(vi, output_dir=out, roots=NO_ROOTS)
         # A caller-owned dir keeps the source stem (only the managed cache is fixed).
         assert bd_xml.name == "Do_BDHb.xml"
 
@@ -184,7 +187,7 @@ class TestRenderDiffNames:
         proj = tmp_path / "proj"
         _mark_project(proj)
         vi = _touch_vi(proj / "x.vi")
-        slot = output_cache.render_slot(vi, "svg")
+        slot = output_cache.render_slot(vi, "svg", NO_ROOTS)
         assert slot.name == "vi.svg"
         assert slot.parent.name.startswith("vi-")
 
@@ -194,7 +197,7 @@ class TestRenderDiffNames:
         before = tmp_path / "old.vi"
         before.write_bytes(b"BEFORE")
         after = _touch_vi(proj / "x.vi")
-        slot = output_cache.diff_slot(before, after, "html")
+        slot = output_cache.diff_slot(before, after, "html", NO_ROOTS)
         assert slot.name.startswith("vi.") and slot.name.endswith(".html")
         assert slot.parent.name.startswith("vi-")
 
@@ -209,9 +212,11 @@ class TestRenderDiffMetaPreservesSource:
         proj = tmp_path / "proj"
         _mark_project(proj)
         vi = _touch_vi(proj / "deep" / "sub" / "MyVI.vi")
-        output_cache.store_render(vi, "svg", "opts", "1.0.0", "<svg/>")
+        output_cache.store_render(vi, "svg", "opts", "1.0.0", "<svg/>", roots=NO_ROOTS)
 
-        body_path, meta_path, source_label, _ = output_cache._render_paths(vi, "svg")
+        body_path, meta_path, source_label, _ = output_cache._render_paths(
+            vi, "svg", NO_ROOTS
+        )
         assert body_path.name == "vi.svg"  # bounded name, no source info itself
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         assert meta["source"] == source_label
@@ -223,10 +228,12 @@ class TestRenderDiffMetaPreservesSource:
         before = tmp_path / "old.vi"
         before.write_bytes(b"BEFORE")
         after = _touch_vi(proj / "deep" / "sub" / "MyVI.vi")
-        output_cache.store_diff(before, after, "html", "opts", "1.0.0", "<diff/>")
+        output_cache.store_diff(
+            before, after, "html", "opts", "1.0.0", "<diff/>", roots=NO_ROOTS
+        )
 
         body_path, meta_path, _, source_label, _ = output_cache._diff_paths(
-            before, after, "html"
+            before, after, "html", NO_ROOTS
         )
         assert body_path.name.startswith("vi.")  # bounded name, no source info
         meta = json.loads(meta_path.read_text(encoding="utf-8"))

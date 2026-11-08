@@ -31,7 +31,9 @@ _USERLIB_CALL = ["<userlib>", "_OpenG.lib", "string", "Trim__ogtk.vi"]
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     # A relative call to a file at its recorded path.
     built.vi("Sub/callee.vi", "callee.vi", [])

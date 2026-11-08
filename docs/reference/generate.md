@@ -18,7 +18,7 @@ lvkit generate <input_path> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `input_path` | Path to a `.vi`, `.lvlib`, `.lvclass`, or a directory. A `.lvlib`/`.lvclass`/directory generates every VI it contains, in dependency order. |
+| `input_path` | Path to a `.vi`, `.lvlib`, `.lvclass`, or a directory. A `.lvlib`/`.lvclass`/directory generates every VI it contains, in dependency order. The path may be written as lvkit prints it (`<userlib>/…`, `<vilib>/…`, `<instrlib>/…`, or a VI inside an `.llb` through its archive): it is found in the folders given by `--vilib`, `--userlib` and `--instrlib`. |
 
 ## Options
 
@@ -47,6 +47,13 @@ This writes the generated Python to `outputs/convert_file_extension_string/`.
 and recreated on each run**, so point `-o` at a throwaway directory, not one
 holding hand-written code. A `.lvlib`, `.lvclass`, or directory input generates
 every VI it contains into that one subfolder, in dependency order.
+
+Inside that subfolder the modules mirror the project's folders: each folder is a
+package and each VI file is a module named from its file name, lowercased. A
+`.vim` (malleable VI) module ends in `_vim` and a `.vit` (VI template) module in
+`_vit`, so `lv_icon.vi` and `lv_icon.vit` in one folder are the modules
+`lv_icon` and `lv_icon_vit`. The function inside a module keeps the name
+without the suffix.
 
 If `input_path` doesn't exist, `generate` prints `Error: Path not found` and
 exits non-zero without writing anything.

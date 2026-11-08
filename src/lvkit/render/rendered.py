@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NamedTuple
 
+from ..catalog_stamp import CatalogKey
 from ..run_report import Problem
 
 
@@ -19,3 +20,6 @@ class RenderedBody(NamedTuple):
     dependencies: tuple[Path, ...]
     # The problems recorded on the nodes of the VIs the render loaded.
     problems: tuple[Problem, ...] = ()
+    # The catalog entries the VI looks up (see ``catalog_keys``): the output
+    # cache records what the project's ``.lvkit/`` says for them.
+    catalog_keys: frozenset[CatalogKey] = frozenset()
