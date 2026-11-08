@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Variant To Flattened String and Flattened String To Variant generate code** — a type known when the code is generated (a typed To Variant wire, a constant or round-tripped `type string`) uses `struct` calls in LabVIEW's byte format and a literal `type string`; a variant of unknown type is `pickle`d.
 - **Flatten To String generates `struct` code** — any number, Boolean, string, array or cluster, with `byte order` and `prepend array or string size?` read from their constants; the 7.x `type string` output is a gap.
 - **Close Reference of any reference generates nothing**, no longer a gap — a VI, Application or other VI Server reference, an array of references, or one wired to nothing; its error out passes the error in.
 - **Fix: MCP calls for two projects at once each file their VIs' cache by their own library folders**.

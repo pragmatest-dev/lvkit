@@ -2,12 +2,20 @@
   "primitives": {
     "8202": {
       "name": "Flattened String To Variant",
+      "errors": [
+        {
+          "exception": "error",
+          "module": "struct",
+          "code": 116
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flattened-string-to-variant.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
-          "name": "error out",
-          "type": "ErrorCluster"
+          "name": "error_out",
+          "type": "Error"
         },
         {
           "index": 3,
@@ -18,28 +26,29 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error in",
-          "type": "ErrorCluster"
+          "name": "error_in",
+          "type": "Error"
         },
         {
           "index": 6,
           "direction": "input",
-          "name": "data string",
+          "name": "data_string",
           "type": "String"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "type string",
+          "name": "type_string",
           "type": "Array"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "op": "FLATTENED_STRING_TO_VARIANT",
+      "verified": true,
+      "note": "Pane read from every corpus call site (idx 0/3 outputs, 4/6/7 inputs, identical everywhere). Emitted via the FLATTENED_STRING_TO_VARIANT op handler: type string known when the code is generated (a constant, or a Variant To Flattened String of known type) is decoded into a type and data string is read with the struct calls for it (codegen/flat.py); otherwise data string is unpickled."
     },
     "8203": {
       "name": "Variant To Flattened String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-flattened-string.html",
       "terminals": [
         {
           "index": 0,
@@ -50,19 +59,19 @@
         {
           "index": 1,
           "direction": "output",
-          "name": "type string",
+          "name": "type_string",
           "type": "Array"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "data string",
+          "name": "data_string",
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "op": "VARIANT_TO_FLATTENED_STRING",
+      "verified": true,
+      "note": "Pane read from every corpus call site. Emitted via the VARIANT_TO_FLATTENED_STRING op handler: a variant of known type (To Variant fed by a typed wire) is flattened with the struct calls for that type and type string is the literal descriptor (type_string.py); a variant of unknown type is pickled and type string is None."
     },
     "8204": {
       "name": "Set Variant Attribute",
@@ -159,7 +168,7 @@
           "direction": "input",
           "name": "attribute_name",
           "type": "polymorphic",
-        "default_behavior": "all attributes"
+          "default_behavior": "all attributes"
         },
         {
           "index": 7,

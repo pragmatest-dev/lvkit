@@ -10,7 +10,9 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
+from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
+from ...flat import Functions, Integer, Layout, Real
 
 
 def terminal(node: PrimitiveNode, direction: str, index: int) -> Terminal | None:
@@ -53,3 +55,47 @@ def unsupported_layout_error(node: PrimitiveNode, reason: Exception) -> Conversi
     return ConversionGap(
         f"{node.name or 'This function'} does not handle {reason}", node
     )
+
+
+def read_flattened(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    layout: Layout,
+    text: str,
+    order: str,
+    prefix: bool,
+    value_term: Terminal | None,
+    wants_value: bool,
+) -> tuple[list[ast.stmt], str | None, str]:
+    """The statements that read a value of ``layout`` from the flattened string
+    ``text``: they return the variable holding the value (None when neither the
+    caller wants it nor reading the rest needs it) and the expression of the bytes
+    left after it."""
+    fns = Functions(ctx, order)
+    data = ctx.make_output_var("flattened", node.id)
+    statements: list[ast.stmt] = [
+        build_assign(data, parse_expr(f"{text}.encode('latin-1')"))
+    ]
+    if isinstance(layout, (Integer, Real)):
+        read = f"struct.unpack_from({order + layout.code!r}, {data})"
+        value = f"complex(*{read})" if len(layout.code) == 2 else f"{read}[0]"
+        rest = f"{data}[{layout.width}:]"
+        position = None
+    else:
+        position = ctx.make_output_var("position", node.id)
+        value = None
+        rest = f"{data}[{position}:]"
+    variable = None
+    if wants_value or position is not None:
+        assert value_term is not None
+        variable = ctx.make_output_var("value", node.id, terminal_id=value_term.id)
+        if position is None:
+            statements.append(build_assign(variable, parse_expr(value or "None")))
+        else:
+            statements.append(
+                ast.parse(
+                    f"{variable}, {position} = "
+                    f"{fns.reader(layout, prefix)}({data}, 0)"
+                ).body[0]
+            )
+    return statements, variable, rest
