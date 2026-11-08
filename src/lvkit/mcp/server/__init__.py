@@ -187,7 +187,7 @@ from .index_tools import (  # noqa: E402
     query,
     query_schema,
 )
-from .resolvers import _configure_resolvers_for_vi  # noqa: E402
+from .resolvers import project_store_for  # noqa: E402
 from .vi_tools import (  # noqa: E402
     _load_one,
     diff,
@@ -274,8 +274,8 @@ __all__ = [
     "_default_roots",
     "_resolve_project",
     "_resolve_target",
-    # resolver configuration
-    "_configure_resolvers_for_vi",
+    # project store discovery
+    "project_store_for",
     # index (project-scoped) tools
     "_indexes",
     "_require_vis",

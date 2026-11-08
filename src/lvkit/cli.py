@@ -10,7 +10,8 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
 
-from .library_folders import folder_list
+from .input_path import InputNotFound, is_stored_path, resolve_input
+from .library_folders import run_folders
 
 if TYPE_CHECKING:
     from .graph import InMemoryVIGraph
@@ -35,17 +36,29 @@ from .cli_input import (
     VISUALIZE_INPUTS,
     input_usage_error,
 )
-from .cli_run import add_fail_fast_arg, command_run, finish, run_command, stop_on
+from .cli_run import (
+    add_fail_fast_arg,
+    command_run,
+    finish,
+    project_store_for_args,
+    run_command,
+    stop_on,
+)
 from .console import use_utf8_output, write_whole_lines
 from .load_mode import LoadMode
 from .project_store import (
-    find_project_store,
     init_project_store,
     install_claude_skills,
     install_codex_skills,
     install_copilot_skills,
 )
-from .run_report import CacheWriteError, ProblemKind, ProblemStage, declined
+from .run_report import (
+    EXIT_USAGE,
+    CacheWriteError,
+    ProblemKind,
+    ProblemStage,
+    declined,
+)
 from .vi_files import VI_EXTENSIONS, strip_vi_extension
 
 
@@ -217,32 +230,59 @@ def _parse_library_roots(args: argparse.Namespace) -> LibraryArgs:
     When --vilib is not given (and --no-auto-vilib was not passed), attempt a
     best-effort auto-detection of a locally installed LabVIEW and use its
     vi.lib / user.lib / instr.lib. Explicit flags always win; detection is
-    non-fatal.
+    non-fatal. Parsed once per command: later calls return the same answer.
     """
-    vilib_root = folder_list(getattr(args, "vilib", None))
-    userlib_root = folder_list(getattr(args, "userlib", None))
-    instrlib_root = folder_list(getattr(args, "instrlib", None))
+    parsed = getattr(args, "_library_args", None)
+    if parsed is not None:
+        return parsed
     entries = getattr(args, "search_path", None)
     search_path = tuple(entries) if entries else None
+    folders = run_folders(
+        getattr(args, "vilib", None),
+        getattr(args, "userlib", None),
+        getattr(args, "instrlib", None),
+        auto_detect=not getattr(args, "no_auto_vilib", False),
+    )
+    vilib_root, userlib_root, instrlib_root = (
+        folders.vilib,
+        folders.userlib,
+        folders.instrlib,
+    )
+    detected = folders.detected
+    if detected is not None:
+        version = detected.version or "?"
+        print(
+            f"lvkit: auto-detected LabVIEW {version} vi.lib at "
+            f"{detected.vilib_root} ({detected.source})",
+            file=sys.stderr,
+        )
 
-    if not vilib_root and not getattr(args, "no_auto_vilib", False):
-        from .lv_detect import detect_labview
+    args._library_args = LibraryArgs(
+        vilib_root, userlib_root, instrlib_root, search_path
+    )
+    return args._library_args
 
-        detected = detect_labview()
-        if detected is not None:
-            vilib_root = (detected.vilib_root,)
-            if not userlib_root:
-                userlib_root = folder_list(detected.userlib_root)
-            if not instrlib_root:
-                instrlib_root = folder_list(detected.instrlib_root)
-            version = detected.version or "?"
-            print(
-                f"lvkit: auto-detected LabVIEW {version} vi.lib at "
-                f"{detected.vilib_root} ({detected.source})",
-                file=sys.stderr,
-            )
 
-    return LibraryArgs(vilib_root, userlib_root, instrlib_root, search_path)
+def _input_path(args: argparse.Namespace, text: str) -> Path | int:
+    """The path a command's input ``text`` names, or exit code 2 (message
+    printed) when ``text`` is a stored path (``<userlib>/…``) found in no
+    configured library folder. Any other text is the path as given."""
+    if not is_stored_path(text):
+        return Path(text)
+    roots = _parse_library_roots(args)
+    folders = {
+        "<vilib>": roots.vilib,
+        "<userlib>": roots.userlib,
+        "<instrlib>": roots.instrlib,
+    }
+    try:
+        return resolve_input(text, folders)
+    except InputNotFound as e:
+        print(f"Error: Path not found: {text}", file=sys.stderr)
+        print(f"  {e.reason}", file=sys.stderr)
+        for tried in e.tried:
+            print(f"  tried: {tried}", file=sys.stderr)
+        return EXIT_USAGE
 
 
 def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -> None:
@@ -258,40 +298,23 @@ def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -
         )
 
 
-def _find_project_store(args: argparse.Namespace) -> Path | None:
-    """The project store directory for this run: ``--project-root`` in either
-    form (the parent of ``.lvkit/``, or ``.lvkit/`` itself), else the nearest
-    ``.lvkit/`` above the working directory; ``None`` when there is none."""
-    project_root = getattr(args, "project_root", None)
-    if project_root:
-        candidate = Path(project_root)
-        # Accept both "project root" and ".lvkit/" itself
-        if candidate.name == ".lvkit" and candidate.is_dir():
-            return candidate
-        if (candidate / ".lvkit").is_dir():
-            return candidate / ".lvkit"
-        return None
-    return find_project_store()
-
-
-def _configure_resolvers(args: argparse.Namespace) -> Path | None:
-    """Discover the project store and reset resolver singletons.
-
-    Must be called BEFORE any load_vi() so graph construction sees the
-    project mappings (used for terminal-index disambiguation).
-
-    Accepts --project-root in either form: the parent of .lvkit/ (the
-    project root), or the .lvkit/ directory itself.
-
-    Returns the project store directory if one was found, else None.
-    """
-    store = _find_project_store(args)
-
-    from . import primitive_resolver, vilib_resolver
-
-    primitive_resolver.reset_resolver(project_data_dir=store)
-    vilib_resolver.reset_resolver(project_data_dir=store)
-    return store
+def _index_build(args: argparse.Namespace, run: RunProblems) -> BuildOptions:
+    """The library folders and VI Search Path of an index command, for every
+    graph its sync builds. ``run``'s labels print a file under one of the
+    folders as ``<userlib>/…`` whether or not a graph is built."""
+    roots = _parse_library_roots(args)
+    build = BuildOptions(
+        vilib_root=roots.vilib,
+        userlib_root=roots.userlib,
+        instrlib_root=roots.instrlib,
+        search_path=roots.search_path,
+    )
+    run.settings.library_roots = {
+        "<vilib>": roots.vilib,
+        "<userlib>": roots.userlib,
+        "<instrlib>": roots.instrlib,
+    }
+    return build
 
 
 def main() -> int:
@@ -323,6 +346,7 @@ def main() -> int:
     struct_parser.add_argument(
         "--plan", action="store_true", help="Generate Python structure plan"
     )
+    _add_library_root_args(struct_parser)
 
     # MCP server command
     mcp_parser = subparsers.add_parser(
@@ -376,6 +400,7 @@ def main() -> int:
             "indexed."
         ),
     )
+    _add_library_root_args(index_parser)
     add_fail_fast_arg(index_parser)
 
     # Query command - read-only SQL over the facts index
@@ -423,6 +448,7 @@ def main() -> int:
         default="table",
         help="Output format (default: table).",
     )
+    _add_library_root_args(query_parser)
     add_fail_fast_arg(query_parser)
 
     # Graph-op commands - call graph & change impact over the index. The call
@@ -866,7 +892,10 @@ def cmd_structure(args: argparse.Namespace) -> int:
         structure_vi_paths,
     )
 
-    input_path = Path(args.input)
+    found = _input_path(args, args.input)
+    if isinstance(found, int):
+        return found
+    input_path = found
 
     if not input_path.exists():
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
@@ -1016,13 +1045,21 @@ def cmd_index(args: argparse.Namespace) -> int:
     from .index.build import sync_index
     from .index.project import resolve_project_files
 
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
     start = time.monotonic()
-    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.input_path))
+    project_root, vi_paths, ctl_paths = resolve_project_files(found)
     run = command_run(args, root=project_root)
     run.on_stop = lambda report: print(json.dumps(report.to_json(stopped=True)))
     try:
         done = sync_index(
-            project_root, vi_paths, ctl_paths, rebuild=not args.refresh, run=run
+            project_root,
+            vi_paths,
+            ctl_paths,
+            rebuild=not args.refresh,
+            run=run,
+            build=_index_build(args, run),
         )
     except CacheWriteError as e:
         # Writing the index is what `index` is for: it cannot go on. (A cache
@@ -1047,9 +1084,7 @@ def cmd_index(args: argparse.Namespace) -> int:
     nothing_indexed = (
         done.refresh.total == 0 if done.refresh is not None else not done.facts
     )
-    stopped = nothing_indexed and any(
-        p.stage is ProblemStage.CACHE for p in problems
-    )
+    stopped = nothing_indexed and any(p.stage is ProblemStage.CACHE for p in problems)
     summary.update(run.report().to_json(stopped))
     print(json.dumps(summary))
     return finish(run, stopped)
@@ -1105,6 +1140,7 @@ def _add_graphop_parser(
         action="store_true",
         help="Use the stored index as-is without refreshing first (may be stale).",
     )
+    _add_library_root_args(p)
     add_fail_fast_arg(p)
 
 
@@ -1126,11 +1162,18 @@ def cmd_graph_op(args: argparse.Namespace) -> int:
     )
     from .index.store import load as store_load
 
-    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.project))
+    project = _input_path(args, args.project)
+    if isinstance(project, int):
+        return project
+    vi_text = _input_path(args, args.vi)
+    if isinstance(vi_text, int):
+        return vi_text
+    project_root, vi_paths, ctl_paths = resolve_project_files(project)
     run = command_run(args, root=project_root)
+    build = _index_build(args, run)
     label = run.settings.label
     if not args.no_refresh:
-        sync_index(project_root, vi_paths, ctl_paths, run=run)
+        sync_index(project_root, vi_paths, ctl_paths, run=run, build=build)
     facts = store_load(project_root)
     if not facts:
         print(
@@ -1140,7 +1183,11 @@ def cmd_graph_op(args: argparse.Namespace) -> int:
         )
         return 1
 
-    vi = project_vi_argument(facts, args.vi, project_root)
+    vi = project_vi_argument(
+        facts,
+        str(vi_text.resolve()) if is_stored_path(args.vi) else args.vi,
+        project_root,
+    )
     try:
         if args.command == "blast-radius":
             br = blast_radius(facts, vi, depth=args.depth)
@@ -1153,8 +1200,7 @@ def cmd_graph_op(args: argparse.Namespace) -> int:
                 print(json.dumps(asdict(shown)))
             else:
                 print(
-                    f"{shown.impact_score} transitive dependent(s) "
-                    f"of {shown.vi_key}:"
+                    f"{shown.impact_score} transitive dependent(s) of {shown.vi_key}:"
                 )
                 for path in shown.dependents:
                     print(f"  {path}")
@@ -1187,7 +1233,10 @@ def cmd_query(args: argparse.Namespace) -> int:
     from .index import sql as isql
     from .index.project import resolve_project_files
 
-    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.input_path))
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    project_root, vi_paths, ctl_paths = resolve_project_files(found)
 
     if args.schema:
         views = isql.describe_schema()
@@ -1209,10 +1258,11 @@ def cmd_query(args: argparse.Namespace) -> int:
     # `--no-refresh` skips this to query the stored index as-is (fast, but may
     # be stale if a VI changed since the last build).
     run = command_run(args, root=project_root)
+    build = _index_build(args, run)
     if not args.no_refresh:
         from .index.build import sync_index
 
-        sync_index(project_root, vi_paths, ctl_paths, run=run)
+        sync_index(project_root, vi_paths, ctl_paths, run=run, build=build)
 
     try:
         res = isql.run_query(project_root, args.sql)
@@ -1270,7 +1320,10 @@ def cmd_describe(args: argparse.Namespace) -> int:
     """Handle the describe command - human-readable VI description."""
     from .graph.describe import describe_vi
 
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
     usage = input_usage_error(input_path, DESCRIBE_INPUTS)
     if usage is not None:
         return usage
@@ -1279,8 +1332,6 @@ def cmd_describe(args: argparse.Namespace) -> int:
             print("Error: --original-path applies to a VI, not a .ctl", file=sys.stderr)
             return 2
         return _describe_ctl(args, input_path)
-
-    _configure_resolvers(args)
 
     run = command_run(args, args.original_path or input_path)
     try:
@@ -1595,7 +1646,7 @@ def _build_options(
         instrlib_root=instrlib_root,
         search_path=search_path,
         mode=_resolve_load_mode(args, LoadMode.MINIMAL),
-        project_store=_find_project_store(args),
+        project_store=project_store_for_args(args),
     )
 
 
@@ -1691,7 +1742,10 @@ def cmd_render(args: argparse.Namespace) -> int:
     for a ``.ctl``, its front panel), or (``--format html``) a self-contained
     single-file viewer page. A cached output
     for unchanged inputs is reused verbatim, skipping the build."""
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
     usage = input_usage_error(input_path, RENDER_INPUTS)
     if usage is not None:
         return usage
@@ -1711,8 +1765,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # Fast path: a fresh cached render is served here before ANY miss-path setup.
     # cached_render(return_cached=True) would also skip the heavy render import on a
     # hit (its lookup precedes the lazy import), so what this outer path uniquely
-    # saves on a hit is the CLI's own setup: _configure_resolvers (which imports the
-    # resolver modules + loads project/JSON data) and _render_build_kw. That matters
+    # saves on a hit is the CLI's own setup (_render_build_kw). That matters
     # for a short-lived CLI; MCP/web (warm processes) skip this and call the wrapper
     # directly. --no-cache skips this read (forcing a rebuild) but the rebuild below
     # still refreshes the slot.
@@ -1721,7 +1774,14 @@ def cmd_render(args: argparse.Namespace) -> int:
         from .output_cache import lookup_render, render_problems
 
         roots = build.library_roots()
-        cached = lookup_render(input_path, args.format, options, __version__, roots)
+        cached = lookup_render(
+            input_path,
+            args.format,
+            options,
+            __version__,
+            roots,
+            build.project_store,
+        )
         if cached is not None:
             run.take(render_problems(input_path, args.format, roots), announce=True)
             code = _emit_render(args, input_path, cached, build)
@@ -1730,7 +1790,6 @@ def cmd_render(args: argparse.Namespace) -> int:
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
     # because we already did the one read above (or were told to skip it) — no
     # double-check. The build refreshes the slot, except --no-cache with -o.
-    _configure_resolvers(args)
     try:
         built = _build_render_body(
             args, input_path, options, build, theme_mode, args.ref, run
@@ -1765,7 +1824,6 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     roots = _parse_library_roots(args)  # once for the whole batch
     ext = "html" if args.format == "html" else "svg"
     outdir = Path(args.output) if args.output else None
-    _configure_resolvers(args)  # once for the whole batch, not per VI
 
     run = command_run(args, root)
     rendered = fresh = failed = 0
@@ -1776,7 +1834,12 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
         options = _render_options_tag(args, theme_mode, None, build)
         if not args.no_cache:
             body = lookup_render(
-                vi, args.format, options, __version__, build.library_roots()
+                vi,
+                args.format,
+                options,
+                __version__,
+                build.library_roots(),
+                build.project_store,
             )
             if body is not None:
                 run.take(
@@ -1901,8 +1964,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
     different set of changes. A cached output for the same two VI versions is
     reused verbatim, skipping the load.
     """
-    path_a = Path(args.vi_a)
-    path_b = Path(args.vi_b)
+    found_a = _input_path(args, args.vi_a)
+    found_b = _input_path(args, args.vi_b)
+    if isinstance(found_a, int):
+        return found_a
+    if isinstance(found_b, int):
+        return found_b
+    path_a, path_b = found_a, found_b
     for p in (path_a, path_b):
         usage = input_usage_error(p, DIFF_INPUTS)
         if usage is not None:
@@ -1917,14 +1985,16 @@ def cmd_diff(args: argparse.Namespace) -> int:
     options = _diff_options_tag(args, fmt, verbose, build)
 
     # Fast path: a cached diff is served before any miss-path setup (see cmd_render
-    # — the unique saving on a hit is _configure_resolvers + _diff_build_kw, not the
+    # — the unique saving on a hit is _diff_build_kw, not the
     # heavy import, which cached_diff also defers). path_a is BEFORE, path_b AFTER.
     run = command_run(args, args.after_original_path or path_b)
     if not args.no_cache:
         from .output_cache import diff_problems, lookup_diff
 
         roots = build.library_roots()
-        cached = lookup_diff(path_a, path_b, fmt, options, __version__, roots)
+        cached = lookup_diff(
+            path_a, path_b, fmt, options, __version__, roots, build.project_store
+        )
         if cached is not None:
             run.take(diff_problems(path_a, path_b, fmt, roots), announce=True)
             return _emit_diff(args, path_a, path_b, fmt, cached) or finish(run)
@@ -1933,7 +2003,6 @@ def cmd_diff(args: argparse.Namespace) -> int:
     # because the read above already happened (or was skipped) — no double-check.
     from .output_cache import cached_diff
 
-    _configure_resolvers(args)
     try:
         built = cached_diff(
             path_a,
@@ -1960,13 +2029,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
     from .module_layout import ModuleCollisionError
     from .pipeline import generate_python
 
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
 
     usage = input_usage_error(input_path, GENERATE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     try:
@@ -2002,12 +2072,13 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     from .module_layout import ModuleCollisionError
     from .unresolved import collect_unresolved, format_unresolved_report
 
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
     usage = input_usage_error(input_path, GENERATE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     try:
@@ -2057,13 +2128,14 @@ def cmd_docs(args: argparse.Namespace) -> int:
     """Handle the docs command - generate HTML documentation."""
     from .docs.generate import NothingDocumentedError, generate_documents
 
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
 
     usage = input_usage_error(input_path, DOCS_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     try:
@@ -2092,12 +2164,13 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
 def cmd_visualize(args: argparse.Namespace) -> int:
     """Handle the visualize command — interactive graph in browser."""
-    input_path = Path(args.input_path)
+    found = _input_path(args, args.input_path)
+    if isinstance(found, int):
+        return found
+    input_path = found
     usage = input_usage_error(input_path, VISUALIZE_INPUTS)
     if usage is not None:
         return usage
-
-    _configure_resolvers(args)
 
     run = command_run(args, input_path)
     graph = run.new_graph()

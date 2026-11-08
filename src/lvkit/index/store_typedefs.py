@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS typedefs (
     content_sha TEXT NOT NULL DEFAULT '',
     type_id TEXT,
     kind TEXT,
-    default_text TEXT
+    default_text TEXT,
+    libraries TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_typedefs_name ON typedefs(name);
 CREATE INDEX IF NOT EXISTS idx_typedefs_type ON typedefs(type_id);
@@ -75,7 +76,8 @@ def write_typedefs(conn: sqlite3.Connection, typedefs: Iterable[TypedefFacts]) -
         delete_typedef(conn, t.path)
         conn.execute(
             "INSERT INTO typedefs(path, name, library, is_stub, stub_reason, "
-            "content_sha, type_id, kind, default_text) VALUES (?,?,?,?,?,?,?,?,?)",
+            "content_sha, type_id, kind, default_text, libraries) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 t.path,
                 t.name,
@@ -86,6 +88,7 @@ def write_typedefs(conn: sqlite3.Connection, typedefs: Iterable[TypedefFacts]) -
                 t.type_id,
                 t.kind.value if t.kind is not None else None,
                 t.default_text,
+                t.libraries,
             ),
         )
         conn.executemany(
@@ -125,6 +128,12 @@ def read_typedef_shas(conn: sqlite3.Connection) -> dict[str, str]:
     """``{control path: content_sha}`` of every stored control -- all an
     incremental sync needs to know."""
     return dict(conn.execute("SELECT path, content_sha FROM typedefs"))
+
+
+def read_typedef_libraries(conn: sqlite3.Connection) -> dict[str, str | None]:
+    """``{control path: the library folders its facts depend on, or None}`` of
+    every stored control."""
+    return dict(conn.execute("SELECT path, libraries FROM typedefs"))
 
 
 def read_typedef_dependents(conn: sqlite3.Connection) -> dict[str, set[str]]:

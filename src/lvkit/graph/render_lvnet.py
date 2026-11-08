@@ -13,13 +13,12 @@ string literal (``lvnet_literal_token``), written and read back one way.
 
 from __future__ import annotations
 
-import os
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from functools import partial
-from pathlib import Path
 
+from ..library_folders import library_location
 from ..models import (
     DisableStructureKind,
     LVType,
@@ -50,8 +49,10 @@ from .lvnet_grammar import (
     _LVNET_CLUSTER_OPEN,
     _LVNET_DEFAULT_KEYWORD,
     _LVNET_DEFAULT_PAREN_PREFIX,
+    _LVNET_DEP_FOUND_OPEN,
     _LVNET_DEP_INTERFACE_INDENT,
     _LVNET_DEP_KIND_CAP,
+    _LVNET_DEP_MISSING,
     _LVNET_DEP_PATH_SEP,
     _LVNET_DEP_QUALIFIED_CAP,
     _LVNET_DISABLE_KEYWORD,
@@ -587,19 +588,14 @@ def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
     return dict(sorted(seen.items()))
 
 
-def project_relative_display(resolved: Path | None, base: Path) -> str | None:
-    """A ``./``-prefixed, forward-slash project-relative display path for the
-    lvnet §6 ``; ./path`` annotation. Best-effort, never fabricated: ``None``
-    when ``resolved`` is ``None`` or ``os.path.relpath`` itself fails (e.g. a
-    cross-drive path on Windows).
-    """
-    if resolved is None:
-        return None
-    try:
-        rel = os.path.relpath(resolved.resolve(), base.resolve())
-    except (OSError, ValueError):
-        return None
-    return _LVNET_TYPEDEF_NAV_PREFIX + rel.replace(os.sep, "/")
+def _typedef_nav(typedef_path: str) -> str:
+    """A typedef's recorded path as the ``types :`` footnote shows it: its
+    library path when it was recorded from an installation folder
+    (``<vilib>/...``), else ``./`` and the path as recorded."""
+    library = library_location(None, (), typedef_path)
+    if library is not None:
+        return "/".join(library)
+    return _LVNET_TYPEDEF_NAV_PREFIX + typedef_path
 
 
 def render_lvnet_named_types(named: dict[str, LVType], lines: list[str]) -> None:
@@ -613,7 +609,7 @@ def render_lvnet_named_types(named: dict[str, LVType], lines: list[str]) -> None
     for name, lv_type in named.items():
         body = lvnet_type_lossless_def(lv_type)
         path = (
-            f"{_LVNET_ANNOTATION_SEP}{_LVNET_TYPEDEF_NAV_PREFIX}{lv_type.typedef_path}"
+            f"{_LVNET_ANNOTATION_SEP}{_typedef_nav(lv_type.typedef_path)}"
             if lv_type.typedef_path
             else ""
         )
@@ -2109,6 +2105,15 @@ def _render_lvnet_dependency_interface(
     lines.extend(_render_term_group(entries, _LVNET_DEP_INTERFACE_INDENT))
 
 
+def _lvnet_dependency_marks(dep: NetlistDependency) -> str:
+    """The verbose-only ending of a ``uses :`` entry: ``(missing)`` and
+    ``(found <path>)``."""
+    marks = _LVNET_DEP_MISSING if dep.missing else ""
+    if dep.found is not None:
+        marks += f"{_LVNET_DEP_FOUND_OPEN}{dep.found})"
+    return marks
+
+
 def render_lvnet_uses(
     dependencies: list[NetlistDependency], lines: list[str], *, verbose: bool
 ) -> None:
@@ -2121,6 +2126,10 @@ def render_lvnet_uses(
     element exists), so this is its own small function, trivial to move.
     Omitted entirely (no lines appended) when the VI has no dependencies --
     never an empty ``uses :`` header.
+
+    Every entry spells the path the VI stores for the dependency
+    (``stored_path``). ``verbose`` also ends an entry with ``(missing)`` and
+    ``(found <path>)``; terse is the documented reduction without them.
 
     ``verbose`` gates the SECOND, later element §7a documents: each ``subVI``
     entry's own inline connector-pane interface
@@ -2154,15 +2163,17 @@ def render_lvnet_uses(
                 f"{lvnet_literal_token(dep.unreadable)})"
             )
             continue
+        marks = _lvnet_dependency_marks(dep) if verbose else ""
         if dep.path is not None:
             qualified_part = _lvnet_capped_pad(
                 dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP
             )
             lines.append(
                 f"    {kind_part}{qualified_part}{_LVNET_DEP_PATH_SEP}{dep.path}"
+                f"{marks}"
             )
         else:
-            lines.append(f"    {kind_part}{dep.qualified}")
+            lines.append(f"    {kind_part}{dep.qualified}{marks}")
         if verbose:
             _render_lvnet_dependency_interface(dep.interface, lines)
 

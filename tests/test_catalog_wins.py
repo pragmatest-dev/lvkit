@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.catalogs import vilib_catalog_for
 from lvkit.codegen.gaps import TERMINAL_MAPPING, gap_of
 from lvkit.codegen.vilib_pane import check_against_pane
 from lvkit.extract_pool import ExtractionPool
@@ -126,7 +127,7 @@ def test_a_catalog_terminal_without_an_index_takes_its_controls_slot() -> None:
         _terminal(3, "path", "input", "Path"),
         _terminal(1, "other", "input", "Path"),
     ]
-    checked = check_against_pane(entry, pane)
+    checked = check_against_pane(entry, pane, vilib_catalog_for(None))
     assert checked.mismatches == []
     assert [t.index for t in checked.entry.terminals] == [3]
 
@@ -140,7 +141,7 @@ def test_an_input_the_catalog_gives_no_default_takes_the_saved_default() -> None
         _terminal(0, "count", "input", "NumInt32", default=5),
         _terminal(1, "size", "input", "NumInt32", default=9),
     ]
-    checked = check_against_pane(entry, pane)
+    checked = check_against_pane(entry, pane, vilib_catalog_for(None))
     assert [t.default for t in checked.entry.terminals] == [5, 7]
 
 
@@ -153,7 +154,7 @@ def test_an_index_or_type_that_disagrees_with_the_pane_is_reported() -> None:
         _terminal(3, "path", "input", "Path"),
         _terminal(1, "flag", "input", "String"),
     ]
-    checked = check_against_pane(entry, pane)
+    checked = check_against_pane(entry, pane, vilib_catalog_for(None))
     assert checked.mismatches == [
         "the catalog gives 'path' index 2, but the loaded VI's control 'path' is "
         "at index 3",
@@ -164,7 +165,9 @@ def test_an_index_or_type_that_disagrees_with_the_pane_is_reported() -> None:
 
 def test_the_catalog_vocabulary_for_a_number_agrees_with_any_numeric_control() -> None:
     entry = _entry(VITerminal(name="n", direction="input", index=0, type="stdNum"))
-    checked = check_against_pane(entry, [_terminal(0, "n", "input", "NumInt16")])
+    checked = check_against_pane(
+        entry, [_terminal(0, "n", "input", "NumInt16")], vilib_catalog_for(None)
+    )
     assert checked.mismatches == []
 
 
@@ -194,7 +197,9 @@ def test_a_disagreement_is_a_terminal_mapping_gap_with_its_reason() -> None:
 )
 def test_a_numeric_catalog_terminal_matches_every_number_type(pane_type: str) -> None:
     entry = _entry(VITerminal(name="x", direction="input", index=0, type="stdNum"))
-    checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
+    checked = check_against_pane(
+        entry, [_terminal(0, "x", "input", pane_type)], vilib_catalog_for(None)
+    )
     assert checked.mismatches == []
 
 
@@ -203,5 +208,7 @@ def test_a_numeric_catalog_terminal_disagrees_with_a_non_number(
     pane_type: str,
 ) -> None:
     entry = _entry(VITerminal(name="x", direction="input", index=0, type="stdNum"))
-    checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
+    checked = check_against_pane(
+        entry, [_terminal(0, "x", "input", pane_type)], vilib_catalog_for(None)
+    )
     assert len(checked.mismatches) == 1

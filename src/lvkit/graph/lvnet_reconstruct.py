@@ -1166,6 +1166,8 @@ def _reconstruct_dependency(
         path=d.path,
         interface=interface,
         unreadable=d.unreadable,
+        missing=d.missing,
+        found=d.found,
     )
 
 

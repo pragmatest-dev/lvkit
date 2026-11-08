@@ -48,12 +48,12 @@ _GOLDEN_VI = _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCas
 _GOLDEN_LVNET = """\
 vi loadTestsFromTestCase.vi :
   uses :
-    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
-    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
-    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
-    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
-    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
-    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
+    class TestCase.lvclass                       ; ../TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ../TestCase/TestCase_Init.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ../TestCase/TestCase.lvclass
+    class TestLoader.lvclass                     ; ./TestLoader.lvclass
+    class TestSuite.lvclass                      ; ../TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ../TestSuite/TestSuite_Init.vi
   front-panel :
     pattern : 4815
     in   TestLoader in       : TestLoader.lvclass @11
@@ -269,23 +269,23 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
 _GOLDEN_LVNET_VERBOSE_BOUNDARY = """\
 vi loadTestsFromTestCase.vi :
   uses :
-    class TestCase.lvclass                       ; ./Classes/TestCase/TestCase.lvclass
-    subVI TestCase.lvclass:TestCase_Init.vi      ; ./Classes/TestCase/TestCase_Init.vi
+    class TestCase.lvclass                       ; ../TestCase/TestCase.lvclass
+    subVI TestCase.lvclass:TestCase_Init.vi      ; ../TestCase/TestCase_Init.vi
       in   TestCase in            : TestCase.lvclass
       in   methodName ("runTest") : String
       in   GUID ("")              : String
       in   error in (no error)    : Error
       out  TestCase out           : TestCase.lvclass
       out  error out              : Error
-    subVI TestCase.lvclass:listAllTestMethods.vi ; ./Classes/TestCase/listAllTestMethods.vi
+    subVI TestCase.lvclass:listAllTestMethods.vi ; ../TestCase/TestCase.lvclass
       in   TestCase in         : TestCase.lvclass
       in   error in (no error) : Error
       out  TestCase out        : TestCase.lvclass
       out  test methods        : [String]
       out  error out           : Error
-    class TestLoader.lvclass                     ; ./Classes/TestLoader/TestLoader.lvclass
-    class TestSuite.lvclass                      ; ./Classes/TestSuite/TestSuite.lvclass
-    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
+    class TestLoader.lvclass                     ; ./TestLoader.lvclass
+    class TestSuite.lvclass                      ; ../TestSuite/TestSuite.lvclass
+    subVI TestSuite.lvclass:TestSuite_Init.vi    ; ../TestSuite/TestSuite_Init.vi
       in   TestSuite in                    : TestSuite.lvclass
       in   tests (none)                    : [LabVIEW Object]
       in   GUID ("")                       : String

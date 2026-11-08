@@ -27,7 +27,6 @@ from lvkit.graph.models import (
     SharedVariableNode,
     VINode,
 )
-from lvkit.primitive_resolver import get_resolver
 
 from .. import error_flow
 from ..context import CodeGenContext
@@ -123,7 +122,7 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         if node.method_name:
             return invoke_node.generate(node, ctx)
         fragment = _generate_primitive(node, ctx)
-        entry = get_resolver().get_by_id(node.prim_id) if node.prim_id else None
+        entry = ctx.primitive_catalog.get_by_id(node.prim_id) if node.prim_id else None
         if entry is None:
             return fragment
         # The catalog marks a primitive NI runs even when an error came in, and

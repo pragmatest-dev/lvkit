@@ -12,16 +12,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...cache_paths import project_root
+from ...project_folders import project_root
 from ...run_report import ProblemStage, RunProblems, RunSettings
+from .resolvers import project_store_for
 
 
-def new_run(path: Path | str | None = None) -> RunProblems:
+def new_run(path: Path | str | None = None, store: Path | None = None) -> RunProblems:
     """The problems of one tool call: nothing is printed (the client gets the
     list in the result) and nothing is shared with another call. Paths are shown
-    relative to the project ``path`` is in."""
+    relative to the project ``path`` is in. The run reads the catalog additions of
+    ``store``, else of the project store ``path`` is in."""
     root = project_root(path) if path is not None else None
-    return RunProblems(RunSettings(root=root))
+    if store is None and path is not None:
+        store = project_store_for(path)
+    return RunProblems(RunSettings(root=root, project_store=store))
 
 
 def with_problems(

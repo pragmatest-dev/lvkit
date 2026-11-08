@@ -13,10 +13,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from lvkit import cli
-from lvkit.cache_paths import project_root
 from lvkit.docs import generate as docs_generate
 from lvkit.docs.page_names import PageName, page_names
 from lvkit.graph import InMemoryVIGraph, LoadMode
+from lvkit.project_folders import project_root
 
 GOOD_VI = Path(__file__).parent / "corpus" / "issues" / "132" / "Run.vi"
 
