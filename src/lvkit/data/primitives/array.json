@@ -6,7 +6,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "sorted_array",
+          "name": "sorted array",
           "type": "Array"
         },
         {
@@ -70,7 +70,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "size",
+          "name": "size(s)",
+          "python_name": "size",
           "type": "NumInt32"
         },
         {
@@ -89,7 +90,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "reversed_array",
+          "name": "reversed array",
           "type": "Array"
         },
         {
@@ -113,13 +114,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "index_of_element",
+          "name": "index of element",
           "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "start_index",
+          "name": "start index (0)",
           "type": "NumInt32",
           "default": 0
         },
@@ -132,7 +133,7 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "array",
+          "name": "1D array",
           "type": "array"
         }
       ],
@@ -150,13 +151,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "transposed_array",
+          "name": "transposed array",
           "type": "Array"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "array",
+          "name": "2D array",
           "type": "Array"
         }
       ],
@@ -199,7 +200,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "array (rotated)",
+          "name": "array (last n elements first)",
+          "python_name": "array_rotated",
           "type": "Array"
         },
         {
@@ -216,7 +218,7 @@
         }
       ],
       "python_code": {
-        "array (rotated)": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
+        "array_rotated": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
       },
       "verified": false
     },
@@ -250,8 +252,8 @@
         }
       ],
       "python_code": {
-        "second subarray": "in_3[in_2:]",
-        "first subarray": "in_3[:in_2]"
+        "second_subarray": "in_3[in_2:]",
+        "first_subarray": "in_3[:in_2]"
       },
       "verified": false
     },

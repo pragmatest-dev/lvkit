@@ -48,25 +48,26 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "user_event_data_type",
+          "name": "user event datatype",
           "type": "polymorphic"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "user_event_out",
+          "name": "user event",
+          "python_name": "user_event_out",
           "type": "Refnum"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -131,19 +132,19 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "user_event",
+          "name": "user event",
           "type": "Refnum"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],

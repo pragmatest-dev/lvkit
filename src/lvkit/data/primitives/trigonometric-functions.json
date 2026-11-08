@@ -13,7 +13,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "sin(x)",
+          "python_name": "result",
           "type": "NumFloat64"
         }
       ],

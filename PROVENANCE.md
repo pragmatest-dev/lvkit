@@ -39,6 +39,9 @@ comes from exactly two public sources, and nothing else:
    behavior — are used. No documentation text or images are copied or
    redistributed. NI documentation is retrieved at runtime by the (optional)
    resolver skills, on the user's own machine; it is not bundled with lvkit.
+   A catalog terminal's `name` is the label NI shows for it (a name, as the
+   public pages and the public VI-Scripting node export give it); the Python
+   name generated code uses is derived from it by lvkit's own rule.
 
 ## The primitive / vi.lib mappings are inferred, not authoritative
 
