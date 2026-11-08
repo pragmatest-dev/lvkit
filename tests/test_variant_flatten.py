@@ -99,16 +99,16 @@ def test_the_catalog_names_both_nodes_and_their_ops() -> None:
     assert to_variant.op == "FLATTENED_STRING_TO_VARIANT"
     assert to_string_entry.op == "VARIANT_TO_FLATTENED_STRING"
     assert {t.index: t.name for t in to_variant.terminals} == {
-        0: "error_out",
+        0: "error out",
         3: "Variant",
-        4: "error_in",
-        6: "data_string",
-        7: "type_string",
+        4: "error in",
+        6: "data string",
+        7: "type string",
     }
     assert {t.index: t.name for t in to_string_entry.terminals} == {
         0: "Variant",
-        1: "type_string",
-        2: "data_string",
+        1: "type string",
+        2: "data string",
     }
 
 

@@ -167,39 +167,40 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Error"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "type_string",
+          "name": "type string (7.x only)",
+          "python_name": "type_string",
           "type": "Array",
           "hidden": true
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "data_string",
+          "name": "data string",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "Error"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "byte_order",
+          "name": "byte order (0:big-endian, network order)",
           "type": "UnitUInt16",
           "default": 0
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "prepend_size",
+          "name": "prepend array or string size? (T)",
           "type": "Boolean",
           "default": true
         },

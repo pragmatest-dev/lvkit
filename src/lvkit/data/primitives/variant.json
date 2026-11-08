@@ -14,7 +14,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Error"
         },
         {
@@ -26,19 +26,19 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "Error"
         },
         {
           "index": 6,
           "direction": "input",
-          "name": "data_string",
+          "name": "data string",
           "type": "String"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "type_string",
+          "name": "type string",
           "type": "Array"
         }
       ],
@@ -59,13 +59,13 @@
         {
           "index": 1,
           "direction": "output",
-          "name": "type_string",
+          "name": "type string",
           "type": "Array"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "data_string",
+          "name": "data string",
           "type": "String"
         }
       ],

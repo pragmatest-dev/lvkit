@@ -64,12 +64,12 @@ def test_the_catalog_names_flatten_to_string_and_its_op() -> None:
     assert (resolved.name, resolved.op) == ("Flatten To String", "FLATTEN_TO_STRING")
     names = {t.index: t.name for t in resolved.terminals}
     assert names == {
-        0: "error_out",
-        2: "type_string",
-        3: "data_string",
-        8: "error_in",
-        9: "byte_order",
-        10: "prepend_size",
+        0: "error out",
+        2: "type string (7.x only)",
+        3: "data string",
+        8: "error in (no error)",
+        9: "byte order (0:big-endian, network order)",
+        10: "prepend array or string size? (T)",
         11: "anything",
     }
 
