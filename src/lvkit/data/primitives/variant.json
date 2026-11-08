@@ -66,11 +66,20 @@
     },
     "8204": {
       "name": "Set Variant Attribute",
+      "op": "SET_VARIANT_ATTRIBUTE",
+      "errors": [
+        {
+          "exception": "EmptyAttributeNameError",
+          "code": 1,
+          "base": "ValueError"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-variant-attribute.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
-          "name": "error out",
+          "name": "error_out",
           "type": "ErrorCluster"
         },
         {
@@ -82,20 +91,20 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "Variant out",
+          "name": "variant_out",
           "type": "LVVariant"
         },
         {
           "index": 4,
           "direction": "input",
-          "name": "error in",
+          "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
           "direction": "input",
           "name": "value",
-          "type": "Cluster"
+          "type": "polymorphic"
         },
         {
           "index": 6,
@@ -106,13 +115,11 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "Variant",
+          "name": "variant",
           "type": "LVVariant"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "verified": true
     },
     "8205": {
       "name": "Get Variant Attribute",
