@@ -61,7 +61,7 @@ def test_a_documented_value_is_shown(tmp_path: Path) -> None:
     views = _views(
         tmp_path, one_input_primitive(10, ONE_BUTTON_DIALOG, STR, out_type=BOOL)
     )
-    assert '      in   button_name : String default "OK"' in views.lvnet
+    assert '      in   button name ("OK") : String default "OK"' in views.lvnet
     _round_trips(views)
 
 

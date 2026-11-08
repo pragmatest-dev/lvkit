@@ -98,7 +98,7 @@ def test_an_input_the_code_reads_that_the_call_lacks_is_a_terminal_mapping_gap()
         gaps=gaps,
     )
     assert [g.kind for g in gaps] == ["terminal_mapping"]
-    assert "'variant' of Variant To Data is not on this call" in gaps[0].reason
+    assert "'Variant' of Variant To Data is not on this call" in gaps[0].reason
 
 
 def _index_array(rank_two: bool = False):

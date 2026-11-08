@@ -191,19 +191,17 @@ LabVIEW primitives are identified by `primResID`. When `lvkit generate` warns ab
 {
   "1234": {
     "name": "My Primitive",
-    "category": "numeric",
-    "python_code": "{a} + {b}",
-    "inputs": [
-      {"index": 0, "name": "a", "type": "DBL"}
-    ],
-    "outputs": [
-      {"index": 2, "name": "result", "type": "DBL"}
+    "python_code": "in_1 + in_2",
+    "terminals": [
+      {"index": 1, "direction": "input", "name": "x", "type": "NumFloat64"},
+      {"index": 2, "direction": "input", "name": "y", "type": "NumFloat64"},
+      {"index": 0, "direction": "output", "name": "x+y", "python_name": "sum_of_x_and_y", "type": "NumFloat64"}
     ]
   }
 }
 ```
 
-Use the caller's dataflow in the exception output to determine correct terminal indices — do not guess.
+A terminal's `name` is NI's label as LabVIEW shows it, taken from NI's public page (`error in (no error)`, `x+y`), not a Python identifier. Its Python name is derived from the label (a default parenthetical is dropped); give a terminal a `"python_name"` only when the derived name is a poor one for generated code (`x+y` derives `xy`). A dict `python_code` is keyed by the output Python names. Use the caller's dataflow in the exception output to determine correct terminal indices — do not guess.
 
 ## Adding New VILib VIs
 

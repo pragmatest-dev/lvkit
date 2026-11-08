@@ -24,7 +24,7 @@
         }
       ],
       "python_code": {
-        "shifted": "ctypes.c_uint32((in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)).value"
+        "x__y": "ctypes.c_uint32((in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)).value"
       },
       "imports": ["import ctypes"],
       "inline": true,
@@ -123,13 +123,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "swapped",
+          "name": "byte swapped",
+          "python_name": "swapped",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "data",
+          "name": "anything",
           "type": "polymorphic"
         }
       ],
@@ -144,13 +145,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "swapped",
+          "name": "word swapped",
+          "python_name": "swapped",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "data",
+          "name": "anything",
           "type": "polymorphic"
         }
       ],
@@ -230,7 +232,8 @@
         {
           "index": 2,
           "direction": "output",
-          "name": "x_cast",
+          "name": "*(type *) &x",
+          "python_name": "x_cast",
           "type": "String"
         }
       ],
@@ -253,7 +256,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Error"
         },
         {
@@ -265,7 +268,8 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "rest_of_string",
+          "name": "rest of the binary string",
+          "python_name": "rest_of_string",
           "type": "String"
         },
         {
@@ -277,27 +281,27 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "Error"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "byte_order",
+          "name": "byte order (0:big-endian, network order)",
           "type": "UnitUInt16",
           "default": 0
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "includes_size",
+          "name": "data includes array or string size? (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "binary_string",
+          "name": "binary string",
           "type": "String"
         }
       ],
@@ -312,19 +316,21 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "input",
+          "name": "x",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "high",
+          "name": "hi(x)",
+          "python_name": "high",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "low",
+          "name": "lo(x)",
+          "python_name": "low",
           "type": "polymorphic"
         }
       ],
@@ -360,7 +366,7 @@
         }
       ],
       "python_code": {
-        "joined": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
+        "hilo": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
       },
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."

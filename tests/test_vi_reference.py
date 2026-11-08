@@ -163,12 +163,12 @@ def test_open_vi_reference_of_a_constant_path_calls_that_vi(tmp_path: Path) -> N
     assert _lvnet(loaded).endswith(
         "    function Open_VI_Reference_20 : Open VI Reference\n"
         "      in   options      : ? default\n"
-        '      in   vi_path      : ? = Path("Callee_BDHb.xml")\n'
-        "      out  vi_reference : ?\n"
+        '      in   vi path      : ? = Path("Callee_BDHb.xml")\n'
+        "      out  vi reference : ?\n"
         "    subVI Call_By_Reference_30 : Call By Reference\n"
         '      in   0  : ? = 5\n'
         "      in   -3 : ? default\n"
-        "      in   -1 : ? = Open_VI_Reference_20::vi_reference\n"
+        "      in   -1 : ? = Open_VI_Reference_20::vi reference\n"
         "      out  1  : ?\n"
         "      out  -4 : ?\n"
         "      out  -2 : ?"
@@ -232,12 +232,12 @@ def test_static_reference_name_open_start_submits_the_call(tmp_path: Path) -> No
         "      out  Name : ?\n"
         "    function Open_VI_Reference_20 : Open VI Reference\n"
         "      in   options      : ? default\n"
-        "      in   vi_path      : ? = Property_Node_60::Name\n"
-        "      out  vi_reference : ?\n"
+        "      in   vi path      : ? = Property_Node_60::Name\n"
+        "      out  vi reference : ?\n"
         "    subVI Start_Asynchronous_Call_30 : Start Asynchronous Call\n"
         '      in   0  : ? = 5\n'
         "      in   -3 : ? default\n"
-        "      in   -1 : ? = Open_VI_Reference_20::vi_reference\n"
+        "      in   -1 : ? = Open_VI_Reference_20::vi reference\n"
         "      out  1  : ?\n"
         "      out  -4 : ?\n"
         "      out  -2 : ?"

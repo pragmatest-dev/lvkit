@@ -199,7 +199,7 @@ class TestTunnelMode:
         assert conditional[0]["kind"] == "tunnel"
         assert conditional[0]["mode"] == "last_value"
         assert conditional[0]["condition"]["node"] == "Not"
-        assert conditional[0]["condition"]["terminal"] == "not_x"
+        assert conditional[0]["condition"]["terminal"] == ".not. x?"
 
     def test_describe_text_lists_the_loop_tunnels(self) -> None:
         """Plain-text describe lists a loop's tunnels in LabVIEW's words, each

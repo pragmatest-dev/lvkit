@@ -7,7 +7,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "width",
+          "name": "width (-)",
           "type": "NumInt16",
           "default_behavior": "no padding"
         },
@@ -20,7 +20,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "decimal_integer_string",
+          "name": "decimal integer string",
           "type": "polymorphic"
         }
       ],
@@ -38,7 +38,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "width",
+          "name": "width (-)",
           "type": "NumInt16",
           "default_behavior": "no padding"
         },
@@ -51,7 +51,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "hex_string",
+          "name": "hex integer string",
+          "python_name": "hex_string",
           "type": "Array"
         }
       ],
@@ -137,13 +138,13 @@
         {
           "index": 1,
           "direction": "output",
-          "name": "offset_past_number",
+          "name": "offset past number",
           "type": "NumInt32"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "default",
+          "name": "default (0L)",
           "type": "polymorphic",
           "default": 0
         },

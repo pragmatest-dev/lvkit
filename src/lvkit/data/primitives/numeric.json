@@ -9,13 +9,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "sign",
+          "name": "-1, 0, 1",
+          "python_name": "sign",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "x",
+          "name": "number",
           "type": "polymorphic"
         }
       ],
@@ -32,7 +33,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "sum",
+          "name": "x+y",
+          "python_name": "sum_",
           "type": "polymorphic"
         },
         {
@@ -49,7 +51,7 @@
         }
       ],
       "python_code": {
-        "sum": "in_1 + in_2"
+        "sum_": "in_1 + in_2"
       },
       "inline": true,
       "verified": true,
@@ -63,7 +65,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "difference",
+          "name": "x-y",
+          "python_name": "difference",
           "type": "numeric"
         },
         {
@@ -94,7 +97,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "product",
+          "name": "x*y",
+          "python_name": "product",
           "type": "polymorphic"
         },
         {
@@ -125,7 +129,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "quotient",
+          "name": "x/y",
+          "python_name": "quotient",
           "type": "polymorphic"
         },
         {
@@ -154,7 +159,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "abs_x",
+          "name": "abs(x)",
+          "python_name": "abs_x",
           "type": "numeric"
         },
         {
@@ -212,7 +218,7 @@
       "source": "vi-scripting-nodes-lv2025",
       "note": "corrected from VI-Scripting nodes export (#59); python_code restored (in_1 + 1) once the terminal geometry was confirmed -- x is the sole input, no operand-order ambiguity.",
       "python_code": {
-        "incremented": "in_1 + 1"
+        "x1": "in_1 + 1"
       },
       "elementwise": true
     },
@@ -236,7 +242,7 @@
       "source": "vi-scripting-nodes-lv2025",
       "note": "corrected from VI-Scripting nodes export (#59); python_code restored (in_1 - 1) once the terminal geometry was confirmed -- x is the sole input, no operand-order ambiguity.",
       "python_code": {
-        "decremented": "in_1 - 1"
+        "x_1": "in_1 - 1"
       },
       "elementwise": true
     },
@@ -285,7 +291,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "neg_x",
+          "name": "-x",
+          "python_name": "neg_x",
           "type": "polymorphic"
         },
         {
@@ -308,7 +315,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "number",
+          "name": "number: 0 to 1",
+          "python_name": "number",
           "type": "NumFloat64"
         }
       ],
@@ -343,7 +351,7 @@
         }
       ],
       "python_code": {
-        "scaled": "in_1 * (2.0 ** in_2)"
+        "x2n": "in_1 * (2.0 ** in_2)"
       },
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
@@ -361,7 +369,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "floor_x",
+          "name": "floor(x): largest int <= x",
+          "python_name": "floor_x",
           "type": "polymorphic"
         }
       ],
@@ -378,7 +387,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "ceiling",
+          "name": "ceil(x): smallest int >= x",
+          "python_name": "ceiling",
           "type": "NumFloat64"
         },
         {
@@ -410,12 +420,12 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "array",
+          "name": "numeric array",
           "type": "Array"
         }
       ],
       "python_code": {
-        "sum": "sum(in_1)"
+        "sum_": "sum(in_1)"
       },
       "inline": true,
       "verified": true
@@ -434,7 +444,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "array",
+          "name": "numeric array",
           "type": "Array"
         }
       ],

@@ -21,7 +21,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "ignore_previous",
+          "name": "ignore previous (T)",
           "type": "Boolean",
           "default": true
         },
@@ -34,13 +34,13 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "ms_timeout",
+          "name": "ms timeout (-1)",
           "type": "NumInt32"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "timed_out",
+          "name": "timed out",
           "type": "Boolean"
         }
       ],

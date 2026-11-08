@@ -210,7 +210,7 @@
         {
           "index": 6,
           "direction": "input",
-          "name": "advisory_locking",
+          "name": "disable buffering (F)",
           "type": "Boolean"
         },
         {
@@ -222,33 +222,33 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "access",
+          "name": "access (0:read/write)",
           "type": "enum",
           "default": 0
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "operation",
+          "name": "operation (0:open)",
           "type": "enum",
           "default": 0
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "file_path",
+          "name": "file path (use dialog)",
           "type": "Path"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -260,7 +260,8 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum",
+          "name": "refnum out",
+          "python_name": "refnum",
           "type": "Refnum"
         }
       ],
@@ -284,49 +285,49 @@
         {
           "index": 5,
           "direction": "input",
-          "name": "byte_order",
+          "name": "data type",
           "type": "String"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "type",
+          "name": "prompt (Open existing file)",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "datalog_type",
+          "name": "byte order (0:big-endian, network order)",
           "type": "enum"
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "count",
+          "name": "count (1)",
           "type": "NumInt32"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "refnum",
+          "name": "file (use dialog)",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "eof",
+          "name": "cancelled",
           "type": "Boolean"
         },
         {
@@ -338,7 +339,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
@@ -346,7 +347,7 @@
         "data": "in_11.read(in_10)",
         "refnum_out": "in_11",
         "error_out": "in_8",
-        "eof": "False"
+        "cancelled": "False"
       },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
       "verified": false
@@ -364,7 +365,7 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -376,7 +377,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -416,14 +417,14 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Open existing file)",
           "type": "String",
           "default": "Open existing file"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -435,13 +436,13 @@
         {
           "index": 11,
           "direction": "input",
-          "name": "file",
+          "name": "file (use dialog)",
           "type": "polymorphic"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -459,7 +460,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
@@ -484,26 +485,26 @@
         {
           "index": 5,
           "direction": "input",
-          "name": "prepend_size",
+          "name": "prepend array or string size? (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "byte_order",
+          "name": "prompt (Choose or enter file path)",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "datalog_type",
+          "name": "byte order (0:big-endian, network order)",
           "type": "enum"
         },
         {
@@ -515,32 +516,32 @@
         {
           "index": 11,
           "direction": "input",
-          "name": "refnum",
+          "name": "file (use dialog)",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "eof",
+          "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
       "python_code": {
         "refnum_out": "(in_11.write(in_10), in_11)[1]",
         "error_out": "in_8",
-        "eof": "False"
+        "cancelled": "False"
       },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
       "verified": false

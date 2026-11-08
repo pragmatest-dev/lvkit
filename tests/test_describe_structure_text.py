@@ -252,7 +252,7 @@ def test_time_delayed_send_message_core_uses_lvnet_frame_labels() -> None:
     assert "Select" not in control_flow
     assert "idx=" not in control_flow
     assert "While Loop shift register" in control_flow
-    assert "Wait on Notification.timed_out" in control_flow
+    assert "Wait on Notification.timed out?" in control_flow
     assert "Wait on Notification.notification" in control_flow
 
 
