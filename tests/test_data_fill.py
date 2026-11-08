@@ -5,6 +5,7 @@ whose bytes are not proven is reported, never guessed."""
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import replace
 
 import pytest
 
@@ -127,7 +128,11 @@ def test_the_default_of_a_type_is_zero_empty_or_a_cluster_of_those() -> None:
     assert type_default_bytes(scalar("String")) == bytes(4)
     assert type_default_bytes(array("NumInt32")) == bytes(4)
     assert type_default_bytes(array("NumInt32", 2)) == bytes(8)
-    assert type_default_bytes(scalar("Refnum")) is None
+    assert type_default_bytes(scalar("Refnum")) == bytes(4)
+    assert type_default_bytes(replace(scalar("Refnum"), classname="C.lvclass")) is None
+    assert type_default_bytes(replace(scalar("Refnum"), ref_type="VisaRef")) is None
+    assert type_default_bytes(scalar("Path")) == b"PTH0\x00\x00\x00\x04" + bytes(4)
+    assert len(type_default_bytes(scalar("LVVariant")) or b"") == 20
     assert type_default_bytes(scalar("NumFloatExt")) is None
     assert type_default_bytes(None) is None
 

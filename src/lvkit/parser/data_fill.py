@@ -27,6 +27,7 @@ from ..lv_type_codes import (
 )
 from ..models import LVType, LVTypeKind
 from ..text_encoding import xml_text_encoding
+from .refnum_value import holds_handle
 
 # The TM80 flag that marks a type whose value is its default (no DataFill).
 _DEFAULT_VALUE_FLAG = "TMFBit11"
@@ -46,6 +47,9 @@ _SCALAR_FORMATS: dict[str, str] = {
 
 # The path types (absolute, relative, empty start path) read as bytes.
 _PATH_TYPES = ("0", "1", "2")
+
+_VARIANT_TYPES = ("LVVariant", "Variant")
+_EMPTY_VARIANT = bytes.fromhex("0900800000000001000400000001000000000000")
 
 # A byte written as a character reference inside a DataFill string.
 _BYTE_REFERENCE = re.compile(r"&#(?:x([0-9a-fA-F]{1,2})|([0-9]{1,3}));")
@@ -298,6 +302,20 @@ def type_default_bytes(lv_type: LVType | None) -> bytes | None:
         return b"\x00"
     if name == "String":
         return b"\x00\x00\x00\x00"
+    if holds_handle(lv_type):
+        # A session reference is never saved, so a refnum constant is Not a
+        # Refnum: handle 0. Of the refnum constants (no class, no tag) the
+        # corpus pairs with a TMFBit11 type, 24 of 24 hold handle 0.
+        return b"\x00\x00\x00\x00"
+    if name == "Path":
+        # An empty path: PTH0, a 4-byte body of path type 0 and 0 components.
+        # Of the Path constants with a TMFBit11 type, 34 of 34 hold exactly these
+        # 12 bytes.
+        return b"PTH0\x00\x00\x00\x04\x00\x00\x00\x00"
+    if name in _VARIANT_TYPES:
+        # An empty Variant: no value and no attributes. Of the Variant constants
+        # with a TMFBit11 type, 45 of 45 hold exactly these 20 bytes.
+        return _EMPTY_VARIANT
     width = INTEGER_BYTE_WIDTHS.get(name or "") or FLOAT_BYTE_WIDTHS.get(name or "")
     return b"\x00" * width if width else None
 
@@ -305,4 +323,8 @@ def type_default_bytes(lv_type: LVType | None) -> bytes | None:
 def _type_label(lv_type: LVType | None) -> str:
     if lv_type is None:
         return "type that is not known"
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
+        return f"class value of {lv_type.classname}"
+    if lv_type.underlying_type == "Refnum" and lv_type.ref_type:
+        return f"{lv_type.ref_type} refnum"
     return lv_type.underlying_type or str(lv_type.kind.value)

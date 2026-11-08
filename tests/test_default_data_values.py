@@ -31,6 +31,7 @@ from tests.structure_diagrams import (
 )
 
 BOOL, I32, STR, U32, DBL, ARRAY, REFNUM, EXT, CLUSTER, I8 = range(10)
+PATH, VARIANT, CLASS_REFNUM, VISA_REFNUM = range(10, 14)
 TYPES = [
     '<TypeDesc Type="Boolean" />',
     '<TypeDesc Type="NumInt32" />',
@@ -45,6 +46,11 @@ TYPES = [
     '<TypeDesc Type="Cluster"><TypeDesc TypeID="1" /><TypeDesc TypeID="2" />'
     "</TypeDesc>",
     '<TypeDesc Type="NumInt8" />',
+    '<TypeDesc Type="Path" />',
+    '<TypeDesc Type="LVVariant" />',
+    '<TypeDesc Type="Refnum" RefType="UDClassInst"><Item Text="C.lvclass" />'
+    "</TypeDesc>",
+    '<TypeDesc Type="Refnum" RefType="VisaRef" />',
 ]
 
 SHIFT = 2
@@ -201,9 +207,14 @@ SLOTS: list[tuple[str, str | None]] = [
     ("EXT", "<EXT>1.5</EXT>"),
     ("Cluster default", None),
     ("I8 default", None),
+    ("Path default", None),
+    ("Variant default", None),
+    ("Class default", None),
+    ("VISA default", None),
 ]
 U32_SLOT, DBL_SLOT, STR_SLOT, I32_SLOT, ARRAY_SLOT = 0, 1, 2, 3, 4
 REFNUM_SLOT, EXT_SLOT, CLUSTER_SLOT, I8_SLOT = 5, 6, 7, 8
+PATH_SLOT, VARIANT_SLOT, CLASS_SLOT, VISA_SLOT = 9, 10, 11, 12
 
 
 @pytest.mark.parametrize(
@@ -257,14 +268,81 @@ def test_a_type_that_holds_its_default_cluster_is_zeroed(tmp_path: Path) -> None
     assert function().result == (0, "")  # type: ignore[attr-defined]
 
 
-def test_a_refnum_that_holds_its_default_stays_a_gap_naming_its_type(
+def test_a_session_reference_constant_with_no_value_is_not_a_refnum(
     tmp_path: Path,
 ) -> None:
-    views = _constant_vi(tmp_path, REFNUM, "stdRefNum", SLOTS, REFNUM_SLOT)
+    """A session reference is never saved, so the constant is Not a Refnum: the
+    same as a constant that stores the handle 0."""
+    (tmp_path / "default").mkdir()
+    (tmp_path / "stored").mkdir()
+    default = _constant_vi(
+        tmp_path / "default", REFNUM, "stdRefNum", SLOTS, REFNUM_SLOT
+    )
+    stored = _constant_vi(
+        tmp_path / "stored",
+        REFNUM,
+        "stdRefNum",
+        SLOTS,
+        REFNUM_SLOT,
+        "<ConstValue>00000000</ConstValue>",
+    )
+    function, source, gaps = _generate(default)
+    assert gaps == []
+    assert function().result is None  # type: ignore[attr-defined]
+    assert "lvkit" not in source
+    _, stored_source, _ = _generate(stored)
+    assert source == stored_source
+    assert default.describe == stored.describe
+    assert default.terse == stored.terse
+    assert default.diagram == stored.diagram
+
+
+def test_a_class_value_with_no_value_stays_a_gap_naming_the_class(
+    tmp_path: Path,
+) -> None:
+    views = _constant_vi(tmp_path, CLASS_REFNUM, "stdRefNum", SLOTS, CLASS_SLOT)
     _, _, gaps = _generate(views)
     (gap,) = gaps
-    assert "the default of a Refnum" in gap.reason
+    assert "C.lvclass" in gap.reason
+
+
+def test_a_tag_refnum_with_no_value_stays_a_gap(tmp_path: Path) -> None:
+    views = _constant_vi(tmp_path, VISA_REFNUM, "stdRefNum", SLOTS, VISA_SLOT)
+    _, _, gaps = _generate(views)
+    (gap,) = gaps
+    assert "VisaRef refnum" in gap.reason
     assert "default data (DFDS)" in gap.reason
+
+
+@pytest.mark.parametrize(
+    ("type_id", "ddo_class", "slot", "stored"),
+    [
+        (PATH, "stdPath", PATH_SLOT, "505448300000000400000000"),
+        (VARIANT, "stdVar", VARIANT_SLOT, "0900800000000001000400000001000000000000"),
+    ],
+)
+def test_an_empty_path_or_variant_is_the_same_as_the_stored_empty_value(
+    tmp_path: Path, type_id: int, ddo_class: str, slot: int, stored: str
+) -> None:
+    (tmp_path / "default").mkdir()
+    (tmp_path / "stored").mkdir()
+    default = _constant_vi(tmp_path / "default", type_id, ddo_class, SLOTS, slot)
+    explicit = _constant_vi(
+        tmp_path / "stored",
+        type_id,
+        ddo_class,
+        SLOTS,
+        slot,
+        f"<ConstValue>{stored}</ConstValue>",
+    )
+    function, source, gaps = _generate(default)
+    assert gaps == []
+    _, stored_source, stored_gaps = _generate(explicit)
+    assert stored_gaps == []
+    assert source == stored_source
+    assert default.describe == explicit.describe
+    assert default.terse == explicit.terse
+    assert "lvkit" not in source
 
 
 def test_a_tag_that_is_not_read_stays_a_gap_naming_the_tag(tmp_path: Path) -> None:
@@ -281,7 +359,7 @@ def test_an_object_with_no_slot_in_the_data_space_stays_a_gap(
     views = _constant_vi(tmp_path, U32, "stdNum", SLOTS, len(SLOTS) + 3)
     _, _, gaps = _generate(views)
     (gap,) = gaps
-    assert "no value in its default data for data-space type 14" in gap.reason
+    assert f"data-space type {len(SLOTS) + 3 + SHIFT}" in gap.reason
 
 
 def test_a_constant_with_its_own_value_does_not_use_the_default_data(
