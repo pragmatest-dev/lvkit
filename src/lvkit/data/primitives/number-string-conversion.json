@@ -125,8 +125,8 @@
     },
     "1184": {
       "name": "Decimal String To Number",
+      "op": "DECIMAL_STRING_TO_NUMBER",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-string-to-number.html",
-      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -161,9 +161,7 @@
           "type": "String"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "note": "Decimal String To Number (NI doc) -- string, offset, default -> offset past number, number. Terminals from 'Results Status Update Process__core.vi', 'Get LV Mem Usage.vi'. Placeholder codegen: integer-only scan, needs float/exponent handling."
+      "verified": true
     },
     "1185": {
       "name": "Hexadecimal String To Number",
