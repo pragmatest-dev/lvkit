@@ -210,3 +210,64 @@ def test_a_change_in_a_nested_field_reaches_the_holder_as_the_whole_cluster() ->
         assert holder.value("outer") == (False, SimpleNamespace(gain=3))
 
     simulate(build, scenario)
+
+
+def _array_of(element: ParsedFPControl, element_type: LVType) -> Any:
+    control = _fp("Rows", "indArr", *element.children)
+    return describe(
+        control,
+        LVType(
+            kind=LVTypeKind.ARRAY,
+            underlying_type="Array",
+            element_type=element_type,
+            dimensions=1,
+        ),
+        None,
+        "rows",
+    )
+
+
+def test_an_array_of_clusters_with_a_cluster_field_is_a_gap() -> None:
+    inner, inner_type = _inner_cluster()
+    row = _fp("Row", "stdClust", inner, _fp("Label", "stdString"))
+    row_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="Inner", type=inner_type),
+            ClusterField(name="Label", type=_primitive("String")),
+        ],
+    )
+    described = _array_of(row, row_type)
+    assert described.kind is None
+    assert described.gap == (
+        "the panel has no widget for an array of cluster (element of the array)"
+    )
+
+
+def test_an_array_of_clusters_names_the_element_and_every_column_builder() -> None:
+    inner, _ = _inner_cluster()
+    row_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        typedef_name="Row.ctl",
+        fields=[
+            ClusterField(name="Gain", type=_primitive("NumInt32")),
+            ClusterField(name="On", type=_primitive("Boolean")),
+        ],
+    )
+    described = _array_of(inner, row_type)
+    assert described.gap is None
+    assert described.kind is not None
+    assert widget_call(described, described.kind, "'rows'") == (
+        "array_control(values, 'rows', Member('value', '', cluster_port, True, ["
+        "Member('gain', 'Gain', number_port, 0, True), "
+        "Member('on', 'On', bool_port, False)]), 2)"
+    )
+    assert builders_used(described, described.kind) == {
+        "array_control",
+        "Member",
+        "cluster_port",
+        "number_port",
+        "bool_port",
+    }

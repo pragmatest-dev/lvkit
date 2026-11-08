@@ -68,3 +68,10 @@ def build_in_a_page(build_panel: Callable[[], None]) -> None:
                 build_panel()
 
     asyncio.run(run())
+
+
+def fire(element: Any, event_type: str, args: dict[str, Any]) -> None:
+    """Deliver the browser event ``event_type`` with ``args`` to ``element``."""
+    for listener_id, listener in list(element._event_listeners.items()):
+        if listener.type == event_type:
+            element._handle_event({"listener_id": listener_id, "args": args})

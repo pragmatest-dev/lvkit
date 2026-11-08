@@ -1,13 +1,16 @@
 """How the panel module calls the builder of each kind of control: the arguments
 after the holder and the name, and the names the module imports for it. A field
-of a cluster is a ``Member`` of the port builder of its kind, built the same
-way."""
+of a cluster and the element of an array are a ``Member`` of the port builder of
+their kind, built the same way."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
 from .kinds import PanelControl, PanelKind
+
+ARRAY_ROW_HEIGHT = 24
+ARRAY_CHROME_HEIGHT = 32
 
 
 def _number(control: PanelControl) -> str:
@@ -27,6 +30,13 @@ def _cluster(control: PanelControl) -> str:
     return f"{control.named}, [{members}]"
 
 
+def _array(control: PanelControl) -> str:
+    assert control.element is not None
+    height = control.bounds[2] - control.bounds[0] - ARRAY_CHROME_HEIGHT
+    rows = max(2, height // ARRAY_ROW_HEIGHT)
+    return f"{member_call(control.element)}, {rows}"
+
+
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.NUMBER: _number,
     PanelKind.BOOLEAN: _default_only,
@@ -35,6 +45,7 @@ ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.ENUM: _choice,
     PanelKind.RING: _choice,
     PanelKind.CLUSTER: _cluster,
+    PanelKind.ARRAY: _array,
 }
 
 
@@ -50,7 +61,8 @@ def widget_call(control: PanelControl, kind: PanelKind, key: str) -> str:
 
 
 def member_call(control: PanelControl) -> str:
-    """The ``Member`` that builds a field of a cluster."""
+    """The ``Member`` that builds a field of a cluster or the element of an
+    array."""
     kind = control.kind
     assert kind is not None
     return (
@@ -59,11 +71,15 @@ def member_call(control: PanelControl) -> str:
     )
 
 
+def _parts(control: PanelControl) -> tuple[PanelControl, ...]:
+    return (*control.members, *([control.element] if control.element else []))
+
+
 def builders_used(control: PanelControl, kind: PanelKind) -> set[str]:
     """The names of the ``controls`` package the call of ``control`` needs."""
     names = {builder_of(control, kind)}
-    for member in control.members:
-        assert member.kind is not None
-        names |= {"Member", member.kind.port_builder}
-        names |= builders_used(member, member.kind) - {builder_of(member, member.kind)}
+    for part in _parts(control):
+        assert part.kind is not None
+        names |= {"Member", part.kind.port_builder}
+        names |= builders_used(part, part.kind) - {builder_of(part, part.kind)}
     return names

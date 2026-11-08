@@ -86,6 +86,68 @@ def _cluster(
     return replace(base, named=named, members=members)
 
 
+_CELL_KINDS = (
+    PanelKind.NUMBER,
+    PanelKind.BOOLEAN,
+    PanelKind.STRING,
+    PanelKind.PATH,
+    PanelKind.ENUM,
+    PanelKind.RING,
+)
+
+
+def _array(
+    base: PanelControl, control: ParsedFPControl, lv_type: LVType | None
+) -> PanelControl:
+    """A one-dimensional array of a number, Boolean, string, path, enum, ring or
+    of a cluster of those: a grid with a row for each element."""
+    element_type = lv_type.element_type if lv_type is not None else None
+    if lv_type is None or element_type is None:
+        return replace(
+            base,
+            kind=None,
+            gap=f"the panel needs the element type of the {control.control_type}",
+        )
+    if (lv_type.dimensions or 1) != 1:
+        return replace(
+            base,
+            kind=None,
+            gap=f"the panel has no widget for a {lv_type.dimensions}-dimensional array",
+        )
+    if control.children:
+        cell = replace(control, control_type="stdClust", name="")
+    else:
+        part = next((p for p in control.parts if p.part_id is None), None)
+        if part is None:
+            return replace(
+                base,
+                kind=None,
+                gap=f"the panel needs the element of the {control.control_type}",
+            )
+        if PanelKind.of(part.part_class, "", element_type) is PanelKind.ARRAY:
+            return replace(
+                base, kind=None, gap="the panel has no widget for an array of arrays"
+            )
+        cell = replace(
+            control, control_type=part.part_class, name="", children=[], parts=[]
+        )
+    element = describe(
+        cell, element_type, None, "value", indicator=base.is_indicator
+    )
+    cells = element.members if element.kind is PanelKind.CLUSTER else (element,)
+    blocker = element if element.gap is not None else None
+    if blocker is None:
+        blocker = next((c for c in cells if c.kind not in _CELL_KINDS), None)
+    if blocker is not None:
+        reason = blocker.gap or (
+            f"the panel has no widget for an array of {blocker.kind.name.lower()}"
+            if blocker.kind is not None
+            else "the panel has no widget for this array"
+        )
+        return replace(base, kind=None, gap=f"{reason} (element of the array)")
+    return replace(base, element=element)
+
+
 def describe(
     control: ParsedFPControl,
     lv_type: LVType | None,
@@ -115,6 +177,8 @@ def describe(
         return replace(base, gap=_no_widget(control, python_type))
     if kind is PanelKind.CLUSTER:
         return _cluster(base, control, lv_type)
+    if kind is PanelKind.ARRAY:
+        return _array(base, control, lv_type)
     if kind in (PanelKind.ENUM, PanelKind.RING):
         items = choice_items(control, lv_type)
         if not items:

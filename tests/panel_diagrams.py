@@ -123,3 +123,23 @@ def cluster_fields(vi: Vi, fields: list[tuple[str, str, int]]) -> str:
         f'<paneHierarchy class="pane" uid="{vi.next_uid()}">'
         f"<zPlaneList>{controls}</zPlaneList></paneHierarchy>"
     )
+
+
+def array_type(vi: Vi, element_type: int) -> int:
+    """The type of a one-dimensional array of ``element_type``, added to ``vi``."""
+    return vi.add_type(
+        '<TypeDesc Type="Array" Format="inline">'
+        '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
+        f'<TypeDesc TypeID="{element_type}" /></TypeDesc>'
+    )
+
+
+def array_element(vi: Vi, ddo_class: str, type_id: int, inner: str = "") -> str:
+    """The heap xml of an array control's element, its class and type, with the
+    element's own heap xml ``inner`` (a cluster's fields): what goes in ``inner``
+    of the array's pane."""
+    return (
+        f'<ddo class="{ddo_class}" uid="{vi.next_uid()}">'
+        "<bounds>(0, 0, 22, 80)</bounds>"
+        f"<typeDesc>TypeID({type_id})</typeDesc>{inner}</ddo>"
+    )

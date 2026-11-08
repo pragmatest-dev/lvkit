@@ -17,6 +17,7 @@ from .widgets import (
     string_indicator,
     string_port,
 )
+from .widgets_array import array_control, array_indicator, array_port
 from .widgets_choice import choice_control, choice_indicator, choice_port
 from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_path import path_control, path_indicator, path_port
@@ -27,6 +28,9 @@ __all__ = [
     "Member",
     "Port",
     "RunController",
+    "array_control",
+    "array_indicator",
+    "array_port",
     "bool_control",
     "bool_indicator",
     "bool_port",

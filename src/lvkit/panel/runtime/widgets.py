@@ -24,7 +24,7 @@ def caption(text: str) -> None:
     ui.label(text).classes(CAPTION_CLS)
 
 
-def _number(value: Any, integer: bool) -> Any:
+def as_number(value: Any, integer: bool) -> Any:
     if value is None:
         return None
     return int(round(float(value))) if integer else float(value)
@@ -32,9 +32,9 @@ def _number(value: Any, integer: bool) -> Any:
 
 def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
     if readonly:
-        shown = ui.input(value=str(_number(default, integer)))
+        shown = ui.input(value=str(as_number(default, integer)))
         shown.props("outlined dense readonly").classes("w-full")
-        current = _number(default, integer)
+        current = as_number(default, integer)
 
         def show_number(value: Any) -> None:
             nonlocal current
@@ -42,13 +42,13 @@ def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
             shown.set_value(str(value))
 
         return Port(lambda: current, show_number)
-    held = _number(default, integer)
+    held = as_number(default, integer)
     port: Port
 
     def changed(event: Any) -> None:
         nonlocal held
         if event.value is not None:
-            held = _number(event.value, integer)
+            held = as_number(event.value, integer)
             port.changed()
 
     widget = ui.number(value=default, on_change=changed).props("outlined dense")

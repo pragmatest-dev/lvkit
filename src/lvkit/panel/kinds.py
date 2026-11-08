@@ -21,6 +21,7 @@ class PanelKind(Enum):
     PATH = ("path", "stdPath", ("Path | None",), ())
     ENUM = ("choice", "stdEnum", ("int",), ())
     RING = ("choice", "stdRing", ("int",), ())
+    ARRAY = ("array", "indArr", (), (LVTypeKind.ARRAY,))
     CLUSTER = (
         "cluster",
         "stdClust",
@@ -69,7 +70,8 @@ class PanelControl:
     enum or ring. A cluster has its fields in ``members`` (each one a
     ``PanelControl`` whose ``key`` is the field's attribute name) and ``named``
     says whether the function holds it as an object with those attributes (a
-    cluster type definition) or as a tuple."""
+    cluster type definition) or as a tuple. A one-dimensional array has the
+    control that draws one of its elements in ``element``."""
 
     label: str
     kind: PanelKind | None
@@ -85,3 +87,4 @@ class PanelControl:
     items: tuple[tuple[str, int], ...] = ()
     named: bool = False
     members: tuple[PanelControl, ...] = ()
+    element: PanelControl | None = None
