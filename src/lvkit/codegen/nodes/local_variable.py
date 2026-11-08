@@ -17,7 +17,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import LocalVariableNode
+from lvkit.graph.models import AnyGraphNode, LocalVariableNode
 from lvkit.graph.vi_reference import is_this_vi
 from lvkit.models import FPTerminal
 
@@ -53,8 +53,6 @@ def _control_access(
             node,
         )
     terminal = node.terminals[0].id
-    hooks = ctx.panel_hooks
-    statements: list[ast.stmt] = []
     if node.is_write:
         value = ctx.resolve(terminal)
         if value is None:
@@ -63,11 +61,34 @@ def _control_access(
                 "has no source lvkit can read",
                 node,
             )
-        if value != variable:
-            statements.append(build_assign(variable, parse_expr(value)))
-        if hooks is not None and control.id in hooks.names:
-            statements.append(update_stmt(hooks, control.id, variable))
-        return CodeFragment(statements=statements)
+        return CodeFragment(statements=write_control(control, variable, value, ctx))
+    return CodeFragment(
+        statements=read_control(node, control, variable, ctx),
+        bindings={terminal: variable},
+    )
+
+
+def write_control(
+    control: FPTerminal, variable: str, value: str, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """``variable = value``, then ``on_update`` in a VI that has the hooks: the
+    statements that write the control ``control`` (whose variable is
+    ``variable``)."""
+    hooks = ctx.panel_hooks
+    statements: list[ast.stmt] = []
+    if value != variable:
+        statements.append(build_assign(variable, parse_expr(value)))
+    if hooks is not None and control.id in hooks.names:
+        statements.append(update_stmt(hooks, control.id, variable))
+    return statements
+
+
+def read_control(
+    node: AnyGraphNode, control: FPTerminal, variable: str, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """The statements that read the control ``control`` at ``node``: ``on_read``
+    when the node asks the caller for the value (``asks_for_control``)."""
+    hooks = ctx.panel_hooks
     if hooks is not None and asks_for_control(node, control, ctx):
-        statements.append(read_stmt(hooks, control.id, variable))
-    return CodeFragment(statements=statements, bindings={terminal: variable})
+        return [read_stmt(hooks, control.id, variable)]
+    return []

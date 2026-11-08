@@ -51,9 +51,10 @@ def referenced_control(
 
 
 def asks_for_control(
-    node: LocalVariableNode, control: FPTerminal, ctx: CodeGenContext
+    node: AnyGraphNode, control: FPTerminal, ctx: CodeGenContext
 ) -> bool:
-    """Whether the read ``node`` of ``control`` asks the caller for its value: the
+    """Whether the read ``node`` (a Local Variable or a Value Property Node) of
+    ``control`` asks the caller for its value: the
     VI has the hooks and the read is inside a loop or Event Structure."""
     hooks, graph = ctx.panel_hooks, ctx.graph
     return (

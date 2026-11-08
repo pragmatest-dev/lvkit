@@ -59,3 +59,36 @@ def counting_vi(name: str = NAME, *, with_text: bool = False) -> Vi:
         vi.wire(message, echo)
         vi.wire(vi.bool_constant(True), ready)
     return vi
+
+
+def value_property(vi: Vi, pane_term: int, rows: list[str]) -> list[int]:
+    """A Property Node on the front-panel control or indicator whose terminal is
+    ``pane_term``, with one row per name in ``rows`` (``"Value"``, ``"Visible"``).
+    Returns the terminal of each row (a write when wired as a sink, a read when
+    wired as a source)."""
+    pane = next(p for p in vi.panes if vi.fp_terms[p.uid] == pane_term)
+    uid = vi.next_uid(1 + 3 * len(rows))
+    terms = ""
+    dcos = ""
+    terminals: list[int] = []
+    for i, name in enumerate(rows):
+        term = uid + 1 + 3 * i
+        terminals.append(term)
+        terms += (
+            f'<SL__arrayElement class="term" uid="{term}">'
+            f'<dco class="propItem" uid="{term + 1}"><objFlags>1</objFlags>'
+            '<propList elements="1">'
+            f'<SL__arrayElement class="propItemInfo" uid="{term + 2}">'
+            f'<PropItemName>"{name}"</PropItemName><PropItemCode>{i}</PropItemCode>'
+            "</SL__arrayElement></propList></dco></SL__arrayElement>"
+        )
+        dcos += f'<SL__arrayElement uid="{term + 1}" />'
+    vi.scope.nodes.append(
+        f'<SL__arrayElement class="propNode" uid="{uid}">'
+        f'<ddo uid="{pane.uid}1" />'
+        f'<termList elements="{len(rows)}">{terms}</termList>'
+        f'<dcoList elements="{len(rows)}">{dcos}</dcoList>'
+        '<permDCOList elements="0"></permDCOList>'
+        f'<nodeName>"{pane.label}"</nodeName></SL__arrayElement>'
+    )
+    return terminals

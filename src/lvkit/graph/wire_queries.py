@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..models import FPTerminal, Terminal, TunnelTerminal
+from ..parser.models import ParsedFrontPanel
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -38,6 +39,7 @@ class WireQueriesMixin:
         def outgoing_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
         def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
+        def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None: ...
 
     def terminal_node_id(self, terminal_id: str) -> str:
         """The id of the node that owns the terminal."""
@@ -218,6 +220,27 @@ class WireQueriesMixin:
             ):
                 return True
         return False
+
+    def bound_control(self, node: PrimitiveNode) -> FPTerminal | None:
+        """The control of the VI that the bound Property Node ``node`` is tied to:
+        the front-panel control whose object the node's bound uid names, as its
+        terminal; None for an unbound node or an indicator."""
+        vi_name = node.vi_path
+        panel = self.get_vi_front_panel(vi_name)
+        vi = self.get_graph_node(vi_name)
+        if not node.bound_control_uid or panel is None or vi is None:
+            return None
+        for control in panel.controls:
+            if control.ddo_uid != node.bound_control_uid:
+                continue
+            for terminal in vi.terminals:
+                if (
+                    isinstance(terminal, FPTerminal)
+                    and terminal.fp_dco_uid == control.uid
+                    and not terminal.is_indicator
+                ):
+                    return terminal
+        return None
 
     def indicators_written_in_a_frame(self, vi_name: str) -> dict[str, FPTerminal]:
         """The connector-pane indicators of a VI that something inside a
