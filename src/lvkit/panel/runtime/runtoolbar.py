@@ -37,6 +37,8 @@ _SVG_PAUSE = (
     '<rect x="4.5" y="3" width="2.6" height="10"/>'
     '<rect x="8.9" y="3" width="2.6" height="10"/></svg>'
 )
+CONTINUOUS_PAUSE = 0.1
+
 _BAR_CLS = (
     "w-full items-center gap-1 px-2 py-1 border-b bg-gray-50 "
     "dark:bg-neutral-800 dark:border-neutral-700"
@@ -145,7 +147,12 @@ class RunController:
                 text = "aborted"
             if text != "done" or not self.continuous:
                 break
-            self._show_state("running")
+            # A VI that returns at once would otherwise flood the browser with
+            # updates faster than it takes them.
+            await asyncio.sleep(CONTINUOUS_PAUSE)
+            if not self.continuous:
+                text = "aborted" if self._live.aborted else "done"
+                break
         self.running = False
         self.continuous = False
         self._live.resume()

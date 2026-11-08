@@ -249,7 +249,7 @@ def test_an_enum_column_shows_labels_and_gives_the_item_values() -> None:
 
     def build() -> None:
         holder = controls.LiveValues()
-        ports.append(controls.array_control(holder, "levels", element, 3))
+        ports.append(controls.array_control(holder, "levels", element, 3, []))
 
     async def scenario(user: User) -> None:
         (grid,) = found(user, ui.aggrid)
@@ -271,7 +271,7 @@ def test_a_path_column_gives_paths() -> None:
 
     def build() -> None:
         ports.append(
-            controls.array_control(controls.LiveValues(), "files", element, 3)
+            controls.array_control(controls.LiveValues(), "files", element, 3, [])
         )
 
     async def scenario(user: User) -> None:
@@ -279,5 +279,24 @@ def test_a_path_column_gives_paths() -> None:
         user.find(marker="add-row").click()
         fire(grid, "cellValueChanged", {"rowIndex": 0, "data": {"value": "/a/b"}})
         assert ports[0].get() == [Path("/a/b")]
+
+    simulate(build, scenario)
+
+
+def test_an_array_control_starts_with_its_saved_rows() -> None:
+    element = controls.Member("value", "", controls.string_port, "")
+    ports: list[Any] = []
+
+    def build() -> None:
+        ports.append(
+            controls.array_control(
+                controls.LiveValues(), "names", element, 3, ["ant", "bee"]
+            )
+        )
+
+    async def scenario(user: User) -> None:
+        (grid,) = found(user, ui.aggrid)
+        assert grid.options["rowData"] == [{"value": "ant"}, {"value": "bee"}]
+        assert ports[0].get() == ["ant", "bee"]
 
     simulate(build, scenario)

@@ -159,26 +159,30 @@ def _field(value: Any, column: _Column, position: int, form: str) -> Any:
     return getattr(value, column.key) if form == "object" else value[position]
 
 
-def array_port(element: Member, rows: int, *, readonly: bool) -> Port:
+def array_port(
+    element: Member, rows: int, initial: list[Any], *, readonly: bool
+) -> Port:
     columns, form = _columns(element)
     cells: list[dict[str, Any]] = []
     headers = form != "scalar"
     index = {
         "headerName": "",
         "valueGetter": "node.rowIndex",
-        "width": 40,
+        "width": 30,
         "editable": False,
         "pinned": "left",
         "cellClass": "text-gray-400 text-right",
+        "cellStyle": {"padding": "0 4px"},
     }
     remove = {
         "colId": "remove",
         "headerName": "",
-        "width": 34,
+        "width": 24,
         "editable": False,
         "pinned": "right",
         ":cellRenderer": f"() => `{_REMOVE}`",
-        "cellClass": "cursor-pointer text-center",
+        "cellClass": "cursor-pointer text-center text-gray-400",
+        "cellStyle": {"padding": "0"},
     }
     options = {
         "columnDefs": [
@@ -247,15 +251,25 @@ def array_port(element: Member, rows: int, *, readonly: bool) -> Port:
                 port.changed()
 
     port = Port(get, show)
+    if initial:
+        show(initial)
     if not readonly:
         grid.on("cellValueChanged", edited)
         grid.on("cellClicked", clicked)
     return port
 
 
-def array_control(live: LiveValues, name: Any, element: Member, rows: int) -> Port:
-    return bind_control(live, name, array_port(element, rows, readonly=False))
+def array_control(
+    live: LiveValues, name: Any, element: Member, rows: int, initial: list[Any]
+) -> Port:
+    return bind_control(
+        live, name, array_port(element, rows, initial, readonly=False)
+    )
 
 
-def array_indicator(live: LiveValues, name: Any, element: Member, rows: int) -> Port:
-    return bind_indicator(live, name, array_port(element, rows, readonly=True))
+def array_indicator(
+    live: LiveValues, name: Any, element: Member, rows: int, initial: list[Any]
+) -> Port:
+    return bind_indicator(
+        live, name, array_port(element, rows, initial, readonly=True)
+    )

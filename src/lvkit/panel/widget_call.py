@@ -34,7 +34,7 @@ def _array(control: PanelControl) -> str:
     assert control.element is not None
     height = control.bounds[2] - control.bounds[0] - ARRAY_CHROME_HEIGHT
     rows = max(2, height // ARRAY_ROW_HEIGHT)
-    return f"{member_call(control.element)}, {rows}"
+    return f"{member_call(control.element)}, {rows}, {list(control.initial)!r}"
 
 
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {

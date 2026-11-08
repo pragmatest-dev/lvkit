@@ -9,7 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
-from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.panel.runtime import (
     LiveValues,
     Member,
@@ -20,7 +20,7 @@ from lvkit.panel.runtime import (
 )
 from lvkit.panel.shape import describe
 from lvkit.panel.widget_call import builders_used, member_call, widget_call
-from lvkit.parser.models import ParsedFPControl
+from lvkit.parser.models import ParsedFPControl, ParsedFPPart
 from tests.panel_harness import found, simulate
 
 
@@ -262,7 +262,7 @@ def test_an_array_of_clusters_names_the_element_and_every_column_builder() -> No
     assert widget_call(described, described.kind, "'rows'") == (
         "array_control(values, 'rows', Member('value', '', cluster_port, True, ["
         "Member('gain', 'Gain', number_port, 0, True), "
-        "Member('on', 'On', bool_port, False)]), 2)"
+        "Member('on', 'On', bool_port, False)]), 2, [])"
     )
     assert builders_used(described, described.kind) == {
         "array_control",
@@ -271,3 +271,48 @@ def test_an_array_of_clusters_names_the_element_and_every_column_builder() -> No
         "number_port",
         "bool_port",
     }
+
+
+def _array_of_numbers(saved: object) -> Any:
+    control = _fp("Values", "indArr")
+    control.parts = [ParsedFPPart(None, "stdNum", (0, 0, 22, 80))]
+    return describe(
+        control,
+        LVType(
+            kind=LVTypeKind.ARRAY,
+            underlying_type="Array",
+            element_type=_primitive("NumInt32"),
+            dimensions=1,
+        ),
+        saved,
+        "values",
+    )
+
+
+def test_an_array_starts_with_the_elements_it_is_saved_with() -> None:
+    described = _array_of_numbers("[3, 1, 2]")
+    assert described.initial == (3, 1, 2)
+    assert widget_call(described, described.kind, "'values'").endswith(  # type: ignore[arg-type]
+        ", 2, [3, 1, 2])"
+    )
+
+
+def test_an_array_saved_with_values_of_another_kind_starts_empty() -> None:
+    assert _array_of_numbers("['a', 'b']").initial == ()
+    assert _array_of_numbers("[True]").initial == ()
+    assert _array_of_numbers("not a list").initial == ()
+    assert _array_of_numbers(None).initial == ()
+
+
+def test_an_enum_type_definition_is_an_enum_control_of_its_items() -> None:
+    control = _fp("Shape", "stdEnum")
+    lv_type = LVType(
+        kind=LVTypeKind.ENUM,
+        underlying_type="UnitUInt16",
+        typedef_name="Shape.ctl",
+        values={"Sine": EnumValue(value=0), "Square": EnumValue(value=1)},
+    )
+    assert lv_type.to_python() == "Shape"
+    described = describe(control, lv_type, None, "shape")
+    assert described.gap is None
+    assert described.items == (("Sine", 0), ("Square", 1))

@@ -5,6 +5,7 @@ gap."""
 
 from __future__ import annotations
 
+import ast
 from dataclasses import replace
 
 from lvkit.codegen.ast_utils import field_attribute_names
@@ -15,6 +16,12 @@ from .choices import choice_default, choice_items
 from .kinds import PanelControl, PanelKind
 
 
+def _value_type(_named: LVType) -> None:
+    """The panel holds a value, not the typedef class that names its type: an enum
+    or ring is its ``int`` and a typedef of a number is that number."""
+    return None
+
+
 def _scalar_default(kind: PanelKind, saved: object) -> str | int | float | bool:
     if kind is PanelKind.BOOLEAN:
         return bool(saved)
@@ -23,6 +30,34 @@ def _scalar_default(kind: PanelKind, saved: object) -> str | int | float | bool:
     if isinstance(saved, (int, float)) and not isinstance(saved, bool):
         return saved
     return 0
+
+
+_ROW_TYPES: dict[PanelKind, tuple[type, ...]] = {
+    PanelKind.NUMBER: (int, float),
+    PanelKind.BOOLEAN: (bool,),
+    PanelKind.STRING: (str,),
+    PanelKind.PATH: (str,),
+    PanelKind.ENUM: (int,),
+    PanelKind.RING: (int,),
+}
+
+
+def _saved_rows(saved: object, kind: PanelKind | None) -> tuple[object, ...]:
+    """The elements an array control is saved with, as the file records them (a
+    Python list in text). Empty unless every one is of the element's kind."""
+    if isinstance(saved, str):
+        try:
+            saved = ast.literal_eval(saved)
+        except (ValueError, SyntaxError):
+            return ()
+    if not isinstance(saved, (list, tuple)) or kind not in _ROW_TYPES:
+        return ()
+    types = _ROW_TYPES[kind]
+    if not all(isinstance(row, types) for row in saved):
+        return ()
+    if kind is not PanelKind.BOOLEAN and any(isinstance(r, bool) for r in saved):
+        return ()
+    return tuple(saved)
 
 
 def _no_widget(control: ParsedFPControl, python_type: str) -> str:
@@ -97,7 +132,7 @@ _CELL_KINDS = (
 
 
 def _array(
-    base: PanelControl, control: ParsedFPControl, lv_type: LVType | None
+    base: PanelControl, control: ParsedFPControl, lv_type: LVType | None, saved: object
 ) -> PanelControl:
     """A one-dimensional array of a number, Boolean, string, path, enum, ring or
     of a cluster of those: a grid with a row for each element."""
@@ -145,7 +180,10 @@ def _array(
             else "the panel has no widget for this array"
         )
         return replace(base, kind=None, gap=f"{reason} (element of the array)")
-    return replace(base, element=element)
+    initial = (
+        () if element.kind is PanelKind.CLUSTER else _saved_rows(saved, element.kind)
+    )
+    return replace(base, element=element, initial=initial)
 
 
 def describe(
@@ -159,7 +197,7 @@ def describe(
     """The control as the panel builds it, named ``key``; the names the function
     and the hooks use for it are the caller's to add. ``indicator`` says whether
     the control is one, for a field of a cluster, which takes its cluster's."""
-    python_type = lv_type.to_python() if lv_type is not None else "Any"
+    python_type = lv_type.to_python(_value_type) if lv_type is not None else "Any"
     kind = PanelKind.of(control.control_type, python_type, lv_type)
     base = PanelControl(
         label=control.name,
@@ -178,7 +216,7 @@ def describe(
     if kind is PanelKind.CLUSTER:
         return _cluster(base, control, lv_type)
     if kind is PanelKind.ARRAY:
-        return _array(base, control, lv_type)
+        return _array(base, control, lv_type, saved)
     if kind in (PanelKind.ENUM, PanelKind.RING):
         items = choice_items(control, lv_type)
         if not items:

@@ -71,7 +71,8 @@ class PanelControl:
     ``PanelControl`` whose ``key`` is the field's attribute name) and ``named``
     says whether the function holds it as an object with those attributes (a
     cluster type definition) or as a tuple. A one-dimensional array has the
-    control that draws one of its elements in ``element``."""
+    control that draws one of its elements in ``element`` and the elements it is
+    saved with in ``initial``."""
 
     label: str
     kind: PanelKind | None
@@ -88,3 +89,4 @@ class PanelControl:
     named: bool = False
     members: tuple[PanelControl, ...] = ()
     element: PanelControl | None = None
+    initial: tuple[object, ...] = ()
