@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.models import LVTypeKind
 from lvkit.parser.heap_types import HeapTypes, decode_heap_types
 from lvkit.parser.node_types import _build_nmux_dco_maps
@@ -209,7 +210,7 @@ _HIERARCHY = _UTIL / "Read VI Hierarchy on Disk Prototype.vi"
 def _parsed(vi_path: Path):
     from lvkit.parser.vi import parse_vi
 
-    return parse_vi(vi_path)
+    return parse_vi(vi_path, roots=LibraryRoots())
 
 
 def _unresolved(vi) -> int:
@@ -227,7 +228,7 @@ def test_lv82_heap_type_ids_resolve_to_real_types():
     from lvkit.extractor import extract_vi_xml
     from lvkit.parser.type_mapping import parse_type_map_rich
 
-    _, _, main_xml = extract_vi_xml(_ECFEC)
+    _, _, main_xml = extract_vi_xml(_ECFEC, roots=LibraryRoots())
     assert main_xml is not None
     type_map = parse_type_map_rich(main_xml)
     assert type_map[31].type_descriptor() == "[String]"  # `call chain`

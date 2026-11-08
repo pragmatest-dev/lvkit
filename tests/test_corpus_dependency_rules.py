@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import VINode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
@@ -75,7 +76,7 @@ def test_dependency_rules(vi_path: Path) -> None:
             (dep.path or "").rsplit("/", 1)[-1],
         )
     }
-    refs = parse_vi(vi_path).metadata.link_path_refs
+    refs = parse_vi(vi_path, roots=LibraryRoots()).metadata.link_path_refs
     own = {tuple(r.path_tokens) for r in refs if r.record == "VILB"}
     missing = sorted(
         {

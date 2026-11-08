@@ -42,10 +42,11 @@ import os
 import shutil
 import threading
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
-from lvkit import staging
+from lvkit import project_store, staging
 
 # ── Cache root ──────────────────────────────────────────────────────────────
 
@@ -60,19 +61,10 @@ def global_cache_root() -> Path:
     env = os.environ.get("LVKIT_CACHE_DIR")
     if env:
         return Path(env)
-    from lvkit.project_store import global_home
-
-    return global_home() / "cache"
+    return project_store.global_home() / "cache"
 
 
-# ── Run-scoped extraction roots ─────────────────────────────────────────────
-# The resolved <vilib>/<userlib>/<instrlib> roots for the current run, set once at
-# `InMemoryVIGraph.set_library_roots` so `classify` can prefix-match a VI to its
-# tier without re-guessing from the path. One run at a time (same single-process
-# concurrency caveat the extractor has always had).
-_vilib_roots: tuple[Path, ...] = ()
-_userlib_roots: tuple[Path, ...] = ()
-_instrlib_roots: tuple[Path, ...] = ()
+# ── A run's library folders ─────────────────────────────────────────────────
 
 
 def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
@@ -83,37 +75,36 @@ def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
     return tuple(f.resolve() for f in folders)
 
 
-def set_extraction_roots(
-    *,
-    vilib_root: Path | Sequence[Path] | None,
-    userlib_root: Path | Sequence[Path] | None,
-    instrlib_root: Path | Sequence[Path] | None = None,
-) -> None:
-    """Record the run's library folders (each one or several) for cache
-    classification.
+@dataclass(frozen=True)
+class LibraryRoots:
+    """The vi.lib / user.lib / instr.lib folders of ONE run, each resolved.
 
-    Folders are resolved to absolute paths so prefix-matching in :func:`classify`
-    is stable regardless of how a VI path was spelled. Passing ``None`` or an
-    empty list clears that library.
+    :func:`classify` prefix-matches a VI's resolved path against these to choose
+    its tier. Every run carries its own (``InMemoryVIGraph.cache_roots``), so runs
+    sharing a process never see each other's folders. ``LibraryRoots()`` means the
+    run has no library folders.
     """
-    global _vilib_roots, _userlib_roots, _instrlib_roots
-    _vilib_roots = _resolved(vilib_root)
-    _userlib_roots = _resolved(userlib_root)
-    _instrlib_roots = _resolved(instrlib_root)
 
+    vilib: tuple[Path, ...] = ()
+    userlib: tuple[Path, ...] = ()
+    instrlib: tuple[Path, ...] = ()
 
-def extraction_roots() -> tuple[tuple[Path, ...], tuple[Path, ...], tuple[Path, ...]]:
-    """The run's ``(vilib, userlib, instrlib)`` folders as last set (empty when
-    unset)."""
-    return _vilib_roots, _userlib_roots, _instrlib_roots
-
-
-def clear_extraction_roots() -> None:
-    """Forget the run's library folders (fall back to project/adhoc)."""
-    global _vilib_roots, _userlib_roots, _instrlib_roots
-    _vilib_roots = ()
-    _userlib_roots = ()
-    _instrlib_roots = ()
+    @classmethod
+    def of(
+        cls,
+        *,
+        vilib_root: Path | Sequence[Path] | None = None,
+        userlib_root: Path | Sequence[Path] | None = None,
+        instrlib_root: Path | Sequence[Path] | None = None,
+    ) -> LibraryRoots:
+        """Build from each library's folder (one or several; ``None`` or empty
+        means none). Folders are resolved to absolute paths so prefix-matching in
+        :func:`classify` is stable regardless of how a VI path was spelled."""
+        return cls(
+            vilib=_resolved(vilib_root),
+            userlib=_resolved(userlib_root),
+            instrlib=_resolved(instrlib_root),
+        )
 
 
 # ── Namespace classification ────────────────────────────────────────────────
@@ -245,13 +236,11 @@ def _project_root_for(vi_path: Path) -> Path | None:
     passes through it to the enclosing project, so the cache/scope covers the
     whole project rather than one class.
     """
-    from lvkit.project_store import global_home
-
     start = vi_path if vi_path.is_dir() else vi_path.parent
     ancestors = (start, *start.parents)
     # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
     # every VI under $HOME collapses into one hash($HOME) bucket.
-    home = global_home().resolve()
+    home = project_store.global_home().resolve()
     # An EXISTING .lvkit/ store wins even when a NEARER ancestor is its own git
     # repo: vendored corpora (each carrying a .git) share the outer project's
     # cache instead of sprouting a .lvkit/ inside every clone.
@@ -282,32 +271,12 @@ def store_root(path: Path | str) -> Path:
     )
 
 
-def project_root(path: Path | str) -> Path:
-    """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
-    it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project store;
-    the folder itself when there is none. The base of every project-relative name
-    a user sees: a generated module's path, a documentation page, a warning's VI.
-    (``store_root`` answers a different question: where lvkit keeps what it
-    caches.)"""
-    from lvkit.project_store import PROJECT_STORE_DIR, global_home
-
-    resolved = Path(path).resolve()
-    own = resolved if resolved.is_dir() else resolved.parent
-    home = global_home().resolve()
-    for folder in [own, *own.parents]:
-        store = folder / PROJECT_STORE_DIR
-        if (
-            any(folder.glob("*.lvproj"))
-            or (folder / ".git").exists()
-            or (store.is_dir() and store.resolve() != home)
-        ):
-            return folder
-    return own
-
-
-def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
+def classify(
+    vi_path: Path, kind: str, roots: LibraryRoots
+) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
-    artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
+    artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``). ``roots`` are
+    the library folders of the run asking.
 
     ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<fp>/vi-<hash>`` — project-
     first: the VI's identity (namespace + slug) is named ONCE and the ``kind``
@@ -333,9 +302,9 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     fp = kind_fingerprint(kind)
 
     for tier, library in (
-        *(("vilib", f) for f in _vilib_roots),
-        *(("userlib", f) for f in _userlib_roots),
-        *(("instrlib", f) for f in _instrlib_roots),
+        *(("vilib", f) for f in roots.vilib),
+        *(("userlib", f) for f in roots.userlib),
+        *(("instrlib", f) for f in roots.instrlib),
     ):
         rel = _rel_under(resolved, library)
         if rel is not None:
@@ -359,9 +328,9 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     return cache / "adhoc" / kind / fp / _vi_slot(resolved), resolved.name, "adhoc"
 
 
-def cache_target(vi_path: Path, kind: str) -> Path:
+def cache_target(vi_path: Path, kind: str, roots: LibraryRoots) -> Path:
     """The per-VI cache directory for ``vi_path`` and ``kind`` (created)."""
-    target, _, _ = classify(vi_path, kind)
+    target, _, _ = classify(vi_path, kind, roots)
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -531,7 +500,12 @@ def extraction_fingerprint() -> str:
     return h.hexdigest()
 
 
-def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> bool:
+def meta_fresh(
+    vi_path: Path,
+    meta_path: Path,
+    extra: dict | None = None,
+    check: Callable[[dict], bool] | None = None,
+) -> bool:
     """True if the cached artifact described by ``meta_path`` is still valid for
     ``vi_path``.
 
@@ -540,6 +514,8 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
     mtime on a content match. When ``extra`` is given (e.g. lvkit version +
     render options), every key must ALSO match the recorded meta — a version
     bump or an options change is a miss even when the VI bytes are unchanged.
+    ``check`` is given the recorded meta and says whether what it records besides
+    the VI is still current.
     """
     if not meta_path.exists():
         return False
@@ -552,6 +528,8 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
             if meta.get(k) != v:
                 return False
     if not dependencies_fresh(meta.get("dependencies")):
+        return False
+    if check is not None and not check(meta):
         return False
     try:
         st = vi_path.stat()

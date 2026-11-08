@@ -14,6 +14,7 @@ import importlib
 import keyword
 import sys
 import threading
+import types
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -24,11 +25,13 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import LVType, LVTypeKind
+from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
 
@@ -471,6 +474,40 @@ def test_the_inline_name_transform_is_the_generators() -> None:
     exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
     for name in AWKWARD_NAMES:
         assert namespace["_module_part"](name) == module_part(name)  # type: ignore[operator]
+
+
+@pytest.mark.parametrize("kind", [".vi", ".VI", ".vim", ".Vim", ".vit", ".VIT"])
+@pytest.mark.parametrize("stem", ["Run Test", "1D Test", "a-b", "class"])
+def test_the_inline_module_of_a_name_is_the_generators(
+    stem: str, kind: str, tmp_path: Path
+) -> None:
+    """The module the generated code imports for a path or name computed when it
+    runs is the module ``ModuleLayout`` placed the VI in."""
+    imported: list[str] = []
+
+    class Importlib:
+        @staticmethod
+        def import_module(name: str, package: str) -> object:
+            imported.append(name)
+            return types.SimpleNamespace(**{function: object()})
+
+    namespace: dict[str, object] = {
+        "keyword": keyword,
+        "builtins": builtins,
+        "importlib": Importlib,
+        "__package__": "pkg",
+    }
+    exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
+    exec(vi_reference.FUNCTION_NAME_SOURCE, namespace)  # noqa: S102
+    function = to_function_name(f"{stem}.vi")
+    snippet = vi_reference._IMPORT_MODULE.format(  # noqa: SLF001
+        stem="stem", suffix="suffix", package="'.'", module="m", reference="r"
+    )
+    namespace["stem"] = stem + kind
+    exec(snippet, namespace)  # noqa: S102
+    key = str(tmp_path.resolve() / f"{stem}{kind}")
+    layout = ModuleLayout(InMemoryVIGraph(), [key], tmp_path, frozenset(), {})
+    assert imported == ["." + layout.places[key].module]
 
 
 def test_the_inline_function_name_is_the_generators() -> None:

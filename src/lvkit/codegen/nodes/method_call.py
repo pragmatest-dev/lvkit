@@ -125,10 +125,10 @@ def build_call(
                 )
             )
         if receiver is None:
-            raise CodeGenError(
+            raise ConversionGap(
                 f"The call of the dynamic-dispatch method {shape.name!r} has no "
-                "object wired to its class input, so there is no object to "
-                "dispatch on",
+                "object wired to its class input, but a dynamic dispatch input "
+                "must be wired, so the VI is broken in LabVIEW",
                 node,
             )
 

@@ -23,16 +23,14 @@ that caller.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import networkx as nx
 
-from ..parser.models import (
-    ABSOLUTE_PATH_TYPE,
-    ParsedDependencyRef,
-    is_symbolic_root,
-)
+from ..library_folders import is_symbolic_root
+from ..parser.models import ABSOLUTE_PATH_TYPE, ParsedDependencyRef
 from .node_kinds import EdgeRel
 
 _CONTAINER_SUFFIXES = (".lvclass", ".lvlib")
@@ -68,6 +66,31 @@ def member_tokens(tokens: list[str], leaf: str) -> list[str]:
     return [*tokens[:-1], redirect_member_beside_container(Path(tokens[-1]), leaf).name]
 
 
+def walk_relative(
+    caller: Sequence[str], tokens: Sequence[str], keep: int
+) -> list[str] | None:
+    """``tokens``, a path recorded relative to the file ``caller`` (its folders
+    and name), as the folders and name it reaches from there: each leading empty
+    token pops one level of ``caller`` (the first its file name), ``..`` pops
+    another, ``.`` stays, any other token is a folder or the name. None when
+    ``tokens`` is not relative (no leading empty token) or a pop would reach into
+    the first ``keep`` tokens of ``caller`` (the folder the walk must stay in)."""
+    empties = 0
+    while empties < len(tokens) and tokens[empties] == "":
+        empties += 1
+    if empties == 0 or len(caller) - empties < keep:
+        return None
+    base = list(caller[: len(caller) - empties])
+    for token in tokens[empties:]:
+        if token == "..":
+            if len(base) <= keep:
+                return None
+            base.pop()
+        elif token != ".":
+            base.append(token)
+    return base
+
+
 def resolve_against(tokens: list[str], caller: list[str] | None) -> list[str]:
     """``tokens`` (the path a caller recorded) made to start at an installation
     folder when they are relative to a caller that has an installation path
@@ -78,20 +101,8 @@ def resolve_against(tokens: list[str], caller: list[str] | None) -> list[str]:
     installation folder, or whose caller has none, are returned unchanged."""
     if not tokens or is_symbolic_root(tokens[0]) or not caller:
         return list(tokens)
-    empties = 0
-    while empties < len(tokens) and tokens[empties] == "":
-        empties += 1
-    if empties == 0 or empties >= len(caller):
-        return list(tokens)
-    base = caller[:-empties]
-    for token in tokens[empties:]:
-        if token == "..":
-            if len(base) <= 1:
-                return list(tokens)
-            base.pop()
-        elif token != ".":
-            base.append(token)
-    return base
+    walked = walk_relative(caller, tokens, keep=1)
+    return list(tokens) if walked is None else walked
 
 
 @dataclass(frozen=True)
@@ -120,6 +131,10 @@ class RecordedPaths:
     def __init__(self, dep_graph: nx.DiGraph) -> None:
         self._dep_graph = dep_graph
         self._references: dict[str, set[_Reference]] = {}
+        # What each caller stores for each key, exactly as stored (never moved to a
+        # member's file, and including a class method's class path): for showing,
+        # never for placing.
+        self._stored: dict[tuple[str, str], _Reference] = {}
         # The round a key settled in and its resolved tokens (round 0 and None for
         # a key with no path), valid while the references and the ownership edges
         # are as they were (``_stamp``).
@@ -130,6 +145,7 @@ class RecordedPaths:
 
     def clear(self) -> None:
         self._references.clear()
+        self._stored.clear()
         self._settled.clear()
         self._stamp = (-1, -1)
         self._recorded = 0
@@ -154,6 +170,35 @@ class RecordedPaths:
         if reference not in references:
             references.add(reference)
             self._recorded += 1
+
+    def note_stored(
+        self,
+        key: str,
+        caller: str,
+        tokens: list[str],
+        path_type: int | None = None,
+    ) -> None:
+        """Remember the path ``caller`` stores for ``key`` exactly as stored. It
+        takes no part in resolution. When a caller stores several, the smallest
+        (``_order``) is kept."""
+        if not tokens:
+            return
+        new = _Reference(caller, tuple(tokens), path_type)
+        old = self._stored.get((key, caller))
+        if old is None or _order(list(new.tokens)) < _order(list(old.tokens)):
+            self._stored[(key, caller)] = new
+
+    def stored_by(self, key: str, caller: str) -> ParsedDependencyRef | None:
+        """The path ``caller`` stores for ``key``, exactly as stored (a class
+        method's is its class's path); None when it stored none."""
+        chosen = self._stored.get((key, caller))
+        if chosen is None:
+            return None
+        return ParsedDependencyRef(
+            name=chosen.tokens[-1],
+            path_tokens=list(chosen.tokens),
+            path_type=chosen.path_type,
+        )
 
     def owners_changed(self) -> None:
         """The loader added an ownership edge (a class or library to a member): the

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -2241,7 +2242,7 @@ class TestRealVIParsing:
 
         from lvkit.extractor import extract_vi_xml
 
-        bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path)
+        bd_xml, fp_xml, main_xml = extract_vi_xml(sample_vi_path, roots=LibraryRoots())
 
         # Parse VI
         vi = parse_vi(bd_xml=bd_xml)

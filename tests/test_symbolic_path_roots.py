@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.parser.models import ParsedDependencyRef, is_symbolic_root
+from lvkit.library_folders import is_symbolic_root
+from lvkit.parser.models import ParsedDependencyRef
 
 CALLER = Path("/proj/Providers/Item_OnPopupMenu.vi")
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.node_kinds import EdgeRel, NodeType
@@ -40,7 +41,8 @@ def fake_extraction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     bd_xml = tmp_path / "Tiny_BDHb.xml"
     bd_xml.write_text(_BD_XML)
     monkeypatch.setattr(
-        "lvkit.graph.loading.extract_vi_xml", lambda _path: (bd_xml, None, None)
+        "lvkit.graph.loading.extract_vi_xml",
+        lambda _path, roots: (bd_xml, None, None),
     )
     return tmp_path
 
@@ -189,8 +191,10 @@ _LVCLASS_XML = """<?xml version='1.0' encoding='UTF-8'?>
 def test_class_methods_include_vim(tmp_path: Path, monkeypatch) -> None:
     class_path = tmp_path / "Thing.lvclass"
     class_path.write_text(_LVCLASS_XML, encoding="utf-8")
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
 
-    methods = parse_lvclass(class_path).methods
+    methods = parse_lvclass(class_path, LibraryRoots()).methods
 
     assert [m.name for m in methods] == ["Adapt", "Run"]

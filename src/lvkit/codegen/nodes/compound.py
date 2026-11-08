@@ -10,7 +10,6 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.primitive_resolver import get_resolver
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
 from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
@@ -120,7 +119,7 @@ def generate_compound_arith(
     output_id = output_term.id
     # NI: an error cluster wired to a value input passes only its status, a
     # Boolean.
-    entry = get_resolver().resolve_by_node_type(node.node_type or "")
+    entry = ctx.primitive_catalog.resolve_by_node_type(node.node_type or "")
     reads_status = entry is not None and entry.inputs_error_cluster_status
     status_inputs = {
         t.id
@@ -467,7 +466,7 @@ def generate_array_replace(
     subarray runs along when only a trailing index is wired, so a subarray
     whose leading indices are not all wired raises a diagnostic.
     """
-    roles = laid_out_roles(node, "aReplace")
+    roles = laid_out_roles(ctx, node, "aReplace")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
@@ -556,7 +555,7 @@ def generate_array_insert(
     necessary" and does not say which cells are padded or with what, so a
     diagnostic is raised instead of guessing.
     """
-    roles = laid_out_roles(node, "aInsert")
+    roles = laid_out_roles(ctx, node, "aInsert")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)

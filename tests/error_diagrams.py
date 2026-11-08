@@ -871,7 +871,9 @@ class Project:
         )
         return path
 
-    def extract(self, path: Path) -> tuple[Path, Path | None, Path]:
+    def extract(
+        self, path: Path, *, roots: object = None
+    ) -> tuple[Path, Path | None, Path]:
         return self._xml[Path(path).resolve()]
 
     def views(self, name: str) -> ErrorViews:
@@ -928,7 +930,9 @@ def _module_stem(name: str) -> str:
 def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Project]:
     built = Project(tmp_path)
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     yield built
     built.close()

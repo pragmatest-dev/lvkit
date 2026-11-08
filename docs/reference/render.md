@@ -17,7 +17,7 @@ lvkit render <input_path> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `input_path` | Path to a `.vi` file, or its already-extracted `_BDHb.xml` block-diagram heap (skips re-running the extractor). |
+| `input_path` | Path to a `.vi` file, or its already-extracted `_BDHb.xml` block-diagram heap (skips re-running the extractor). The path may be written as lvkit prints it (`<userlib>/…`, `<vilib>/…`, `<instrlib>/…`, or a VI inside an `.llb` through its archive): it is found in the folders given by `--vilib`, `--userlib` and `--instrlib`. |
 
 ## Options
 
