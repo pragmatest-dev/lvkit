@@ -70,8 +70,9 @@
         }
       ],
       "python_code": {
-        "path": "Path(*in_0) if not in_1 else Path(*in_0)"
+        "path": "Path(*in_0) if in_1 else (Path(in_0[0] + ':/' if os.name == 'nt' else '/' + in_0[0], *in_0[1:]) if in_0 else Path(''))"
       },
+      "imports": ["import os", "from pathlib import Path"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-of-strings-to-path.html"
@@ -89,7 +90,6 @@
           "index": 1,
           "direction": "output",
           "name": "relative",
-          "python_name": "empty_path",
           "type": "Boolean"
         },
         {
@@ -101,8 +101,8 @@
         }
       ],
       "python_code": {
-        "empty_path": "str(in_0) == ''",
-        "names": "list(in_0.parts) if in_0 else []"
+        "relative": "in_0 is not None and not in_0.is_absolute()",
+        "names": "[p.rstrip(':\\\\/') for p in in_0.parts if p.rstrip(':\\\\/')] if in_0 is not None else []"
       },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-to-array-of-strings.html"
