@@ -26,6 +26,7 @@ from .link_table import (
     SharedVariableLink,
     SharedVariableRecordFailure,
 )
+from .utils import HIDDEN_FLAG
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -592,6 +593,17 @@ class ParsedFPDCOTypeMap:
 
 
 @dataclass(frozen=True)
+class ParsedFPPartState:
+    """One state of a ``bigMultiCosm`` part (an LED's off and on, a switch's
+    up and down): the state's own bounds, literal colors and picture id."""
+
+    bounds: tuple[int, int, int, int]  # top, left, bottom, right, part-local
+    fg_color: str | None = None
+    bg_color: str | None = None
+    image_id: int | None = None
+
+
+@dataclass(frozen=True)
 class ParsedFPPart:
     """A constituent part of a composite front-panel control, with its geometry
     in the CONTROL'S OWN local coordinate space (the FPHb heap records these; the
@@ -619,6 +631,48 @@ class ParsedFPPart:
     # None for a default/system color, which the view themes.
     fg_color: str | None = None
     bg_color: str | None = None
+    # The picture ids of the part, in stored order: a ``cosm``/``label``/
+    # ``numLabel`` has one, a ``multiCosm`` one per state, a ``bigMultiCosm``
+    # one per ``states`` entry. A negative id is a built-in shape, a positive id
+    # a picture embedded in the VI. They carry the control's look (Modern,
+    # System, Silver; ``labview-binary-format.md`` "Front panel structure").
+    image_ids: tuple[int, ...] = ()
+    # The part's ``objFlags``; bit 0x8 is "hidden".
+    flags: int = 0
+    # A ``bigMultiCosm``'s per-state bounds, colors and picture, in stored order.
+    states: tuple[ParsedFPPartState, ...] = ()
+    # A ``multiLabel``'s texts, one per state, in stored order (a Boolean's
+    # button text, a ring's items); empty for every other part.
+    texts: tuple[str, ...] = ()
+    # The literal color of a text part's first font run (``#RRGGBB``); None for
+    # a system color or a part with no font run.
+    text_color: str | None = None
+    # The font of a text part's first font run; None for a part whose text has no
+    # run (it is drawn in the default font).
+    font: ParsedFPFont | None = None
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self.flags & HIDDEN_FLAG)
+
+
+@dataclass(frozen=True)
+class ParsedFPListbox:
+    """A listbox's own table settings (``ddo`` children and its ``grid`` part).
+    ``frozen_rows`` / ``label_pos_row`` are the grid's header-row settings;
+    ``column_widths`` has one width per column; ``flags`` is ``listboxFlags``
+    (not decoded)."""
+
+    frozen_rows: int = 0
+    label_pos_row: int = 0
+    column_headers: tuple[str, ...] = ()
+    column_widths: tuple[int, ...] = ()
+    flags: int = 0
+    border_color: str | None = None
+
+    @property
+    def has_header(self) -> bool:
+        return self.frozen_rows > 0 and self.label_pos_row > 0
 
 
 @dataclass
@@ -630,6 +684,11 @@ class ParsedFPControl:
     control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.
     bounds: tuple[int, int, int, int]  # top, left, bottom, right
     is_indicator: bool = False  # True if output, False if input
+    # The control's own ddo ``objFlags`` bit 0: how it LOOKS (an indicator is
+    # drawn read-only). ``is_indicator`` follows the block diagram's terminal
+    # (and so a cluster field or array element takes its container's); this is
+    # the control's own.
+    shows_as_indicator: bool = False
     # This control's own resolved LabVIEW type, from the VI's VCTP type map
     # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
     # connector-pane terminal's type comes from. Real per-control identity
@@ -674,6 +733,9 @@ class ParsedFPControl:
     # Constituent parts with control-local geometry (array index display /
     # element cell / frame). Empty for simple scalar controls.
     parts: list[ParsedFPPart] = field(default_factory=list)
+    # The PNG of each positive picture id its parts name (``fp_pictures``); an id
+    # the VI stores no picture for is absent.
+    pictures: dict[int, bytes] = field(default_factory=dict)
     # This control's REAL field geometry, decoded from the heap's own
     # front-panel-editor layout (`layout._cluster_field_geoms`) -- present when
     # `control_type == "stdClust"` (a standalone cluster, or a typedef-wrapped
@@ -729,6 +791,134 @@ class ParsedFPControl:
     # other unresolvable range, never a wrong one).
     slide_min: float | None = None
     slide_max: float | None = None
+    # For ``control_type == "tabControl"`` in a pane's, page's or grouper's
+    # object list: its pages in tab order, and the index of the page shown when
+    # the VI was saved. Empty / None for every other control.
+    tab_pages: list[ParsedFPTabPage] = field(default_factory=list)
+    tab_selected: int | None = None
+    # Hidden on the panel (bit 0x8 of the control's own ddo ``objFlags``): the
+    # control exists (terminal, local variables) but the panel does not show it.
+    hidden: bool = False
+    # For ``control_type == "listbox"``: its table settings; None otherwise.
+    listbox: ParsedFPListbox | None = None
+
+
+@dataclass(frozen=True)
+class ParsedFPFont:
+    """One row of the VI's font table, with the props that are settled
+    (``parser/fp_fonts.py``): ``name`` is a real font name (None for a row that
+    refers to a predefined font), ``predefined`` the number of the predefined
+    font it is or refers to (0 Application, 1 System, 2 Dialog; None for a named
+    font past the first three rows), ``size`` the size in points (None: the
+    default size), ``bold`` whether it is drawn bold."""
+
+    name: str | None
+    predefined: int | None
+    size: int | None
+    bold: bool
+
+
+@dataclass(frozen=True)
+class ParsedFPFontRun:
+    """One run of a free label's text: the character ``offset`` where it
+    starts (0 when the file stores none), the index of its font in the VI's
+    font table, and its literal text color (``#RRGGBB``, None when absent)."""
+
+    offset: int
+    font_id: int | None
+    color: str | None
+
+
+@dataclass(frozen=True)
+class ParsedFPLabel:
+    """A free label on a front panel (a text object that is not a control's
+    own label). ``bounds`` is ``(top, left, bottom, right)`` in the space of
+    the pane, tab page or grouper that holds it."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    text: str
+    fg_color: str | None
+    bg_color: str | None
+    hidden: bool
+    font_runs: list[ParsedFPFontRun]
+    # The font of the first run (a label with several runs is drawn in it); None
+    # for a label with no run.
+    font: ParsedFPFont | None = None
+
+
+@dataclass(frozen=True)
+class ParsedFPDecoration:
+    """A free decoration on a front panel. ``image_res_id`` is the stored
+    number that says which shape it is; ``bounds`` is ``(top, left, bottom,
+    right)`` in the space of the holder."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    image_res_id: int
+    fg_color: str | None
+    bg_color: str | None
+
+
+@dataclass
+class ParsedFPGrouper:
+    """A group of front-panel objects. ``bounds`` is in the space of the
+    holder; the bounds of ``objects`` are relative to the grouper's own
+    top-left, as stored. List order is front to back."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    objects: list[ParsedFPObject]
+
+
+ParsedFPObject = ParsedFPControl | ParsedFPLabel | ParsedFPDecoration | ParsedFPGrouper
+
+
+@dataclass
+class ParsedFPTabPage:
+    """One page of a tab control. ``bounds`` is as stored (tab-local); the
+    page's ``objects`` keep the stored order, first = topmost."""
+
+    name: str
+    bounds: tuple[int, int, int, int]
+    objects: list[ParsedFPObject]
+
+
+@dataclass
+class ParsedFPPane:
+    """A pane of the front panel: the whole panel, or one leaf of a splitter.
+
+    ``bounds`` is ``(top, left, bottom, right)`` in the parent splitter's
+    space; its size is the size of the saved window. ``origin`` is the pane's
+    scroll offset ``(x, y)``: the saved window shows the stored positions
+    shifted by it; ``(0, 0)`` when the file stores none. ``doc_bounds`` is the
+    scroll extent in stored space (``docBounds``), None when absent
+    (``docs/_internal/design/labview-binary-format.md`` "Front panel
+    structure"). ``objects`` keep the stored order: the first object is the
+    topmost."""
+
+    bounds: tuple[int, int, int, int]
+    origin: tuple[int, int]
+    objects: list[ParsedFPObject]
+    doc_bounds: tuple[int, int, int, int] | None = None
+    # The pane's own colour (``#RRGGBB``): the ``fgColor`` of its ``partID`` 28
+    # background cosm; None when it records none or a system colour.
+    background: str | None = None
+
+
+@dataclass
+class ParsedFPSplitter:
+    """A splitter: two panes (or nested splitters) divided by a bar.
+
+    ``ratio`` is the first side's share of the splitter's size.
+    ``side_by_side`` is True when ``first`` is left of ``second``, False when
+    it is above it; it is read from the two children's bounds."""
+
+    bounds: tuple[int, int, int, int]
+    ratio: float
+    side_by_side: bool
+    first: ParsedFPPane | ParsedFPSplitter
+    second: ParsedFPPane | ParsedFPSplitter
 
 
 @dataclass
@@ -750,6 +940,19 @@ class ParsedFrontPanel:
     # The fPDCO uids of the controls that record no label anywhere the VI
     # keeps one: each is named ``control_<uid>``. Sorted.
     unlabeled_controls: list[str] = field(default_factory=list)
+    # The panel's object tree (panes, splitters, tab pages, groupers, free
+    # labels, decorations), holding the same control objects as ``controls``.
+    # None when the heap carries no ``paneHierarchy``.
+    layout: ParsedFPPane | ParsedFPSplitter | None = None
+    # What lvkit could not read in that tree, each a phrase ("a tab page with no
+    # bounds"); every one is a problem on the VI (``unread_panel_problems``).
+    unread_objects: list[str] = field(default_factory=list)
+    # The LabVIEW version the file was saved with ("8.5.0"), None when the file
+    # records none. It decides how a tab page's or grouper's children are placed
+    # (`render.front_panel.geometry`).
+    lv_version: str | None = None
+    # The VI's font table (``fontid`` indexes it from 0); empty when it has none.
+    fonts: tuple[ParsedFPFont, ...] = ()
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None

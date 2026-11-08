@@ -31,9 +31,16 @@ _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # top-level block in the VI's resource XML is unrelated and ignored.
 _SECTION_BLOCKS = ("PICC", "DSIM")
 
+# The block holding the pictures a front-panel part names by a positive picture
+# id: one ``Section`` per id, its ``File`` a ready PNG (``vi_MNGI2.png``).
+PANEL_PICTURE_BLOCK = "MNGI"
 
-def resource_sections(main_xml: Path) -> dict[int, Path]:
-    """Section Index -> resource file, from a VI's top-level ``<stem>.xml``.
+
+def resource_sections(
+    main_xml: Path, blocks: tuple[str, ...] = _SECTION_BLOCKS
+) -> dict[int, Path]:
+    """Section Index -> resource file, from a VI's top-level ``<stem>.xml``,
+    for the sections of the ``blocks`` named.
 
     Missing file or malformed XML -> ``{}`` (no resources), never a crash --
     most VIs have no picture/decoration content at all.
@@ -43,7 +50,7 @@ def resource_sections(main_xml: Path) -> dict[int, Path]:
     except (OSError, ET.ParseError):
         return {}
     sections: dict[int, Path] = {}
-    for block_tag in _SECTION_BLOCKS:
+    for block_tag in blocks:
         block = root.find(block_tag)
         if block is None:
             continue

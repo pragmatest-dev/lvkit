@@ -5,11 +5,11 @@ from __future__ import annotations
 from lvkit.parser.models import ParsedFPControl, ParsedFPPart, ParsedFrontPanel
 from lvkit.render.front_panel import render_front_panel_svg
 
-_SHOWN = {"objFlags": "530802"}
-_HIDDEN = {"objFlags": "530810"}  # bit 0x8 set
+_SHOWN = 530802
+_HIDDEN = 530810  # bit 0x8 set
 
 
-def _index(top: int, props: dict[str, str]) -> ParsedFPPart:
+def _index(top: int, flags: int) -> ParsedFPPart:
     # 41x30 index display: spinner halves at the left, readout at the right.
     sub = [
         ParsedFPPart(10, "numLabel", (7, 17, 24, 37)),
@@ -17,7 +17,7 @@ def _index(top: int, props: dict[str, str]) -> ParsedFPPart:
         ParsedFPPart(2, "bigMultiCosm", (0, 0, 14, 14)),
         ParsedFPPart(9, "cosm", (3, 13, 28, 41)),
     ]
-    return ParsedFPPart(8002, "stdNum", (top, 2, top + 30, 43), props, sub)
+    return ParsedFPPart(8002, "stdNum", (top, 2, top + 30, 43), {}, sub, flags=flags)
 
 
 def _svg(indices: list[ParsedFPPart]) -> str:
