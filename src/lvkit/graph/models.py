@@ -457,6 +457,9 @@ class ConstantNode(GraphNode):
     # Set when ``value`` shows an array (itself, or inside a cluster) whose values
     # were not kept because it is too large.
     unwritable: UnwritableValue | None = None
+    # True for the empty Variant (no value, no attributes): ``value`` is its
+    # display text ``Variant()``, and the Python value is ``None``.
+    empty_variant: bool = False
     # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
     # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser
@@ -719,6 +722,7 @@ class Constant(BaseModel):
     raw_value: str | None = None
     referenced_vi_key: str | None = None
     unwritable: UnwritableValue | None = None
+    empty_variant: bool = False
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = that frame's frame_key.

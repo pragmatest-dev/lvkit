@@ -2591,6 +2591,47 @@ def _decode_collection(
     return "{" + ", ".join(f"{e[0]}: {e[1]}" for e in entries) + "}", pos, structured
 
 
+def _variant_head(
+    data: bytes | memoryview,
+) -> tuple[LVType | None, bool, int] | None:
+    """The start of a flattened Variant: the type its value has (None when it
+    holds no value), whether the value is Void, and the offset after the value
+    (the attribute count). None for a Variant saved by LabVIEW 7 or older (it
+    stores a byte count where the version is), one whose descriptors do not
+    read, or whose value has a type this does not read."""
+    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+        return None
+    count = int.from_bytes(data[4:8], "big")
+    read = read_descriptors(data, 8, count)
+    if read is None:
+        return None
+    descriptors, pos = read
+    has_value = read_var_size(data, pos)
+    if has_value is None:
+        return None
+    present, pos = has_value
+    if not present:
+        return None, True, pos
+    typed = read_var_size(data, pos)
+    if typed is None:
+        return None
+    index, pos = typed
+    value_type = descriptor_type(descriptors, index)
+    if value_type is None:
+        return None
+    return value_type, value_type.underlying_type == "Void", pos
+
+
+def variant_is_empty(data: bytes | memoryview) -> bool:
+    """Whether a flattened Variant holds no value (type Void) and no attributes:
+    the empty Variant, which is Python's ``None``."""
+    head = _variant_head(data)
+    if head is None or not head[1]:
+        return False
+    pos = head[2]
+    return len(data) >= pos + 4 and int.from_bytes(data[pos : pos + 4], "big") == 0
+
+
 def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     """One flattened Variant: ``[version][type count][type descriptors]
     [has value][value type index][value][attribute count][attributes]``, each
@@ -2602,33 +2643,18 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     Returns ``(None, 0, None)`` for a Variant saved by LabVIEW 7 or older (it
     stores a byte count where the version is) or whose value has a type this
     does not read."""
-    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+    head = _variant_head(data)
+    if head is None:
         return None, 0, None
-    count = int.from_bytes(data[4:8], "big")
-    read = read_descriptors(data, 8, count)
-    if read is None:
-        return None, 0, None
-    descriptors, pos = read
-    has_value = read_var_size(data, pos)
-    if has_value is None:
-        return None, 0, None
-    present, pos = has_value
+    value_type, is_void, pos = head
     shown = "Variant()"
     structured: object = shown
-    if present:
-        typed = read_var_size(data, pos)
-        if typed is None:
+    if value_type is not None and not is_void:
+        value, consumed, structured = _decode_element(data[pos:], value_type)
+        if value is None and consumed == 0:
             return None, 0, None
-        index, pos = typed
-        value_type = descriptor_type(descriptors, index)
-        if value_type is None:
-            return None, 0, None
-        if value_type.underlying_type != "Void":
-            value, consumed, structured = _decode_element(data[pos:], value_type)
-            if value is None and consumed == 0:
-                return None, 0, None
-            pos += consumed
-            shown = f"Variant({value})"
+        pos += consumed
+        shown = f"Variant({value})"
     if pos + 4 > len(data):
         return None, 0, None
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")

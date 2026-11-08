@@ -1364,6 +1364,9 @@ def _format_constant(
     if member_ref is not None:
         return member_ref
 
+    if const.empty_variant:
+        return "None"
+
     python_hint = getattr(const, "python", None)
     if python_hint:
         return str(python_hint)
