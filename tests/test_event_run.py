@@ -94,8 +94,9 @@ def test_panel_close_answers_with_the_discard_of_its_frame(
         package, ("", None, _kinds(package).PANEL_CLOSE, None, reply)
     )
     assert reply.get_nowait() == (discard, None)
-    assert updates == [("CLOSED", True)]
-    assert (result.closed, result.timed_out) == (True, False)
+    # a frame that discards the close leaves the VI running: it ends on its Timeout
+    assert updates == [("CLOSED", True)] + ([("TIMED_OUT", True)] if discard else [])
+    assert (result.closed, result.timed_out) == (True, discard)
 
 
 def test_a_filter_event_no_frame_handles_is_not_discarded(

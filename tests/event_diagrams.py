@@ -173,18 +173,27 @@ def event_loop_vi(
     """A While Loop around an Event Structure with three frames: Timeout (sets
     ``Timed Out`` and ends the loop), Value Change on ``Gain`` and ``Offset`` (shows
     the event's NewVal and OldVal in ``Last New`` and ``Last Old``, and carries on)
-    and Panel Close? (sets ``Closed``, ends the loop; the Event Filter Node's
-    Discard? is ``discard``). With ``timeout`` None the Timeout terminal is
+    and Panel Close? (sets ``Closed``; its Event Filter Node's Discard? is ``discard``,
+    and the loop ends unless it is). With ``timeout`` None the Timeout terminal is
     unwired. With ``read_gain`` the Value Change frame also reads the ``Gain``
-    control's terminal and shows it in ``Seen Gain``. ``extra`` adds a fourth frame."""
+    control's terminal and shows it in ``Seen Gain``. ``extra`` adds a fourth
+    frame."""
     vi = Vi("Events.vi")
-    gain = vi.control("Gain", I32, REQUIRED)
-    offset = vi.control("Offset", I32, REQUIRED)
-    last_new = vi.indicator("Last New", I32)
-    last_old = vi.indicator("Last Old", I32)
-    timed_out = vi.indicator("Timed Out", BOOL)
-    closed = vi.indicator("Closed", BOOL)
-    seen = vi.indicator("Seen Gain", I32) if read_gain else None
+    gain = vi.control("Gain", I32, REQUIRED, bounds=(40, 20, 62, 160))
+    offset = vi.control("Offset", I32, REQUIRED, bounds=(80, 20, 102, 160))
+    last_new = vi.indicator("Last New", I32, bounds=(40, 200, 62, 340))
+    last_old = vi.indicator("Last Old", I32, bounds=(80, 200, 102, 340))
+    timed_out = vi.indicator(
+        "Timed Out", BOOL, ddo_class="stdBool", bounds=(120, 200, 150, 320)
+    )
+    closed = vi.indicator(
+        "Closed", BOOL, ddo_class="stdBool", bounds=(160, 200, 190, 320)
+    )
+    seen = (
+        vi.indicator("Seen Gain", I32, bounds=(200, 200, 222, 340))
+        if read_gain
+        else None
+    )
     loop = vi.loop("whileLoop")
     scope = loop.scopes[0]
     with vi.inside(scope):
@@ -216,7 +225,7 @@ def event_loop_vi(
     vi.wire(change_terms.data["OldVal"], last_old)
     if seen is not None:
         vi.wire(gain, seen)
-    ends = [(timeout_terms, True), (change_terms, False), (close_terms, True)]
+    ends = [(timeout_terms, True), (change_terms, False), (close_terms, not discard)]
     for index, (terms, value) in enumerate(ends):
         with vi.inside(terms.scope):
             vi.wire(vi.bool_constant(value), stop.faces[index])
