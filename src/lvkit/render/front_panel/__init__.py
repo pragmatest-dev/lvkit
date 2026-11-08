@@ -20,7 +20,7 @@ from .. import _BASE_CSS, ThemeMode, resolve_theme_mode
 from ..backend import SvgBackend
 from ..style import DEFAULT_THEME, Theme
 from .compose import draw_front_panel
-from .geometry import build_boxes, content_bounds
+from .geometry import build_boxes, content_bounds, panel_background
 
 if TYPE_CHECKING:
     from ...graph.core import InMemoryVIGraph
@@ -32,6 +32,7 @@ def render_front_panel_svg(
     title: str | None = None,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
+    window_frame: bool = True,
 ) -> str:
     """Render one already-parsed ``ParsedFrontPanel`` to a self-contained SVG
     string. The shared entry point both ``render_vi_front_panel`` and
@@ -52,17 +53,19 @@ def render_front_panel_svg(
     harmless no-ops here -- nothing in a front-panel SVG has those classes
     except the array index spinner's own click targets, which stay inert
     (no controller JS) exactly per the array glyphs' documented
-    static-fallback contract."""
+    static-fallback contract.
+
+    ``window_frame`` draws the saved window's edge as a thin frame and keeps it
+    in the canvas; a ``.ctl`` control's panel has no window worth showing."""
     theme, extra_css = resolve_theme_mode(theme_mode, theme)
-    boxes = build_boxes(front_panel)
+    boxes = build_boxes(front_panel, window_frame)
     bounds = content_bounds(boxes)
     backend = SvgBackend()
-    # A front panel's own background is LabVIEW's grey panel canvas
-    # (``fp_panel``), not the page/diagram white (``canvas``) -- every real
-    # LabVIEW front panel (incl. the Type Def. editor) sits on grey, never
-    # white; ``fp_panel`` already has a dark-mode counterpart (theme_web.py),
-    # so this stays theme-consistent.
-    backend.rect(*bounds, fill=theme.fp_panel)
+    # A front panel's background is the colour its first pane records; a panel
+    # that records none sits on LabVIEW's grey panel canvas (``fp_panel``), not
+    # the page/diagram white (``canvas``); ``fp_panel`` already has a dark-mode
+    # counterpart (theme_web.py), so this stays theme-consistent.
+    backend.rect(*bounds, fill=panel_background(front_panel) or theme.fp_panel)
     draw_front_panel(boxes, backend, theme)
     return backend.render(bounds, title=title, style=_BASE_CSS + extra_css)
 
@@ -107,4 +110,5 @@ def render_ctl_front_panel(
         title=graph.get_typedef(ctl_key).name,
         theme=theme,
         theme_mode=theme_mode,
+        window_frame=False,
     )
