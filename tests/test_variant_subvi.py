@@ -113,7 +113,7 @@ def test_a_table_built_two_subvis_down_is_a_dict(
     assert (result.value, result.found) == ("red", True)
 
 
-def _passes_variant(callee: str, *, wired: str) -> Vi:
+def _passes_variant(callee: str, *, wired: str, pane: bool = False) -> Vi:
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     call = vi.subvi(
@@ -126,7 +126,10 @@ def _passes_variant(callee: str, *, wired: str) -> Vi:
         vi.wire(vi.control("content", STR, REQUIRED), node["value"])
         vi.wire(node["variant out"], call["variant"])
     else:
-        vi.wire(vi.control("given", variant_type, REQUIRED), call["variant"])
+        vi.wire(
+            vi.control("given", variant_type, REQUIRED if pane else None),
+            call["variant"],
+        )
     _get_from(vi, variant_type, call["table"])
     return vi
 
@@ -141,12 +144,23 @@ def test_a_passthrough_of_an_empty_built_variant_is_a_dict(
     assert (result.value, result.found) == ("red", True)
 
 
-def test_a_passthrough_of_a_control_is_a_gap(project: Project) -> None:  # noqa: F811
+def test_a_passthrough_of_a_parameter_of_the_top_vi_is_a_dict(
+    project: Project,  # noqa: F811
+) -> None:
+    """The control is on the connector pane of the VI the lookup is in: a
+    parameter, the dict its caller passes, carried through the passthrough."""
+    project.add(_passthrough("Pass.vi"))
+    project.add(_passes_variant("Pass.vi", wired="control", pane=True))
+    package = project.generate(NAME)
+    assert package.function({"colour": "red"}, "colour").value == "red"
+
+
+def test_a_passthrough_of_a_control_off_the_pane_is_a_gap(project: Project) -> None:  # noqa: F811
     project.add(_passthrough("Pass.vi"))
     project.add(_passes_variant("Pass.vi", wired="control"))
     package = project.generate(NAME)
     with pytest.raises(NotImplementedError, match=re.escape(_GAP)):
-        package.function({}, "a")
+        package.function("a")
 
 
 def test_one_passthrough_called_empty_and_with_a_control_is_a_gap(
@@ -164,12 +178,12 @@ def test_one_passthrough_called_empty_and_with_a_control_is_a_gap(
     second = vi.subvi(
         "Pass.vi", variant=(0, variant_type, False), table=(1, variant_type, True)
     )
-    vi.wire(vi.control("given", variant_type, REQUIRED), second["variant"])
+    vi.wire(vi.control("given", variant_type, None), second["variant"])
     _get_from(vi, variant_type, second["table"])
     project.add(vi)
     package = project.generate(NAME)
     with pytest.raises(NotImplementedError, match=re.escape(_GAP)):
-        package.function({}, "a")
+        package.function("a")
 
 
 def test_a_subvi_that_is_not_loaded_is_a_gap(project: Project) -> None:  # noqa: F811

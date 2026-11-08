@@ -149,9 +149,6 @@ def function_body(
         parameter_names
         or interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
     )
-    docstring = front_panel_docstring(vi_context, names, ctx.type_namer())
-    if docstring is not None:
-        body.append(docstring)
     body.extend(ctx.entry_raises)
 
     # A control that is not on the connector pane is a local variable set to its
@@ -172,6 +169,14 @@ def function_body(
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
     body.extend(ctx.local_indicators.statements_at_end())
+
+    # The docstring opens the function; it names the Variant parameters the body
+    # turned out to read as lookup tables.
+    docstring = front_panel_docstring(
+        vi_context, names, ctx.type_namer(), sorted(ctx.lookup_parameters)
+    )
+    if docstring is not None:
+        body.insert(0, docstring)
 
     # Add return statement
     final = (

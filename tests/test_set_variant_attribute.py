@@ -40,7 +40,8 @@ EMPTY_VARIANT = "0900800000000001000400000001000000000000"
 
 def _set(project: Project, *, source: str = "constant", value: bool = True):  # noqa: F811
     """Set Variant Attribute whose variant is ``source``: an empty Variant
-    ``constant``, an ``unwired`` input, or a ``control``."""
+    ``constant``, an ``unwired`` input, a connector-pane ``control`` or a control
+    that is ``off-pane``."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     attr = vi.control("attr", STR, REQUIRED)
@@ -51,6 +52,8 @@ def _set(project: Project, *, source: str = "constant", value: bool = True):  # 
     node = vi.primitive(8204, _pane(vi, variant_type))
     if source == "control":
         vi.wire(vi.control("variant", variant_type, REQUIRED), node["variant"])
+    elif source == "off-pane":
+        vi.wire(vi.control("variant", variant_type, None), node["variant"])
     elif source == "constant":
         vi.wire(vi.constant(variant_type, EMPTY_VARIANT), node["variant"])
     vi.wire(attr, node["name"])
@@ -111,9 +114,18 @@ def test_an_empty_name_is_error_1(project: Project) -> None:  # noqa: F811
     assert result.error_out.source == "Set Variant Attribute"
 
 
-def test_a_variant_that_is_not_empty_is_a_gap(project: Project) -> None:  # noqa: F811
+def test_a_variant_parameter_given_an_attribute_is_the_dict_passed(
+    project: Project,  # noqa: F811
+) -> None:
     package = _set(project, source="control")
+    assert "a dict of the variant's attributes" in package.source
+    result = package.function("colour", "red", {"size": "big"})
+    assert result.result == {"size": "big", "colour": "red"}
+
+
+def test_a_variant_control_off_the_pane_is_a_gap(project: Project) -> None:  # noqa: F811
+    package = _set(project, source="off-pane")
     reason = "Set Variant Attribute on a variant that is not empty"
     assert reason in package.source
     with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function({}, "a", "b")
+        package.function("a", "b")

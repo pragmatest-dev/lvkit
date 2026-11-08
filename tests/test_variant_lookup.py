@@ -173,26 +173,66 @@ def test_a_shift_register_started_empty_holds_a_dict(
     assert package.function("a", "1").result == {"a": "1"}
 
 
-def test_a_get_on_a_variant_that_is_not_empty_is_a_gap(
+def _get_from_parameter(project: Project, *, rule: int | None):  # noqa: F811
+    """Get Variant Attribute on a Variant control: on the connector pane when
+    ``rule`` is given, off it when None."""
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8205, _get_pane(variant_type))
+    vi.wire(vi.control("variant", variant_type, rule), node["variant"])
+    vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
+    vi.wire(node["value"], vi.indicator("value", variant_type))
+    project.add(vi)
+    return project.generate(NAME)
+
+
+def test_get_on_a_variant_parameter_reads_the_dict_passed(
+    project: Project,  # noqa: F811
+) -> None:
+    """The shape of a VIPM hook VI: a Variant control on the connector pane."""
+    package = _get_from_parameter(project, rule=REQUIRED)
+    assert "lvkit" not in package.source
+    assert "a dict of the variant's attributes" in package.source
+    assert package.function({"Package Name": "x"}, "Package Name").value == "x"
+    assert package.function({"Package Name": "x"}, "Other").value is None
+
+
+def test_delete_on_a_variant_parameter_returns_the_dict_without_the_name(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8206, _delete_pane(variant_type))
+    vi.wire(vi.control("variant", variant_type, REQUIRED), node["variant"])
+    vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
+    vi.wire(node["variant out"], vi.indicator("result", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    result = package.function({"a": "1", "b": "2"}, "a")
+    assert result.result == {"b": "2"}
+
+
+def test_a_get_on_a_variant_control_off_the_pane_is_a_gap(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     node = vi.primitive(8205, _get_pane(variant_type))
-    vi.wire(vi.control("variant", variant_type, REQUIRED), node["variant"])
+    vi.wire(vi.control("variant", variant_type, None), node["variant"])
     vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
     vi.wire(node["value"], vi.indicator("value", variant_type))
     project.add(vi)
     package = project.generate(NAME)
     reason = "Get Variant Attribute on a variant that is not empty"
     with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function({}, "a")
+        package.function("a")
 
 
 def test_a_shift_register_fed_back_a_value_is_not_empty(
     project: Project,  # noqa: F811
 ) -> None:
-    """The register starts empty, but a control feeds it back: not a lookup table."""
+    """The register starts empty, but a control off the pane feeds it back: not a
+    lookup table."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     loop = vi.loop("forLoop", shift_registers=[variant_type])
@@ -202,10 +242,31 @@ def test_a_shift_register_fed_back_a_value_is_not_empty(
     with vi.inside(loop.scopes[0]):
         node = vi.primitive(8204, _set_pane(variant_type))
         vi.wire(register.left_face, node["variant"])
-        vi.wire(vi.control("fed", variant_type, REQUIRED), register.right_face)
+        vi.wire(vi.control("fed", variant_type, None), register.right_face)
         vi.wire(vi.control("key", STR, REQUIRED), node["name"])
         vi.wire(vi.control("content", STR, REQUIRED), node["value"])
     project.add(vi)
     package = project.generate(NAME)
     reason = "Set Variant Attribute on a variant that is not empty"
     assert reason in package.source
+
+
+def test_a_get_passes_its_variant_on_as_the_same_table(
+    project: Project,  # noqa: F811
+) -> None:
+    """Get's variant output is its variant input: a Set after it still edits the
+    dict passed in."""
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    get = vi.primitive(8205, _get_pane(variant_type))
+    vi.wire(vi.control("variant", variant_type, REQUIRED), get["variant"])
+    vi.wire(vi.control("lookup", STR, REQUIRED), get["name"])
+    node = vi.primitive(8204, _set_pane(variant_type))
+    vi.wire(get["duplicate"], node["variant"])
+    vi.wire(vi.control("key", STR, REQUIRED), node["name"])
+    vi.wire(vi.control("content", STR, REQUIRED), node["value"])
+    vi.wire(node["variant out"], vi.indicator("result", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    result = package.function({"a": "1"}, "a", "b", "2")
+    assert result.result == {"a": "1", "b": "2"}

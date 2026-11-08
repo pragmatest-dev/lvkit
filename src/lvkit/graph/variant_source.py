@@ -1,14 +1,18 @@
-"""Where a variant wire starts: whether it is the empty Variant.
+"""Where a variant wire starts: whether it is a lookup table.
 
-LabVIEW's "variant as lookup table" (an empty variant given attributes) is a
-Python ``dict`` of the attributes, decided at generation time by this query.
+LabVIEW's "variant as lookup table" (a variant read or given attributes) is a
+Python ``dict`` of the attributes, decided at generation time by this query. A
+variant is a lookup table when it starts as the empty Variant or as a connector
+pane Variant control of the VI being generated: a variant parameter read for
+attributes is a dict the caller passes, and a generated caller builds one with
+Set Variant Attribute.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..models import Terminal, TunnelTerminal
+from ..models import FPTerminal, Terminal, TunnelTerminal
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -27,15 +31,16 @@ if TYPE_CHECKING:
 _Visit = tuple[str, tuple[str, ...]]
 
 # The primitives whose variant output is the variant at their variant input
-# (index 7) with attributes set or deleted: Set Variant Attribute and Delete
-# Variant Attribute. Their variant out is the variant out (index 3).
-_ATTRIBUTE_EDITORS = frozenset({8204, 8206})
+# (index 7) with attributes set or deleted, or unchanged: Set Variant Attribute,
+# Get Variant Attribute and Delete Variant Attribute. Their variant output is
+# index 3.
+_ATTRIBUTE_EDITORS = frozenset({8204, 8205, 8206})
 _VARIANT_IN = 7
 _VARIANT_OUT = 3
 
 
 class VariantSourceMixin:
-    """The ``variant_is_empty`` query on ``InMemoryVIGraph``."""
+    """The ``variant_lookup_parameters`` query on ``InMemoryVIGraph``."""
 
     if TYPE_CHECKING:
 
@@ -48,37 +53,49 @@ class VariantSourceMixin:
         @property
         def vilib_catalog(self) -> VILibResolver: ...
 
-    def variant_is_empty(self, terminal_id: str) -> bool:
-        """Whether the variant that reaches the input ``terminal_id`` starts as
-        the empty Variant: following its wire upstream through Set and Delete
-        Variant Attribute, structure tunnels, a loop's shift registers (the
-        value wired in and the value fed back) and into the loaded subVIs that
-        produce it, every source is an empty Variant constant or an unwired
-        input. Anything else (a control, a subVI that is not loaded or that the
-        catalog implements, another node's output, a constant holding a value)
-        is not empty.
+    def variant_lookup_parameters(self, terminal_id: str) -> list[str] | None:
+        """The connector-pane Variant controls the variant that reaches the input
+        ``terminal_id`` is a lookup table through, or None when it is not a lookup
+        table. An empty list is a table that starts empty.
+
+        Following its wire upstream through Set and Delete Variant Attribute,
+        structure tunnels, a loop's shift registers (the value wired in and the
+        value fed back) and into the loaded subVIs that produce it, every source
+        is an empty Variant constant, an unwired input or a connector-pane
+        control of the VI the wire is on (a parameter: the dict its caller
+        passes). Anything else (a control that is not on the connector pane, a
+        subVI that is not loaded or that the catalog implements, another node's
+        output, a constant holding a value) is not a lookup table.
 
         Into a subVI: a subVI call's output continues at the diagram wire into
         the called VI's indicator; a control of the called VI continues at the
         wire into the matching input of the call being followed. The calls
         followed so far are kept, so a VI called from several places is traced
         from the right caller; a call met again while it is being followed (a
-        recursive VI) is not empty.
+        recursive VI) is not a lookup table.
         """
-        return self._empty_upstream(terminal_id, set(), ())
+        parameters: set[str] = set()
+        if not self._empty_upstream(terminal_id, set(), (), parameters):
+            return None
+        return sorted(parameters)
 
     def _empty_upstream(
-        self, terminal_id: str, seen: set[_Visit], calls: tuple[VINode, ...]
+        self,
+        terminal_id: str,
+        seen: set[_Visit],
+        calls: tuple[VINode, ...],
+        parameters: set[str],
     ) -> bool:
-        """Whether every wire into ``terminal_id`` starts empty; ``seen`` holds
-        the terminals being followed (with the calls they are followed under), so
-        a shift register's feedback loop adds no source of its own."""
+        """Whether every wire into ``terminal_id`` starts empty or at a parameter
+        (added to ``parameters``); ``seen`` holds the terminals being followed
+        (with the calls they are followed under), so a shift register's feedback
+        loop adds no source of its own."""
         visit = (terminal_id, tuple(c.id for c in calls))
         if visit in seen:
             return True
         seen.add(visit)
         return all(
-            self._source_is_empty(src, seen, calls)
+            self._source_is_empty(src, seen, calls, parameters)
             for src in self._own_sources(terminal_id)
         )
 
@@ -96,7 +113,11 @@ class VariantSourceMixin:
         ]
 
     def _source_is_empty(
-        self, src: WireEnd, seen: set[_Visit], calls: tuple[VINode, ...]
+        self,
+        src: WireEnd,
+        seen: set[_Visit],
+        calls: tuple[VINode, ...],
+        parameters: set[str],
     ) -> bool:
         node = self.get_graph_node(src.node_id)
         if isinstance(node, ConstantNode):
@@ -117,15 +138,15 @@ class VariantSourceMixin:
                     None,
                 )
                 return variant_in is None or self._empty_upstream(
-                    variant_in.id, seen, calls
+                    variant_in.id, seen, calls, parameters
                 )
             return False
         if isinstance(node, StructureNode) and isinstance(
             self.get_terminal(src.terminal_id), TunnelTerminal
         ):
-            return self._empty_upstream(src.terminal_id, seen, calls)
+            return self._empty_upstream(src.terminal_id, seen, calls, parameters)
         if isinstance(node, VINode):
-            return self._vi_source_is_empty(node, src, seen, calls)
+            return self._vi_source_is_empty(node, src, seen, calls, parameters)
         return False
 
     def _vi_source_is_empty(
@@ -134,15 +155,22 @@ class VariantSourceMixin:
         src: WireEnd,
         seen: set[_Visit],
         calls: tuple[VINode, ...],
+        parameters: set[str],
     ) -> bool:
         """A wire that starts at a VI node: a control of the VI being followed
-        (continue at the call that supplies it) or the output of a subVI call
+        (continue at the call that supplies it; with no call being followed, a
+        connector-pane control is a parameter) or the output of a subVI call
         (continue inside the called VI)."""
         term = self.get_terminal(src.terminal_id)
         if term is None:
             return False
         if node.id == node.vi_path:
-            if not calls or term.direction != "input":
+            if term.direction != "input":
+                return False
+            if not calls:
+                if isinstance(term, FPTerminal) and term.is_public:
+                    parameters.add(term.id)
+                    return True
                 return False
             call = calls[-1]
             supplied = [
@@ -151,7 +179,7 @@ class VariantSourceMixin:
                 if e.node_id == call.id
             ]
             return bool(supplied) and all(
-                self._empty_upstream(t, seen, calls[:-1]) for t in supplied
+                self._empty_upstream(t, seen, calls[:-1], parameters) for t in supplied
             )
         if term.direction != "output" or any(c.id == node.id for c in calls):
             return False
@@ -165,7 +193,8 @@ class VariantSourceMixin:
         ]
         inside = (*calls, node)
         return bool(indicators) and all(
-            self._diagram_sources(t) and self._empty_upstream(t, seen, inside)
+            self._diagram_sources(t)
+            and self._empty_upstream(t, seen, inside, parameters)
             for t in indicators
         )
 
