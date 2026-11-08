@@ -11,6 +11,7 @@ from tests.error_diagrams import BOOL, I32, REQUIRED, Scope, Structure, Tunnel, 
 TIMEOUT = 1073741825
 VALUE_CHANGE = 1073741826
 PANEL_CLOSE = -2147483645
+MOUSE_DOWN = 1073741842
 
 _U32 = '<TypeDesc Type="NumUInt32" Label="{label}" />'
 _I32 = '<TypeDesc Type="NumInt32" Label="{label}" />'
@@ -163,7 +164,11 @@ def event_structure(
 
 
 def event_loop_vi(
-    *, timeout: int | None = 50, discard: bool = False, read_gain: bool = False
+    *,
+    timeout: int | None = 50,
+    discard: bool = False,
+    read_gain: bool = False,
+    extra: FrameSpec | None = None,
 ) -> Vi:
     """A While Loop around an Event Structure with three frames: Timeout (sets
     ``Timed Out`` and ends the loop), Value Change on ``Gain`` and ``Offset`` (shows
@@ -171,7 +176,7 @@ def event_loop_vi(
     and Panel Close? (sets ``Closed``, ends the loop; the Event Filter Node's
     Discard? is ``discard``). With ``timeout`` None the Timeout terminal is
     unwired. With ``read_gain`` the Value Change frame also reads the ``Gain``
-    control's terminal and shows it in ``Seen Gain``."""
+    control's terminal and shows it in ``Seen Gain``. ``extra`` adds a fourth frame."""
     vi = Vi("Events.vi")
     gain = vi.control("Gain", I32, REQUIRED)
     offset = vi.control("Offset", I32, REQUIRED)
@@ -189,6 +194,7 @@ def event_loop_vi(
                 timeout_frame(),
                 value_change_frame([gain, offset], _I32),
                 panel_close_frame(),
+                *([extra] if extra else []),
             ],
             outputs=[BOOL],
         )
@@ -197,7 +203,7 @@ def event_loop_vi(
     if wait is not None:
         vi.wire(wait, events.timeout)
     vi.wire(stop.outer, loop.faces[0])
-    timeout_terms, change_terms, close_terms = events.frames
+    timeout_terms, change_terms, close_terms, *_ = events.frames
     placements = [
         (timeout_terms, [timed_out]),
         (change_terms, [last_new, last_old, *([seen, gain] if seen else [])]),
@@ -300,3 +306,10 @@ def _frame_nodes(
             f'</dcoList><dcoAgg uid="{agg_dco}" /></SL__arrayElement>'
         )
     return terms, data_uid, filter_uid
+
+
+def mouse_down_frame() -> FrameSpec:
+    """A frame of an event lvkit does not generate code for."""
+    return FrameSpec(
+        MOUSE_DOWN, [("Source", _U32), ("Type", _U32), ("Time", _U32)]
+    )

@@ -173,6 +173,15 @@ def gap_of(
     )
 
 
+def record_gap(ctx: CodeGenContext, node: AnyGraphNode, reason: str) -> ast.stmt:
+    """Record a gap of ``node`` that only some runs reach (the node generates its
+    code and the ``raise`` is guarded by the caller): the ``raise`` that says the
+    reason."""
+    gap = gap_of(ConversionGap(reason, node), ctx.vi_name or "", node)
+    ctx.gaps.append(gap)
+    return raise_statement(gap.message)
+
+
 def raise_statement(reason: str) -> ast.stmt:
     """``raise NotImplementedError(reason)``."""
     return ast.Raise(
