@@ -37,6 +37,7 @@ class WireQueriesMixin:
         def incoming_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def outgoing_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
+        def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
 
     def terminal_node_id(self, terminal_id: str) -> str:
         """The id of the node that owns the terminal."""
@@ -184,13 +185,16 @@ class WireQueriesMixin:
         """Whether the VI's diagram reads or writes its own front panel while it
         runs: a control or indicator terminal inside a While Loop, For Loop or
         Event Structure, a Local Variable of one of its controls or indicators,
-        or a Value Property Node bound to one of its controls."""
+        a Value Property Node bound to one of its controls, or an off-pane control
+        whose terminal has a wire leaving it (the diagram reads it)."""
         vi = self.get_graph_node(vi_name)
         if vi is not None and any(
             self.front_panel_loop(t.id) is not None
             for t in vi.terminals
             if isinstance(t, FPTerminal)
         ):
+            return True
+        if any(self.wire_readers(c.id) for c in self.get_off_pane_inputs(vi_name)):
             return True
         for node in self.iter_nodes(vi_name):
             if isinstance(node, LocalVariableNode):

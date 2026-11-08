@@ -41,7 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
-from .panel_hooks import PanelHooks, hook_arguments
+from .panel_hooks import PanelHooks, entry_reads, hook_arguments, reads_in_frame
 from .references import REFERENCE_KINDS, generated_nodes
 
 if TYPE_CHECKING:
@@ -159,6 +159,7 @@ def function_body(
     # A control that is not on the connector pane is a local variable set to its
     # saved default.
     body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
+    body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
 
     # Normalize unwired array inputs: they default to None (a mutable [] default
     # would be shared across calls), so map None -> [] up front, matching
@@ -218,6 +219,7 @@ def generate_body(
 
     statements: list[ast.stmt] = []
     if frame is not None:
+        statements.extend(reads_in_frame(ctx, frame))
         statements.extend(ctx.local_indicators.writes_in_frame(frame, ctx))
     for tier in topological_sort_tiered(operations, ctx):
         for node in tier:

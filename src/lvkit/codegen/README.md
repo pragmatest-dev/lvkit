@@ -65,6 +65,7 @@ VI file
 | `native_failure.py` | A node's Python failure becomes its error out, with the code its catalog entry names |
 | `output_binding.py` | Whether a node's output goes straight into its reader or into a variable |
 | `local_indicators.py` | Indicators held in variables: read by a Local Variable, kept between calls, written inside a frame |
+| `panel_hooks.py` | Live values: which VIs take the `on_update` / `on_read` hook parameters, the name table, and the hook lines (`update_stmt`, `read_stmt`, `reads_in_frame`, `entry_reads`); see ARCHITECTURE.md "Live values (front-panel hooks)" |
 | `error_path.py` | Which nodes handle an error wire: the vi.lib error VIs a call site generates itself, Merge Errors, the error case selector |
 | `gaps.py` | `Gap`, `catch_gap`: a node that cannot be converted raises `NotImplementedError(<reason>)` where it would run, and is recorded as a gap |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |

@@ -111,6 +111,8 @@ class Scope:
     terms: list[str] = field(default_factory=list)
     uid: int = 0
     srn_uid: int = 0
+    # The xml of the structures on this diagram.
+    structures: list[Callable[[], str]] = field(default_factory=list)
 
 
 @dataclass
@@ -466,6 +468,14 @@ class Vi:
         finally:
             self.scope = previous
 
+    def _place(self, structure: Structure) -> None:
+        """Put ``structure`` on the diagram being built: the VI's own, or the
+        frame the ``inside`` block is in."""
+        if self.scope is self.root:
+            self.structures.append(structure)
+        else:
+            self.scope.structures.append(structure.xml)
+
     def _new_scope(self) -> Scope:
         uid = self.next_uid(2)
         return Scope(uid=uid, srn_uid=uid + 1)
@@ -480,7 +490,8 @@ class Vi:
         nodes = [*scope.nodes, holder]
         return (
             f'<SL__arrayElement class="diag" uid="{scope.uid}">'
-            '<zPlaneList elements="0" />'
+            f'<zPlaneList elements="{len(scope.structures)}">'
+            f"{''.join(make() for make in scope.structures)}</zPlaneList>"
             f'<nodeList elements="{len(nodes)}">{"".join(nodes)}</nodeList>'
             '<signalList elements="0" /></SL__arrayElement>'
         )
@@ -562,7 +573,7 @@ class Vi:
             )
 
         structure = Structure(selector.outer, selector.faces, scopes, made, xml=xml)
-        self.structures.append(structure)
+        self._place(structure)
         return structure
 
     def disable(self, frames: int, *, active: int = 0) -> Structure:
@@ -582,7 +593,7 @@ class Vi:
             )
 
         structure = Structure(0, [], scopes, [], xml=xml)
-        self.structures.append(structure)
+        self._place(structure)
         return structure
 
     def flat_sequence(self, tunnels: list[list[int]]) -> Structure:
@@ -619,7 +630,7 @@ class Vi:
             )
 
         structure = Structure(0, [], scopes, made, xml=xml)
-        self.structures.append(structure)
+        self._place(structure)
         return structure
 
     def loop(
@@ -686,7 +697,7 @@ class Vi:
             )
 
         structure = Structure(count, faces, [scope], made, registers, xml=xml)
-        self.structures.append(structure)
+        self._place(structure)
         return structure
 
     # -- serialisation ------------------------------------------------------
