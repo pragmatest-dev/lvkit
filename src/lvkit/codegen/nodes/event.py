@@ -22,9 +22,9 @@ The queue staying empty for the time of the Timeout terminal (-1 or unwired: for
 ever) is the Timeout. A frame is chosen by the control and the kind of event the
 file records for it, never by its label. The frame of a filter event (Panel
 Close?) ends by answering on the message's reply queue with the Event Filter
-Node's Discard?. A VI called with no ``events`` and no Timeout would wait for ever
-for a panel that is not there: the generated code raises where it would wait, and
-generation records that as a gap.
+Node's Discard?. A VI called with no ``events`` waits on an empty queue of its
+own, as LabVIEW waits with nobody at the panel: with a Timeout it runs the Timeout
+frame, without one it waits for ever.
 
 Only Timeout, Value Change on a control and Panel Close? are handled; a structure
 with any other event is a gap that names it.
@@ -55,7 +55,6 @@ from ..event_kinds import (
     unsupported_events,
 )
 from ..fragment import CodeFragment
-from ..gaps import record_gap
 from ..panel_hooks import PanelHooks
 from .frame_structure import (
     bind_input_tunnels,
@@ -64,10 +63,6 @@ from .frame_structure import (
     resolve_output_tunnels,
 )
 
-_WAITS_FOR_EVENT = (
-    "The Event Structure waits for a front-panel event and has no Timeout: "
-    "pass events= to run it"
-)
 _EVENTS = "events"
 
 
@@ -213,19 +208,16 @@ def _receive(
     )
     wired = ctx.wired_input(timeout.id, node) if timeout is not None else None
     literal = _integer(wired)
+    no_events = _statement(f"if {_EVENTS} is None:\n    {_EVENTS} = Queue()")
     if wired is None or (literal is not None and literal < 0):
-        wait = record_gap(ctx, node, _WAITS_FOR_EVENT)
-        return [
-            ast.If(test=parse_expr(f"{_EVENTS} is None"), body=[wait], orelse=[]),
-            _statement(f"{message} = {_EVENTS}.get()"),
-        ]
+        return [no_events, _statement(f"{message} = {_EVENTS}.get()")]
     seconds = (
         f"{literal} / 1000"
         if literal is not None
         else f"None if {wired} < 0 else {wired} / 1000"
     )
     return [
-        _statement(f"if {_EVENTS} is None:\n    {_EVENTS} = Queue()"),
+        no_events,
         _statement(
             f"try:\n    {message} = {_EVENTS}.get(timeout={seconds})\n"
             f"except Empty:\n    {message} = None"

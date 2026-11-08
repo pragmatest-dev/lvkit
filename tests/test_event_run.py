@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import inspect
 import queue
+import threading
 from typing import Any
 
 import pytest
 
-from lvkit.codegen.gaps import UNSUPPORTED_NODE
 from tests.error_diagrams import Package, Project, project  # noqa: F401
 from tests.event_diagrams import event_loop_vi, mouse_down_frame
 from tests.panel_diagrams import NAME, counting_vi
@@ -120,17 +120,18 @@ def test_no_events_and_a_timeout_runs_the_timeout_frame_after_waiting(
     assert result.timed_out is True
 
 
-def test_no_events_and_no_timeout_is_a_gap_that_raises_where_it_waits(
+def test_no_events_and_no_timeout_waits_for_ever_as_labview_does(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(event_loop_vi(timeout=None))
     package = project.generate("Events.vi")
-    assert len(package.gaps) == 1
-    gap = package.gaps[0]
-    assert gap.kind == UNSUPPORTED_NODE
-    assert "pass events=" in gap.reason
-    with pytest.raises(NotImplementedError, match="pass events="):
-        _function(package)(0, 0)
+    assert package.gaps == []
+    # LabVIEW waits for ever with nothing wired to Timeout and nobody at the
+    # panel; so does the function called with no events.
+    waiting = threading.Thread(target=_function(package), args=(0, 0), daemon=True)
+    waiting.start()
+    waiting.join(timeout=0.3)
+    assert waiting.is_alive()
     # with the events given, the same function runs
     events: queue.Queue = queue.Queue()
     events.put((_names(package).GAIN, 2, _kinds(package).VALUE_CHANGE, 1))

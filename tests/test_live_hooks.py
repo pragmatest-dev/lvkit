@@ -545,10 +545,7 @@ def test_a_control_in_an_event_structure_hooks_the_vi_and_takes_events(
     package = project.generate(NAME)
     assert _signature(package) == ["stop", "on_update", "on_read", "events"]
     assert "Callable[[LiveValue, Any], Any] | None=None" in package.source
-    # A structure with no Timeout waits for ever without events: the
-    # function raises where it would wait (``codegen/nodes/event.py``).
-    with pytest.raises(NotImplementedError, match="pass events="):
-        package.function(stop=False)
+    assert package.gaps == []
 
 
 def _off_pane_control(vi: Vi, *, wired: bool) -> None:
