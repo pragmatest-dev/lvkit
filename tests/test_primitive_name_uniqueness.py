@@ -21,7 +21,7 @@ To add an entry here you must have compared the two panes AS OBSERVED in the
 corpus (scripts/audit_primitive_consistency.py + the duplicate pane dump) — not
 just the names.
 
-SCOPE — deliberately the SHIPPED catalog only (``src/lvkit/data/primitives.json``).
+SCOPE — deliberately the SHIPPED catalog only (``src/lvkit/data/primitives/*.json``).
 Name uniqueness is an invariant *within* one catalog, never across catalogs. A
 project-local ``.lvkit/primitives.json`` entry that reuses a shipped name is the
 designed OVERRIDE mechanism (resolvers read ``.lvkit/`` first and fall back to the
@@ -38,9 +38,6 @@ the same name. That override must win and must never fail this gate. Do NOT
 from __future__ import annotations
 
 import collections
-from pathlib import Path
-
-PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
 
 # name -> (pids, status). CONFIRMED-TWIN = panes compared and identical.
 # NEEDS-ADJUDICATION = panes materially DIFFER, so one of the pair is mislabeled;
