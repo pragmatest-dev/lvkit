@@ -64,6 +64,7 @@ dev = [
     "pre-commit",
     "cairosvg>=2.9.0",
     "pytest-xdist>=3.8.0",
+    "nptdms>=1.13.0",
 ]
 
 [tool.hatch.build.targets.wheel]
