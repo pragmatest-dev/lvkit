@@ -1852,7 +1852,7 @@ Measured over 5,954 unique VIs / 18,662 constants (`fix/default-data-values`, re
 | LabVIEW 10.0+ | `ConstValue` in the block-diagram heap | 15,210 constants |
 | LabVIEW 9.0.1 (`vers` Info `9.0.1`) | `DefaultData` in the heap | 453 VIs (all of OpenG) |
 | LabVIEW 9.0.0 (`vers` Info `9.0`; `LVSR` reads 9.0.0 for both 9.0 releases) | only in the `DFDS` | 77 VIs |
-| LabVIEW 8.2 / 8.5 | only in the `DFDS`, which pylabview leaves undecoded (`vi_DFDS.bin`, `vi_TM80.bin`) | 126 VIs |
+| LabVIEW 8.2 / 8.5 | only in the `DFDS`, read through the pre-8.6 sections below | 126 VIs |
 
 In a VI, either every constant carries its value next to it or none does (203 VIs have none; no VI mixes the forms).
 
@@ -1860,7 +1860,16 @@ In a VI, either every constant carries its value next to it or none does (203 VI
 
 **No `DataFill` at that index:** the `TM80` entry has `TMFBit11` (1,108 of 1,108; pylabview writes no `DataFill` for it, `LVblock.py:2464-2467`), and the value is the type's empty value: numeric zero, Boolean false, empty string, an array with every dimension 0, a cluster of those, an empty path (`PTH0 00000004 00000000`, 34 of 34 pairs), an empty variant (45 of 45). A refnum constant that holds a session reference is Not a Refnum: a session reference is never saved (maintainer, 2026-11-07), and the stored form, where both exist, is a 0 handle (24 of 24). A LabVIEW class value (stored with its class name) and a tag refnum (VISA, user-defined tags: a name string) are not session references; with no stored value they stay a gap.
 
-**LabVIEW 8.2 / 8.5 (not decoded):** the diagram has `tdOffset`, but pylabview cannot read the `DFDS` / `TM80` / type sections (`Block b'DFDS' section 0 parse exception: No support for the LV7.1 default data format`). Example `Trim Whitespace__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi` (JKI-VI-Tester, LabVIEW 8.2): two Match Pattern `regular expression` constants; after the 4-byte length the `DFDS` bytes are zlib data, and the inflated 572 bytes hold, each as a 4-byte big-endian length followed by the text, `0x0c` + `[\t\n\r\s]*$` and `0x0c` + `^[\t\n\r\s]*`. Walking that data needs the type table that is also undecoded; such constants are a gap. The Pico examples' shared subVIs (`shared/PicoStatus2.vi`, `PicoErrorString2.vi`, `PicoStatus.vi`) are LabVIEW 8.5.
+**LabVIEW 8.2 / 8.5 (read by `_pylabview_lv8.py`):** a VI saved before LabVIEW 8.6 has no `VCTP`; its type descriptors are inline in the sections that use them (pylabview itself puts the boundary at 8.6.0.1, `LVdatatype.py:3176`; the corpus holds only 8.2 and 8.5 files, so the boundary is pylabview's claim, untested here). The objects still carry `tdOffset`; the layouts, each consuming its section exactly in 142 of 142 VIs (80 of 8.5, 62 of 8.2):
+
+- `TM80`: a `u32` count of length-prefixed type descriptors (the `VCTP` layout; clusters and arrays name their members by index into this list), then a `u2p2` count of `(type descriptor index, flags)` pairs (`u2p2`: 2 bytes, or 4 with the top bit set). The flags are the `TMFBit` flags of the 9.0 form. A pair's position is the `DataFill` `TypeID`: `IndexShift` is 0 (kind of the pair's type equals the object's heap type in 715 of 715 constants; shifts -1 and +1 match 210 and 212).
+- `DTHP`: the same type descriptor list, then a `u2p2` count and one `u2p2` per heap `TypeID` giving its descriptor's index in that list (read by `parser/heap_types.py` from `*_DTHP.bin`, which is still written).
+- `DFDS`: zlib data after a 4-byte length, in 8.2 too. Walked as in 9.0 (`LVblock.py:2459-2487`), over the `TM80` pairs in order. `TMFBit11` pairs have no `DataFill`; 459 of 715 constants have one, 256 are `TMFBit11`.
+- The 8.2 `LVSR` is shorter than pylabview's layout (112 bytes, `LVblock.py:3541`), so the file version reads 0.0.0; it is taken from `vers` when `LVSR` gives none.
+
+Examples: `Trim Whitespace__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi` (LabVIEW 8.2): the inflated 572 bytes hold `0x0c` + `[\t\n\r\s]*$` (`tdOffset` 12) and `0x0c` + `^[\t\n\r\s]*` (`tdOffset` 15). `PicoScope3000UnitInfo.vi` (8.5): `tdOffset` 0x0F is pair 15 = (descriptor 47, `NumInt16`, `TMFBit13`) → `<I16>256</I16>`; `tdOffset` 0x11 → `<I32>7</I32>`. The Pico examples' shared subVIs (`shared/PicoStatus2.vi`, `PicoErrorString2.vi`, `PicoStatus.vi`) are LabVIEW 8.5.
+
+**A front-panel control's default in an 8.2 / 8.5 VI is not read from the default data.** All 829 controls of the 142 VIs carry `tdOffset` and a `DataFill` at their pair, but in 527 the descriptor there is the control's range or options cluster (a numeric: `Cluster(I16 -32768, I16 32767, I16 0)` followed by a special cluster), not its value (the kind equals the control's heap type in only 302 of 829). Which entry holds the default is not settled, so `DefaultDataSpace.controls_hold_value` is false for a VI whose `vers` version is before 8.6 and its controls take no default from this path.
 
 ## Search and Replace String records its Regular Expression mode in the node's `objFlags` (bit 0x2000000), and then shows the `multiline?` terminal
 

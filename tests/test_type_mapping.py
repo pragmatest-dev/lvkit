@@ -342,3 +342,30 @@ class TestSalvagedTypeDescriptors:
         missing = resolve_type_rich("TypeID(2)", type_map)
         assert missing.unreadable == "the heap type pool is unreadable: cut off"
         assert resolve_type_rich("TypeID(2)", TypeMap()).unreadable is None
+
+
+class TestDataSpaceTypeComments:
+    def test_a_vi_with_no_heap_type_comments_takes_its_heap_types_from_dthp(
+        self, tmp_path
+    ):
+        """``TM80`` numbers data-space types in its ``TypeID N: Kind`` comments.
+        A VI saved before LabVIEW 8.6 has those but no heap type comments, so its
+        heap types are the ones in its ``DTHP`` sidecar."""
+        xml = tmp_path / "T.xml"
+        xml.write_text(
+            textwrap.dedent(
+                """\
+                <RSRC>
+                  <TM80><Section IndexShift="0">
+                    <!-- TypeID 1: Block -->
+                    <Client TMFBit12="1" />
+                  </Section></TM80>
+                </RSRC>
+                """
+            )
+        )
+        sidecar = Path(__file__).parent / "data" / "lv85_unitinfo_DTHP.bin"
+        (tmp_path / "T_DTHP.bin").write_bytes(sidecar.read_bytes())
+        type_map = parse_type_map_rich(xml)
+        assert len(type_map) == 54
+        assert type_map[1].type_descriptor() != "Block"

@@ -32,6 +32,9 @@ from .refnum_value import holds_handle
 # The TM80 flag that marks a type whose value is its default (no DataFill).
 _DEFAULT_VALUE_FLAG = "TMFBit11"
 
+# How pylabview writes a NaN, with its bits: ``nan (0x7FFFFFFFFFFFFFFF)``.
+_NAN_BITS = re.compile(r"nan \(0x([0-9A-Fa-f]+)\)")
+
 # The first LabVIEW version whose VIs keep their types in one shared pool (VCTP).
 # An older VI keeps them inline, and a front-panel control's ``tdOffset`` there
 # names its range or options cluster, not its value.
@@ -229,6 +232,10 @@ def _flatten(el: ET.Element, encoding: str) -> bytes:
     if scalar is not None:
         try:
             if tag in ("SGL", "DBL"):
+                nan_bits = _NAN_BITS.fullmatch(text)
+                if nan_bits is not None:
+                    width = 4 if tag == "SGL" else 8
+                    return int(nan_bits.group(1), 16).to_bytes(width, "big")
                 return struct.pack(scalar, float(text or "0"))
             return struct.pack(scalar, int(text or "0"))
         except (ValueError, struct.error):
