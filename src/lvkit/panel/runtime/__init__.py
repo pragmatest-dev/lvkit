@@ -18,6 +18,7 @@ from .widgets import (
     string_port,
 )
 from .widgets_choice import choice_control, choice_indicator, choice_port
+from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_path import path_control, path_indicator, path_port
 
 __all__ = [
@@ -33,6 +34,9 @@ __all__ = [
     "choice_control",
     "choice_indicator",
     "choice_port",
+    "cluster_control",
+    "cluster_indicator",
+    "cluster_port",
     "number_control",
     "number_indicator",
     "number_port",

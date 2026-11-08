@@ -12,8 +12,25 @@ import pytest
 from nicegui import ui
 from nicegui.testing.user import User
 
-from tests.error_diagrams import PATH, REQUIRED, Project, Vi, project  # noqa: F401
-from tests.panel_harness import controls_of, found, panel_of, run_once, simulate
+from tests.error_diagrams import (  # noqa: F401
+    BOOL,
+    I32,
+    PATH,
+    REQUIRED,
+    STR,
+    Project,
+    Vi,
+    project,
+)
+from tests.panel_diagrams import cluster_fields, cluster_type
+from tests.panel_harness import (
+    build_in_a_page,
+    controls_of,
+    found,
+    panel_of,
+    run_once,
+    simulate,
+)
 
 NAME = "Kind Demo.vi"
 STEM = "kind_demo"
@@ -265,3 +282,74 @@ def test_an_enum_with_no_stored_items_is_a_gap_the_panel_raises_for(
     assert package.gaps[0].reason == (
         "the panel needs the items of the stdEnum control, and none are stored"
     )
+
+
+def _cluster_vi(
+    fields: list[tuple[str, str, int]] | None = None,
+) -> Vi:
+    """A cluster ``Point`` of a number, a Boolean and a string, wired to the
+    indicator ``Shown`` of the same type."""
+    fields = fields or [
+        ("X", "stdNum", I32),
+        ("Flag", "stdBool", BOOL),
+        ("Note", "stdString", STR),
+    ]
+    vi = Vi(NAME)
+    kind = cluster_type(vi, [type_id for _, _, type_id in fields])
+    inner = cluster_fields(vi, fields)
+    point = vi.control(
+        "Point", kind, REQUIRED, ddo_class="stdClust", bounds=(40, 20, 180, 200),
+        inner=inner,
+    )
+    shown = vi.indicator(
+        "Shown", kind, ddo_class="stdClust", bounds=(40, 300, 180, 480), inner=inner
+    )
+    vi.wire(point, shown)
+    return vi
+
+
+def test_a_cluster_control_passes_its_fields_as_a_tuple_and_the_indicator_shows_them(
+    project: Project,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project.add(_cluster_vi())
+    package = project.generate(NAME, panel=True)
+    assert package.gaps == []
+    assert "def kind_demo(point: tuple | None)" in package.source
+    panel = panel_of(package, STEM)
+    calls = _record_calls(monkeypatch, panel)
+
+    async def scenario(user: User) -> None:
+        number = found(user, ui.number)[0]
+        note, shown_number, shown_note = found(user, ui.input)
+        flag = found(user, ui.switch)[0]
+        number.set_value(5)
+        flag.set_value(True)
+        note.set_value("hi")
+        await run_once(user)
+        assert calls[0]["point"] == (5, True, "hi")
+        assert shown_number.value == "5"
+        assert shown_note.value == "hi"
+
+    simulate(panel.build_panel, scenario)
+
+
+@pytest.mark.filterwarnings("ignore:coroutine 'Event.wait' was never awaited")
+def test_a_cluster_with_a_field_the_panel_has_no_widget_for_is_one_gap(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(
+        _cluster_vi([("X", "stdNum", I32), ("Level", "stdSlide", I32)])
+    )
+    package = project.generate(NAME, panel=True)
+    assert [(g.kind, g.node_name) for g in package.gaps] == [
+        ("unsupported_control", "Point"),
+        ("unsupported_control", "Shown"),
+    ]
+    assert package.gaps[0].reason == (
+        "the panel has no widget for a stdSlide control of type int "
+        "(field 'Level' of the cluster)"
+    )
+    panel = panel_of(package, STEM)
+    with pytest.raises(NotImplementedError, match="field 'Level' of the cluster"):
+        build_in_a_page(panel.build_panel)

@@ -96,3 +96,30 @@ def value_property(
         f'<nodeName>"{pane.label}"</nodeName></SL__arrayElement>'
     )
     return terminals
+
+
+def cluster_type(vi: Vi, field_types: list[int]) -> int:
+    """The type of an anonymous cluster of the fields of ``field_types``, added to
+    ``vi``."""
+    fields = "".join(f'<TypeDesc TypeID="{t}" />' for t in field_types)
+    return vi.add_type(f'<TypeDesc Type="Cluster">{fields}</TypeDesc>')
+
+
+def cluster_fields(vi: Vi, fields: list[tuple[str, str, int]]) -> str:
+    """The heap xml of a cluster control's fields, ``(label, ddo class, type id)``
+    each, in cluster order: what goes in ``inner`` of the cluster's pane."""
+    uids = [vi.next_uid(3) for _ in fields]
+    order = "".join(f'<SL__arrayElement uid="{uid}" />' for uid in uids)
+    controls = "".join(
+        f'<SL__arrayElement class="{ddo_class}" uid="{uid}">'
+        f"<typeDesc>TypeID({type_id})</typeDesc><partsList>"
+        f'<SL__arrayElement class="label" uid="{uid + 1}">'
+        f'<textRec class="textHair"><text>"{label}"</text></textRec>'
+        "</SL__arrayElement></partsList></SL__arrayElement>"
+        for uid, (label, ddo_class, type_id) in zip(uids, fields, strict=True)
+    )
+    return (
+        f"<ddoList>{order}</ddoList>"
+        f'<paneHierarchy class="pane" uid="{vi.next_uid()}">'
+        f"<zPlaneList>{controls}</zPlaneList></paneHierarchy>"
+    )

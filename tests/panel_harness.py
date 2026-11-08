@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from types import ModuleType
 from typing import Any
 
-from nicegui import ui
+from nicegui import Client, ui
 from nicegui.testing.user import User
 from nicegui.testing.user_simulation import user_simulation
 
@@ -56,3 +56,15 @@ async def run_once(user: User) -> None:
     """Press Run and wait until the run is done."""
     user.find(marker="Run").click()
     await until(user, "done")
+
+
+def build_in_a_page(build_panel: Callable[[], None]) -> None:
+    """Build the panel once in a page of the simulation; what it raises while
+    building comes out."""
+
+    async def run() -> None:
+        async with user_simulation():
+            with Client(ui.page("/gap")):
+                build_panel()
+
+    asyncio.run(run())

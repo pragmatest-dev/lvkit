@@ -53,8 +53,8 @@ class LiveValues:
         self._painters[key_of(name)] = painter
 
     def value(self, name: Any) -> Any:
-        """The current value of a control."""
-        return self._controls[key_of(name)]
+        """The current value of a control, a copy the function may change."""
+        return copy.deepcopy(self._controls[key_of(name)])
 
     def show(self, name: Any, value: Any) -> None:
         """Show ``value`` in an indicator now (on the event loop)."""
@@ -122,4 +122,5 @@ class LiveValues:
         """``on_read``: the control's current value, or ``value`` (the one the
         function holds) when the panel has no such control."""
         self._checkpoint()
-        return self._controls.get(key_of(name), value)
+        held = self._controls.get(key_of(name), value)
+        return copy.deepcopy(held)
