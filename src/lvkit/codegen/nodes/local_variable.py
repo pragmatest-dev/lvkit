@@ -58,7 +58,11 @@ def _control_access(
     if node.is_write:
         value = ctx.resolve(terminal)
         if value is None:
-            return CodeFragment()
+            raise ConversionGap(
+                f"The value written to the Local Variable of {control.name!r} "
+                "has no source lvkit can read",
+                node,
+            )
         if value != variable:
             statements.append(build_assign(variable, parse_expr(value)))
         if hooks is not None and control.id in hooks.names:
