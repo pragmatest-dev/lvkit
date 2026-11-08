@@ -186,7 +186,8 @@ def test_the_error_wire_passes_through() -> None:
     assert (result.r, result.error_out) == ("\x00\x00\x00\x05", None)
 
 
-def test_a_wired_type_string_output_is_a_gap_that_raises_where_it_runs() -> None:
+def test_a_wired_type_string_output_is_the_literal_descriptor() -> None:
+    """The 7.x type string of an I32 is NI's Type Descriptors example, [4, 3]."""
     generated = generate(
         {"x": I32},
         {"t": array("NumInt16")},
@@ -203,8 +204,8 @@ def test_a_wired_type_string_output_is_a_gap_that_raises_where_it_runs() -> None
         ],
         [("fp:x", "ft:11"), ("ft:2", "fp:t")],
     )
-    with pytest.raises(NotImplementedError, match="type string"):
-        generated.function(1)
+    assert result_values(generated.function(1))[0] == [4, 3]
+    assert "pickle" not in generated.source
 
 
 def test_a_type_with_no_flattened_form_is_a_gap_that_raises_where_it_runs() -> None:

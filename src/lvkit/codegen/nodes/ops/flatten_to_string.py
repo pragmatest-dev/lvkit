@@ -9,8 +9,10 @@ when the code is generated, and the ``struct`` calls are written out for the
 type of ``anything`` (``codegen/flat.py``). The string is a Python ``str`` of one
 character per byte, as every LabVIEW string is.
 
-The ``type string`` output (7.x only) is a LabVIEW type descriptor, which has no
-Python meaning: a node that wires it is a gap.
+The ``type string`` output (7.x only) is the type descriptor of ``anything``,
+written when the code is generated as a literal list of I16 numbers
+(``lvkit.type_string.encode``, as Variant To Flattened String writes it); a type
+that has no descriptor there is a gap.
 
 Terminals (from the primitives.json entry):
   in  index  8 = error in
@@ -28,6 +30,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
+from lvkit.type_string import TypeStringError, encode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
@@ -50,17 +53,29 @@ from ._flat_node import (
 
 @register_op_fragment("FLATTEN_TO_STRING")
 def flatten_to_string(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
+    source = terminal(node, "input", 11)
+    statements: list[ast.stmt] = []
+    bindings: dict[str, str] = {}
     type_term = terminal(node, "output", 2)
     if type_term is not None and ctx.is_wired(type_term.id):
-        raise ConversionGap(
-            "Flatten To String's type string output is a LabVIEW type descriptor, "
-            "which has no Python meaning",
-            node,
+        if source is None or source.lv_type is None:
+            raise ConversionGap(
+                "Flatten To String's type string needs the type of anything", node
+            )
+        try:
+            numbers = repr(encode(source.lv_type))
+        except TypeStringError as error:
+            raise ConversionGap(
+                f"Flatten To String has no type string for {error}", node
+            ) from error
+        type_var = ctx.make_output_var(
+            "type_string", node.id, terminal_id=type_term.id
         )
+        statements.append(build_assign(type_var, parse_expr(numbers)))
+        bindings[type_term.id] = type_var
     data_term = terminal(node, "output", 3)
     if data_term is None or not ctx.is_wired(data_term.id):
-        return CodeFragment.empty()
-    source = terminal(node, "input", 11)
+        return CodeFragment(statements=statements, bindings=bindings)
     value = (ctx.wired_input(source.id, node) if source else None) or "None"
     prefix = bool(constant_input(ctx, node, 10, True))
     order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
@@ -71,8 +86,9 @@ def flatten_to_string(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment 
     fns = Functions(ctx, order)
     flattened = render_parts(layout.flatten(value, prefix, 0, fns), order)
     variable = ctx.make_output_var("data_string", node.id, terminal_id=data_term.id)
-    statements: list[ast.stmt] = [
+    statements.append(
         build_assign(variable, parse_expr(f"({flattened}).decode('latin-1')"))
-    ]
+    )
+    bindings[data_term.id] = variable
     add_flat_imports(ctx, statements)
-    return CodeFragment(statements=statements, bindings={data_term.id: variable})
+    return CodeFragment(statements=statements, bindings=bindings)
