@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
-from ..models import FPTerminal, Terminal, TunnelTerminal
+from ..models import FPTerminal, Terminal, TerminalDirection, TunnelTerminal
 from .models import (
     AnyGraphNode,
     ConstantNode,
     LocalVariableNode,
     LoopNode,
     StructureNode,
+    VINode,
     WireEnd,
 )
 
@@ -32,6 +33,10 @@ class WireQueriesMixin:
         def incoming_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def outgoing_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
+        def loaded_callee_key(self, node: VINode) -> str | None: ...
+        def pane_terminals(
+            self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
+        ) -> list[Terminal]: ...
 
     def terminal_node_id(self, terminal_id: str) -> str:
         """The id of the node that owns the terminal."""
@@ -45,6 +50,30 @@ class WireQueriesMixin:
             self.terminal_vi(src.terminal_id) == home
             for src in self.incoming_edges(terminal_id)
         )
+
+    def source_slot_missing_on_callee(self, terminal_id: str) -> tuple[str, int] | None:
+        """The called VI's name and the connector-pane slot of a wire into
+        ``terminal_id`` that comes from an output of a subVI call at a slot the
+        loaded called VI has no control or indicator at; None when no wire does."""
+        home = self.terminal_vi(terminal_id)
+        for src in self.incoming_edges(terminal_id):
+            if self.terminal_vi(src.terminal_id) != home:
+                continue
+            call = self.get_graph_node(src.node_id)
+            if not isinstance(call, VINode) or call.id == call.vi_path:
+                continue
+            key = self.loaded_callee_key(call)
+            term = self.get_terminal(src.terminal_id)
+            if key is None or term is None or term.index is None:
+                continue
+            slots = {
+                t.index
+                for direction in TerminalDirection
+                for t in self.pane_terminals(key, direction, public_only=False)
+            }
+            if slots and term.index not in slots:
+                return call.display_name, term.index
+        return None
 
     def wire_readers(self, terminal_id: str) -> list[WireEnd]:
         """The terminals of the terminal's own VI that the wire from the output

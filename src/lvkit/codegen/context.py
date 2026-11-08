@@ -318,6 +318,15 @@ class CodeGenContext:
         if value is None:
             if label is None:
                 label = terminal.name or terminal.index if terminal else terminal_id
+            missing = self.graph.source_slot_missing_on_callee(terminal_id)
+            if missing is not None:
+                callee, slot = missing
+                raise ConversionGap(
+                    f"The wired input {label!r} of {node.name!r} comes from "
+                    f"connector-pane position {slot} of {callee!r}, which the "
+                    "called VI does not have, so the VI is broken in LabVIEW",
+                    node,
+                )
             raise CodeGenError(
                 f"The wired input {label!r} of {node.name!r} has no variable "
                 f"(from {self.graph.terminal_sources_description(terminal_id)})",
