@@ -76,12 +76,16 @@ from .flags import (
     is_output_terminal,
 )
 from .flat_type import descriptor_type, read_descriptors, read_var_size
+from .fp_fonts import font_of_text, read_font_table
 from .fp_heap_type import (
     _direct_fields,
     _wrapped_control,
     reconstruct_control_lvtype,
     ring_sparse_values,
 )
+from .fp_listbox import read_listbox
+from .fp_pictures import attach_panel_pictures
+from .fp_structure import read_panel_layout
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -96,6 +100,8 @@ from .layout import (
     _icon_for_heap,
     _part_shown,
     build_layout_from_root,
+    cluster_child_frame,
+    stored_top_left,
 )
 from .link_table import (
     DotNetAssemblyLink,
@@ -131,7 +137,9 @@ from .models import (
     ParsedConstant,
     ParsedDependencyRef,
     ParsedFPControl,
+    ParsedFPFont,
     ParsedFPPart,
+    ParsedFPPartState,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedNode,
@@ -165,12 +173,15 @@ from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
 from .typedef_ties import tie_typedef_records
 from .utils import (
+    HIDDEN_FLAG,
     decode_xml_entities_to_bytes,
     extract_caption,
     extract_label,
     extract_label_strict,
     extract_xtunnel_name,
     heap_color,
+    heap_rect,
+    int_or_none,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -315,11 +326,17 @@ def parse_vi(
 
     # Parse front panel
     unresolved_uids: set[str] = set()
+    fonts = (
+        read_font_table(parsed_xml(main_xml))
+        if main_xml is not None and Path(main_xml).exists()
+        else ()
+    )
     front_panel = _parse_front_panel(
         fp_xml,
         block_diagram,
         metadata.type_map,
         unresolved_uids=unresolved_uids,
+        fonts=fonts,
     )
 
     # Parse connector pane
@@ -349,6 +366,7 @@ def parse_vi(
     file_metadata = None
     if main_path is not None and main_path.exists():
         file_metadata = parse_vi_metadata(main_path)
+        front_panel.lv_version = file_metadata.get("lv_version")
         if connector_pane:
             wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(
@@ -607,6 +625,7 @@ def _parse_front_panel(
     block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
     unresolved_uids: set[str] | None = None,
+    fonts: Sequence[ParsedFPFont] = (),
 ) -> ParsedFrontPanel:
     """Parse front panel from FP XML.
 
@@ -709,6 +728,8 @@ def _parse_front_panel(
             field_defaults=field_defaults,
             type_map=type_map,
             own_lv_type=lv_type,
+            frame=(0.0, 0.0),
+            fonts=fonts,
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -731,10 +752,17 @@ def _parse_front_panel(
         if (uid := elem.get("uid"))
     ]
 
+    layout, unread_objects = read_panel_layout(
+        root, {c.uid: c for c in controls}, fonts
+    )
+    attach_panel_pictures(fp_xml_path, controls)
     return ParsedFrontPanel(
         controls=controls,
         panel_bounds=panel_bounds,
         dco_order=dco_order,
+        layout=layout,
+        unread_objects=unread_objects,
+        fonts=tuple(fonts),
     )
 
 
@@ -1957,7 +1985,49 @@ def _recover_unresolved_labels(
     return unlabeled
 
 
-def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
+def _part_states(part: ET.Element) -> tuple[ParsedFPPartState, ...]:
+    """A ``bigMultiCosm`` part's ``SubCosm`` states, in stored order; empty for
+    every other part class."""
+    return tuple(
+        ParsedFPPartState(
+            bounds=heap_rect(sub.find("Bounds")) or (0, 0, 0, 0),
+            fg_color=heap_color(sub.findtext("FGColor")),
+            bg_color=heap_color(sub.findtext("BGColor")),
+            image_id=int_or_none(sub.findtext("Image/ImageResID")),
+        )
+        for sub in part.findall("table/SL__arrayElement[@class='SubCosm']")
+    )
+
+
+def _part_texts(part: ET.Element) -> tuple[str, ...]:
+    """A ``multiLabel`` part's texts (its ``buf``), in stored order."""
+    if part.get("class") != MULTI_LABEL_CLASS:
+        return ()
+    return tuple(_parse_multi_label_buf(part.findtext("buf") or ""))
+
+
+def _part_image_ids(
+    part: ET.Element, states: tuple[ParsedFPPartState, ...]
+) -> tuple[int, ...]:
+    """The picture ids a part records, in stored order, whichever of the three
+    forms it uses: ``image/ImageResID`` (``cosm``, ``label``, ``numLabel``), one
+    ``table`` ``Image`` per state (``multiCosm``), or one ``SubCosm`` ``Image``
+    per state (``bigMultiCosm``, already read into ``states``)."""
+    if states:
+        return tuple(st.image_id for st in states if st.image_id is not None)
+    single = int_or_none(part.findtext("image/ImageResID"))
+    if single is not None:
+        return (single,)
+    return tuple(
+        image_id
+        for sub in part.findall("table/SL__arrayElement[@class='Image']")
+        if (image_id := int_or_none(sub.findtext("ImageResID"))) is not None
+    )
+
+
+def _parse_fp_parts_list(
+    owner: ET.Element, fonts: Sequence[ParsedFPFont] = ()
+) -> list[ParsedFPPart]:
     """``owner``'s ``partsList`` entries as parts (each with its own bounds,
     objFlags, and -- recursively -- its own sub-parts). objFlags bit 0x8 =
     hidden, the SAME convention ``layout._field_label_hidden`` reads for a
@@ -1975,27 +2045,31 @@ def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
         pid_elem = part.find("partID")
         pid_text = pid_elem.text if pid_elem is not None else None
         part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
-        flags_elem = part.find("objFlags")
-        props = (
-            {"objFlags": flags_elem.text.strip()}
-            if flags_elem is not None and flags_elem.text
-            else {}
-        )
+        states = _part_states(part)
         parts.append(
             ParsedFPPart(
-                part_id,
-                part.get("class", ""),
-                _parse_bounds(bounds_elem.text),
-                props,
-                _parse_fp_parts_list(part),
+                part_id=part_id,
+                part_class=part.get("class", ""),
+                bounds=_parse_bounds(bounds_elem.text),
+                parts=_parse_fp_parts_list(part, fonts),
                 fg_color=heap_color(part.findtext("fgColor")),
                 bg_color=heap_color(part.findtext("bgColor")),
+                image_ids=_part_image_ids(part, states),
+                flags=safe_int(part.find("objFlags")),
+                states=states,
+                texts=_part_texts(part),
+                text_color=heap_color(
+                    part.findtext("textRec/fr/SL__arrayElement/fontcolor")
+                ),
+                font=font_of_text(part.find("textRec"), fonts),
             )
         )
     return parts
 
 
-def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
+def _parse_fp_parts(
+    ddo: ET.Element, fonts: Sequence[ParsedFPFont] = ()
+) -> list[ParsedFPPart]:
     """Collect a control's constituent parts with their control-local geometry
     from the ddo's DIRECT children (the FPHb heap records these; we used to keep
     only the outer box). For an array (``indArr``):
@@ -2004,7 +2078,8 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
       each with a ``partID`` + local ``bounds`` -- the index display (``partID``
       8002), caption (16), and cosmetics;
     - the array's element type/cell is a direct ``<ddo>`` child -- recorded with
-      ``part_id=None`` and its element control class (``stdNum`` etc.).
+      ``part_id=None`` and its element control class (``stdNum`` etc.), its own
+      ``objFlags`` and its own parts (relative to the element's top-left).
 
     A plain (non-array) ddo has no ``<partsList>`` frame parts / nested element
     ddo of that shape, but it still records its OWN scalar-text PROPERTIES
@@ -2015,7 +2090,7 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     whether the control is a top-level scalar or a cluster field (standalone or
     inside an array-of-clusters).
     """
-    parts = _parse_fp_parts_list(ddo)
+    parts = _parse_fp_parts_list(ddo, fonts)
     # The array element type/cell: the direct <ddo> child (its class is the
     # element control type; its bounds one cell's real geometry; its scalar-text
     # children are the element's PROPERTIES -- representation/range/increment for
@@ -2034,7 +2109,12 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
             }
             parts.append(
                 ParsedFPPart(
-                    None, element.get("class", ""), _parse_bounds(eb.text), props
+                    None,
+                    element.get("class", ""),
+                    _parse_bounds(eb.text),
+                    props,
+                    parts=_parse_fp_parts_list(element, fonts),
+                    flags=safe_int(element.find("objFlags")),
                 )
             )
     else:
@@ -2075,11 +2155,19 @@ def _enum_labels_of(ddo: ET.Element) -> list[str]:
     return []
 
 
+def _shift_frame(
+    frame: tuple[float, float] | None, by: tuple[float, float]
+) -> tuple[float, float] | None:
+    return None if frame is None else (frame[0] + by[0], frame[1] + by[1])
+
+
 def _parse_cluster_fields(
     cluster_ddo: ET.Element,
     unresolved_uids: set[str],
     field_defaults: dict[str, object] | None = None,
     type_map: dict[int, LVType] | None = None,
+    frame: tuple[float, float] | None = None,
+    fonts: Sequence[ParsedFPFont] = (),
 ) -> list[ParsedFPControl]:
     """Parse a cluster's DIRECT field controls, in cluster (``ddoList``) order,
     each by its own type -- so a nested cluster field recurses (via ``_parse_ddo``)
@@ -2108,8 +2196,14 @@ def _parse_cluster_fields(
     Each field also gets its own resolved type (``ParsedFPControl.lv_type``,
     see there) from its own ``<typeDesc>`` child -- ``_parse_ddo`` never
     resolves this itself, only a caller that already has ``type_map`` does.
+
+    ``frame`` is the cluster's own frame (``layout._cluster_field_geoms``); its
+    fields are parsed in the frame the cluster's pane gives them.
     """
     direct = _direct_fields(cluster_ddo)
+    child_frame = (
+        cluster_child_frame(cluster_ddo, frame) if frame is not None else None
+    )
 
     fields: list[ParsedFPControl] = []
     labels = [extract_label_strict(field_elem) for field_elem in direct]
@@ -2145,6 +2239,8 @@ def _parse_cluster_fields(
             ),
             type_map=type_map,
             own_lv_type=field_lv_type,
+            frame=child_frame,
+            fonts=fonts,
         )
         if child:
             # Force the child's own identity to the SAME strict label used for
@@ -2167,8 +2263,14 @@ def _parse_ddo(
     field_defaults: object | None = None,
     type_map: dict[int, LVType] | None = None,
     own_lv_type: LVType | None = None,
+    frame: tuple[float, float] | None = None,
+    fonts: Sequence[ParsedFPFont] = (),
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl.
+
+    ``frame`` is the frame this ddo's stored bounds are expressed in (see
+    ``layout._cluster_field_geoms``): (0, 0) for a control in the panel, None
+    when unknown. It places a cluster's fields.
 
     ``own_lv_type`` is this control's own resolved type (the caller's
     ``fPDCO/typeDesc`` already resolved against the VCTP ``type_map``) --
@@ -2214,8 +2316,24 @@ def _parse_ddo(
                 field_defaults=field_defaults,
                 type_map=type_map,
                 own_lv_type=own_lv_type,
+                frame=_shift_frame(frame, stored_top_left(ddo)),
+                fonts=fonts,
             )
             if inner_control:
+                # The wrapped control's bounds are local to the typeDef: it sits
+                # at the typeDef's top-left plus its own bounds (3,133 of the
+                # corpus's 3,164 top-level typeDef controls fit only that way,
+                # none only as panel-absolute).
+                wrapper = heap_rect(ddo.find("bounds"))
+                if wrapper is not None:
+                    top, left, bottom, right = inner_control.bounds
+                    inner_control.bounds = (
+                        wrapper[0] + top,
+                        wrapper[1] + left,
+                        wrapper[0] + bottom,
+                        wrapper[1] + right,
+                    )
+                inner_control.hidden = _is_hidden(ddo)
                 inner_control.name = name
                 inner_control.caption = extract_caption(ddo)
                 inner_control.label_visible = _part_shown(ddo, 16) is not None
@@ -2279,8 +2397,10 @@ def _parse_ddo(
     element_lv_type: LVType | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
-        children = _parse_cluster_fields(ddo, unresolved_uids, clust_defaults, type_map)
-        cluster_geom = _cluster_field_geoms(ddo)
+        children = _parse_cluster_fields(
+            ddo, unresolved_uids, clust_defaults, type_map, frame, fonts
+        )
+        cluster_geom = _cluster_field_geoms(ddo, frame)
     elif control_type == "indArr":
         element = ddo.find("ddo")
         # field_defaults for an array is a list of PER-ELEMENT structured
@@ -2298,7 +2418,9 @@ def _parse_ddo(
         # real corpus) -- unwrap it the same way a top-level typeDef control
         # is unwrapped above, so its real class (stdClust/stdEnum/stdRing)
         # is what gets checked, not the "typeDef" wrapper's own class.
+        element_frame = _shift_frame(frame, stored_top_left(ddo))
         if element is not None and element.get("class") == "typeDef":
+            element_frame = _shift_frame(element_frame, stored_top_left(element))
             element = _wrapped_control(element)
 
         # The element's own resolved type (its RefnumKind, an lvVariant's
@@ -2360,9 +2482,11 @@ def _parse_ddo(
                     elem_defaults if isinstance(elem_defaults, dict) else None
                 )
                 children = _parse_cluster_fields(
-                    element, unresolved_uids, elem_clust_defaults, type_map
+                    element, unresolved_uids, elem_clust_defaults, type_map,
+                    element_frame,
+                    fonts,
                 )
-                cluster_geom = _cluster_field_geoms(element)
+                cluster_geom = _cluster_field_geoms(element, element_frame)
             else:
                 if element_class in ("stdEnum", "stdRing"):
                     enum_values = _enum_labels_of(element)
@@ -2378,6 +2502,7 @@ def _parse_ddo(
         control_type=control_type,
         bounds=bounds,
         is_indicator=control_is_indicator,
+        shows_as_indicator=is_indicator(safe_int(ddo.find("objFlags"))),
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),
@@ -2385,7 +2510,7 @@ def _parse_ddo(
         label_visible=_part_shown(ddo, 16) is not None,
         caption_visible=_part_shown(ddo, 82) is not None and bool(caption),
         children=children,
-        parts=_parse_fp_parts(ddo),
+        parts=_parse_fp_parts(ddo, fonts),
         enum_values=enum_values,
         ring_values=ring_values,
         cluster_geom=cluster_geom,
@@ -2401,7 +2526,16 @@ def _parse_ddo(
         ),
         slide_min=slide_min,
         slide_max=slide_max,
+        hidden=_is_hidden(ddo),
+        listbox=read_listbox(ddo) if control_type == "listbox" else None,
     )
+
+
+def _is_hidden(ddo: ET.Element) -> bool:
+    """A control is hidden when bit 0x8 of its own ddo's ``objFlags`` is set
+    (the hidden bit ``_parse_fp_parts_list`` reads for a part; for a control it
+    is the ddo's DIRECT ``objFlags``, never a nested payload ddo's)."""
+    return bool(safe_int(ddo.find("objFlags")) & HIDDEN_FLAG)
 
 
 def _numeric_format(ddo: ET.Element | None) -> str | None:

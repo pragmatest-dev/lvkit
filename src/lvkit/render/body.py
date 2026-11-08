@@ -10,6 +10,7 @@ from pathlib import Path
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..load_mode import LoadMode
+from ..render_view import RenderView
 from ..run_report import RunSettings
 from . import ThemeMode, render_vi_body
 from . import render_vi_body_with_name as _render_vi_body_with_name
@@ -30,10 +31,11 @@ def render_body(
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
     """Render ``path`` to ``fmt`` (``"svg"`` or ``"html"``). The library roots
-    shape the dependency load of a VI and of a control; ``mode`` applies to a
-    VI only."""
+    shape the dependency load of a VI and of a control; ``mode`` and ``view``
+    apply to a VI only (a control has just its front panel)."""
     if path.suffix.lower() == ".ctl":
         return render_ctl_body(
             path,
@@ -56,6 +58,7 @@ def render_body(
         original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
+        view=view,
     )
 
 
@@ -72,6 +75,7 @@ def render_body_with_name(
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
     run_settings: RunSettings | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> RenderedBody | None:
     """Like :func:`render_body`, but also returns the rendered VI/control's own
     name (qualified for a VI, the typedef name for a ``.ctl``) — ALREADY
@@ -106,4 +110,5 @@ def render_body_with_name(
         theme_mode=theme_mode,
         ref=ref,
         run_settings=run_settings,
+        view=view,
     )

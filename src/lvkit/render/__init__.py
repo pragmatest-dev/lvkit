@@ -27,12 +27,13 @@ from ..catalog_stamp import CatalogKey
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
+from ..render_view import RenderView
 from ..run_report import Problem, ProblemStage, RunSettings
 from .backend import SvgBackend
 from .composite import draw_scene
 from .connector_pane import pane_terminals, render_connector_pane_help
 from .icons import icon_data_uri
-from .render_viewer import build_render_viewer
+from .render_viewer import build_ctl_viewer, build_render_viewer
 from .rendered import RenderedBody
 from .scene import Scene, build_scene
 from .style import DEFAULT_THEME, Theme, css_var_theme
@@ -687,6 +688,7 @@ def render_vi_file_report(
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
     run_settings: RunSettings | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> tuple[
     str | None,
     str,
@@ -696,7 +698,8 @@ def render_vi_file_report(
 ]:
     """Like :func:`render_vi_file_titled`, but also returns the problems recorded
     on the nodes of the VIs the load reached (a SubVI that cannot be read) and the
-    catalog entries the VI looks up."""
+    catalog entries the VI looks up. ``view`` picks the VI's block diagram or its
+    front panel."""
     path = Path(path)
     # What a failed shallow load recorded about the VIs it reached: the retry
     # starts a new graph.
@@ -746,7 +749,13 @@ def render_vi_file_report(
     from ..index.build import warm_all_loaded
 
     warm_all_loaded(graph)
-    svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
+    if view is RenderView.FRONT_PANEL:
+        # The front-panel renderer imports this package, so it is imported here.
+        from .front_panel import render_vi_front_panel
+
+        svg = render_vi_front_panel(graph, name, theme=theme, theme_mode=theme_mode)
+    else:
+        svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
     # `name` is the vi_key (canonical source path) — the render identity. The
     # TITLE is display-only: the qualified name, never the abspath key.
     dependencies = tuple(sorted(graph.get_dependency_paths(name), key=str))
@@ -772,6 +781,7 @@ def render_vi_body_with_name(
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
     run_settings: RunSettings | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> RenderedBody | None:
     """Like :func:`render_vi_body`, but also returns the VI's resolved
     qualified name (e.g. ``Class.lvclass:vi.vi``, else its bare stem) —
@@ -791,6 +801,7 @@ def render_vi_body_with_name(
         original_path=original_path,
         theme_mode=theme_mode,
         run_settings=run_settings,
+        view=view,
     )
     if svg is None:
         return None
@@ -798,9 +809,12 @@ def render_vi_body_with_name(
     if fmt != "html":
         return RenderedBody(svg, name, dependencies, problems, keys)
     title = f"{name} ({ref})" if ref else name
-    return RenderedBody(
-        build_render_viewer(svg, title=title), name, dependencies, problems, keys
+    viewer = (
+        build_ctl_viewer(svg, title=title)
+        if view is RenderView.FRONT_PANEL
+        else build_render_viewer(svg, title=title)
     )
+    return RenderedBody(viewer, name, dependencies, problems, keys)
 
 
 def render_vi_body(
@@ -815,6 +829,7 @@ def render_vi_body(
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
     """The single ``path -> output body`` render core, cache-free.
 
@@ -837,5 +852,6 @@ def render_vi_body(
         original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
+        view=view,
     )
     return result.body if result is not None else None
