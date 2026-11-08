@@ -56,6 +56,7 @@ def build_module(
     data_files: dict[str, bytes] | None = None,
     gaps: list[Gap] | None = None,
     shared: ModuleParts | None = None,
+    hooks_out: list[PanelHooks] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -74,6 +75,8 @@ def build_module(
         shared: The module-level parts of a module that holds several VIs (the
             variants of a polymorphic VI): their helpers, declarations and
             globals are named against one another, never twice.
+        hooks_out: When a list, the hooks of the VI (``panel_hooks``) are added
+            to it when it has any: the names its panel passes and reads.
 
     Returns:
         Python source code as string
@@ -112,6 +115,8 @@ def build_module(
         function_enum_name(vi_context.name),
         taken=[ctx.function_name, build_result_class_name(vi_context.name)],
     )
+    if hooks_out is not None and ctx.panel_hooks is not None:
+        hooks_out.append(ctx.panel_hooks)
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
     if graph is not None and in_import_cycle(graph, vi_name):

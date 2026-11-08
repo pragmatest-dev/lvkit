@@ -96,6 +96,10 @@ class Pane:
     indicator: bool
     rule: int | None  # the connector pane slot's wiring rule; None off the pane
     slot: int | None
+    # The control's kind (``ddo`` class) and stored bounds (top, left, bottom,
+    # right); the parser's own defaults when None.
+    ddo_class: str = "stdNum"
+    bounds: tuple[int, int, int, int] | None = None
 
 
 def _slot_flags(pane: Pane) -> int:
@@ -191,6 +195,8 @@ class Vi:
         *,
         indicator: bool = False,
         rule: int | None = None,
+        ddo_class: str = "stdNum",
+        bounds: tuple[int, int, int, int] | None = None,
     ) -> int:
         """A control or indicator; ``rule`` puts it on the connector pane with
         that wiring rule. Returns the uid of its terminal on the diagram."""
@@ -198,18 +204,43 @@ class Vi:
         slot = None
         if rule is not None:
             slot = sum(1 for p in self.panes if p.slot is not None)
-        self.panes.append(Pane(uid, label, type_id, indicator, rule, slot))
+        self.panes.append(
+            Pane(uid, label, type_id, indicator, rule, slot, ddo_class, bounds)
+        )
         term = uid + 1
         self.fp_terms[uid] = term
         return term
 
-    def control(self, label: str, type_id: int, rule: int | None = REQUIRED) -> int:
-        return self.pane(label, type_id, rule=rule)
+    def control(
+        self,
+        label: str,
+        type_id: int,
+        rule: int | None = REQUIRED,
+        *,
+        ddo_class: str = "stdNum",
+        bounds: tuple[int, int, int, int] | None = None,
+    ) -> int:
+        return self.pane(
+            label, type_id, rule=rule, ddo_class=ddo_class, bounds=bounds
+        )
 
     def indicator(
-        self, label: str, type_id: int, rule: int | None = RECOMMENDED
+        self,
+        label: str,
+        type_id: int,
+        rule: int | None = RECOMMENDED,
+        *,
+        ddo_class: str = "stdNum",
+        bounds: tuple[int, int, int, int] | None = None,
     ) -> int:
-        return self.pane(label, type_id, indicator=True, rule=rule)
+        return self.pane(
+            label,
+            type_id,
+            indicator=True,
+            rule=rule,
+            ddo_class=ddo_class,
+            bounds=bounds,
+        )
 
     def error_in(self, rule: int | None = RECOMMENDED) -> int:
         return self.control("error in", ERR, rule)
@@ -705,11 +736,12 @@ class Vi:
     def _fp_xml(self) -> str:
         zplane = ""
         for p in self.panes:
+            bounds = f"<bounds>{p.bounds}</bounds>" if p.bounds else ""
             zplane += (
                 f'<SL__arrayElement class="fPDCO" uid="{p.uid}">'
                 f"<objFlags>{1 if p.indicator else 0}</objFlags>"
                 f"<typeDesc>TypeID({p.type_id})</typeDesc>"
-                f'<ddo class="stdNum" uid="{p.uid}1">'
+                f'<ddo class="{p.ddo_class}" uid="{p.uid}1">{bounds}'
                 f"<typeDesc>TypeID({p.type_id})</typeDesc><partsList>"
                 f'<SL__arrayElement class="label" uid="{p.uid}2">'
                 f'<textRec class="textHair"><text>"{p.label}"</text></textRec>'
@@ -839,6 +871,7 @@ class Package:
     errors: ModuleType
     source: str
     root: Path
+    gaps: list[Any] = field(default_factory=list)
 
     @property
     def function(self) -> Callable[..., Any]:
@@ -899,12 +932,18 @@ class Project:
             netlist_to_dict(module, verbose=True),
         )
 
-    def generate(self, name: str, stubs: dict[str, str] | None = None) -> Package:
-        """Generate the VI ``name`` and the VIs it calls, replace the module of each
-        called VI with its stub (``{module name: source}``) and import the VI's
-        module."""
+    def generate(
+        self,
+        name: str,
+        stubs: dict[str, str] | None = None,
+        *,
+        panel: bool = False,
+    ) -> Package:
+        """Generate the VI ``name`` and the VIs it calls (and its front panel with
+        ``panel``), replace the module of each called VI with its stub
+        (``{module name: source}``) and import the VI's module."""
         out = self.base / "gen"
-        result = generate_python(self.root / name, out)
+        result = generate_python(self.root / name, out, panel=panel)
         package_dir = Path(result["output_dir"])
         errors = package_dir / "errors.py"
         if not errors.exists():
@@ -922,6 +961,7 @@ class Project:
             importlib.import_module(f"{pkg}.errors"),
             source,
             package_dir,
+            result["gaps"],
         )
 
     def close(self) -> None:
