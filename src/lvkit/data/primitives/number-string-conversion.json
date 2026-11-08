@@ -369,6 +369,7 @@
     },
     "1512": {
       "name": "Format Value",
+      "op": "FORMAT_VALUE",
       "terminals": [
         {
           "index": 0,
@@ -380,7 +381,7 @@
           "index": 1,
           "direction": "input",
           "name": "value (0)",
-          "type": "NumFloat64"
+          "type": "polymorphic"
         },
         {
           "index": 2,
@@ -396,9 +397,8 @@
           "default": ""
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-value.html"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-value.html",
+      "verified": true
     },
     "1534": {
       "name": "Scan Value",
