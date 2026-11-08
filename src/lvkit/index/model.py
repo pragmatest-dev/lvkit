@@ -395,6 +395,10 @@ class VIFacts:
     library: str | None = None
     is_stub: bool = False
     content_sha: str = ""
+    # The project's ``.lvkit/`` catalog entries this VI's facts were built with
+    # (``catalog_stamp.catalog_stamp``): the index rebuilds the VI once one of
+    # them was edited, though the VI's bytes did not change.
+    catalog_stamp: str = ""
     # VI Properties (Protection/Execution/Window/…) from the VI's own <LVSR>
     # block -- intrinsic to its bytes, like terminals/constants (never
     # coalesced across a partial re-save; see store.save()). Flattened from

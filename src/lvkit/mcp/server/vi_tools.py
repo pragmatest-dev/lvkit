@@ -45,7 +45,7 @@ from ...run_report import ProblemStage, RunProblems, declined
 from ._compat import Context
 from .app import mcp
 from .problems import new_run, stopped_on, with_problems
-from .resolvers import _configure_resolvers_for_vi
+from .resolvers import project_store_for
 
 _FORMATS = ("json", "lvnet")
 
@@ -95,7 +95,6 @@ def _load_one(
     run = run or new_run(p)
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
-    _configure_resolvers_for_vi(p)
     build = build or BuildOptions()
     # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
     # the exact file requested, never re-derived from p.name (which would
@@ -238,7 +237,6 @@ async def read_ctl(
         p = Path(ctl_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"Control not found: {ctl_path}")
-        _configure_resolvers_for_vi(p)
         run = new_run(p)
         build = _build(vilib, userlib, instrlib, search_path)
         try:
@@ -304,12 +302,12 @@ async def render(
         p = Path(vi_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"File not found: {vi_path}")
-        store = _configure_resolvers_for_vi(p)
+        store = project_store_for(p)
         build = _build(vilib, userlib, instrlib, search_path, store)
         opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
-        run = new_run(p)
+        run = new_run(p, store)
         try:
             built = cached_render(
                 p,
@@ -389,10 +387,10 @@ async def diff(
         for p in (pa, pb):
             if not p.exists():
                 raise FileNotFoundError(f"VI not found: {p}")
-        store = _configure_resolvers_for_vi(pa)
+        store = project_store_for(pa)
         build = _build(vilib, userlib, instrlib, search_path, store)
         opts = diff_options_tag("html", False, None, None, build)
-        run = new_run(pb)
+        run = new_run(pb, store)
         try:
             built = cached_diff(
                 pa,
@@ -453,7 +451,6 @@ async def unresolved(
     ``search_path`` is the VI search path a file not at its recorded path is
     looked for on."""
     target = await _facade._resolve_target(target, ctx)
-    _configure_resolvers_for_vi(target)
 
     def _work() -> dict[str, Any]:
         from ...unresolved import collect_unresolved

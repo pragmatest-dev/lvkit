@@ -33,7 +33,6 @@ from ..models import (
 from ..num_format import format_numeric_const
 from ..parser.constants import NMUX_NAMED_LANE_NODE_CLASSES
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
-from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant, VINode
 
 if TYPE_CHECKING:
@@ -588,7 +587,7 @@ def _subvi_ports(
         ]
         return ins, outs
 
-    entry = _get_vilib_resolver().resolve_recorded(call.qualified_path)
+    entry = graph.vilib_catalog.resolve_recorded(call.qualified_path)
     if entry is not None and entry.terminals:
         recorded = {t.index: t for t in call.terminals}
         # (position, direction, name, type) of every port, catalog first.

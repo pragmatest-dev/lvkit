@@ -22,6 +22,8 @@ from typing import Literal
 
 from lvkit.library_folders import Folders, SearchEntries
 
+from ..catalog_keys import catalog_keys
+from ..catalog_stamp import CatalogKey
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
@@ -659,7 +661,7 @@ def render_vi_file_titled(
     title — and the sorted file paths of the dependencies the load reached.
     Same load/degrade behaviour. ``original_path`` names the file ``path`` is a
     copy of (see ``InMemoryVIGraph.load_vi``)."""
-    svg, title, dependencies, _ = render_vi_file_report(
+    svg, title, dependencies, _, _ = render_vi_file_report(
         path,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
@@ -685,9 +687,16 @@ def render_vi_file_report(
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
     run_settings: RunSettings | None = None,
-) -> tuple[str | None, str, tuple[Path, ...], tuple[Problem, ...]]:
+) -> tuple[
+    str | None,
+    str,
+    tuple[Path, ...],
+    tuple[Problem, ...],
+    frozenset[CatalogKey],
+]:
     """Like :func:`render_vi_file_titled`, but also returns the problems recorded
-    on the nodes of the VIs the load reached (a SubVI that cannot be read)."""
+    on the nodes of the VIs the load reached (a SubVI that cannot be read) and the
+    catalog entries the VI looks up."""
     path = Path(path)
     # What a failed shallow load recorded about the VIs it reached: the retry
     # starts a new graph.
@@ -746,6 +755,7 @@ def render_vi_file_report(
         graph.vi_display_name(name),
         dependencies,
         (*failed_attempt, *graph.problems()),
+        catalog_keys(graph, name),
     )
 
 
@@ -771,7 +781,7 @@ def render_vi_body_with_name(
     wrapper that discards it. Lets a cache layer persist VI identity
     alongside the body without a second graph load just to recover it later
     (#114's follow-up)."""
-    svg, vi_title, dependencies, problems = render_vi_file_report(
+    svg, vi_title, dependencies, problems, keys = render_vi_file_report(
         path,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
@@ -786,10 +796,10 @@ def render_vi_body_with_name(
         return None
     name = vi_title or path.stem.replace("_BDHb", "")
     if fmt != "html":
-        return RenderedBody(svg, name, dependencies, problems)
+        return RenderedBody(svg, name, dependencies, problems, keys)
     title = f"{name} ({ref})" if ref else name
     return RenderedBody(
-        build_render_viewer(svg, title=title), name, dependencies, problems
+        build_render_viewer(svg, title=title), name, dependencies, problems, keys
     )
 
 

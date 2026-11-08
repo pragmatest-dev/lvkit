@@ -20,7 +20,6 @@ from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .interface_order import ordered_interface
 from .models import (
@@ -58,6 +57,7 @@ from .recorded_paths import RecordedPaths, resolve_against
 from .type_records import TypeRecords, resolve_name, resolve_type
 
 if TYPE_CHECKING:
+    from ..vilib_resolver import VILibResolver
     from .membership import ListedMethod
 
 if TYPE_CHECKING:
@@ -117,6 +117,7 @@ class QueryMixin:
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
     _instrlib_roots: tuple[Path, ...]
+    vilib_catalog: VILibResolver
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -356,7 +357,7 @@ class QueryMixin:
             return None
 
         # First, check vilib resolver for known VIs
-        resolver = get_vilib_resolver()
+        resolver = self.vilib_catalog
         vilib_info = resolver.get_context(self.recorded_path(vi_name))
         if vilib_info:
             inputs: list[StubTerminalInfo] = []
@@ -718,7 +719,7 @@ class QueryMixin:
             )
         )
 
-        vilib_resolver = get_vilib_resolver()
+        vilib_resolver = self.vilib_catalog
 
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]

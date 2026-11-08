@@ -69,7 +69,6 @@ from ..structure import (
     private_data_field_to_cluster_field,
 )
 from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
@@ -107,6 +106,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
+    from ..vilib_resolver import VILibResolver
     from .core import InMemoryVIGraph
     from .search_path import SearchPath
 
@@ -408,6 +408,7 @@ class LoadingMixin:
     _stubs: set[str]
     _recorded: RecordedPaths
     _catalog_stop: bool
+    vilib_catalog: VILibResolver
     _poly_info: dict[str, PolyInfo]
     _loaded_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
@@ -2526,7 +2527,7 @@ class LoadingMixin:
     def _is_catalog_stop(self, key: str) -> bool:
         """Whether a generation load stops at ``key``: the catalog gives Python for
         the path its callers recorded for it (``set_catalog_stop``)."""
-        return self._catalog_stop and get_vilib_resolver().has_python(
+        return self._catalog_stop and self.vilib_catalog.has_python(
             self._recorded.path(key)
         )
 
@@ -2671,7 +2672,7 @@ class LoadingMixin:
             return
 
         # Skip if already in bundled JSON with complete terminals
-        resolver = get_vilib_resolver()
+        resolver = self.vilib_catalog
         existing = resolver.resolve_recorded("/".join(tokens))
         if existing and existing.terminals:
             bundled_indices = {

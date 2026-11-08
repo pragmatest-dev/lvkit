@@ -59,6 +59,7 @@ from .lane_pass import BranchCtx, apply_lane_pass
 from .nodes import (
     _CLUSTER_MUX_TYPES,
     GlyphContext,
+    node_doc_url,
     resolve_glyph,
     resolve_subvi_source,
     string_const_display,
@@ -176,11 +177,9 @@ class RenderNode:
     # SubVI whose source doesn't resolve to a project-local file (see
     # ``_subvi_rel_path``).
     subvi_rel: str | None = None
-    # The path the vi.lib catalog looks a SubVI call up by
-    # (``InMemoryVIGraph.catalog_path``), resolved here with the graph so the
-    # drawing reads the same catalog entry code generation does; None for any
-    # other node.
-    catalog_path: str | None = None
+    # The NI docs page of the node's primitive or vi.lib VI (``node_doc_url``), read
+    # from the graph's catalog here so the drawing never needs the graph.
+    doc_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1977,8 +1976,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     frame_path=fp_path,
                     owned_label=owned_label,
                     subvi_rel=subvi_rel,
-                    catalog_path=(
-                        graph.catalog_path(node) if isinstance(node, VINode) else None
+                    doc_url=node_doc_url(
+                        graph,
+                        node,
+                        graph.catalog_path(node) if isinstance(node, VINode) else None,
                     ),
                 )
             )

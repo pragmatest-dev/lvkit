@@ -18,7 +18,7 @@ from lvkit.parser.constants import (
     VI_NAME_MERGE_ERRORS,
     VI_NAME_SIMPLE_ERROR_HANDLER,
 )
-from lvkit.vilib_resolver import VIEntry, get_resolver
+from lvkit.vilib_resolver import VIEntry
 
 from ..ast_utils import build_assign, paren_if_compound, parse_expr
 from ..context import CodeGenContext
@@ -45,7 +45,7 @@ _CLEAR_CODE = "specific_error_code_to_clear_0_all"
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate the call of a vi.lib error VI (``error_path.is_error_wire_vi``)."""
-    file_name = get_resolver().catalog_file_name(ctx.catalog_path(node))
+    file_name = ctx.vilib_catalog.catalog_file_name(ctx.catalog_path(node))
     if file_name == VI_NAME_MERGE_ERRORS:
         return merge_errors(node, ctx)
     if file_name == VI_NAME_CLEAR_ERRORS:
@@ -68,7 +68,7 @@ def _clear_errors(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     only an error of that code is cleared (the code 0 clears every error), and
     ``specific error cleared?`` says whether it was. It runs whatever error comes
     in."""
-    entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
+    entry = ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
     terminals = ctx.enriched_terminals(node)
@@ -105,7 +105,7 @@ def _error_cluster_from_error_code(node: VINode, ctx: CodeGenContext) -> CodeFra
     as the message (the wired message wins when there is one). The node is
     skipped, passing the incoming error on, when an error comes in
     (``error_flow``)."""
-    entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
+    entry = ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
 
@@ -171,7 +171,7 @@ def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     out is that error, ``error?``, ``code out`` and ``source out`` are its
     status, code and source, and ``message`` its message. It shows no dialog.
     It runs whatever error comes in."""
-    entry = get_resolver().resolve_recorded(ctx.catalog_path(node))
+    entry = ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
     param_of = {

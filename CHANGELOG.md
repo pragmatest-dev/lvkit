@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: editing a project's `.lvkit/` catalog refreshes the cached render, diff and index results of the VIs that use the edited entry, and only those.**
+- **Fix: MCP calls for two projects at once each use their own project's catalog additions**, and a call no longer reloads the catalog.
 - **Fix: a `.vi`, `.vim` and `.vit` of one name are three modules** — a `.vim` module ends in `_vim` and a `.vit` module in `_vit` (`lv_icon.vit` is `lv_icon_vit`), so they no longer stop the run as one module; a path computed when the code runs imports the same name.
 - **Fix: Format Into String writes what LabVIEW writes** — the initial string comes first, any text (a JSON template with `{`, `}`, quotes or backslashes) is written exactly, `%5.2f`, `%02x`, `%.3e`, `%2$s` and the other specifiers follow LabVIEW's rules, backslash codes (`\n`, `\41`) are decoded, an enum writes its item label, and a specifier with no conversion is a gap.
 - **Fix: a VI LabVIEW shows as broken is a gap, not an lvkit error** — a dynamic-dispatch call with no object wired, or a wire from a connector-pane position the called VI does not have, warns with that reason and the run ends Partial (exit 3).

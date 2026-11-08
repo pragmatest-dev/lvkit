@@ -66,8 +66,6 @@ from ..parser.error_ring import ERROR_RING_PATH, ErrorRing
 from ..parser.layout import ClusterGeom, Rect, RefnumPayload
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
-from ..primitive_resolver import get_resolver as get_prim_resolver
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend
 from .glyph import (
     ArithGlyph,
@@ -440,6 +438,36 @@ def mux_doc_url(node: AnyGraphNode) -> str | None:
     return _MUX_DOC_URL.get(mux_display_name(node))
 
 
+def node_doc_url(
+    graph: InMemoryVIGraph, node: AnyGraphNode, catalog_path: str | None = None
+) -> str | None:
+    """Public NI docs URL for a resolvable node — a primitive (primitives.json)
+    or a vi.lib VI (vilib catalog, found by ``catalog_path``), both carrying
+    ``doc_url`` since #87. Shown as the last line of the hover ``<title>`` (task
+    #67). None when the node has no catalog page (unresolved prim, user subVI,
+    structure, constant)."""
+    if isinstance(node, PrimitiveNode):
+        # Cluster-mux: node-type flavor, but direction-polymorphic — link by the
+        # resolved DISPLAY name (Bundle vs Unbundle), not the raw ambiguous name.
+        if node.node_type in _CLUSTER_MUX_TYPES:
+            return mux_doc_url(node)
+        resolver = graph.primitive_catalog
+        # primResID flavor first (prim_id / name), then the node-type flavor
+        # (Build Array, Index Array, Compound Arithmetic, ... resolve_by_node_type).
+        resolved = resolver.resolve(prim_id=node.prim_id, name=node.name)
+        if resolved is not None and resolved.doc_url:
+            return resolved.doc_url
+        if node.node_type:
+            nt = resolver.resolve_by_node_type(node.node_type)
+            if nt is not None and nt.doc_url:
+                return nt.doc_url
+        return None
+    if isinstance(node, VINode):
+        entry = graph.vilib_catalog.resolve_recorded(catalog_path)
+        return entry.doc_url if entry else None
+    return None
+
+
 @dataclass(frozen=True)
 class GlyphContext:
     """Context available to node glyph resolvers.
@@ -675,16 +703,16 @@ class JsonGlyphResolver:
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
         icon: NodeIcon | None = None
         if isinstance(node, PrimitiveNode):
-            icon = self._primitive_icon(node)
+            icon = self._primitive_icon(ctx.graph, node)
         elif isinstance(node, VINode):
-            icon = self._vi_icon(node, ctx.graph.catalog_path(node))
+            icon = self._vi_icon(ctx.graph, node, ctx.graph.catalog_path(node))
         if icon is None:
             return None
         return self._glyph_from_icon(icon)
 
     @staticmethod
-    def _primitive_icon(node: PrimitiveNode) -> NodeIcon | None:
-        resolver = get_prim_resolver()
+    def _primitive_icon(graph: InMemoryVIGraph, node: PrimitiveNode) -> NodeIcon | None:
+        resolver = graph.primitive_catalog
         resolved = resolver.resolve(prim_id=node.prim_id, name=node.name)
         if resolved is not None and resolved.icon is not None:
             return resolved.icon
@@ -695,8 +723,10 @@ class JsonGlyphResolver:
         return None
 
     @staticmethod
-    def _vi_icon(node: VINode, catalog_path: str | None) -> NodeIcon | None:
-        resolver = get_vilib_resolver()
+    def _vi_icon(
+        graph: InMemoryVIGraph, node: VINode, catalog_path: str | None
+    ) -> NodeIcon | None:
+        resolver = graph.vilib_catalog
         entry = resolver.resolve_call(catalog_path, node.poly_variant_name)
         return entry.icon if entry is not None else None
 
