@@ -101,8 +101,7 @@ def test_value_extent_ignores_hidden_parts() -> None:
         uid="1", name="Graph", control_type="stdGraph", bounds=(0, 0, 237, 168),
         parts=[
             ParsedFPPart(16, "label", (0, 8, 17, 54)),
-            ParsedFPPart(8023, "indArr", (-10, 7, 19, 168),
-                         props={"objFlags": "8"}),
+            ParsedFPPart(8023, "indArr", (-10, 7, 19, 168), flags=8),
             ParsedFPPart(9, "cosm", (19, 0, 237, 168)),
         ],
     )

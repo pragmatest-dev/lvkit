@@ -21,30 +21,30 @@ from lvkit.render.style import DEFAULT_THEME
 # (top, left, bottom, right), control-local. A 123x265 control whose caption
 # strip (16-17px) and index bezel sit above the content: the value box is the
 # union of the non-label parts, so it starts at y=16 and is 115 wide.
-_HIDDEN = {"objFlags": "395578"}
-_SHOWN = {"objFlags": "395570"}
+_HIDDEN = 395578
+_SHOWN = 395570
 
 
-def _index_part(props: dict[str, str]) -> ParsedFPPart:
+def _index_part(flags: int) -> ParsedFPPart:
     sub = [
         ParsedFPPart(10, "numLabel", (9, 27, 26, 48)),
         ParsedFPPart(2, "bigMultiCosm", (6, 7, 17, 22)),
         ParsedFPPart(3, "bigMultiCosm", (17, 7, 28, 22)),
     ]
-    return ParsedFPPart(8002, "stdNum", (20, 2, 57, 62), props, sub)
+    return ParsedFPPart(8002, "stdNum", (20, 2, 57, 62), {}, sub, flags=flags)
 
 
 def _array(
-    index_props: dict[str, str],
-    scrollbar_props: dict[str, str] | None = None,
+    index_flags: int,
+    scrollbar_flags: int = 0,
     **kw,
 ) -> ParsedFPControl:
     parts = [
         ParsedFPPart(16, "label", (0, 0, 17, 123)),
-        _index_part(index_props),
+        _index_part(index_flags),
         ParsedFPPart(30, "cosm", (16, 0, 59, 65)),
         ParsedFPPart(28, "cosm", (25, 66, 255, 88 + 66)),
-        ParsedFPPart(39, "cosm", (25, 154, 255, 171), scrollbar_props or {}),
+        ParsedFPPart(39, "cosm", (25, 154, 255, 171), flags=scrollbar_flags),
         ParsedFPPart(9, "cosm", (18, 59, 265, 174)),
         ParsedFPPart(None, "stdNum", (25, 66, 48, 154), {"typeDesc": "TypeID(39)"}),
     ]
@@ -141,7 +141,7 @@ def test_parser_keeps_hidden_flag_sub_parts_and_number_format() -> None:
     ctrl = _parse_ddo(_array_ddo(), "1", set())
     assert ctrl is not None
     index = next(p for p in ctrl.parts if p.part_id == 8002)
-    assert index.props["objFlags"] == "395578"
+    assert index.flags == 395578
     assert [p.part_id for p in index.parts] == [10]
     assert ctrl.number_format == "%#_g"
 
@@ -159,7 +159,7 @@ def test_scrollbar_only_when_its_part_is_not_hidden() -> None:
     same as the index: hidden on some arrays in the reference, visible on
     others."""
     assert "lv-array-scrollbar" in _svg(_array(_HIDDEN))
-    assert "lv-array-scrollbar" not in _svg(_array(_HIDDEN, {"objFlags": "3454"}))
+    assert "lv-array-scrollbar" not in _svg(_array(_HIDDEN, 3454))
 
 
 def _numeric() -> ParsedFPControl:
