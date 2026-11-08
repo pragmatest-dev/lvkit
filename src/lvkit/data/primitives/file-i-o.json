@@ -464,7 +464,7 @@
         }
       ],
       "python_code": {
-        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11).read())",
+        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11, encoding=\"utf-8\").read())",
         "refnum_out": "in_11",
         "cancelled": "False",
         "error_out": "in_8"

@@ -95,12 +95,15 @@ def write_to_text_file(
         if is_wired_output(ctx, node, 3):
             assert refnum_out is not None
             file = ctx.make_output_var("refnum_out", node.id, terminal_id=refnum_out.id)
-            source = f"{file} = open({path}, 'w', newline='')\n{file}.write({data})"
+            source = (
+                f"{file} = open({path}, 'w', newline='', encoding='utf-8')\n"
+                f"{file}.write({data})"
+            )
             bindings[refnum_out.id] = file
         else:
             handle = ctx.make_output_var("file_handle", node.id)
             source = (
-                f"with open({path}, 'w', newline='') as {handle}:\n"
+                f"with open({path}, 'w', newline='', encoding='utf-8') as {handle}:\n"
                 f"    {handle}.write({data})"
             )
         statements.extend(ast.parse(source).body)
@@ -112,7 +115,7 @@ def write_to_text_file(
         statements.extend(
             ast.parse(
                 f"{file}.write({written} if isinstance({file}, io.TextIOBase) "
-                f"else {written}.encode())"
+                f"else {written}.encode('utf-8'))"
             ).body
         )
         if refnum_out is not None:

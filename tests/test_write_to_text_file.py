@@ -216,3 +216,51 @@ def test_no_file_is_a_gap(project: Project) -> None:  # noqa: F811
     assert reason in package.source
     with pytest.raises(NotImplementedError, match=re.escape(reason)):
         package.function(Path("/x"), "x")
+
+
+def test_text_is_utf_8_in_a_path(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """The character 'e acute' is the bytes c3 a9, whatever the platform's default
+    encoding is."""
+    package = _write(project, flags=0x280)
+    target = tmp_path / "accent.txt"
+    package.function(target, "\u00e9")
+    assert target.read_bytes() == b"\xc3\xa9"
+
+
+def test_text_is_utf_8_in_a_binary_refnum(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = _write(project, file_type=FILE, flags=0x280)
+    with open(tmp_path / "ref.txt", "w+b") as handle:
+        package.function(handle, "\u00e9")
+    assert (tmp_path / "ref.txt").read_bytes() == b"\xc3\xa9"
+
+
+def test_read_from_text_file_decodes_utf_8(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    vi = Vi("Read Text.vi")
+    target = vi.control("target", PATH, REQUIRED)
+    text = vi.indicator("text", STR)
+    out = vi.error_out()
+    node = vi.primitive(
+        8070,
+        [
+            ("error out", 0, ERR, True),
+            ("text", 2, STR, True),
+            ("error in", 8, ERR, False),
+            ("file", 11, PATH, False),
+        ],
+    )
+    vi.wire(target, node["file"])
+    vi.wire(node["text"], text)
+    vi.wire(node["error out"], out)
+    project.add(vi)
+    package = project.generate("Read Text.vi")
+    (tmp_path / "accent.txt").write_bytes(b"\xc3\xa9")
+    assert package.function(tmp_path / "accent.txt").text == "é"
