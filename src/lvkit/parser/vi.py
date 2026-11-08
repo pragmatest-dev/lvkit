@@ -65,6 +65,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
     TUNNEL_CLASS_CASE_SEL,
 )
+from .data_fill import DefaultDataSpace, read_default_data_space
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
@@ -293,8 +294,9 @@ def parse_vi(
 
     # Parse case-structure selector-value tables from the dataspace XML. These
     # carry the real per-frame selector labels, which the block-diagram heap
-    # does not (see parse_selector_tables / _apply_selector_tables).
-    selector_tables, table_index_shift = _parse_selector_tables(main_xml)
+    # does not (see parse_selector_tables / _apply_selector_tables). The same read
+    # gives the default data that constants and controls keep their values in.
+    selector_tables, default_space = _parse_dataspace(main_xml)
 
     # Parse block diagram (+ optional geometry from the SAME parsed heap)
     block_diagram, bd_layout = _parse_block_diagram(
@@ -304,7 +306,8 @@ def parse_vi(
         selector_tables,
         want_layout=layout,
         main_xml=main_xml,
-        table_index_shift=table_index_shift,
+        table_index_shift=default_space.index_shift or 0,
+        default_space=default_space,
     )
 
     # Parse front panel
@@ -491,27 +494,20 @@ def _parse_metadata(
     )
 
 
-def _parse_selector_tables(
+def _parse_dataspace(
     main_xml_path: Path | str | None,
-) -> tuple[list[SelectorTable], int]:
-    """Parse case selector-value tables + the TM80 IndexShift from the main
-    dataspace XML. The shift converts a case's ``tdOffset`` (a TM80 client
-    index) to its table's absolute DataFill TypeID (see _apply_selector_tables).
-    """
+) -> tuple[list[SelectorTable], DefaultDataSpace]:
+    """Parse case selector-value tables and the default data space from the main
+    dataspace XML. The space's TM80 ``index_shift`` converts an object's
+    ``tdOffset`` (a TM80 client index) to its absolute DataFill TypeID (see
+    _apply_selector_tables)."""
     if main_xml_path is None:
-        return [], 0
+        return [], DefaultDataSpace()
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
-        return [], 0
+        return [], DefaultDataSpace()
     root = parsed_xml(main_xml)
-    tm80 = root.find("TM80/Section")
-    shift = 0
-    if tm80 is not None and (raw := tm80.get("IndexShift")) is not None:
-        try:
-            shift = int(raw)
-        except ValueError:
-            shift = 0
-    return parse_selector_tables(root), shift
+    return parse_selector_tables(root), read_default_data_space(root)
 
 
 def _parse_block_diagram(
@@ -523,6 +519,7 @@ def _parse_block_diagram(
     want_layout: bool = False,
     main_xml: Path | str | None = None,
     table_index_shift: int = 0,
+    default_space: DefaultDataSpace | None = None,
 ) -> tuple[ParsedBlockDiagram, Layout | None]:
     """Parse block diagram from BD XML.
 
@@ -537,7 +534,7 @@ def _parse_block_diagram(
     _resolve_bound_control_types(nodes, fp_xml)
     resolve_ext_func_calls(nodes, main_xml, type_map)
     resolve_xnode_libraries(nodes, main_xml)
-    constants = extract_constants(root)
+    constants = extract_constants(root, default_space, type_map)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root, fp_xml, type_map)

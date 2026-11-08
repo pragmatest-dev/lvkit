@@ -224,7 +224,7 @@ def decode_constant(
     value = const.value
     if value is None:
         py_type = lv_type.to_python() if lv_type is not None else "raw"
-        marker = ValueNotStored()
+        marker = ValueNotStored(const.value_gap)
         return DecodedConstant(py_type, str(marker), None, marker)
 
     if lv_type is not None:
