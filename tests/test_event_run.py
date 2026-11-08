@@ -180,3 +180,16 @@ def test_a_vi_without_an_event_structure_takes_no_events(
     package = project.generate(NAME)
     assert "events" not in inspect.signature(package.function).parameters
     assert "Queue" not in package.source
+
+
+@pytest.mark.parametrize("hidden_field", [True, False])
+def test_the_fields_of_a_value_change_are_found_by_name_wherever_the_cluster_puts_them(
+    project: Project,  # noqa: F811
+    hidden_field: bool,
+) -> None:
+    project.add(event_loop_vi(hidden_field=hidden_field))
+    package = project.generate("Events.vi")
+    result, _ = _run(
+        package, (_names(package).GAIN, 7, _kinds(package).VALUE_CHANGE, 3)
+    )
+    assert (result.last_new, result.last_old) == (7, 3)

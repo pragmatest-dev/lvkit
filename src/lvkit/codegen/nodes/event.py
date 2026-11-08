@@ -240,9 +240,15 @@ def _integer(text: str | None) -> int | None:
         return None
 
 
-def _field_name(aggregate: Terminal, index: int) -> str | None:
-    fields = aggregate.lv_type.fields if aggregate.lv_type else None
-    return fields[index].name if fields and 0 <= index < len(fields) else None
+def _field_name(data_node: AnyGraphNode, term: Terminal) -> str | None:
+    """The name the cluster of ``data_node`` gives the field ``term`` carries, as
+    the VI's own type records it."""
+    aggregate = next((t for t in data_node.terminals if t.nmux_role == "agg"), None)
+    fields = aggregate.lv_type.fields if aggregate and aggregate.lv_type else None
+    index = term.nmux_field_index
+    if not fields or index is None or not 0 <= index < len(fields):
+        return None
+    return fields[index].name
 
 
 def _kinds(frame: EventFrame) -> list[MessageKind]:
@@ -261,43 +267,32 @@ def _event_data(
     """The assignments at the start of the frame that take each output of its
     Event Data Node that is wired from the item of the message that holds the
     field (and write the indicators it feeds); a field the message does not carry
-    is a gap."""
-    fields = [entry for kind in _kinds(frame) for entry in kind.data]
+    is a gap. A field is found by the name its cluster gives it: where it sits in
+    the cluster differs from one control to another."""
+    held = dict(entry for kind in _kinds(frame) for entry in kind.data)
     statements: list[ast.stmt] = []
     for data_node in data_nodes:
         if data_node.id in node.filter_node_uids:
             continue
-        aggregate = next((t for t in data_node.terminals if t.nmux_role == "agg"), None)
         for term in data_node.terminals:
             if term.nmux_role != "list" or term.direction != "output":
                 continue
             if not ctx.is_wired(term.id):
                 continue
-            index = term.nmux_field_index
-            entry = next((f for f in fields if f[0] == index), None)
-            if entry is None or aggregate is None:
+            name = _field_name(data_node, term)
+            if name is None or name not in held:
                 raise _gap(
                     node,
                     frame,
-                    f"The frame reads the Event Data Node field {term.display_name}, "
+                    f"The frame reads the Event Data Node field {name or '?'}, "
                     "which a front-panel event does not carry",
                 )
-            name = _field_name(aggregate, entry[0])
-            if name != entry[1]:
-                raise _gap(
-                    node,
-                    frame,
-                    f"Field {entry[0]} of the Event Data Node is {name!r}, "
-                    f"not {entry[1]!r}",
-                )
             variable = ctx.make_output_var(
-                to_var_name(term.display_name or entry[1]),
-                data_node.id,
-                terminal_id=term.id,
+                to_var_name(name), data_node.id, terminal_id=term.id
             )
             ctx.bind(term.id, variable)
             statements.append(
-                build_assign(variable, parse_expr(f"{message}[{entry[2]}]"))
+                build_assign(variable, parse_expr(f"{message}[{held[name]}]"))
             )
         statements.extend(ctx.local_indicators.assignments_after(data_node, ctx))
     return statements
@@ -326,12 +321,12 @@ def _reply(
                 continue
             if not ctx.is_wired(term.id):
                 continue
-            if all(term.nmux_field_index != (k.discard or (None,))[0] for k in filters):
+            name = _field_name(data_node, term)
+            if name is None or name not in {k.discard for k in filters}:
                 raise _gap(
                     node,
                     frame,
-                    f"The Event Filter Node input {term.display_name} is not "
-                    "handled",
+                    f"The Event Filter Node input {name or '?'} is not handled",
                 )
             discard = ctx.wired_input(term.id, data_node) or "False"
     statement = _statement(f"{message}[{REPLY}].put(({discard}, None))")

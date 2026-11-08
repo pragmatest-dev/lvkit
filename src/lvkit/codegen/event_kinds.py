@@ -39,16 +39,16 @@ class MessageKind:
     event, which field its Event Filter Node reads as Discard?.
 
     ``data`` lists the fields of the Event Data Node's cluster the message
-    holds as ``(field index, the field's name in the cluster, position in the
-    message)``; a name that is not the cluster's own at that index means the
-    layout is not the one lvkit knows, and the structure is not handled.
-    ``discard`` is the ``(field index, name)`` of the Discard? field."""
+    holds as ``(the field's name in the cluster, position in the message)``. The
+    index of a field in the cluster differs with the control (a hidden field
+    comes before OldVal on some), so a field is found by the name its cluster
+    gives it. ``discard`` is the name of the Discard? field."""
 
     code: int
     member: str
     filter: bool
-    data: tuple[tuple[int, str, int], ...] = ()
-    discard: tuple[int, str] | None = None
+    data: tuple[tuple[str, int], ...] = ()
+    discard: str | None = None
 
     @property
     def name(self) -> str:
@@ -61,9 +61,9 @@ MESSAGE_KINDS = (
         VALUE_CHANGE_CODE,
         "VALUE_CHANGE",
         filter=False,
-        data=((5, "OldVal", OLD_VALUE), (6, "NewVal", NEW_VALUE)),
+        data=(("OldVal", OLD_VALUE), ("NewVal", NEW_VALUE)),
     ),
-    MessageKind(PANEL_CLOSE_CODE, "PANEL_CLOSE", filter=True, discard=(4, "Discard?")),
+    MessageKind(PANEL_CLOSE_CODE, "PANEL_CLOSE", filter=True, discard="Discard?"),
 )
 
 

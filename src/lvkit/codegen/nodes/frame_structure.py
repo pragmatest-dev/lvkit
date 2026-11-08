@@ -38,13 +38,13 @@ class _OutputTunnel:
     inner_by_frame: dict[object, str] = field(default_factory=dict)
 
 
-def _frame_of(inner: object) -> str | int | None:
+def _frame_of(node: FrameStructure, inner: object) -> str | int | None:
     """The key (``frame_key``) of the frame an inner tunnel terminal sits in: the
     frame a Case's terminal records, the position of the frame of an Event
     Structure's."""
     if not isinstance(inner, TunnelTerminal):
         return None
-    if inner.frame is not None:
+    if inner.frame is not None or not isinstance(node, EventStructureNode):
         return inner.frame
     return str(inner.frame_position) if inner.frame_position is not None else None
 
@@ -68,7 +68,7 @@ def _output_tunnels(
         if ot is None:
             ot = _OutputTunnel(outer_uid=outer_uid, lv_type=outer.lv_type)
             tunnels[outer_uid] = ot
-        ot.inner_by_frame[_frame_of(outer_by_id.get(inner_uid))] = inner_uid
+        ot.inner_by_frame[_frame_of(node, outer_by_id.get(inner_uid))] = inner_uid
     return list(tunnels.values())
 
 

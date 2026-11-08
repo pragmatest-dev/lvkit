@@ -21,14 +21,14 @@ _I32 = '<TypeDesc Type="NumInt32" Label="{label}" />'
 class FrameSpec:
     """One frame: the events it handles (``sources`` are the diagram terminals of
     the controls, none for an event with no control) and the fields of its Event
-    Data Node cluster, ``(name, type desc)``. ``read`` lists the fields the frame's
-    Event Data Node outputs, ``(name, cluster index)``; ``filter`` gives the frame
+    Data Node cluster, ``(name, type desc)``. ``read`` names the fields the frame's
+    Event Data Node outputs; ``filter`` gives the frame
     an Event Filter Node with a Discard? input."""
 
     type_code: int
     fields: list[tuple[str, str]]
     sources: list[int] = field(default_factory=list)
-    read: list[tuple[str, int]] = field(default_factory=list)
+    read: list[str] = field(default_factory=list)
     filter: bool = False
     # Each further event the frame handles besides the first.
     more: list[tuple[int, int | None]] = field(default_factory=list)
@@ -57,16 +57,22 @@ def timeout_frame(*, read: bool = False) -> FrameSpec:
     return FrameSpec(
         TIMEOUT,
         [("Source", _U32), ("Type", _U32), ("Time", _U32)],
-        read=[("Type", 1), ("Time", 2)] if read else [],
+        read=["Type", "Time"] if read else [],
     )
 
 
 def value_change_frame(
-    sources: list[int], value_type: str, *, old: bool = True, new: bool = True
+    sources: list[int],
+    value_type: str,
+    *,
+    old: bool = True,
+    new: bool = True,
+    hidden_field: bool = True,
 ) -> FrameSpec:
     """A Value Change frame on the controls ``sources``; ``value_type`` is the
-    ``<TypeDesc>`` of the controls' value."""
-    read = ([("OldVal", 5)] if old else []) + ([("NewVal", 6)] if new else [])
+    ``<TypeDesc>`` of the controls' value; without ``hidden_field`` the cluster has
+    no unnamed field before OldVal (the index of OldVal and NewVal differs)."""
+    read = (["OldVal"] if old else []) + (["NewVal"] if new else [])
     return FrameSpec(
         VALUE_CHANGE,
         [
@@ -74,7 +80,7 @@ def value_change_frame(
             ("Type", _U32),
             ("Time", _U32),
             ("CtlRef", _U32),
-            ("", _U32),
+            *([("", _U32)] if hidden_field else []),
             ("OldVal", value_type),
             ("NewVal", value_type),
         ],
@@ -169,6 +175,7 @@ def event_loop_vi(
     discard: bool = False,
     read_gain: bool = False,
     extra: FrameSpec | None = None,
+    hidden_field: bool = True,
 ) -> Vi:
     """A While Loop around an Event Structure with three frames: Timeout (sets
     ``Timed Out`` and ends the loop), Value Change on ``Gain`` and ``Offset`` (shows
@@ -201,7 +208,7 @@ def event_loop_vi(
             vi,
             [
                 timeout_frame(),
-                value_change_frame([gain, offset], _I32),
+                value_change_frame([gain, offset], _I32, hidden_field=hidden_field),
                 panel_close_frame(),
                 *([extra] if extra else []),
             ],
@@ -262,7 +269,8 @@ def _frame_nodes(
         "</SL__arrayElement>"
     )
     drawers = []
-    for name, index in spec.read:
+    for name in spec.read:
+        index = [n for n, _ in spec.fields].index(name)
         t = vi.next_uid(2)
         terms.data[name] = t
         drawers.append(t + 1)
