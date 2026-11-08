@@ -100,7 +100,7 @@ def test_a_value_write_then_read_in_a_loop(project: Project) -> None:  # noqa: F
         events.append(("read", name, value))
         return 40
 
-    result = package.function(n=1, on_update=update, on_read=read_hook)
+    result = package.function(1, on_update=update, on_read=read_hook)
     assert result.seen == 40
     assert events == [("update", "n", 7), ("read", "n", 7), ("update", "seen", 40)]
     assert package.function(n=1).seen == 7
@@ -139,3 +139,42 @@ def test_the_views_of_a_vi_with_a_value_property_node_are_unchanged(
         assert getattr(after, view) == getattr(before, view)
         for hook in ("on_read", "on_update", "PropValue"):
             assert hook not in str(getattr(after, view))
+
+
+def test_a_node_bound_to_a_part_of_a_type_defined_control_is_the_control(
+    project: Project,  # noqa: F811
+) -> None:
+    """The bound object is inside the control (the saved object of a type-defined
+    control holds the control itself): the node is tied to the control around it."""
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED, ddo_class="typeDef")
+    seen = vi.indicator("seen", I32)
+    seven = vi.int_constant(7)
+    (write,) = value_property(vi, n, ["Value"], inner=True)
+    vi.wire(seven, write)
+    loop = vi.loop("whileLoop")
+    with vi.inside(loop.scopes[0]):
+        (read,) = value_property(vi, n, ["Value"], inner=True)
+        stop = vi.bool_constant(True)
+    vi.place_inside(seen, loop.scopes[0])
+    vi.wire(read, seen)
+    vi.wire(stop, loop.faces[0])
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.gaps == []
+    events: list[tuple[str, str, Any]] = []
+
+    def update(name: str, value: Any) -> None:
+        events.append(("update", name, value))
+
+    def read_hook(name: str, value: Any) -> Any:
+        events.append(("read", name, value))
+        return 40
+
+    result = package.function(1, on_update=update, on_read=read_hook)
+    assert result.seen == 40
+    assert events == [
+        ("update", "input_", 7),
+        ("read", "input_", 7),
+        ("update", "seen", 40),
+    ]

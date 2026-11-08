@@ -191,6 +191,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             # here rather than duplicating this pair per elif branch below.
             if isinstance(node, (PropertyNode, InvokeNode)):
                 prim_kwargs["bound_control_uid"] = node.bound_control_uid
+                prim_kwargs["bound_control_dco_uid"] = node.bound_control_dco_uid
                 prim_kwargs["bound_control_type"] = node.bound_control_type
             if isinstance(node, PropertyNode):
                 prim_kwargs["properties"] = node.properties

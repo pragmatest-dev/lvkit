@@ -61,11 +61,15 @@ def counting_vi(name: str = NAME, *, with_text: bool = False) -> Vi:
     return vi
 
 
-def value_property(vi: Vi, pane_term: int, rows: list[str]) -> list[int]:
+def value_property(
+    vi: Vi, pane_term: int, rows: list[str], *, inner: bool = False
+) -> list[int]:
     """A Property Node on the front-panel control or indicator whose terminal is
     ``pane_term``, with one row per name in ``rows`` (``"Value"``, ``"Visible"``).
     Returns the terminal of each row (a write when wired as a sink, a read when
-    wired as a source)."""
+    wired as a source). With ``inner`` the node is bound to an object inside the
+    control (its label part), as for a type-defined control, not to the control's
+    own object."""
     pane = next(p for p in vi.panes if vi.fp_terms[p.uid] == pane_term)
     uid = vi.next_uid(1 + 3 * len(rows))
     terms = ""
@@ -85,7 +89,7 @@ def value_property(vi: Vi, pane_term: int, rows: list[str]) -> list[int]:
         dcos += f'<SL__arrayElement uid="{term + 1}" />'
     vi.scope.nodes.append(
         f'<SL__arrayElement class="propNode" uid="{uid}">'
-        f'<ddo uid="{pane.uid}1" />'
+        f'<ddo uid="{pane.uid}{2 if inner else 1}" />'
         f'<termList elements="{len(rows)}">{terms}</termList>'
         f'<dcoList elements="{len(rows)}">{dcos}</dcoList>'
         '<permDCOList elements="0"></permDCOList>'
