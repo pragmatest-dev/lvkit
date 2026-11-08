@@ -38,10 +38,14 @@ BASE, CHILD = class_type("Base"), class_type("Child")
 REQUIRED = ParsedWiringRule.REQUIRED
 RECOMMENDED = ParsedWiringRule.RECOMMENDED
 OPTIONAL = ParsedWiringRule.OPTIONAL
-HOOKS = (
-    "on_update: Callable[[str, Any], None] | None=None, "
-    "on_read: Callable[[str, Any], Any] | None=None"
-)
+
+
+def hooks(enum: str) -> str:
+    """The hook parameters of a function or method whose names are ``enum``."""
+    return (
+        f"on_update: Callable[[{enum}, Any], None] | None=None, "
+        f"on_read: Callable[[{enum}, Any], Any] | None=None"
+    )
 
 
 def off_pane(
@@ -215,7 +219,9 @@ def test_a_dynamic_method_takes_required_then_keyword_only(tmp_path: Path) -> No
     assert package.gaps == []
     source = package.sources["base"]
     assert (
-        "def scale(self, req: int, *, opt: int=10, " + HOOKS + ") -> ScaleResult:"
+        "def scale(self, req: int, *, opt: int=10, "
+        + hooks("BaseScaleValue")
+        + ") -> ScaleResult:"
     ) in source
     assert "@dataclass(frozen=True)\nclass ScaleResult:\n    total: int" in source
     # The off-pane controls are locals in front-panel order, each its own name,
@@ -253,7 +259,9 @@ def test_an_override_has_the_declarations_signature_and_its_own_controls(
     assert override.result_class == declared.result_class == "ScaleResult"
     source = package.sources["child"]
     assert (
-        "def scale(self, req: int, *, opt: int=10, " + HOOKS + ") -> ScaleResult:"
+        "def scale(self, req: int, *, opt: int=10, "
+        + hooks("ChildScaleValue")
+        + ") -> ScaleResult:"
     ) in source
     assert "bonus: int = 100" in source
     assert "class ScaleResult" not in source
@@ -267,7 +275,9 @@ def test_a_static_method_with_two_off_pane_controls(tmp_path: Path) -> None:
     package = shapes_project(tmp_path).generate()
     source = package.sources["base"]
     assert (
-        "@staticmethod\n    def make(seed: int, *, " + HOOKS + ") -> MakeResult:"
+        "@staticmethod\n    def make(seed: int, *, "
+        + hooks("BaseMakeValue")
+        + ") -> MakeResult:"
     ) in source
     assert "    k: int = 2\n    k_2: int = 3\n" in source
     with package.use() as module:
@@ -286,7 +296,9 @@ def test_a_vi_has_required_positional_and_the_rest_keyword_only(
     package = project.generate()
     source = package.sources["mix"]
     assert (
-        "def mix(a: int, *, b: int=0, c: int=4, " + HOOKS + ") -> MixResult:"
+        "def mix(a: int, *, b: int=0, c: int=4, "
+        + hooks("MixValue")
+        + ") -> MixResult:"
     ) in source
     assert "@dataclass(frozen=True)\nclass MixResult:\n    out: int" in source
     assert "Offset" not in source.split('"""')[0]
@@ -312,9 +324,7 @@ def test_a_vi_with_everything_off_the_pane_has_no_parameter_and_no_result(
     project.add_vi("Lone", lone)
     package = project.generate()
     source = package.sources["lone"]
-    assert (
-        "def lone(*, " + HOOKS + "):"
-    ) in source
+    assert ("def lone(*, " + hooks("LoneValue") + "):") in source
     assert "    x: int = 3\n" in source and "    y: int\n" in source
     with package.use() as module:
         assert module("lone").lone() is None
@@ -442,7 +452,9 @@ def test_an_override_whose_declaration_was_not_loaded_is_called_with_its_inputs(
     package = project.generate()
     assert package.gaps == []
     assert (
-        "def scale(self, req: int, *, opt: int=10, " + HOOKS + ") -> ScaleResult:"
+        "def scale(self, req: int, *, opt: int=10, "
+        + hooks("ChildScaleValue")
+        + ") -> ScaleResult:"
         in (package.sources["child"])
     )
     assert ".scale(req=x)" in package.sources["run"]

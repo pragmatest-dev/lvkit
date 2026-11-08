@@ -526,7 +526,8 @@ class CodeGenContext:
         return generated_nodes(
             self.graph.child_nodes(
                 node.id, self.vi_name or "", extra_kinds=REFERENCE_KINDS
-            )
+            ),
+            self,
         )
 
     def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:

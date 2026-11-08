@@ -31,7 +31,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
-from ..panel_hooks import PanelHooks
+from ..panel_hooks import PanelHooks, method_enum_name
 from ..type_fields import annotation_imports
 
 if TYPE_CHECKING:
@@ -102,9 +102,17 @@ class _MethodBuilderMixin:
         ctx.panel_hooks = (
             None
             if property_accessor
-            else PanelHooks.for_vi(vi_context, graph, key, names)
+            else PanelHooks.for_vi(
+                ctx,
+                vi_context,
+                graph,
+                key,
+                method_enum_name(self._model.name, shape.name),
+                taken=self._module_names(),
+                parameter_names=names,
+            )
         )
-        args = build_args(parameters, names, spell, hooked=ctx.panel_hooks is not None)
+        args = build_args(parameters, names, spell, hooks=ctx.panel_hooks)
         if property_accessor:
             args.args.extend(args.kwonlyargs)
             args.kwonlyargs, args.kw_defaults = [], []
@@ -204,6 +212,14 @@ class _MethodBuilderMixin:
             return parse_expr(terminal_annotation(out, spell))
         assert shape.result_class is not None
         return ast.Name(id=shape.result_class, ctx=ast.Load())
+
+    def _module_names(self) -> list[str]:
+        """The names the class module defines besides its helpers: the class and
+        the result classes of its methods."""
+        return [
+            self._model.name,
+            *(s.result_class for s in self._model.shapes.values() if s.result_class),
+        ]
 
     def _result_class_def(
         self, shape: MethodShape, vi_context: VIContext

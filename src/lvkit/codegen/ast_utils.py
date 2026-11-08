@@ -107,6 +107,7 @@ def _cluster_default(lv_type: LVType) -> ast.expr:
 # The names a generated module spells bare and imports only when it uses them.
 _IMPLICIT_IMPORTS = {
     "Callable": "from collections.abc import Callable",
+    "Enum": "from enum import Enum",
     "os": "import os",
     "Path": "from pathlib import Path",
     "SimpleNamespace": "from types import SimpleNamespace",
@@ -510,13 +511,16 @@ def to_function_name(vi_name: str) -> str:
     return to_var_name(name)
 
 
+def class_style_name(vi_name: str) -> str:
+    """The VI's function name in class style (``get_settings`` is
+    ``GetSettings``)."""
+    parts = to_function_name(vi_name).split("_")
+    return "".join(p.capitalize() for p in parts if p)
+
+
 def build_result_class_name(vi_name: str) -> str:
     """Build result class name from VI name."""
-    base = to_function_name(vi_name)
-    # Convert to CamelCase
-    parts = base.split("_")
-    camel = "".join(p.capitalize() for p in parts if p)
-    return f"{camel}Result"
+    return f"{class_style_name(vi_name)}Result"
 
 
 RESULT_CLASS_IMPORT = "from dataclasses import dataclass"

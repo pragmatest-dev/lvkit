@@ -171,7 +171,13 @@ class WireQueriesMixin:
         terminal = self.get_terminal(terminal_id)
         if not isinstance(terminal, FPTerminal):
             return None
-        around = terminal.parent
+        return self.enclosing_loop(terminal.parent)
+
+    def enclosing_loop(self, around: str | None) -> str | None:
+        """The id of the nearest While Loop, For Loop or Event Structure that is
+        the structure ``around`` or encloses it (through any Case, Sequence or
+        Disable structures between); None when ``around`` is None (the VI's own
+        diagram) or no such structure encloses it."""
         while around is not None:
             node = self.get_graph_node(around)
             if node is None:
@@ -307,6 +313,15 @@ class WireQueriesMixin:
             ):
                 written.append(node.control_terminal_id)
         return written
+
+    def written_by_local_variable(self, control_id: str) -> bool:
+        """Whether a Local Variable write of the control or indicator
+        ``control_id`` is wired to it."""
+        for src in self.incoming_edges(control_id):
+            node = self.get_graph_node(src.node_id)
+            if isinstance(node, LocalVariableNode) and node.is_write:
+                return True
+        return False
 
     def indicator_sources(self, indicator_id: str) -> list[str]:
         """The terminals whose wires write the indicator: those wired to it, and

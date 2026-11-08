@@ -89,8 +89,8 @@ def test_a_while_loop_indicator_is_updated_on_every_iteration(
     package = project.generate(NAME)
     assert _signature(package) == ["on_update", "on_read"]
     assert (
-        "def live(*, on_update: Callable[[str, Any], None] | None=None, "
-        "on_read: Callable[[str, Any], Any] | None=None) -> LiveResult:"
+        "def live(*, on_update: Callable[[LiveValue, Any], None] | None=None, "
+        "on_read: Callable[[LiveValue, Any], Any] | None=None) -> LiveResult:"
     ) in package.source
     assert "from collections.abc import Callable" in package.source
     assert _body(package) == textwrap.dedent(
@@ -101,7 +101,7 @@ def test_a_while_loop_indicator_is_updated_on_every_iteration(
             x1 = state + 1
             count = x1
             if on_update is not None:
-                on_update('count', count)
+                on_update(LiveValue.COUNT, count)
             state_updated = x1
             state = state_updated
             if x1 >= 3:
@@ -151,12 +151,12 @@ def test_an_indicator_outside_the_loop_is_updated_too_after_the_loop(
             step = state + 1
             inner = step
             if on_update is not None:
-                on_update('inner', inner)
+                on_update(LiveValue.INNER, inner)
             state_updated = step
             state = state_updated
         outer = state
         if on_update is not None:
-            on_update('outer', outer)
+            on_update(LiveValue.OUTER, outer)
         return LiveResult(inner=inner, outer=outer)"""
     )
     recorder = Recorder()
@@ -334,13 +334,23 @@ def test_a_hooked_class_method_takes_the_hooks_after_its_own_keywords(
     assert package.gaps == []
     source = package.sources["counter"]
     assert (
-        "def run(n: int, *, on_update: Callable[[str, Any], None] | None=None, "
-        "on_read: Callable[[str, Any], Any] | None=None)"
+        "def run(n: int, *, "
+        "on_update: Callable[[CounterRunValue, Any], None] | None=None, "
+        "on_read: Callable[[CounterRunValue, Any], Any] | None=None)"
     ) in source
+    # The enum is the class's and the method's name, at module level next to the
+    # class, before it.
+    assert "\nclass CounterRunValue(str, Enum):\n    N = 'n'\n    OUT = 'out'\n" in (
+        source
+    )
+    assert source.index("class CounterRunValue") < source.index("class Counter:")
+    assert "on_update(CounterRunValue.OUT, out)" in source
+    assert "from enum import Enum" in source
     with package.use() as module:
         recorder = Recorder()
         result = module("counter").Counter.run(n=3, on_update=recorder)
         assert result.out == 6
+        assert recorder.calls[0][0] is module("counter").CounterRunValue.OUT
         # The loop's count is not wired: it runs its default of 10 times.
         assert recorder.calls == [("out", 6)] * 10
 
@@ -390,11 +400,11 @@ def test_a_control_inside_a_while_loop_is_read_again_every_iteration(
         state = 0
         while True:
             if on_read is not None:
-                stop = on_read('stop', stop)
+                stop = on_read(LiveValue.STOP, stop)
             x1 = state + 1
             count = x1
             if on_update is not None:
-                on_update('count', count)
+                on_update(LiveValue.COUNT, count)
             state_updated = x1
             state = state_updated
             if stop:
@@ -456,13 +466,13 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
             seen_128 = 0
             if flag:
                 if on_read is not None:
-                    gain = on_read('gain', gain)
+                    gain = on_read(LiveValue.GAIN, gain)
                 seen_128 = gain
             else:
                 seen_128 = 0
             seen = seen_128
             if on_update is not None:
-                on_update('seen', seen)
+                on_update(LiveValue.SEEN, seen)
         return LiveResult(seen=seen)"""
     )
     reader, recorder = Reader(10, 20, 30), Recorder()
@@ -494,7 +504,7 @@ def test_a_control_in_an_event_structure_hooks_the_vi_and_the_structure_is_a_gap
     project.add(vi)
     package = project.generate(NAME)
     assert _signature(package) == ["stop", "on_update", "on_read"]
-    assert "Callable[[str, Any], Any] | None=None" in package.source
+    assert "Callable[[LiveValue, Any], Any] | None=None" in package.source
     # The structure has no Python meaning (``codegen/nodes/event.py``): the
     # function raises where it would run, before any frame is generated.
     with pytest.raises(NotImplementedError, match="Event Structure not supported"):
@@ -526,11 +536,11 @@ def test_an_off_pane_control_the_diagram_reads_is_read_once_at_entry(
         """\
         bias = 0
         if on_read is not None:
-            bias = on_read('bias', bias)
+            bias = on_read(LiveValue.BIAS, bias)
         out = 0
         out = bias + 1
         if on_update is not None:
-            on_update('out', out)
+            on_update(LiveValue.OUT, out)
         return LiveResult(out=out)"""
     )
     reader, recorder = Reader(41), Recorder()
@@ -587,3 +597,250 @@ def test_the_views_of_a_vi_with_reads_do_not_show_the_hooks(
     for view in ("lvnet", "terse", "describe", "json"):
         assert getattr(after, view) == getattr(before, view)
         assert "on_read" not in str(getattr(after, view))
+
+
+# -- the names are one generated enum per hooked VI --------------------------
+
+
+def test_the_names_are_members_of_an_enum_the_module_defines(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    _stop_loop(vi)
+    project.add(vi)
+    package = project.generate(NAME)
+    source = package.source
+    assert "from enum import Enum" in source
+    assert (
+        "class LiveValue(str, Enum):\n    STOP = 'stop'\n    COUNT = 'count'\n"
+    ) in source
+    # The enum comes before the function and the result class before the enum.
+    assert source.index("class LiveResult") < source.index("class LiveValue")
+    assert source.index("class LiveValue") < source.index("def live(")
+    assert "def live(stop: bool, *, on_update: Callable[[LiveValue, Any]" in source
+    value = package.module.LiveValue
+    assert [(m.name, m.value) for m in value] == [("STOP", "stop"), ("COUNT", "count")]
+    assert issubclass(value, str)
+    reader, recorder = Reader(False, True), Recorder()
+    package.function(stop=False, on_read=reader, on_update=recorder)
+    assert reader.calls[0][0] is value.STOP
+    assert recorder.calls[0][0] is value.COUNT
+    assert recorder.calls[0][0] == "count"
+    assert reader.calls == [("stop", False), ("stop", False)]
+
+
+def test_a_vi_without_hooks_has_no_enum_and_imports_no_enum(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    x = vi.control("x", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    inc = increment(vi)
+    vi.wire(x, inc["in"])
+    vi.wire(inc["out"], out)
+    project.add(vi)
+    source = project.generate(NAME).source
+    assert "Enum" not in source
+    assert "Value" not in source
+
+
+def test_an_enum_name_is_distinct_from_the_other_names_of_the_module(
+    project: Project,  # noqa: F811
+) -> None:
+    """A VI named ``Live Value`` has the function ``live_value``, whose enum would
+    be ``LiveValueValue``; a control named like the enum does not matter, and the
+    enum never takes the name of the result class."""
+    vi = Vi("Live Value.vi")
+    _counting_loop(vi)
+    project.add(vi)
+    package = project.generate("Live Value.vi")
+    assert "class LiveValueValue(str, Enum):" in package.source
+    assert "class LiveValueResult" in package.source
+
+
+# -- local variables of controls ---------------------------------------------
+
+
+def _write_then_read_a_control(vi: Vi) -> None:
+    """Constant 5 is written to the control ``n`` by a Local Variable, and a
+    Local Variable read of ``n`` shows it in the indicator ``out``."""
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    five = vi.int_constant(5)
+    write = vi.local_variable(n)
+    read = vi.local_variable(n)
+    vi.wire(five, write)
+    vi.wire(read, out)
+
+
+def test_a_local_variable_write_of_a_control_assigns_it(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    _write_then_read_a_control(vi)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert _signature(package) == ["n", "on_update", "on_read"]
+    assert _body(package) == textwrap.dedent(
+        """\
+        out = 0
+        n = 5
+        if on_update is not None:
+            on_update(LiveValue.N, n)
+        out = n
+        if on_update is not None:
+            on_update(LiveValue.OUT, out)
+        return LiveResult(out=out)"""
+    )
+    recorder = Recorder()
+    assert package.function(n=1, on_update=recorder).out == 5
+    assert recorder.calls == [("n", 5), ("out", 5)]
+    assert package.function(n=1).out == 5
+
+
+def test_a_write_and_a_read_no_wire_orders_follow_the_order_the_graph_lists_them(
+    project: Project,  # noqa: F811
+) -> None:
+    """LabVIEW orders a Local Variable write and read of one control by dataflow
+    only, and nothing wires these two: lvkit does not invent an order, so each
+    runs where the diagram lists it."""
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    five = vi.int_constant(5)
+    read = vi.local_variable(n)
+    write = vi.local_variable(n)
+    vi.wire(five, write)
+    vi.wire(read, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert _body(package) == textwrap.dedent(
+        """\
+        out = 0
+        out = n
+        if on_update is not None:
+            on_update(LiveValue.OUT, out)
+        n = 5
+        if on_update is not None:
+            on_update(LiveValue.N, n)
+        return LiveResult(out=out)"""
+    )
+    assert package.function(n=1).out == 1
+
+
+def _write_then_read_in_a_while_loop(vi: Vi) -> None:
+    """Constant 7 is written to the control ``n`` by a Local Variable; inside a
+    While Loop (one pass) a Local Variable read of ``n`` shows in ``seen``."""
+    n = vi.control("n", I32, REQUIRED)
+    seen = vi.indicator("seen", I32)
+    seven = vi.int_constant(7)
+    write = vi.local_variable(n)
+    vi.wire(seven, write)
+    loop = vi.loop("whileLoop")
+    with vi.inside(loop.scopes[0]):
+        read = vi.local_variable(n)
+        stop = vi.bool_constant(True)
+    vi.place_inside(seen, loop.scopes[0])
+    vi.wire(read, seen)
+    vi.wire(stop, loop.faces[0])
+
+
+def test_a_read_in_a_loop_follows_the_write_and_asks_for_the_value(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    _write_then_read_in_a_while_loop(vi)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert _body(package) == textwrap.dedent(
+        """\
+        seen = 0
+        n = 7
+        if on_update is not None:
+            on_update(LiveValue.N, n)
+        while True:
+            if on_read is not None:
+                n = on_read(LiveValue.N, n)
+            seen = n
+            if on_update is not None:
+                on_update(LiveValue.SEEN, seen)
+            break
+        return LiveResult(seen=seen)"""
+    )
+    events: list[tuple[str, str, Any]] = []
+
+    def update(name: str, value: Any) -> None:
+        events.append(("update", name, value))
+
+    def read(name: str, value: Any) -> Any:
+        events.append(("read", name, value))
+        return 40
+
+    result = package.function(n=1, on_update=update, on_read=read)
+    assert result.seen == 40
+    assert events == [
+        ("update", "n", 7),
+        ("read", "n", 7),
+        ("update", "seen", 40),
+    ]
+    assert package.function(n=1).seen == 7
+
+
+def test_a_read_of_a_control_nothing_writes_outside_a_loop_is_the_parameter(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    read = vi.local_variable(n)
+    inc = increment(vi)
+    vi.wire(read, inc["in"])
+    vi.wire(inc["out"], out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert "on_read(" not in package.source
+    assert package.function(n=4).out == 5
+
+
+def test_a_local_variable_read_of_an_indicator_is_the_indicator_variable(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    count = vi.indicator("count", I32)
+    read = vi.local_variable(count)
+    inc = increment(vi)
+    vi.wire(read, inc["in"])
+    vi.wire(inc["out"], count)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert re.sub(r"_live_\d+", "_live", _body(package)) == textwrap.dedent(
+        """\
+        global _lv_indicator_live
+        count = _lv_indicator_live
+        x1 = count + 1
+        count = x1
+        if on_update is not None:
+            on_update(LiveValue.COUNT, count)
+        _lv_indicator_live = count
+        return LiveResult(count=count)"""
+    )
+
+
+@pytest.mark.parametrize(
+    "build", [_write_then_read_a_control, _write_then_read_in_a_while_loop]
+)
+def test_the_views_of_a_vi_with_local_variables_of_controls_are_unchanged(
+    build: Callable[[Vi], None],
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    build(vi)
+    project.add(vi)
+    before = project.views(NAME)
+    package = project.generate(NAME)
+    after = project.views(NAME)
+    assert "LiveValue" in package.source
+    for view in ("lvnet", "terse", "describe", "json"):
+        assert getattr(after, view) == getattr(before, view)
+        for hook in ("on_read", "on_update", "LiveValue", "Enum"):
+            assert hook not in str(getattr(after, view))

@@ -41,7 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
-from .panel_hooks import PanelHooks, entry_reads, hook_arguments, reads_in_frame
+from .panel_hooks import PanelHooks, entry_reads, function_enum_name, reads_in_frame
 from .references import REFERENCE_KINDS, generated_nodes
 
 if TYPE_CHECKING:
@@ -102,9 +102,16 @@ def build_module(
     )
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
-    ctx.panel_hooks = PanelHooks.for_vi(vi_context, graph, vi_name)
     if shared is not None:
         shared.share_with(ctx)
+    ctx.panel_hooks = PanelHooks.for_vi(
+        ctx,
+        vi_context,
+        graph,
+        vi_name,
+        function_enum_name(vi_context.name),
+        taken=[ctx.function_name, build_result_class_name(vi_context.name)],
+    )
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
     if graph is not None and in_import_cycle(graph, vi_name):
@@ -139,7 +146,9 @@ def function_body(
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
-        generated_nodes(ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS))
+        generated_nodes(
+            ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS), ctx
+        )
         if ctx.graph is not None
         else []
     )
@@ -439,7 +448,7 @@ def build_module_ast(
 
     # Function definition
     func_def = build_function_def(
-        vi_context, vi_name, body, spell, hooked=ctx.panel_hooks is not None
+        vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
 
@@ -514,7 +523,7 @@ def build_function_def(
     vi_name: str,
     body: list[ast.stmt],
     spell: TypeNamer | None = None,
-    hooked: bool = False,
+    hooks: PanelHooks | None = None,
 ) -> ast.FunctionDef:
     """Build function definition."""
     # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
@@ -525,7 +534,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs, spell=spell, hooked=hooked)
+    args = build_args(vi_context.inputs, spell=spell, hooks=hooks)
 
     # Build return annotation
     returns = None
@@ -550,7 +559,7 @@ def build_args(
     inputs: list[Terminal],
     names: dict[str, str] | None = None,
     spell: TypeNamer | None = None,
-    hooked: bool = False,
+    hooks: PanelHooks | None = None,
 ) -> ast.arguments:
     """The parameters of a VI's function: its connector-pane ``inputs`` only.
 
@@ -562,9 +571,9 @@ def build_args(
 
     ``names`` maps terminal id -> parameter name (``interface_names``); when
     omitted it is computed over ``inputs``. An error in is a parameter like any
-    other, annotated ``LabVIEWError | None``. A ``hooked`` VI (one that touches its
-    front panel while it runs, ``panel_hooks``) ends with the keyword-only hook
-    parameters.
+    other, annotated ``LabVIEWError | None``. A VI with ``hooks`` (one that touches
+    its front panel while it runs, ``panel_hooks``) ends with the keyword-only
+    hook parameters.
     """
     if names is None:
         names = interface_names(inputs, [], []).parameters
@@ -578,7 +587,7 @@ def build_args(
 
     required = [t for t in inputs if is_required(t, "input")]
     optional = [t for t in inputs if not is_required(t, "input")]
-    hook_args, hook_defaults = hook_arguments() if hooked else ([], [])
+    hook_args, hook_defaults = hooks.arguments() if hooks is not None else ([], [])
     return ast.arguments(
         posonlyargs=[],
         args=[argument(t) for t in required],
