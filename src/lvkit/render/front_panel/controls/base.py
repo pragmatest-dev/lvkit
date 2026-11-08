@@ -5,16 +5,33 @@ smaller than its heap ``bounds``.
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from ....parser.layout import Rect
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import Glyph
 
-# objFlags bit 0x8 = hidden -- the same convention ``layout._field_label_hidden``
-# reads for a cluster field's label part.
-HIDDEN_FLAG_BIT = 0x8
-
 # The frame every framed control (a cluster, an array) is drawn inside.
 FRAME_PART_ID = 9
+
+# The two parts that carry the text shown above a control: its label and its
+# caption. A part of class ``label`` with any other id (a string's field, 11) is
+# part of the control's value.
+LABEL_PART_ID = 16
+CAPTION_PART_ID = 82
+
+
+class PartOwner(Protocol):
+    """Anything that holds heap parts in its own coordinate space and has a box:
+    a control, or a part with sub-parts of its own (an array's index display, an
+    array's element). The part readers below take one, so a control's parts and
+    a part's sub-parts are read by the same code."""
+
+    @property
+    def parts(self) -> list[ParsedFPPart]: ...
+
+    @property
+    def bounds(self) -> tuple[int, int, int, int]: ...
 
 
 class ControlGlyph:
@@ -45,7 +62,7 @@ def control_value_bounds(ctrl: ParsedFPControl, glyph: Glyph, bounds: Rect) -> R
     return (bounds[0] + ex1, bounds[1] + ey1, bounds[0] + ex2, bounds[1] + ey2)
 
 
-def frame_colors(ctrl: ParsedFPControl) -> tuple[str | None, str | None]:
+def frame_colors(ctrl: PartOwner) -> tuple[str | None, str | None]:
     """The control's frame (``partID`` 9) literal ``(fill, outline)`` colors;
     each is None when the heap records no literal color for it."""
     part = find_part(ctrl, FRAME_PART_ID)
@@ -54,40 +71,36 @@ def frame_colors(ctrl: ParsedFPControl) -> tuple[str | None, str | None]:
     return part.bg_color, part.fg_color
 
 
-def part_rect_of(part: ParsedFPPart) -> Rect:
-    """A heap part's rect: ``ParsedFPPart.bounds`` is ``(top, left, bottom,
-    right)``, ``Rect`` is ``(x1, y1, x2, y2)`` = ``(left, top, right, bottom)``."""
-    top, left, bottom, right = part.bounds
+def stored_rect(bounds: tuple[int, int, int, int]) -> Rect:
+    """A stored ``(top, left, bottom, right)`` as a ``Rect``, which is ``(x1, y1,
+    x2, y2)`` = ``(left, top, right, bottom)``."""
+    top, left, bottom, right = bounds
     return (float(left), float(top), float(right), float(bottom))
 
 
-def find_part(ctrl: ParsedFPControl, part_id: int) -> ParsedFPPart | None:
+def part_rect_of(part: ParsedFPPart) -> Rect:
+    """A heap part's rect (``ParsedFPPart.bounds`` is stored bounds)."""
+    return stored_rect(part.bounds)
+
+
+def find_part(ctrl: PartOwner, part_id: int) -> ParsedFPPart | None:
     return next((p for p in ctrl.parts if p.part_id == part_id), None)
 
 
-def part_rect(ctrl: ParsedFPControl, part_id: int) -> Rect | None:
+def part_rect(ctrl: PartOwner, part_id: int) -> Rect | None:
     """The control-local rect of the ``partID`` part; ``None`` when this
     control's heap carries no such part."""
     part = find_part(ctrl, part_id)
     return part_rect_of(part) if part is not None else None
 
 
-def part_is_hidden(part: ParsedFPPart) -> bool:
-    """True when ``part`` is flagged hidden (objFlags bit 0x8)."""
-    try:
-        flags = int(part.props.get("objFlags", "0"))
-    except ValueError:
-        return True
-    return bool(flags & HIDDEN_FLAG_BIT)
-
-
-def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
+def part_hidden(ctrl: PartOwner, part_id: int) -> bool:
     """True when the ``partID`` part is flagged hidden, or absent."""
     part = find_part(ctrl, part_id)
-    return True if part is None else part_is_hidden(part)
+    return True if part is None else part.hidden
 
 
-def value_extent(ctrl: ParsedFPControl) -> Rect:
+def value_extent(ctrl: PartOwner) -> Rect:
     """The control-local box a cluster places this control into: the union of
     its non-label, non-hidden parts, clamped to the heap box --
     ``layout._const_value_box`` applied to the parsed parts. It excludes the
@@ -105,8 +118,8 @@ def value_extent(ctrl: ParsedFPControl) -> Rect:
         part_rect_of(p)
         for p in ctrl.parts
         if p.part_id is not None
-        and p.part_class != "label"
-        and not part_is_hidden(p)
+        and p.part_id not in (LABEL_PART_ID, CAPTION_PART_ID)
+        and not p.hidden
     ]
     if not rects:
         return (0.0, 0.0, width, height)
@@ -119,7 +132,7 @@ def value_extent(ctrl: ParsedFPControl) -> Rect:
 
 
 def local_part_rect(
-    ctrl: ParsedFPControl, part_id: int, origin: tuple[float, float]
+    ctrl: PartOwner, part_id: int, origin: tuple[float, float]
 ) -> Rect | None:
     """The ``partID`` part's rect relative to the value box's ``origin``."""
     part = find_part(ctrl, part_id)

@@ -34,6 +34,9 @@ _THICK_ARROW_IDS = frozenset({"-502"})
 # attachment the way -233's 1px-tall box gives one for a line).
 _THIN_ARROW_IDS = frozenset({"-770"})
 
+# Every ImageResID the table above draws.
+KNOWN_IDS = _FRAME_IDS | _THIN_LINE_IDS | _THICK_ARROW_IDS | _THIN_ARROW_IDS
+
 _warned: set[str] = set()
 
 

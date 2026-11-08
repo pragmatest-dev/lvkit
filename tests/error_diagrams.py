@@ -780,7 +780,10 @@ class Vi:
         return (
             '<SL__rootObject class="oHExt" uid="1"><root class="supC" uid="2">'
             f"{conpane}<ddoList>{order}</ddoList>"
-            f'<paneHierarchy class="pane" uid="3"><zPlaneList>{zplane}'
+            # Every real VI's pane carries its bounds; the front-panel reader
+            # reports a pane without them as unread.
+            '<paneHierarchy class="pane" uid="3"><bounds>(0, 0, 300, 400)</bounds>'
+            f"<zPlaneList>{zplane}"
             "</zPlaneList></paneHierarchy></root></SL__rootObject>"
         )
 
