@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VINode
 from lvkit.load_mode import LoadMode
@@ -36,7 +37,7 @@ def test_in_repo_parent_resolves_by_name_no_vilib() -> None:
     Classes/TestRunner/ -- the decoded ParentClassLinkInfo path is a plain
     relative path with no ``<vilib>`` marker."""
     lvclass_path = SAMPLE_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
-    cls = parse_lvclass(lvclass_path)
+    cls = parse_lvclass(lvclass_path, LibraryRoots())
 
     assert cls.parent_class == "TestRunner"
     assert cls.is_vilib_parent is False
@@ -53,7 +54,7 @@ def test_vilib_parent_flagged() -> None:
         / "TextTestRunner.Ant"
         / "TextTestRunner.JUnitXML.lvclass"
     )
-    cls = parse_lvclass(lvclass_path)
+    cls = parse_lvclass(lvclass_path, LibraryRoots())
 
     assert cls.parent_class == "TextTestRunner"
     assert cls.is_vilib_parent is True
@@ -74,7 +75,7 @@ def test_vilib_parent_link_path_carries_the_recorded_path_tokens() -> None:
         / "TextTestRunner.Ant"
         / "TextTestRunner.JUnitXML.lvclass"
     )
-    cls = parse_lvclass(lvclass_path)
+    cls = parse_lvclass(lvclass_path, LibraryRoots())
 
     assert cls.parent_link_path is not None
     assert cls.parent_link_path[0] == "<vilib>"
@@ -85,7 +86,7 @@ def test_root_class_has_no_parent() -> None:
     """TestCase is a root class: it carries no ParentClassLinkInfo property
     at all, so parent_class must be None (not a guessed/heuristic value)."""
     lvclass_path = SAMPLE_ROOT / "Classes" / "TestCase" / "TestCase.lvclass"
-    cls = parse_lvclass(lvclass_path)
+    cls = parse_lvclass(lvclass_path, LibraryRoots())
 
     assert cls.parent_class is None
     assert cls.is_vilib_parent is False
@@ -97,7 +98,7 @@ def test_wait_on_test_complete_resolves_single_parent() -> None:
     lvclass_path = (
         SAMPLE_ROOT / "Tests" / "WaitOnTestComplete" / "WaitOnTestComplete.lvclass"
     )
-    cls = parse_lvclass(lvclass_path)
+    cls = parse_lvclass(lvclass_path, LibraryRoots())
 
     assert cls.parent_class == "TestCase"
     assert cls.is_vilib_parent is False

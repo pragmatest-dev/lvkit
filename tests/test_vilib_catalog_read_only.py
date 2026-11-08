@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from lvkit import vilib_resolver
+from lvkit import catalogs
 from lvkit._data import data_dir
 from lvkit.codegen.builder import build_module
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
@@ -117,23 +117,17 @@ def _generate(
     resolver: VILibResolver,
     wired: Terminal,
     value: str | float,
+    monkeypatch: pytest.MonkeyPatch,
     vi: str = "Learn Me.vi",
 ) -> str:
-    vilib_resolver._resolver = resolver
+    monkeypatch.setitem(catalogs._vilib, None, ((), resolver))
     context, node = _caller(wired, value, vi)
     graph = build_graph(context, context.name, [node])
     return build_module(context, context.name, graph=graph)
 
 
-@pytest.fixture(autouse=True)
-def _restore_resolver() -> Iterator[None]:
-    saved = vilib_resolver._resolver
-    yield
-    vilib_resolver._resolver = saved
-
-
 def test_learned_terminal_is_used_and_nothing_is_written(
-    read_only_catalog: Path,
+    read_only_catalog: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The generated code uses the terminal learned from the call; the shared
     catalog keeps its entry and nothing is written to disk."""
@@ -141,7 +135,7 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
     resolver = VILibResolver(data_dir=read_only_catalog)
 
-    source = _generate(resolver, wired, "a.txt")
+    source = _generate(resolver, wired, "a.txt", monkeypatch)
 
     assert "file_path='a.txt'" in source
     kept = resolver.resolve_by_name("Learn Me.vi")
@@ -150,12 +144,14 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     assert _tree_digest(read_only_catalog) == before
 
 
-def test_catalog_on_disk_keeps_docs_and_encoding(read_only_catalog: Path) -> None:
+def test_catalog_on_disk_keeps_docs_and_encoding(
+    read_only_catalog: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     category = read_only_catalog / "vilib" / "test.json"
     before = category.read_bytes()
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
 
-    _generate(VILibResolver(data_dir=read_only_catalog), wired, "a.txt")
+    _generate(VILibResolver(data_dir=read_only_catalog), wired, "a.txt", monkeypatch)
 
     assert category.read_bytes() == before
     entry = json.loads(before.decode("utf-8"))["entries"][0]
@@ -213,12 +209,16 @@ def test_learning_stays_inside_one_resolver_instance(read_only_catalog: Path) ->
     assert entry.terminals[0].index is None
 
 
-def test_bundled_catalog_is_untouched_by_generation() -> None:
+def test_bundled_catalog_is_untouched_by_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     bundled = data_dir()
     before = _tree_digest(bundled)
     wired = Terminal(id="t:size", index=7, direction="input", name="Size")
 
-    source = _generate(VILibResolver(), wired, 12.0, vi="Get Text Rect.vi")
+    source = _generate(
+        VILibResolver(), wired, 12.0, monkeypatch, vi="Get Text Rect.vi"
+    )
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before

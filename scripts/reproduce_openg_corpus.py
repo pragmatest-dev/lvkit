@@ -42,6 +42,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from lvkit.cache_paths import LibraryRoots
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from lvkit.extractor import extract_llb, extract_vi_xml  # noqa: E402
@@ -117,7 +119,7 @@ def _extract_all_vi_xml(dest_root: Path) -> int:
         _materialize_llb_dir(llb_path)
         for vi_path in sorted(llb_path.glob("*.vi")):
             try:
-                extract_vi_xml(vi_path)  # -> .lvkit/cache/extracted/ (default)
+                extract_vi_xml(vi_path, roots=LibraryRoots())
                 count += 1
             except RuntimeError as exc:
                 print(

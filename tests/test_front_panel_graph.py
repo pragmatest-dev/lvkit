@@ -10,6 +10,7 @@ import re
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
 from lvkit.render.front_panel.controls.graph import GraphControlGlyph
@@ -97,7 +98,7 @@ def test_a_real_corpus_graph_control_renders_not_unknown() -> None:
     from the bottom of the control's own box -- an off-center inset (unlike
     the symmetric hermetic fixture above), which is exactly the kind of real
     asymmetry a hand-picked fixture would not catch."""
-    parsed = parse_vi(_STIM_VI)
+    parsed = parse_vi(_STIM_VI, roots=LibraryRoots())
     graph = next(c for c in parsed.front_panel.controls if c.control_type == "stdGraph")
     glyph = resolve_glyph(graph, DEFAULT_THEME)
     assert isinstance(glyph, GraphControlGlyph)

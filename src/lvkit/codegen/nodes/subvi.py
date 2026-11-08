@@ -17,7 +17,6 @@ from lvkit.vilib_resolver import (
     VIEntry,
     VILibResolutionNeeded,
     derive_python_location,
-    get_resolver,
 )
 
 from ..ast_utils import (
@@ -59,7 +58,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     # Code, the error handlers) work on error wire values at the call site; they
     # are not calls of a module.
     catalog_path = ctx.catalog_path(node)
-    if is_error_wire_vi(catalog_path, get_resolver()):
+    if is_error_wire_vi(catalog_path, ctx.vilib_catalog):
         return error_vi.generate(node, ctx)
 
     # A VI of a class is a method of its Python class; a property accessor is
@@ -318,7 +317,7 @@ def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> 
     if ctx.graph is None or key is None:
         return entry
     inputs, _, outputs, _ = ctx.graph.vi_interface(key)
-    check = check_against_pane(entry, [*inputs, *outputs])
+    check = check_against_pane(entry, [*inputs, *outputs], ctx.vilib_catalog)
     if check.mismatches:
         raise CatalogPaneMismatch(node.name or entry.name, check.mismatches)
     return check.entry
@@ -373,7 +372,7 @@ def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
                 # Learn the observed terminals into this run's own copy of the
                 # catalog.
                 if not ctx.learned_vilib:
-                    ctx.learned_vilib.append(get_resolver().fork())
+                    ctx.learned_vilib.append(ctx.vilib_catalog.fork())
                 vi = ctx.learned_vilib[0].auto_update_terminals(
                     vi_name=catalog_name,
                     wired_terminals=wired_node_terminals,

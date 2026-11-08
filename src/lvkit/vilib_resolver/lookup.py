@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from lvkit.library_folders import is_symbolic_root
 from lvkit.models import LVType, LVTypeKind
-from lvkit.parser.models import is_symbolic_root
 
 from .models import VIEntry
 from .naming import derive_python_name

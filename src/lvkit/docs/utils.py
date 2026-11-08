@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..graph import InMemoryVIGraph
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 
 
 def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> str:
@@ -19,7 +18,7 @@ def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> 
     Returns:
         The description, or an empty string
     """
-    vi = get_vilib_resolver().resolve_recorded(graph.recorded_path(subvi_name))
+    vi = graph.vilib_catalog.resolve_recorded(graph.recorded_path(subvi_name))
     if vi and vi.description:
         return vi.description
 

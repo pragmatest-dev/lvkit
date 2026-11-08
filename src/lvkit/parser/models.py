@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..dotnet_types import DotNetAssembly, DotNetType
+from ..library_folders import is_symbolic_root
 from ..models import (
     ClusterField,
     DisableStructureKind,
@@ -439,13 +440,6 @@ class ParsedResolvedTypeDefValue:
 
 
 ABSOLUTE_PATH_TYPE = 0
-
-
-def is_symbolic_root(token: str) -> bool:
-    """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
-    LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
-    calling file."""
-    return len(token) > 2 and token.startswith("<") and token.endswith(">")
 
 
 @dataclass

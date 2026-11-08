@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, extractor, staging
+from lvkit.cache_paths import LibraryRoots
 
 
 def _root() -> Path:
@@ -147,7 +148,7 @@ class TestExtractionChurn:
         for i in range(5):
             vi = tmp_path / f"v{i}.vi"
             vi.write_bytes(b"vi%d" % i)
-            bd, fp, main = extractor.extract_vi_xml(vi)
+            bd, fp, main = extractor.extract_vi_xml(vi, roots=LibraryRoots())
             assert bd.exists() and fp is not None and main is not None
             assert (bd.parent / "vi.meta.json").exists()
         assert len(_run_dirs()) == 1
@@ -161,13 +162,13 @@ class TestExtractionChurn:
         (tmp_path / ".git").mkdir()
         vi = tmp_path / "v.vi"
         vi.write_bytes(b"vi")
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         staging.release_all()
         before = {
             p: p.stat().st_mtime_ns for p in _root().rglob("*") if p.is_file()
         }
         counts = self._count(monkeypatch)
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         after = {p: p.stat().st_mtime_ns for p in _root().rglob("*") if p.is_file()}
         assert after == before
         assert counts == {"rename": 0, "replace": 0}
@@ -179,7 +180,7 @@ class TestExtractionChurn:
         monkeypatch.setattr(extractor, "_extract_in_process", _fake_extract)
         vi = tmp_path / "v.vi"
         vi.write_bytes(b"vi")
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         staging.release_all()
         assert list(staging.staging_root(_root()).iterdir()) == []
 
@@ -193,7 +194,7 @@ class TestExtractionChurn:
         vi = tmp_path / "v.vi"
         vi.write_bytes(b"vi")
         with pytest.raises(RuntimeError):
-            extractor.extract_vi_xml(vi)
+            extractor.extract_vi_xml(vi, roots=LibraryRoots())
         (run,) = _run_dirs()
         assert list(run.iterdir()) == []
 
@@ -203,8 +204,8 @@ class TestExtractionChurn:
         monkeypatch.setattr(extractor, "_extract_in_process", _fake_extract)
         vi = tmp_path / "v.vi"
         vi.write_bytes(b"vi")
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         counts = self._count(monkeypatch)
-        extractor.extract_vi_xml(vi, force=True)
+        extractor.extract_vi_xml(vi, force=True, roots=LibraryRoots())
         # Same bytes produced -> only the meta (which records a new time) moves.
         assert counts["replace"] == 1

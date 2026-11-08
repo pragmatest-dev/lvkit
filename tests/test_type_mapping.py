@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.type_mapping import parse_type_map_rich, parse_vctp_types
 
 SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -24,7 +25,7 @@ def _get_main_xml(vi_path: Path) -> Path:
     """Extract VI and return path to main XML."""
     from lvkit.extractor import extract_vi_xml
 
-    _, _, main_xml = extract_vi_xml(vi_path)
+    _, _, main_xml = extract_vi_xml(vi_path, roots=LibraryRoots())
     assert main_xml is not None and main_xml.exists()
     return main_xml
 

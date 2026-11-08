@@ -45,10 +45,17 @@ class InputKinds:
         return ", ".join(names[:-1]) + f" or {names[-1]}"
 
 
+def _is_llb_member(path: Path) -> bool:
+    """Whether ``path`` is a VI inside an ``.llb`` (a path through the archive)."""
+    from .graph.llb_members import file_is_present  # reads archives: heavy import
+
+    return file_is_present(path)
+
+
 def input_usage_error(path: Path, kinds: InputKinds) -> int | None:
     """Exit code 2, with the usage message printed, when ``path`` does not exist
     or is not an input the command takes; None when it is."""
-    if not path.exists():
+    if not (path.exists() or _is_llb_member(path)):
         print(f"Error: Path not found: {path}", file=sys.stderr)
         return EXIT_USAGE
     if not kinds.takes(path):

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.cli import cmd_structure
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
@@ -37,7 +38,9 @@ _CLASS = """<?xml version='1.0' encoding='UTF-8'?>
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     (built.root / "Cls").mkdir(parents=True)
     (built.root / "Cls" / "Cls.lvclass").write_text(_CLASS, encoding="utf-8")
@@ -47,7 +50,7 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 
 
 def test_property_definition_vis_are_in_the_class_member_list(tree: _Tree) -> None:
-    cls = parse_lvclass(tree.root / "Cls" / "Cls.lvclass")
+    cls = parse_lvclass(tree.root / "Cls" / "Cls.lvclass", LibraryRoots())
     assert [
         (m.name, m.scope, m.property_name is not None) for m in cls.methods
     ] == [

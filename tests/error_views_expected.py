@@ -166,7 +166,7 @@ Get File Size [prim 8063]""",
     "clear_errors": {
         "lvnet": r"""vi Err.vi :
   uses :
-    subVI Clear Errors.vi
+    subVI Clear Errors.vi ; <vilib>/Utility/error.llb/Clear Errors.vi (missing)
     subVI Step A.vi       ; ./Step A.vi
       in   x         : I32
       in   error in  : Error
@@ -203,7 +203,7 @@ Get File Size [prim 8063]""",
     error out = Step_B_129::error out""",
         "terse": r"""vi Err.vi :
   uses :
-    subVI Clear Errors.vi
+    subVI Clear Errors.vi ; <vilib>/Utility/error.llb/Clear Errors.vi
     subVI Step A.vi       ; ./Step A.vi
     subVI Step B.vi       ; ./Step B.vi
   front-panel :
@@ -259,7 +259,7 @@ Step B.vi(x, error in) -> r, error out""",
     "clear_errors_code": {
         "lvnet": r"""vi Err.vi :
   uses :
-    subVI Clear Errors.vi
+    subVI Clear Errors.vi ; <vilib>/Utility/error.llb/Clear Errors.vi (missing)
     subVI Step A.vi       ; ./Step A.vi
       in   x         : I32
       in   error in  : Error
@@ -296,7 +296,7 @@ Step B.vi(x, error in) -> r, error out""",
     error out = Step_B_129::error out""",
         "terse": r"""vi Err.vi :
   uses :
-    subVI Clear Errors.vi
+    subVI Clear Errors.vi ; <vilib>/Utility/error.llb/Clear Errors.vi
     subVI Step A.vi       ; ./Step A.vi
     subVI Step B.vi       ; ./Step B.vi
   front-panel :
@@ -503,7 +503,7 @@ Case Structure (2 frames)
     "error_cluster_from_error_code": {
         "lvnet": r"""vi Err.vi :
   uses :
-    subVI Error Cluster From Error Code.vi
+    subVI Error Cluster From Error Code.vi ; <vilib>/Utility/error.llb/Error Cluster From Error Code.vi (missing)
   front-panel :
     pattern : 4800
     in   code      : I32   required @0
@@ -519,7 +519,7 @@ Case Structure (2 frames)
     error out = Error_Cluster_From_Error_Code_118::error out""",
         "terse": r"""vi Err.vi :
   uses :
-    subVI Error Cluster From Error Code.vi
+    subVI Error Cluster From Error Code.vi ; <vilib>/Utility/error.llb/Error Cluster From Error Code.vi
   front-panel :
     pattern : 4800
     in   code      : I32   @0
@@ -556,7 +556,7 @@ Error Cluster From Error Code.vi""",
     "error_cluster_from_warning_code": {
         "lvnet": r"""vi Err.vi :
   uses :
-    subVI Error Cluster From Error Code.vi
+    subVI Error Cluster From Error Code.vi ; <vilib>/Utility/error.llb/Error Cluster From Error Code.vi (missing)
   front-panel :
     pattern : 4800
     in   code      : I32   required @0
@@ -572,7 +572,7 @@ Error Cluster From Error Code.vi""",
     error out = Error_Cluster_From_Error_Code_118::error out""",
         "terse": r"""vi Err.vi :
   uses :
-    subVI Error Cluster From Error Code.vi
+    subVI Error Cluster From Error Code.vi ; <vilib>/Utility/error.llb/Error Cluster From Error Code.vi
   front-panel :
     pattern : 4800
     in   code      : I32   @0
@@ -1264,7 +1264,7 @@ Open/Create/Replace File [prim 8050]""",
     "simple_error_handler": {
         "lvnet": r"""vi Err.vi :
   uses :
-    subVI Simple Error Handler.vi
+    subVI Simple Error Handler.vi ; <vilib>/Utility/error.llb/Simple Error Handler.vi (missing)
   front-panel :
     pattern : 4800
     in   error in  : Error recommended @0
@@ -1287,7 +1287,7 @@ Open/Create/Replace File [prim 8050]""",
     error out = Simple_Error_Handler_130::error out""",
         "terse": r"""vi Err.vi :
   uses :
-    subVI Simple Error Handler.vi
+    subVI Simple Error Handler.vi ; <vilib>/Utility/error.llb/Simple Error Handler.vi
   front-panel :
     pattern : 4800
     in   error in  : Error @0

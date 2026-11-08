@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -70,7 +71,7 @@ def test_a_real_corpus_measure_data_element_renders_not_unknown() -> None:
     """The real corpus shape: stdMeasureData never appears as a top-level
     control, only as an array's element (``GenerateStimulusOutputs_FP.vi``'s
     "Stimulus Digital Outputs", a real digital-waveform array)."""
-    parsed = parse_vi(_STIM_VI)
+    parsed = parse_vi(_STIM_VI, roots=LibraryRoots())
     arr = next(
         c for c in parsed.front_panel.controls if c.name == "Stimulus Digital Outputs"
     )

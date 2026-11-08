@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.models import ParsedBlockDiagram
 from lvkit.parser.vi import _parse_cluster_fields, _parse_front_panel, parse_vi
@@ -212,7 +213,7 @@ def test_a_real_corpus_notifier_control_renders_as_a_refnum_not_unknown() -> Non
     """End-to-end against a real VI whose VCTP resolves (GET_Notifier.vi): the
     front panel's Notifier control gets its real ``ref_type`` and renders, no
     crash, never as ``UnknownControlGlyph``."""
-    parsed = parse_vi(_NOTIFIER_VI)
+    parsed = parse_vi(_NOTIFIER_VI, roots=LibraryRoots())
     notifier = next(
         c for c in parsed.front_panel.controls if c.control_type == "stdRefNum"
     )

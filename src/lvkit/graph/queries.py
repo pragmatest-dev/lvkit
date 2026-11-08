@@ -16,12 +16,13 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..class_property import property_role
+from ..library_folders import library_location
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
-from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
 from .models import (
     AnyGraphNode,
@@ -58,6 +59,7 @@ from .recorded_paths import RecordedPaths, resolve_against
 from .type_records import TypeRecords, resolve_name, resolve_type
 
 if TYPE_CHECKING:
+    from ..vilib_resolver import VILibResolver
     from .membership import ListedMethod
 
 if TYPE_CHECKING:
@@ -117,12 +119,14 @@ class QueryMixin:
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
     _instrlib_roots: tuple[Path, ...]
+    vilib_catalog: VILibResolver
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
         def class_type_key(self, lv_type: LVType) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
+        def _locate_recorded(self, candidate: Path, leaf: str) -> Path | None: ...
         def key_label(self, key: str) -> str: ...
         def listed_members(
             self, container_key: str
@@ -244,6 +248,31 @@ class QueryMixin:
             for root in roots
         ]
 
+    def recorded_ref(self, key: str, caller: str) -> ParsedDependencyRef | None:
+        """The path ``caller`` stores for the dependency ``key``, exactly as
+        stored (its tokens and path type; a class method's is its class's path);
+        None when ``caller`` stored none for it."""
+        return self._recorded.stored_by(key, caller)
+
+    def found_elsewhere(self, key: str, caller: str) -> Path | None:
+        """Where the file of ``key`` is when it is not at any place ``caller``'s
+        record for it points to on this machine (it was found on the VI search
+        path); None when it is there, or the file or the record is missing."""
+        ref = self._recorded.recorded_by(key, caller)
+        caller_file = self.get_vi_source_path(caller)
+        file = self._dependency_file_path(key)
+        if ref is None or caller_file is None or file is None or not file.is_file():
+            return None
+        resolved = file.resolve()
+        try:
+            for candidate in self.recorded_candidates(ref, caller_file):
+                at = self._locate_recorded(candidate, ref.name)
+                if at is not None and at.resolve() == resolved:
+                    return None
+        except AmbiguousVIReferenceError:
+            return None
+        return resolved
+
     def recorded_candidates(
         self, ref: ParsedDependencyRef, caller_file: Path
     ) -> list[Path]:
@@ -272,19 +301,20 @@ class QueryMixin:
                 found.append(candidate)
         return found
 
-    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
-        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
-        the file at ``path`` is in, with that folder, else None."""
-        resolved = path.resolve()
-        for token, root in self.library_roots():
-            if resolved.is_relative_to(root.resolve()):
-                return token, root
-        return None
+    def library_location(
+        self, path: Path | str | None, recorded: str | None = None
+    ) -> tuple[str, ...] | None:
+        """Where the library file at ``path`` is (``library_location`` in
+        ``library_folders.py``, over this graph's library folders): its recorded
+        installation path (``recorded``), else its library folder's pseudo path
+        and the parts below it; None when it is not a library file (or there is
+        no absolute ``path`` and no installation path)."""
+        return library_location(path, self.library_roots(), recorded)
 
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
         root (the user's own library install, not their project)."""
-        return any(path.is_relative_to(root) for _, root in self.library_roots())
+        return self.library_location(path) is not None
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
@@ -356,7 +386,7 @@ class QueryMixin:
             return None
 
         # First, check vilib resolver for known VIs
-        resolver = get_vilib_resolver()
+        resolver = self.vilib_catalog
         vilib_info = resolver.get_context(self.recorded_path(vi_name))
         if vilib_info:
             inputs: list[StubTerminalInfo] = []
@@ -718,7 +748,7 @@ class QueryMixin:
             )
         )
 
-        vilib_resolver = get_vilib_resolver()
+        vilib_resolver = self.vilib_catalog
 
         for scc_id in scc_order:
             members = condensation.nodes[scc_id]["members"]

@@ -26,7 +26,9 @@ querying an unindexed project fails with a clear message.
 | `--format {table,json}` | Output format. `table` (default) prints an aligned text table; `json` prints `{columns, rows, row_count, truncated}`. |
 
 The SQL argument is optional only when `--schema` is given; otherwise it is
-required.
+required. `query` takes `--vilib`, `--userlib`, `--instrlib` and `--search-path`
+like [`describe`](describe.md); changing them rebuilds only the VIs that call into a
+library folder, are found on the VI Search Path, or have a dependency that is not found.
 
 ## Building & refreshing the index
 

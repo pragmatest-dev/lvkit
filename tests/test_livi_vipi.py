@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.metadata import parse_vipi_from_livi
 
 SAMPLES_ROOT = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -100,7 +101,7 @@ def test_parse_vipi_real_apply_body_text() -> None:
     if not vi.exists():
         pytest.skip(f"sample VI absent: {vi}")
 
-    _, _, main_xml = extract_vi_xml(vi)
+    _, _, main_xml = extract_vi_xml(vi, roots=LibraryRoots())
     assert main_xml is not None
     livi = main_xml.with_name(main_xml.stem + "_LIvi.bin")
     if not livi.exists():
