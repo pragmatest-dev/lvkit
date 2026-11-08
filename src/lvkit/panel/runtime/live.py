@@ -35,6 +35,8 @@ class LiveValues:
         self._controls: dict[str, Any] = {}
         self._painters: dict[str, Callable[[Any], None]] = {}
         self._abort = False
+        self._running = threading.Event()
+        self._running.set()
 
     # -- the widgets (on the event loop) -----------------------------------
 
@@ -72,17 +74,44 @@ class LiveValues:
     # -- the abort flag ------------------------------------------------------
 
     def request_abort(self) -> None:
+        """Abort the run at its next hook call; a paused run is released so it
+        reaches that call."""
         self._abort = True
+        self._running.set()
 
     def clear_abort(self) -> None:
         self._abort = False
+
+    @property
+    def aborted(self) -> bool:
+        return self._abort
+
+    # -- pause ---------------------------------------------------------------
+
+    @property
+    def paused(self) -> bool:
+        return not self._running.is_set()
+
+    def pause(self) -> None:
+        """Hold the running function at its next hook call."""
+        self._running.clear()
+
+    def resume(self) -> None:
+        """Release the function held by ``pause``."""
+        self._running.set()
+
+    def _checkpoint(self) -> None:
+        """Every hook call: block while paused, then end the run if it was
+        aborted."""
+        self._running.wait()
+        if self._abort:
+            raise Abort
 
     # -- the hooks (on the worker thread) ---------------------------------
 
     def update(self, name: Any, value: Any) -> None:
         """``on_update``: the function wrote an indicator."""
-        if self._abort:
-            raise Abort
+        self._checkpoint()
         key = key_of(name)
         snapshot = copy.copy(value)
         with self._lock:
@@ -92,6 +121,5 @@ class LiveValues:
     def read(self, name: Any, value: Any) -> Any:
         """``on_read``: the control's current value, or ``value`` (the one the
         function holds) when the panel has no such control."""
-        if self._abort:
-            raise Abort
+        self._checkpoint()
         return self._controls.get(key_of(name), value)
