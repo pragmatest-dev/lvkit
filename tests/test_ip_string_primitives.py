@@ -81,13 +81,13 @@ def test_resolver_terminals() -> None:
     to_string = resolver.resolve(prim_id=1710)
     assert to_ip is not None and to_string is not None
     assert [(t.index, t.direction, t.name, t.type) for t in to_ip.terminals] == [
-        (0, "output", "net_address", "NumUInt32"),
+        (0, "output", "net address", "NumUInt32"),
         (1, "input", "name", "String"),
     ]
     assert [(t.index, t.direction, t.name, t.type) for t in to_string.terminals] == [
         (0, "output", "name", "String"),
-        (1, "input", "dot_notation", "Boolean"),
-        (2, "input", "net_address", "NumUInt32"),
+        (1, "input", "dot notation? (F)", "Boolean"),
+        (2, "input", "net address", "NumUInt32"),
     ]
 
 
@@ -105,11 +105,11 @@ def test_lvnet_wires_the_address_into_ip_to_string(tmp_path: Path) -> None:
     assert text.endswith(
         "    function String_To_IP_10 : String To IP\n"
         "      in   name        : ? default\n"
-        "      out  net_address : ?\n"
+        "      out  net address : ?\n"
         "    function IP_To_String_20 : IP To String\n"
-        "      in   dot_notation : ? default\n"
-        "      in   net_address  : ? = String_To_IP_10::net_address\n"
-        "      out  name         : ?"
+        "      in   dot notation? (F) : ? default\n"
+        "      in   net address       : ? = String_To_IP_10::net address\n"
+        "      out  name              : ?"
     )
 
 

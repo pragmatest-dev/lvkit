@@ -52,13 +52,13 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "names",
+          "name": "array of strings",
           "type": "Array"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "is_relative",
+          "name": "relative",
           "type": "Boolean",
           "default": false
         },
@@ -88,13 +88,15 @@
         {
           "index": 1,
           "direction": "output",
-          "name": "empty_path",
+          "name": "relative",
+          "python_name": "empty_path",
           "type": "Boolean"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "names",
+          "name": "array of strings",
+          "python_name": "names",
           "type": "Array"
         }
       ],

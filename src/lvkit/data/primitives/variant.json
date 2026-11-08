@@ -120,13 +120,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "attribute_value",
+          "name": "value",
+          "python_name": "attribute_value",
           "type": "polymorphic"
         },
         {
@@ -138,33 +139,33 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "duplicate_variant",
+          "name": "duplicate Variant",
           "type": "polymorphic"
         },
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
           "direction": "input",
-          "name": "default_value",
+          "name": "default value (empty Variant)",
           "type": "polymorphic",
           "default_behavior": "empty variant"
         },
         {
           "index": 6,
           "direction": "input",
-          "name": "attribute_name",
+          "name": "name",
           "type": "polymorphic",
         "default_behavior": "all attributes"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "variant",
+          "name": "Variant",
           "type": "polymorphic"
         }
       ],

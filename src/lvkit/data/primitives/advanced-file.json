@@ -287,7 +287,7 @@
         }
       ],
       "python_code": {
-        "type": "(0 if __import__('os').path.isabs(in_1) else 1)"
+        "type_": "(0 if __import__('os').path.isabs(in_1) else 1)"
       },
       "note": "type code: 0=absolute,1=relative,2=UNC,3=not a path (confirm exact mapping vs doc).",
       "verified": false
@@ -336,39 +336,39 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Choose or enter target path for copy)",
           "type": "String",
           "default": "Choose or enter target path for copy"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "overwrite",
+          "name": "overwrite (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "target_path",
+          "name": "target path (use dialog)",
           "type": "Path"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "source_path",
+          "name": "source path",
           "type": "Path"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -380,7 +380,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "new_path",
+          "name": "new path",
           "type": "Path"
         }
       ],
@@ -469,40 +469,40 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Delete)",
           "type": "String",
           "default": "Delete"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "confirm",
+          "name": "confirm (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "entire_hierarchy",
+          "name": "entire hierarchy (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "path",
+          "name": "path (use dialog)",
           "type": "Path"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -514,7 +514,8 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "path_out",
+          "name": "deleted path",
+          "python_name": "path_out",
           "type": "Path"
         }
       ],
@@ -605,7 +606,7 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -617,19 +618,20 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "offset",
+          "name": "offset (in bytes)",
+          "python_name": "offset",
           "type": "NumInt64"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
@@ -653,31 +655,32 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "refnum",
+          "name": "file",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "size",
+          "name": "size (in bytes)",
+          "python_name": "size",
           "type": "NumInt64"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
@@ -881,39 +884,39 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Choose or enter target path for move)",
           "type": "String",
           "default": "Choose or enter target path for move"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "overwrite",
+          "name": "overwrite (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "target_path",
+          "name": "target path (use dialog)",
           "type": "Path"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "source_path",
+          "name": "source path",
           "type": "Path"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
@@ -925,7 +928,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "new_path",
+          "name": "new path",
           "type": "Path"
         }
       ],
@@ -949,19 +952,19 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
           "direction": "input",
-          "name": "from",
+          "name": "from (0:start)",
           "type": "enum"
         },
         {
           "index": 6,
           "direction": "input",
-          "name": "offset",
+          "name": "offset (in bytes) (0)",
           "type": "NumInt64",
           "default": 0
         },
@@ -974,13 +977,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum"
         }
       ],
@@ -1142,7 +1145,7 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -1154,13 +1157,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "last_mod",
+          "name": "last mod",
           "type": "MeasureData"
         },
         {
@@ -1172,25 +1175,27 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "path_out",
+          "name": "path out",
           "type": "Path"
         },
         {
           "index": 4,
           "direction": "output",
-          "name": "resolved_path",
+          "name": "resolved path",
           "type": "Path"
         },
         {
           "index": 5,
           "direction": "output",
-          "name": "is_directory",
+          "name": "directory",
+          "python_name": "is_directory",
           "type": "Boolean"
         },
         {
           "index": 6,
           "direction": "output",
-          "name": "is_shortcut",
+          "name": "shortcut",
+          "python_name": "is_shortcut",
           "type": "Boolean"
         }
       ],

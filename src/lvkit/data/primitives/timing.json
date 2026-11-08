@@ -6,7 +6,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "millisecond_timer_value",
+          "name": "millisecond timer value",
           "type": "NumUInt32"
         }
       ],
@@ -23,13 +23,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "millisecond_timer_value",
+          "name": "millisecond timer value",
           "type": "NumUInt32"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "milliseconds_to_wait",
+          "name": "milliseconds to wait",
           "type": "NumUInt32"
         }
       ],
@@ -51,7 +51,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "current_time",
+          "name": "seconds since 1Jan1904",
+          "python_name": "current_time",
           "type": "MeasureData"
         }
       ],
@@ -123,13 +124,13 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "ms_multiple",
+          "name": "millisecond multiple",
           "type": "NumUInt32"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "millisecond_timer_value",
+          "name": "millisecond timer value",
           "type": "NumUInt32"
         }
       ],
