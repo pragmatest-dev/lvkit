@@ -50,6 +50,7 @@ from lvkit import cache_paths, staging
 from lvkit.build_options import BuildOptions
 from lvkit.cache_paths import LibraryRoots
 from lvkit.catalog_stamp import CatalogKey, catalog_stamp, catalog_stamp_fresh
+from lvkit.render_view import RenderView
 from lvkit.run_report import Problem, ProblemStage, RunSettings, problem_from_json
 from lvkit.text_encoding import labview_text_encoding
 
@@ -99,11 +100,21 @@ def _ext_for(fmt: str) -> str:
 # ── path resolution ─────────────────────────────────────────────────────────
 
 
+def _view_part(view: RenderView) -> str:
+    """The body-name part that tells a render's pictures apart: none for the block
+    diagram, ``.front-panel`` for the front panel, so one VI's two pictures never
+    share a slot."""
+    return "" if view is RenderView.BLOCK_DIAGRAM else f".{view.value}"
+
+
 def _render_paths(
-    input_path: Path, fmt: str, roots: LibraryRoots
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> tuple[Path, Path, str, bool]:
-    """``(body_path, meta_path, source_label, is_adhoc)`` for a render of
-    ``input_path``.
+    """``(body_path, meta_path, source_label, is_adhoc)`` for the ``view`` picture
+    of a render of ``input_path``.
 
     Path-addressed for project/shared VIs; flat content-addressed for adhoc.
     ``source_label`` is ``classify()``'s real owner-relative path (or, for
@@ -122,13 +133,13 @@ def _render_paths(
             / "render"
             / cache_paths.kind_fingerprint("render")
         )
-        base = f"{cache_paths.sha256_file(input_path)}.{ext}"
+        base = f"{cache_paths.sha256_file(input_path)}{_view_part(view)}.{ext}"
     else:
         # classify's dir is now a bounded per-VI slot (vi-<hash>), so the source
         # stem in the filename is both redundant AND a MAX_PATH hazard (a long VI
         # name overflows the path) — use a fixed short base. The slot holds one
         # source VI, so ``vi.<ext>`` is unique per format.
-        base = f"{cache_paths.MANAGED_ARTIFACT_STEM}.{ext}"
+        base = f"{cache_paths.MANAGED_ARTIFACT_STEM}{_view_part(view)}.{ext}"
     return d / base, d / f"{base}.meta.json", source_label, ns == "adhoc"
 
 
@@ -243,10 +254,14 @@ def _read_problems(meta_path: Path) -> tuple[Problem, ...]:
 
 
 def render_problems(
-    input_path: Path, fmt: str, roots: LibraryRoots
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> tuple[Problem, ...]:
-    """The problems stored with the cached render of ``input_path``/``fmt``."""
-    return _read_problems(_render_paths(input_path, fmt, roots)[1])
+    """The problems stored with the cached ``view`` render of
+    ``input_path``/``fmt``."""
+    return _read_problems(_render_paths(input_path, fmt, roots, view)[1])
 
 
 def diff_problems(
@@ -256,9 +271,15 @@ def diff_problems(
     return _read_problems(_diff_paths(before_path, after_path, fmt, roots)[1])
 
 
-def render_slot(input_path: Path, fmt: str, roots: LibraryRoots) -> Path:
-    """The cache slot path a render of ``input_path`` occupies (for reporting)."""
-    return _render_paths(input_path, fmt, roots)[0]
+def render_slot(
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
+) -> Path:
+    """The cache slot path the ``view`` render of ``input_path`` occupies (for
+    reporting)."""
+    return _render_paths(input_path, fmt, roots, view)[0]
 
 
 def diff_slot(
@@ -275,12 +296,13 @@ def lookup_render(
     version: str,
     roots: LibraryRoots,
     project_store: Path | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
-    """Return cached render output for ``input_path`` if fresh, else ``None``.
-    ``roots`` are the run's library folders (they pick the cache slot).
+    """Return the cached ``view`` render output for ``input_path`` if fresh, else
+    ``None``. ``roots`` are the run's library folders (they pick the cache slot).
     ``project_store`` is the ``.lvkit/`` folder the render reads: an edit to an
     entry the VI uses makes the cached render stale."""
-    body_path, meta_path, _, _ = _render_paths(input_path, fmt, roots)
+    body_path, meta_path, _, _ = _render_paths(input_path, fmt, roots, view)
     return _read_if_fresh(
         input_path,
         body_path,
@@ -305,10 +327,12 @@ def store_render(
     name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
     project_store: Path | None = None,
     catalog_keys: Iterable[CatalogKey] = (),
 ) -> Path:
-    """Cache ``body`` as the render of ``input_path``; return the slot path.
+    """Cache ``body`` as the ``view`` render of ``input_path``; return the slot
+    path.
     ``problems`` are stored with it, so a hit reports what the build did.
     ``catalog_keys`` are the catalog entries the VI looked up; the hash of the
     ``project_store`` entries for them is recorded, so a lookup is a miss once
@@ -325,7 +349,9 @@ def store_render(
     cache HIT answer "what VI is this" without a second graph load (#114's
     follow-up — the name was already in hand at build time, from the SAME
     graph that produced ``body``)."""
-    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt, roots)
+    body_path, meta_path, source_label, _ = _render_paths(
+        input_path, fmt, roots, view
+    )
     extra: dict[str, object] = {
         "lvkit_version": version,
         "options": options,
@@ -345,14 +371,17 @@ def store_render(
 
 
 def read_render_identity(
-    input_path: Path, fmt: str, roots: LibraryRoots
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
     """The VI's qualified name recorded by the last :func:`store_render` for
-    ``input_path``/``fmt``, or ``None`` when there's no slot or it predates
+    ``input_path``/``fmt``/``view``, or ``None`` when there's no slot or it predates
     this field. A pure metadata read (no freshness check, no graph load) —
     the caller already has a fresh body (or doesn't care) and just wants the
     identity that went with it."""
-    _, meta_path, _, _ = _render_paths(input_path, fmt, roots)
+    _, meta_path, _, _ = _render_paths(input_path, fmt, roots, view)
     if not meta_path.exists():
         return None
     try:
@@ -476,13 +505,17 @@ def render_options_tag(
     ref: str | None,
     build: BuildOptions | None = None,
     original_path: Path | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str:
     """The render output-cache options key: everything besides VI content + the
-    lvkit version that changes the rendered bytes (format, theme, title ref, the
-    build options and the file a copy stands for). The SubVIs' content is not in
-    the key: the stored meta records it (``dependencies``) and a lookup checks
-    it."""
-    tag = f"{fmt}|{theme_mode}|ref={ref or ''}|{(build or BuildOptions()).tag()}"
+    lvkit version that changes the rendered bytes (format, picture, theme, title
+    ref, the build options and the file a copy stands for). The SubVIs' content is
+    not in the key: the stored meta records it (``dependencies``) and a lookup
+    checks it."""
+    tag = (
+        f"{fmt}|view={view.value}|{theme_mode}|ref={ref or ''}"
+        f"|{(build or BuildOptions()).tag()}"
+    )
     return tag + _original_tag("original", original_path)
 
 
@@ -521,9 +554,11 @@ def cached_render(
     roots: LibraryRoots,
     return_cached: bool = True,
     run_settings: RunSettings | None = None,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
     **build_kw: object,
 ) -> CachedBody | None:
-    """Render ``input_path`` to ``fmt`` through the output cache.
+    """Render the ``view`` picture of ``input_path`` to ``fmt`` through the output
+    cache.
 
     ``return_cached`` gates the READ only — when true, a fresh slot short-circuits
     and is returned as-is (the caller pays no heavy import). The build ALWAYS
@@ -536,10 +571,12 @@ def cached_render(
     project_store = run_settings.project_store if run_settings else None
     if return_cached:
         hit = lookup_render(
-            input_path, fmt, options, version, roots, project_store
+            input_path, fmt, options, version, roots, project_store, view
         )
         if hit is not None:
-            return CachedBody(hit, render_problems(input_path, fmt, roots), True)
+            return CachedBody(
+                hit, render_problems(input_path, fmt, roots, view), True
+            )
     from lvkit.render.body import render_body_with_name
 
     # render_body_with_name has already loaded the graph to build the body --
@@ -548,6 +585,7 @@ def cached_render(
     result = render_body_with_name(
         input_path,
         fmt=fmt,
+        view=view,
         run_settings=run_settings,
         **build_kw,  # type: ignore[arg-type]
     )
@@ -563,6 +601,7 @@ def cached_render(
         name=result.name,
         dependencies=result.dependencies,
         problems=result.problems,
+        view=view,
         project_store=project_store,
         catalog_keys=result.catalog_keys,
     )
