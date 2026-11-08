@@ -32,6 +32,15 @@ DELETE = [
     ("OSError", 6),
 ]
 
+CREATE_FOLDER = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("FileExistsError", 10),
+    ("OSError", 6),
+]
+
 PRIMITIVES = {
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
     "8051:Read from Binary File": FILE_REFNUM_OPS,
@@ -57,6 +66,7 @@ PRIMITIVES = {
         ("NullCharacterError", -4702),
         ("error", None),
     ],
+    "8055:Create Folder": CREATE_FOLDER,
     "8056:Delete": DELETE,
     "1417:Delete": DELETE,
     "8016:To More Specific Class": [("TypeError", 1448)],

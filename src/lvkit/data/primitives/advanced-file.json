@@ -394,12 +394,41 @@
     },
     "8055": {
       "name": "Create Folder",
+      "op": "CREATE_FOLDER",
+      "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
-          "name": "error out",
+          "name": "error_out",
           "type": "ErrorCluster"
         },
         {
@@ -411,7 +440,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "created path",
+          "name": "created_path",
           "type": "Path"
         },
         {
@@ -424,18 +453,17 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error in",
+          "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "path (use dialog)",
+          "name": "path",
           "type": "Path"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "8056": {
       "name": "Delete",
