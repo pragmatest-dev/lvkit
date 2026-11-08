@@ -1,13 +1,10 @@
-"""Set Variant Attribute (8204): an attribute set on a copy of the variant.
-
-Uses the one representation Get Variant Attribute has: a variant is the Python
-value itself and an attribute is an attribute of it.
+"""Set Variant Attribute (8204): an empty variant given attributes is a dict of
+them; a variant that does not start empty is a gap.
 """
 
 from __future__ import annotations
 
 import re
-from types import SimpleNamespace
 
 import pytest
 
@@ -38,18 +35,24 @@ def _pane(vi: Vi, variant_type: int) -> list[tuple[str, int, int, bool]]:
     ]
 
 
-def _set(project: Project, *, variant_wired: bool = True, value: bool = True):  # noqa: F811
+EMPTY_VARIANT = "0900800000000001000400000001000000000000"
+
+
+def _set(project: Project, *, source: str = "constant", value: bool = True):  # noqa: F811
+    """Set Variant Attribute whose variant is ``source``: an empty Variant
+    ``constant``, an ``unwired`` input, or a ``control``."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
-    variant = vi.control("variant", variant_type, REQUIRED)
     attr = vi.control("attr", STR, REQUIRED)
     content = vi.control("content", STR, REQUIRED)
     replaced = vi.indicator("replaced", BOOL)
     result = vi.indicator("result", variant_type)
     out = vi.error_out()
     node = vi.primitive(8204, _pane(vi, variant_type))
-    if variant_wired:
-        vi.wire(variant, node["variant"])
+    if source == "control":
+        vi.wire(vi.control("variant", variant_type, REQUIRED), node["variant"])
+    elif source == "constant":
+        vi.wire(vi.constant(variant_type, EMPTY_VARIANT), node["variant"])
     vi.wire(attr, node["name"])
     if value:
         vi.wire(content, node["value"])
@@ -83,54 +86,34 @@ def test_describe_and_lvnet_name_the_function(project: Project) -> None:  # noqa
     assert ": Set Variant Attribute\n" in views.lvnet
 
 
-def test_a_new_attribute_is_created_on_a_copy(project: Project) -> None:  # noqa: F811
+def test_an_empty_variant_constant_given_an_attribute_is_a_dict(
+    project: Project,  # noqa: F811
+) -> None:
     package = _set(project)
     assert "lvkit" not in package.source
-    original = SimpleNamespace(kept=1)
-    result = package.function(original, "colour", "red")
-    assert (result.replaced, result.result.colour) == (False, "red")
-    assert result.result.kept == 1
-    assert not hasattr(original, "colour")
+    result = package.function("colour", "red")
+    assert (result.replaced, result.result) == (False, {"colour": "red"})
     assert result.error_out is None
 
 
-def test_an_existing_attribute_is_replaced(project: Project) -> None:  # noqa: F811
-    package = _set(project)
-    result = package.function(SimpleNamespace(colour="red"), "colour", "blue")
-    assert (result.replaced, result.result.colour) == (True, "blue")
+def test_an_unwired_variant_given_an_attribute_is_a_dict(
+    project: Project,  # noqa: F811
+) -> None:
+    package = _set(project, source="unwired")
+    result = package.function("colour", "red")
+    assert (result.replaced, result.result) == (False, {"colour": "red"})
 
 
 def test_an_empty_name_is_error_1(project: Project) -> None:  # noqa: F811
     package = _set(project)
-    result = package.function(SimpleNamespace(), "", "x")
+    result = package.function("", "x")
     assert result.error_out.code == 1
     assert result.error_out.source == "Set Variant Attribute"
 
 
-def test_an_empty_variant_is_a_gap(project: Project) -> None:  # noqa: F811
-    package = _set(project, variant_wired=False)
-    reason = "Set Variant Attribute on an empty variant"
+def test_a_variant_that_is_not_empty_is_a_gap(project: Project) -> None:  # noqa: F811
+    package = _set(project, source="control")
+    reason = "Set Variant Attribute on a variant that is not empty"
     assert reason in package.source
     with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function(None, "a", "b")
-
-
-def test_a_constant_variant_is_a_gap(project: Project) -> None:  # noqa: F811
-    """The empty variant constant is written as a literal, which has no object to
-    carry an attribute."""
-    vi = Vi(NAME)
-    variant_type = vi.add_type(_VARIANT)
-    attr = vi.control("attr", STR, REQUIRED)
-    content = vi.control("content", STR, REQUIRED)
-    out = vi.error_out()
-    node = vi.primitive(8204, _pane(vi, variant_type))
-    vi.wire(vi.constant(STR, "00000002" + "4142".upper()), node["variant"])
-    vi.wire(attr, node["name"])
-    vi.wire(content, node["value"])
-    vi.wire(node["error out"], out)
-    project.add(vi)
-    package = project.generate(NAME)
-    reason = "Set Variant Attribute on an empty variant"
-    assert reason in package.source
-    with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function("a", "b")
+        package.function({}, "a", "b")

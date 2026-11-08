@@ -175,13 +175,7 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "error_out": "in_4",
-        "attribute_value": "getattr(in_7, in_6, in_5)",
-        "found": "hasattr(in_7, in_6)",
-        "duplicate_variant": "in_7"
-      },
-      "inline": true,
+      "op": "GET_VARIANT_ATTRIBUTE",
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-variant-attribute.html"
     },
@@ -225,8 +219,9 @@
           "type": "LVVariant"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "op": "DELETE_VARIANT_ATTRIBUTE",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-variant-attribute.html",
+      "verified": true
     }
   }
 }

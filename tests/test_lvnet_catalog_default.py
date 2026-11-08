@@ -123,7 +123,8 @@ def test_an_unwired_input_nothing_documents_is_a_gap_in_the_generated_code(
 
 
 def test_get_variant_attribute_with_default_value_unwired_returns_none() -> None:
-    """Unwired, `default value` is an empty variant: None in Python."""
+    """Unwired, `default value` is an empty variant: None in Python. The variant is
+    unwired too, an empty variant given no attributes."""
     from tests.native_vi import generate, node, scalar
 
     variant = scalar("Variant")
@@ -140,14 +141,12 @@ def test_get_variant_attribute_with_default_value_unwired_returns_none() -> None
         ],
     )
     generated = generate(
-        {"v": variant, "n": name},
+        {"n": name},
         {"value": variant},
         [get_attribute],
-        [("fp:v", "ga:7"), ("fp:n", "ga:6"), ("ga:1", "fp:value")],
+        [("fp:n", "ga:6"), ("ga:1", "fp:value")],
     )
-    holder = type("Holder", (), {"present": 3})()
-    assert generated.function(holder, "present").value == 3  # type: ignore[operator]
-    assert generated.function(holder, "absent").value is None  # type: ignore[operator]
+    assert generated.function("absent").value is None  # type: ignore[operator]
 
 
 def test_a_project_vi_call_shows_the_default_its_uses_entry_shows(
