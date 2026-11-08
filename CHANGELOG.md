@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **TDMS Open, Write, Set Properties and Close generate npTDMS code, and the package lists what it imports** — a new `requirements.txt` at the package root names each third-party package the generated code needs; a byte order other than little-endian, a waveform and a 2D array written to a channel are gaps.
 - **A primitive's terminals show NI's own labels in every view** — `error in (no error)`, `byte order (0:big-endian, network order)`, `x+y`, `size (in bytes)` instead of `error_in`, `byte_order`, `sum`, `size`; generated Python keeps its variable names and a gap message names the terminal by its label.
 - **Close Reference of any reference generates nothing**, no longer a gap — a VI, Application or other VI Server reference, an array of references, or one wired to nothing; its error out passes the error in.
 - **Fix: MCP calls for two projects at once each file their VIs' cache by their own library folders**.
