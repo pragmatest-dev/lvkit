@@ -1860,6 +1860,15 @@ NI: "To include the multiline? input and enable advanced regular expression sear
 
 So the mode is the node's own 0x2000000 bit, read by `ops/search_and_replace.py` from the node's `obj_flags`; the same node shows the hidden bit clear on `multiline?`. Every other field compared (`primIndex` 406, 425, 441 or 454, `shortCount`, `clumpNum`, the per-terminal `dsw`) varies without tracking the mode. Only one corpus node is in Regular Expression mode, so the bit is the whole evidence for the mode; that node's `search string` is the constant `'nihelplauncher://docs/csh'`.
 
+## Write to Text File records Convert EOL in the node's `objFlags` (bit 0x2000000)
+
+NI: "This function appends platform-dependent, end-of-line (EOL) characters to the elements of an array even if you right-click the function and remove the checkmark next to the Convert EOL shortcut menu item" (labview-api-ref, `functions/write-to-text-file.html`). Across the 15 distinct block diagrams in the extraction cache with a `prim` element of `primResID` 8080:
+
+- 14 have `<objFlags>33555072</objFlags>` (0x2000280).
+- 1 (`vi-f5437a9ad902c061`, an add-on installer that writes the constant `'{\n    "AddonName": "labview-icon-editor", ...}'` to `lvaddoninfo.json` through Open/Create/Replace File) has `<objFlags>640</objFlags>` (0x280): the 0x2000000 bit is clear.
+
+The menu item is checked by default, so the bit set is Convert EOL on and a VI that writes a JSON file's line feeds as they are is the one with it off. The same bit is the Regular Expression mode of Search and Replace String (above); `ops/write_to_text_file.py` reads it from the node's `obj_flags`. Only one node has it clear, so this one VI is the whole evidence for the clear state. Read from Text File (8070) nodes carry 33555072 or 100663936 (0x6000280: 0x4000000 also set), another option bit that is not decoded.
+
 ## A generic VI Server reference (`RefType="LVObjCtl"`) names its class in `CtlFlags`: 0x0001 Application, 0x0002 VI
 
 The type descriptor of a generic VI Server reference carries `CtlFlags` next to `RefType="LVObjCtl"`. Across the extracted corpus, every descriptor labelled `This VI` has `CtlFlags="0x0002"` (217 of 217) and every one labelled `This Application` has `0x0001` (109 of 109); the other descriptors with those values carry labels such as `VIRef`, `IE VI Ref`, `vi reference` (0x0002) and `application reference (local)`, `AppInst` (0x0001). Other values (0x0008, 0x001E, 0x001B, 0x0042 ...) are the control classes of control references (a `Font ComboBox` reference is 0x001D); they are not named here.

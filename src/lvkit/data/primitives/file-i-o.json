@@ -547,12 +547,37 @@
     },
     "8080": {
       "name": "Write to Text File",
+      "op": "WRITE_TO_TEXT_FILE",
+      "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-text-file.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
-          "name": "error out",
+          "name": "error_out",
           "type": "ErrorCluster"
         },
         {
@@ -564,7 +589,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum out",
+          "name": "refnum_out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
@@ -578,24 +603,23 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error in",
+          "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
           "direction": "input",
           "name": "text",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "file (use dialog)",
-          "type": "Path"
+          "name": "file",
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     }
   }
 }
