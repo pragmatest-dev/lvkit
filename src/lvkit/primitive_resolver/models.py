@@ -13,7 +13,12 @@ class PrimitiveTerminal(TerminalDefault):
 
     index: int
     direction: TerminalDirection
+    # NI's label for the terminal, as LabVIEW shows it. Generated code names the
+    # terminal from it (``codegen/catalog_names.py``).
     name: str | None = ""
+    # The Python name generated code gives the terminal, when it is not the one
+    # derived from the label (``label_names.catalog_python_label``).
+    python_name: str | None = None
     # LabVIEW type: "numeric", "string", "boolean", "array",
     # "cluster", "path", "refnum", "variant", "polymorphic"
     type: str | None = None
