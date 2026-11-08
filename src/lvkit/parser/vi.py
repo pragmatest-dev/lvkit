@@ -317,6 +317,7 @@ def parse_vi(
         block_diagram,
         metadata.type_map,
         unresolved_uids=unresolved_uids,
+        default_space=default_space,
     )
 
     # Parse connector pane
@@ -598,8 +599,12 @@ def _parse_front_panel(
     block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
     unresolved_uids: set[str] | None = None,
+    default_space: DefaultDataSpace | None = None,
 ) -> ParsedFrontPanel:
     """Parse front panel from FP XML.
+
+    A control with no ``DefaultData`` takes its default from ``default_space``,
+    the VI's default data, when it has been read.
 
     ``unresolved_uids``, if given, collects the uid of every control whose
     own label didn't resolve (see ``_placeholder_control_name``) so a caller
@@ -672,6 +677,7 @@ def _parse_front_panel(
         # Extract default data
         default_value = None
         field_defaults = None
+        default_raw: bytes | None = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
             # Strip only the wrapping quotes — NOT clean_labview_string, which
@@ -690,6 +696,17 @@ def _parse_front_panel(
             default_value, field_defaults = _decode_default_data(
                 raw_data, control_type, lv_type
             )
+        elif default_space is not None:
+            # A VI saved without the heap's DefaultData keeps the control's
+            # default in its default data space, under the control's tdOffset.
+            stored = default_space.fill_value(fpdco.findtext("tdOffset"))
+            if stored.value_hex is not None:
+                stored_bytes = bytes.fromhex(stored.value_hex)
+                default_value, field_defaults = _decode_default_bytes(
+                    stored_bytes, ddo.get("class", "unknown"), lv_type
+                )
+                if contains_class_instance(lv_type):
+                    default_raw = stored_bytes
 
         control = _parse_ddo(
             ddo,
@@ -708,7 +725,8 @@ def _parse_front_panel(
                 and default_elem.text
                 and contains_class_instance(lv_type)
             ):
-                control.default_raw = decode_xml_entities_to_bytes(raw_data)
+                default_raw = decode_xml_entities_to_bytes(raw_data)
+            control.default_raw = default_raw
             controls.append(control)
 
     # The heap root's <ddoList> names every fPDCO in DCO-table order -- the
@@ -2466,6 +2484,16 @@ def _decode_default_data(
     except (ValueError, UnicodeError):
         return None, None
 
+    return _decode_default_bytes(raw_bytes, control_type, lv_type)
+
+
+def _decode_default_bytes(
+    raw_bytes: bytes,
+    control_type: str,
+    lv_type: LVType | None = None,
+) -> tuple[str | None, object]:
+    """Decode the stored bytes of a control's default to a Python literal; the
+    return value is that of ``_decode_default_data``."""
     # Use the type-aware decoder when we have type info
     if lv_type is not None:
         decoded, _, structured = _decode_element(raw_bytes, lv_type)
