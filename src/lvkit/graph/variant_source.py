@@ -9,8 +9,22 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..models import Terminal, TunnelTerminal
-from .models import AnyGraphNode, ConstantNode, PrimitiveNode, StructureNode, WireEnd
+from .models import (
+    AnyGraphNode,
+    ConstantNode,
+    PrimitiveNode,
+    StructureNode,
+    VINode,
+    WireEnd,
+)
 from .shift_registers import pair_by_position
+
+if TYPE_CHECKING:
+    from ..vilib_resolver import VILibResolver
+
+# A terminal followed upstream, with the ids of the subVI calls it is followed
+# under (innermost last).
+_Visit = tuple[str, tuple[str, ...]]
 
 # The primitives whose variant output is the variant at their variant input
 # (index 7) with attributes set or deleted: Set Variant Attribute and Delete
@@ -30,34 +44,60 @@ class VariantSourceMixin:
         def incoming_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
         def terminal_node_id(self, terminal_id: str) -> str: ...
+        def loaded_callee_key(self, node: VINode) -> str | None: ...
+        @property
+        def vilib_catalog(self) -> VILibResolver: ...
 
     def variant_is_empty(self, terminal_id: str) -> bool:
         """Whether the variant that reaches the input ``terminal_id`` starts as
         the empty Variant: following its wire upstream through Set and Delete
-        Variant Attribute, structure tunnels, and a loop's shift registers (the
-        value wired in and the value fed back), every source is an empty Variant
-        constant or an unwired input. Anything else (a control, a subVI's
-        output, another node's output, a constant holding a value) is not empty.
-        """
-        return self._empty_upstream(terminal_id, set())
+        Variant Attribute, structure tunnels, a loop's shift registers (the
+        value wired in and the value fed back) and into the loaded subVIs that
+        produce it, every source is an empty Variant constant or an unwired
+        input. Anything else (a control, a subVI that is not loaded or that the
+        catalog implements, another node's output, a constant holding a value)
+        is not empty.
 
-    def _empty_upstream(self, terminal_id: str, seen: set[str]) -> bool:
+        Into a subVI: a subVI call's output continues at the diagram wire into
+        the called VI's indicator; a control of the called VI continues at the
+        wire into the matching input of the call being followed. The calls
+        followed so far are kept, so a VI called from several places is traced
+        from the right caller; a call met again while it is being followed (a
+        recursive VI) is not empty.
+        """
+        return self._empty_upstream(terminal_id, set(), ())
+
+    def _empty_upstream(
+        self, terminal_id: str, seen: set[_Visit], calls: tuple[VINode, ...]
+    ) -> bool:
         """Whether every wire into ``terminal_id`` starts empty; ``seen`` holds
-        the terminals being followed, so a shift register's feedback loop adds no
-        source of its own."""
-        if terminal_id in seen:
+        the terminals being followed (with the calls they are followed under), so
+        a shift register's feedback loop adds no source of its own."""
+        visit = (terminal_id, tuple(c.id for c in calls))
+        if visit in seen:
             return True
-        seen.add(terminal_id)
+        seen.add(visit)
+        return all(
+            self._source_is_empty(src, seen, calls)
+            for src in self._own_sources(terminal_id)
+        )
+
+    def _own_sources(self, terminal_id: str) -> list[WireEnd]:
+        """The sources of the wire into ``terminal_id`` on its own VI's diagram,
+        and for a loop's left shift register the value fed back."""
+        return [*self._diagram_sources(terminal_id), *self._fed_back(terminal_id)]
+
+    def _diagram_sources(self, terminal_id: str) -> list[WireEnd]:
         home = self.terminal_vi(terminal_id)
-        sources = [
+        return [
             src
             for src in self.incoming_edges(terminal_id)
             if self.terminal_vi(src.terminal_id) == home
         ]
-        sources += self._fed_back(terminal_id)
-        return all(self._source_is_empty(src, seen) for src in sources)
 
-    def _source_is_empty(self, src: WireEnd, seen: set[str]) -> bool:
+    def _source_is_empty(
+        self, src: WireEnd, seen: set[_Visit], calls: tuple[VINode, ...]
+    ) -> bool:
         node = self.get_graph_node(src.node_id)
         if isinstance(node, ConstantNode):
             return node.empty_variant
@@ -76,13 +116,58 @@ class VariantSourceMixin:
                     ),
                     None,
                 )
-                return variant_in is None or self._empty_upstream(variant_in.id, seen)
+                return variant_in is None or self._empty_upstream(
+                    variant_in.id, seen, calls
+                )
             return False
         if isinstance(node, StructureNode) and isinstance(
             self.get_terminal(src.terminal_id), TunnelTerminal
         ):
-            return self._empty_upstream(src.terminal_id, seen)
+            return self._empty_upstream(src.terminal_id, seen, calls)
+        if isinstance(node, VINode):
+            return self._vi_source_is_empty(node, src, seen, calls)
         return False
+
+    def _vi_source_is_empty(
+        self,
+        node: VINode,
+        src: WireEnd,
+        seen: set[_Visit],
+        calls: tuple[VINode, ...],
+    ) -> bool:
+        """A wire that starts at a VI node: a control of the VI being followed
+        (continue at the call that supplies it) or the output of a subVI call
+        (continue inside the called VI)."""
+        term = self.get_terminal(src.terminal_id)
+        if term is None:
+            return False
+        if node.id == node.vi_path:
+            if not calls or term.direction != "input":
+                return False
+            call = calls[-1]
+            supplied = [
+                e.terminal_id
+                for e in self.incoming_edges(term.id)
+                if e.node_id == call.id
+            ]
+            return bool(supplied) and all(
+                self._empty_upstream(t, seen, calls[:-1]) for t in supplied
+            )
+        if term.direction != "output" or any(c.id == node.id for c in calls):
+            return False
+        key = self.loaded_callee_key(node)
+        if key is None or self.vilib_catalog.resolve_recorded(node.qualified_path):
+            return False
+        indicators = [
+            e.terminal_id
+            for e in self.incoming_edges(term.id)
+            if self.terminal_vi(e.terminal_id) == key
+        ]
+        inside = (*calls, node)
+        return bool(indicators) and all(
+            self._diagram_sources(t) and self._empty_upstream(t, seen, inside)
+            for t in indicators
+        )
 
     def _fed_back(self, terminal_id: str) -> list[WireEnd]:
         """For the inside of a loop's left shift register, the wire into the
@@ -110,9 +195,4 @@ class VariantSourceMixin:
         )
         if right is None:
             return []
-        home = self.terminal_vi(right.id)
-        return [
-            src
-            for src in self.incoming_edges(right.id)
-            if self.terminal_vi(src.terminal_id) == home
-        ]
+        return self._diagram_sources(right.id)
