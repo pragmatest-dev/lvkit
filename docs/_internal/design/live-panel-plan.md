@@ -111,6 +111,8 @@ The loop never sees a new Stop value (`if stop:` re-reads the argument).
 
 ### 2.3 The one uniform rule: which access becomes which hook line
 
+Rationale (maintainer, 2026-11-07): "one reason the in-a-loop control/indicator pattern exists was it was an easy way to get/set updates every loop. Otherwise you'd get the original tunnel or shift register value." The rule keys on where the terminal sits, not on the wiring.
+
 A VI is "hooked" when a new graph query says its diagram does one of: a control or indicator terminal placed inside a loop or event structure (use `FPTerminal.parent`, `models.py:984`, walking enclosing structures); a local variable of
 its own control/indicator; a Value property node bound to its own control; (open: an off-pane control the diagram reads, D8). Hooked VIs get two keyword-only parameters
 `on_update=None, on_read=None` (annotation `Callable[[str, Any], None] | None` and `Callable[[str, Any], Any] | None`), after the connector-pane keywords. Everything else is unchanged.
