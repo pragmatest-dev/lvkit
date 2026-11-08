@@ -1,9 +1,10 @@
 """What the flatten / unflatten / swap handlers share: reading a node's
-terminals and the statement for a type with no flattened form."""
+terminals and constants, and the statement for a type with no flattened form."""
 
 from __future__ import annotations
 
 import ast
+from typing import Any
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
@@ -17,6 +18,24 @@ def terminal(node: PrimitiveNode, direction: str, index: int) -> Terminal | None
         (t for t in node.terminals if t.direction == direction and t.index == index),
         None,
     )
+
+
+def constant_input(
+    ctx: CodeGenContext, node: PrimitiveNode, index: int, default: Any
+) -> Any:
+    """The value of an input that must be a constant, or ``default`` unwired."""
+    term = terminal(node, "input", index)
+    text = ctx.wired_input(term.id, node) if term else None
+    if text is None:
+        return default
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError) as error:
+        raise ConversionGap(
+            f"{node.name or 'This function'} needs its byte order and size inputs "
+            "to be constants",
+            node,
+        ) from error
 
 
 def add_flat_imports(ctx: CodeGenContext, statements: list[ast.stmt]) -> None:

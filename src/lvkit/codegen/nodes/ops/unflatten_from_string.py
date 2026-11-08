@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
@@ -36,23 +35,12 @@ from ...flat import (
 )
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
-
-
-def _constant(ctx: CodeGenContext, node: PrimitiveNode, index: int, default):
-    """The value of an input that must be a constant, or ``default`` unwired."""
-    term = terminal(node, "input", index)
-    text = ctx.wired_input(term.id, node) if term else None
-    if text is None:
-        return default
-    try:
-        return ast.literal_eval(text)
-    except (ValueError, SyntaxError) as error:
-        raise ConversionGap(
-            "Unflatten From String needs its byte order and size inputs to be "
-            "constants",
-            node,
-        ) from error
+from ._flat_node import (
+    add_flat_imports,
+    constant_input,
+    terminal,
+    unsupported_layout_error,
+)
 
 
 @register_op_fragment("UNFLATTEN_FROM_STRING")
@@ -67,8 +55,8 @@ def unflatten_from_string(
         return CodeFragment.empty()
     string_term = terminal(node, "input", 11)
     text = (ctx.wired_input(string_term.id, node) if string_term else None) or "''"
-    prefix = bool(_constant(ctx, node, 10, True))
-    order = BYTE_ORDER_PREFIX[int(_constant(ctx, node, 9, 0))]
+    prefix = bool(constant_input(ctx, node, 10, True))
+    order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
     try:
         layout = layout_of(value_term.lv_type if value_term else None)
     except UnsupportedLayout as error:

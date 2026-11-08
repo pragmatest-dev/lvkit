@@ -165,39 +165,39 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error out",
-          "type": "ErrorCluster"
+          "name": "error_out",
+          "type": "Error"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "type string",
+          "name": "type_string",
           "type": "Array",
           "hidden": true
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "data string",
+          "name": "data_string",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error in (no error)",
-          "type": "ErrorCluster"
+          "name": "error_in",
+          "type": "Error"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "byte order (0:big-endian, network order)",
-          "type": "Enum16",
+          "name": "byte_order",
+          "type": "UnitUInt16",
           "default": 0
         },
         {
           "index": 10,
           "direction": "input",
-          "name": "prepend array or string size? (T)",
+          "name": "prepend_size",
           "type": "Boolean",
           "default": true
         },
@@ -205,12 +205,12 @@
           "index": 11,
           "direction": "input",
           "name": "anything",
-          "type": "Cluster"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "op": "FLATTEN_TO_STRING",
+      "verified": true,
+      "note": "Confirmed via NI doc (flattens anything to data string; prepend array or string size? default TRUE, byte order 0/1/2=big/native/little default 0, type string is the 7.x-only output) and via every corpus call site: the pane is always error out/type string/data string (idx 0/2/3) and error in/byte order/prepend size/anything (idx 8/9/10/11), with only 'anything' (idx 11) varying (numbers, strings, paths, clusters, refnums). Emitted via the FLATTEN_TO_STRING op handler, which writes the struct calls for anything's type (codegen/flat.py) -- the write side of Unflatten From String. The 7.x type string output (a LabVIEW type descriptor) is a gap when wired."
     },
     "1166": {
       "name": "Type Cast",
