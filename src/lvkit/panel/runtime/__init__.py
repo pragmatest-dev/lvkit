@@ -1,6 +1,6 @@
 """The helper package of a generated front panel, written once at the package root
 as ``controls`` (``lvkit.panel.write``). It imports NiceGUI and the standard
-library only."""
+library only, and the package's own ``errors`` module."""
 
 from .live import Abort, LiveValues
 from .port import Member, Port
@@ -20,6 +20,7 @@ from .widgets import (
 from .widgets_array import array_control, array_indicator, array_port
 from .widgets_choice import choice_control, choice_indicator, choice_port
 from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
+from .widgets_error import error_control, error_indicator, error_port
 from .widgets_path import path_control, path_indicator, path_port
 
 __all__ = [
@@ -41,6 +42,9 @@ __all__ = [
     "cluster_control",
     "cluster_indicator",
     "cluster_port",
+    "error_control",
+    "error_indicator",
+    "error_port",
     "number_control",
     "number_indicator",
     "number_port",

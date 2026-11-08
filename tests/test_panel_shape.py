@@ -10,6 +10,7 @@ from typing import Any
 from nicegui import ui
 
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
+from lvkit.panel.kinds import PanelKind
 from lvkit.panel.runtime import (
     LiveValues,
     Member,
@@ -126,7 +127,7 @@ def test_a_cluster_in_a_cluster_builds_its_fields_and_names_every_builder() -> N
     )
 
 
-def test_an_error_cluster_control_is_a_gap() -> None:
+def test_an_error_cluster_control_is_an_error_widget() -> None:
     control = _fp("error in", "stdClust", _fp("status", "stdBool"))
     lv_type = LVType(
         kind=LVTypeKind.CLUSTER,
@@ -143,8 +144,49 @@ def test_an_error_cluster_control_is_a_gap() -> None:
         _fp("source", "stdString"),
     ]
     described = describe(control, lv_type, None, "error_in")
+    assert described.kind is PanelKind.ERROR
+    assert described.gap is None
+
+
+def _error_type() -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="status", type=_primitive("Boolean")),
+            ClusterField(name="code", type=_primitive("NumInt32")),
+            ClusterField(name="source", type=_primitive("String")),
+        ],
+    )
+
+
+def test_an_error_cluster_field_of_a_cluster_is_an_error_widget() -> None:
+    control = _fp("Result", "stdClust", _fp("err", "stdClust"), _fp("n", "stdNum"))
+    lv_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="err", type=_error_type()),
+            ClusterField(name="n", type=_primitive("NumInt32")),
+        ],
+    )
+    described = describe(control, lv_type, None, "result")
+    assert described.gap is None
+    assert [m.kind for m in described.members] == [PanelKind.ERROR, PanelKind.NUMBER]
+    assert member_call(described.members[0]) == "Member('0', 'err', error_port)"
+
+
+def test_an_array_of_error_clusters_is_a_gap() -> None:
+    control = _fp("Errors", "indArr", _fp("err", "stdClust"))
+    lv_type = LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=_error_type(),
+        dimensions=1,
+    )
+    described = describe(control, lv_type, None, "errors")
     assert described.kind is None
-    assert described.gap == "the panel has no widget for an error cluster ('error in')"
+    assert described.gap is not None
 
 
 def test_a_named_cluster_port_gives_and_shows_an_object_of_its_fields() -> None:

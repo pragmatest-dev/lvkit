@@ -37,7 +37,12 @@ def _array(control: PanelControl) -> str:
     return f"{member_call(control.element)}, {rows}, {list(control.initial)!r}"
 
 
+def _no_arguments(_control: PanelControl) -> str:
+    return ""
+
+
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
+    PanelKind.ERROR: _no_arguments,
     PanelKind.NUMBER: _number,
     PanelKind.BOOLEAN: _default_only,
     PanelKind.STRING: _default_only,
@@ -57,7 +62,8 @@ def widget_call(control: PanelControl, kind: PanelKind, key: str) -> str:
     """The call that draws ``control`` of ``kind`` and ties it to the holder
     ``values`` under the hook name ``key``."""
     arguments = ARGUMENTS[kind](control)
-    return f"{builder_of(control, kind)}(values, {key}, {arguments})"
+    tail = f", {arguments}" if arguments else ""
+    return f"{builder_of(control, kind)}(values, {key}{tail})"
 
 
 def member_call(control: PanelControl) -> str:
@@ -65,10 +71,9 @@ def member_call(control: PanelControl) -> str:
     array."""
     kind = control.kind
     assert kind is not None
-    return (
-        f"Member({control.key!r}, {control.label!r}, {kind.port_builder}, "
-        f"{ARGUMENTS[kind](control)})"
-    )
+    arguments = ARGUMENTS[kind](control)
+    tail = f", {arguments}" if arguments else ""
+    return f"Member({control.key!r}, {control.label!r}, {kind.port_builder}{tail})"
 
 
 def _parts(control: PanelControl) -> tuple[PanelControl, ...]:

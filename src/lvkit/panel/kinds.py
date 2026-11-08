@@ -13,7 +13,9 @@ class PanelKind(Enum):
     """The kinds of control the panel builds, each with the builder functions of
     the ``controls`` package that draw it. A kind is chosen by the control's
     class and either the Python type of its value (a number, Boolean, string or
-    path) or the kind of its LabVIEW type (an enum, ring or cluster)."""
+    path) or the kind of its LabVIEW type (an enum, ring or cluster). An error
+    cluster is a cluster whose type is LabVIEW's error cluster; ``describe``
+    picks it, ``of`` never does."""
 
     NUMBER = ("number", "stdNum", ("int", "float"), ())
     BOOLEAN = ("bool", "stdBool", ("bool",), ())
@@ -28,6 +30,8 @@ class PanelKind(Enum):
         (),
         (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF),
     )
+
+    ERROR = ("error", "stdClust", (), ())
 
     def __init__(
         self,

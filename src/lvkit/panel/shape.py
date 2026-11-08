@@ -80,12 +80,6 @@ def _cluster(
             kind=None,
             gap=f"the panel needs the fields of the {control.control_type} control",
         )
-    if _is_error_cluster(lv_type):
-        return replace(
-            base,
-            kind=None,
-            gap=f"the panel has no widget for an error cluster ({control.name!r})",
-        )
     if len(control.children) != len(fields):
         return replace(
             base,
@@ -213,6 +207,8 @@ def describe(
     )
     if kind is None:
         return replace(base, gap=_no_widget(control, python_type))
+    if kind is PanelKind.CLUSTER and lv_type is not None and _is_error_cluster(lv_type):
+        return replace(base, kind=PanelKind.ERROR)
     if kind is PanelKind.CLUSTER:
         return _cluster(base, control, lv_type)
     if kind is PanelKind.ARRAY:
