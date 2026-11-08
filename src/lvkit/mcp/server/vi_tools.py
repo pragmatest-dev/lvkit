@@ -17,20 +17,25 @@
 from __future__ import annotations
 
 import asyncio
+import functools
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 import lvkit.mcp.server as _facade
 
-from ... import __version__
+from ... import __version__, lv_detect
 from ...build_options import BuildOptions
 from ...graph import InMemoryVIGraph, load_ctl_by_path, load_vi_by_path
+from ...graph.llb_members import file_is_present
 from ...graph.lvnet_typedef import render_lvnet_typedef
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
 from ...graph.netlist_json import typedef_to_dict
 from ...index.build import warm_all_loaded
-from ...library_folders import folder_list
+from ...input_path import InputNotFound, is_stored_path, resolve_input
+from ...library_folders import run_folders
 from ...load_mode import LoadMode
+from ...lv_detect import DetectedLabVIEW
 from ...output_cache import (
     cached_diff,
     cached_render,
@@ -46,7 +51,7 @@ from ...run_report import ProblemStage, RunProblems, declined
 from ._compat import Context
 from .app import mcp
 from .problems import new_run, stopped_on, with_problems
-from .resolvers import _configure_resolvers_for_vi
+from .resolvers import project_store_for
 
 _FORMATS = ("json", "lvnet")
 
@@ -57,26 +62,69 @@ def _check_format(format: str) -> None:
         raise ValueError(f"Unknown format {format!r}; expected one of {_FORMATS}")
 
 
+@functools.cache
+def _detected_labview() -> DetectedLabVIEW | None:
+    """The installed LabVIEW, looked for once per server process (the search may
+    read the registry)."""
+    return lv_detect.detect_labview()
+
+
 def _build(
     vilib: str | list[str] | None,
     userlib: str | list[str] | None,
     instrlib: str | list[str] | None,
     search_path: list[str] | None = None,
     store: Path | None = None,
+    no_auto_vilib: bool = False,
 ) -> BuildOptions:
     """The build options of one tool call: the folders each pseudo path names
-    (each resolved, in order), the VI Search Path and the project store."""
+    (each resolved, in order; the installed LabVIEW's when ``vilib`` is not given,
+    as on the command line, unless ``no_auto_vilib``), the VI Search Path and the
+    project store."""
 
-    def _roots(folders: str | list[str] | None) -> tuple[Path, ...]:
-        return tuple(p.resolve() for p in folder_list(folders))
+    def _roots(folders: Iterable[Path]) -> tuple[Path, ...]:
+        return tuple(p.resolve() for p in folders)
 
+    found = run_folders(
+        vilib,
+        userlib,
+        instrlib,
+        auto_detect=not no_auto_vilib,
+        detect=_detected_labview,
+    )
     return BuildOptions(
-        vilib_root=_roots(vilib),
-        userlib_root=_roots(userlib),
-        instrlib_root=_roots(instrlib),
+        vilib_root=_roots(found.vilib),
+        userlib_root=_roots(found.userlib),
+        instrlib_root=_roots(found.instrlib),
         search_path=tuple(search_path) if search_path else None,
         project_store=store,
     )
+
+
+async def _target(
+    path: str,
+    ctx: Context | None,
+    vilib: str | list[str] | None,
+    userlib: str | list[str] | None,
+    instrlib: str | list[str] | None,
+    no_auto_vilib: bool = False,
+) -> str:
+    """The file or folder a tool's path argument names: a stored path
+    (``<userlib>/…``) is found in the tool's own ``vilib``/``userlib``/
+    ``instrlib`` folders; any other path may be relative to the client's roots."""
+    if not is_stored_path(path):
+        return await _facade._resolve_target(path, ctx)
+    build = _build(vilib, userlib, instrlib, None, None, no_auto_vilib)
+    folders = {
+        "<vilib>": build.vilib_root,
+        "<userlib>": build.userlib_root,
+        "<instrlib>": build.instrlib_root,
+    }
+    try:
+        return str(resolve_input(path, folders))
+    except InputNotFound as e:
+        tried = "".join(f"\n  tried: {t}" for t in e.tried)
+        raise FileNotFoundError(f"Path not found: {path}: {e.reason}{tried}") from e
 
 
 def _load_one(
@@ -94,9 +142,8 @@ def _load_one(
     """
     p = Path(vi_path).resolve()
     run = run or new_run(p)
-    if not p.exists():
+    if not file_is_present(p):
         raise FileNotFoundError(f"VI not found: {vi_path}")
-    _configure_resolvers_for_vi(p)
     build = build or BuildOptions()
     # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
     # the exact file requested, never re-derived from p.name (which would
@@ -128,6 +175,7 @@ async def read_vi(
     search_path: list[str] | None = None,
     format: str = "json",
     verbose: bool = False,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """READ one VI in full — its structure as the canonical **netlist IR**
@@ -158,6 +206,9 @@ async def read_vi(
     relative to the client's workspace root. ``vilib``/``userlib``/``instrlib`` are the
     folders a recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts
     from (each dependency is found only at the path its caller records).
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
 
     ``format`` picks the surface: ``"json"`` (default, unchanged when
     ``verbose=False``) returns the structured IR dict above; ``verbose=True``
@@ -172,12 +223,12 @@ async def read_vi(
     ``verbose=True`` to also inline each direct SubVI's connector-pane
     interface plus a trailing ``types :`` appendix (type-rehydratable)."""
     _check_format(format)
-    vi_path = await _facade._resolve_target(vi_path, ctx)
+    vi_path = await _target(vi_path, ctx, vilib, userlib, instrlib, no_auto_vilib)
 
     def _work() -> dict[str, Any]:
         run = new_run(vi_path)
         try:
-            build = _build(vilib, userlib, instrlib, search_path)
+            build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
             graph, vi_name = _load_one(vi_path, build, run)
             module = build_netlist_from_graph(graph, vi_name)
         except FileNotFoundError:
@@ -209,6 +260,7 @@ async def read_ctl(
     search_path: list[str] | None = None,
     format: str = "json",
     verbose: bool = False,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """READ one ``.ctl`` typedef / custom control in full — its structure as
@@ -231,17 +283,19 @@ async def read_ctl(
     ``query`` for project-wide type use. ``ctl_path`` may be relative to the client's
     workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a recorded
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
-    dependency is found only at the path its caller records)."""
+    dependency is found only at the path its caller records).
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs)."""
     _check_format(format)
-    ctl_path = await _facade._resolve_target(ctl_path, ctx)
+    ctl_path = await _target(ctl_path, ctx, vilib, userlib, instrlib, no_auto_vilib)
 
     def _work() -> dict[str, Any]:
         p = Path(ctl_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"Control not found: {ctl_path}")
-        _configure_resolvers_for_vi(p)
         run = new_run(p)
-        build = _build(vilib, userlib, instrlib, search_path)
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
         try:
             graph, key = load_ctl_by_path(
                 p,
@@ -271,6 +325,7 @@ async def render(
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
     view: str = "block-diagram",
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Render one VI's **block diagram**, its **front panel**, or both — or a
@@ -306,19 +361,23 @@ async def render(
     workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a recorded
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
     dependency is found only at the path its caller records).
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
-    vi_path = await _facade._resolve_target(vi_path, ctx)
+    vi_path = await _target(vi_path, ctx, vilib, userlib, instrlib, no_auto_vilib)
 
     def _work() -> dict[str, Any]:
         p = Path(vi_path).resolve()
-        if not p.exists():
+        if not file_is_present(p):
             raise FileNotFoundError(f"File not found: {vi_path}")
         views = views_for(p, view)
-        store = _configure_resolvers_for_vi(p)
-        build = _build(vilib, userlib, instrlib, search_path, store)
+        store = project_store_for(p)
+        build = _build(vilib, userlib, instrlib, search_path, store, no_auto_vilib)
+        roots = build.library_roots()
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
-        run = new_run(p)
+        run = new_run(p, store)
         bodies: dict[RenderView, str] = {}
         for picture in views:
             opts = render_options_tag("html", "auto", None, build, view=picture)
@@ -328,6 +387,7 @@ async def render(
                     fmt="html",
                     options=opts,
                     version=__version__,
+                    roots=roots,
                     theme_mode="auto",
                     run_settings=run.settings,
                     view=picture,
@@ -351,17 +411,21 @@ async def render(
         # alongside the body, so this is a cheap metadata read, never a second
         # graph load, on either a hit or a miss. Only an old slot written
         # before this field existed falls back to the bare filename.
-        name = read_render_identity(p, "html", shown) or p.name
+        name = read_render_identity(p, "html", roots, shown) or p.name
         result: dict[str, Any] = {
-            "render_path": str(render_slot(p, "html", shown)),
+            "render_path": str(render_slot(p, "html", roots, shown)),
             "bytes": len(html),
             "vi_name": name,
             "vi_path": str(p),
         }
         if len(views) > 1:
             result["render_paths"] = {
-                "block_diagram": str(render_slot(p, "html", RenderView.BLOCK_DIAGRAM)),
-                "front_panel": str(render_slot(p, "html", RenderView.FRONT_PANEL)),
+                "block_diagram": str(
+                    render_slot(p, "html", roots, RenderView.BLOCK_DIAGRAM)
+                ),
+                "front_panel": str(
+                    render_slot(p, "html", roots, RenderView.FRONT_PANEL)
+                ),
             }
         return with_problems(result, run)
 
@@ -376,6 +440,7 @@ async def diff(
     userlib: str | list[str] | None = None,
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Diff two versions of a VI — write a **visual HTML diff** and return its
@@ -398,19 +463,22 @@ async def diff(
     ``vilib``/``userlib``/``instrlib`` are the folders a recorded
     ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
     dependency is found only at the path its caller records).
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
-    before_vi = await _facade._resolve_target(before_vi, ctx)
-    after_vi = await _facade._resolve_target(after_vi, ctx)
+    before_vi = await _target(before_vi, ctx, vilib, userlib, instrlib, no_auto_vilib)
+    after_vi = await _target(after_vi, ctx, vilib, userlib, instrlib, no_auto_vilib)
 
     def _work() -> dict[str, Any]:
         pa, pb = Path(before_vi).resolve(), Path(after_vi).resolve()
         for p in (pa, pb):
-            if not p.exists():
+            if not file_is_present(p):
                 raise FileNotFoundError(f"VI not found: {p}")
-        store = _configure_resolvers_for_vi(pa)
-        build = _build(vilib, userlib, instrlib, search_path, store)
+        store = project_store_for(pa)
+        build = _build(vilib, userlib, instrlib, search_path, store, no_auto_vilib)
         opts = diff_options_tag("html", False, None, None, build)
-        run = new_run(pb)
+        run = new_run(pb, store)
         try:
             built = cached_diff(
                 pa,
@@ -418,6 +486,7 @@ async def diff(
                 fmt="html",
                 options=opts,
                 version=__version__,
+                roots=build.library_roots(),
                 run_settings=run.settings,
                 **build.build_kwargs(),
             )
@@ -432,11 +501,11 @@ async def diff(
         # -- a cache-meta read, never a graph load -- same rationale as
         # render's vi_name above. Falls back to the bare filename only for an
         # old slot written before this field existed.
-        names = read_diff_identity(pa, pb, "html")
+        names = read_diff_identity(pa, pb, "html", build.library_roots())
         before_name, after_name = names if names is not None else (pa.name, pb.name)
         return with_problems(
             {
-                "diff_path": str(diff_slot(pa, pb, "html")),
+                "diff_path": str(diff_slot(pa, pb, "html", build.library_roots())),
                 "bytes": len(body),
                 "before": {"name": before_name, "path": str(pa)},
                 "after": {"name": after_name, "path": str(pb)},
@@ -454,6 +523,7 @@ async def unresolved(
     userlib: str | list[str] | None = None,
     instrlib: str | list[str] | None = None,
     search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Every gap under ``target`` (a VI, library, class, or directory): what
@@ -469,15 +539,17 @@ async def unresolved(
     are the folders a recorded ``<vilib>``/``<userlib>``/``<instrlib>``
     dependency path starts from (each one folder or several, tried in order);
     ``search_path`` is the VI search path a file not at its recorded path is
-    looked for on."""
-    target = await _facade._resolve_target(target, ctx)
-    _configure_resolvers_for_vi(target)
+    looked for on.
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs)."""
+    target = await _target(target, ctx, vilib, userlib, instrlib, no_auto_vilib)
 
     def _work() -> dict[str, Any]:
         from ...unresolved import collect_unresolved
 
         run = new_run(target)
-        build = _build(vilib, userlib, instrlib, search_path)
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
         try:
             items = collect_unresolved(
                 target,

@@ -73,8 +73,7 @@ def _hermetic_cache(request, tmp_path_factory, monkeypatch):
     (``needs_samples``) shares its worker's cache; every other test, and a
     corpus test marked ``cold_cache``, starts with an empty one.
     ``monkeypatch.setenv`` mutates ``os.environ`` in process, so subprocess-based
-    CLI tests inherit ``LVKIT_CACHE_DIR`` too. Also clears the module-level
-    extraction roots (mirrors a fresh process)."""
+    CLI tests inherit ``LVKIT_CACHE_DIR`` too."""
     node = request.node
     shared = node.get_closest_marker("needs_samples") and not node.get_closest_marker(
         "cold_cache"
@@ -86,11 +85,9 @@ def _hermetic_cache(request, tmp_path_factory, monkeypatch):
     )
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(cache_dir))
 
-    from lvkit import cache_paths, staging
+    from lvkit import staging
 
-    cache_paths.clear_extraction_roots()
     yield
-    cache_paths.clear_extraction_roots()
     staging.release_all()
 
 

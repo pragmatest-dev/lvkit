@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cli, output_cache
+from lvkit.cache_paths import LibraryRoots
 from lvkit.mcp import server as srv
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.models import (
@@ -371,8 +372,12 @@ def test_each_view_has_its_own_cache_slot_and_options_key(
     vi = tmp_path / "Names.vi"
     vi.write_bytes(_VI.read_bytes())
     assert _render(monkeypatch, str(vi), "--view", "both") == 0
-    diagram_slot = output_cache.render_slot(vi, "svg", RenderView.BLOCK_DIAGRAM)
-    panel_slot = output_cache.render_slot(vi, "svg", RenderView.FRONT_PANEL)
+    diagram_slot = output_cache.render_slot(
+        vi, "svg", LibraryRoots(), RenderView.BLOCK_DIAGRAM
+    )
+    panel_slot = output_cache.render_slot(
+        vi, "svg", LibraryRoots(), RenderView.FRONT_PANEL
+    )
     assert diagram_slot != panel_slot
     assert diagram_slot.read_text(encoding="utf-8") != panel_slot.read_text(
         encoding="utf-8"

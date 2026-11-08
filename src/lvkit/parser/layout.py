@@ -29,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..cache_paths import LibraryRoots
 from ..extractor import extract_vi_xml
 from ..vi_files import is_vi_file
 from .extfunc_bounds import extfunc_mirrored_bounds
@@ -1664,7 +1665,7 @@ def _icon_for_heap(bd: Path) -> Path | None:
     return icon if icon.exists() else None
 
 
-def build_layout(vi_or_bd: Path) -> Layout:
+def build_layout(vi_or_bd: Path, roots: LibraryRoots) -> Layout:
     """Build a ``Layout`` from a VI file (``.vi``/``.vim``/``.vit``) or a
     ``_BDHb.xml`` heap path.
 
@@ -1672,10 +1673,11 @@ def build_layout(vi_or_bd: Path) -> Layout:
     heap, locate the icon + resource map) and hands the parsed root to
     :func:`build_layout_from_root`. Prefer ``parse_vi(..., layout=True)`` when a
     graph is already being built — that reuses its single parse instead of
-    reading the heap a second time.
+    reading the heap a second time. ``roots`` are the library folders of the run
+    asking, which file a ``.vi``'s extraction.
     """
     if is_vi_file(vi_or_bd):
-        bd_path, _, _ = extract_vi_xml(vi_or_bd)
+        bd_path, _, _ = extract_vi_xml(vi_or_bd, roots=roots)
         bd = Path(bd_path)
     else:
         bd = vi_or_bd

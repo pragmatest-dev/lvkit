@@ -48,7 +48,12 @@ against, not something the agent calls through MCP.
 
 `index` builds a persisted, **path-keyed** facts index for the enclosing project
 (so same-named VIs like `setUp.vi` ×17 never collide); the rest read it in sub-ms.
-All take a `project` path (any file/dir inside the repo).
+All take a `project` path (any file/dir inside the repo). `index` and `query` also
+take `vilib`, `userlib` and `instrlib` (the folders a recorded `<vilib>`/`<userlib>`/
+`<instrlib>` dependency path starts from); a call with other folders rebuilds only the VIs
+that call into a library folder, are found on the VI Search Path, or have a dependency that
+is not found. Every tool that takes `vilib` finds an installed LabVIEW's folders when it is
+not given, like the command line; `no_auto_vilib` turns that off.
 
 | Tool | Description |
 |------|-------------|
@@ -83,7 +88,7 @@ control — and loads it live (XML already cached) — no `load`/`clear` session
 | Tool | Description |
 |------|-------------|
 | `describe` | Human-readable purpose, signature, SubVI calls, control flow. |
-| `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
+| `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. `vi_path` may be a path as lvkit prints it (`<userlib>/…`, `<vilib>/…`, or a VI inside an `.llb`), found in the tool's `vilib`, `userlib` and `instrlib` folders. |
 | `read_ctl` | A `.ctl` typedef / custom control as `{typedef, path, kind, type, default, fields, uses}` — the control's own type, enum items, and every field with its recorded default (nested clusters, arrays and saved values included). `render` on the same path draws its front panel. |
 
 ### Resolution gaps — triage before converting

@@ -16,9 +16,9 @@ import logging
 from ..lv_type_codes import is_boolean_type_name, is_string_type_name
 from ..models import LVType, LVTypeKind, ScalarValue, Terminal, TerminalDirection
 from ..path_value import is_path_text
-from ..primitive_resolver import get_resolver as get_primitive_resolver
+from ..primitive_resolver import PrimitiveResolver
 from ..terminal_default import DefaultBehavior, TerminalDefault
-from ..vilib_resolver import get_resolver as get_vilib_resolver
+from ..vilib_resolver import VILibResolver
 from .core import InMemoryVIGraph
 from .index_array_plan import IndexUse, plan_index_array
 from .lvnet_scalar import lvnet_typed_scalar, lvnet_value_token
@@ -66,13 +66,15 @@ def default_fits(value: ScalarValue, lv_type: LVType | None) -> bool:
     return False
 
 
-def _catalog_terminals(node: AnyGraphNode) -> list[TerminalDefault] | None:
+def _catalog_terminals(
+    primitives: PrimitiveResolver, vilib: VILibResolver, node: AnyGraphNode
+) -> list[TerminalDefault] | None:
     """The catalog terminals of the function ``node`` calls, or None when the
     catalog has no entry for it."""
     if isinstance(node, PrimitiveNode):
         if node.properties or node.method_name:
             return None
-        resolver = get_primitive_resolver()
+        resolver = primitives
         if node.prim_id:
             entry = resolver.resolve(prim_id=node.prim_id)
         elif node.node_type:
@@ -81,7 +83,6 @@ def _catalog_terminals(node: AnyGraphNode) -> list[TerminalDefault] | None:
             return None
         return list(entry.terminals) if entry is not None else None
     if isinstance(node, VINode):
-        vilib = get_vilib_resolver()
         vi = None
         if node.poly_variant_name:
             vi = vilib.resolve_poly_variant(node.name or "", node.poly_variant_name)
@@ -126,11 +127,16 @@ def _behavior(
     return entry.default_behavior
 
 
-def unwired_behavior(node: AnyGraphNode, terminal: Terminal) -> DefaultBehavior | None:
+def unwired_behavior(
+    primitives: PrimitiveResolver,
+    vilib: VILibResolver,
+    node: AnyGraphNode,
+    terminal: Terminal,
+) -> DefaultBehavior | None:
     """The documented behaviour an unwired input of ``node`` has, or None when the
     catalog documents a value or nothing. Shared by lvnet and the code generator,
     so the two agree."""
-    catalog = _catalog_terminals(node)
+    catalog = _catalog_terminals(primitives, vilib, node)
     if catalog is None:
         return None
     entry, placed, laid_out = _catalog_terminal(catalog, node, terminal)
@@ -169,7 +175,7 @@ def instance_default(
         return planned
     value: ScalarValue = None
     name = terminal.name
-    catalog = _catalog_terminals(node)
+    catalog = _catalog_terminals(graph.primitive_catalog, graph.vilib_catalog, node)
     if catalog is not None:
         entry, placed, laid_out = _catalog_terminal(catalog, node, terminal)
         if entry is None:

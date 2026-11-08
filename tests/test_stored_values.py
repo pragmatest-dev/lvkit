@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.codegen.context import _format_constant
 from lvkit.codegen.errors import CodeGenError
 from lvkit.conversion_gap import ConversionGap
@@ -405,7 +406,7 @@ def test_every_stored_value_is_read_to_its_exact_size(relative):
     vi = SAMPLES / relative
     if not vi.exists():
         pytest.skip(f"{relative} is not in this sample corpus")
-    bd_xml, fp_xml, main_xml = resolve_extracted(vi)
+    bd_xml, fp_xml, main_xml = resolve_extracted(vi, roots=LibraryRoots())
     assert fp_xml is not None and main_xml is not None
     records = audit_vi(main_xml, bd_xml, fp_xml)
     wrong = [r for r in records if not r["exact"]]

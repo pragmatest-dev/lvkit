@@ -48,6 +48,8 @@ from typing import NamedTuple
 
 from lvkit import cache_paths, staging
 from lvkit.build_options import BuildOptions
+from lvkit.cache_paths import LibraryRoots
+from lvkit.catalog_stamp import CatalogKey, catalog_stamp, catalog_stamp_fresh
 from lvkit.render_view import RenderView
 from lvkit.run_report import Problem, ProblemStage, RunSettings, problem_from_json
 from lvkit.text_encoding import labview_text_encoding
@@ -106,7 +108,10 @@ def _view_part(view: RenderView) -> str:
 
 
 def _render_paths(
-    input_path: Path, fmt: str, view: RenderView = RenderView.BLOCK_DIAGRAM
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> tuple[Path, Path, str, bool]:
     """``(body_path, meta_path, source_label, is_adhoc)`` for the ``view`` picture
     of a render of ``input_path``.
@@ -117,7 +122,7 @@ def _render_paths(
     meta so the fixed ``vi.<ext>`` body name doesn't lose which VI it is.
     """
     ext = _ext_for(fmt)
-    d, source_label, ns = cache_paths.classify(input_path, "render")
+    d, source_label, ns = cache_paths.classify(input_path, "render", roots)
     if ns == "adhoc":
         # Flat content-addressed pool, but still per-build: the <fp> keeps two
         # lvkit builds from colliding on the same <sha>.<ext> (classify's dir is
@@ -143,7 +148,7 @@ def _diff_ext(fmt: str) -> str:
 
 
 def _diff_paths(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[Path, Path, str, str, bool]:
     """``(body_path, meta_path, before_sha, source_label, is_adhoc)`` for a diff.
 
@@ -157,7 +162,7 @@ def _diff_paths(
     """
     ext = _diff_ext(fmt)
     before_sha = cache_paths.sha256_file(before_path)
-    d, source_label, ns = cache_paths.classify(after_path, "diff")
+    d, source_label, ns = cache_paths.classify(after_path, "diff", roots)
     if ns == "adhoc":
         after_sha = cache_paths.sha256_file(after_path)
         d = (
@@ -180,11 +185,21 @@ def _diff_paths(
 
 
 def _read_if_fresh(
-    vi_path: Path, body_path: Path, meta_path: Path, extra: dict
+    vi_path: Path,
+    body_path: Path,
+    meta_path: Path,
+    extra: dict,
+    project_store: Path | None,
 ) -> str | None:
     if not body_path.exists():
         return None
-    if not cache_paths.meta_fresh(vi_path, meta_path, extra=extra):
+
+    def _catalog_current(meta: dict) -> bool:
+        return catalog_stamp_fresh(project_store, meta.get("catalog"))
+
+    if not cache_paths.meta_fresh(
+        vi_path, meta_path, extra=extra, check=_catalog_current
+    ):
         return None
     try:
         text = body_path.read_text(encoding="utf-8")
@@ -239,31 +254,39 @@ def _read_problems(meta_path: Path) -> tuple[Problem, ...]:
 
 
 def render_problems(
-    input_path: Path, fmt: str, view: RenderView = RenderView.BLOCK_DIAGRAM
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> tuple[Problem, ...]:
     """The problems stored with the cached ``view`` render of
     ``input_path``/``fmt``."""
-    return _read_problems(_render_paths(input_path, fmt, view)[1])
+    return _read_problems(_render_paths(input_path, fmt, roots, view)[1])
 
 
 def diff_problems(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[Problem, ...]:
     """The problems stored with the cached diff of ``(before, after)``/``fmt``."""
-    return _read_problems(_diff_paths(before_path, after_path, fmt)[1])
+    return _read_problems(_diff_paths(before_path, after_path, fmt, roots)[1])
 
 
 def render_slot(
-    input_path: Path, fmt: str, view: RenderView = RenderView.BLOCK_DIAGRAM
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> Path:
     """The cache slot path the ``view`` render of ``input_path`` occupies (for
     reporting)."""
-    return _render_paths(input_path, fmt, view)[0]
+    return _render_paths(input_path, fmt, roots, view)[0]
 
 
-def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
+def diff_slot(
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
+) -> Path:
     """The cache slot path a diff of ``(before, after)`` occupies."""
-    return _diff_paths(before_path, after_path, fmt)[0]
+    return _diff_paths(before_path, after_path, fmt, roots)[0]
 
 
 def lookup_render(
@@ -271,11 +294,15 @@ def lookup_render(
     fmt: str,
     options: str,
     version: str,
+    roots: LibraryRoots,
+    project_store: Path | None = None,
     view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
     """Return the cached ``view`` render output for ``input_path`` if fresh, else
-    ``None``."""
-    body_path, meta_path, _, _ = _render_paths(input_path, fmt, view)
+    ``None``. ``roots`` are the run's library folders (they pick the cache slot).
+    ``project_store`` is the ``.lvkit/`` folder the render reads: an edit to an
+    entry the VI uses makes the cached render stale."""
+    body_path, meta_path, _, _ = _render_paths(input_path, fmt, roots, view)
     return _read_if_fresh(
         input_path,
         body_path,
@@ -285,6 +312,7 @@ def lookup_render(
             "options": options,
             "text_encoding": labview_text_encoding(),
         },
+        project_store,
     )
 
 
@@ -295,14 +323,20 @@ def store_render(
     version: str,
     body: str,
     *,
+    roots: LibraryRoots,
     name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
     view: RenderView = RenderView.BLOCK_DIAGRAM,
+    project_store: Path | None = None,
+    catalog_keys: Iterable[CatalogKey] = (),
 ) -> Path:
     """Cache ``body`` as the ``view`` render of ``input_path``; return the slot
     path.
     ``problems`` are stored with it, so a hit reports what the build did.
+    ``catalog_keys`` are the catalog entries the VI looked up; the hash of the
+    ``project_store`` entries for them is recorded, so a lookup is a miss once
+    one of those entries was edited.
 
     ``dependencies`` are the files the render read besides the VI (its SubVIs
     and controls); their content stamps are recorded so a later lookup is a miss
@@ -315,7 +349,9 @@ def store_render(
     cache HIT answer "what VI is this" without a second graph load (#114's
     follow-up — the name was already in hand at build time, from the SAME
     graph that produced ``body``)."""
-    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt, view)
+    body_path, meta_path, source_label, _ = _render_paths(
+        input_path, fmt, roots, view
+    )
     extra: dict[str, object] = {
         "lvkit_version": version,
         "options": options,
@@ -325,6 +361,7 @@ def store_render(
         # itself — record the real path (mirrors extraction's meta.json).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "catalog": catalog_stamp(project_store, list(catalog_keys)),
         "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if name is not None:
@@ -334,14 +371,17 @@ def store_render(
 
 
 def read_render_identity(
-    input_path: Path, fmt: str, view: RenderView = RenderView.BLOCK_DIAGRAM
+    input_path: Path,
+    fmt: str,
+    roots: LibraryRoots,
+    view: RenderView = RenderView.BLOCK_DIAGRAM,
 ) -> str | None:
     """The VI's qualified name recorded by the last :func:`store_render` for
     ``input_path``/``fmt``/``view``, or ``None`` when there's no slot or it predates
     this field. A pure metadata read (no freshness check, no graph load) —
     the caller already has a fresh body (or doesn't care) and just wants the
     identity that went with it."""
-    _, meta_path, _, _ = _render_paths(input_path, fmt, view)
+    _, meta_path, _, _ = _render_paths(input_path, fmt, roots, view)
     if not meta_path.exists():
         return None
     try:
@@ -353,10 +393,19 @@ def read_render_identity(
 
 
 def lookup_diff(
-    before_path: Path, after_path: Path, fmt: str, options: str, version: str
+    before_path: Path,
+    after_path: Path,
+    fmt: str,
+    options: str,
+    version: str,
+    roots: LibraryRoots,
+    project_store: Path | None = None,
 ) -> str | None:
-    """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _, _ = _diff_paths(before_path, after_path, fmt)
+    """Return cached diff output for the ``(before, after)`` pair if fresh (see
+    :func:`lookup_render` for ``roots`` and ``project_store``)."""
+    body_path, meta_path, before_sha, _, _ = _diff_paths(
+        before_path, after_path, fmt, roots
+    )
     return _read_if_fresh(
         after_path,
         body_path,
@@ -367,6 +416,7 @@ def lookup_diff(
             "before_sha": before_sha,
             "text_encoding": labview_text_encoding(),
         },
+        project_store,
     )
 
 
@@ -378,20 +428,24 @@ def store_diff(
     version: str,
     body: str,
     *,
+    roots: LibraryRoots,
     before_name: str | None = None,
     after_name: str | None = None,
     dependencies: Iterable[Path] = (),
     problems: Iterable[Problem] = (),
+    project_store: Path | None = None,
+    catalog_keys: Iterable[CatalogKey] = (),
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path.
-    ``dependencies`` are recorded the way :func:`store_render` records them.
+    ``dependencies`` and ``catalog_keys`` are recorded the way
+    :func:`store_render` records them.
 
     ``before_name``/``after_name`` (each side's qualified name) are recorded
     purely for :func:`read_diff_identity` to read back later — not a
     freshness key, just an extra informational field alongside ``source``.
     Same rationale as :func:`store_render`'s ``name`` (#114's follow-up)."""
     body_path, meta_path, before_sha, source_label, _ = _diff_paths(
-        before_path, after_path, fmt
+        before_path, after_path, fmt, roots
     )
     extra: dict[str, object] = {
         "lvkit_version": version,
@@ -403,6 +457,7 @@ def store_diff(
         # itself — record the AFTER VI's real path (mirrors extraction).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "catalog": catalog_stamp(project_store, list(catalog_keys)),
         "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if before_name is not None:
@@ -414,13 +469,13 @@ def store_diff(
 
 
 def read_diff_identity(
-    before_path: Path, after_path: Path, fmt: str
+    before_path: Path, after_path: Path, fmt: str, roots: LibraryRoots
 ) -> tuple[str, str] | None:
     """``(before_name, after_name)`` recorded by the last :func:`store_diff`
     for this ``(before, after, fmt)``, or ``None`` when there's no slot, it
     predates this field, or either half is missing. A pure metadata read (no
     freshness check, no graph load)."""
-    _, meta_path, _, _, _ = _diff_paths(before_path, after_path, fmt)
+    _, meta_path, _, _, _ = _diff_paths(before_path, after_path, fmt, roots)
     if not meta_path.exists():
         return None
     try:
@@ -496,6 +551,7 @@ def cached_render(
     fmt: str,
     options: str,
     version: str,
+    roots: LibraryRoots,
     return_cached: bool = True,
     run_settings: RunSettings | None = None,
     view: RenderView = RenderView.BLOCK_DIAGRAM,
@@ -512,10 +568,15 @@ def cached_render(
     ``None`` if the render declines (nothing is stored then). The result carries the
     problems of the VIs the render loaded: stored with a hit, found by a miss
     (announced per ``run_settings`` as they are recorded)."""
+    project_store = run_settings.project_store if run_settings else None
     if return_cached:
-        hit = lookup_render(input_path, fmt, options, version, view)
+        hit = lookup_render(
+            input_path, fmt, options, version, roots, project_store, view
+        )
         if hit is not None:
-            return CachedBody(hit, render_problems(input_path, fmt, view), True)
+            return CachedBody(
+                hit, render_problems(input_path, fmt, roots, view), True
+            )
     from lvkit.render.body import render_body_with_name
 
     # render_body_with_name has already loaded the graph to build the body --
@@ -536,10 +597,13 @@ def cached_render(
         options,
         version,
         result.body,
+        roots=roots,
         name=result.name,
         dependencies=result.dependencies,
         problems=result.problems,
         view=view,
+        project_store=project_store,
+        catalog_keys=result.catalog_keys,
     )
     return CachedBody(result.body, result.problems, False)
 
@@ -551,6 +615,7 @@ def cached_diff(
     fmt: str,
     options: str,
     version: str,
+    roots: LibraryRoots,
     return_cached: bool = True,
     run_settings: RunSettings | None = None,
     **build_kw: object,
@@ -559,10 +624,15 @@ def cached_diff(
     of :func:`cached_render` (same ``return_cached`` read-gate / always-refresh
     semantics). ``build_kw`` forwards to :func:`lvkit.vi_diff.diff_vi_files` on a
     miss. Returns the body, or ``None`` if the diff declines."""
+    project_store = run_settings.project_store if run_settings else None
     if return_cached:
-        hit = lookup_diff(before_path, after_path, fmt, options, version)
+        hit = lookup_diff(
+            before_path, after_path, fmt, options, version, roots, project_store
+        )
         if hit is not None:
-            return CachedBody(hit, diff_problems(before_path, after_path, fmt), True)
+            return CachedBody(
+                hit, diff_problems(before_path, after_path, fmt, roots), True
+            )
     from lvkit.vi_diff import diff_vi_files
 
     # diff_vi_files has already loaded both graphs -- capturing each side's
@@ -584,10 +654,13 @@ def cached_diff(
         options,
         version,
         result.body,
+        roots=roots,
         before_name=result.before_name,
         after_name=result.after_name,
         dependencies=result.dependencies,
         problems=result.problems,
+        project_store=project_store,
+        catalog_keys=result.catalog_keys,
     )
     return CachedBody(result.body, result.problems, False)
 

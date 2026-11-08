@@ -22,7 +22,6 @@ from ..models import (
 from ..parser.node_types import get_display_name
 from ..path_value import is_path_text
 from ..vi_files import strip_vi_extension
-from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
 from .models import (
     AnyGraphNode,
@@ -199,7 +198,7 @@ def describe_vi(
         for reason in dotnet.unreadable:
             lines.append(f"  (.NET unreadable: {reason})")
         for name, call in sorted(subvi_callees.items()):
-            desc = _get_subvi_description(graph.catalog_path(call))
+            desc = _get_subvi_description(graph, graph.catalog_path(call))
             ports = _subvi_ports(graph, call)
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
@@ -383,10 +382,12 @@ def _collect_variable_dependencies(
     return global_vis, libraries
 
 
-def _get_subvi_description(recorded_path: str | None) -> str | None:
+def _get_subvi_description(
+    graph: InMemoryVIGraph, recorded_path: str | None
+) -> str | None:
     """A short description for a SubVI, from the catalog entry of the path its
     call records."""
-    resolver = _get_vilib_resolver()
+    resolver = graph.vilib_catalog
     entry = resolver.resolve_recorded(recorded_path)
     if entry and entry.description:
         desc = entry.description

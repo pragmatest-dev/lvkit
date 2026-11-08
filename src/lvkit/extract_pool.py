@@ -38,7 +38,7 @@ from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 from types import TracebackType
 
-from . import cache_paths
+from .cache_paths import LibraryRoots
 from .console import use_utf8_output
 from .extractor import cached_extraction, extract_vi_xml
 
@@ -55,29 +55,23 @@ def _worker_count() -> int:
     return min(os.cpu_count() or 1, _MAX_WORKERS)
 
 
-def _init_worker(
-    vilib_root: tuple[Path, ...],
-    userlib_root: tuple[Path, ...],
-    instrlib_root: tuple[Path, ...],
-) -> None:
-    """Worker start-up: adopt the parent's library roots, which decide each VI's
-    cache slot (see ``cache_paths.classify``). Its warnings are UTF-8, like the
-    parent's."""
+def _init_worker() -> None:
+    """Worker start-up: its warnings are UTF-8, like the parent's."""
     use_utf8_output()
-    cache_paths.set_extraction_roots(
-        vilib_root=vilib_root, userlib_root=userlib_root, instrlib_root=instrlib_root
-    )
 
 
-def _extract_one(vi_path: str) -> None:
-    """Worker entry point: extract one VI into the managed cache."""
-    extract_vi_xml(vi_path)
+def _extract_one(vi_path: str, roots: LibraryRoots) -> None:
+    """Worker entry point: extract one VI into the managed cache, filed by the
+    asking run's library folders."""
+    extract_vi_xml(vi_path, roots=roots)
 
 
 class ExtractionPool:
-    """A lazily-started process pool that extracts the files it is given."""
+    """A lazily-started process pool that extracts the files it is given, filing
+    each by ``roots``, the library folders of the run that owns the pool."""
 
-    def __init__(self) -> None:
+    def __init__(self, roots: LibraryRoots) -> None:
+        self._roots = roots
         self._executor: ProcessPoolExecutor | None = None
         self._retired: ProcessPoolExecutor | None = None
         self._submitted = 0  # files submitted to the current executor
@@ -104,7 +98,7 @@ class ExtractionPool:
             if key in self._futures or not key.is_file():
                 continue
             try:
-                if cached_extraction(key) is not None:
+                if cached_extraction(key, roots=self._roots) is not None:
                     continue
                 self._futures[key] = self._submit(key)
             except Exception:
@@ -147,7 +141,7 @@ class ExtractionPool:
     def _submit(self, path: Path) -> Future[None]:
         """Submit ``path`` to the current executor; once it holds a full batch,
         retire it."""
-        future = self._start().submit(_extract_one, str(path))
+        future = self._start().submit(_extract_one, str(path), self._roots)
         self._submitted += 1
         if self._submitted >= _FILES_PER_WORKER * _worker_count():
             self._retire()
@@ -173,6 +167,5 @@ class ExtractionPool:
                 max_workers=_worker_count(),
                 mp_context=mp.get_context("spawn"),
                 initializer=_init_worker,
-                initargs=cache_paths.extraction_roots(),
             )
         return self._executor

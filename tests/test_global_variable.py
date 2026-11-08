@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.codegen.ast_utils import parameter_names
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
@@ -93,7 +94,7 @@ def test_lv_icon_lvnet_lists_the_global_and_keeps_its_real_locals() -> None:
         isinstance(n, LocalVariableNode) and n.control_name == "Debug"
         for n in graph.iter_nodes(key)
     )
-    bd, fp, main_xml = extract_vi_xml(LV_ICON)
+    bd, fp, main_xml = extract_vi_xml(LV_ICON, roots=LibraryRoots())
     refs = [
         n
         for n in parse_vi(bd_xml=bd, fp_xml=fp, main_xml=main_xml).block_diagram.nodes
@@ -152,7 +153,7 @@ def test_every_global_variable_node_in_the_corpus_resolves_its_global_vi() -> No
         vi = Path(line.strip())
         if not vi.exists():
             continue
-        bd, fp, main_xml = extract_vi_xml(vi)
+        bd, fp, main_xml = extract_vi_xml(vi, roots=LibraryRoots())
         parsed = parse_vi(bd_xml=bd, fp_xml=fp, main_xml=main_xml)
         for node in parsed.block_diagram.nodes:
             if isinstance(node, GRefNode) and node.is_global_variable:
@@ -171,7 +172,7 @@ def test_ordinary_local_with_connector_type_zero_stays_local() -> None:
     )
     if not vi.exists():
         pytest.skip("sample absent")
-    bd, fp, main_xml = extract_vi_xml(vi)
+    bd, fp, main_xml = extract_vi_xml(vi, roots=LibraryRoots())
     refs = [
         n
         for n in parse_vi(bd_xml=bd, fp_xml=fp, main_xml=main_xml).block_diagram.nodes

@@ -44,9 +44,9 @@ def get_resolver() -> PrimitiveResolver:
 def reset_resolver(project_data_dir: Path | None = None) -> None:
     """Replace the cached global resolver, optionally with a project store.
 
-    Call this at CLI/MCP entry points after discovering a project's .lvkit/
-    directory. Subsequent get_resolver() calls return a resolver that loads
-    project data first and falls back to shipped data.
+    For code with no graph (a run reads its catalog from the graph, see
+    ``lvkit.catalogs``). Subsequent get_resolver() calls return a resolver that
+    loads project data first and falls back to shipped data.
 
     Args:
         project_data_dir: Path to project's .lvkit/ directory, or None to

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
 from lvkit.render.front_panel.controls.enum_control import EnumControlGlyph
@@ -79,7 +80,7 @@ def test_a_real_corpus_combo_box_renders_not_unknown() -> None:
     """The real "pin name" control: a String-typed combo box with no saved
     default and no fixed list -- documenting what was actually found, and
     catching a regression if VCTP resolution ever changes for this control."""
-    parsed = parse_vi(_MEASUREMENT_UI_VI)
+    parsed = parse_vi(_MEASUREMENT_UI_VI, roots=LibraryRoots())
     pin_name = next(
         c for c in parsed.front_panel.controls if c.control_type == "stdComboBox"
     )

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import resolve_extracted
 from lvkit.graph.load_problems import unread_panel_problems
 from lvkit.parser.fp_structure import read_panel_layout
@@ -459,7 +460,7 @@ _RUNNER = (
 
 
 def _real_panel(path: Path) -> tuple[ParsedFrontPanel, list[str]]:
-    bd_xml, fp_xml, main_xml = resolve_extracted(path)
+    bd_xml, fp_xml, main_xml = resolve_extracted(path, roots=LibraryRoots())
     vi = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
     assert vi.front_panel.layout is not None
     return vi.front_panel, vi.front_panel.unread_objects

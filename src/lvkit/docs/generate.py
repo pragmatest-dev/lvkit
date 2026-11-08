@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from lvkit.cache_paths import project_root
+from lvkit.cache_paths import LibraryRoots
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.page_names import page_names
@@ -22,7 +22,13 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
-from lvkit.library_folders import Folders, SearchEntries
+from lvkit.library_folders import Folders, SearchEntries, folder_list
+from lvkit.llb_origin import vi_file_path
+from lvkit.project_folders import (
+    EXTERNAL_PACKAGE,
+    own_project_folder,
+    project_root,
+)
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -58,6 +64,7 @@ def _member_file(
     run.add(
         Problem(
             vi=run.settings.label(container),
+            key=str(Path(container).resolve()),
             stage=ProblemStage.DOCUMENT,
             kind=ProblemKind.UNREADABLE,
             reason=reason,
@@ -84,10 +91,12 @@ def _collect_library_vis(library_path: Path, run: RunProblems) -> list[Path]:
     return vi_paths
 
 
-def _collect_class_vis(class_path: Path, run: RunProblems) -> list[Path]:
+def _collect_class_vis(
+    class_path: Path, run: RunProblems, roots: LibraryRoots
+) -> list[Path]:
     """Collect all method VIs from a .lvclass class. A method that is not at its
     recorded path is a problem in ``run``."""
-    lvclass = parse_lvclass(class_path)
+    lvclass = parse_lvclass(class_path, roots)
     locator = InMemoryVIGraph()
 
     vi_paths: list[Path] = []
@@ -125,7 +134,7 @@ def _generate_typedef_pages(
             graph.record_problem(
                 info.key,
                 problem_for_exception(
-                    graph.vi_label(info.key), ProblemStage.DOCUMENT, exc
+                    graph.vi_label(info.key), ProblemStage.DOCUMENT, exc, info.key
                 ),
             )
             svg, note = None, "Front panel unavailable: it could not be rendered."
@@ -150,26 +159,25 @@ def _index_sections(
     graph: InMemoryVIGraph, vi_names: list[str], project: Path
 ) -> dict[str, str]:
     """The section the index page lists each VI under (``library_group``): its
-    owning class or library; else the installation folder (``vi.lib``,
-    ``user.lib``) its caller recorded, or the configured library folder it is in;
-    else its folder in the project; else, for a file outside the project, its own
-    project folder's name. The section never names a page."""
+    owning class or library; else the installation folder of its library path
+    (``library_location``: ``vi.lib``, ``user.lib``, ...); else its folder in the
+    project; else, for a file outside the project, its own project folder's name
+    (``own_project_folder``), or ``external`` for a drive's root. The section
+    never names a page."""
     sections: dict[str, str] = {}
     for name in vi_names:
         owner = graph.get_owning_class(name) or graph.get_owning_library(name)
-        recorded = graph.recorded_path(name)
         source = graph.get_vi_source_path(name)
-        library = graph.library_root_of(source) if source is not None else None
-        if owner is not None or recorded is not None:
-            folders = recorded.split("/")[:-1] if recorded is not None else []
-            sections[name] = library_group(owner, folders)
-        elif library is not None:
-            sections[name] = library_group(None, [library[0]])
-        elif source is not None and source.resolve().is_relative_to(project.resolve()):
-            below = source.resolve().relative_to(project.resolve()).parent.parts
+        own = vi_file_path(source) if source is not None else None
+        library = graph.library_location(own, graph.recorded_path(name))
+        if owner is not None or library is not None:
+            sections[name] = library_group(owner, list(library or ())[:-1])
+        elif own is not None and own.is_relative_to(project.resolve()):
+            below = own.relative_to(project.resolve()).parent.parts
             sections[name] = library_group(None, below)
-        elif source is not None:
-            sections[name] = project_root(source).name
+        elif own is not None:
+            outside = own_project_folder(own).name
+            sections[name] = outside or EXTERNAL_PACKAGE
     return sections
 
 
@@ -328,9 +336,7 @@ def _prepare_vi_documentation_data(
         graph.record_problem(
             vi_name,
             problem_for_exception(
-                graph.key_label(vi_name),
-                ProblemStage.DOCUMENT,
-                exc,
+                graph.key_label(vi_name), ProblemStage.DOCUMENT, exc, vi_name
             ),
         )
         diagram_svg, subvi_nodes = None, {}
@@ -419,7 +425,15 @@ def generate_documents(
     elif library_path_obj.suffix.lower() == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
-        vi_paths = _collect_class_vis(library_path_obj, run)
+        vi_paths = _collect_class_vis(
+            library_path_obj,
+            run,
+            LibraryRoots.of(
+                vilib_root=folder_list(vilib_root),
+                userlib_root=folder_list(userlib_root),
+                instrlib_root=folder_list(instrlib_root),
+            ),
+        )
     elif library_path_obj.is_dir():
         doc_type = "directory"
         doc_title = library_path_obj.name
@@ -561,9 +575,7 @@ def generate_documents(
             graph.record_problem(
                 vi_name,
                 problem_for_exception(
-                    graph.key_label(vi_name),
-                    ProblemStage.DOCUMENT,
-                    e,
+                    graph.key_label(vi_name), ProblemStage.DOCUMENT, e, vi_name
                 ),
             )
     print(

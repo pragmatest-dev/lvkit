@@ -15,8 +15,6 @@ Emit only: there is no parser for this form.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from ..models import LVType
 from .lvnet_grammar import (
     _FIELDS_HEADER_LINE,
@@ -35,7 +33,6 @@ from .render_lvnet import (
     lvnet_named_stem,
     lvnet_type_lossless_def,
     lvnet_type_ref,
-    project_relative_display,
     render_lvnet_named_types,
     render_lvnet_uses,
 )
@@ -49,14 +46,15 @@ from .typedef import (
 )
 
 
-def _dependency(ref: TypedefRef, control_dir: Path) -> NetlistDependency:
-    """``ref`` as a ``uses :`` entry, its path relative to the control's own
-    directory; no path for a stub, which has no file to point at."""
-    path = None if ref.path is None else project_relative_display(
-        Path(ref.path), control_dir
-    )
+def _dependency(ref: TypedefRef) -> NetlistDependency:
+    """``ref`` as a ``uses :`` entry, with the path the typedef stores for it."""
+    stored = ref.stored
     return NetlistDependency(
-        DependencyKind.for_node_type(ref.node_type), ref.qualified, path
+        DependencyKind.for_node_type(ref.node_type),
+        ref.qualified,
+        None if stored is None else stored.stored,
+        missing=stored is not None and stored.missing,
+        found=None if stored is None else stored.found,
     )
 
 
@@ -90,7 +88,7 @@ def render_lvnet_typedef(info: TypedefInfo, *, verbose: bool = False) -> str:
     footnote of the named types its type reaches."""
     lines = [f"{_TYPEDEF_KEYWORD} {info.name}{_LVNET_BLOCK_OPEN}"]
     try:
-        uses = [_dependency(r, Path(info.key).parent) for r in info.uses]
+        uses = [_dependency(r) for r in info.uses]
     except ValueError as e:
         raise ValueError(f"{info.name}: {e}") from e
     render_lvnet_uses(uses, lines, verbose=verbose)

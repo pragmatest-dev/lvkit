@@ -118,17 +118,6 @@ class VIReferenceMixin(WireOriginMixin):
             "holds is only known when the diagram runs."
         )
 
-    def holds_vi_reference(self, terminal_id: str) -> bool:
-        """True when the wire into ``terminal_id`` starts at a Static VI Reference
-        or at an Open VI Reference."""
-        origins = self.wire_origins(terminal_id)
-        return bool(origins) and all(
-            (isinstance(n, ConstantNode) and _is_vi_reference(n))
-            or _is_open_vi_reference_output(n, s)
-            or is_this_vi(n)
-            for n, s in origins
-        )
-
     def opened_vi(self, node: PrimitiveNode) -> ReferencedVI:
         """The VI an Open VI Reference node opens, from its VI path input: a
         constant path or name, a path built from constants, or the Name or Path
