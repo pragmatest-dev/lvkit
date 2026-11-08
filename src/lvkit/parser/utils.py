@@ -122,6 +122,14 @@ def safe_int(elem: ET.Element | None, default: int = 0) -> int:
     return default
 
 
+def int_or_none(text: str | None) -> int | None:
+    """``text`` as an integer, or None when it is absent or not one."""
+    try:
+        return int((text or "").strip())
+    except ValueError:
+        return None
+
+
 def safe_attr(elem: ET.Element | None, attr: str, default: str = "") -> str:
     """Safely get an attribute from an XML element.
 
@@ -304,6 +312,38 @@ def _first_text(label: ET.Element) -> str | None:
             if cleaned:
                 return cleaned
     return None
+
+
+# objFlags bit 0x8: the object (a control's own ddo, a part, a free label) is
+# hidden on the panel.
+HIDDEN_FLAG = 0x8
+
+
+def heap_rect(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
+    """A heap rect element's ``(top, left, bottom, right)``, or None when it is
+    absent or not four integers."""
+    if elem is None or not elem.text:
+        return None
+    try:
+        nums = [int(x.strip()) for x in elem.text.strip().strip("()").split(",")]
+    except ValueError:
+        return None
+    if len(nums) != 4:
+        return None
+    return (nums[0], nums[1], nums[2], nums[3])
+
+
+def heap_origin(elem: ET.Element) -> tuple[int, int]:
+    """A pane's stored ``origin`` (the offset of its contents) as ``(x, y)``; ``(0, 0)``
+    when it is absent or not two integers."""
+    text = (elem.findtext("origin") or "").strip().strip("()")
+    try:
+        nums = [int(x.strip()) for x in text.split(",")]
+    except ValueError:
+        return (0, 0)
+    if len(nums) != 2:
+        return (0, 0)
+    return (nums[0], nums[1])
 
 
 def heap_color(text: str | None) -> str | None:
