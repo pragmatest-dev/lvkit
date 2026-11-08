@@ -186,7 +186,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "nearest_integer_value",
+          "name": "nearest integer value",
           "type": "NumFloat64"
         },
         {

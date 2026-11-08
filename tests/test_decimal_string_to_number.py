@@ -39,8 +39,8 @@ def test_resolver_terminals() -> None:
     assert entry is not None
     assert [(t.index, t.direction, t.name, t.type) for t in entry.terminals] == [
         (0, "output", "number", "polymorphic"),
-        (1, "output", "offset_past_number", "NumInt32"),
-        (2, "input", "default", "polymorphic"),
+        (1, "output", "offset past number", "NumInt32"),
+        (2, "input", "default (0L)", "polymorphic"),
         (3, "input", "offset", "NumInt32"),
         (4, "input", "string", "String"),
     ]

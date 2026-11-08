@@ -428,7 +428,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "ErrorCluster"
         },
         {
@@ -440,26 +440,26 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "created_path",
+          "name": "created path",
           "type": "Path"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Create Folder)",
           "type": "String",
           "default": "Create Folder"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "path",
+          "name": "path (use dialog)",
           "type": "Path"
         }
       ],

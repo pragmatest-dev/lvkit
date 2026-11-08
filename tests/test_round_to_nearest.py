@@ -29,7 +29,7 @@ def test_resolver_terminals() -> None:
     entry = get_resolver().resolve(prim_id=1055)
     assert entry is not None
     assert [(t.index, t.direction, t.name, t.type) for t in entry.terminals] == [
-        (0, "output", "nearest_integer_value", "NumFloat64"),
+        (0, "output", "nearest integer value", "NumFloat64"),
         (1, "input", "number", "NumFloat64"),
     ]
 

@@ -578,7 +578,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "ErrorCluster"
         },
         {
@@ -590,21 +590,21 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "refnum_out",
+          "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Choose or enter file path)",
           "type": "String",
           "default": "Choose or enter file path"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -616,7 +616,7 @@
         {
           "index": 11,
           "direction": "input",
-          "name": "file",
+          "name": "file (use dialog)",
           "type": "polymorphic"
         }
       ],

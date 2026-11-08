@@ -79,7 +79,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "ErrorCluster"
         },
         {
@@ -91,13 +91,13 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "variant_out",
+          "name": "Variant out",
           "type": "LVVariant"
         },
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in",
           "type": "ErrorCluster"
         },
         {
@@ -115,7 +115,7 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "variant",
+          "name": "Variant",
           "type": "LVVariant"
         }
       ],

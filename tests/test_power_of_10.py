@@ -26,7 +26,7 @@ def test_resolver_terminals() -> None:
     entry = get_resolver().resolve(prim_id=1212)
     assert entry is not None
     assert [(t.index, t.direction, t.name, t.type) for t in entry.terminals] == [
-        (0, "output", "ten_to_x", "NumFloat64"),
+        (0, "output", "10^x", "NumFloat64"),
         (1, "input", "x", "NumFloat64"),
     ]
 

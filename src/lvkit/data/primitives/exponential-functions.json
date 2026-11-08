@@ -68,7 +68,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "ten_to_x",
+          "name": "10^x",
+          "python_name": "ten_to_x",
           "type": "NumFloat64"
         },
         {
