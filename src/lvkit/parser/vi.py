@@ -21,6 +21,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.dotnet_types import DotNetType, DotNetTypeError
 from lvkit.extractor import extract_vi_xml
 from lvkit.lv_type_codes import (
@@ -222,6 +223,7 @@ def parse_vi(
     main_xml: Path | str | None = None,
     source_override: Path | str | None = None,
     layout: bool = False,
+    roots: LibraryRoots | None = None,
 ) -> ParsedVI:
     """Parse a VI file into all components.
 
@@ -229,7 +231,7 @@ def parse_vi(
     containing metadata, block diagram, front panel, and connector pane.
 
     Args:
-        vi_path: Path to .vi file (extracts XML automatically)
+        vi_path: Path to .vi file (extracts XML automatically; needs ``roots``)
         bd_xml: Path to *_BDHb.xml (for direct XML parsing)
         fp_xml: Path to *_FPHb.xml (optional)
         main_xml: Path to main *.xml (optional)
@@ -238,6 +240,8 @@ def parse_vi(
             ``vi_BDHb.xml``) that can't itself supply it. Pins the parsed VI's
             name/``source_path``/warnings to this path instead of deriving them
             from ``bd_xml``'s filename. Takes precedence over ``vi_path``.
+        roots: the library folders of the run asking; they choose the VI's cache
+            slot when ``vi_path`` is extracted. Required with ``vi_path``.
         layout: also decode block-diagram GEOMETRY (node/terminal/wire bounds)
             from the same parsed heap and attach it as ``ParsedVI.layout``. Off
             by default — codegen needs no positions. Rendering passes True so
@@ -248,7 +252,9 @@ def parse_vi(
     """
     # Extract XML from VI file if needed
     if vi_path is not None and bd_xml is None:
-        bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+        if roots is None:
+            raise ValueError("roots must be provided with vi_path")
+        bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path, roots=roots)
 
     if bd_xml is None:
         raise ValueError("Either vi_path or bd_xml must be provided")

@@ -16,6 +16,9 @@ import threading
 from pathlib import Path
 
 import lvkit.graph.parallel_parse as parallel_parse
+from lvkit.cache_paths import LibraryRoots
+
+NO_ROOTS = LibraryRoots()
 
 
 class _FakePool:
@@ -41,12 +44,16 @@ def _patch(monkeypatch):
     monkeypatch.setattr(parallel_parse, "ProcessPoolExecutor", _FakePool)
     # A non-empty resolved list is what would trigger the pool on the main
     # thread — stub extraction so we never touch a real .vi.
-    monkeypatch.setattr(parallel_parse, "extract_vi_xml", lambda p: (p, None, None))
+    monkeypatch.setattr(
+        parallel_parse, "extract_vi_xml", lambda p, roots: (p, None, None)
+    )
 
 
 def test_main_thread_constructs_the_pool(monkeypatch):
     _patch(monkeypatch)
-    result = parallel_parse.parallel_parse_directory([Path("a.vi"), Path("b.vi")])
+    result = parallel_parse.parallel_parse_directory(
+        [Path("a.vi"), Path("b.vi")], NO_ROOTS
+    )
     assert _FakePool.created == 1  # pool WAS used on the main thread
     assert result == {}  # (our fake map yields nothing)
 
@@ -57,7 +64,7 @@ def test_worker_thread_skips_the_pool_and_returns_empty(monkeypatch):
 
     def run():
         box["result"] = parallel_parse.parallel_parse_directory(
-            [Path("a.vi"), Path("b.vi")]
+            [Path("a.vi"), Path("b.vi")], NO_ROOTS
         )
 
     t = threading.Thread(target=run)

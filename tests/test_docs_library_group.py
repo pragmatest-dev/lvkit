@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.catalogs import vilib_catalog_for
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.page_names import PageName
@@ -60,6 +61,8 @@ def test_empty_description_renders_nothing(tmp_path: Path) -> None:
 
 
 class _StubGraph:
+    vilib_catalog = vilib_catalog_for(None)
+
     def is_stub(self, name: str) -> bool:
         return True
 

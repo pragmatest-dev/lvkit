@@ -16,6 +16,7 @@ from pathlib import Path, PureWindowsPath
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.structure import (
     discover_structure_from_lvproj,
     resolve_item_url,
@@ -31,7 +32,7 @@ def test_lvproj_resolves_member_classes_from_corpus() -> None:
     if not EXAMPLE_LVPROJ.exists():
         pytest.skip(f"Sample not available: {EXAMPLE_LVPROJ}")
 
-    structure = discover_structure_from_lvproj(EXAMPLE_LVPROJ)
+    structure = discover_structure_from_lvproj(EXAMPLE_LVPROJ, LibraryRoots())
 
     class_names = {c["name"] for c in structure["classes"]}
     assert class_names == {"Merge Errors TestCase", "Queue TestCase"}
@@ -66,7 +67,7 @@ class TestSyntheticLvproj:
             '<Item Name="Dep.vi" Type="VI" URL="/&lt;vilib&gt;/dep/Dep.vi"/>',
         )
 
-        structure = discover_structure_from_lvproj(proj)
+        structure = discover_structure_from_lvproj(proj, LibraryRoots())
 
         assert structure["standalone_vis"] == ["Top.vi"]
         assert structure["libraries"] == []
@@ -79,7 +80,7 @@ class TestSyntheticLvproj:
         proj = tmp_path / "P.lvproj"
         _write_lvproj(proj, '<Item Name="Inner.vi" Type="VI" URL="Sub/Inner.vi"/>')
 
-        structure = discover_structure_from_lvproj(proj)
+        structure = discover_structure_from_lvproj(proj, LibraryRoots())
 
         assert structure["standalone_vis"] == [str(Path("Sub") / "Inner.vi")]
 
@@ -119,7 +120,7 @@ class TestTargetNesting:
             "</Item>\n</Item>\n</Item>\n</Item>",
         )
 
-        structure = discover_structure_from_lvproj(proj)
+        structure = discover_structure_from_lvproj(proj, LibraryRoots())
 
         assert sorted(structure["standalone_vis"]) == sorted(
             [
@@ -147,7 +148,7 @@ class TestTargetNesting:
             "</Item>",
         )
 
-        structure = discover_structure_from_lvproj(proj)
+        structure = discover_structure_from_lvproj(proj, LibraryRoots())
 
         assert [lb["path"] for lb in structure["libraries"]] == ["Lib.lvlib"]
 
@@ -184,7 +185,9 @@ class TestLibraryAndClassOnlyProject:
         return proj
 
     def test_member_vis_are_counted_and_listed(self, tmp_path: Path) -> None:
-        structure = discover_structure_from_lvproj(self._project(tmp_path))
+        structure = discover_structure_from_lvproj(
+            self._project(tmp_path), LibraryRoots()
+        )
         assert structure["standalone_vis"] == []
         assert structure_vi_paths(structure) == ["cls/m.vi", "lib/a.vi", "lib/b.vi"]
 
@@ -216,8 +219,12 @@ class TestLibraryAndClassOnlyProject:
         from lvkit.structure import discover_project_structure
 
         proj = self._project(tmp_path)
-        from_proj = structure_vi_paths(discover_structure_from_lvproj(proj))
-        from_dir = structure_vi_paths(discover_project_structure(tmp_path))
+        from_proj = structure_vi_paths(
+            discover_structure_from_lvproj(proj, LibraryRoots())
+        )
+        from_dir = structure_vi_paths(
+            discover_project_structure(tmp_path, LibraryRoots())
+        )
         assert from_proj == from_dir
 
 

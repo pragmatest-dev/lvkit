@@ -36,11 +36,12 @@ VI_SUFFIXES = (".vi", ".vim", ".vit")
 
 def _worker(paths: list[str], force: bool) -> int:
     """Extract the given VIs in THIS process, then exit (freeing all memory)."""
+    from lvkit.cache_paths import LibraryRoots
     from lvkit.extractor import extract_vi_xml
 
     for raw in paths:
         try:
-            extract_vi_xml(raw, force=force)
+            extract_vi_xml(raw, force=force, roots=LibraryRoots())
             print(f"OK {raw}", flush=True)
         except Exception as e:  # noqa: BLE001 — best-effort; log and continue
             print(f"FAIL {raw}: {str(e)[:120]}", flush=True)

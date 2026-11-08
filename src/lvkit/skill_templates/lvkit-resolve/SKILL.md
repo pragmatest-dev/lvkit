@@ -70,9 +70,10 @@ matches:
 # extract (if not already extracted) — one subprocess per VI, memory-flat
 python3 -c "
 from pathlib import Path
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 for vi in Path('<root>').rglob('*.vi'):
-    try: extract_vi_xml(str(vi))
+    try: extract_vi_xml(str(vi), roots=LibraryRoots())
     except Exception as e: print('skip', vi.name, e)
 "
 

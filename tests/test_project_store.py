@@ -831,47 +831,43 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
 
 
 def _make_args(**kwargs: object) -> argparse.Namespace:
-    """Build a minimal argparse.Namespace for _configure_resolvers."""
+    """Build a minimal argparse.Namespace for project_store_for_args."""
     return argparse.Namespace(**kwargs)
 
 
 def test_cli_project_root_accepts_parent_dir(tmp_path: Path) -> None:
     """`--project-root <root>` works when arg points to parent of .lvkit/."""
-    from lvkit.cli import _configure_resolvers
+    from lvkit.cli_run import project_store_for_args
 
     init_project_store(tmp_path)
-    try:
-        store = _configure_resolvers(_make_args(project_root=str(tmp_path)))
-        assert store == tmp_path / ".lvkit"
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    store = project_store_for_args(_make_args(project_root=str(tmp_path)))
+    assert store == tmp_path / ".lvkit"
 
 
 def test_cli_project_root_accepts_dotlvkit_dir(tmp_path: Path) -> None:
     """`--project-root <path>/.lvkit` also works (user passes the store itself)."""
-    from lvkit.cli import _configure_resolvers
+    from lvkit.cli_run import project_store_for_args
 
     store_dir = init_project_store(tmp_path)
-    try:
-        store = _configure_resolvers(_make_args(project_root=str(store_dir)))
-        assert store == store_dir
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    store = project_store_for_args(_make_args(project_root=str(store_dir)))
+    assert store == store_dir
 
 
 def test_cli_project_root_invalid_returns_none(tmp_path: Path) -> None:
-    """When --project-root points nowhere, store is None and resolvers reset."""
-    from lvkit.cli import _configure_resolvers
+    """When --project-root points nowhere, there is no store."""
+    from lvkit.cli_run import project_store_for_args
 
     bogus = tmp_path / "does_not_exist"
-    try:
-        store = _configure_resolvers(_make_args(project_root=str(bogus)))
-        assert store is None
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    assert project_store_for_args(_make_args(project_root=str(bogus))) is None
+
+
+def test_cli_run_carries_the_project_store(tmp_path: Path) -> None:
+    """The run a command makes names the store its graphs read the catalog of."""
+    from lvkit.cli_run import command_run
+
+    store_dir = init_project_store(tmp_path)
+    run = command_run(_make_args(project_root=str(tmp_path)))
+    assert run.settings.project_store == store_dir
 
 
 # ============================================================
@@ -881,7 +877,7 @@ def test_cli_project_root_invalid_returns_none(tmp_path: Path) -> None:
 
 def test_mcp_discover_from_vi_file(tmp_path: Path) -> None:
     """MCP helper finds .lvkit/ when given a file path inside the project."""
-    from lvkit.mcp.server import _configure_resolvers_for_vi
+    from lvkit.mcp.server import project_store_for
 
     init_project_store(tmp_path)
     deep_dir = tmp_path / "lib" / "subdir"
@@ -889,16 +885,7 @@ def test_mcp_discover_from_vi_file(tmp_path: Path) -> None:
     fake_vi = deep_dir / "Foo.vi"
     fake_vi.write_text("not a real vi")  # only path matters
 
-    try:
-        _configure_resolvers_for_vi(str(fake_vi))
-        # If discovery worked, the singleton resolvers were reset with the
-        # store. We can't directly inspect, but we can re-discover.
-        from lvkit.project_store import find_project_store
-
-        assert find_project_store(start=fake_vi.parent) == tmp_path / ".lvkit"
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    assert project_store_for(str(fake_vi)) == tmp_path / ".lvkit"
 
 
 def test_mcp_discover_from_directory_path(tmp_path: Path) -> None:
@@ -910,18 +897,19 @@ def test_mcp_discover_from_directory_path(tmp_path: Path) -> None:
 
     Setup: the .lvkit/ store lives INSIDE the lvlib directory itself, with
     a primitive override. With the buggy `start = path.parent` logic,
-    discovery starts from `lvlib_dir.parent` and walks up — never visiting
+    discovery starts from `lvlib_dir.parent` and walks up -- never visiting
     `lvlib_dir` itself, so it would miss `lvlib_dir/.lvkit/`. We verify the
-    MCP function actually loaded the project store by checking that the
-    project's primitive override is what the resolver returns.
+    MCP function found the project store by checking that the catalog of the
+    store it returns has the project's primitive override.
     """
-    from lvkit.mcp.server import _configure_resolvers_for_vi
+    from lvkit.catalogs import primitive_catalog_for
+    from lvkit.mcp.server import project_store_for
 
     # Drop a .git at tmp_path so discovery can't escape upward.
     (tmp_path / ".git").mkdir()
 
-    # .lvkit/ inside the lvlib — buggy code (start from lvlib.parent)
-    # would walk tmp_path (no .lvkit) → .git → return None.
+    # .lvkit/ inside the lvlib -- buggy code (start from lvlib.parent)
+    # would walk tmp_path (no .lvkit) -> .git -> return None.
     lvlib_dir = tmp_path / "MyLib.lvlib"
     lvlib_dir.mkdir()
     store = init_project_store(lvlib_dir)
@@ -932,39 +920,26 @@ def test_mcp_discover_from_directory_path(tmp_path: Path) -> None:
         )
     )
 
-    try:
-        _configure_resolvers_for_vi(str(lvlib_dir))
-        # If MCP correctly used the directory as start, the project store
-        # was loaded and the override should be visible.
-        entry = primitive_resolver.get_resolver().get_by_id(1419)
-        assert entry is not None
-        assert entry["name"] == "MCP-DIR-TEST OVERRIDE", (
-            "MCP did not load .lvkit/ from inside the directory path — "
-            "likely walked from .parent instead of the directory itself."
-        )
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    found = project_store_for(str(lvlib_dir))
+    assert found == store
+    entry = primitive_catalog_for(found).get_by_id(1419)
+    assert entry is not None
+    assert entry["name"] == "MCP-DIR-TEST OVERRIDE", (
+        "MCP did not load .lvkit/ from inside the directory path -- "
+        "likely walked from .parent instead of the directory itself."
+    )
 
 
 def test_mcp_discover_returns_none_outside_project(tmp_path: Path) -> None:
-    """MCP helper resets resolvers to no-store when VI is outside any project."""
-    from lvkit.mcp.server import _configure_resolvers_for_vi
+    """MCP helper finds no store when the VI is outside any project."""
+    from lvkit.mcp.server import project_store_for
 
     # Drop a .git so discovery stops here without finding any .lvkit/
     (tmp_path / ".git").mkdir()
     fake_vi = tmp_path / "Foo.vi"
     fake_vi.write_text("not a real vi")
 
-    try:
-        _configure_resolvers_for_vi(str(fake_vi))
-        # Verify no exception was raised; resolvers should fall back to shipped
-        from lvkit.project_store import find_project_store
-
-        assert find_project_store(start=fake_vi.parent) is None
-    finally:
-        primitive_resolver.reset_resolver(project_data_dir=None)
-        vilib_resolver.reset_resolver(project_data_dir=None)
+    assert project_store_for(str(fake_vi)) is None
 
 
 def test_write_json_atomic_replaces_the_file_and_leaves_no_temp(

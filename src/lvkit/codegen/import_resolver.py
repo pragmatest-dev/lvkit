@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 import copy
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -73,9 +73,12 @@ class ImportResolver:
         package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
-        project_file: Callable[[Path, Path], str | None] | None = None,
+        beside_vi: Callable[[str, Sequence[str], Sequence[str]], str | None]
+        | None = None,
         display_path: Callable[[str], str | None] | None = None,
         names_import: Callable[[str, Collection[str]], str] | None = None,
+        register_beside_vi: Callable[[str, Sequence[str], Sequence[str], Path], None]
+        | None = None,
         module_names: set[str] | None = None,
         own_function_import: Callable[[str], NameImport] | None = None,
         module_key: str | None = None,
@@ -88,10 +91,11 @@ class ImportResolver:
         self._package_spec = package_spec
         self._package_modules = package_modules
         self._root_module_import = root_module_import
-        self._project_file = project_file
+        self._beside_vi = beside_vi
         self._scope: str | None = None
         self._display_path = display_path
         self._names_import = names_import
+        self._register_beside_vi = register_beside_vi
         # The names the generated module binds at its top level: what it
         # defines and every name its imports are spelled as.
         self._module_names = module_names if module_names is not None else set()
@@ -220,13 +224,38 @@ class ImportResolver:
             attributes,
         )
 
-    def project_file(self, folder: Path, source: Path) -> str | None:
-        """Where the file ``source`` at or below the project ``folder`` sits from
-        the folder of the module being generated once it is copied into the
-        package: in the package ``folder`` is generated as, under the file's own
-        names (a ``/`` path, ``..`` for each folder up); None when ``folder`` is
-        not inside the project."""
-        return self._project_file(folder, source) if self._project_file else None
+    def beside_vi(
+        self, vi_key: str, recorded: Sequence[str], below: Sequence[str]
+    ) -> str | None:
+        """Where a file at ``below`` in the folder of the file the VI ``vi_key``
+        records relative to itself (``recorded``) sits from the folder of the
+        module being generated once it is copied into the package: beside the
+        VI's own module, by the same walk (``ModuleLayout.placed_beside``; a
+        ``/`` path, ``..`` for each folder up); None when the walk leaves the
+        VI's tree (its project, library folder or own outside project)."""
+        if self._beside_vi is None:
+            return None
+        return self._beside_vi(vi_key, recorded, below)
+
+    @property
+    def copies_files(self) -> bool:
+        """Whether files named beside a VI are copied into the package (a whole
+        package is generated, not one module's text)."""
+        return self._register_beside_vi is not None
+
+    def register_beside_vi(
+        self,
+        vi_key: str,
+        recorded: Sequence[str],
+        below: Sequence[str],
+        source: Path,
+    ) -> None:
+        """Register ``source`` to be copied into the package at the place
+        ``beside_vi`` gives for ``below`` (``PackageCopies.register``); it is
+        copied only when the module being generated is written."""
+        if self._register_beside_vi is None:
+            raise CodeGenError("this resolver generates no package to copy into")
+        self._register_beside_vi(vi_key, recorded, below, source)
 
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding

@@ -26,9 +26,8 @@ def _subvis(vi: Path) -> dict[str, str | None]:
 @pytest.mark.needs_samples
 def test_inherited_method_declared_with_owning_class() -> None:
     subvis = _subvis(_ROOT / "Tests" / "MyFirstTest" / "testDemo.vi")
-    assert subvis == {
-        "TestCase.lvclass:failUnlessEqual.vi": "./Classes/TestCase/failUnlessEqual.vi"
-    }
+    # The VI stores the class's path for a method it names through its class.
+    assert subvis == {"TestCase.lvclass:failUnlessEqual.vi": "./MyFirstTest.lvclass"}
 
 
 @pytest.mark.needs_samples
@@ -37,10 +36,8 @@ def test_direct_calls_and_a_same_named_member_of_the_callers_class() -> None:
     # TextTestRunner has its own run.vi (the caller) and inherits TestRunner's;
     # the body calls TestCase's and TestSuite's run.vi, so neither the caller
     # nor the ancestor's run.vi is declared.
-    assert subvis["TestCase.lvclass:run.vi"] == "./Classes/TestCase/run.vi"
-    assert subvis["TestSuite.lvclass:run.vi"] == "./Classes/TestSuite/run.vi"
-    assert subvis["TextTestRunner.lvclass:makeResult.vi"] == (
-        "./Classes/TextTestRunner/makeResult.vi"
-    )
+    assert subvis["TestCase.lvclass:run.vi"] == "../TestCase/run.vi"
+    assert subvis["TestSuite.lvclass:run.vi"] == "../TestSuite/run.vi"
+    assert subvis["TextTestRunner.lvclass:makeResult.vi"] == "./TextTestRunner.lvclass"
     assert "TestRunner.lvclass:run.vi" not in subvis
     assert "run.vi" not in subvis

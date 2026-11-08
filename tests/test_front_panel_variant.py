@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -70,7 +71,7 @@ def test_a_real_corpus_variant_control_renders_not_unknown() -> None:
     """End-to-end against a real VI with a ``stdLvVariant`` control: it
     resolves to ``VariantGlyph`` and renders, no crash, never
     ``UnknownControlGlyph``."""
-    parsed = parse_vi(_PACK_FOR_GRPC_VI)
+    parsed = parse_vi(_PACK_FOR_GRPC_VI, roots=LibraryRoots())
 
     def walk(ctrls):  # noqa: ANN001, ANN202
         for c in ctrls:

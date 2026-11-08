@@ -7,7 +7,10 @@ from pathlib import Path
 
 from lvkit import output_cache
 from lvkit.build_options import BuildOptions
+from lvkit.cache_paths import LibraryRoots
 from lvkit.load_mode import LoadMode
+
+NO_ROOTS = LibraryRoots()
 
 V = "0.0.0"
 
@@ -49,9 +52,9 @@ def test_a_changed_build_option_is_a_miss(tmp_path: Path) -> None:
     no_vilib = output_cache.render_options_tag(
         "svg", "light", None, BuildOptions(vilib_root=tmp_path / "vi.lib")
     )
-    output_cache.store_render(vi, "svg", plain, V, "BODY")
-    assert output_cache.lookup_render(vi, "svg", plain, V) == "BODY"
-    assert output_cache.lookup_render(vi, "svg", no_vilib, V) is None
+    output_cache.store_render(vi, "svg", plain, V, "BODY", roots=NO_ROOTS)
+    assert output_cache.lookup_render(vi, "svg", plain, V, NO_ROOTS) == "BODY"
+    assert output_cache.lookup_render(vi, "svg", no_vilib, V, NO_ROOTS) is None
 
 
 def test_a_changed_subvi_is_a_miss(tmp_path: Path) -> None:
@@ -59,29 +62,35 @@ def test_a_changed_subvi_is_a_miss(tmp_path: Path) -> None:
     sub = _vi(tmp_path / "repo" / "Sub.vi", b"sub v1")
     gone = tmp_path / "repo" / "Missing.vi"
     opts = output_cache.render_options_tag("svg", "light", None)
-    output_cache.store_render(vi, "svg", opts, V, "BODY", dependencies=[sub, gone])
-    assert output_cache.lookup_render(vi, "svg", opts, V) == "BODY"
+    output_cache.store_render(
+        vi, "svg", opts, V, "BODY", dependencies=[sub, gone], roots=NO_ROOTS
+    )
+    assert output_cache.lookup_render(vi, "svg", opts, V, NO_ROOTS) == "BODY"
     sub.write_bytes(b"sub v2, different size")
-    assert output_cache.lookup_render(vi, "svg", opts, V) is None
+    assert output_cache.lookup_render(vi, "svg", opts, V, NO_ROOTS) is None
 
 
 def test_an_unresolved_subvi_that_appears_is_a_miss(tmp_path: Path) -> None:
     vi = _project_vi(tmp_path)
     later = tmp_path / "repo" / "Later.vi"
     opts = output_cache.render_options_tag("svg", "light", None)
-    output_cache.store_render(vi, "svg", opts, V, "BODY", dependencies=[later])
-    assert output_cache.lookup_render(vi, "svg", opts, V) == "BODY"
+    output_cache.store_render(
+        vi, "svg", opts, V, "BODY", dependencies=[later], roots=NO_ROOTS
+    )
+    assert output_cache.lookup_render(vi, "svg", opts, V, NO_ROOTS) == "BODY"
     _vi(later, b"now present")
-    assert output_cache.lookup_render(vi, "svg", opts, V) is None
+    assert output_cache.lookup_render(vi, "svg", opts, V, NO_ROOTS) is None
 
 
 def test_a_same_content_touch_of_a_subvi_stays_a_hit(tmp_path: Path) -> None:
     vi = _project_vi(tmp_path)
     sub = _vi(tmp_path / "repo" / "Sub.vi", b"sub")
     opts = output_cache.render_options_tag("svg", "light", None)
-    output_cache.store_render(vi, "svg", opts, V, "BODY", dependencies=[sub])
+    output_cache.store_render(
+        vi, "svg", opts, V, "BODY", dependencies=[sub], roots=NO_ROOTS
+    )
     sub.write_bytes(b"sub")  # same bytes, new mtime
-    assert output_cache.lookup_render(vi, "svg", opts, V) == "BODY"
+    assert output_cache.lookup_render(vi, "svg", opts, V, NO_ROOTS) == "BODY"
 
 
 def test_a_changed_subvi_is_a_miss_for_a_diff(tmp_path: Path) -> None:
@@ -89,7 +98,9 @@ def test_a_changed_subvi_is_a_miss_for_a_diff(tmp_path: Path) -> None:
     after = _project_vi(tmp_path)
     sub = _vi(tmp_path / "repo" / "Sub.vi", b"sub v1")
     opts = output_cache.diff_options_tag("text", False, None, None)
-    output_cache.store_diff(before, after, "text", opts, V, "D", dependencies=[sub])
-    assert output_cache.lookup_diff(before, after, "text", opts, V) == "D"
+    output_cache.store_diff(
+        before, after, "text", opts, V, "D", dependencies=[sub], roots=NO_ROOTS
+    )
+    assert output_cache.lookup_diff(before, after, "text", opts, V, NO_ROOTS) == "D"
     sub.write_bytes(b"sub v2, different size")
-    assert output_cache.lookup_diff(before, after, "text", opts, V) is None
+    assert output_cache.lookup_diff(before, after, "text", opts, V, NO_ROOTS) is None

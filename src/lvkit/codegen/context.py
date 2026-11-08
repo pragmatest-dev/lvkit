@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from lvkit.catalogs import primitive_catalog_for, vilib_catalog_for
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.core import uid_of
@@ -45,6 +46,7 @@ from lvkit.models import (
 )
 from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
 from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
@@ -242,6 +244,22 @@ class CodeGenContext:
             self.imports.update(fragment.imports)
         return stmts
 
+    @property
+    def vilib_catalog(self) -> VILibResolver:
+        """The vi.lib catalog of the run this code is generated for (the shipped
+        catalog when there is no graph)."""
+        if self.graph is None:
+            return vilib_catalog_for(None)
+        return self.graph.vilib_catalog
+
+    @property
+    def primitive_catalog(self) -> PrimitiveResolver:
+        """The primitive catalog of the run this code is generated for (the
+        shipped catalog when there is no graph)."""
+        if self.graph is None:
+            return primitive_catalog_for(None)
+        return self.graph.primitive_catalog
+
     def catalog_path(self, node: VINode) -> str | None:
         """The path the vi.lib catalog looks the VI ``node`` calls up by."""
         if self.graph is None:
@@ -323,6 +341,15 @@ class CodeGenContext:
         if value is None:
             if label is None:
                 label = terminal.name or terminal.index if terminal else terminal_id
+            missing = self.graph.source_slot_missing_on_callee(terminal_id)
+            if missing is not None:
+                callee, slot = missing
+                raise ConversionGap(
+                    f"The wired input {label!r} of {node.name!r} comes from "
+                    f"connector-pane position {slot} of {callee!r}, which the "
+                    "called VI does not have, so the VI is broken in LabVIEW",
+                    node,
+                )
             raise CodeGenError(
                 f"The wired input {label!r} of {node.name!r} has no variable "
                 f"(from {self.graph.terminal_sources_description(terminal_id)})",

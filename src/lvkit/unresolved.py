@@ -14,7 +14,6 @@ from pathlib import Path
 
 from lvkit.library_folders import Folders, SearchEntries
 
-from .cache_paths import project_root
 from .codegen.gaps import (
     MISSING_VI,
     PLACEHOLDER_PRIMITIVE,
@@ -28,6 +27,7 @@ from .codegen.gaps import (
 )
 from .graph.loading import LoadMode
 from .pipeline import generate_python
+from .project_folders import project_root
 from .run_report import RunProblems, RunSettings
 from .stderr_capture import capture_stdout
 

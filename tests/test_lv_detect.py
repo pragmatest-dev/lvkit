@@ -350,3 +350,100 @@ def test_detected_dataclass_is_frozen(tmp_path):
     )
     with pytest.raises(Exception):
         d.version = "22.0"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------- #
+# One function for a run's library folders (CLI and MCP)
+# --------------------------------------------------------------------------- #
+
+
+def _install(tmp_path: Path) -> DetectedLabVIEW:
+    return DetectedLabVIEW(
+        install_dir=tmp_path,
+        vilib_root=tmp_path / "vi.lib",
+        userlib_root=tmp_path / "user.lib",
+        version="21.0",
+        source="test",
+        instrlib_root=tmp_path / "instr.lib",
+    )
+
+
+def test_run_folders_keeps_the_folders_given(tmp_path, monkeypatch):
+    from lvkit.library_folders import run_folders
+
+    def _boom():
+        raise AssertionError("detection should not run")
+
+    monkeypatch.setattr(lv_detect, "detect_labview", _boom)
+    found = run_folders(["/v"], ["/u"], None, auto_detect=True)
+    assert (found.vilib, found.userlib, found.instrlib) == (
+        (Path("/v"),),
+        (Path("/u"),),
+        (),
+    )
+    assert found.detected is None
+
+
+def test_run_folders_without_vilib_and_auto_detect_off_is_empty(monkeypatch):
+    from lvkit.library_folders import run_folders
+
+    def _boom():
+        raise AssertionError("detection should not run")
+
+    monkeypatch.setattr(lv_detect, "detect_labview", _boom)
+    found = run_folders(None, None, None, auto_detect=False)
+    assert (found.vilib, found.userlib, found.instrlib, found.detected) == (
+        (),
+        (),
+        (),
+        None,
+    )
+
+
+def test_run_folders_takes_the_installed_labview(tmp_path, monkeypatch):
+    from lvkit.library_folders import run_folders
+
+    detected = _install(tmp_path)
+    _patch_detected(monkeypatch, detected)
+    found = run_folders(None, ["/mine"], None, auto_detect=True)
+    assert found.vilib == (tmp_path / "vi.lib",)
+    assert found.userlib == (Path("/mine"),)
+    assert found.instrlib == (tmp_path / "instr.lib",)
+    assert found.detected is detected
+
+
+def test_mcp_build_finds_the_installed_labview_unless_told_not_to(
+    tmp_path, monkeypatch
+):
+    from lvkit.mcp.server import vi_tools
+
+    _patch_detected(monkeypatch, _install(tmp_path))
+    vi_tools._detected_labview.cache_clear()
+    try:
+        found = vi_tools._build(None, None, None)
+        assert found.vilib_root == ((tmp_path / "vi.lib").resolve(),)
+        assert found.userlib_root == ((tmp_path / "user.lib").resolve(),)
+        assert found.instrlib_root == ((tmp_path / "instr.lib").resolve(),)
+        off = vi_tools._build(None, None, None, no_auto_vilib=True)
+        assert (off.vilib_root, off.userlib_root, off.instrlib_root) == ((), (), ())
+    finally:
+        vi_tools._detected_labview.cache_clear()
+
+
+def test_mcp_looks_for_the_installed_labview_once(tmp_path, monkeypatch):
+    from lvkit.mcp.server import vi_tools
+
+    calls = []
+
+    def _detect():
+        calls.append(1)
+        return _install(tmp_path)
+
+    monkeypatch.setattr(lv_detect, "detect_labview", _detect)
+    vi_tools._detected_labview.cache_clear()
+    try:
+        vi_tools._build(None, None, None)
+        vi_tools._build(None, None, None)
+        assert len(calls) == 1
+    finally:
+        vi_tools._detected_labview.cache_clear()

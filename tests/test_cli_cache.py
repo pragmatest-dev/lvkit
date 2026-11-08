@@ -20,6 +20,9 @@ from pathlib import Path
 import pytest
 
 from lvkit import output_cache
+from lvkit.cache_paths import LibraryRoots
+
+NO_ROOTS = LibraryRoots()
 
 _SAMPLE_A = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -71,7 +74,7 @@ class TestRenderCacheCLI:
         vi = _project_vi(tmp_path, _SAMPLE_A)
         out1 = tmp_path / "o1.html"
         _render(str(vi), "--format", "html", "-o", str(out1))
-        slot = output_cache.render_slot(vi, "html")
+        slot = output_cache.render_slot(vi, "html", NO_ROOTS)
         assert slot.exists(), "cold render should populate the cache slot"
 
         # Poison the slot body (meta stays fresh) -> a hit must return it.
@@ -95,7 +98,7 @@ class TestRenderCacheCLI:
         _require(_SAMPLE_A)
         vi = _project_vi(tmp_path, _SAMPLE_A)
         _render(str(vi), "--format", "html", "-o", str(tmp_path / "x.html"))
-        slot = output_cache.render_slot(vi, "html")
+        slot = output_cache.render_slot(vi, "html", NO_ROOTS)
         slot.write_text(_POISON, encoding="utf-8")
 
         out = tmp_path / "nc.html"
@@ -114,7 +117,7 @@ class TestRenderCacheCLI:
         _require(_SAMPLE_A)
         vi = _project_vi(tmp_path, _SAMPLE_A)
         _render(str(vi), "--format", "html", "-o", str(tmp_path / "x.html"))
-        slot = output_cache.render_slot(vi, "html")
+        slot = output_cache.render_slot(vi, "html", NO_ROOTS)
         slot.write_text(_POISON, encoding="utf-8")
         # Edit the VI -> content hash changes -> the poisoned slot is stale.
         vi.write_bytes(vi.read_bytes() + b"\x00")
@@ -137,7 +140,7 @@ class TestRenderCacheCLI:
             (src / sibling.name).write_bytes(sibling.read_bytes())
         vi = src / main.name
         _render(str(vi), "--format", "html", "-o", str(tmp_path / "x.html"))
-        slot = output_cache.render_slot(vi, "html")
+        slot = output_cache.render_slot(vi, "html", NO_ROOTS)
 
         def poisoned_run(*extra: str) -> str:
             slot.write_text(_POISON, encoding="utf-8")
@@ -160,7 +163,9 @@ class TestRenderCacheCLI:
         vi_b = _project_vi(tmp_path, _SAMPLE_B, "B.vi")
         _render(str(vi_a), "--format", "html", "-o", str(tmp_path / "a.html"))
         # Poison A's slot; rendering B must NOT return A's (poisoned) body.
-        output_cache.render_slot(vi_a, "html").write_text(_POISON, encoding="utf-8")
+        output_cache.render_slot(vi_a, "html", NO_ROOTS).write_text(
+            _POISON, encoding="utf-8"
+        )
         out_b = tmp_path / "b.html"
         _render(str(vi_b), "--format", "html", "-o", str(out_b))
         assert out_b.read_text(encoding="utf-8") != _POISON
@@ -170,7 +175,7 @@ class TestRenderCacheCLI:
         vi = _project_vi(tmp_path, _SAMPLE_A)
         res = _render(str(vi), "--format", "html")  # no -o
         assert "cached" in res.stdout
-        slot = output_cache.render_slot(vi, "html")
+        slot = output_cache.render_slot(vi, "html", NO_ROOTS)
         assert slot.exists() and str(slot) in res.stdout
 
 
@@ -207,7 +212,7 @@ class TestDiffCacheCLI:
         out1 = tmp_path / "d1.html"
         res = _run("diff", str(before), str(after), "--format", "html", "-o", str(out1))
         assert res.returncode == 0, res.stderr
-        slot = output_cache.diff_slot(before, after, "html")
+        slot = output_cache.diff_slot(before, after, "html", NO_ROOTS)
         assert slot.exists()
 
         slot.write_text(_POISON, encoding="utf-8")

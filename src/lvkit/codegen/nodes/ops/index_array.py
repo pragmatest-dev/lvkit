@@ -62,7 +62,7 @@ def generate_1d_index_array(
     # Roles come from the entry's layout for this node's array type: after the
     # array, one set per element output, each with its index input.
     try:
-        roles = laid_out_roles(node, "aIndx")
+        roles = laid_out_roles(ctx, node, "aIndx")
     except ConversionGap as error:
         raise ConversionGap(
             "1D Index Array requires output/index terminal pairs", node
@@ -93,7 +93,8 @@ def generate_1d_index_array(
         expr = ctx.wired_input(index.id, node)
         if expr is None:
             follows_previous = (
-                unwired_behavior(node, index) == DefaultBehavior.NEXT_INDEX
+                unwired_behavior(ctx.primitive_catalog, ctx.vilib_catalog, node, index)
+                == DefaultBehavior.NEXT_INDEX
             )
             expr = f"{previous_index} + 1" if follows_previous else "0"
         index_var = ctx.make_output_var(f"array_index_{position}", node.id)
