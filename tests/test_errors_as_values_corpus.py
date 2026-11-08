@@ -360,6 +360,7 @@ def test_an_inline_template_input_that_holds_braces_is_written_as_it_is(
         )
     )
     assert (
-        "trim_whitespace_trimmed_string = f'<ERR>\\\\n{error_message}"
+        # The format string's \n is a backslash code: a line break.
+        "trim_whitespace_trimmed_string = f'<ERR>\\n{error_message}"
         in module.read_text(encoding="utf-8")
     )

@@ -30,7 +30,7 @@ from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.parser.models import is_symbolic_root
-from lvkit.vi_files import class_stem, strip_vi_extension
+from lvkit.vi_files import class_stem, vi_module_stem
 
 # The package a file outside the project and every library folder is placed in.
 EXTERNAL_PACKAGE = "external"
@@ -180,7 +180,7 @@ class ModuleLayout:
         if node_type is NodeType.CLASS:
             stem = class_stem(name)
         elif node_type in (None, NodeType.VI):
-            stem = strip_vi_extension(name)
+            stem = vi_module_stem(name)
         else:
             stem = name
         return ModulePlace(_packages(folders), module_part(stem))
@@ -188,7 +188,7 @@ class ModuleLayout:
     def place_beside(self, key: str, sibling_keys: list[str]) -> ModulePlace:
         """``key`` (a polymorphic wrapper with no file) in the package of the first
         of its variants ``sibling_keys`` that can be placed."""
-        stem = strip_vi_extension(self._graph.vi_display_name(key).split(":")[-1])
+        stem = vi_module_stem(self._graph.vi_display_name(key).split(":")[-1])
         error: UnplacedVIError | None = None
         for sibling in sibling_keys:
             try:

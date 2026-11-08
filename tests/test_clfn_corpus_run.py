@@ -251,7 +251,9 @@ def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
     error = handler.lfu_error_handler__ogtk(retval=0, prepend_string="test").error_out
     assert isinstance(error, _generated_error(handler))
     assert (error.status, error.code) == (True, 6)
-    assert "WinError: test; " in error.source
+    # Format Into String: the prepend string is its initial string, then
+    # "WinError: %d; " with GetLastError's code.
+    assert "testWinError: 5; " in error.source
 
 
 def test_a_missing_file_fails_to_open(
