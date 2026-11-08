@@ -23,7 +23,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from ..models import ParsedFreeLabel
-from ..utils import clean_labview_string
+from ..utils import clean_labview_string, heap_rect
 
 __all__ = ["extract_free_labels"]
 
@@ -84,7 +84,7 @@ def _visit(elem: ET.Element, labels: list[ParsedFreeLabel]) -> None:
 def _parse_label(elem: ET.Element) -> ParsedFreeLabel | None:
     uid = elem.get("uid")
     text_el = elem.find("textRec/text")
-    bounds = _parse_bounds(elem.find("bounds"))
+    bounds = heap_rect(elem.find("bounds"))
     if not uid or text_el is None or text_el.text is None or bounds is None:
         return None
     text = clean_labview_string(text_el.text)
@@ -101,16 +101,3 @@ def _parse_label(elem: ET.Element) -> ParsedFreeLabel | None:
         bg_color=bg_color,
         attach_uid=attach_uid,
     )
-
-
-def _parse_bounds(elem: ET.Element | None) -> tuple[int, int, int, int] | None:
-    """Parse a LabVIEW ``(top, left, bottom, right)`` rect element."""
-    if elem is None or not elem.text:
-        return None
-    try:
-        nums = [int(x.strip()) for x in elem.text.strip("()").split(",")]
-    except ValueError:
-        return None
-    if len(nums) != 4:
-        return None
-    return (nums[0], nums[1], nums[2], nums[3])

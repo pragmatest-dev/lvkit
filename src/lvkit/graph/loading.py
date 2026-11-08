@@ -77,6 +77,7 @@ from .load_problems import (
     CLASS_MEMBER_ATTR,
     repeated_frame_problems,
     unread_condition_problems,
+    unread_panel_problems,
 )
 from .membership import ListedMethod
 from .models import (
@@ -1695,6 +1696,7 @@ class LoadingMixin:
         for problem in (
             *repeated_frame_problems(vi.block_diagram, shown_as),
             *unread_condition_problems(vi.block_diagram, shown_as),
+            *unread_panel_problems(vi.front_panel, shown_as),
         ):
             self.record_problem(vi_key, problem)
 

@@ -34,8 +34,12 @@ def draw_array_elements(
     default_element: Glyph | None,
     cell_h: float,
     cell_w: float | None,
+    cell_inset: float = 1.0,
+    wash_default: bool = True,
 ) -> int:
-    """Draw the column and its carrier; returns the visible-row count."""
+    """Draw the column and its carrier; returns the visible-row count. A cell is
+    its row inset by ``cell_inset`` on every side; the default element is washed
+    as disabled unless ``wash_default`` is False (it draws itself disabled)."""
     vx1, vy1, vx2, vy2 = viewport
     visible = visible_rows(viewport, cell_h)
     total = len(elements)
@@ -49,21 +53,22 @@ def draw_array_elements(
     # shows rows [0, visible).
     backend.begin_group(clip=(vx1, vy1, vx2, vy2))
     backend.begin_group(cls="lv-array-col", data={"lv-struct": struct_uid})
-    cell_right = vx2 - 1.0
+    cell_right = vx2 - cell_inset
     if cell_w is not None:
-        cell_right = min(vx2, vx1 + cell_w) - 1.0
+        cell_right = min(vx2, vx1 + cell_w) - cell_inset
     row_count = max(total, 1) + max(0, visible - 1)
     for i in range(row_count):
         cy1 = vy1 + i * cell_h
         cy2 = cy1 + cell_h
-        cell = (vx1 + 1.0, cy1 + 1.0, cell_right, cy2 - 1.0)
+        cell = (vx1 + cell_inset, cy1 + cell_inset, cell_right, cy2 - cell_inset)
         if i < total:
             elements[i].draw(backend, cell, theme)
         elif default_element is not None:
             default_element.draw(backend, cell, theme)
-            backend.begin_group(cls="lv-disabled-mask")
-            backend.rect(*cell, fill=theme.disabled_mask)
-            backend.end_group()
+            if wash_default:
+                backend.begin_group(cls="lv-disabled-mask")
+                backend.rect(*cell, fill=theme.disabled_mask)
+                backend.end_group()
         else:
             backend.rect(*cell, fill=theme.fp_panel, stroke="none")
         if i + 1 < row_count:
