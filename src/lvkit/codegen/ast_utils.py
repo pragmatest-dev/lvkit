@@ -106,6 +106,7 @@ def _cluster_default(lv_type: LVType) -> ast.expr:
 
 # The names a generated module spells bare and imports only when it uses them.
 _IMPLICIT_IMPORTS = {
+    "Callable": "from collections.abc import Callable",
     "os": "import os",
     "Path": "from pathlib import Path",
     "SimpleNamespace": "from types import SimpleNamespace",
@@ -474,7 +475,12 @@ GENERATED_MODULE_NAMES = frozenset(
     }
 )  # fmt: skip
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
+# The keyword-only parameters of a VI that touches its front panel while it runs
+# (``panel_hooks``): no variable of the function takes their names.
+ON_UPDATE = "on_update"
+ON_READ = "on_read"
+
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:

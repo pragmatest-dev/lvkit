@@ -12,11 +12,16 @@ from ..models import FPTerminal, Terminal, TunnelTerminal
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    EventStructureNode,
     LocalVariableNode,
     LoopNode,
+    PrimitiveNode,
     StructureNode,
     WireEnd,
 )
+
+# The Property Node row that reads or writes a control's value.
+VALUE_PROPERTY = "Value"
 
 
 class WireQueriesMixin:
@@ -156,6 +161,53 @@ class WireQueriesMixin:
                 if isinstance(control, FPTerminal) and control.is_indicator:
                     found[control.id] = control
         return found
+
+    def front_panel_loop(self, terminal_id: str) -> str | None:
+        """The id of the While Loop, For Loop or Event Structure around the
+        control or indicator terminal ``terminal_id`` on the diagram (the
+        nearest one, through any Case, Sequence or Disable structures between);
+        None for a terminal on the VI's own diagram or any other terminal."""
+        terminal = self.get_terminal(terminal_id)
+        if not isinstance(terminal, FPTerminal):
+            return None
+        around = terminal.parent
+        while around is not None:
+            node = self.get_graph_node(around)
+            if node is None:
+                return None
+            if isinstance(node, LoopNode | EventStructureNode):
+                return node.id
+            around = node.parent
+        return None
+
+    def touches_panel_while_running(self, vi_name: str) -> bool:
+        """Whether the VI's diagram reads or writes its own front panel while it
+        runs: a control or indicator terminal inside a While Loop, For Loop or
+        Event Structure, a Local Variable of one of its controls or indicators,
+        or a Value Property Node bound to one of its controls."""
+        vi = self.get_graph_node(vi_name)
+        if vi is not None and any(
+            self.front_panel_loop(t.id) is not None
+            for t in vi.terminals
+            if isinstance(t, FPTerminal)
+        ):
+            return True
+        for node in self.iter_nodes(vi_name):
+            if isinstance(node, LocalVariableNode):
+                if isinstance(
+                    self.get_terminal(node.control_terminal_id or ""), FPTerminal
+                ):
+                    return True
+            elif (
+                isinstance(node, PrimitiveNode)
+                and node.bound_control_uid
+                and any(
+                    [s.name for s in row.segments] == [VALUE_PROPERTY]
+                    for row in node.properties
+                )
+            ):
+                return True
+        return False
 
     def indicators_written_in_a_frame(self, vi_name: str) -> dict[str, FPTerminal]:
         """The connector-pane indicators of a VI that something inside a

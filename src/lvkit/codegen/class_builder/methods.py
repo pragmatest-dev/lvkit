@@ -31,6 +31,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
+from ..panel_hooks import PanelHooks
 from ..type_fields import annotation_imports
 
 if TYPE_CHECKING:
@@ -98,7 +99,12 @@ class _MethodBuilderMixin:
         ]
         if property_accessor:
             parameters = [t for t in parameters if not t.is_error_cluster]
-        args = build_args(parameters, names, spell)
+        ctx.panel_hooks = (
+            None
+            if property_accessor
+            else PanelHooks.for_vi(vi_context, graph, key, names)
+        )
+        args = build_args(parameters, names, spell, hooked=ctx.panel_hooks is not None)
         if property_accessor:
             args.args.extend(args.kwonlyargs)
             args.kwonlyargs, args.kw_defaults = [], []

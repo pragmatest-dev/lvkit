@@ -65,6 +65,7 @@ from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
+from .panel_hooks import PanelHooks
 from .references import REFERENCE_KINDS, generated_nodes
 
 # A structure frame: the structure's node id and the frame's key
@@ -184,6 +185,10 @@ class CodeGenContext:
     local_indicators: LocalIndicators = field(
         default_factory=LocalIndicators, repr=False
     )
+    # The hooks of a VI that touches its front panel while it runs (see
+    # ``panel_hooks``); None for any other VI. One per function, shared by child
+    # contexts.
+    panel_hooks: PanelHooks | None = field(default=None, repr=False)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -590,6 +595,7 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
+            panel_hooks=self.panel_hooks,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function

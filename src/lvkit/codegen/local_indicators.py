@@ -34,6 +34,7 @@ from lvkit.graph.models import AnyGraphNode
 from lvkit.models import FPTerminal
 
 from .ast_utils import build_assign, control_default_expr, node_owned_name
+from .panel_hooks import update_stmt
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -56,13 +57,17 @@ class LocalIndicators:
 
     variables: dict[str, str] = field(default_factory=dict)
     kept: dict[str, _Kept] = field(default_factory=dict)
+    # The name ``on_update`` is called with for each indicator, in a VI that has
+    # the hooks (``panel_hooks``).
+    hook_names: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def declare(
         cls, ctx: CodeGenContext, vi_name: str
     ) -> tuple[LocalIndicators, list[ast.stmt]]:
         """The indicators of ``vi_name`` read by a Local Variable or written in
-        a structure frame, each bound to a variable, and the statements that
+        a structure frame (every indicator, in a VI that has the hooks of
+        ``panel_hooks``), each bound to a variable, and the statements that
         start them."""
         found = LocalIndicators()
         statements: list[ast.stmt] = []
@@ -70,6 +75,14 @@ class LocalIndicators:
             return found, statements
         read = ctx.graph.indicator_local_reads(vi_name)
         held = {**read, **ctx.graph.indicators_written_in_a_frame(vi_name)}
+        if ctx.panel_hooks is not None:
+            for terminal_id in ctx.panel_hooks.indicators:
+                control = ctx.graph.get_terminal(terminal_id)
+                if isinstance(control, FPTerminal):
+                    held[terminal_id] = control
+            found.hook_names = {
+                t: ctx.panel_hooks.names[t] for t in ctx.panel_hooks.indicators
+            }
         clears = ctx.graph.get_vi_properties(
             vi_name
         ).execution.clear_indicators_when_called
@@ -136,6 +149,10 @@ class LocalIndicators:
         kept = self.kept.get(terminal_id)
         if kept is not None and kept.written_flag is not None:
             statements.append(build_assign(kept.written_flag, ast.Constant(True)))
+        if terminal_id in self.hook_names:
+            statements.append(
+                update_stmt(self.hook_names[terminal_id], self.variables[terminal_id])
+            )
         return statements
 
     def assignments_after(

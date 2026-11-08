@@ -41,6 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .panel_hooks import PanelHooks, hook_arguments
 from .references import REFERENCE_KINDS, generated_nodes
 
 if TYPE_CHECKING:
@@ -101,6 +102,7 @@ def build_module(
     )
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
+    ctx.panel_hooks = PanelHooks.for_vi(vi_context, graph, vi_name)
     if shared is not None:
         shared.share_with(ctx)
 
@@ -434,7 +436,9 @@ def build_module_ast(
         module_body.extend(ctx.module_globals[name])
 
     # Function definition
-    func_def = build_function_def(vi_context, vi_name, body, spell)
+    func_def = build_function_def(
+        vi_context, vi_name, body, spell, hooked=ctx.panel_hooks is not None
+    )
     module_body.append(func_def)
 
     for statement in implicit_imports(module_body):
@@ -508,6 +512,7 @@ def build_function_def(
     vi_name: str,
     body: list[ast.stmt],
     spell: TypeNamer | None = None,
+    hooked: bool = False,
 ) -> ast.FunctionDef:
     """Build function definition."""
     # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
@@ -518,7 +523,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs, spell=spell)
+    args = build_args(vi_context.inputs, spell=spell, hooked=hooked)
 
     # Build return annotation
     returns = None
@@ -543,6 +548,7 @@ def build_args(
     inputs: list[Terminal],
     names: dict[str, str] | None = None,
     spell: TypeNamer | None = None,
+    hooked: bool = False,
 ) -> ast.arguments:
     """The parameters of a VI's function: its connector-pane ``inputs`` only.
 
@@ -554,7 +560,9 @@ def build_args(
 
     ``names`` maps terminal id -> parameter name (``interface_names``); when
     omitted it is computed over ``inputs``. An error in is a parameter like any
-    other, annotated ``LabVIEWError | None``.
+    other, annotated ``LabVIEWError | None``. A ``hooked`` VI (one that touches its
+    front panel while it runs, ``panel_hooks``) ends with the keyword-only hook
+    parameters.
     """
     if names is None:
         names = interface_names(inputs, [], []).parameters
@@ -568,12 +576,13 @@ def build_args(
 
     required = [t for t in inputs if is_required(t, "input")]
     optional = [t for t in inputs if not is_required(t, "input")]
+    hook_args, hook_defaults = hook_arguments() if hooked else ([], [])
     return ast.arguments(
         posonlyargs=[],
         args=[argument(t) for t in required],
         vararg=None,
-        kwonlyargs=[argument(t) for t in optional],
-        kw_defaults=[parameter_default_expr(t) for t in optional],
+        kwonlyargs=[*(argument(t) for t in optional), *hook_args],
+        kw_defaults=[*(parameter_default_expr(t) for t in optional), *hook_defaults],
         kwarg=None,
         defaults=[],
     )
