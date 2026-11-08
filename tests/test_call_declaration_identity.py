@@ -43,9 +43,9 @@ def _declarations(vi: Path) -> dict[str, str | None]:
 def test_renamed_file_is_declared_by_its_file_name() -> None:
     root = _SAMPLES / "LabVIEW-DAQ" / "Two Photon"
     decls = _declarations(root / "MasterAquisitionFile_2P.vi")
-    # Paths are shown relative to the VI's project (the sample's git root).
+    # The path is the one the VI stores: beside the VI.
     assert decls["TrackWhiskerDroppedFrames_2P.vi"] == (
-        "./Two Photon/TrackWhiskerDroppedFrames_2P.vi"
+        "./TrackWhiskerDroppedFrames_2P.vi"
     )
     assert "TrackDroppedFrames_2P.vi" not in decls
 
@@ -62,8 +62,11 @@ def test_library_call_named_like_the_caller_is_not_the_caller() -> None:
         ("Run Service.vi", "Run Service.vi"),
     ):
         decls = _declarations(template / rel)
-        # The SDK VI the body calls is absent from the project: no path.
-        assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] is None
+        # The SDK VI the body calls is absent from this machine: it shows the
+        # vi.lib path its caller recorded, the same on every machine.
+        assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] == (
+            f"<vilib>/Plug-In SDKs/Measurements/{rel}"
+        )
         assert f"Measurement Plugin Template.lvclass:{name}" not in decls
         assert name not in decls
 
@@ -83,7 +86,10 @@ def test_text_views_declare_the_library_call_not_the_caller() -> None:
         for ln in lvnet.splitlines()
         if ln.startswith("    subVI") and " : " not in ln
     ]
-    assert uses == ["subVI NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi"]
+    assert [" ".join(u.split()) for u in uses] == [
+        "subVI NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi ; "
+        "<vilib>/Plug-In SDKs/Measurements/Build Assets/Post-Build Action.vi"
+    ]
     described = describe_vi(graph, key)
     assert "NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi" in described
     assert "Measurement Plugin Template.lvclass:Post-Build Action.vi" not in described
@@ -113,9 +119,10 @@ def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
 
 
 @pytest.mark.needs_samples
-def test_absent_class_declared_without_a_machine_path() -> None:
-    """The absent SDK class is recorded by a machine path in a link record that
-    names no file; the record is still this VI's, named by its file."""
+def test_absent_class_declared_by_its_stored_machine_path() -> None:
+    """The absent SDK class is recorded by a machine path (a drive path) in a
+    link record that names no file; the entry is named by its file and writes the
+    path as the VI stores it."""
     template = (
         _SAMPLES
         / "measurement-plugin-labview/Source/Generator"
@@ -125,10 +132,13 @@ def test_absent_class_declared_without_a_machine_path() -> None:
         template / "Build Assets" / "Post-Build Action.vi")
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
-    assert f"    class {sdk_class}\n" in lvnet
+    stored = (
+        "C:/Program Files/National Instruments/LabVIEW 2024/vi.lib/Plug-In SDKs/"
+        "Measurements/Measurement Plugin Service/Measurement Plugin Service.lvclass"
+    )
+    assert f"    class {sdk_class} ; {stored}\n" in lvnet
     as_json = netlist_to_dict(build_netlist_from_graph(graph, key), verbose=True)
     assert sdk_class in {d["qualified"] for d in as_json["dependencies"]}
-    assert "Program Files" not in lvnet
 
 
 @pytest.mark.needs_samples
@@ -137,18 +147,16 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
     graph, key = load_corpus_vi(vi)
     netlist = build_netlist_from_graph(graph, key)
-    # Shown relative to the VI's project (Source/Runtime holds its .lvproj).
-    real = (
-        "./../gRPC/Generated APIs/ni/measurementlink/measurement/v1/"
-        "RPC Service/MeasurementService/Server API/Destroy.vi"
-    )
+    # The VI names the method through its class: the path it stores is the
+    # class's.
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
     ] == [
         (
             "ni.measurementlink.measurement.v1.api.lvlib:MeasurementServiceBaseV1"
             ".lvclass:Destroy.vi",
-            real,
+            "../../../gRPC/Generated APIs/ni/measurementlink/measurement/v1"
+            "/RPC Service/MeasurementService/MeasurementServiceBaseV1.lvclass",
         )
     ]
     (call,) = [

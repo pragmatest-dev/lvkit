@@ -340,6 +340,10 @@ def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
     }
     if dep.unreadable is not None:
         d["unreadable"] = dep.unreadable
+    if dep.missing:
+        d["missing"] = True
+    if dep.found is not None:
+        d["found"] = dep.found
     if dep.interface:
         d["interface"] = [_dependency_terminal_to_dict(t) for t in dep.interface]
     return d

@@ -10,12 +10,22 @@ supported symbolic path resolves to"
 
 The VI Search Path is an ordered list of folders and pseudo paths searched for a
 file that is not at its recorded path (LabVIEW.ini ``viSearchPath``; default
-``<topvi>\\*;<foundvi>\\;<vilib>\\*;<userlib>\\*;<instrlib>\\*``)."""
+``<topvi>\\*;<foundvi>\\;<vilib>\\*;<userlib>\\*;<instrlib>\\*``).
+
+Where a library file is (``library_location``) is decided here, once, for every
+view: module paths, docs pages, messages and lvnet ``uses`` paths."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import json
+import re
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .lv_detect import DetectedLabVIEW
 
 TOP_VI = "<topvi>"
 FOUND_VI = "<foundvi>"
@@ -55,3 +65,108 @@ def search_path_entries(entries: SearchEntries) -> tuple[str, ...]:
     if not entries:
         return DEFAULT_SEARCH_PATH
     return tuple(search_entry(e) for e in entries)
+
+
+def is_symbolic_root(token: str) -> bool:
+    """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
+    LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
+    calling file."""
+    return len(token) > 2 and token.startswith("<") and token.endswith(">")
+
+
+def path_tokens(path: str) -> list[str]:
+    """The folders and file name of a recorded or on-disk path, split at either
+    separator."""
+    return [t for t in re.split(r"[\\/]", path) if t]
+
+
+def library_location(
+    path: Path | str | None,
+    roots: Iterable[tuple[str, Path]],
+    recorded: str | None = None,
+) -> tuple[str, ...] | None:
+    """Where a library file is, the same for every view and every machine: the
+    path its caller recorded when that path starts at an installation folder,
+    any ``<…>`` token (``is_symbolic_root``: ``<vilib>/Utility/error.llb/X.vi``,
+    ``<extravilib>/...``, ``<resource>/...``), whether or not the file is here; else,
+    for a file ``path`` under one of the library folders ``roots`` (pseudo path,
+    folder; tried in order), that pseudo path and the parts below the folder
+    (``<userlib>/_OpenG.lib/...``); None for any other file, and for a ``path``
+    that is not absolute (no folder to compare). A library file inside a project
+    is still a library file."""
+    if recorded is not None:
+        tokens = path_tokens(recorded)
+        if tokens and is_symbolic_root(tokens[0]):
+            return tuple(tokens)
+    if path is None or not Path(path).is_absolute():
+        return None
+    resolved = Path(path).resolve()
+    for token, root in roots:
+        folder = root.resolve()
+        if resolved.is_relative_to(folder):
+            return (token, *resolved.relative_to(folder).parts)
+    return None
+
+
+def library_key(
+    folders: Mapping[str, Iterable[Path]], search_path: SearchEntries = None
+) -> str:
+    """The library folders and VI Search Path of a load as one canonical string
+    (each pseudo path with its resolved folders in the order they are tried,
+    then the search entries): equal strings resolve every recorded path the same
+    way, so facts built under one are the facts of the other."""
+    return json.dumps(
+        {
+            "folders": {
+                token: [str(Path(f).resolve()) for f in folder_list(list(roots))]
+                for token, roots in sorted(folders.items())
+            },
+            "search": list(search_path_entries(search_path)),
+        },
+        sort_keys=True,
+    )
+
+
+@dataclass(frozen=True)
+class RunFolders:
+    """The library folders a run uses and, when they came from an installed
+    LabVIEW, that installation (``detected``)."""
+
+    vilib: tuple[Path, ...]
+    userlib: tuple[Path, ...]
+    instrlib: tuple[Path, ...]
+    detected: DetectedLabVIEW | None = None
+
+
+def run_folders(
+    vilib: Folders,
+    userlib: Folders,
+    instrlib: Folders,
+    *,
+    auto_detect: bool,
+    detect: Callable[[], DetectedLabVIEW | None] | None = None,
+) -> RunFolders:
+    """The library folders of one run, the same for the command line and the MCP
+    tools: the folders given, and, when no ``vilib`` is given and ``auto_detect``
+    is set, the vi.lib of the installed LabVIEW (``detect``, default
+    ``lv_detect.detect_labview``) with its user.lib and instr.lib for each of
+    those not given. Detection never fails a run: none found is the folders
+    given."""
+    vilib_root = folder_list(vilib)
+    userlib_root = folder_list(userlib)
+    instrlib_root = folder_list(instrlib)
+    if vilib_root or not auto_detect:
+        return RunFolders(vilib_root, userlib_root, instrlib_root)
+    if detect is None:
+        from . import lv_detect
+
+        detect = lv_detect.detect_labview
+    detected = detect()
+    if detected is None:
+        return RunFolders(vilib_root, userlib_root, instrlib_root)
+    return RunFolders(
+        (detected.vilib_root,),
+        userlib_root or folder_list(detected.userlib_root),
+        instrlib_root or folder_list(detected.instrlib_root),
+        detected,
+    )

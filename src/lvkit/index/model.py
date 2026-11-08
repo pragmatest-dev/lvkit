@@ -189,6 +189,9 @@ class TypedefFacts:
     fields: list[TypedefFieldFact] = field(default_factory=list)
     refs: list[TypedefRefFact] = field(default_factory=list)
     types: list[TypeFact] = field(default_factory=list)  # own type + everything nested
+    # The library folders the control's facts were built with, when they depend on
+    # them (``VIFacts.libraries``), else None.
+    libraries: str | None = None
 
 
 @dataclass
@@ -497,6 +500,12 @@ class VIFacts:
     # edges): its empty ``typedef_paths``/``typedef_versions`` then mean "not
     # looked at", not "none". Not persisted.
     dependencies_walked: bool = True
+    # The library folders and VI Search Path (``library_folders.library_key``)
+    # this VI's facts were built with, when they depend on them -- a dependency
+    # is recorded as ``<userlib>/...``, is found on the VI search path or is not
+    # found (``index.folder_dependence``) -- else None: its facts are the same
+    # under any folders.
+    libraries: str | None = None
     # Whether ``impact_score`` / ``callers_count`` were computed across the whole
     # call graph (the merge does; a single-VI projection cannot). Only then do
     # they replace the stored scores. Not persisted.

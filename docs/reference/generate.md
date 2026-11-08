@@ -18,7 +18,7 @@ lvkit generate <input_path> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `input_path` | Path to a `.vi`, `.lvlib`, `.lvclass`, or a directory. A `.lvlib`/`.lvclass`/directory generates every VI it contains, in dependency order. |
+| `input_path` | Path to a `.vi`, `.lvlib`, `.lvclass`, or a directory. A `.lvlib`/`.lvclass`/directory generates every VI it contains, in dependency order. The path may be written as lvkit prints it (`<userlib>/…`, `<vilib>/…`, `<instrlib>/…`, or a VI inside an `.llb` through its archive): it is found in the folders given by `--vilib`, `--userlib` and `--instrlib`. |
 
 ## Options
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...cache_paths import project_root
+from ...project_folders import project_root
 from ...run_report import ProblemStage, RunProblems, RunSettings
 from .resolvers import project_store_for
 

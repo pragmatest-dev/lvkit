@@ -3,6 +3,9 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **index, query, callers, callees and blast-radius take --vilib/--userlib/--instrlib** — a dependency in a library folder resolves in the index as in describe, a library file prints as `<userlib>/…`, and other folders rebuild only the VIs that call into a library folder, are found on the VI Search Path, or have a dependency not found (the MCP `index` and `query` tools take `vilib`/`userlib`/`instrlib`). **MCP tools find an installed LabVIEW like the command line** — `no_auto_vilib` turns it off.
+- **Commands and MCP tools take a path as lvkit prints it** — `<userlib>/…`, `<vilib>/…`, `<instrlib>/…` and a VI inside an `.llb` are found in the folders given by `--vilib`, `--userlib` and `--instrlib` (the tool's `vilib`/`userlib`/`instrlib` in MCP); a path found nowhere is a usage error (exit 2) naming each place tried.
+- **A vi.lib / user.lib file is placed and shown by its library path wherever it sits** — a user.lib inside a git repository or a project generates `userlib.*` modules, gets `user.lib` docs pages and shows `<userlib>/…` in lvnet `uses :` paths and messages; a file outside the project goes under `external.<its own repository or project folder>` with no folders above it, and the home folder is never taken as a project.
 - **Fix: editing a project's `.lvkit/` catalog refreshes the cached render, diff and index results of the VIs that use the edited entry, and only those.**
 - **Fix: MCP calls for two projects at once each use their own project's catalog additions**, and a call no longer reloads the catalog.
 - **Fix: a `.vi`, `.vim` and `.vit` of one name are three modules** — a `.vim` module ends in `_vim` and a `.vit` module in `_vit` (`lv_icon.vit` is `lv_icon_vit`), so they no longer stop the run as one module; a path computed when the code runs imports the same name.

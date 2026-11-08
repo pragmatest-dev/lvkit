@@ -45,7 +45,7 @@ import time
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
-from lvkit import staging
+from lvkit import project_store, staging
 
 # ── Cache root ──────────────────────────────────────────────────────────────
 
@@ -60,9 +60,7 @@ def global_cache_root() -> Path:
     env = os.environ.get("LVKIT_CACHE_DIR")
     if env:
         return Path(env)
-    from lvkit.project_store import global_home
-
-    return global_home() / "cache"
+    return project_store.global_home() / "cache"
 
 
 # ── Run-scoped extraction roots ─────────────────────────────────────────────
@@ -245,13 +243,11 @@ def _project_root_for(vi_path: Path) -> Path | None:
     passes through it to the enclosing project, so the cache/scope covers the
     whole project rather than one class.
     """
-    from lvkit.project_store import global_home
-
     start = vi_path if vi_path.is_dir() else vi_path.parent
     ancestors = (start, *start.parents)
     # The user's GLOBAL store (~/.lvkit) is not a project marker — skip it, or
     # every VI under $HOME collapses into one hash($HOME) bucket.
-    home = global_home().resolve()
+    home = project_store.global_home().resolve()
     # An EXISTING .lvkit/ store wins even when a NEARER ancestor is its own git
     # repo: vendored corpora (each carrying a .git) share the outer project's
     # cache instead of sprouting a .lvkit/ inside every clone.
@@ -280,29 +276,6 @@ def store_root(path: Path | str) -> Path:
     return _project_root_for(resolved) or (
         resolved if resolved.is_dir() else resolved.parent
     )
-
-
-def project_root(path: Path | str) -> Path:
-    """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
-    it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project store;
-    the folder itself when there is none. The base of every project-relative name
-    a user sees: a generated module's path, a documentation page, a warning's VI.
-    (``store_root`` answers a different question: where lvkit keeps what it
-    caches.)"""
-    from lvkit.project_store import PROJECT_STORE_DIR, global_home
-
-    resolved = Path(path).resolve()
-    own = resolved if resolved.is_dir() else resolved.parent
-    home = global_home().resolve()
-    for folder in [own, *own.parents]:
-        store = folder / PROJECT_STORE_DIR
-        if (
-            any(folder.glob("*.lvproj"))
-            or (folder / ".git").exists()
-            or (store.is_dir() and store.resolve() != home)
-        ):
-            return folder
-    return own
 
 
 def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:

@@ -25,6 +25,7 @@ from typing import Any
 
 import lvkit.mcp.server as _facade
 
+from ...build_options import BuildOptions
 from ...index import sql as isql
 from ...index.build import sync_index
 from ...index.model import VIFacts
@@ -35,15 +36,17 @@ from ._compat import Context
 from .app import mcp
 from .problems import new_run, with_problems
 from .roots import _client_roots
+from .vi_tools import _build
 
-# Per-project-root facts cache: {resolved project_root str -> [VIFacts]}.
-# Different repos get different entries, so parallel agents on different projects
-# never collide, and there is no session-wide `clear` that wipes another caller's
-# state.
-_indexes: dict[str, list[VIFacts]] = {}
+# Per-project facts cache: {(resolved project_root str, library folders key) ->
+# [VIFacts]}. Different repos get different entries, so parallel agents on
+# different projects never collide, and there is no session-wide `clear` that
+# wipes another caller's state; facts built with other library folders are other
+# facts, so they are other entries.
+_indexes: dict[tuple[str, str], list[VIFacts]] = {}
 # The problems of the sync that filled each entry of ``_indexes`` (a VI the index
 # is missing because it could not be read), shown again by a call that hits it.
-_index_problems: dict[str, tuple[Problem, ...]] = {}
+_index_problems: dict[tuple[str, str], tuple[Problem, ...]] = {}
 
 
 def _require_vis(root: Path, vi_paths: list[Path]) -> None:
@@ -60,8 +63,19 @@ def _require_vis(root: Path, vi_paths: list[Path]) -> None:
         )
 
 
-def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFacts]]:
-    """Resolve ``project`` to its root and return ``(root, facts)``.
+def _cache_key(root: Path, build: BuildOptions | None) -> tuple[str, str]:
+    """The entry of ``_indexes`` for ``root`` built with ``build``'s folders."""
+    return str(root), (build or BuildOptions()).library_key()
+
+
+def _get_index(
+    project: str,
+    *,
+    rebuild: bool = False,
+    build: BuildOptions | None = None,
+) -> tuple[Path, list[VIFacts]]:
+    """Resolve ``project`` to its root and return ``(root, facts)``, with
+    dependency paths resolved against the library folders of ``build``.
 
     A cache miss for this root (first call, an explicit ``rebuild``, or the DB
     file gone) runs ``sync_index`` — a cold store gets one whole-repo build, a
@@ -78,14 +92,14 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
     """
     root, vi_paths, ctl_paths = resolve_project_files(Path(project))
     _require_vis(root, vi_paths)
-    key = str(root)
+    key = _cache_key(root, build)
     if rebuild or key not in _indexes or not store_db_path(root).exists():
         # A cold store gets one whole-repo build; a warm/partial one (populated
         # progressively by single-VI loads) is gap-filled and its impact
         # recomputed across the merged set.
         run = new_run(root)
         _indexes[key] = sync_index(
-            root, vi_paths, ctl_paths, rebuild=rebuild, run=run
+            root, vi_paths, ctl_paths, rebuild=rebuild, run=run, build=build
         ).facts
         _index_problems[key] = run.report().problems
     return root, _indexes[key]
@@ -111,6 +125,11 @@ async def list_projects(ctx: Context | None = None) -> dict[str, Any]:
 async def index(
     project: str | None = None,
     refresh: bool = False,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Build or refresh the code-understanding index for a whole VI repo.
@@ -131,7 +150,14 @@ async def index(
     rebuilt/deleted counts (refresh), the number of ``.ctl`` controls indexed
     (``controls``), plus the resolved project root, ``status`` (Complete / Partial /
     Stopped) and ``problems`` (every VI that could not be read; the rest is
-    indexed).
+    indexed). ``vilib``/``userlib``/``instrlib`` are the folders a recorded
+    ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from (each
+    dependency is found only at the path its caller records); a call with other
+    folders rebuilds only the VIs that call into a library folder, are found on
+    the VI search path, or have a dependency that is not found.
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
     project = await _facade._resolve_project(project, ctx)
 
@@ -140,9 +166,13 @@ async def index(
         root, vi_paths, ctl_paths = resolve_project_files(Path(project))
         _require_vis(root, vi_paths)
         run = new_run(root)
-        done = sync_index(root, vi_paths, ctl_paths, rebuild=not refresh, run=run)
-        _indexes[str(root)] = done.facts
-        _index_problems[str(root)] = run.report().problems
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
+        done = sync_index(
+            root, vi_paths, ctl_paths, rebuild=not refresh, run=run, build=build
+        )
+        key = _cache_key(root, build)
+        _indexes[key] = done.facts
+        _index_problems[key] = run.report().problems
         ms = round((time.monotonic() - start) * 1000)
         if done.refresh is not None:
             return with_problems(
@@ -174,6 +204,11 @@ async def index(
 async def query(
     sql: str,
     project: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
+    no_auto_vilib: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Read a LabVIEW project's structure — classes & inheritance, terminals,
@@ -208,14 +243,23 @@ async def query(
     ``project`` defaults to the client's workspace root. The call graph is the
     ``node`` view: direct callers = ``WHERE callee_path=…``, transitive blast
     radius = a ``WITH RECURSIVE`` over ``callee_path`` (``vi.callers_count`` /
-    ``vi.impact_score`` are the precomputed counts).
+    ``vi.impact_score`` are the precomputed counts). ``vilib``/``userlib``/
+    ``instrlib`` are the folders a recorded ``<vilib>``/``<userlib>``/
+    ``<instrlib>`` dependency path starts from (each dependency is found only at
+    the path its caller records); a call with other folders rebuilds only the VIs
+    that call into a library folder, are found on the VI search path, or have a
+    dependency that is not found.
+    ``no_auto_vilib`` turns off finding a locally installed LabVIEW's
+    vi.lib/user.lib/instr.lib when ``vilib`` is not given (for
+    reproducible, machine-independent runs).
     """
     project = await _facade._resolve_project(project, ctx)
 
     def _work() -> dict[str, Any]:
-        root, _ = _get_index(project)
+        build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
+        root, _ = _get_index(project, build=build)
         run = new_run(root)
-        run.take(_index_problems.get(str(root), ()), announce=False)
+        run.take(_index_problems.get(_cache_key(root, build), ()), announce=False)
         return with_problems(asdict(isql.run_query(root, sql)), run)
 
     return await asyncio.to_thread(_work)

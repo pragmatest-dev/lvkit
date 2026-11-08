@@ -8,13 +8,14 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.build_options import BuildOptions
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
 from lvkit.index import sql as isql
 from lvkit.index import typedefs as typedefs_mod
 from lvkit.index.build import project_vi_facts, sync_index, warm_all_loaded
 from lvkit.index.project import resolve_project_files
-from lvkit.index.store import load_typedef_shas
+from lvkit.index.store import load_typedef_libraries, load_typedef_shas
 from lvkit.index.typedefs import build_typedef_facts, sync_typedefs, warm_typedefs
 from lvkit.models import LVTypeKind
 from lvkit.run_report import ProblemKind, RunProblems
@@ -194,7 +195,7 @@ def test_warming_skips_controls_already_indexed(
     monkeypatch.setattr(
         typedefs_mod,
         "build_typedef_facts",
-        lambda p, sha=None, run=None: built.append(p) or real(p, sha),
+        lambda p, sha=None, run=None, build=None: built.append(p) or real(p, sha),
     )
     warm_typedefs(project, _ctls(project))
     assert built == []
@@ -326,3 +327,22 @@ def test_warming_never_writes_a_control_outside_the_project(tmp_path: Path) -> N
     graph, _ = load_vi_by_path(root / _USER_VI.name, LoadMode.MINIMAL)
     warm_all_loaded(graph)
     assert _q(root, "SELECT count(*) FROM typedef") == [[0]]
+
+
+def test_other_library_folders_rebuild_only_the_controls_they_can_affect(
+    project: Path, tmp_path: Path
+) -> None:
+    """Settings.ctl uses Alignment.ctl, which is not in the project (not found);
+    Mode.ctl uses nothing."""
+    a = BuildOptions(userlib_root=(tmp_path / "ulib_a",))
+    b = BuildOptions(userlib_root=(tmp_path / "ulib_b",))
+    settings = str((project / "Settings.ctl").resolve())
+    first = sync_typedefs(project, _ctls(project), build=a)
+    assert len(first.rebuilt) == 2
+    assert load_typedef_libraries(project) == {
+        settings: a.library_key(),
+        str((project / "Mode.ctl").resolve()): None,
+    }
+    assert sync_typedefs(project, _ctls(project), build=a).rebuilt == []
+    assert sync_typedefs(project, _ctls(project), build=b).rebuilt == [settings]
+    assert load_typedef_libraries(project)[settings] == b.library_key()

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..build_options import BuildOptions
 from ..catalogs import primitive_catalog_for, vilib_catalog_for
 from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
@@ -315,6 +316,16 @@ class InMemoryVIGraph(
             vilib_root=self._vilib_roots,
             userlib_root=self._userlib_roots,
             instrlib_root=self._instrlib_roots,
+        )
+
+    def library_build(self) -> BuildOptions:
+        """This graph's library folders and VI Search Path as build options: what
+        another graph is given to resolve every recorded path as this one does."""
+        return BuildOptions(
+            vilib_root=self._vilib_roots,
+            userlib_root=self._userlib_roots,
+            instrlib_root=self._instrlib_roots,
+            search_path=self._search_path.entries,
         )
 
     @property

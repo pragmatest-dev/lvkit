@@ -171,7 +171,7 @@ def test_library_is_listed_without_its_file(tmp_path: Path) -> None:
     graph, vi = _load(lone)
     assert "SV Sample.lvlib (Shared Variable library)" in describe_vi(graph, vi)
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib\n" in text
+    assert "    library SV Sample.lvlib (missing)\n" in text
 
 
 def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
@@ -180,7 +180,7 @@ def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
     beside it: nothing is looked up by name."""
     graph, vi = _load()
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib\n" in text
+    assert "    library SV Sample.lvlib (missing)\n" in text
     assert "shared-variable Value_1033 : SV Sample.lvlib::Value : write" in text
     assert "shared-variable Value_1112 : SV Sample.lvlib::Value : read" in text
     assert "shared-variable Value_977 : SV Sample.lvlib::Value : read" in text
