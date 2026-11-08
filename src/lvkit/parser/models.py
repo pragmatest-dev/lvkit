@@ -435,15 +435,6 @@ class ParsedResolvedTypeDefValue:
     unix_path: str | None = None
 
 
-@dataclass
-class ParsedDefaultValue:
-    """A default value from the DFDS section."""
-
-    type_id: int
-    values: list[Any]  # Parsed values (bool, int, float, str, etc.)
-    structure: str  # "Cluster", "Array", "scalar", etc.
-
-
 ABSOLUTE_PATH_TYPE = 0
 
 
