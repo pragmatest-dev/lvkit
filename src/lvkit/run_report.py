@@ -289,6 +289,9 @@ class RunSettings:
     # The LabVIEW library folders (``<vilib>``, ``<userlib>``, ``<instrlib>`` -> its
     # folders on disk, in order); a graph sets them with its library roots.
     library_roots: dict[str, tuple[Path, ...]] = field(default_factory=dict)
+    # The project's ``.lvkit/`` folder whose catalog additions the run reads
+    # (``None``: the shipped catalogs alone).
+    project_store: Path | None = None
     _roots: dict[Path, Path] = field(default_factory=dict, repr=False)
 
     def label(self, path: Path | str, recorded: str | None = None) -> str:

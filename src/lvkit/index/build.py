@@ -26,6 +26,8 @@ import networkx as nx
 
 from .. import cache_paths
 from ..build_options import BuildOptions
+from ..catalog_keys import catalog_keys
+from ..catalog_stamp import catalog_stamp, catalog_stamp_fresh
 from ..graph import InMemoryVIGraph, LoadMode
 from ..graph.models import (
     AnyGraphNode,
@@ -530,6 +532,8 @@ def _sync_index(
         # this call's own sync touched: a control's row can have moved on since
         # (a progressive warm already wrote it, or an earlier interrupted sync).
         current_type_ids = load_typedef_type_ids(project_root)
+        # ...and the VIs built with a catalog entry the project has edited since.
+        store = run.settings.project_store
         force = frozenset(
             f.path
             for f in stored
@@ -538,6 +542,7 @@ def _sync_index(
                 for v in f.typedef_versions
             )
             or (f.libraries is not None and f.libraries != library_key)
+            or not catalog_stamp_fresh(store, f.catalog_stamp)
         )
         rr, facts = refresh_index(project_root, vi_paths, stored, force, run, build)
         store_delete(project_root, [*rr.deleted, *rr.unreadable])
@@ -805,6 +810,9 @@ def project_vi_facts(
         library=library,
         is_stub=graph.is_stub(vi_name),
         content_sha=cache_paths.sha256_file(vi_path),
+        catalog_stamp=catalog_stamp(
+            graph.run_settings.project_store, catalog_keys(graph, vi_name)
+        ),
         terminals=terminals,
         constants=constants,
         nodes=nodes,

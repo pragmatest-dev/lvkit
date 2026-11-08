@@ -3128,23 +3128,24 @@ def test_subvi_nodes_get_hover_tooltip_titles():
 def test_node_tooltip_includes_doc_url_for_resolved_primitive():
     """A primitive that resolves to an NI docs page surfaces that URL as the
     last line of its hover <title> (task #67). Add (1050) has a doc_url."""
-    from lvkit.render.draw import _node_doc_url, _node_tooltip
+    from lvkit.render.draw import _node_tooltip
+    from lvkit.render.nodes import node_doc_url
 
     add = PrimitiveNode(id="a", vi_path="V", name="Add", prim_id=1050, terminals=[])
-    url = _node_doc_url(add)
+    url = node_doc_url(InMemoryVIGraph(), add)
     assert url is not None and url.endswith("/functions/add.html")
-    tip = _node_tooltip(add)
+    tip = _node_tooltip(add, url)
     assert tip is not None and url in tip.splitlines()
 
 
 def test_node_tooltip_has_no_doc_url_when_unresolved():
     """An unknown primitive (no catalog page) adds no URL line."""
-    from lvkit.render.draw import _node_doc_url
+    from lvkit.render.nodes import node_doc_url
 
     unknown = PrimitiveNode(
         id="u", vi_path="V", name="mystery", prim_id=999999, terminals=[]
     )
-    assert _node_doc_url(unknown) is None
+    assert node_doc_url(InMemoryVIGraph(), unknown) is None
 
 
 def test_case_vi_svg_is_well_formed_xml_standalone():
@@ -5417,7 +5418,7 @@ def test_mux_doc_url_resolves_by_field_direction():
     """A direction-polymorphic cluster-mux node links by its RESOLVED display
     name, not its ambiguous raw name: fields-out -> Unbundle By Name,
     fields-in -> Bundle By Name (task #67)."""
-    from lvkit.render.draw import _node_doc_url
+    from lvkit.render.nodes import node_doc_url
 
     unbundle = _prim(
         "nMux",
@@ -5425,14 +5426,16 @@ def test_mux_doc_url_resolves_by_field_direction():
         dirs=("input", "output", "output"),
         roles=("agg", "list", "list"),
     )
-    assert _node_doc_url(unbundle).endswith("/functions/unbundle-by-name.html")
+    url = node_doc_url(InMemoryVIGraph(), unbundle)
+    assert url.endswith("/functions/unbundle-by-name.html")
     bundle = _prim(
         "nMux",
         "Bundle/Unbundle By Name",
         dirs=("output", "input", "input"),
         roles=("agg", "list", "list"),
     )
-    assert _node_doc_url(bundle).endswith("/functions/bundle-by-name.html")
+    url = node_doc_url(InMemoryVIGraph(), bundle)
+    assert url.endswith("/functions/bundle-by-name.html")
 
 
 def test_node_type_flavor_carries_doc_url():

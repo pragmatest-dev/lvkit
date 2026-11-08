@@ -15,6 +15,7 @@ from pathlib import Path
 from lvkit.models import TerminalDirection
 
 from .._data import data_dir as _bundled_data_dir
+from ..catalog_stamp import primitive_name_key
 from .models import (
     PrimitiveTerminal,
     ResolvedPrimitive,
@@ -121,13 +122,8 @@ class PrimitiveResolver:
         self._by_node_type.clear()
 
     def _normalize_name(self, name: str) -> str:
-        """Normalize primitive name for lookup."""
-        # Remove common suffixes, lowercase, replace spaces/underscores
-        n = name.lower().strip()
-        for suffix in (" function", " vi", " primitive"):
-            if n.endswith(suffix):
-                n = n[: -len(suffix)]
-        return n.replace(" ", "_").replace("-", "_")
+        """The form a primitive's name is looked up by (``primitive_name_key``)."""
+        return primitive_name_key(name)
 
     def _load_codegen(self, path: Path) -> None:
         """Load primitives from codegen file (with known IDs).

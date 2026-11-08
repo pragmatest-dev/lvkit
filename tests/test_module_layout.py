@@ -82,6 +82,36 @@ def test_files_that_are_not_vis_keep_their_extension_in_the_module_name(
     assert layout.places[ctl].module == "datactl"
 
 
+@pytest.mark.parametrize(
+    ("file", "module"),
+    [
+        ("lv_icon.vi", "lv_icon"),
+        ("lv_icon.VI", "lv_icon"),
+        ("lv_icon.vim", "lv_icon_vim"),
+        ("Lv Icon.VIM", "lv_icon_vim"),
+        ("lv_icon.vit", "lv_icon_vit"),
+    ],
+)
+def test_a_vi_file_kind_gives_its_module_a_suffix(
+    tree: _Tree, file: str, module: str
+) -> None:
+    key = tree.key("plugins", file)
+    layout = _layout(key, root=tree.proj)
+    assert layout.places[key] == ModulePlace(("plugins",), module)
+
+
+def test_a_vi_and_a_template_of_one_name_are_two_modules(tree: _Tree) -> None:
+    vi, template, malleable = (
+        tree.key("plugins", f"lv_icon.{kind}") for kind in ("vi", "vit", "vim")
+    )
+    layout = _layout(vi, template, malleable, root=tree.proj)
+    assert [layout.places[k].module for k in (vi, template, malleable)] == [
+        "lv_icon",
+        "lv_icon_vit",
+        "lv_icon_vim",
+    ]
+
+
 def test_a_folder_named_like_a_keyword_is_a_valid_package(tree: _Tree) -> None:
     key = tree.key("Class", "ants", "Import.vi")
     layout = _layout(key, root=tree.proj)

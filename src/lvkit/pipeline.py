@@ -63,7 +63,6 @@ from lvkit.run_report import (
 )
 from lvkit.type_names import derive_python_name
 from lvkit.vilib_resolver import VILibResolver
-from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
 # Increase recursion limit for deeply nested VIs
 sys.setrecursionlimit(10000)
@@ -756,7 +755,7 @@ def generate_python(
 
     warm_all_loaded(graph)
 
-    vilib_resolver = get_vilib_resolver()
+    vilib_resolver = graph.vilib_catalog
 
     def catalog_gives_python(key: str) -> bool:
         return vilib_resolver.has_python(graph.recorded_path(key))

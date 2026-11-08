@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..build_options import BuildOptions
+from ..catalogs import primitive_catalog_for, vilib_catalog_for
 from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
@@ -31,7 +32,8 @@ from .search_path import SearchPath
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
     from ..parser.layout import Layout
-from ..vilib_resolver import get_resolver as get_vilib_resolver
+    from ..primitive_resolver import PrimitiveResolver
+    from ..vilib_resolver import VILibResolver
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -255,6 +257,10 @@ class InMemoryVIGraph(
         self._userlib_roots: tuple[Path, ...] = ()
         self._instrlib_roots: tuple[Path, ...] = ()
         self._search_path = SearchPath(search_path_entries(None), {})
+        # The catalogs this graph reads, fixed at the first lookup: one run sees
+        # one catalog, and the next run sees an edited ``.lvkit/`` folder.
+        self._vilib_catalog: VILibResolver | None = None
+        self._primitive_catalog: PrimitiveResolver | None = None
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
         # same parse (see parse_vi layout=), never a second heap read.
@@ -321,6 +327,24 @@ class InMemoryVIGraph(
             instrlib_root=self._instrlib_roots,
             search_path=self._search_path.entries,
         )
+
+    @property
+    def vilib_catalog(self) -> VILibResolver:
+        """The vi.lib catalog of this run's project (shipped data plus the
+        project's ``.lvkit/`` additions), as it was at this graph's first lookup."""
+        if self._vilib_catalog is None:
+            self._vilib_catalog = vilib_catalog_for(self.run_settings.project_store)
+        return self._vilib_catalog
+
+    @property
+    def primitive_catalog(self) -> PrimitiveResolver:
+        """The primitive catalog of this run's project, as it was at this graph's
+        first lookup."""
+        if self._primitive_catalog is None:
+            self._primitive_catalog = primitive_catalog_for(
+                self.run_settings.project_store
+            )
+        return self._primitive_catalog
 
     def set_catalog_stop(self, stop: bool) -> None:
         """Make the next loads stop at a VI the vi.lib catalog gives Python for:
@@ -397,8 +421,7 @@ class InMemoryVIGraph(
         # Enrich enum values from vilib resolver (values are leaf data,
         # not structural — safe to carry on the terminal).
         if parsed_type.typedef_name:
-            resolver = get_vilib_resolver()
-            resolved = resolver.resolve_type(parsed_type.typedef_name)
+            resolved = self.vilib_catalog.resolve_type(parsed_type.typedef_name)
             if resolved:
                 if resolved.values:
                     lv_type.values = resolved.values

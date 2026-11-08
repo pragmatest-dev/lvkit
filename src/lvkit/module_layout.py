@@ -35,7 +35,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.recorded_paths import walk_relative
 from lvkit.library_folders import path_tokens
 from lvkit.project_folders import outside_place, project_relative
-from lvkit.vi_files import class_stem, strip_vi_extension
+from lvkit.vi_files import class_stem, vi_module_stem
 
 
 class ModuleCollisionError(Exception):
@@ -191,7 +191,7 @@ class ModuleLayout:
         if node_type is NodeType.CLASS:
             stem = class_stem(name)
         elif node_type in (None, NodeType.VI):
-            stem = strip_vi_extension(name)
+            stem = vi_module_stem(name)
         else:
             stem = name
         return ModulePlace(_packages(folders), module_part(stem))
@@ -199,7 +199,7 @@ class ModuleLayout:
     def place_beside(self, key: str, sibling_keys: list[str]) -> ModulePlace:
         """``key`` (a polymorphic wrapper with no file) in the package of the first
         of its variants ``sibling_keys`` that can be placed."""
-        stem = strip_vi_extension(self._graph.vi_display_name(key).split(":")[-1])
+        stem = vi_module_stem(self._graph.vi_display_name(key).split(":")[-1])
         error: UnplacedVIError | None = None
         for sibling in sibling_keys:
             try:

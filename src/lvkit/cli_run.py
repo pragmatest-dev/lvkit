@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .project_folders import project_root
+from .project_store import find_project_store
 from .run_report import (
     EXIT_STOPPED,
     Outcome,
@@ -33,6 +34,22 @@ def add_fail_fast_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def project_store_for_args(args: argparse.Namespace) -> Path | None:
+    """The project store directory for this run: ``--project-root`` in either
+    form (the parent of ``.lvkit/``, or ``.lvkit/`` itself), else the nearest
+    ``.lvkit/`` above the working directory; ``None`` when there is none."""
+    project_root_arg = getattr(args, "project_root", None)
+    if project_root_arg:
+        candidate = Path(project_root_arg)
+        # Accept both "project root" and ".lvkit/" itself
+        if candidate.name == ".lvkit" and candidate.is_dir():
+            return candidate
+        if (candidate / ".lvkit").is_dir():
+            return candidate / ".lvkit"
+        return None
+    return find_project_store()
+
+
 def command_run(
     args: argparse.Namespace,
     input_path: Path | None = None,
@@ -48,6 +65,7 @@ def command_run(
             echo=True,
             fail_fast=getattr(args, "fail_fast", False),
             root=root,
+            project_store=project_store_for_args(args),
         )
     )
     args.run = run  # for `run_command`, which reports it if a fail-fast stop ends it

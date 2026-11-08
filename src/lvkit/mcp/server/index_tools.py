@@ -35,7 +35,6 @@ from ...run_report import Problem
 from ._compat import Context
 from .app import mcp
 from .problems import new_run, with_problems
-from .resolvers import _configure_resolvers_for_vi
 from .roots import _client_roots
 from .vi_tools import _build
 
@@ -95,7 +94,6 @@ def _get_index(
     _require_vis(root, vi_paths)
     key = _cache_key(root, build)
     if rebuild or key not in _indexes or not store_db_path(root).exists():
-        _configure_resolvers_for_vi(root)
         # A cold store gets one whole-repo build; a warm/partial one (populated
         # progressively by single-VI loads) is gap-filled and its impact
         # recomputed across the merged set.
@@ -167,7 +165,6 @@ async def index(
         start = time.monotonic()
         root, vi_paths, ctl_paths = resolve_project_files(Path(project))
         _require_vis(root, vi_paths)
-        _configure_resolvers_for_vi(root)
         run = new_run(root)
         build = _build(vilib, userlib, instrlib, search_path, None, no_auto_vilib)
         done = sync_index(
