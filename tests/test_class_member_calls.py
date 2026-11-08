@@ -66,7 +66,9 @@ def _dispatch(cls: str, method: str, folder: str) -> _Call:
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     # A method the class keeps in a subfolder (not beside the class file).
     _write_class(built, "Sub", "Sub", {"Run.vi": "../impl/Run.vi"})

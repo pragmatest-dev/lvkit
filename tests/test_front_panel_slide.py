@@ -14,6 +14,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.vi import _std_num_bound, parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -166,7 +167,7 @@ def test_a_vertical_slides_thumb_is_anchored_to_its_bottom_not_its_top() -> None
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _GTR_MAIN_UI_VI.exists(), reason="sample absent")
 def test_a_real_corpus_slide_control_renders_not_unknown() -> None:
-    parsed = parse_vi(_GTR_MAIN_UI_VI)
+    parsed = parse_vi(_GTR_MAIN_UI_VI, roots=LibraryRoots())
     slide = next(c for c in parsed.front_panel.controls if c.control_type == "stdSlide")
     assert slide.slide_min == 0.0 and slide.slide_max == 100.0
     glyph = resolve_glyph(slide, DEFAULT_THEME)
@@ -185,7 +186,7 @@ def test_a_real_corpus_slide_control_does_not_paint_over_its_own_label() -> None
     bottom -- before value_extent() excluded hidden parts, this pulled the
     drawn glyph's own box up to overlap the label's rect, painting over the
     control's name."""
-    parsed = parse_vi(_MASTER_ACQUISITION_VI)
+    parsed = parse_vi(_MASTER_ACQUISITION_VI, roots=LibraryRoots())
     slide = next(
         c for c in parsed.front_panel.controls if c.name == "Time Elapsed (Min)"
     )

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -25,7 +26,7 @@ TEST_VI = Path(
 @pytest.fixture(scope="module")
 def extracted_xml():
     """Extract VI XML once for all tests."""
-    return extract_vi_xml(TEST_VI)
+    return extract_vi_xml(TEST_VI, roots=LibraryRoots())
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +34,7 @@ def parsed_vi(extracted_xml) -> ParsedVI:
     """Parse VI once for all tests."""
     # Pass vi_path so parse_vi can record the original source location
     # (bd_xml may now be in a temp cache dir rather than next to the VI).
-    return parse_vi(vi_path=TEST_VI)
+    return parse_vi(vi_path=TEST_VI, roots=LibraryRoots())
 
 
 @pytest.fixture(scope="module")
@@ -177,7 +178,7 @@ class TestWhileLoopNestedShiftRegister:
         vi = Path(self.LIST_VI)
         if not vi.exists():
             pytest.skip("List VI Hierarchy sample not present")
-        bd, _fp, _main = resolve_extracted(vi)
+        bd, _fp, _main = resolve_extracted(vi, roots=LibraryRoots())
         root = ET.parse(bd).getroot()
         inner = root.find("root")
         if inner is not None:
@@ -219,7 +220,7 @@ class TestResilientVCTPExport:
         ms = list(Path(".lvkit/cache/samples").rglob("GrabWebCam_PCO_IOS.vi"))
         if not ms:
             pytest.skip("GrabWebCam_PCO_IOS sample not present")
-        _bd, _fp, main = extract_vi_xml(ms[0], force=True)
+        _bd, _fp, main = extract_vi_xml(ms[0], force=True, roots=LibraryRoots())
         assert main is not None
         return Path(main)
 

@@ -29,6 +29,7 @@ import networkx as nx
 
 from lvkit.library_folders import Folders, SearchEntries
 
+from ..cache_paths import LibraryRoots
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
@@ -129,7 +130,7 @@ def _with_extraction_pool(method: _F) -> _F:
     def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         if self._extract_pool is not None:
             return method(self, *args, **kwargs)
-        with ExtractionPool() as pool:
+        with ExtractionPool(self.cache_roots) as pool:
             self._extract_pool = pool
             try:
                 return method(self, *args, **kwargs)
@@ -145,7 +146,9 @@ def _with_extraction_pool(method: _F) -> _F:
 # LoadMode`` call sites.
 
 
-def _has_qualified_name(path: Path, qualified_name: str) -> bool:
+def _has_qualified_name(
+    path: Path, qualified_name: str, roots: LibraryRoots
+) -> bool:
     """Whether the VI at ``path`` is the one a caller records as
     ``qualified_name``: the libraries and classes it records it is in, then its
     file name (case-insensitive, as LabVIEW names compare). A class, library or
@@ -153,7 +156,7 @@ def _has_qualified_name(path: Path, qualified_name: str) -> bool:
     if not is_vi_file(path):
         return True
     try:
-        _, _, main_xml = extract_vi_xml(path)
+        _, _, main_xml = extract_vi_xml(path, roots=roots)
     except (UnreadableVIError, CacheWriteError):
         return False
     if main_xml is None:
@@ -425,6 +428,7 @@ class LoadingMixin:
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
     _instrlib_roots: tuple[Path, ...]
+    cache_roots: LibraryRoots
     _search_path: SearchPath
     _layouts: dict[str, Layout]
     _want_layout: bool
@@ -977,7 +981,7 @@ class LoadingMixin:
         that same mode)."""
         lvclass_path = Path(lvclass_path)
         fields_only = mode is LoadMode.MINIMAL
-        cls = parse_lvclass(lvclass_path)
+        cls = parse_lvclass(lvclass_path, self.cache_roots)
 
         cls_name = cls.name + ".lvclass"
         cls_qname = (
@@ -1307,7 +1311,9 @@ class LoadingMixin:
         # loads (rendering) skip this: parallel_parse_directory always parses
         # layout=False.
         if len(vi_paths) >= PARALLEL_THRESHOLD and not self._want_layout:
-            self._parse_cache = parallel_parse_directory(vi_paths, self._extract_pool)
+            self._parse_cache = parallel_parse_directory(
+                vi_paths, self.cache_roots, self._extract_pool
+            )
 
         try:
             for vi_path in vi_paths:
@@ -1454,7 +1460,7 @@ class LoadingMixin:
         source = vi_bytes_file(path)
         if self._extract_pool is not None:
             self._extract_pool.wait(source)
-        return extract_vi_xml(source)
+        return extract_vi_xml(source, roots=self.cache_roots)
 
     def _own_owner_chain(
         self, metadata: ParsedVIMetadata, caller_file: Path
@@ -1757,7 +1763,7 @@ class LoadingMixin:
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
             instance_sources = read_instance_sources(
-                main_xml.parent, metadata.instance_files
+                main_xml.parent, metadata.instance_files, self.cache_roots
             )
 
             # Sorted: dependency load ORDER decides which same-named candidate
@@ -2146,7 +2152,8 @@ class LoadingMixin:
             # file sits beside it.
             tail = [*tail[:-1], leaf]
         found = self._search_path.find(
-            tail, lambda path: _has_qualified_name(path, qualified_name)
+            tail,
+            lambda path: _has_qualified_name(path, qualified_name, self.cache_roots),
         )
         if found is None:
             return None

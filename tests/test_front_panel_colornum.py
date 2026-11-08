@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.vi import _decode_default_data, parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -110,7 +111,7 @@ def test_a_real_corpus_color_control_decodes_its_saved_value() -> None:
     """``Magic Transparent Color Constant.vi`` -- the real, named source of
     the ``0x00FFFFFE`` value used above -- decodes and renders end to end,
     never ``UnknownControlGlyph``."""
-    parsed = parse_vi(_MAGIC_TRANSPARENT_VI)
+    parsed = parse_vi(_MAGIC_TRANSPARENT_VI, roots=LibraryRoots())
     (ctrl,) = parsed.front_panel.controls
     assert ctrl.control_type == "stdColorNum" and ctrl.default_value == "16777214"
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)
@@ -124,7 +125,7 @@ def test_a_real_corpus_color_control_decodes_its_saved_value() -> None:
 @pytest.mark.skipif(not _IE_COLOR_CTL.exists(), reason="icon-editor sample absent")
 def test_a_real_corpus_ctl_color_control_decodes_its_saved_value() -> None:
     """A ``.ctl`` control front panel decodes the same way a VI's does."""
-    parsed = parse_vi(_IE_COLOR_CTL)
+    parsed = parse_vi(_IE_COLOR_CTL, roots=LibraryRoots())
     (ctrl,) = parsed.front_panel.controls
     assert ctrl.control_type == "stdColorNum" and ctrl.default_value == "4914962"
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)

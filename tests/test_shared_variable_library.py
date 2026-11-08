@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.package_modules import PackageModules
@@ -111,7 +112,7 @@ def _nodes(graph: InMemoryVIGraph, vi: str) -> dict[str, SharedVariableNode]:
 
 
 def test_parser_links_each_node_to_its_library_by_uid() -> None:
-    bd, fp, main_xml = extract_vi_xml(SV_SAMPLE)
+    bd, fp, main_xml = extract_vi_xml(SV_SAMPLE, roots=LibraryRoots())
     metadata = parse_vi(bd_xml=bd, fp_xml=fp, main_xml=main_xml).metadata
     assert sorted(metadata.shared_variable_links) == ["1033", "1112", "977"]
     link = metadata.shared_variable_links["977"]

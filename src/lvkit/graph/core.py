@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from ..build_options import BuildOptions
+from ..cache_paths import LibraryRoots
 from ..catalogs import primitive_catalog_for, vilib_catalog_for
 from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
@@ -256,6 +257,10 @@ class InMemoryVIGraph(
         self._vilib_roots: tuple[Path, ...] = ()
         self._userlib_roots: tuple[Path, ...] = ()
         self._instrlib_roots: tuple[Path, ...] = ()
+        # The same folders resolved, for filing each VI's cache slot (shared vs.
+        # per-project): every graph carries its own, so graphs sharing a
+        # process never see each other's.
+        self.cache_roots = LibraryRoots()
         self._search_path = SearchPath(search_path_entries(None), {})
         # The catalogs this graph reads, fixed at the first lookup: one run sees
         # one catalog, and the next run sees an edited ``.lvkit/`` folder.
@@ -308,11 +313,7 @@ class InMemoryVIGraph(
         }
         self._search_path = SearchPath(search_path_entries(search_path), pseudo)
         self.run_settings.library_roots = dict(pseudo)
-        # The run's library roots feed the cache classifier; set them on the
-        # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
-        from lvkit import cache_paths
-
-        cache_paths.set_extraction_roots(
+        self.cache_roots = LibraryRoots.of(
             vilib_root=self._vilib_roots,
             userlib_root=self._userlib_roots,
             instrlib_root=self._instrlib_roots,

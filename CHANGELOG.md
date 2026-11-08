@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: MCP calls for two projects at once each file their VIs' cache by their own library folders**.
 - **index, query, callers, callees and blast-radius take --vilib/--userlib/--instrlib** — a dependency in a library folder resolves in the index as in describe, a library file prints as `<userlib>/…`, and other folders rebuild only the VIs that call into a library folder, are found on the VI Search Path, or have a dependency not found (the MCP `index` and `query` tools take `vilib`/`userlib`/`instrlib`). **MCP tools find an installed LabVIEW like the command line** — `no_auto_vilib` turns it off.
 - **Commands and MCP tools take a path as lvkit prints it** — `<userlib>/…`, `<vilib>/…`, `<instrlib>/…` and a VI inside an `.llb` are found in the folders given by `--vilib`, `--userlib` and `--instrlib` (the tool's `vilib`/`userlib`/`instrlib` in MCP); a path found nowhere is a usage error (exit 2) naming each place tried.
 - **A vi.lib / user.lib file is placed and shown by its library path wherever it sits** — a user.lib inside a git repository or a project generates `userlib.*` modules, gets `user.lib` docs pages and shows `<userlib>/…` in lvnet `uses :` paths and messages; a file outside the project goes under `external.<its own repository or project folder>` with no folders above it, and the home folder is never taken as a project.

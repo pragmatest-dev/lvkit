@@ -162,12 +162,12 @@ python scripts/generate_python.py "path/to/vi_folder/" -o outputs --userlib ".lv
 A `.vi` is a binary — you cannot grep it directly. Finding a construct (a
 `primResID`, a node class, a structure) is **two steps**:
 
-1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path)`
+1. **Extract the XML** with pylabview. `lvkit.extractor.extract_vi_xml(vi_path, roots=LibraryRoots())`
    runs pylabview **in-process** and caches `*_BDHb.xml` (block diagram) +
    `*_FPHb.xml` (front panel) in a per-user cache **outside the repo**
    (`extractor.global_cache_root()` — `$LVKIT_CACHE_DIR`, else `~/.lvkit/cache/`),
    keyed by the resolved source root + content hash, so re-runs are no-ops. Use
-   `resolve_extracted(vi_path)` to find the cached XML; many corpus VIs are
+   `resolve_extracted(vi_path, roots=LibraryRoots())` to find the cached XML; many corpus VIs are
    already extracted.
 2. **Grep the XML.** e.g. `<primResID>1234</primResID>` for a primitive, or
    `class="whileLoop"` / `class="caseStruct"` / `class="flatSequence"` /

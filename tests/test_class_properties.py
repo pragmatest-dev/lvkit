@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.class_attributes import ClassAttributes
@@ -108,7 +109,7 @@ def test_property_folders_list_their_vis_and_nothing_else_is_a_property(
         ),
         encoding="utf-8",
     )
-    methods = {m.name: m for m in parse_lvclass(path).methods}
+    methods = {m.name: m for m in parse_lvclass(path, LibraryRoots()).methods}
     assert {n: (m.property_name, m.scope) for n, m in methods.items()} == {
         "Read Count": ("Item Count", "public"),
         "Write Count": ("Item Count", "public"),
@@ -308,7 +309,7 @@ def build_class(
     ownership edges)."""
     path = tmp_path / "C.lvclass"
     path.write_text(xml, encoding="utf-8")
-    lvclass = parse_lvclass(path)
+    lvclass = parse_lvclass(path, LibraryRoots())
     lvclass.private_data_fields = [
         LVPrivateDataField(name=f.name, python_type="int") for f in fields
     ]

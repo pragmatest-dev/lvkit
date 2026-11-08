@@ -1861,7 +1861,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
     # loaded with geometry (keeps every caller working, byte-identically).
     layout = graph.get_layout(vi_name)
     if layout is None:
-        layout = build_layout(src_path)
+        layout = build_layout(src_path, graph.cache_roots)
     # Shrink oversized string-constant boxes to their wrapped-text height
     # (top-left anchored) BEFORE anything consumes geometry, so the drawn box,
     # the router obstacle, and the wire attach point all use the trimmed rect.

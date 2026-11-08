@@ -83,7 +83,9 @@ def _own_class_private_data_fields(
     if vi_path is None:
         return []
     try:
-        _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
+        _bd_xml, _fp_xml, main_xml = extract_vi_xml(
+            vi_path, roots=graph.cache_roots
+        )
     except Exception:
         logger.debug(
             "own private-data XML extraction failed for %r (%s)",

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
@@ -2566,7 +2567,7 @@ def _count_contained_wire_escapes(graph, vi: str, scene: Scene) -> int:
     )
 
     src = graph.get_vi_source_path(vi)
-    layout = build_layout(src)
+    layout = build_layout(src, LibraryRoots())
     by_id = {n.id: n for n in graph.iter_nodes(vi)}
     body = {rs.raw_uid: rs.bounds for rs in scene.structures}
 
@@ -2696,7 +2697,7 @@ def test_string_constant_boxes_trimmed_top_left_anchored():
     src = graph.get_vi_source_path(vi)
     if src is None:
         pytest.skip("no source path")
-    layout = build_layout(src)
+    layout = build_layout(src, LibraryRoots())
     trim_bounds, trim_centers = _trim_string_const_geom(graph, vi, layout)
     if not trim_bounds:
         # The corpus VI's exact content is version-pinned to whatever OpenG
@@ -4638,7 +4639,9 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
     if not lvclass_path.exists():
         pytest.skip("sample .lvclass not available")
 
-    fields = _parse_private_data_fields(lvclass_path, "DAQmx Module Runtime.ctl")
+    fields = _parse_private_data_fields(
+        lvclass_path, "DAQmx Module Runtime.ctl", LibraryRoots()
+    )
     names = [f.name for f in fields]
     assert names == ["DAQ Tasks", "Channel Indeces"]
     assert names != ["instance ID", "key-value pairs"]  # the wrong-class bug
@@ -5391,7 +5394,7 @@ def test_layout_wire_by_uid_drives_faithful_render():
     from lvkit.parser.layout import build_layout
     from lvkit.render import scene as scene_mod
 
-    layout = build_layout(NESTED_CASE_VI)
+    layout = build_layout(NESTED_CASE_VI, LibraryRoots())
     assert layout.wire_by_uid, "no faithful wire geometry resolved"
     # keys are terminal uids, values are bend polylines (lists of points)
     for uid, mid in layout.wire_by_uid.items():

@@ -43,6 +43,7 @@ import shutil
 import threading
 import time
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from lvkit import project_store, staging
@@ -63,14 +64,7 @@ def global_cache_root() -> Path:
     return project_store.global_home() / "cache"
 
 
-# ── Run-scoped extraction roots ─────────────────────────────────────────────
-# The resolved <vilib>/<userlib>/<instrlib> roots for the current run, set once at
-# `InMemoryVIGraph.set_library_roots` so `classify` can prefix-match a VI to its
-# tier without re-guessing from the path. One run at a time (same single-process
-# concurrency caveat the extractor has always had).
-_vilib_roots: tuple[Path, ...] = ()
-_userlib_roots: tuple[Path, ...] = ()
-_instrlib_roots: tuple[Path, ...] = ()
+# ── A run's library folders ─────────────────────────────────────────────────
 
 
 def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
@@ -81,37 +75,36 @@ def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
     return tuple(f.resolve() for f in folders)
 
 
-def set_extraction_roots(
-    *,
-    vilib_root: Path | Sequence[Path] | None,
-    userlib_root: Path | Sequence[Path] | None,
-    instrlib_root: Path | Sequence[Path] | None = None,
-) -> None:
-    """Record the run's library folders (each one or several) for cache
-    classification.
+@dataclass(frozen=True)
+class LibraryRoots:
+    """The vi.lib / user.lib / instr.lib folders of ONE run, each resolved.
 
-    Folders are resolved to absolute paths so prefix-matching in :func:`classify`
-    is stable regardless of how a VI path was spelled. Passing ``None`` or an
-    empty list clears that library.
+    :func:`classify` prefix-matches a VI's resolved path against these to choose
+    its tier. Every run carries its own (``InMemoryVIGraph.cache_roots``), so runs
+    sharing a process never see each other's folders. ``LibraryRoots()`` means the
+    run has no library folders.
     """
-    global _vilib_roots, _userlib_roots, _instrlib_roots
-    _vilib_roots = _resolved(vilib_root)
-    _userlib_roots = _resolved(userlib_root)
-    _instrlib_roots = _resolved(instrlib_root)
 
+    vilib: tuple[Path, ...] = ()
+    userlib: tuple[Path, ...] = ()
+    instrlib: tuple[Path, ...] = ()
 
-def extraction_roots() -> tuple[tuple[Path, ...], tuple[Path, ...], tuple[Path, ...]]:
-    """The run's ``(vilib, userlib, instrlib)`` folders as last set (empty when
-    unset)."""
-    return _vilib_roots, _userlib_roots, _instrlib_roots
-
-
-def clear_extraction_roots() -> None:
-    """Forget the run's library folders (fall back to project/adhoc)."""
-    global _vilib_roots, _userlib_roots, _instrlib_roots
-    _vilib_roots = ()
-    _userlib_roots = ()
-    _instrlib_roots = ()
+    @classmethod
+    def of(
+        cls,
+        *,
+        vilib_root: Path | Sequence[Path] | None = None,
+        userlib_root: Path | Sequence[Path] | None = None,
+        instrlib_root: Path | Sequence[Path] | None = None,
+    ) -> LibraryRoots:
+        """Build from each library's folder (one or several; ``None`` or empty
+        means none). Folders are resolved to absolute paths so prefix-matching in
+        :func:`classify` is stable regardless of how a VI path was spelled."""
+        return cls(
+            vilib=_resolved(vilib_root),
+            userlib=_resolved(userlib_root),
+            instrlib=_resolved(instrlib_root),
+        )
 
 
 # ── Namespace classification ────────────────────────────────────────────────
@@ -278,9 +271,12 @@ def store_root(path: Path | str) -> Path:
     )
 
 
-def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
+def classify(
+    vi_path: Path, kind: str, roots: LibraryRoots
+) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
-    artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
+    artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``). ``roots`` are
+    the library folders of the run asking.
 
     ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<fp>/vi-<hash>`` — project-
     first: the VI's identity (namespace + slug) is named ONCE and the ``kind``
@@ -306,9 +302,9 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     fp = kind_fingerprint(kind)
 
     for tier, library in (
-        *(("vilib", f) for f in _vilib_roots),
-        *(("userlib", f) for f in _userlib_roots),
-        *(("instrlib", f) for f in _instrlib_roots),
+        *(("vilib", f) for f in roots.vilib),
+        *(("userlib", f) for f in roots.userlib),
+        *(("instrlib", f) for f in roots.instrlib),
     ):
         rel = _rel_under(resolved, library)
         if rel is not None:
@@ -332,9 +328,9 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     return cache / "adhoc" / kind / fp / _vi_slot(resolved), resolved.name, "adhoc"
 
 
-def cache_target(vi_path: Path, kind: str) -> Path:
+def cache_target(vi_path: Path, kind: str, roots: LibraryRoots) -> Path:
     """The per-VI cache directory for ``vi_path`` and ``kind`` (created)."""
-    target, _, _ = classify(vi_path, kind)
+    target, _, _ = classify(vi_path, kind, roots)
     target.mkdir(parents=True, exist_ok=True)
     return target
 

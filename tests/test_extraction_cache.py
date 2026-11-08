@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, extractor
+from lvkit.cache_paths import LibraryRoots
 from lvkit.text_encoding import vers_language_of
 
 _SAMPLE_VI = Path(
@@ -64,7 +65,7 @@ class TestClassify:
         # A bare dir with no .git/.lvkit ancestor -> adhoc has NO owner slug, so
         # the kind sits right under the namespace: adhoc/extract/<fp>/<vi slot>.
         vi = _touch_vi(tmp_path / "loose" / "foo.vi")
-        target, source, ns = cache_paths.classify(vi, "extract")
+        target, source, ns = cache_paths.classify(vi, "extract", LibraryRoots())
         slot = cache_paths._vi_slot(vi.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
         assert target == _cache() / "adhoc" / "extract" / xfp / slot
@@ -74,16 +75,16 @@ class TestClassify:
     def test_adhoc_siblings_get_their_own_slot(self, tmp_path: Path) -> None:
         a = _touch_vi(tmp_path / "loose" / "a.vi")
         b = _touch_vi(tmp_path / "loose" / "b.vi")
-        da, _, _ = cache_paths.classify(a, "extract")
-        db, _, _ = cache_paths.classify(b, "extract")
+        da, _, _ = cache_paths.classify(a, "extract", LibraryRoots())
+        db, _, _ = cache_paths.classify(b, "extract", LibraryRoots())
         assert da != db
-        assert da == cache_paths.classify(a, "extract")[0]
+        assert da == cache_paths.classify(a, "extract", LibraryRoots())[0]
 
     def test_under_project_is_projects(self, tmp_path: Path) -> None:
         proj = tmp_path / "myproj"
         _mark_project(proj)
         vi = _touch_vi(proj / "src" / "bar.vi")
-        target, source, ns = cache_paths.classify(vi, "extract")
+        target, source, ns = cache_paths.classify(vi, "extract", LibraryRoots())
         slug = cache_paths._slug(proj.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
         rel = Path("src") / "bar.vi"
@@ -98,8 +99,8 @@ class TestClassify:
     def test_under_vilib_root_is_shared_vilib(self, tmp_path: Path) -> None:
         vilib = tmp_path / "LV2025-64" / "vi.lib"
         vi = _touch_vi(vilib / "Utility" / "u.vi")
-        cache_paths.set_extraction_roots(vilib_root=vilib, userlib_root=None)
-        target, source, ns = cache_paths.classify(vi, "extract")
+        roots = LibraryRoots.of(vilib_root=vilib)
+        target, source, ns = cache_paths.classify(vi, "extract", roots)
         slug = cache_paths._slug(vilib.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
         rel = Path("Utility") / "u.vi"
@@ -113,8 +114,8 @@ class TestClassify:
     def test_under_userlib_root_is_shared_userlib(self, tmp_path: Path) -> None:
         userlib = tmp_path / "install" / "user.lib"
         vi = _touch_vi(userlib / "MyAddon" / "a.vi")
-        cache_paths.set_extraction_roots(vilib_root=None, userlib_root=userlib)
-        target, _, _ = cache_paths.classify(vi, "extract")
+        roots = LibraryRoots.of(userlib_root=userlib)
+        target, _, _ = cache_paths.classify(vi, "extract", roots)
         slug = cache_paths._slug(userlib.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
         rel = Path("MyAddon") / "a.vi"
@@ -136,9 +137,9 @@ class TestClassify:
         # A real, unrelated install userlib elsewhere — the VI is NOT under it.
         other_userlib = tmp_path / "LVinstall" / "user.lib"
         other_userlib.mkdir(parents=True, exist_ok=True)
-        cache_paths.set_extraction_roots(vilib_root=None, userlib_root=other_userlib)
+        roots = LibraryRoots.of(userlib_root=other_userlib)
 
-        target, _, _ = cache_paths.classify(vi, "extract")
+        target, _, _ = cache_paths.classify(vi, "extract", roots)
         assert (_cache() / "projects") in target.parents
         assert (_cache() / "shared") not in target.parents
 
@@ -151,10 +152,12 @@ class TestClassify:
         vi64 = _touch_vi(root64 / rel)
         vi32 = _touch_vi(root32 / rel)
 
-        cache_paths.set_extraction_roots(vilib_root=root64, userlib_root=None)
-        t64, _, _ = cache_paths.classify(vi64, "extract")
-        cache_paths.set_extraction_roots(vilib_root=root32, userlib_root=None)
-        t32, _, _ = cache_paths.classify(vi32, "extract")
+        t64, _, _ = cache_paths.classify(
+            vi64, "extract", LibraryRoots.of(vilib_root=root64)
+        )
+        t32, _, _ = cache_paths.classify(
+            vi32, "extract", LibraryRoots.of(vilib_root=root32)
+        )
 
         assert t64 != t32
         # target == shared/vilib/<slug>/extract/<fp>/Utility -> the <slug> is
@@ -170,11 +173,11 @@ class TestClassify:
         project is being processed — written once, reused by both."""
         vilib = tmp_path / "LV" / "vi.lib"
         vi = _touch_vi(vilib / "Array" / "Init.vi")
-        cache_paths.set_extraction_roots(vilib_root=vilib, userlib_root=None)
+        roots = LibraryRoots.of(vilib_root=vilib)
 
-        first, _, _ = cache_paths.classify(vi, "extract")
-        # (roots persist for the run; a second project's pass sees the same VI)
-        second, _, _ = cache_paths.classify(vi, "extract")
+        first, _, _ = cache_paths.classify(vi, "extract", roots)
+        # (a second project's pass with the same library folders sees the same VI)
+        second, _, _ = cache_paths.classify(vi, "extract", roots)
         assert first == second
         assert (_cache() / "shared" / "vilib") in first.parents
 
@@ -185,8 +188,8 @@ class TestClassify:
         proj = tmp_path / "p"
         _mark_project(proj)
         vi = _touch_vi(proj / "x.vi")
-        target = extractor._cache_target(vi)
-        assert target == cache_paths.classify(vi, "extract")[0]
+        target = extractor._cache_target(vi, LibraryRoots())
+        assert target == cache_paths.classify(vi, "extract", LibraryRoots())[0]
         assert not target.exists()
 
 
@@ -214,12 +217,12 @@ class TestFingerprintPathLevel:
         vi = _touch_vi(proj / "x.vi")
         monkeypatch.setattr(cache_paths, "extraction_fingerprint", lambda: "extAAAAA")
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "srcAAAAA")
-        ext1, _, _ = cache_paths.classify(vi, "extract")
-        ren1, _, _ = cache_paths.classify(vi, "render")
+        ext1, _, _ = cache_paths.classify(vi, "extract", LibraryRoots())
+        ren1, _, _ = cache_paths.classify(vi, "render", LibraryRoots())
         # Edit render/parser code only: source fp changes, extraction fp stable.
         monkeypatch.setattr(cache_paths, "source_fingerprint", lambda: "srcBBBBB")
-        ext2, _, _ = cache_paths.classify(vi, "extract")
-        ren2, _, _ = cache_paths.classify(vi, "render")
+        ext2, _, _ = cache_paths.classify(vi, "extract", LibraryRoots())
+        ren2, _, _ = cache_paths.classify(vi, "render", LibraryRoots())
         assert ext1 == ext2  # extraction slot unaffected -> no re-extract
         assert ren1 != ren2  # render slot re-namespaced -> rebuilds
 
@@ -315,7 +318,7 @@ class TestCacheFreshness:
         vi.write_bytes(b"same bytes")
         meta = tmp_path / "x.meta.json"
         monkeypatch.setattr(extractor, "labview_text_encoding", lambda: "gbk")
-        extractor._write_cache_meta(vi, meta)
+        extractor._write_cache_meta(vi, meta, LibraryRoots())
 
         assert cache_paths.meta_fresh(
             vi,
@@ -332,7 +335,7 @@ class TestCacheFreshness:
         f = tmp_path / "x.vi"
         f.write_bytes(b"hello world")
         meta = tmp_path / "x.meta.json"
-        extractor._write_cache_meta(f, meta)
+        extractor._write_cache_meta(f, meta, LibraryRoots())
 
         # Unchanged -> fresh.
         assert cache_paths.meta_fresh(f, meta)
@@ -402,24 +405,24 @@ class TestRealExtraction:
         monkeypatch.setattr(extractor, "_extract_in_process", spy)
 
         # Cold -> one extraction, cache lands under LVKIT_CACHE_DIR.
-        bd, _fp, _main = extractor.extract_vi_xml(vi)
+        bd, _fp, _main = extractor.extract_vi_xml(vi, roots=LibraryRoots())
         assert len(calls) == 1
         assert cache_paths.global_cache_root() in bd.resolve().parents
 
         # Warm -> hit, no new extraction.
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         assert len(calls) == 1
 
         # Touch only -> still a hit (sha fast-path).
         st = vi.stat()
         os.utime(vi, (st.st_atime, st.st_mtime + 100))
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         assert len(calls) == 1
 
         # Content edit -> re-extract (restore-then-append keeps it a valid VI).
         data = self.SAMPLE.read_bytes()
         vi.write_bytes(data + b"\x00")
-        extractor.extract_vi_xml(vi)
+        extractor.extract_vi_xml(vi, roots=LibraryRoots())
         assert len(calls) == 2
 
 
@@ -546,7 +549,7 @@ class TestGlobalHomeGuard:
 
         # Resolves to the repo, not the home; and lands under slug(repo).
         assert cache_paths._project_root_for(vi.resolve()) == repo.resolve()
-        target, source, _ = cache_paths.classify(vi, "extract")
+        target, source, _ = cache_paths.classify(vi, "extract", LibraryRoots())
         slug = cache_paths._slug(repo.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
         rel = Path("source") / "x.vi"

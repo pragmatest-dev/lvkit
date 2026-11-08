@@ -374,6 +374,7 @@ async def render(
                 fmt="html",
                 options=opts,
                 version=__version__,
+                roots=build.library_roots(),
                 theme_mode="auto",
                 run_settings=run.settings,
                 **build.build_kwargs(),
@@ -394,10 +395,10 @@ async def render(
         # alongside the body, so this is a cheap metadata read, never a second
         # graph load, on either a hit or a miss. Only an old slot written
         # before this field existed falls back to the bare filename.
-        name = read_render_identity(p, "html") or p.name
+        name = read_render_identity(p, "html", build.library_roots()) or p.name
         return with_problems(
             {
-                "render_path": str(render_slot(p, "html")),
+                "render_path": str(render_slot(p, "html", build.library_roots())),
                 "bytes": len(html),
                 "vi_name": name,
                 "vi_path": str(p),
@@ -462,6 +463,7 @@ async def diff(
                 fmt="html",
                 options=opts,
                 version=__version__,
+                roots=build.library_roots(),
                 run_settings=run.settings,
                 **build.build_kwargs(),
             )
@@ -476,11 +478,11 @@ async def diff(
         # -- a cache-meta read, never a graph load -- same rationale as
         # render's vi_name above. Falls back to the bare filename only for an
         # old slot written before this field existed.
-        names = read_diff_identity(pa, pb, "html")
+        names = read_diff_identity(pa, pb, "html", build.library_roots())
         before_name, after_name = names if names is not None else (pa.name, pb.name)
         return with_problems(
             {
-                "diff_path": str(diff_slot(pa, pb, "html")),
+                "diff_path": str(diff_slot(pa, pb, "html", build.library_roots())),
                 "bytes": len(body),
                 "before": {"name": before_name, "path": str(pa)},
                 "after": {"name": after_name, "path": str(pb)},

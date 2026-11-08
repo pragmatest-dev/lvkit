@@ -19,6 +19,7 @@ from typing import NamedTuple
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import resolve_extracted
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -124,7 +125,7 @@ class HeapLabel(NamedTuple):
 
 def _heap_labels(vi_path: Path) -> dict[str, HeapLabel]:
     """``case uid -> HeapLabel`` from the block-diagram heap."""
-    bd_xml = resolve_extracted(vi_path)[0]
+    bd_xml = resolve_extracted(vi_path, roots=LibraryRoots())[0]
     root = ET.parse(bd_xml).getroot()
     labels: dict[str, HeapLabel] = {}
     for elem in root.iter():
@@ -202,7 +203,7 @@ _CONTROL_CHAR_VI = "ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscell
 
 
 def _case_element(rel_path: str, uid: str) -> ET.Element:
-    root = ET.parse(resolve_extracted(SAMPLES_ROOT / rel_path)[0]).getroot()
+    root = ET.parse(resolve_extracted(SAMPLES_ROOT / rel_path, roots=LibraryRoots())[0]).getroot()
     (elem,) = [
         e
         for e in root.iter()
