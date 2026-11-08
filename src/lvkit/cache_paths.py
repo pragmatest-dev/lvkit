@@ -487,6 +487,7 @@ def source_fingerprint() -> str:
 # rarely (basically only when a monkeypatch changes), so this invalidates rarely.
 _EXTRACTION_CODE_FILES = (
     "_pylabview_patches.py",
+    "_pylabview_lv8.py",
     "extractor.py",
     "text_encoding.py",
 )
