@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from ..models import Terminal, TunnelTerminal
 from .models import AnyGraphNode, ConstantNode, PrimitiveNode, StructureNode, WireEnd
+from .shift_registers import pair_by_position
 
 # The primitives whose variant output is the variant at their variant input
 # (index 7) with attributes set or deleted: Set Variant Attribute and Delete
@@ -103,10 +104,12 @@ class VariantSourceMixin:
         rights = [
             t for t in tunnels if t.tunnel_type == "rSR" and t.boundary == "inner"
         ]
-        position = next((i for i, t in enumerate(lefts) if t.id == terminal_id), None)
-        if position is None or position >= len(rights):
+        right = next(
+            (r for lt, r in pair_by_position(lefts, rights) if lt.id == terminal_id),
+            None,
+        )
+        if right is None:
             return []
-        right = rights[position]
         home = self.terminal_vi(right.id)
         return [
             src
