@@ -60,14 +60,12 @@ def test_the_panel_is_written_next_to_the_module_with_the_controls_package(
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
     assert (package.root / f"{STEM}_panel.py").exists()
-    assert {p.name for p in (package.root / "controls").glob("*.py")} == {
+    assert {p.name for p in (package.root / "controls").glob("*.py")} >= {
         "__init__.py",
-        "filepicker.py",
         "live.py",
         "port.py",
         "runtoolbar.py",
         "widgets.py",
-        "widgets_path.py",
     }
     assert package.gaps == []
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from .model import PanelControl, PanelKind
+from .kinds import PanelControl, PanelKind
 
 
 def _number(control: PanelControl) -> str:
@@ -16,11 +16,17 @@ def _default_only(control: PanelControl) -> str:
     return repr(control.default)
 
 
+def _choice(control: PanelControl) -> str:
+    return f"{control.items!r}, {control.default!r}"
+
+
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.NUMBER: _number,
     PanelKind.BOOLEAN: _default_only,
     PanelKind.STRING: _default_only,
     PanelKind.PATH: _default_only,
+    PanelKind.ENUM: _choice,
+    PanelKind.RING: _choice,
 }
 
 

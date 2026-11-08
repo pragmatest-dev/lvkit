@@ -100,6 +100,9 @@ class Pane:
     # right); the parser's own defaults when None.
     ddo_class: str = "stdNum"
     bounds: tuple[int, int, int, int] | None = None
+    # Raw heap xml placed inside the control's ddo after its parts: a ring's item
+    # list, a cluster's fields, an array's element.
+    inner: str = ""
 
 
 def _slot_flags(pane: Pane) -> int:
@@ -197,6 +200,7 @@ class Vi:
         rule: int | None = None,
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
+        inner: str = "",
     ) -> int:
         """A control or indicator; ``rule`` puts it on the connector pane with
         that wiring rule. Returns the uid of its terminal on the diagram."""
@@ -205,7 +209,9 @@ class Vi:
         if rule is not None:
             slot = sum(1 for p in self.panes if p.slot is not None)
         self.panes.append(
-            Pane(uid, label, type_id, indicator, rule, slot, ddo_class, bounds)
+            Pane(
+                uid, label, type_id, indicator, rule, slot, ddo_class, bounds, inner
+            )
         )
         term = uid + 1
         self.fp_terms[uid] = term
@@ -219,9 +225,15 @@ class Vi:
         *,
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
+        inner: str = "",
     ) -> int:
         return self.pane(
-            label, type_id, rule=rule, ddo_class=ddo_class, bounds=bounds
+            label,
+            type_id,
+            rule=rule,
+            ddo_class=ddo_class,
+            bounds=bounds,
+            inner=inner,
         )
 
     def indicator(
@@ -232,6 +244,7 @@ class Vi:
         *,
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
+        inner: str = "",
     ) -> int:
         return self.pane(
             label,
@@ -240,6 +253,7 @@ class Vi:
             rule=rule,
             ddo_class=ddo_class,
             bounds=bounds,
+            inner=inner,
         )
 
     def error_in(self, rule: int | None = RECOMMENDED) -> int:
@@ -745,7 +759,8 @@ class Vi:
                 f"<typeDesc>TypeID({p.type_id})</typeDesc><partsList>"
                 f'<SL__arrayElement class="label" uid="{p.uid}2">'
                 f'<textRec class="textHair"><text>"{p.label}"</text></textRec>'
-                "</SL__arrayElement></partsList></ddo></SL__arrayElement>"
+                "</SL__arrayElement></partsList>"
+                f"{p.inner}</ddo></SL__arrayElement>"
             )
         order = "".join(_ref(p.uid) for p in self.panes)
         slots = sorted(

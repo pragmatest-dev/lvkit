@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .kinds import PanelControl
 from .layout import Box
-from .model import PanelControl
 from .widget_call import builders_used, widget_call
 
 

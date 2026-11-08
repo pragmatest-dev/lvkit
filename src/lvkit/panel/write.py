@@ -11,8 +11,9 @@ from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 
+from .kinds import PanelControl
 from .layout import place
-from .model import PanelControl, panel_controls
+from .model import panel_controls
 from .module import PanelSource, panel_source
 
 CONTROLS_PACKAGE = "controls"

@@ -13,7 +13,7 @@ from nicegui import ui
 from nicegui.testing.user import User
 
 from tests.error_diagrams import PATH, REQUIRED, Project, Vi, project  # noqa: F401
-from tests.panel_harness import found, panel_of, run_once, simulate
+from tests.panel_harness import controls_of, found, panel_of, run_once, simulate
 
 NAME = "Kind Demo.vi"
 STEM = "kind_demo"
@@ -28,6 +28,47 @@ def _path_vi() -> Vi:
         "Shown", PATH, ddo_class="stdPath", bounds=(40, 300, 62, 540)
     )
     vi.wire(folder, shown)
+    return vi
+
+
+def _enum_vi() -> Vi:
+    vi = Vi(NAME)
+    kind = vi.add_type(
+        '<TypeDesc Type="EnumU16"><EnumLabel>Low</EnumLabel>'
+        "<EnumLabel>Mid</EnumLabel><EnumLabel>High</EnumLabel></TypeDesc>"
+    )
+    level = vi.control(
+        "Level", kind, REQUIRED, ddo_class="stdEnum", bounds=(40, 20, 62, 160)
+    )
+    shown = vi.indicator(
+        "Shown", kind, ddo_class="stdEnum", bounds=(40, 300, 62, 440)
+    )
+    vi.wire(level, shown)
+    return vi
+
+
+def _ring_vi(values: list[int] | None = None) -> Vi:
+    """A ring ``Gain`` of three items, numbered 0, 1, 2 or by ``values``."""
+    vi = Vi(NAME)
+    kind = vi.add_type('<TypeDesc Type="UnitUInt16" />')
+    sparse = "".join(
+        f"<SL__arrayElement>{value.to_bytes(2, 'big', signed=True).hex()}"
+        "</SL__arrayElement>"
+        for value in values or []
+    )
+    ring = (
+        '<SL__arrayElement class="multiLabel" uid="9001">'
+        '<buf>(3)"Low""Mid""High"</buf></SL__arrayElement>'
+        + (f"<ringSparseValues>{sparse}</ringSparseValues>" if values else "")
+    )
+    gain = vi.control(
+        "Gain", kind, REQUIRED, ddo_class="stdRing", bounds=(40, 20, 62, 160),
+        inner=ring,
+    )
+    shown = vi.indicator(
+        "Shown", kind, ddo_class="stdRing", bounds=(40, 300, 62, 440), inner=ring
+    )
+    vi.wire(gain, shown)
     return vi
 
 
@@ -117,3 +158,110 @@ def test_browse_lists_the_folder_on_the_server_and_selecting_fills_the_field(
         assert str(tmp_path) == grid.options["columnDefs"][0]["headerName"]
 
     simulate(panel.build_panel, scenario)
+
+
+def _selects(user: User) -> tuple[Any, Any]:
+    control, indicator = found(user, ui.select)
+    return control, indicator
+
+
+def test_an_enum_control_offers_the_items_of_its_type_and_passes_the_item_number(
+    project: Project,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project.add(_enum_vi())
+    package = project.generate(NAME, panel=True)
+    assert package.gaps == []
+    panel = panel_of(package, STEM)
+    calls = _record_calls(monkeypatch, panel)
+
+    async def scenario(user: User) -> None:
+        control, indicator = _selects(user)
+        assert control.options == {0: "Low", 1: "Mid", 2: "High"}
+        assert control.value == 0
+        control.set_value(2)
+        await run_once(user)
+        assert calls[0]["level"] == 2
+        assert type(calls[0]["level"]) is int
+        assert indicator.value == 2
+
+    simulate(panel.build_panel, scenario)
+
+
+def test_a_ring_control_passes_the_value_the_ring_stores_for_the_item(
+    project: Project,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project.add(_ring_vi([0, 1024, 8192]))
+    package = project.generate(NAME, panel=True)
+    assert package.gaps == []
+    panel = panel_of(package, STEM)
+    calls = _record_calls(monkeypatch, panel)
+
+    async def scenario(user: User) -> None:
+        control, indicator = _selects(user)
+        assert control.options == {0: "Low", 1024: "Mid", 8192: "High"}
+        control.set_value(1024)
+        await run_once(user)
+        assert calls[0]["gain"] == 1024
+        assert indicator.value == 1024
+
+    simulate(panel.build_panel, scenario)
+
+
+def test_a_ring_numbered_from_zero_passes_the_item_number(
+    project: Project,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project.add(_ring_vi())
+    package = project.generate(NAME, panel=True)
+    panel = panel_of(package, STEM)
+    calls = _record_calls(monkeypatch, panel)
+
+    async def scenario(user: User) -> None:
+        control, indicator = _selects(user)
+        assert control.options == {0: "Low", 1: "Mid", 2: "High"}
+        control.set_value(1)
+        await run_once(user)
+        assert calls[0]["gain"] == 1
+        assert indicator.value == 1
+
+    simulate(panel.build_panel, scenario)
+
+def test_an_enum_indicator_shows_a_value_that_is_not_one_of_its_items(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(_enum_vi())
+    package = project.generate(NAME, panel=True)
+    controls = controls_of(package)
+    ports: list[Any] = []
+
+    def build() -> None:
+        holder = controls.LiveValues()
+        ports.append(
+            controls.choice_indicator(holder, "level", (("Low", 0), ("High", 1)), 0)
+        )
+
+    async def scenario(user: User) -> None:
+        ports[0].show(7)
+        (indicator,) = found(user, ui.select)
+        assert indicator.value == 7
+        assert indicator.options[7] == "7"
+
+    simulate(build, scenario)
+
+
+def test_an_enum_with_no_stored_items_is_a_gap_the_panel_raises_for(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    kind = vi.add_type('<TypeDesc Type="UnitUInt16" />')
+    vi.control("Mode", kind, REQUIRED, ddo_class="stdEnum", bounds=(40, 20, 62, 160))
+    project.add(vi)
+    package = project.generate(NAME, panel=True)
+    assert [(g.kind, g.node_name) for g in package.gaps] == [
+        ("unsupported_control", "Mode")
+    ]
+    assert package.gaps[0].reason == (
+        "the panel needs the items of the stdEnum control, and none are stored"
+    )

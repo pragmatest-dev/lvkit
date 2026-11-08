@@ -17,6 +17,7 @@ from .widgets import (
     string_indicator,
     string_port,
 )
+from .widgets_choice import choice_control, choice_indicator, choice_port
 from .widgets_path import path_control, path_indicator, path_port
 
 __all__ = [
@@ -29,6 +30,9 @@ __all__ = [
     "bool_indicator",
     "bool_port",
     "caption",
+    "choice_control",
+    "choice_indicator",
+    "choice_port",
     "number_control",
     "number_indicator",
     "number_port",
