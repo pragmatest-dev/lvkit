@@ -14,8 +14,9 @@ NAME = "Panel Demo.vi"
 def counting_vi(name: str = NAME, *, with_text: bool = False) -> Vi:
     """``Stop`` and ``Offset`` are controls read on every pass; ``Count`` shows the
     counter plus ``Offset`` on every pass. With ``with_text``, a string control
-    ``Message`` is wired to the string indicator ``Echo``, and the Boolean
-    indicator ``Ready`` is True, all outside the loop."""
+    ``Message`` inside the loop is wired to the string indicator ``Echo`` inside
+    it (so ``Echo`` shows ``Message`` on every pass), and the Boolean indicator
+    ``Ready`` outside the loop is True."""
     vi = Vi(name)
     stop = vi.control(
         "Stop", BOOL, REQUIRED, ddo_class="stdBool", bounds=(40, 20, 70, 120)
@@ -53,6 +54,8 @@ def counting_vi(name: str = NAME, *, with_text: bool = False) -> Vi:
         ready = vi.indicator(
             "Ready", BOOL, ddo_class="stdBool", bounds=(40, 340, 70, 440)
         )
+        vi.place_inside(message, loop.scopes[0])
+        vi.place_inside(echo, loop.scopes[0])
         vi.wire(message, echo)
         vi.wire(vi.bool_constant(True), ready)
     return vi

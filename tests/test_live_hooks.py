@@ -368,7 +368,7 @@ class Reader:
         return self.answers.pop(0) if self.answers else value
 
 
-def _stop_loop(vi: Vi) -> None:
+def _stop_loop(vi: Vi) -> Structure:
     """A While Loop with the Stop control ``stop`` inside it, wired to the stop
     terminal, and the indicator ``count`` showing the iteration's counter."""
     stop = vi.control("stop", BOOL, REQUIRED)
@@ -384,6 +384,7 @@ def _stop_loop(vi: Vi) -> None:
     vi.wire(register.left_face, inc["in"])
     vi.wire(inc["out"], register.right_face, count)
     vi.wire(stop, loop.faces[0])
+    return loop
 
 
 def test_a_control_inside_a_while_loop_is_read_again_every_iteration(
@@ -419,6 +420,45 @@ def test_a_control_inside_a_while_loop_is_read_again_every_iteration(
     # Without hooks the loop is the one it is without them: it stops at once.
     assert package.function(stop=True).count == 1
     assert package.function(stop=True, on_read=None).count == 1
+
+
+def _loop_with_a_control_wired_to_an_indicator(vi: Vi) -> None:
+    """``_stop_loop`` plus the control ``offset`` inside the loop, wired straight
+    to the indicator ``seen`` inside the loop."""
+    loop = _stop_loop(vi)
+    offset = vi.control("offset", I32, REQUIRED)
+    seen = vi.indicator("seen", I32)
+    vi.place_inside(offset, loop.scopes[0])
+    vi.place_inside(seen, loop.scopes[0])
+    vi.wire(offset, seen)
+
+
+def test_a_control_wired_to_an_indicator_in_a_loop_reaches_it_every_pass(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    _loop_with_a_control_wired_to_an_indicator(vi)
+    project.add(vi)
+    package = project.generate(NAME)
+    passes = iter([(1, False), (2, False), (3, True)])
+    current: dict[str, Any] = {}
+
+    def on_read(name: str, value: Any) -> Any:
+        if name == "stop":
+            current["offset"], stop = next(passes)
+            return stop
+        return current["offset"]
+
+    recorder = Recorder()
+    result = package.function(stop=False, offset=0, on_read=on_read, on_update=recorder)
+    assert [c for c in recorder.calls if c[0] == "seen"] == [
+        ("seen", 1),
+        ("seen", 2),
+        ("seen", 3),
+    ]
+    assert result.seen == 3
+    # Without hooks the indicator holds the last pass's value too.
+    assert package.function(stop=True, offset=7).seen == 7
 
 
 def _control_in_a_case_in_a_for_loop(vi: Vi) -> None:

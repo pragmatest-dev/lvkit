@@ -246,8 +246,11 @@ class WireQueriesMixin:
     def inside_a_frame(self, terminal_id: str) -> bool:
         """Whether the terminal is on the diagram of a structure frame: a
         terminal of a node inside a structure, or an inside face of a
-        structure's border."""
+        structure's border, or a control or indicator terminal placed in one."""
         if self.inside_face(terminal_id) is not None:
+            return True
+        terminal = self.get_terminal(terminal_id)
+        if isinstance(terminal, FPTerminal) and terminal.parent is not None:
             return True
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         return node is not None and node.parent is not None
@@ -258,11 +261,17 @@ class WireQueriesMixin:
         """Whether the source ``terminal_id`` gives its value on the diagram of
         the structure frame ``frame`` (a structure id and frame key; key
         ``None`` for any frame of the structure) without a node of that diagram
-        producing it: an inside face of the frame, or a constant in it."""
+        producing it: an inside face of the frame, a constant in it, or a control
+        terminal placed in it (it gives its value again at every pass)."""
         structure, key = frame
         face = self.inside_face(terminal_id)
         if face is not None:
             return face[0] == structure and (key is None or face[1] == key)
+        terminal = self.get_terminal(terminal_id)
+        if isinstance(terminal, FPTerminal) and terminal.parent is not None:
+            return terminal.parent == structure and (
+                key is None or terminal.frame == key
+            )
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         return (
             isinstance(node, ConstantNode)

@@ -134,6 +134,42 @@ def test_the_panel_builds_headless_with_a_widget_for_each_control(
     _simulate(panel.build_panel, scenario)
 
 
+def test_an_indicator_wired_to_a_control_in_the_loop_shows_each_re_read_value(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(counting_vi(with_text=True))
+    package = project.generate(NAME, panel=True)
+    names = _enum(package)
+    holder = _controls(package).LiveValues()
+    shown: list[object] = []
+    holder.add_indicator(names.ECHO, shown.append)
+    seen: list[object] = []
+    stops = 0
+    texts = iter(["a", "b", "c"])
+
+    def on_read(name: str, value: object) -> object:
+        nonlocal stops
+        if name == names.STOP:
+            stops += 1
+            return stops >= 3
+        if name == names.MESSAGE:
+            return next(texts)
+        return value
+
+    def on_update(name: str, value: object) -> None:
+        if name == names.ECHO:
+            seen.append(value)
+        holder.update(name, value)
+
+    result = package.function(
+        False, 0, "", on_update=on_update, on_read=on_read
+    )
+    assert seen == ["a", "b", "c"]
+    assert result.echo == "c"
+    holder.paint()
+    assert shown == ["c"]
+
+
 def test_a_run_with_a_stop_after_three_reads_leaves_the_last_count_in_the_holder(
     project: Project,  # noqa: F811
 ) -> None:
