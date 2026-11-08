@@ -66,7 +66,9 @@ def _dispatch(cls: str, method: str, folder: str) -> _Call:
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     # A method the class keeps in a subfolder (not beside the class file).
     _write_class(built, "Sub", "Sub", {"Run.vi": "../impl/Run.vi"})
@@ -129,10 +131,12 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 def _uses(tree: _Tree, name: str) -> list[str]:
     graph, key = _load(tree, name)
     text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
+    lines = text.splitlines()
+    block = lines[lines.index("  uses :") + 1 :]
     return [
         ln.strip()
-        for ln in text.splitlines()
-        if ln.strip().startswith("subVI") and " ; " in ln
+        for ln in block[: next(i for i, ln in enumerate(block) if ln[:4] != "    ")]
+        if ln.strip().startswith("subVI")
     ]
 
 
@@ -143,7 +147,7 @@ def test_method_in_a_class_subfolder_is_declared_once_by_its_file(tree: _Tree) -
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Sub.lvclass:Run.vi", "./Sub/impl/Run.vi")]
+    assert declared == [("Sub.lvclass:Run.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
     assert not any(k.endswith("/Sub/Run.vi") for k in graph.get_vi_dependencies(key))
@@ -156,7 +160,7 @@ def test_inherited_method_is_declared_by_the_parents_file(tree: _Tree) -> None:
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Base.lvclass:Stop.vi", "./Base/Stop.vi")]
+    assert declared == [("Base.lvclass:Stop.vi", "./Child/Child.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Base/Stop.vi")
 
@@ -166,7 +170,7 @@ def test_method_the_class_declares_itself_is_not_the_parents(tree: _Tree) -> Non
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Over/Stop.vi")
     assert _uses(tree, "caller_over.vi") == [
-        "subVI Over.lvclass:Stop.vi ; ./Over/Stop.vi"
+        "subVI Over.lvclass:Stop.vi ; ./Over/Over.lvclass"
     ]
 
 
@@ -224,7 +228,7 @@ def test_vipi_with_an_owner_chain_declares_the_real_file(tree: _Tree) -> None:
         if d.kind.value == "subVI"
     ]
     # The block-diagram record and the VI-level record are one call: one file.
-    assert declared == [("Sub.lvclass:Run.vi", "./Sub/impl/Run.vi")]
+    assert declared == [("Sub.lvclass:Run.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     assert call.callee_key == _key(tree, "Sub/impl/Run.vi")
 
@@ -286,7 +290,7 @@ def test_method_no_class_of_the_chain_lists_has_no_invented_path(tree: _Tree) ->
         for d in build_netlist_from_graph(graph, key).dependencies
         if d.kind.value == "subVI"
     ]
-    assert declared == [("Sub.lvclass:Gone.vi", None)]
+    assert declared == [("Sub.lvclass:Gone.vi", "./Sub/Sub.lvclass")]
     (call,) = _calls(graph, key)
     stub = call.callee_key
     assert stub == f"Sub.lvclass@{_key(tree, 'Sub/Sub.lvclass')}:Gone.vi"
@@ -343,7 +347,7 @@ def test_files_of_a_class_name_differing_only_in_case_make_the_call_missing(
         r for d in graph.get_vi_dependencies(key) if (r := graph.stub_reason(d))
     ]
     assert "differ only in case" in reason
-    assert "./Amb/AMB.lvclass" in reason and "./Amb/amb.lvclass" in reason
+    assert "Amb/AMB.lvclass" in reason and "Amb/amb.lvclass" in reason
     text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     assert "subVI Amb.lvclass:Run.vi" in text
     assert str(tree.root) not in text and str(tree.root) not in reason

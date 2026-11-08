@@ -6,20 +6,20 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import LaidOutTerminal, lay_out_node
 from lvkit.models import Terminal
-from lvkit.primitive_resolver import get_resolver
 
+from ..context import CodeGenContext
 from ..errors import CodeGenError
 
 
 def laid_out_roles(
-    node: PrimitiveNode, node_type: str
+    ctx: CodeGenContext, node: PrimitiveNode, node_type: str
 ) -> dict[int, list[tuple[LaidOutTerminal, Terminal]]]:
     """The node's terminals by catalog slot, placed for its array types.
 
     Each slot lists its terminals in index order with their position in the
     node's repeated sets and dimensions (see ``graph/terminal_layout.py``).
     """
-    template = get_resolver().resolve_by_node_type(node_type)
+    template = ctx.primitive_catalog.resolve_by_node_type(node_type)
     if template is None:
         raise ConversionGap(
             f"No terminal layout is known for {node.name or 'this function'}", node

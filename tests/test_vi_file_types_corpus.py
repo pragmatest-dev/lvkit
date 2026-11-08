@@ -90,20 +90,19 @@ def test_vim_and_vit_read_in_every_view(
 
 
 @pytest.mark.parametrize(
-    ("path", "mode", "module_file"),
+    ("path", "mode", "module_file", "function"),
     [
-        (_GENERATED_VIM, LoadMode.FULL, "assert_equal.py"),
-        (_GENERATED_VIT, LoadMode.NONE, "testtemplate.py"),
+        (_GENERATED_VIM, LoadMode.FULL, "assert_equal_vim.py", "assert_equal"),
+        (_GENERATED_VIT, LoadMode.NONE, "testtemplate_vit.py", "testtemplate"),
     ],
 )
 def test_vim_and_vit_generate_python(
-    path: Path, mode: LoadMode, module_file: str, tmp_path: Path
+    path: Path, mode: LoadMode, module_file: str, function: str, tmp_path: Path
 ) -> None:
     summary = generate_python(path, tmp_path, mode=mode)
 
     assert summary["error"] == 0
     [written] = tmp_path.rglob(module_file)
-    function = module_file.removesuffix(".py")
     assert f"def {function}(" in written.read_text(encoding="utf-8")
 
 
@@ -113,12 +112,12 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     generate_python(_CALLER, tmp_path)
 
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
-    [callee] = tmp_path.rglob("create_annotations.py")
+    [callee] = tmp_path.rglob("create_annotations_vim.py")
     lines = caller.read_text(encoding="utf-8").splitlines()
     [call_import] = [ln for ln in lines if " import create_annotations" in ln]
     assert call_import.startswith("from .")
     assert call_import.endswith(
-        ".clients.session_management_v1.session_reservation.create_annotations"
+        ".clients.session_management_v1.session_reservation.create_annotations_vim"
         " import create_annotations"
     )
     assert (

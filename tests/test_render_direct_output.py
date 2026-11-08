@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from lvkit import cache_paths, cli, extractor, output_cache, staging
+from lvkit.cache_paths import LibraryRoots
 
 _VI = (
     Path(__file__).parent
@@ -30,7 +31,8 @@ def vi(tmp_path: Path) -> Path:
     src.mkdir()
     dst = src / "Case.vi"
     shutil.copy(_VI, dst)
-    extractor.extract_vi_xml(dst)  # extraction stages by design; do it up front
+    # extraction stages by design; do it up front
+    extractor.extract_vi_xml(dst, roots=LibraryRoots())
     staging.release_all()
     return dst
 
@@ -52,7 +54,7 @@ def test_no_cache_with_output_writes_one_file_and_no_cache_entry(
     args = (str(vi), "--format", fmt, "--no-cache", "-o", str(out))
     assert _render(monkeypatch, *args) == 0
     assert out.read_text(encoding="utf-8").lstrip().startswith(("<svg", "<!"))
-    assert not output_cache.render_slot(vi, fmt).exists()
+    assert not output_cache.render_slot(vi, fmt, LibraryRoots()).exists()
     leftovers = staging.staging_root(cache_paths.global_cache_root()).glob("r-*")
     assert not list(leftovers)
 
@@ -62,4 +64,4 @@ def test_cached_render_still_fills_the_slot(
 ) -> None:
     out = tmp_path / "x.svg"
     assert _render(monkeypatch, str(vi), "--format", "svg", "-o", str(out)) == 0
-    assert output_cache.render_slot(vi, "svg").exists()
+    assert output_cache.render_slot(vi, "svg", LibraryRoots()).exists()

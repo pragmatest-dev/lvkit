@@ -9,7 +9,7 @@ it holds is found when the code is generated, not when it runs:
   (``InMemoryVIGraph.opened_vi``);
 - Call By Reference calls that function with the called VI's own parameter
   names; Start Asynchronous Call submits the call to a thread pool;
-- Close Reference of a VI reference generates nothing;
+- Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
   ``__name__`` and file (``vi_property_read``).
 
@@ -86,9 +86,6 @@ INVALID_VI_REFERENCE_CODE = 1026
 
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
-
-# Close Reference's reference input (data/primitives/application-control.json).
-_CLOSE_REFERENCE_INDEX = 11
 
 _EXECUTOR = "_async_call_pool"
 _EXECUTOR_IMPORT = "from concurrent.futures import ThreadPoolExecutor"
@@ -504,9 +501,13 @@ else:
 """
 
 _IMPORT_MODULE = """\
+{suffix} = ""
 if {stem}.lower().endswith((".vi", ".vim", ".vit")):
-    {stem} = {stem}.rsplit(".", 1)[0]
-{module} = importlib.import_module({package} + _module_part({stem}), __package__)
+    {stem}, {suffix} = {stem}.rsplit(".", 1)
+    {suffix} = {{"vim": "_vim", "vit": "_vit"}}.get({suffix}.lower(), "")
+{module} = importlib.import_module(
+    {package} + _module_part({stem} + {suffix}), __package__
+)
 {reference} = getattr({module}, _function_name({stem}), None)
 if {reference} is None:
     raise LookupError(
@@ -538,7 +539,17 @@ def _generate_lookup(
     )
     names = {
         key: f"{reference_var}_{key}"
-        for key in ("here", "path", "parts", "up", "stem", "package", "owner", "module")
+        for key in (
+            "here",
+            "path",
+            "parts",
+            "up",
+            "stem",
+            "suffix",
+            "package",
+            "owner",
+            "module",
+        )
     }
     names.update(value=value, reference=reference_var)
     names["rel"] = f"{reference_var}_rel"
@@ -675,19 +686,6 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
         return False
     raise ConversionGap(
         "Open VI Reference: the computed VI path is neither a path nor a string.",
-    )
-
-
-def closes_vi_reference(node: PrimitiveNode, ctx: CodeGenContext) -> bool:
-    """True when a Close Reference node closes a VI reference: its reference
-    input is wired from a Static VI Reference or an Open VI Reference."""
-    reference = next(
-        (t for t in node.terminals if t.index == _CLOSE_REFERENCE_INDEX), None
-    )
-    return (
-        reference is not None
-        and ctx.graph is not None
-        and ctx.graph.holds_vi_reference(reference.id)
     )
 
 

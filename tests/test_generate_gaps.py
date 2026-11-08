@@ -476,9 +476,10 @@ def test_a_call_of_a_vi_that_was_not_found_is_one_missing_vi_gap(
     key = "<vilib>/daqmx/Flatten Channel String.vi"
     source, gaps = _caller_of(key, False, tmp_path)
     (gap,) = gaps
+    # Named by the path its caller stores, so two files of one name are two gaps.
     assert (gap.kind, gap.identifier, gap.node_name) == (
         "missing_vi",
-        "Flatten Channel String.vi",
+        "<vilib>/daqmx/Flatten Channel String.vi",
         "Flatten Channel String.vi",
     )
     assert gap.reason == (

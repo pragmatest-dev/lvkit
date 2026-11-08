@@ -25,7 +25,9 @@ from tests.test_class_member_calls import _write_class
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "proj")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     built.vi("SubVIs/Helper.vi", "Helper.vi", [])
     built.vi(
@@ -151,10 +153,10 @@ def test_a_copy_reports_its_problems_in_its_original_project(
     helper = (tree.root / "SubVIs" / "Helper.vi").resolve()
     real_extract = tree.extract
 
-    def extract(path: Path) -> tuple[Path, Path | None, Path]:
+    def extract(path: Path, *, roots: object) -> tuple[Path, Path | None, Path]:
         if Path(path).resolve() == helper:
             raise UnreadableVIError("no block diagram could be read", path=helper)
-        return real_extract(path)
+        return real_extract(path, roots=roots)
 
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", extract)
     original = tree.root / "Main.vi"

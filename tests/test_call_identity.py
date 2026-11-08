@@ -158,7 +158,9 @@ class _Tree:
         self._xml[path.resolve()] = (slot / "vi_BDHb.xml", None, slot / "vi.xml")
         return path
 
-    def extract(self, path: Path) -> tuple[Path, Path | None, Path]:
+    def extract(
+        self, path: Path, *, roots: object = None
+    ) -> tuple[Path, Path | None, Path]:
         return self._xml[Path(path).resolve()]
 
 
@@ -166,7 +168,9 @@ class _Tree:
 def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built = _Tree(tmp_path / "src")
     monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
-    monkeypatch.setattr("lvkit.structure.extract_vi_xml", lambda _p: (None, None, None))
+    monkeypatch.setattr(
+        "lvkit.structure.extract_vi_xml", lambda _p, roots: (None, None, None)
+    )
     monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
     built.vi("TestCase/skip.vi", "TestCase.lvclass:skip.vi", ["TestCase.lvclass"])
     built.vi("TestSuite/skip.vi", "TestSuite.lvclass:skip.vi", ["TestSuite.lvclass"])
@@ -471,7 +475,7 @@ def test_a_callee_two_search_path_files_match_equally_is_missing_and_ambiguous(
     assert reason is not None and reason.startswith(
         "Ambiguous reference -- several files on the VI search path end in"
     )
-    assert all(f"./{f}" in reason for f in found)
+    assert all(f in reason for f in found)
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(
