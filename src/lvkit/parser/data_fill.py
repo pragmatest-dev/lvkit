@@ -32,6 +32,11 @@ from .refnum_value import holds_handle
 # The TM80 flag that marks a type whose value is its default (no DataFill).
 _DEFAULT_VALUE_FLAG = "TMFBit11"
 
+# The first LabVIEW version whose VIs keep their types in one shared pool (VCTP).
+# An older VI keeps them inline, and a front-panel control's ``tdOffset`` there
+# names its range or options cluster, not its value.
+_POOLED_TYPES_SINCE = (8, 6)
+
 _SCALAR_FORMATS: dict[str, str] = {
     "I8": ">b",
     "I16": ">h",
@@ -81,10 +86,14 @@ class DefaultDataSpace:
     """What a VI's default data holds, by data-space ``TypeID``.
 
     ``index_shift`` is None for a VI whose ``TM80`` section is not decoded (or
-    absent); no object of such a VI can be looked up.
+    absent); no object of such a VI can be looked up. ``controls_hold_value`` is
+    False for a VI saved before LabVIEW 8.6: its constants keep their values
+    here, but the entry at a front-panel control's ``tdOffset`` is not the
+    control's value.
     """
 
     index_shift: int | None = None
+    controls_hold_value: bool = True
     fills: dict[int, ET.Element] = field(default_factory=dict)
     default_value_types: frozenset[int] = frozenset()
     encoding: str = "cp1252"
@@ -166,6 +175,19 @@ def read_index_shift(root: ET.Element) -> int | None:
         return None
 
 
+def _types_pooled(root: ET.Element) -> bool:
+    """Whether the VI was saved by LabVIEW 8.6 or later (its ``vers`` version);
+    True when the VI records none."""
+    version = root.find(".//vers/Section/Version")
+    if version is None:
+        return True
+    try:
+        saved = (int(version.get("Major", "")), int(version.get("Minor", "")))
+    except ValueError:
+        return True
+    return saved >= _POOLED_TYPES_SINCE
+
+
 def read_default_data_space(root: ET.Element) -> DefaultDataSpace:
     """The default data space of the dataspace XML ``root``."""
     shift = read_index_shift(root)
@@ -178,6 +200,7 @@ def read_default_data_space(root: ET.Element) -> DefaultDataSpace:
                 default_types.add(position + shift)
     return DefaultDataSpace(
         index_shift=shift,
+        controls_hold_value=_types_pooled(root),
         fills={type_id: fill for type_id, fill in iter_data_fills(root)},
         default_value_types=frozenset(default_types),
         encoding=xml_text_encoding(root),

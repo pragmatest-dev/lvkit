@@ -129,16 +129,30 @@ def _front_panel(controls: str, pane: dict[int, int]) -> str:
     )
 
 
+def _vers(version: tuple[int, int] | None) -> str:
+    """The ``vers`` block of a VI saved by LabVIEW ``version`` (none for None)."""
+    if version is None:
+        return ""
+    major, minor = version
+    return (
+        '<vers><Section Index="4" Format="inline"><Version '
+        f'Major="{major}" Minor="{minor}" Bugfix="0" Stage="release" Build="2" '
+        'Language="0" Info="" Comment="" /></Section></vers>'
+    )
+
+
 def _load(
     tmp_path: Path,
     bd_xml: str,
     slots: list[tuple[str, str | None]] | None,
     fp_xml: str | None = None,
+    version: tuple[int, int] | None = None,
 ) -> Views:
-    """Load the VI; ``slots`` None writes a VI with no default data."""
+    """Load the VI; ``slots`` None writes a VI with no default data, ``version``
+    the LabVIEW version that saved it (none recorded for None)."""
     dataspace = "" if slots is None else _dataspace(slots)
     (tmp_path / "T.xml").write_text(
-        main_xml(TYPES).replace("</RSRC>", dataspace + "</RSRC>")
+        main_xml(TYPES).replace("</RSRC>", _vers(version) + dataspace + "</RSRC>")
     )
     bd = tmp_path / "T_BDHb.xml"
     bd.write_text(bd_xml)
@@ -165,6 +179,7 @@ def _constant_vi(
     slots: list[tuple[str, str | None]] | None,
     slot: int,
     extra: str = "",
+    version: tuple[int, int] | None = None,
 ) -> Views:
     """A VI whose indicator ``result`` shows one constant of data-space slot
     ``slot``."""
@@ -183,7 +198,7 @@ def _constant_vi(
         ],
         [wire(901, 701, 5030)],
     )
-    return _load(tmp_path, xml, slots, fp)
+    return _load(tmp_path, xml, slots, fp, version)
 
 
 def _generate(views: Views) -> tuple[object, str, list[Gap]]:
@@ -386,3 +401,15 @@ def test_a_constant_of_a_vi_without_a_data_space_keeps_the_existing_gap(
         "holds a value the VI stores in its default data (DFDS), which lvkit does "
         "not decode yet; code generation has no value to write for it."
     )
+
+
+def test_a_constant_of_a_vi_saved_before_8_6_takes_its_value_from_the_default_data(
+    tmp_path: Path,
+) -> None:
+    for version in ((8, 2), (8, 5), (9, 0)):
+        folder = tmp_path / f"v{version[0]}{version[1]}"
+        folder.mkdir()
+        views = _constant_vi(folder, U32, "stdNum", SLOTS, U32_SLOT, version=version)
+        function, _, gaps = _generate(views)
+        assert gaps == []
+        assert function().result == 6, version  # type: ignore[operator]
