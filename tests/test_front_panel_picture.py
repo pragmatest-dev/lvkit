@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.vi import parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
@@ -52,7 +53,7 @@ def test_a_picture_cluster_field_resolves_through_the_same_generic_path() -> Non
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _NEW_PICTURE_VI.exists(), reason="icon-editor sample absent")
 def test_a_real_corpus_picture_control_renders_not_unknown() -> None:
-    parsed = parse_vi(_NEW_PICTURE_VI)
+    parsed = parse_vi(_NEW_PICTURE_VI, roots=LibraryRoots())
     picture = next(
         c for c in parsed.front_panel.controls if c.control_type == "stdPict"
     )

@@ -17,6 +17,7 @@ import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from .cache_paths import LibraryRoots
 from .extractor import extract_vi_xml
 from .parser.link_table import (
     InstanceSourceLink,
@@ -81,10 +82,13 @@ def _strings(link: ET.Element, tag: str) -> tuple[str, ...]:
 
 
 def read_instance_sources(
-    directory: Path, instance_files: list[str]
+    directory: Path, instance_files: list[str], roots: LibraryRoots
 ) -> dict[str, ParsedDependencyRef]:
     """For each embedded instance of a caller, the VI it is an instance of, keyed
     by the instance's own file name (``<guid>.vi``).
+
+    ``roots`` are the library folders of the run asking, which file the instance
+    VIs' extractions.
 
     ``instance_files`` are the caller's ``VINS`` sidecar files
     (``ParsedVIMetadata.instance_files``: the name list, then one file per
@@ -106,7 +110,7 @@ def read_instance_sources(
         return {}
     sources: dict[str, ParsedDependencyRef] = {}
     for name, file_name in zip(names, instance_files[1:], strict=True):
-        instance_xml = extract_vi_xml(directory / file_name)[2]
+        instance_xml = extract_vi_xml(directory / file_name, roots=roots)[2]
         if instance_xml is None:
             continue
         try:

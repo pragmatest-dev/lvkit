@@ -22,7 +22,7 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
 )
 from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
-from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
+from lvkit.vilib_resolver import VIEntry, VILibResolver, VITerminal
 
 from .ast_utils import parameter_default_expr
 
@@ -52,14 +52,16 @@ def _family(type_name: str) -> str | None:
     return None
 
 
-def _type_disagrees(catalog: VITerminal, pane: Terminal) -> bool:
+def _type_disagrees(
+    catalog: VITerminal, pane: Terminal, resolver: VILibResolver
+) -> bool:
     """Whether the catalog's type for a terminal is not the pane control's type.
     A type the catalog leaves out, or one that is not a primitive on both sides,
     is not a disagreement."""
     lv_type = pane.lv_type
     if catalog.type is None or lv_type is None:
         return False
-    if get_resolver().resolve_type(catalog.type) is not None:
+    if resolver.resolve_type(catalog.type) is not None:
         return lv_type.typedef_name is not None and catalog.type != lv_type.typedef_name
     if lv_type.kind is not LVTypeKind.PRIMITIVE or lv_type.underlying_type is None:
         return False
@@ -67,7 +69,9 @@ def _type_disagrees(catalog: VITerminal, pane: Terminal) -> bool:
     return wanted is not None and held is not None and wanted != held
 
 
-def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
+def check_against_pane(
+    entry: VIEntry, pane: list[Terminal], resolver: VILibResolver
+) -> PaneCheck:
     """``entry`` with indices and defaults taken from ``pane`` (the connector-pane
     controls and indicators of the loaded VI), and the disagreements found."""
     terminals: list[VITerminal] = []
@@ -98,7 +102,7 @@ def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
                 )
             elif at_index:
                 match = at_index[0]
-        if match is not None and _type_disagrees(catalog, match):
+        if match is not None and _type_disagrees(catalog, match, resolver):
             mismatches.append(
                 f"the catalog gives '{catalog.name}' type {catalog.type}, but the "
                 f"loaded VI's control at index {match.index} is "

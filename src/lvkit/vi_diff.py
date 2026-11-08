@@ -17,6 +17,7 @@ from typing import NamedTuple
 
 from lvkit.library_folders import Folders, SearchEntries
 
+from .catalog_stamp import CatalogKey
 from .load_mode import LoadMode
 from .run_report import Problem, RunSettings
 
@@ -37,6 +38,7 @@ class DiffBody(NamedTuple):
     after_name: str
     dependencies: tuple[Path, ...] = ()
     problems: tuple[Problem, ...] = ()
+    catalog_keys: frozenset[CatalogKey] = frozenset()
 
 
 def diff_vi_files(
@@ -70,6 +72,7 @@ def diff_vi_files(
     when an ``html`` render declines because required diagram geometry is
     missing. ``warm_index`` upserts both
     VIs' facts into their project index (best-effort; set ``False`` to skip)."""
+    from .catalog_keys import catalog_keys
     from .graph import load_vi_by_path
     from .graph.diff import (
         diff_to_dict,
@@ -116,6 +119,7 @@ def diff_vi_files(
         warm_index_for_vi(graph_b, name_b, after_path)
 
     problems = tuple(graph_a.problems() + graph_b.problems())
+    keys = catalog_keys(graph_a, name_a) | catalog_keys(graph_b, name_b)
 
     # DISPLAY-only names (qualified, never the vi_key = absolute source path).
     # name_a/name_b stay the vi_key for every graph op below (render, diff_uid,
@@ -132,10 +136,10 @@ def diff_vi_files(
 
     if fmt == "text":
         body = format_diff(graph_a, graph_b, name_a, name_b, verbose=verbose) or ""
-        return DiffBody(body, display_a, display_b, dependencies, problems)
+        return DiffBody(body, display_a, display_b, dependencies, problems, keys)
     if fmt == "json":
         body = json.dumps(diff_to_dict(graph_a, graph_b, name_a, name_b), indent=2)
-        return DiffBody(body, display_a, display_b, dependencies, problems)
+        return DiffBody(body, display_a, display_b, dependencies, problems, keys)
 
     # html — both diagrams render "auto" so the viewer's light/dark toggle can
     # re-theme them (a baked palette couldn't respond to the data-theme flip).
@@ -178,4 +182,4 @@ def diff_vi_files(
         after_label=after_label,
         netlist_rows=rows_to_json(rows),
     )
-    return DiffBody(body, display_a, display_b, dependencies, problems)
+    return DiffBody(body, display_a, display_b, dependencies, problems, keys)

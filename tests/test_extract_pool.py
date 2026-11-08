@@ -19,6 +19,7 @@ import pytest
 
 import lvkit.extract_pool as extract_pool
 from lvkit import cache_paths
+from lvkit.cache_paths import LibraryRoots
 from lvkit.extract_pool import ExtractionPool
 from lvkit.extractor import cached_extraction, extract_vi_xml
 from lvkit.graph.core import InMemoryVIGraph
@@ -56,7 +57,7 @@ class _FailingExecutor:
     def __init__(self, *args: object, **kwargs: object) -> None:
         type(self).submitted = []
 
-    def submit(self, fn: object, path: str) -> Future[None]:
+    def submit(self, fn: object, path: str, roots: object) -> Future[None]:
         type(self).submitted.append(path)
         future: Future[None] = Future()
         future.set_exception(RuntimeError("worker died"))
@@ -70,34 +71,34 @@ def test_pool_extracts_the_same_files_as_serial(
     vis: list[Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     for vi in vis:
-        extract_vi_xml(vi)
+        extract_vi_xml(vi, roots=LibraryRoots())
     serial = _cache_listing(tmp_path / "cache")
 
     # A second, empty cache: the first holds this process's staging lock open,
     # which Windows won't let a test delete.
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "pool-cache"))
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         pool.prefetch(vis)
         for vi in vis:
             pool.wait(vi)
         assert pool._executor is not None
-    assert all(cached_extraction(vi) is not None for vi in vis)
+    assert all(cached_extraction(vi, roots=LibraryRoots()) is not None for vi in vis)
     assert _cache_listing(tmp_path / "pool-cache") == serial
 
 
 def test_cached_extraction_matches_extract_vi_xml(vis: list[Path]) -> None:
     vi = vis[0]
-    assert cached_extraction(vi) is None
-    extracted = extract_vi_xml(vi)
-    assert cached_extraction(vi) == extracted
+    assert cached_extraction(vi, roots=LibraryRoots()) is None
+    extracted = extract_vi_xml(vi, roots=LibraryRoots())
+    assert cached_extraction(vi, roots=LibraryRoots()) == extracted
     vi.write_bytes(vi.read_bytes() + b"\0")  # content changed: a miss again
-    assert cached_extraction(vi) is None
+    assert cached_extraction(vi, roots=LibraryRoots()) is None
 
 
 def test_extracted_files_start_no_pool(vis: list[Path]) -> None:
     for vi in vis:
-        extract_vi_xml(vi)
-    with ExtractionPool() as pool:
+        extract_vi_xml(vi, roots=LibraryRoots())
+    with ExtractionPool(LibraryRoots()) as pool:
         pool.prefetch(vis)
         assert pool._executor is None
         assert pool._futures == {}
@@ -110,12 +111,12 @@ def test_sibling_vis_outside_any_project_keep_their_own_extraction(
     not invalidate the other."""
     shutil.rmtree(vis[0].parent / ".git")
     for vi in vis:
-        extract_vi_xml(vi)
-    assert all(cached_extraction(vi) is not None for vi in vis)
+        extract_vi_xml(vi, roots=LibraryRoots())
+    assert all(cached_extraction(vi, roots=LibraryRoots()) is not None for vi in vis)
 
 
 def test_missing_file_starts_no_pool(tmp_path: Path) -> None:
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         pool.prefetch([tmp_path / "absent.vi"])
         assert pool._executor is None
 
@@ -124,7 +125,7 @@ def test_prefetch_submits_each_file_once(
     vis: list[Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(extract_pool, "ProcessPoolExecutor", _FailingExecutor)
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         pool.prefetch(vis)
         pool.prefetch(vis)
     assert len(_FailingExecutor.submitted) == len(vis)
@@ -138,7 +139,7 @@ def test_off_main_thread_starts_no_pool(
     seen: dict[str, object] = {}
 
     def run() -> None:
-        with ExtractionPool() as pool:
+        with ExtractionPool(LibraryRoots()) as pool:
             pool.prefetch(vis)
             pool.wait(vis[0])
             seen["executor"] = pool._executor
@@ -156,11 +157,11 @@ def test_worker_failure_falls_back_to_the_loaders_own_extraction(
 ) -> None:
     monkeypatch.setattr(extract_pool, "ProcessPoolExecutor", _FailingExecutor)
     graph = InMemoryVIGraph()
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         graph._extract_pool = pool
         pool.prefetch(vis)
         # wait() swallows the worker's failure; the graph's own extraction runs
-        assert graph._extract(vis[0]) == extract_vi_xml(vis[0])
+        assert graph._extract(vis[0]) == extract_vi_xml(vis[0], roots=LibraryRoots())
 
 
 def test_failure_on_an_unreadable_vi_raises_the_loaders_error(
@@ -170,10 +171,10 @@ def test_failure_on_an_unreadable_vi_raises_the_loaders_error(
     bad = tmp_path / "bad.vi"
     bad.write_bytes(b"not a vi")
     with pytest.raises(RuntimeError) as direct:
-        extract_vi_xml(bad)
+        extract_vi_xml(bad, roots=LibraryRoots())
     monkeypatch.setattr(extract_pool, "ProcessPoolExecutor", _FailingExecutor)
     graph = InMemoryVIGraph()
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         graph._extract_pool = pool
         pool.prefetch([bad])
         with pytest.raises(RuntimeError) as pooled:
@@ -181,20 +182,23 @@ def test_failure_on_an_unreadable_vi_raises_the_loaders_error(
     assert str(pooled.value) == str(direct.value)
 
 
-def test_workers_adopt_the_parents_library_roots(tmp_path: Path) -> None:
-    try:
-        extract_pool._init_worker(
-            (tmp_path / "vilib",),
-            (tmp_path / "userlib",),
-            (tmp_path / "instrlib",),
-        )
-        assert cache_paths.extraction_roots() == (
-            ((tmp_path / "vilib").resolve(),),
-            ((tmp_path / "userlib").resolve(),),
-            ((tmp_path / "instrlib").resolve(),),
-        )
-    finally:
-        cache_paths.clear_extraction_roots()
+def test_workers_file_extractions_by_the_pools_library_roots(
+    vis: list[Path], tmp_path: Path
+) -> None:
+    userlib = tmp_path / "userlib"
+    vi = userlib / "a" / vis[0].name
+    vi.parent.mkdir(parents=True)
+    shutil.copy(vis[0], vi)
+    roots = LibraryRoots.of(userlib_root=userlib)
+    with ExtractionPool(roots) as pool:
+        pool.prefetch([vi])
+        pool.wait(vi)
+        assert pool._executor is not None
+    hit = cached_extraction(vi, roots=roots)
+    assert hit is not None
+    shared_userlib = cache_paths.global_cache_root() / "shared" / "userlib"
+    assert shared_userlib in hit[0].parents
+    assert cached_extraction(vi, roots=LibraryRoots()) is None
 
 
 def test_outermost_load_owns_the_pool_and_nested_loads_reuse_it(
@@ -226,7 +230,7 @@ class _RecordingExecutor:
         self.shutdowns: list[dict[str, object]] = []
         type(self).instances.append(self)
 
-    def submit(self, fn: object, path: str) -> Future[None]:
+    def submit(self, fn: object, path: str, roots: object) -> Future[None]:
         self.submitted.append(path)
         future: Future[None] = Future()
         future.set_result(None)
@@ -252,7 +256,7 @@ def test_each_full_batch_retires_its_executor(
     drain = {"wait": True}
     retire = {"wait": False, "cancel_futures": False}
     close = {"wait": True, "cancel_futures": True}
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         pool.prefetch(files[:2])
         first = _RecordingExecutor.instances
         assert len(first) == 1
@@ -277,16 +281,16 @@ def test_real_pool_retiring_every_batch_extracts_everything(
     vis: list[Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     for vi in vis:
-        extract_vi_xml(vi)
+        extract_vi_xml(vi, roots=LibraryRoots())
     serial = _cache_listing(tmp_path / "cache")
 
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "pool-cache"))
     monkeypatch.setattr(extract_pool, "_MAX_WORKERS", 1)
     monkeypatch.setattr(extract_pool, "_FILES_PER_WORKER", 1)
-    with ExtractionPool() as pool:
+    with ExtractionPool(LibraryRoots()) as pool:
         for vi in vis:
             pool.prefetch([vi])
         for vi in vis:
             pool.wait(vi)
-    assert all(cached_extraction(vi) is not None for vi in vis)
+    assert all(cached_extraction(vi, roots=LibraryRoots()) is not None for vi in vis)
     assert _cache_listing(tmp_path / "pool-cache") == serial

@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import LibraryRoots
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.package_modules import PackageModules
@@ -111,7 +112,7 @@ def _nodes(graph: InMemoryVIGraph, vi: str) -> dict[str, SharedVariableNode]:
 
 
 def test_parser_links_each_node_to_its_library_by_uid() -> None:
-    bd, fp, main_xml = extract_vi_xml(SV_SAMPLE)
+    bd, fp, main_xml = extract_vi_xml(SV_SAMPLE, roots=LibraryRoots())
     metadata = parse_vi(bd_xml=bd, fp_xml=fp, main_xml=main_xml).metadata
     assert sorted(metadata.shared_variable_links) == ["1033", "1112", "977"]
     link = metadata.shared_variable_links["977"]
@@ -171,7 +172,7 @@ def test_library_is_listed_without_its_file(tmp_path: Path) -> None:
     graph, vi = _load(lone)
     assert "SV Sample.lvlib (Shared Variable library)" in describe_vi(graph, vi)
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib\n" in text
+    assert "    library SV Sample.lvlib (missing)\n" in text
 
 
 def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
@@ -180,7 +181,7 @@ def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
     beside it: nothing is looked up by name."""
     graph, vi = _load()
     text = render_lvnet(build_netlist_from_graph(graph, vi), verbose=True)
-    assert "    library SV Sample.lvlib\n" in text
+    assert "    library SV Sample.lvlib (missing)\n" in text
     assert "shared-variable Value_1033 : SV Sample.lvlib::Value : write" in text
     assert "shared-variable Value_1112 : SV Sample.lvlib::Value : read" in text
     assert "shared-variable Value_977 : SV Sample.lvlib::Value : read" in text
