@@ -157,3 +157,38 @@ def test_no_path_is_a_gap(project: Project) -> None:  # noqa: F811
     assert reason in package.source
     with pytest.raises(NotImplementedError, match=re.escape(reason)):
         package.function()
+
+
+def test_a_module_with_create_folder_and_delete_shares_the_path_classes(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    """Both nodes raise EmptyOrRelativePathError and InvalidPathError: the module
+    defines each class once."""
+    vi = Vi("Make And Remove.vi")
+    target = vi.control("target", PATH, REQUIRED)
+    out = vi.error_out()
+    make = vi.primitive(8055, _PANE)
+    remove = vi.primitive(
+        8056,
+        [
+            ("error out", 0, ERR, True),
+            ("cancelled", 1, BOOL, True),
+            ("deleted path", 3, PATH, True),
+            ("error in", 8, ERR, False),
+            ("confirm", 9, BOOL, False),
+            ("entire hierarchy", 10, BOOL, False),
+            ("path", 11, PATH, False),
+        ],
+    )
+    vi.wire(target, make["path"])
+    vi.wire(make["created path"], remove["path"])
+    vi.wire(make["error out"], remove["error in"])
+    vi.wire(remove["error out"], out)
+    project.add(vi)
+    package = project.generate("Make And Remove.vi")
+    assert package.source.count("class EmptyOrRelativePathError(ValueError):") == 1
+    folder = tmp_path / "temp"
+    assert package.function(folder).error_out is None
+    assert not folder.exists()
+    assert package.function(Path("relative")).error_out.code == 1430
