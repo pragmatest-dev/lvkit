@@ -1869,6 +1869,16 @@ NI: "This function appends platform-dependent, end-of-line (EOL) characters to t
 
 The menu item is checked by default, so the bit set is Convert EOL on and a VI that writes a JSON file's line feeds as they are is the one with it off. The same bit is the Regular Expression mode of Search and Replace String (above); `ops/write_to_text_file.py` reads it from the node's `obj_flags`. Only one node has it clear, so this one VI is the whole evidence for the clear state. Read from Text File (8070) nodes carry 33555072 or 100663936 (0x6000280: 0x4000000 also set), another option bit that is not decoded.
 
+## Coerce To Type's input 0 is `x` and input 1 is `type`, in every corpus caller
+
+NI lists `type` first, then `x` (labview-api-ref, `functions/coerce-to-type.html`: "`type` ... wire a constant or control of the desired data type to `type`. LabVIEW ignores any data in the constant or control wired to `type`"), so the page's order is not the pane's. A `prim` element of `primResID` 2402 has the terminals `parmIndex` 0 and 1 (inputs) and 2 (output). In the 17 nodes of the 9 distinct block diagrams in the extraction cache, the terminal that only names a type is always input 1 and the data is always input 0:
+
+- 7 nodes rename a user event registration refnum: input 0 from Read Event or Reg Events, input 1 the refnum constant (`None`).
+- 4 nodes coerce the constant `2147483647` (input 0) to the type of a subVI output (input 1), a unit unsigned 8-bit (2) or 16-bit (2) integer; the 4 other unit nodes are fed by loop tunnels on both inputs.
+- 1 node takes Increment (input 0) and a field of an Unbundle By Name (input 1), a 64-bit integer; 1 takes CenterRectInBnds.vi (input 0) and a field of an Unbundle By Name (input 1), a cluster of four 16-bit integers.
+
+Receipt: `vi-50a531018d6ea272` (input 0 from Read Event / Reg Events, input 1 the `None` constant), `vi-de8821a85e86ed27` (input 0 the constant `2147483647`, input 1 a subVI output). `ops/coerce_to_type.py` reads input 0 as `x`.
+
 ## A generic VI Server reference (`RefType="LVObjCtl"`) names its class in `CtlFlags`: 0x0001 Application, 0x0002 VI
 
 The type descriptor of a generic VI Server reference carries `CtlFlags` next to `RefType="LVObjCtl"`. Across the extracted corpus, every descriptor labelled `This VI` has `CtlFlags="0x0002"` (217 of 217) and every one labelled `This Application` has `0x0001` (109 of 109); the other descriptors with those values carry labels such as `VIRef`, `IE VI Ref`, `vi reference` (0x0002) and `application reference (local)`, `AppInst` (0x0001). Other values (0x0008, 0x001E, 0x001B, 0x0042 ...) are the control classes of control references (a `Font ComboBox` reference is 0x001D); they are not named here.
