@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A VI with an Event Structure runs from the generated front panel** — it takes an `events` queue; Timeout, Value Change on a control and Panel Close? frames are generated, a control change on the panel pushes a Value Change, and Close asks the Panel Close? frame; any other event is a gap that names it.
 - **The generated front panel runs like LabVIEW's and shows more controls** — Run Continuously, Pause and Abort, an error banner, and path, enum, ring, cluster, 1D array and error cluster controls and indicators.
 - **Generated VIs report live front-panel values while they run, and `generate --panel` writes a live NiceGUI front panel** — a VI with a control or indicator terminal inside a loop, a Local Variable or a Value Property Node takes `on_update` / `on_read` callbacks (names from a generated `(str, Enum)`), so a script, test or UI sees each indicator write and feeds Stop buttons and setpoints; `python <vi>_panel.py` serves the panel (numeric, Boolean and string controls). Fixed with it: a Local Variable write to a control is no longer dropped, and a control wired to an indicator inside a loop updates it every pass.
 - **Fix: the project index keeps which VI a SubVI call goes to, and recalculated caller counts are written** — a call's callee is set when a VI is loaded, so `describe`, `render` and MCP `read_vi` no longer blank it; a refresh also writes the new `impact_score` / `callers_count` of unchanged VIs (#167).
