@@ -46,6 +46,8 @@
     },
     "1169": {
       "name": "Cluster To Array",
+      "op": "CLUSTER_TO_ARRAY",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cluster-to-array.html",
       "terminals": [
         {
           "index": 0,
@@ -60,8 +62,7 @@
           "type": "Cluster"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1809": {
       "name": "Array Size",
