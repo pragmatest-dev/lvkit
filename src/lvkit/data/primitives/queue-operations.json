@@ -8,52 +8,53 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "max_queue_size",
+          "name": "max queue size (-1, unlimited)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 0,
           "direction": "input",
-          "name": "name",
+          "name": "name (unnamed)",
           "type": "String",
           "default": ""
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "element_data_type",
+          "name": "element data type",
           "type": "Cluster"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "create_if_not_found",
+          "name": "create if not found? (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "created",
+          "name": "created new?",
+          "python_name": "created",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -77,32 +78,32 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "force_destroy",
+          "name": "force destroy? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_name",
+          "name": "queue name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "output",
-          "name": "remaining_elements",
+          "name": "remaining elements",
           "type": "Array"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -124,20 +125,20 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "return_elements",
+          "name": "return elements? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
           "direction": "output",
-          "name": "max_queue_size",
+          "name": "max queue size",
           "type": "NumInt32"
         },
         {
@@ -149,37 +150,40 @@
         {
           "index": 6,
           "direction": "output",
-          "name": "queue_name",
+          "name": "queue name",
           "type": "String"
         },
         {
           "index": 7,
           "direction": "output",
-          "name": "elements_in_queue",
+          "name": "# elements in queue",
+          "python_name": "elements_in_queue",
           "type": "NumInt32"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
           "index": 9,
           "direction": "output",
-          "name": "pending_remove",
+          "name": "# pending remove",
+          "python_name": "pending_remove",
           "type": "NumInt32"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "pending_insert",
+          "name": "# pending insert",
+          "python_name": "pending_insert",
           "type": "NumInt32"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -215,33 +219,33 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "timeout_ms",
+          "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "timed_out",
+          "name": "timed out?",
           "type": "Boolean",
           "on_failure": true
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -334,20 +338,20 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "timeout_ms",
+          "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
@@ -359,14 +363,14 @@
         {
           "index": 10,
           "direction": "output",
-          "name": "timed_out",
+          "name": "timed out?",
           "type": "Boolean",
           "on_failure": true
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -396,25 +400,25 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
           "index": 9,
           "direction": "output",
-          "name": "remaining_elements",
+          "name": "remaining elements",
           "type": "Array"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
@@ -451,33 +455,33 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "timeout_ms",
+          "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "queue_out",
+          "name": "queue out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "timed_out",
+          "name": "timed out?",
           "type": "Boolean",
           "on_failure": true
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],

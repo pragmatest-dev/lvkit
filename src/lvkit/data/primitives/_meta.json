@@ -59,7 +59,8 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "output array",
+          "name": "array w/ subset deleted",
+          "python_name": "output_array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
@@ -166,6 +167,7 @@
           "index": 3,
           "direction": "input",
           "name": "new element/subarray",
+          "python_name": "new_element_subarray",
           "type": "polymorphic",
           "group": "new elements"
         }
@@ -194,6 +196,7 @@
           "index": 2,
           "direction": "input",
           "name": "new element/subarray",
+          "python_name": "new_element_subarray",
           "type": "polymorphic",
           "group": "replacement"
         },
@@ -223,7 +226,8 @@
         {
           "index": 1,
           "direction": "output",
-          "name": "reshaped array",
+          "name": "output array",
+          "python_name": "reshaped_array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },

@@ -12,14 +12,14 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "dot_notation",
+          "name": "dot notation? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "net_address",
+          "name": "net address",
           "type": "NumUInt32"
         }
       ],
@@ -40,7 +40,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "net_address",
+          "name": "net address",
           "type": "NumUInt32"
         },
         {

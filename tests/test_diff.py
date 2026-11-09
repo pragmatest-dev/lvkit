@@ -1462,14 +1462,14 @@ def test_setting_conditional_is_one_tunnel_change_naming_its_condition():
             "tunnel",
             "modified",
             "conditional last value tunnel",
-            "last value tunnel → conditional last value tunnel, condition ← not_x",
+            "last value tunnel → conditional last value tunnel, condition ← .not. x?",
         )
     ]
     assert changes[0].bounds is not None
     text = format_diff(ga, gb, va, vb)
     assert (
         "▪ conditional last value tunnel: "
-        "last value tunnel -> conditional last value tunnel, condition = not_x"
+        "last value tunnel -> conditional last value tunnel, condition = .not. x?"
     ) in text
 
 

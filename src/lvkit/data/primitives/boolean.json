@@ -8,7 +8,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x .and. y?",
+          "python_name": "result",
           "type": "boolean"
         },
         {
@@ -44,7 +45,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x .or. y?",
+          "python_name": "result",
           "type": "boolean"
         },
         {
@@ -80,7 +82,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x .xor. y?",
+          "python_name": "result",
           "type": "polymorphic"
         },
         {
@@ -114,7 +117,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "not_x",
+          "name": ".not. x?",
           "type": "Boolean"
         },
         {
@@ -180,7 +183,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "nor",
+          "name": ".not. (x .or. y)?",
+          "python_name": "nor",
           "type": "Boolean"
         }
       ],
@@ -252,13 +256,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "zero_or_one",
+          "name": "0, 1",
+          "python_name": "zero_or_one",
           "type": "NumInt16"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "boolean",
+          "name": "Boolean",
           "type": "polymorphic",
           "error_cluster_status": true
         }
@@ -278,7 +283,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "boolean array",
+          "name": "Boolean array",
           "type": "Array"
         },
         {
@@ -305,7 +310,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "boolean array",
+          "name": "Boolean array",
           "type": "Array"
         }
       ],
@@ -320,13 +325,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "logical_or",
+          "name": "logical OR",
           "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "boolean_array",
+          "name": "Boolean array",
           "type": "Array"
         }
       ],
@@ -343,13 +348,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "logical_and",
+          "name": "logical AND",
           "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "boolean_array",
+          "name": "Boolean array",
           "type": "Array"
         }
       ],

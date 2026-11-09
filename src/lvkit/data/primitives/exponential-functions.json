@@ -102,7 +102,7 @@
         }
       ],
       "python_code": {
-        "x_to_the_y": "in_1 ** in_2"
+        "xy": "in_1 ** in_2"
       },
       "inline": true,
       "verified": true,
@@ -153,7 +153,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "two_pow_x",
+          "name": "2^x",
+          "python_name": "two_pow_x",
           "type": "NumFloat64"
         },
         {
@@ -206,7 +207,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "log2(x)",
+          "python_name": "result",
           "type": "NumFloat64"
         }
       ],
