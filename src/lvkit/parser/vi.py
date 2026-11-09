@@ -966,10 +966,16 @@ def _resolve_bound_control_types(
     if not fp_path.exists():
         return
     fp_root = parsed_xml(fp_path)
+    parents = {child: parent for parent in fp_root.iter() for child in parent}
     for bound_node in bound:
         ddo = fp_root.find(f".//*[@uid='{bound_node.bound_control_uid}']")
         if ddo is not None:
             bound_node.bound_control_type = reconstruct_control_lvtype(ddo)
+            holder: ET.Element | None = ddo
+            while holder is not None and holder.get("class") != "fPDCO":
+                holder = parents.get(holder)
+            if holder is not None:
+                bound_node.bound_control_dco_uid = holder.get("uid", "")
 
 
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:

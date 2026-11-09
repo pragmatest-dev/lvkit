@@ -12,12 +12,17 @@ from ..models import FPTerminal, Terminal, TerminalDirection, TunnelTerminal
 from .models import (
     AnyGraphNode,
     ConstantNode,
+    EventStructureNode,
     LocalVariableNode,
     LoopNode,
+    PrimitiveNode,
     StructureNode,
     VINode,
     WireEnd,
 )
+
+# The Property Node row that reads or writes a control's value.
+VALUE_PROPERTY = "Value"
 
 
 class WireQueriesMixin:
@@ -33,6 +38,7 @@ class WireQueriesMixin:
         def incoming_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def outgoing_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
+        def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
         def loaded_callee_key(self, node: VINode) -> str | None: ...
         def pane_terminals(
             self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
@@ -186,6 +192,79 @@ class WireQueriesMixin:
                     found[control.id] = control
         return found
 
+    def front_panel_loop(self, terminal_id: str) -> str | None:
+        """The id of the While Loop, For Loop or Event Structure around the
+        control or indicator terminal ``terminal_id`` on the diagram (the
+        nearest one, through any Case, Sequence or Disable structures between);
+        None for a terminal on the VI's own diagram or any other terminal."""
+        terminal = self.get_terminal(terminal_id)
+        if not isinstance(terminal, FPTerminal):
+            return None
+        return self.enclosing_loop(terminal.parent)
+
+    def enclosing_loop(self, around: str | None) -> str | None:
+        """The id of the nearest While Loop, For Loop or Event Structure that is
+        the structure ``around`` or encloses it (through any Case, Sequence or
+        Disable structures between); None when ``around`` is None (the VI's own
+        diagram) or no such structure encloses it."""
+        while around is not None:
+            node = self.get_graph_node(around)
+            if node is None:
+                return None
+            if isinstance(node, LoopNode | EventStructureNode):
+                return node.id
+            around = node.parent
+        return None
+
+    def touches_panel_while_running(self, vi_name: str) -> bool:
+        """Whether the VI's diagram reads or writes its own front panel while it
+        runs: a control or indicator terminal inside a While Loop, For Loop or
+        Event Structure, a Local Variable of one of its controls or indicators,
+        a Value Property Node bound to one of its controls, or an off-pane control
+        whose terminal has a wire leaving it (the diagram reads it)."""
+        vi = self.get_graph_node(vi_name)
+        if vi is not None and any(
+            self.front_panel_loop(t.id) is not None
+            for t in vi.terminals
+            if isinstance(t, FPTerminal)
+        ):
+            return True
+        if any(self.wire_readers(c.id) for c in self.get_off_pane_inputs(vi_name)):
+            return True
+        for node in self.iter_nodes(vi_name):
+            if isinstance(node, LocalVariableNode):
+                if isinstance(
+                    self.get_terminal(node.control_terminal_id or ""), FPTerminal
+                ):
+                    return True
+            elif (
+                isinstance(node, PrimitiveNode)
+                and node.bound_control_uid
+                and any(
+                    [s.name for s in row.segments] == [VALUE_PROPERTY]
+                    for row in node.properties
+                )
+            ):
+                return True
+        return False
+
+    def bound_control(self, node: PrimitiveNode) -> FPTerminal | None:
+        """The control of the VI that the bound Property Node ``node`` is tied to,
+        as its terminal: the control that holds the object the node is bound to
+        (a part of a type-defined control belongs to that control); None for an
+        unbound node or an indicator."""
+        vi = self.get_graph_node(node.vi_path)
+        if not node.bound_control_dco_uid or vi is None:
+            return None
+        for terminal in vi.terminals:
+            if (
+                isinstance(terminal, FPTerminal)
+                and terminal.fp_dco_uid == node.bound_control_dco_uid
+                and not terminal.is_indicator
+            ):
+                return terminal
+        return None
+
     def indicators_written_in_a_frame(self, vi_name: str) -> dict[str, FPTerminal]:
         """The connector-pane indicators of a VI that something inside a
         structure frame writes, by terminal id: a call of the VI may finish
@@ -213,8 +292,11 @@ class WireQueriesMixin:
     def inside_a_frame(self, terminal_id: str) -> bool:
         """Whether the terminal is on the diagram of a structure frame: a
         terminal of a node inside a structure, or an inside face of a
-        structure's border."""
+        structure's border, or a control or indicator terminal placed in one."""
         if self.inside_face(terminal_id) is not None:
+            return True
+        terminal = self.get_terminal(terminal_id)
+        if isinstance(terminal, FPTerminal) and terminal.parent is not None:
             return True
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         return node is not None and node.parent is not None
@@ -225,11 +307,17 @@ class WireQueriesMixin:
         """Whether the source ``terminal_id`` gives its value on the diagram of
         the structure frame ``frame`` (a structure id and frame key; key
         ``None`` for any frame of the structure) without a node of that diagram
-        producing it: an inside face of the frame, or a constant in it."""
+        producing it: an inside face of the frame, a constant in it, or a control
+        terminal placed in it (it gives its value again at every pass)."""
         structure, key = frame
         face = self.inside_face(terminal_id)
         if face is not None:
             return face[0] == structure and (key is None or face[1] == key)
+        terminal = self.get_terminal(terminal_id)
+        if isinstance(terminal, FPTerminal) and terminal.parent is not None:
+            return terminal.parent == structure and (
+                key is None or terminal.frame == key
+            )
         node = self.get_graph_node(self.terminal_node_id(terminal_id))
         return (
             isinstance(node, ConstantNode)
@@ -280,6 +368,15 @@ class WireQueriesMixin:
             ):
                 written.append(node.control_terminal_id)
         return written
+
+    def written_by_local_variable(self, control_id: str) -> bool:
+        """Whether a Local Variable write of the control or indicator
+        ``control_id`` is wired to it."""
+        for src in self.incoming_edges(control_id):
+            node = self.get_graph_node(src.node_id)
+            if isinstance(node, LocalVariableNode) and node.is_write:
+                return True
+        return False
 
     def indicator_sources(self, indicator_id: str) -> list[str]:
         """The terminals whose wires write the indicator: those wired to it, and
