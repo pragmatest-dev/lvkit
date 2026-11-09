@@ -284,6 +284,12 @@ def _generate_inline(
             # Output not in vilib definition - bind to None
             bindings[term_id] = "None"
 
+    # An output the template assigns that the caller's pane has no terminal for
+    # (an older version of the VI) is still a variable: the template may read it.
+    for param_key in vilib_outputs.values():
+        if param_key not in output_var_map and "{" + param_key + "}" in template:
+            output_var_map[param_key] = f"{func_name}_{param_key}"
+
     # Write every placeholder in one pass over the catalog template.
     names = {**values, **output_var_map}
     template = re.sub(

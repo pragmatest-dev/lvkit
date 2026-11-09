@@ -164,3 +164,21 @@ def test_a_period_in_a_folder_name_is_not_an_extension(
     result = _extension(tmp_path, monkeypatch, Path("/data/v1.2/README"))
     assert result.unmodified == ""
     assert result.name == "README"
+
+
+def test_a_pane_without_the_unmodified_extension_still_lowercases_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An older Get File Extension has no ``unmodified file extension`` terminal
+    (JKI VI Tester's callers save none at index 4); the template still computes it
+    as a local to lowercase it."""
+    _, result = run_catalog_call(
+        tmp_path,
+        monkeypatch,
+        [*LIBRARYN_LLB, "Get File Extension.vi"],
+        pane=[p for p in EXTENSION_PANE if p[0] != 4],
+        inputs={"file": (11, PATH)},
+        outputs={"lowercase": (2, STRING)},
+        arguments={"file": Path("/data/dir/Report.TXT")},
+    )
+    assert result.lowercase == "txt"
