@@ -33,6 +33,11 @@ DELETE = [
 ]
 
 PRIMITIVES = {
+    "file-io:Create Directory Recursive": [
+        ("PermissionError", 8),
+        ("FileExistsError", 10),
+        ("OSError", 6),
+    ],
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
     "8051:Read from Binary File": FILE_REFNUM_OPS,
     "8052:Close File": FILE_REFNUM_OPS,

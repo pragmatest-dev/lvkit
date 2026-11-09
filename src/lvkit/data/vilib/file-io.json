@@ -6475,7 +6475,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -6484,23 +6484,30 @@
         },
         {
           "name": "Unique Temporary File Path",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "unique_temporary_file_path",
           "description": "Unique Temporary File Path returns a unique path to a non-existent file in the temporary directory. You can use this path with other VIs when you want to create a file in the temporary directory."
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
         }
-      ]
+      ],
+      "imports": [
+        "import tempfile",
+        "import uuid",
+        "from pathlib import Path"
+      ],
+      "python_code": "{unique_temporary_file_path} = Path(tempfile.gettempdir()) / (uuid.uuid4().hex + '.' + {temporary_file_extension})",
+      "inline": true
     },
     {
       "name": "Packed Library",
@@ -6551,38 +6558,39 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "directory",
-          "index": null,
+          "index": 7,
           "direction": "input",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "directory",
           "description": "directory specifies the path to the directory to create. If you specify a directory that already exists, this VI does nothing."
         },
         {
           "name": "unused",
-          "index": null,
+          "index": 6,
           "direction": "input",
-          "type": null,
+          "type": "NumInt32",
           "enum_values": null,
           "python_param": "unused",
           "description": "Formerly maximum path length . This input is no longer used."
         },
         {
           "name": "permissions",
-          "index": null,
+          "index": 5,
           "direction": "input",
-          "type": null,
+          "type": "NumInt16",
           "enum_values": null,
           "python_param": "permissions",
+          "default": 493,
           "description": "permissions specifies the permissions setting for the file or directory. The default is 111101101, which is rwx r-x r-x in common file notation, and means the current user has permission to read, write, and execute files in this directory; the current user's group members have permission only to read and execute; all system users have permission only to read and execute."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -6591,16 +6599,16 @@
         },
         {
           "name": "directory copy",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "directory_copy",
           "description": "directory copy returns directory unchanged."
         },
         {
           "name": "directories created",
-          "index": null,
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6609,14 +6617,20 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
         }
-      ]
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "errors": [{"exception": "PermissionError", "code": 8}, {"exception": "FileExistsError", "code": 10}, {"exception": "OSError", "code": 6}],
+      "python_code": "{directory_copy} = {directory}\n{directories_created} = [d for d in [Path({directory}), *Path({directory}).parents] if not d.exists()]\nPath({directory}).mkdir(mode={permissions}, parents=True, exist_ok=True)",
+      "inline": true
     },
     {
       "name": "Create File and Containing Folders",
