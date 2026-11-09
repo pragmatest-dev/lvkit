@@ -37,6 +37,11 @@ _SVG_PAUSE = (
     '<rect x="4.5" y="3" width="2.6" height="10"/>'
     '<rect x="8.9" y="3" width="2.6" height="10"/></svg>'
 )
+_SVG_CLOSE = (
+    '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round">'
+    '<path d="M4 4l8 8M12 4l-8 8"/></svg>'
+)
 CONTINUOUS_PAUSE = 0.1
 
 _BAR_CLS = (
@@ -75,6 +80,7 @@ class RunController:
         self._call = call
         self._paint = paint
         self._abortable = abortable
+        self._closed = False
         self.running = False
         self.continuous = False
         self._buttons: dict[str, ui.button] = {}
@@ -87,8 +93,10 @@ class RunController:
 
     def _show_state(self, text: str) -> None:
         if self._status is not None:
-            self._status.set_text("paused" if self._live.paused else text)
-        if not self._buttons:
+            self._status.set_text(
+                "closed" if self._closed else "paused" if self._live.paused else text
+            )
+        if not self._buttons or self._closed:
             return
         can_stop = self.running and (self._abortable or self.continuous)
         self._buttons["Run"].set_enabled(not self.running)
@@ -120,12 +128,18 @@ class RunController:
 
     async def _call_once(self) -> str:
         """One call of the function: how it ended."""
+        events = self._live.events
+        if events is not None:
+            events.start()
         try:
             result = await run.io_bound(self._call)
         except Abort:
             return "aborted"
         except Exception as exc:  # noqa: BLE001 -- Run is the boundary of the call
             return f"error: {type(exc).__name__}: {exc}"
+        finally:
+            if events is not None:
+                events.stop()
         self._live.paint()
         self._paint(result)
         self._show_error(result)
@@ -171,6 +185,25 @@ class RunController:
             return
         await self._session(continuous=True)
 
+    async def close(self) -> None:
+        """The panel's Close button. A running VI is asked first: its Panel
+        Close? frame answers with Discard?, and True keeps the panel open. A
+        browser tab closed by the browser's own control is not intercepted: the
+        server cannot hold a tab open while the VI answers, so the VI keeps
+        running until it ends or is aborted."""
+        events = self._live.events
+        reply = events.ask_close() if events is not None else None
+        if events is not None and reply is not None:
+            answer = await run.io_bound(events.wait_for_reply, reply)
+            if answer is not None and answer[0]:
+                self._show_state("close discarded")
+                return
+        self._closed = True
+        self._show_state("closed")
+        for button in self._buttons.values():
+            button.set_enabled(False)
+        ui.run_javascript("window.close()")
+
     def abort(self) -> None:
         if self.running:
             self.continuous = False
@@ -201,6 +234,8 @@ class RunController:
             )
             self._add("Abort", _SVG_ABORT, self.abort, "red-6")
             self._add("Pause", _SVG_PAUSE, self.pause, "grey-8")
+            if self._live.events is not None:
+                self._add("Close", _SVG_CLOSE, self.close, "grey-8")
             self._status = ui.label("idle").classes("text-xs text-gray-500")
         with ui.row().classes(_BANNER_CLS) as banner:
             ui.icon("error_outline").classes("text-red-600")

@@ -3,8 +3,8 @@
 A VI whose diagram reads or writes its own front panel while it runs (a control
 or indicator terminal inside a loop or Event Structure, a Local Variable of one
 of its controls or indicators, a Value Property Node bound to one of its
-controls: ``InMemoryVIGraph.touches_panel_while_running``) takes two keyword-only
-parameters after its connector-pane ones::
+controls, or an Event Structure: ``InMemoryVIGraph.touches_panel_while_running``)
+takes two keyword-only parameters after its connector-pane ones::
 
     on_update: Callable[[AcquireValue, Any], None] | None = None
     on_read: Callable[[AcquireValue, Any], Any] | None = None
@@ -30,6 +30,11 @@ field name, made distinct across the controls and indicators of the VI (a
 control and an indicator may share a label). A cluster is passed whole. The
 generated code uses plain ``if on_update is not None`` and imports nothing from
 lvkit.
+
+A VI that holds an Event Structure takes a third keyword, ``events: Queue | None =
+None``, the front panel's events pushed in (``event_kinds``, ``nodes/event.py``);
+``PanelHooks.for_vi`` also writes the ``(str, Enum)`` of the kinds of event
+(``AcquireEvent``) before its function.
 """
 
 from __future__ import annotations
@@ -40,18 +45,27 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext
+from lvkit.graph.models import EventStructureNode, VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import (
+    EVENTS,
     ON_READ,
     ON_UPDATE,
+    build_assign,
     class_style_name,
     distinct_names,
     interface_names,
     parse_expr,
     to_var_name,
     unique_names,
+)
+from .event_kinds import (
+    MESSAGE_KINDS,
+    NAME,
+    NEW_VALUE,
+    QUEUE_IMPORT,
+    VALUE_CHANGE_CODE,
 )
 from .label_names import python_label
 
@@ -69,13 +83,17 @@ class PanelHooks:
     defines, ``names`` maps the terminal id of each control and indicator of its
     front panel to the name the hooks pass for it and ``members`` to the
     enum's member that holds the name, ``indicators`` lists the terminal ids of
-    the indicators, pane first, and ``controls`` those of the controls."""
+    the indicators, pane first, and ``controls`` those of the controls.
+    ``event_enum_name`` is the name of the enum of the kinds of event
+    (``codegen/event_kinds.py``) a VI with an Event Structure defines and takes
+    the ``events`` queue for, None for a VI without one."""
 
     enum_name: str
     names: dict[str, str]
     members: dict[str, str]
     indicators: tuple[str, ...]
     controls: tuple[str, ...]
+    event_enum_name: str | None = None
 
     @classmethod
     def for_vi(
@@ -119,8 +137,28 @@ class PanelHooks:
                 [(members[t], names[t]) for t in names],
             )
         )
+        has_events = graph.has_event_structure(vi_name)
+        if has_events:
+            ctx.imports.add(QUEUE_IMPORT)
+        event_enum = (
+            ctx.add_module_function(
+                _enum_def(
+                    distinct_names(
+                        [*taken, *ctx.helper_names.values()], [_event_enum(written)]
+                    )[0],
+                    [(kind.member, kind.name) for kind in MESSAGE_KINDS],
+                )
+            )
+            if has_events
+            else None
+        )
         return cls(
-            written, names, members, tuple(t.id for t in indicators), named_controls
+            written,
+            names,
+            members,
+            tuple(t.id for t in indicators),
+            named_controls,
+            event_enum,
         )
 
     def member(self, terminal_id: str) -> ast.expr:
@@ -137,6 +175,8 @@ class PanelHooks:
             ON_UPDATE: _annotation(self.enum_name, "None"),
             ON_READ: _annotation(self.enum_name, "Any"),
         }
+        if self.event_enum_name is not None:
+            annotations[EVENTS] = "Queue | None"
         return (
             [
                 ast.arg(arg=name, annotation=parse_expr(annotation))
@@ -150,6 +190,12 @@ def function_enum_name(vi_name: str) -> str:
     """The wanted name of the enum of a VI's function, its name in class style
     (``acquire`` is ``AcquireValue``)."""
     return f"{class_style_name(vi_name)}Value"
+
+
+def _event_enum(value_enum_name: str) -> str:
+    """The wanted name of the enum of the kinds of event of a VI, from the name of
+    its enum of names (``AcquireValue`` is ``AcquireEvent``)."""
+    return f"{value_enum_name.removesuffix('Value')}Event"
 
 
 def method_enum_name(class_name: str, method_name: str) -> str:
@@ -256,7 +302,39 @@ def reads_in_frame(
             variable = ctx.resolve(terminal_id)
             if variable is not None:
                 statements.append(read_stmt(hooks, terminal_id, variable))
+                statements.extend(event_value_stmts(ctx, frame, terminal_id, variable))
     return statements
+
+
+def event_value_stmts(
+    ctx: CodeGenContext,
+    frame: tuple[str, str | int | None],
+    terminal_id: str,
+    variable: str,
+) -> list[ast.stmt]:
+    """What a Value Change frame sees on the terminal of the control it handles:
+    the event's new value, not the control's value as the panel holds it by now
+    (``<variable> = event[1]``). A frame that handles other events too only takes
+    the new value when the message comes from this control."""
+    hooks, graph = ctx.panel_hooks, ctx.graph
+    message = ctx.event_messages.get(frame[0])
+    node = graph.get_graph_node(frame[0]) if graph is not None else None
+    if hooks is None or message is None or not isinstance(node, EventStructureNode):
+        return []
+    events = node.frames[int(frame[1] or 0)].events
+    changes = [
+        e
+        for e in events
+        if e.source_terminal_id == terminal_id and e.type_code == VALUE_CHANGE_CODE
+    ]
+    if not changes:
+        return []
+    assign = build_assign(variable, parse_expr(f"{message}[{NEW_VALUE}]"))
+    if len(events) == 1:
+        return [assign]
+    member = ast.unparse(hooks.member(terminal_id))
+    test = parse_expr(f"{message}[{NAME}] == {member}")
+    return [ast.If(test=test, body=[assign], orelse=[])]
 
 
 def entry_reads(ctx: CodeGenContext, off_pane: list[Terminal]) -> list[ast.stmt]:
