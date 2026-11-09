@@ -426,3 +426,11 @@ ev.clear()                                # Destroy User Event
 
 1. **Parser:** `FrameEvent.dyn_index` from `dynIndex`. A dynamic event's frame label names the registered row's user event (`<testStarted>: User Event`), in describe, lvnet, JSON and the render. Tests on a handmade structure with 2 rows.
 2. **Codegen:** Create / Register / Generate / Unregister / Destroy, and the Event Structure's user-event frames. Tests execute a handmade VI that creates, registers and generates, with a frame reading the data. Also a two-VI case where one VI generates, the other creates and registers, and the user event passes as a parameter.
+
+### 12.6 Revised after step 1's research (maintainer, 2026-11-09)
+
+- **D26. DECIDED: frame names come from the registration's type.** Register For Events copies the label of each user event wired into a row into the type of the registration it outputs (the Event Registration refnum type lists one entry per row, each a User Event refnum type whose `Label` is the row name: JKI `Results Status Update Process__core.xml` type at line 5084). That type travels with the wire through subVI outputs, shift registers and clusters, so the names are the ones the Register For Events node stored wherever it is. WaveGen's three registrations come from WaveGen's own node and from two `Read Event.vi` subVIs.
+  - The frame for `dynIndex` k is the k-th row, counted across the registrations of a cluster in field order.
+  - A cluster field gives LabVIEW's own `Field.Label` form; LabVIEW's stored label for WaveGen's frame 2 is `[2] <Action.Event Data>: User Event`.
+  - A dynamic terminal whose type carries no rows (a bare `EventReg refnum`, DCAF's subVI output) keeps today's label.
+- **D27. DECIDED: one structure, several registrations.** When the Event Structure first runs, it makes its own queue. For each registration it listens to, it moves the waiting messages over and re-points each of the registration's user-event lists from the old queue to its own (`ev.remove(old); ev.append(mine)`). This replaces §12.2's "the Event Structure … reads `reg[0]`" for a cluster of registrations.
