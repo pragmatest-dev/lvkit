@@ -171,6 +171,8 @@ def test_listed_property_writes_call_on_property_in_row_order(
         (getattr(value, shown), prop.DISABLED, 2),
         (getattr(value, shown), prop.VISIBLE, False),
     ]
+    # A member's value is its name string, as for the control enum.
+    assert [p.value for p in prop] == ["disabled", "visible"]
     assert package.function(n=3).out == 3
 
 

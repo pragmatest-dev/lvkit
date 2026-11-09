@@ -144,7 +144,7 @@ class PanelHooks:
                     distinct_names(
                         [*taken, *ctx.helper_names.values()], [property_enum_name]
                     )[0],
-                    [(p.member.upper(), p.member.upper()) for p in written_properties],
+                    [(p.member.upper(), p.member) for p in written_properties],
                 )
             )
         return cls(
@@ -259,84 +259,52 @@ def _indicator_name(indicator: Terminal, fields: dict[str, str]) -> str:
     )
 
 
+def _hook_call(hook: str, args: list[ast.expr], target: str | None) -> ast.stmt:
+    """``if <hook> is not None: <hook>(<args>)``, the result assigned to
+    ``target`` when one is given."""
+    call = ast.Call(func=ast.Name(id=hook, ctx=ast.Load()), args=args, keywords=[])
+    body: ast.stmt = (
+        ast.Expr(value=call)
+        if target is None
+        else ast.Assign(targets=[ast.Name(id=target, ctx=ast.Store())], value=call)
+    )
+    return ast.If(
+        test=ast.Compare(
+            left=ast.Name(id=hook, ctx=ast.Load()),
+            ops=[ast.IsNot()],
+            comparators=[ast.Constant(value=None)],
+        ),
+        body=[body],
+        orelse=[],
+    )
+
+
 def update_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
     """``if on_update is not None: on_update(<Enum>.<MEMBER>, <variable>)``, the
     member of the control or indicator ``terminal_id``."""
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Name(id=ON_UPDATE, ctx=ast.Load()),
-            ops=[ast.IsNot()],
-            comparators=[ast.Constant(value=None)],
-        ),
-        body=[
-            ast.Expr(
-                value=ast.Call(
-                    func=ast.Name(id=ON_UPDATE, ctx=ast.Load()),
-                    args=[
-                        hooks.member(terminal_id),
-                        ast.Name(id=variable, ctx=ast.Load()),
-                    ],
-                    keywords=[],
-                )
-            )
-        ],
-        orelse=[],
-    )
+    args = [hooks.member(terminal_id), ast.Name(id=variable, ctx=ast.Load())]
+    return _hook_call(ON_UPDATE, args, None)
 
 
 def property_stmt(
-    hooks: PanelHooks, terminal_id: str, prop: ControlProperty, variable: str
+    hooks: PanelHooks, terminal_id: str, prop: ControlProperty, value: str
 ) -> ast.stmt:
     """``if on_property is not None: on_property(<Enum>.<MEMBER>,
-    <PropertyEnum>.<PROPERTY>, <variable>)``, the property ``prop`` of the
-    control or indicator ``terminal_id`` set to ``variable`` (an expression)."""
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Name(id=ON_PROPERTY, ctx=ast.Load()),
-            ops=[ast.IsNot()],
-            comparators=[ast.Constant(value=None)],
-        ),
-        body=[
-            ast.Expr(
-                value=ast.Call(
-                    func=ast.Name(id=ON_PROPERTY, ctx=ast.Load()),
-                    args=[
-                        hooks.member(terminal_id),
-                        hooks.property_member(prop),
-                        parse_expr(variable),
-                    ],
-                    keywords=[],
-                )
-            )
-        ],
-        orelse=[],
-    )
+    <PropertyEnum>.<PROPERTY>, <value>)``, the property ``prop`` of the control
+    or indicator ``terminal_id`` set to ``value`` (an expression)."""
+    args = [
+        hooks.member(terminal_id),
+        hooks.property_member(prop),
+        parse_expr(value),
+    ]
+    return _hook_call(ON_PROPERTY, args, None)
 
 
 def read_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
     """``if on_read is not None: <variable> = on_read(<Enum>.<MEMBER>,
     <variable>)``, the member of the control ``terminal_id``."""
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Name(id=ON_READ, ctx=ast.Load()),
-            ops=[ast.IsNot()],
-            comparators=[ast.Constant(value=None)],
-        ),
-        body=[
-            ast.Assign(
-                targets=[ast.Name(id=variable, ctx=ast.Store())],
-                value=ast.Call(
-                    func=ast.Name(id=ON_READ, ctx=ast.Load()),
-                    args=[
-                        hooks.member(terminal_id),
-                        ast.Name(id=variable, ctx=ast.Load()),
-                    ],
-                    keywords=[],
-                ),
-            )
-        ],
-        orelse=[],
-    )
+    args = [hooks.member(terminal_id), ast.Name(id=variable, ctx=ast.Load())]
+    return _hook_call(ON_READ, args, variable)
 
 
 def reads_in_frame(
