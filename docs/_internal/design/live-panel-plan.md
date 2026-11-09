@@ -347,7 +347,7 @@ With `events=None`: only Timeout can fire. A timeout wired as a constant or valu
 ### 9.7 Decisions added
 
 - **D12. The in-message shape**: `(label, value, kind, old_value)` tuple, filter events add a reply queue. Recommend yes; first two items equal an `on_update` message.
-- **D13. No source and no timeout**: recommend the generated run-time raise plus generation-time warning (9.4), not a silent hang.
+- **D13. No source and no timeout**: recommend the generated run-time raise plus generation-time warning (9.4), not a silent hang. **Replaced 2026-11-08 by Option B:** the maintainer chose "Faithful". LabVIEW waits for ever when Timeout is unwired or -1 ([LabVIEW Wiki](https://labviewwiki.org/wiki/Event_Structure), [NI event structure reference](https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/structures/event-structure.html)), so the function called with no `events` does too. No gap, no raise.
 - **D14. Which kinds first**: Timeout, Value Change, Panel Close? first; Mouse Down/Up and Menu Selection second; unconfirmed codes stay gaps.
 - **D15. User events**: map Create/Generate/Register for same-VI user events onto the same queue; everything dynamic stays out of scope.
 
@@ -363,3 +363,13 @@ With `events=None`: only Timeout can fire. A timeout wired as a constant or valu
 - R14: matching by control id requires the EventSpec's `ddoUID` to map to the same control terminal as the graph's FP terminal (`fp_dco_uid`, `models.py:971`); verify on `Measurement UI.vi` (named in the request; I did not locate or open it).
 - R15: a Value Change event on a control the user also reads with `on_read` in the same iteration: order is the panel's `put` vs `get`; LabVIEW guarantees the frame sees the event's new value. Test in PR10.
 - R16: dynamic registration appears in all 99 structures only as the structure's own always-present tunnel pair; I did not count VIs that really register events other than through the 25 Register For Events nodes.
+
+### 9.10 Built (feat/live-events)
+
+D12 to D15 were approved ("Yes, your recommendations"). What was built, and where it differs from 9.2 to 9.8:
+
+- **PR3b.** `EventFrame.events` is a list of `FrameEvent` (type code, `source_ddo_uid` from the file, `source_terminal_id` set at graph build), not one source and one code: 16 of the 95 Event Structures in the cached corpus list a frame twice (a frame that handles several events), and the label keeps showing the last one only. R14 verified on `VI Tester About.vi` and `Debug Interface.vi`: the `ddoUID` of a frame is the front-panel object whose control terminal is `"Cancel"`, `"stop"` and so on. Describe, lvnet, JSON and render are unchanged (the label text is the same; an unconfirmed code already showed as `<unknown event 0x...>`).
+- **PR10.** As 9.3, with these differences. The kind enum is `<Vi>Event` (`VALUE_CHANGE`, `PANEL_CLOSE`), beside the name enum. A frame is matched by kind and, for a Value Change, the control's hook name. The Timeout frame is the `event is None` branch; a Panel Close? message no frame handles is answered `(False, None)` (not discarded). With `events=None` and a Timeout the function waits that long on an empty queue it makes and runs the Timeout frame. Event Data Node fields are found by the name the cluster gives them, not by index: the index of OldVal/NewVal is 5/6 with a hidden unnamed field before them and 4/5 without (`Reference Method Dialog.vi`). Only OldVal and NewVal are bound; Source, Type, Time, CtlRef and VIRef are not carried by a message, and a frame that reads one is a gap that names it. A Timeout frame's Type and Time are therefore a gap when wired. The frame sees the event's NewVal on the terminal of its own control (R15, tested).
+- **D13.** Built as Option B (replaced, see 9.7): with no `events` and no Timeout the function waits for ever on an empty queue, as LabVIEW does, and no gap is recorded. Event Data Node fields are kept by name (maintainer, 2026-11-08: "By name. The event data node cluster is selective like a property node").
+- **PR7 grows.** A control's change handler puts the Value Change while a run is active, the toolbar's Close button asks Panel Close? and waits for its reply, Abort and Pause reach a VI blocked in its Event Structure. A browser tab closed by the browser is not intercepted.
+- Corpus VI served: `Debug Interface.vi` (JKI-VI-Tester), Value Change on its `stop` control only; its Event Structure has no wired Timeout, so it is the one gap above.

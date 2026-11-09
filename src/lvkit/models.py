@@ -1219,6 +1219,23 @@ class SequenceLocal(BaseModel):
     frame_terminal_uids: list[str] = []
 
 
+class FrameEvent(BaseModel):
+    """One event an Event Structure frame handles (an ``EventSpec`` of the
+    file)."""
+
+    # The event's type code, as the file stores it; None when the file stores
+    # none. It names the event even where the event-type table has no name.
+    type_code: int | None = None
+    # The front-panel object (``ddo`` uid) of the control the event comes from,
+    # as the file stores it; None for an event with no control (Timeout, Panel
+    # Close?).
+    source_ddo_uid: str | None = None
+    # The same control as a terminal of the VI (an ``FPTerminal`` id), set when
+    # the graph is built; None when the event has no control or the VI has no
+    # terminal for it.
+    source_terminal_id: str | None = None
+
+
 class EventFrame(Frame):
     """A frame in an Event Structure — handles ONE registered event.
 
@@ -1244,6 +1261,10 @@ class EventFrame(Frame):
     # structure.
     index: int = 0
     event_label: str = ""
+    # Every event the frame handles, in the order the file lists them (a frame
+    # can handle several, e.g. a Value Change on each of a few controls).
+    # ``event_label`` names only the last of them.
+    events: list[FrameEvent] = []
 
 
 # ============================================================
