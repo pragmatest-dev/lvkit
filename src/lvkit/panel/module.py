@@ -25,6 +25,7 @@ class PanelSource:
     module: str
     function: str
     enum_name: str | None
+    event_enum_name: str | None
     root: str
     depth: int
 
@@ -66,7 +67,9 @@ def panel_source(spec: PanelSource) -> str:
         }
     )
     imports = ", ".join(["LiveValues", "RunController", "caption", *used])
-    logic_names = f"{spec.function} as vi_function" + (f", {enum}" if enum else "")
+    logic_names = ", ".join(
+        [f"{spec.function} as vi_function", *filter(None, [enum, spec.event_enum_name])]
+    )
     arguments = [
         f"{c.parameter}=values.value({_key(c, enum)})"
         for c in spec.controls
@@ -74,6 +77,8 @@ def panel_source(spec: PanelSource) -> str:
     ]
     if enum is not None:
         arguments += ["on_update=values.update", "on_read=values.read"]
+    if spec.event_enum_name is not None:
+        arguments.append("events=values.events.queue")
     painted = [
         f"values.show({_key(c, enum)}, result.{c.field})"
         for c in spec.controls
@@ -98,7 +103,7 @@ def panel_source(spec: PanelSource) -> str:
         "",
         "",
         "def build_panel() -> None:",
-        "    values = LiveValues()",
+        f"    values = LiveValues({spec.event_enum_name or ''})",
         "",
         "    def call() -> Any:",
         "        return vi_function(",

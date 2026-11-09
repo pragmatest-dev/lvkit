@@ -20,7 +20,7 @@ import pytest
 
 from lvkit.cache_paths import LibraryRoots
 from lvkit.extractor import resolve_extracted
-from lvkit.parser.nodes.event import _CONFIRMED_EVENT_TYPES, extract_event_structures
+from lvkit.parser.nodes.event import CONFIRMED_EVENT_TYPES, extract_event_structures
 
 _SAMPLES_ROOT = Path(__file__).parent.parent / ".lvkit" / "cache" / "samples"
 # An EventSpec.type code with no entry in the confirmed table.
@@ -263,7 +263,7 @@ class TestEventSpecReconstruction:
         es = extract_event_structures(root, fp_path)[0]
         assert es.frames[0].event_label == "[0] Timeout"
         assert es.frames[1].event_label == (
-            '[1] "Start": Value Change; "Stop": Value Change'
+            '[1] "Start": Value Change, "Stop": Value Change'
         )
 
     def test_no_fp_heap_omits_unresolvable_control(self):
@@ -517,7 +517,7 @@ class TestViTesterAboutFixture:
 
 # Each confirmed event-type code beyond Value Change/Timeout, with the
 # sample-corpus VI whose DISPLAYED frame carries it: that frame's own heap
-# text names the event, which is the confirmation _CONFIRMED_EVENT_TYPES
+# text names the event, which is the confirmation CONFIRMED_EVENT_TYPES
 # requires.
 _CONFIRMING_VIS = [
     (
@@ -572,6 +572,6 @@ def test_confirmed_type_matches_displayed_frame(rel_path: str, code: int) -> Non
             continue
         label = (es.findtext("selString/textRec/text") or "").strip().strip('"').strip()
         assert set(specs) == {signed}, (rel_path, label, specs)
-        assert _CONFIRMED_EVENT_TYPES[signed] == _event_name_of(label), label
+        assert CONFIRMED_EVENT_TYPES[signed] == _event_name_of(label), label
         checked += 1
     assert checked, f"{rel_path}: no displayed frame with code 0x{code:08X}"

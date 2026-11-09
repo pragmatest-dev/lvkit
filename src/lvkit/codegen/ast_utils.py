@@ -480,8 +480,9 @@ GENERATED_MODULE_NAMES = frozenset(
 # (``panel_hooks``): no variable of the function takes their names.
 ON_UPDATE = "on_update"
 ON_READ = "on_read"
+EVENTS = "events"
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ}
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ, EVENTS}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
