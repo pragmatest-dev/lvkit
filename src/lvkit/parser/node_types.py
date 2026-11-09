@@ -778,6 +778,10 @@ class PropertyNode(ParsedNode):
     # EXPLICIT property node (no such binding). The sole discriminator: never
     # inferred from the label text or from wiring (those only corroborate).
     bound_control_uid: str = ""
+    # The uid of the front-panel control (fPDCO) that holds the bound object: it
+    # is the object itself for a plain control, and the control around it for a
+    # part of a type-defined control. "" when unbound or not found.
+    bound_control_dco_uid: str = ""
     # The bound control's reconstructed LVType (via
     # ``fp_heap_type.reconstruct_control_lvtype`` on ``bound_control_uid``'s
     # ddo in the FRONT-PANEL heap -- resolved by ``_parse_block_diagram``,
@@ -824,6 +828,10 @@ class InvokeNode(ParsedNode):
     # EXPLICIT invoke node (no such binding). The sole discriminator: never
     # inferred from the label text or from wiring (those only corroborate).
     bound_control_uid: str = ""
+    # The uid of the front-panel control (fPDCO) that holds the bound object: it
+    # is the object itself for a plain control, and the control around it for a
+    # part of a type-defined control. "" when unbound or not found.
+    bound_control_dco_uid: str = ""
     # The bound control's reconstructed LVType (via
     # ``fp_heap_type.reconstruct_control_lvtype`` on ``bound_control_uid``'s
     # ddo in the FRONT-PANEL heap -- resolved by ``_parse_block_diagram``,

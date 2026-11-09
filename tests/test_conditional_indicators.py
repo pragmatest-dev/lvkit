@@ -167,6 +167,8 @@ def test_an_indicator_a_loop_wires_from_its_inside_face_is_written_in_the_loop(
         out = 0
         for i in range(n):
             out = x
+            if on_update is not None:
+                on_update(CondValue.OUT, out)
         return CondResult(out=out)"""
     )
     assert package.function(x=5, n=2).out == 5
@@ -304,6 +306,8 @@ def test_an_indicator_in_a_loop_that_runs_zero_times_returns_its_default(
         out = 0
         for i in range(n):
             out = x + 1
+            if on_update is not None:
+                on_update(CondValue.OUT, out)
         return CondResult(out=out)"""
     )
     assert package.function(x=1, n=3).out == 2
