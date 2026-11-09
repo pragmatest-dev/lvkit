@@ -1,7 +1,5 @@
-"""Event Structure codegen emits an explicit, self-explaining raise -- never a
-silent no-op. An event structure is an asynchronous UI event loop with no
-headless runtime analog, so codegen must fail loudly (and name the events)
-rather than dropping the VI's event behaviour behind a warning comment."""
+"""An Event Structure with an event the generated code does not handle is a gap
+that names the event: the code raises where the structure would run."""
 
 from __future__ import annotations
 
@@ -10,45 +8,60 @@ import ast
 import pytest
 
 from lvkit.codegen.nodes import generate
+from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.graph.models import EventStructureNode
-from lvkit.models import EventFrame
+from lvkit.models import EventFrame, FrameEvent
 from tests.helpers import make_ctx
 
+TIMEOUT = 1073741825
+MOUSE_DOWN = 1073741842
+UNCONFIRMED = 0x400000FF
 
-def _event_node(labels: list[str]) -> EventStructureNode:
+
+def _event_node(frames: list[list[int]]) -> EventStructureNode:
     return EventStructureNode(
         id="es1",
         vi_path="test.vi",
         name="Event Structure",
-        frames=[EventFrame(event_label=label) for label in labels],
+        frames=[
+            EventFrame(index=i, events=[FrameEvent(type_code=c) for c in codes])
+            for i, codes in enumerate(frames)
+        ],
     )
 
 
 def _source(node: EventStructureNode) -> str:
-    frag = generate(node, make_ctx())
+    ctx = make_ctx()
+    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), event_enum_name="Event")
+    frag = generate(node, ctx)
     return "\n".join(ast.unparse(s) for s in frag.statements)
 
 
-def test_event_structure_emits_explicit_raise_not_silent_comment():
-    src = _source(_event_node(["[0] Timeout", '[3] "copyrights": Value Change']))
-    assert "raise NotImplementedError" in src
-    assert "Event Structure not supported" in src
-    # the old silent fallback is gone
-    assert "WARNING: Unknown node" not in src
+def test_an_event_that_is_not_handled_is_named_by_its_kind() -> None:
+    source = _source(_event_node([[TIMEOUT], [MOUSE_DOWN]]))
+    assert "raise NotImplementedError" in source
+    assert "also handles Mouse Down" in source
 
 
-def test_event_stub_names_the_registered_events():
-    src = _source(_event_node(["[0] Timeout", '[3] "copyrights": Value Change']))
-    assert "Timeout" in src
-    assert "copyrights" in src
+def test_an_event_with_no_name_is_named_by_its_code() -> None:
+    assert "event code 0x400000FF" in _source(_event_node([[UNCONFIRMED]]))
 
 
-def test_event_stub_raises_when_the_generated_code_runs():
-    node = _event_node(["[0] Timeout"])
-    frag = generate(node, make_ctx())
+def test_a_frame_that_lists_no_event_is_a_gap() -> None:
+    assert "The frame lists no event" in _source(_event_node([[]]))
+
+
+def test_a_frame_that_handles_timeout_and_another_event_is_a_gap() -> None:
+    source = _source(_event_node([[TIMEOUT, 1073741826]]))
+    assert "handles Timeout and other events" in source
+
+
+def test_the_gap_code_raises_when_it_runs() -> None:
+    node = _event_node([[MOUSE_DOWN]])
+    ctx = make_ctx()
+    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), event_enum_name="Event")
     module = ast.fix_missing_locations(
-        ast.Module(body=frag.statements, type_ignores=[])
+        ast.Module(body=generate(node, ctx).statements, type_ignores=[])
     )
-    code = compile(module, "<event>", "exec")
-    with pytest.raises(NotImplementedError, match="Event Structure not supported"):
-        exec(code, {})
+    with pytest.raises(NotImplementedError, match="Mouse Down"):
+        exec(compile(module, "<event>", "exec"), {})

@@ -221,12 +221,21 @@ class WireQueriesMixin:
             around = node.parent
         return None
 
+    def has_event_structure(self, vi_name: str) -> bool:
+        """Whether the VI's diagram holds an Event Structure."""
+        return any(
+            isinstance(node, EventStructureNode) for node in self.iter_nodes(vi_name)
+        )
+
     def touches_panel_while_running(self, vi_name: str) -> bool:
         """Whether the VI's diagram reads or writes its own front panel while it
         runs: a control or indicator terminal inside a While Loop, For Loop or
-        Event Structure, a Local Variable of one of its controls or indicators,
-        a Value Property Node bound to one of its controls, or an off-pane control
-        whose terminal has a wire leaving it (the diagram reads it)."""
+        Event Structure, an Event Structure (it waits for the panel's events), a
+        Local Variable of one of its controls or indicators, a Value Property
+        Node bound to one of its controls, or an off-pane control whose terminal
+        has a wire leaving it (the diagram reads it)."""
+        if self.has_event_structure(vi_name):
+            return True
         vi = self.get_graph_node(vi_name)
         if vi is not None and any(
             self.front_panel_loop(t.id) is not None

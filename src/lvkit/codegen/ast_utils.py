@@ -481,11 +481,13 @@ GENERATED_MODULE_NAMES = frozenset(
 ON_UPDATE = "on_update"
 ON_READ = "on_read"
 ON_PROPERTY = "on_property"
+EVENTS = "events"
 
 RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {
     ON_UPDATE,
     ON_READ,
     ON_PROPERTY,
+    EVENTS,
 }
 
 

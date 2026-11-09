@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lvkit.models import LVType, Terminal
+from lvkit.models import FPTerminal, LVType, Terminal
 from lvkit.parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from lvkit.parser.models import ParsedBlockDiagram, ParsedDependencyRef
 
@@ -48,6 +48,18 @@ class GraphBuildContext:
     # --- thin pass-throughs to the mixin helpers (keep call sites readable) ---
     def qid(self, uid: str) -> str:
         return self.mixin._qid(self.vi_name, uid)
+
+    def front_panel_terminal_id(self, ddo_uid: str | None) -> str | None:
+        """The id of the VI's front-panel terminal for the front-panel object
+        ``ddo_uid``, or None when it is None or the VI has no terminal for it."""
+        fpdco_uid = self.ddo_to_fpdco.get(ddo_uid) if ddo_uid else None
+        if fpdco_uid is None:
+            return None
+        vi = self.graph.nodes[self.vi_name].get("node")
+        for terminal in vi.terminals if vi is not None else []:
+            if isinstance(terminal, FPTerminal) and terminal.fp_dco_uid == fpdco_uid:
+                return terminal.id
+        return None
 
     @property
     def graph(self) -> Any:
