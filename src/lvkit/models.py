@@ -286,6 +286,9 @@ class EventRegRow:
 
     name: str | None
     event_type: int | None
+    # The row's type: a User Event refnum, an array of them, a cluster holding more
+    # rows, or another kind of reference (a control). None when it was not read.
+    type: LVType | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass

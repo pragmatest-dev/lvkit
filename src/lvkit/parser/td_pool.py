@@ -385,7 +385,11 @@ class TdPool:
                 _, _, event_type, row_index = struct.unpack_from(
                     ">HHHH", body, 6 + 8 * i
                 )
-                rows.append(EventRegRow(self.names[row_index], event_type))
+                rows.append(
+                    EventRegRow(
+                        self.names[row_index], event_type, self._ref(row_index)
+                    )
+                )
                 if nrows == 1:
                     element_type = self._ref(row_index)
             event_rows = tuple(rows)

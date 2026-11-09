@@ -16,16 +16,17 @@ from lvkit.models import (
     DisableStructureKind,
     EventFrame,
     FrameEvent,
-    LVType,
     SequenceFrame,
     Terminal,
     TerminalDirection,
-    TunnelTerminal,
 )
-from lvkit.parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC
 from lvkit.parser.models import ParsedFlatSequenceStructure, ParsedNode
 
-from ..event_registration import registration_rows, with_dynamic_names
+from ..event_registration import (
+    dynamic_terminal_type,
+    registration_rows,
+    with_dynamic_names,
+)
 from ..models import (
     CaseStructureNode,
     DisableStructureNode,
@@ -191,20 +192,6 @@ def _with_source_terminals(
     ]
 
 
-def _dynamic_terminal_type(terminals: list[Terminal]) -> LVType | None:
-    """The type of the registration wired to the Event Structure's dynamic
-    terminal; None when nothing is wired to it."""
-    for terminal in terminals:
-        if (
-            isinstance(terminal, TunnelTerminal)
-            and terminal.tunnel_type == TUNNEL_CLASS_EVENT_DYNAMIC
-            and terminal.boundary == "outer"
-            and terminal.direction == TerminalDirection.INPUT
-        ):
-            return terminal.lv_type
-    return None
-
-
 class EventBuildHandler(StructureBuildHandler):
     """Builds an Event Structure — same frame-tunnel wiring as
     CaseBuildHandler (border tunnels use the identical per-frame ``selTun``-
@@ -232,7 +219,7 @@ class EventBuildHandler(StructureBuildHandler):
             parser_tunnels,
             q_node_uid,
         )
-        rows = registration_rows(_dynamic_terminal_type(structure_terminals))
+        rows = registration_rows(dynamic_terminal_type(structure_terminals))
         event_frames = [
             with_dynamic_names(frame, frame.events, rows, displayed_frame)
             for frame in event_frames

@@ -276,17 +276,47 @@ def user_event_type(vi: Vi, name: str) -> int:
     )
 
 
-def registration_type(vi: Vi, rows: list[tuple[str, int]], label: str = "") -> int:
-    """An Event Registration refnum type with one row for each ``(name, event type
-    code)``; a row's user event type is labelled ``name``."""
+def registration_of(vi: Vi, rows: list[tuple[int, int]], label: str = "") -> int:
+    """An Event Registration refnum type with one row for each ``(type id, event
+    type code)``."""
     members = "".join(
-        f'<TypeDesc TypeID="{user_event_type(vi, name)}" CField0="0x0001" '
-        f'CField2="0x0000" CField4="0x{code:04X}" />'
-        for name, code in rows
+        f'<TypeDesc TypeID="{type_id}" CField0="0x0001" CField2="0x0000" '
+        f'CField4="0x{code:04X}" />'
+        for type_id, code in rows
     )
     tag = f' Label="{label}"' if label else ""
     return vi.add_type(
         f'<TypeDesc Type="Refnum" RefType="EventReg"{tag}>{members}</TypeDesc>'
+    )
+
+
+def registration_type(vi: Vi, rows: list[tuple[str, int]], label: str = "") -> int:
+    """An Event Registration refnum type with one row for each ``(name, event type
+    code)``; a row's user event type is labelled ``name``."""
+    return registration_of(
+        vi, [(user_event_type(vi, name), code) for name, code in rows], label
+    )
+
+
+def cluster_type(vi: Vi, label: str, members: list[int]) -> int:
+    """A cluster type labelled ``label`` of the types ``members``."""
+    inner = "".join(f'<TypeDesc TypeID="{m}" />' for m in members)
+    return vi.add_type(f'<TypeDesc Type="Cluster" Label="{label}">{inner}</TypeDesc>')
+
+
+def array_type(vi: Vi, element: int) -> int:
+    """An unlabelled 1D array type of ``element``."""
+    return vi.add_type(
+        f'<TypeDesc Type="Array"><Dimension /><TypeDesc TypeID="{element}" />'
+        "</TypeDesc>"
+    )
+
+
+def control_reference_type(vi: Vi, label: str) -> int:
+    """A reference to a front-panel control, labelled ``label``."""
+    return vi.add_type(
+        '<TypeDesc Type="Refnum" RefType="LVObjCtl" CtlFlags="0x001B" '
+        f'HasItem="0" Label="{label}" />'
     )
 
 

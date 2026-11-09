@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -257,15 +258,20 @@ def flat_type_descs(root: ET.Element) -> dict[int, ET.Element]:
     return flat_types
 
 
-def _event_reg_row(row: ET.Element, flat_types: dict[int, ET.Element]) -> EventRegRow:
-    """An Event Registration refnum's row: its user event refnum type's label and
-    the event type code (``CField4``)."""
+def _event_reg_row(
+    row: ET.Element,
+    flat_types: dict[int, ET.Element],
+    resolve_type: Callable[[int], LVType | None],
+) -> EventRegRow:
+    """An Event Registration refnum's row: its type's label, the event type code
+    (``CField4``) and the row's type."""
     type_id = row.get("TypeID")
     code = row.get("CField4")
     return EventRegRow(
         name=_field_label(flat_types.get(int(type_id)) if type_id else None, "")
         or None,
         event_type=int(code, 16) if code else None,
+        type=resolve_type(int(type_id)) if type_id else None,
     )
 
 
@@ -454,7 +460,10 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 nested = td.findall("TypeDesc[@TypeID]")
                 if ref_type == "EventReg":
                     event_rows = tuple(
-                        _event_reg_row(row, flat_types) for row in nested
+                        _event_reg_row(
+                            row, flat_types, lambda tid: resolve_type(tid, visited)
+                        )
+                        for row in nested
                     )
                 if len(nested) == 1:
                     tid = nested[0].get("TypeID")
