@@ -119,7 +119,8 @@ def test_a_path_control_passes_a_path_and_the_indicator_shows_its_text(
         await run_once(user)
         assert calls[0]["folder"] == Path("/data/run 1")
         assert isinstance(calls[0]["folder"], Path)
-        assert shown.value == "/data/run 1"
+        # The indicator shows the path in the platform's own separators.
+        assert shown.value == str(Path("/data/run 1"))
 
     simulate(panel.build_panel, scenario)
 

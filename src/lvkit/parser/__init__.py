@@ -5,7 +5,6 @@ Main entry point: parse_vi() returns ParsedVI with all components.
 
 # Re-export all public APIs
 from ..models import Tunnel
-from .defaults import parse_dfds
 from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
@@ -20,7 +19,6 @@ from .models import (
     ParsedConnectorPane,
     ParsedConnectorPaneSlot,
     ParsedConstant,
-    ParsedDefaultValue,
     ParsedDependencyRef,
     ParsedFPControl,
     ParsedFPTerminal,
@@ -59,7 +57,6 @@ __all__ = [
     "ParsedConnectorPane",
     "ParsedConnectorPaneSlot",
     "ParsedConstant",
-    "ParsedDefaultValue",
     "ParsedFPControl",
     "ParsedFPTerminal",
     "ParsedFrontPanel",
@@ -82,7 +79,6 @@ __all__ = [
     "parse_vi_metadata",
     # Types
     "load_enum_reference",
-    "parse_dfds",
     "parse_type_chain",
     "parse_type_map",
     "parse_typedef_refs",

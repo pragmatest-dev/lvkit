@@ -6,10 +6,19 @@ work that only matters for *writing* or *validating* VIs — work that is
 pathologically slow, or outright crashes, on inputs lvkit only ever READS. Since
 lvkit never writes a VI back out, these patches neutralise that work.
 
-Every patch below is **output-identical for rendering and codegen** — verified by
-gating on the block-diagram XML (``BDHb``/``FPHb``), which is all render/codegen
-consume — or, in the crash-guard case, simply prevents an abort with no change to
-the emitted XML.
+There are two kinds of patch.
+
+**Output-identical patches** (everything in :func:`install_pylabview_patches`
+below) are verified by gating on the block-diagram XML (``BDHb``/``FPHb``), which
+is all render/codegen consume — or, in the crash-guard case, simply prevent an
+abort with no change to the emitted XML.
+
+**Read support for files pylabview cannot read** change the output on purpose: a
+file pylabview refuses (or leaves as raw ``.bin`` sections) is read, and its XML
+gains what the section holds. They live in :mod:`lvkit._pylabview_lv8` (the
+sections of a LabVIEW 8.0 - 8.5 VI) and are installed by
+:func:`install_pylabview_patches` through ``install_lv8_sections``. A file of any
+other version extracts to the same XML with or without them.
 
 WRITE WARNING: because these patches neutralise write/round-trip machinery
 (the password salt, the integrity-validation pass, type annotations), a patched
@@ -54,6 +63,8 @@ with warnings.catch_warnings():
     import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
     import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
     import pylabview.LVxml as _lv_xml  # type: ignore[import-untyped]
+
+    from ._pylabview_lv8 import install_lv8_sections
 
 _installed = False
 
@@ -451,5 +462,8 @@ def install_pylabview_patches() -> None:
 
     _parse_image.__wrapped__ = _orig_parse_image  # type: ignore[attr-defined]
     _lv_block.ImageBlock.parseRSRCSectionData = _parse_image
+
+    # (12) Read support for the sections of a LabVIEW 8.0 - 8.5 VI.
+    install_lv8_sections()
 
     _installed = True
