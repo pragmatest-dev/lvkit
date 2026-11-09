@@ -186,13 +186,14 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    22 distinct gaps = 5 placeholder primitives + 4 unknown primitives + 5
-    unsupported nodes (the Event Structure and the Register For Events node of
-    ``TestSuite.lvclass:run.vi``; OpenG Get TDEnum from Data reading a
-    variant, whose type is only known when the code runs; and two kinds of Run
-    VI whose VI reference comes from a Ctrl Val.Set or Set Front Panel Object
-    Control Value.vi, so the VI it runs, and the control values set on it, are
-    only known when the code runs) + 8 VIs that were not found. (Four OpenG VIs
+    18 distinct gaps = 4 placeholder primitives (the notifier functions) + 3
+    unknown primitives + 3 unsupported nodes (OpenG Get TDEnum from Data
+    reading a variant, whose type is only known when the code runs; and two
+    kinds of Run VI whose VI reference comes from a Ctrl Val.Set or Set Front
+    Panel Object Control Value.vi, so the VI it runs, and the control values set
+    on it, are only known when the code runs) + 8 VIs that were not found. The
+    user events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register
+    For Events, Generate and Unregister) generate code. (Four OpenG VIs
     the catalog implements are found by the ``<userlib>`` path their callers
     record.)"""
     from collections import Counter
@@ -203,15 +204,14 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 22, f"expected 22 distinct gaps, got {len(items)}: {counts}"
-    assert counts["placeholder_primitive"] == 5
+    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
+    assert counts["placeholder_primitive"] == 4
     assert counts["terminal_mapping"] == 0
-    assert counts["unknown_primitive"] == 4
-    # Event Structure + Register For Events: a node with no generator whose
-    # output is wired is a gap (codegen/nodes/primitive.py); Get TDEnum from
-    # Data of a variant (codegen/nodes/vilib_op.py); Run VI on a reference only
-    # known when the code runs (codegen/nodes/run_vi.py), two reasons.
-    assert counts["unsupported_node"] == 5
+    assert counts["unknown_primitive"] == 3
+    # Get TDEnum from Data of a variant (codegen/nodes/vilib_op.py); Run VI on
+    # a reference only known when the code runs (codegen/nodes/run_vi.py), two
+    # reasons.
+    assert counts["unsupported_node"] == 3
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 
