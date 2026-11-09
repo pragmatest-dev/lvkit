@@ -222,12 +222,12 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     node = PrimitiveNode(
         id="p",
         vi_path="test.vi",
-        name="Wait on Notification",
+        name="Create User Event",
         terminals=[
-            Terminal(id="t0", index=0, direction="input", name="notifier"),
-            Terminal(id="t1", index=1, direction="output", name="message"),
+            Terminal(id="t0", index=0, direction="input", name="event type"),
+            Terminal(id="t1", index=1, direction="output", name="user event"),
         ],
-        prim_id=9105,
+        prim_id=2073,
     )
     ctx = CodeGenContext(vi_name="Caller.vi")
     fragment = generate_node(node, ctx)
@@ -237,8 +237,8 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     )
     raised = ast.unparse(module).splitlines()[-1]
     assert raised.startswith(
-        "raise NotImplementedError('Wait on Notification is not converted yet\\n"
+        "raise NotImplementedError('Create User Event is not converted yet\\n"
         "gap kind: placeholder_primitive\\nVI: Caller.vi\\n"
-        "node: Wait on Notification\\n"
+        "node: Create User Event\\n"
     )
     assert "index=0 direction=input" in raised

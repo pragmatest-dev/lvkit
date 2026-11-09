@@ -53,6 +53,7 @@ PRIMITIVES = {
     "9113:Dequeue Element": RELEASED_QUEUE,
     "9114:Flush Queue": [("ShutDown", None)],
     "9129:Enqueue Element At Opposite End": RELEASED_QUEUE,
+    "9105:Wait on Notification": [("ReferenceError", 1122)],
     "3914:Search and Replace String": [
         ("NullCharacterError", -4702),
         ("error", None),
