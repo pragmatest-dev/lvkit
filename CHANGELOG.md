@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **A VI with an Event Structure runs from the generated front panel** — it takes an `events` queue; Timeout, Value Change on a control and Panel Close? frames are generated, a control change on the panel pushes a Value Change, and Close asks the Panel Close? frame; any other event is a gap that names it.
 - **Constants and control defaults in VIs saved by LabVIEW 9.0 are read** — a value LabVIEW 9.0.0 kept only in the VI's default data is read (Pico examples: 8,964 constant gaps down to 1,972); 9.0-era control defaults show (OpenG `Delete Elements from 1D Array` `indices` is `[]`); a refnum constant with no saved value is Not a Refnum (`None`). **LabVIEW 8.2/8.5 constants are read too** (703 of 715 in the corpus; Pico examples' DFDS gaps 1,972 down to 8), as are those VIs' case-frame selector values; their control defaults are not read.
 - **The generated front panel runs like LabVIEW's and shows more controls** — Run Continuously, Pause and Abort, an error banner, and path, enum, ring, cluster, 1D array and error cluster controls and indicators.
