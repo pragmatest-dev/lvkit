@@ -618,3 +618,81 @@ def test_the_views_of_a_user_event_vi_are_what_they_were_before_code_generation(
     assert '"event_rows": [{"name": "Stop", "event_type": 1000}]' in json.dumps(
         views.json
     )
+
+
+def nested_data_vi() -> Vi:
+    """A cluster of two registrations; the first user event carries the cluster
+    ``Params`` of ``Value`` (a cluster of ``a`` and ``b``) and ``Closed``. Its frame
+    reads ``Value`` and ``Closed``: the drawer of ``Closed`` stores the index 7, as
+    the cluster ``Value`` takes the slots 4 to 6 (``UsrEvtRef`` is 3)."""
+    vi = Vi("Nested.vi")
+    a_type = vi.add_type('<TypeDesc Type="NumInt32" Label="a" />')
+    b_type = vi.add_type('<TypeDesc Type="NumInt32" Label="b" />')
+    value = cluster_type(vi, "Value", [a_type, b_type])
+    closed = vi.add_type('<TypeDesc Type="Boolean" Label="Closed" />')
+    params = cluster_type(vi, "Params", [value, closed])
+    first_event = user_event_of(vi, "Params", params)
+    second_event = user_event_of(vi, "Other", I32)
+    first = registration_of(vi, [(first_event, USER_EVENT)], "First")
+    second = registration_of(vi, [(second_event, USER_EVENT)], "Second")
+    both = vi.add_type(
+        f'<TypeDesc Type="Cluster"><TypeDesc TypeID="{first}" />'
+        f'<TypeDesc TypeID="{second}" /></TypeDesc>'
+    )
+    seen_value = vi.indicator("Seen Value", value, bounds=(40, 200, 90, 340))
+    seen_closed = _bool_indicator(vi, "Seen Closed", 100)
+    made = [create_user_event(vi, first_event, params)]
+    made.append(create_user_event(vi, second_event, I32))
+    vi.wire(vi.int_constant(0), made[1]["data type"])
+    register_a = register_node(vi, first, [first_event])
+    register_b = register_node(vi, second, [second_event])
+    vi.wire(made[0]["user event"], register_a["row 1"])
+    vi.wire(made[1]["user event"], register_b["row 1"])
+    registrations = bundle_of(vi, both, [first, second])
+    vi.wire(register_a["registration out"], registrations["field 0"])
+    vi.wire(register_b["registration out"], registrations["field 1"])
+    vi.wire(register_a["error out"], register_b["error in"])
+    inner = bundle_of(vi, value, [I32, I32])
+    vi.wire(vi.int_constant(4), inner["field 0"])
+    vi.wire(vi.int_constant(5), inner["field 1"])
+    data = bundle_of(vi, params, [value, BOOL])
+    vi.wire(inner["cluster"], data["field 0"])
+    vi.wire(vi.bool_constant(True), data["field 1"])
+    generate = generate_user_event(vi, first_event, params)
+    vi.wire(made[0]["user event"], generate["user event"])
+    vi.wire(register_b["error out"], generate["error in"])
+    vi.wire(data["cluster"], generate["data"])
+    loop = listen(
+        vi,
+        both,
+        [
+            ListenFrame(
+                1,
+                [
+                    (
+                        "Value",
+                        f'<TypeDesc Type="Cluster" Label="Value">'
+                        f'<TypeDesc TypeID="{a_type}" />'
+                        f'<TypeDesc TypeID="{b_type}" /></TypeDesc>',
+                    ),
+                    ("Closed", BOOL),
+                ],
+                shows={"Value": seen_value, "Closed": seen_closed},
+                flat={"Value": 4, "Closed": 7},
+            ),
+            ListenFrame(2, [("Other", I32)]),
+        ],
+        after=[generate["error out"]],
+    )
+    vi.wire(registrations["cluster"], loop.registration)
+    return vi
+
+
+def test_event_data_after_a_cluster_field_is_found_by_its_depth_first_index(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(nested_data_vi())
+    package = project.generate("Nested.vi")
+    assert package.gaps == []
+    result = package.function()
+    assert (result.seen_value, result.seen_closed) == ((4, 5), True)

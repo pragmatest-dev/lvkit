@@ -37,6 +37,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, EventStructureNode
+from lvkit.graph.op_walk import _flatten_fields
 from lvkit.models import EventFrame, Terminal, TunnelTerminal
 from lvkit.parser.constants import (
     NODE_CLASS_EVENT_DATA_NODE,
@@ -255,13 +256,17 @@ def _integer(text: str | None) -> int | None:
 
 def _field_name(data_node: AnyGraphNode, term: Terminal) -> str | None:
     """The name the cluster of ``data_node`` gives the field ``term`` carries, as
-    the VI's own type records it."""
+    the VI's own type records it. The index a drawer stores counts the fields
+    depth first, a cluster field being a slot of its own followed by its members
+    (``_flatten_fields``), so a field after a cluster sits further on than its
+    position in the cluster."""
     aggregate = next((t for t in data_node.terminals if t.nmux_role == "agg"), None)
     fields = aggregate.lv_type.fields if aggregate and aggregate.lv_type else None
     index = term.nmux_field_index
-    if not fields or index is None or not 0 <= index < len(fields):
+    flat = _flatten_fields(fields) if fields else []
+    if index is None or not 0 <= index < len(flat):
         return None
-    return fields[index].name
+    return flat[index][1].name
 
 
 def _kinds(frame: EventFrame) -> list[MessageKind]:
@@ -301,11 +306,16 @@ def _event_data(
                 continue
             name = _field_name(data_node, term)
             if name is None or name not in available:
+                carried = (
+                    "a user event's data does not hold"
+                    if any(e.type_code == USER_EVENT_CODE for e in frame.events)
+                    else "a front-panel event does not carry"
+                )
                 raise _gap(
                     node,
                     frame,
                     f"The frame reads the Event Data Node field {name or '?'}, "
-                    "which a front-panel event does not carry",
+                    f"which {carried}",
                 )
             variable = ctx.make_output_var(
                 to_var_name(name), data_node.id, terminal_id=term.id

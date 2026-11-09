@@ -179,9 +179,10 @@ class ListenFrame:
     ``{field name: indicator terminal}``. ``stop`` ends the loop."""
 
     dyn_index: int
-    data: list[tuple[str, int]] = field(default_factory=list)
+    data: list[tuple[str, int | str]] = field(default_factory=list)
     shows: dict[str, int] = field(default_factory=dict)
     stop: bool = True
+    flat: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -219,10 +220,14 @@ def listen(
                 ("Type", _U32),
                 ("Time", _U32),
                 ("UsrEvtRef", _USER_EVENT_REF),
-                *[(name, FIELD_TYPES[type_id]) for name, type_id in frame.data],
+                *[
+                    (name, FIELD_TYPES[kind] if isinstance(kind, int) else kind)
+                    for name, kind in frame.data
+                ],
             ],
             read=list(frame.shows),
             dyn_index=frame.dyn_index,
+            flat=frame.flat,
         )
         for frame in frames
     ]
