@@ -186,7 +186,8 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    22 distinct gaps = 5 placeholder primitives + 4 unknown primitives + 5
+    18 distinct gaps = 1 placeholder primitive (Unregister For Events; the four
+    notifier functions generate code) + 4 unknown primitives + 5
     unsupported nodes (the Event Structure and the Register For Events node of
     ``TestSuite.lvclass:run.vi``; OpenG Get TDEnum from Data reading a
     variant, whose type is only known when the code runs; and two kinds of Run
@@ -203,8 +204,8 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 22, f"expected 22 distinct gaps, got {len(items)}: {counts}"
-    assert counts["placeholder_primitive"] == 5
+    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
+    assert counts["placeholder_primitive"] == 1
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 4
     # Event Structure + Register For Events: a node with no generator whose

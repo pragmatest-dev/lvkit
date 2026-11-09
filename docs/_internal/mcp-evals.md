@@ -268,8 +268,8 @@ undiscoverable.
 
 33. **What primitives / vi.lib VIs are unresolved across this repo?**
     - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
-    - *Ground truth (`TestCase.lvclass`, this branch):* **22 distinct gaps = 5
-      placeholder primitives** (known but unimplemented) **+ 4 unknown
+    - *Ground truth (`TestCase.lvclass`, this branch):* **18 distinct gaps = 1
+      placeholder primitive** (Unregister For Events, known but unimplemented) **+ 4 unknown
       primitives** **+ 5 nodes without code generation** (the Event Structure,
       its Register For Events node, OpenG Get TDEnum from Data reading a
       variant, and two kinds of Run VI whose VI reference is only known when
