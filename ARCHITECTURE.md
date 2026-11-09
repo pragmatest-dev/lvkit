@@ -187,9 +187,11 @@ tools get their folders from one function, `library_folders.run_folders`, which 
 installed LabVIEW when no `vilib` is given.
 
 **A front panel's object tree.** `ParsedFrontPanel.layout` (`parser/models.py`) is the
-panel's tree of panes, splitters, tab pages, groupers, free labels and decorations, read
+panel's tree of panes, splitters, tab pages, groupers, Subpanels, free labels and decorations, read
 from the heap's `paneHierarchy` by `read_panel_layout` (`parser/fp_structure.py`, called at
-the end of `_parse_front_panel`). It holds the SAME `ParsedFPControl` objects as
+the end of `_parse_front_panel`). A Subpanel's parts are read by `parse_fp_parts_list`
+(`parser/fp_parts.py`), the same reader a control's parts go through. describe, JSON and
+lvnet do not show the tree: only the renderer reads it. It holds the SAME `ParsedFPControl` objects as
 `ParsedFrontPanel.controls` (looked up by the fPDCO's uid), so `controls`, `dco_order` and
 everything built on them are unchanged. Positions stay as stored (each object's own
 `bounds`, a pane's `origin`, a splitter's `ratio`); the renderer places the objects from the
