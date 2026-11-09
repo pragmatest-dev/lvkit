@@ -79,6 +79,7 @@ def write_panel(
             ),
             function=function,
             enum_name=hooks.enum_name if hooks is not None else None,
+            event_enum_name=hooks.event_enum_name if hooks is not None else None,
             root=package_root.name,
             depth=len(in_package.parts),
         )

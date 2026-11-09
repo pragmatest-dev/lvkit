@@ -14,6 +14,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from .events import PanelEvents
+
 
 class Abort(BaseException):
     """Raised from ``update`` and ``read`` once Abort was pressed, so the running
@@ -28,7 +30,13 @@ def key_of(name: Any) -> str:
 
 
 class LiveValues:
-    def __init__(self) -> None:
+    """``kinds`` is the event enum of the VI's module when the VI holds an Event
+    Structure (it then takes ``events.queue`` as its ``events``), else None."""
+
+    def __init__(self, kinds: Any = None) -> None:
+        self.events = (
+            PanelEvents(kinds, self._checkpoint) if kinds is not None else None
+        )
         self._lock = threading.Lock()
         self._latest: dict[str, Any] = {}
         self._dirty: dict[str, None] = {}
@@ -46,7 +54,11 @@ class LiveValues:
 
     def set_control(self, name: Any, value: Any) -> None:
         """A control the user changed (called from its change handler)."""
-        self._controls[key_of(name)] = value
+        key = key_of(name)
+        old = self._controls.get(key)
+        self._controls[key] = value
+        if self.events is not None:
+            self.events.value_changed(key, value, old)
 
     def add_indicator(self, name: Any, painter: Callable[[Any], None]) -> None:
         """An indicator, with the function that shows a value in its widget."""
