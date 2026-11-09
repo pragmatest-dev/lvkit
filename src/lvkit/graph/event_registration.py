@@ -27,9 +27,8 @@ from ..parser.nodes.event import USER_EVENT_TYPE_CODE
 _EVENT_REG = "EventReg"
 
 
-def dynamic_terminal_type(terminals: list[Terminal]) -> LVType | None:
-    """The type of the registration wired to the Event Structure's dynamic
-    terminal; None when nothing is wired to it."""
+def dynamic_terminal(terminals: list[Terminal]) -> TunnelTerminal | None:
+    """The outer input terminal of the Event Structure's dynamic registration."""
     for terminal in terminals:
         if (
             isinstance(terminal, TunnelTerminal)
@@ -37,8 +36,15 @@ def dynamic_terminal_type(terminals: list[Terminal]) -> LVType | None:
             and terminal.boundary == "outer"
             and terminal.direction == TerminalDirection.INPUT
         ):
-            return terminal.lv_type
+            return terminal
     return None
+
+
+def dynamic_terminal_type(terminals: list[Terminal]) -> LVType | None:
+    """The type of the registration wired to the Event Structure's dynamic
+    terminal; None when nothing is wired to it."""
+    terminal = dynamic_terminal(terminals)
+    return terminal.lv_type if terminal is not None else None
 
 
 def registration_rows(lv_type: LVType | None) -> list[EventRegRow]:
@@ -74,11 +80,39 @@ class _Event:
     name: str | None
     event_type: int | None
     anonymous: bool = False
+    row_type: LVType | None = None
+
+
+def locate_row(lv_type: LVType | None, dyn_index: int) -> tuple[int | None, int] | None:
+    """Where the row ``dyn_index`` (a frame's ``dynIndex``) sits: the position of
+    the registration among the fields of a cluster of registrations (None for a
+    single registration) and its index within that registration; None when the
+    type has no such row."""
+    if lv_type is None or dyn_index < 1:
+        return None
+    if lv_type.ref_type == _EVENT_REG:
+        count = len(_registration_events(lv_type))
+        return (None, dyn_index) if dyn_index <= count else None
+    if lv_type.kind != LVTypeKind.CLUSTER or not lv_type.fields:
+        return None
+    left = dyn_index
+    for position, field in enumerate(lv_type.fields):
+        if field.type is None or field.type.ref_type != _EVENT_REG:
+            return None
+        count = len(_registration_events(field.type))
+        if left <= count:
+            return (position, left)
+        left -= count
+    return None
 
 
 def _numbered(events: list[_Event]) -> list[EventRegRow]:
     return [
-        EventRegRow(f"#{index}" if event.anonymous else event.name, event.event_type)
+        EventRegRow(
+            f"#{index}" if event.anonymous else event.name,
+            event.event_type,
+            event.row_type,
+        )
         for index, event in enumerate(events, start=1)
     ]
 
@@ -109,7 +143,9 @@ def _row_events(
         and event_type == USER_EVENT_TYPE_CODE
     ):
         event_type = None
-    return [_Event(f"{prefix}{name}" if name else None, event_type, anonymous)]
+    return [
+        _Event(f"{prefix}{name}" if name else None, event_type, anonymous, row_type)
+    ]
 
 
 def with_dynamic_names(

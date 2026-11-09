@@ -11,16 +11,19 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
+from tests.error_diagrams import (
+    ERR,
+    QUEUE,
+    REQUIRED,
+    Project,
+    Vi,
+    project,  # noqa: F401
+)
 
 pytestmark = pytest.mark.needs_samples
 
 SAMPLES = Path(".lvkit/cache/samples")
 CONFIG_VI = SAMPLES / "DCAF-DAQModule/source/testing/Config.vi"
-OBTAIN_BROADCAST_EVENTS_VI = (
-    SAMPLES
-    / "configurable-dqmh-example/source/LabVIEW Data/DQMH Module Templates"
-    / "Source/Delacor/ConfigurableQMH/Obtain Broadcast Events.vi"
-)
 
 
 def _generate(vi: Path) -> str:
@@ -36,9 +39,26 @@ def test_unwired_daqmx_reference_raises_naming_class_and_property():
     assert "default DAQmx System object" in source
 
 
-def test_a_primitive_without_an_implementation_raises_where_it_runs():
-    source = _generate(OBTAIN_BROADCAST_EVENTS_VI)
+def test_a_primitive_without_an_implementation_raises_where_it_runs(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi("Notify.vi")
+    notifier = vi.control("Notifier", QUEUE, REQUIRED)
+    out = vi.indicator("Notifier Out", QUEUE, REQUIRED)
+    send = vi.primitive(
+        9104,
+        [
+            ("notifier", 0, QUEUE, False),
+            ("error in", 3, ERR, False),
+            ("notifier out", 8, QUEUE, True),
+            ("error out", 11, ERR, True),
+        ],
+    )
+    vi.wire(notifier, send["notifier"])
+    vi.wire(send["notifier out"], out)
+    project.add(vi)
+    source = project.generate("Notify.vi").source
     assert (
-        "raise NotImplementedError('Create User Event is not converted yet\\n"
+        "raise NotImplementedError('Send Notification is not converted yet\\n"
         "gap kind: placeholder_primitive\\n"
     ) in source

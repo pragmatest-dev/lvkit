@@ -42,6 +42,7 @@ from . import (
     constant,
     disable,
     event,
+    event_register,
     ext_func,
     first_call,
     formula,
@@ -59,6 +60,7 @@ from . import (
     sequence,
     shared_variable,
     subvi,
+    user_events,
     vi_reference,
     xnode,
 )
@@ -156,6 +158,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "printf": printf.generate,
     "extFunc": ext_func.generate,
     "xNode": xnode.generate,
+    "eventRegNode": event_register.generate_register,
 }
 
 
@@ -174,6 +177,10 @@ def _generate_primitive(
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
         return first_call.generate(node, ctx)
+    # The user event functions are generic `class="prim"` nodes too -- see
+    # nodes/user_events.py.
+    if node.node_type == "prim" and node.prim_id in user_events.USER_EVENT_PRIM_IDS:
+        return user_events.generate(node, ctx)
     # Open VI Reference and Close Reference are generic `class="prim"` nodes
     # too -- see nodes/vi_reference.py.
     if node.node_type == "prim":

@@ -43,7 +43,6 @@
       "name": "Create User Event",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-user-event.html",
       "verified": true,
-      "placeholder": true,
       "terminals": [
         {
           "index": 0,
@@ -70,8 +69,7 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Create User Event (NI Create User Event doc) -- user event data-type -> UserEvent refnum out (ref_type=UserEvent is the identity). Terminals from 'Graphical Test Runner - Main UI - .vi', 'WaveGen.vi'. Placeholder codegen."
+      "note": "Create User Event (NI Create User Event doc) -- user event data-type -> UserEvent refnum out (ref_type=UserEvent is the identity). Terminals from 'Graphical Test Runner - Main UI - .vi', 'WaveGen.vi'. Code is written by codegen/nodes/user_events.py (a user event is a list of the queues registered for it)."
     },
     "2074": {
       "name": "Generate User Event",
@@ -118,7 +116,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "note": "corrected from VI-Scripting nodes export (#59). Priority (index 4): NI's page documents 0 high priority, 1 normal priority (default); codegen/nodes/user_events.py converts an unwired or constant 1 priority only. Code is written by that module.",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-user-event.html"
     },
     "2075": {
@@ -126,7 +124,6 @@
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
       "verified": true,
-      "placeholder": true,
       "terminals": [
         {
           "index": 0,
@@ -147,8 +144,7 @@
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Destroy User Event (NI Destroy User Event doc) -- UserEvent refnum + error in -> error out only (destroying invalidates the ref). Terminals from 'Graphical Test Runner - Main UI - .vi', 'Run Client.vi'. Placeholder codegen."
+      "note": "Destroy User Event (NI Destroy User Event doc) -- UserEvent refnum + error in -> error out only (destroying invalidates the ref). Terminals from 'Graphical Test Runner - Main UI - .vi', 'Run Client.vi'. Code is written by codegen/nodes/user_events.py."
     },
     "2135": {
       "name": "Flush Event Queue",
