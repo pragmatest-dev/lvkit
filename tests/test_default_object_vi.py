@@ -20,8 +20,9 @@ from lvkit.models import (
 from tests.helpers import build_graph
 
 
-def _vi(class_name: str, property_name: str, extra_nodes=()):
-    """A VI ``User.vi`` whose only output is ``property_name`` read from the
+def _vi(class_name: str, property_name: str, code: int, extra_nodes=()):
+    """A VI ``User.vi`` whose only output is ``property_name`` (property code
+    ``code``) read from the
     unwired default object of ``class_name``; returns the generated source."""
     text = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     ref = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
@@ -45,7 +46,7 @@ def _vi(class_name: str, property_name: str, extra_nodes=()):
             Terminal(id="prop:value", index=4, direction="output", lv_type=text),
         ],
         properties=[
-            PropertyDef(segments=[PropertySegment(name=property_name, code=1)])
+            PropertyDef(segments=[PropertySegment(name=property_name, code=code)])
         ],
         property_value_terminal_ids=["prop:value"],
     )
@@ -70,7 +71,7 @@ def _run(source: str, tmp_path: Path):
 
 
 def test_unwired_user_name_is_written_in_and_runs(tmp_path: Path) -> None:
-    source = _vi("App", "App.UserName")
+    source = _vi("App", "App.UserName", 1)
     assert "lvkit" not in source
     assert "import getpass" in source
     assert "appusername = getpass.getuser()" in source
@@ -78,13 +79,13 @@ def test_unwired_user_name_is_written_in_and_runs(tmp_path: Path) -> None:
 
 
 def test_this_vis_name_is_its_function_name(tmp_path: Path) -> None:
-    source = _vi("VI", "Name")
+    source = _vi("VI", "Name", 500)
     assert "name = user.__name__\n" in source
     assert _run(source, tmp_path) == "user"
 
 
 def test_this_vis_path_is_its_file(tmp_path: Path) -> None:
-    source = _vi("VI", "Path")
+    source = _vi("VI", "Path", 501)
     assert "path = Path(__file__)\n" in source
     assert _run(source, tmp_path) == str(tmp_path / "user.py")
 
@@ -93,14 +94,14 @@ def test_the_application_directory_is_the_running_programs_folder(
     tmp_path: Path,
 ) -> None:
     for name in ("App.Dir", "Application:Directory Path"):
-        source = _vi("App", name)
+        source = _vi("App", name, 25)
         assert "Path(sys.argv[0]).resolve().parent" in source
         assert "import sys" in source
         assert _run(source, tmp_path) == str(Path(sys.argv[0]).resolve().parent)
 
 
 def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
-    none = _vi("VI", "Callees' Names")
+    none = _vi("VI", "Callees' Names", 545)
     assert "callees_names = [callee.__name__ for callee in ()]\n" in none
     assert _run(none, tmp_path) == "[]"
     helper = VINode(
@@ -110,7 +111,7 @@ def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
         callee_key="/lib/Helper.vi",
         terminals=[],
     )
-    source = _vi("VI", "Callees' Names", [helper])
+    source = _vi("VI", "Callees' Names", 545, [helper])
     assert "from .helper import helper\n" in source
     assert "[callee.__name__ for callee in (helper,)]" in source
 
@@ -123,7 +124,7 @@ def test_properties_with_no_python_meaning_raise_where_they_run() -> None:
         ("App", "Disp.AllMonitors"),
         ("VI", "IsInPackedLibrary"),
     ):
-        source = _vi(class_name, name)
+        source = _vi(class_name, name, 0)
         assert (
             f"raise NotImplementedError(\"Property '{name}' of the default "
             f"{class_name} object has no Python equivalent\\ngap kind: "
