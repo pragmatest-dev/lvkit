@@ -27,7 +27,7 @@ class GraphControlGlyph:
     LabVIEW graph UI, NOT verified against NI's own docs -- unlike ``partID``
     9/28 above, whose role IS confirmed by their consistent, measured
     position on real controls) -- are recorded HIDDEN on every real corpus
-    graph found (``objFlags`` bit 0x8; confirmed via ``part_is_hidden``), so
+    graph found (``objFlags`` bit 0x8; confirmed via ``ParsedFPPart.hidden``), so
     they occupy no visible area at all in real LabVIEW, whatever raw rect
     the heap happens to record for them (some run well outside the
     control's own box -- harmless for drawing, since they are excluded, but
