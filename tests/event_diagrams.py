@@ -4,6 +4,7 @@ Node for a Panel Close?), and the events the file lists for each frame."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from tests.error_diagrams import BOOL, I32, REQUIRED, Scope, Structure, Tunnel, Vi
@@ -32,6 +33,9 @@ class FrameSpec:
     filter: bool = False
     # Each further event the frame handles besides the first.
     more: list[tuple[int, int | None]] = field(default_factory=list)
+    # The row of the registration on the dynamic terminal the first event is
+    # (``dynIndex``); 0 for a static event.
+    dyn_index: int = 0
 
 
 @dataclass
@@ -51,6 +55,7 @@ class EventStructure:
     frames: list[EventFrameTerms]
     outputs: list[Tunnel]
     structure: Structure
+    dynamic: int | None = None
 
 
 def timeout_frame(*, read: bool = False) -> FrameSpec:
@@ -114,14 +119,21 @@ def event_structure(
     frames: list[FrameSpec],
     *,
     outputs: list[int] = (),  # type: ignore[assignment]
+    dynamic: int | None = None,
 ) -> EventStructure:
     """An Event Structure with ``frames``; ``outputs`` are the type ids of its
-    output tunnels. Returns the timeout input terminal, each frame's terminals
+    output tunnels; ``dynamic`` is the type id of the registration on its dynamic
+    terminal. Returns the timeout input terminal, each frame's terminals
     and the output tunnels."""
     uid = vi.next_uid()
     scopes = [vi._new_scope() for _ in frames]
     timeout, timeout_xml = vi.tunnel_terminal("eventTimeOut", 1, scopes)
     borders = [timeout_xml]
+    dynamic_outer = None
+    if dynamic is not None:
+        dyn_tunnel, dyn_xml = vi.tunnel_terminal("eventDynDCO", dynamic, scopes)
+        dynamic_outer = dyn_tunnel.outer
+        borders.append(dyn_xml)
     made: list[Tunnel] = []
     for type_id in outputs:
         tunnel, xml = vi.tunnel_terminal("selTun", type_id, scopes, output=True)
@@ -137,13 +149,14 @@ def event_structure(
             *((spec.type_code, source) for source in spec.sources or [None]),
             *spec.more,
         ]
-        for code, source in events:
+        for position, (code, source) in enumerate(events):
             ddo = _ddo_uid(vi, source) if source is not None else 0
+            dyn = f"<dynIndex>{spec.dyn_index}</dynIndex>" if position == 0 else ""
             count += 1
             specs += (
                 '<SL__arrayElement class="EventSpec">'
                 f"<diagramIdx>{index}</diagramIdx><ddoUID>{ddo}</ddoUID>"
-                f"<type>{code}</type></SL__arrayElement>"
+                f"<type>{code}</type>{dyn}</SL__arrayElement>"
             )
 
     def listed(uids: list[int]) -> str:
@@ -165,7 +178,7 @@ def event_structure(
     structure = Structure(timeout.outer, [], scopes, made, xml=xml)
     vi._place(structure)
     return EventStructure(
-        timeout.outer, [t[0] for t in terms], made, structure
+        timeout.outer, [t[0] for t in terms], made, structure, dynamic_outer
     )
 
 
@@ -242,6 +255,75 @@ def event_loop_vi(
         vi.wire(vi.bool_constant(True), closed)
         assert close_terms.discard is not None
         vi.wire(vi.bool_constant(discard), close_terms.discard)
+    return vi
+
+
+USER_EVENT = 1000
+
+
+def user_event_frame(dyn_index: int) -> FrameSpec:
+    """A frame handling the dynamic User Event that is row ``dyn_index`` of the
+    registration on the structure's dynamic terminal."""
+    return FrameSpec(USER_EVENT, [("Source", _U32)], dyn_index=dyn_index)
+
+
+def user_event_type(vi: Vi, name: str) -> int:
+    """A User Event refnum type labelled ``name`` (the row name a registration
+    stores), carrying an I32."""
+    return vi.add_type(
+        f'<TypeDesc Type="Refnum" RefType="UserEvent" Label="{name}">'
+        f'<TypeDesc TypeID="{I32}" /></TypeDesc>'
+    )
+
+
+def registration_type(vi: Vi, rows: list[tuple[str, int]], label: str = "") -> int:
+    """An Event Registration refnum type with one row for each ``(name, event type
+    code)``; a row's user event type is labelled ``name``."""
+    members = "".join(
+        f'<TypeDesc TypeID="{user_event_type(vi, name)}" CField0="0x0001" '
+        f'CField2="0x0000" CField4="0x{code:04X}" />'
+        for name, code in rows
+    )
+    tag = f' Label="{label}"' if label else ""
+    return vi.add_type(
+        f'<TypeDesc Type="Refnum" RefType="EventReg"{tag}>{members}</TypeDesc>'
+    )
+
+
+def registrations_cluster(vi: Vi, fields: list[tuple[str, list[str]]]) -> int:
+    """A cluster of registrations: each ``(field name, user event names)`` is a
+    registration of those user events."""
+    ids = [
+        registration_type(vi, [(name, USER_EVENT) for name in names], label)
+        for label, names in fields
+    ]
+    members = "".join(f'<TypeDesc TypeID="{type_id}" />' for type_id in ids)
+    return vi.add_type(f'<TypeDesc Type="Cluster">{members}</TypeDesc>')
+
+
+def dynamic_events_vi(
+    make_registration: Callable[[Vi], int],
+    frames: list[FrameSpec],
+    *,
+    in_loop: bool = False,
+) -> Vi:
+    """An Event Structure whose dynamic terminal is wired from a control of the
+    type ``make_registration`` adds to the VI: straight, or through a While Loop's
+    input tunnel."""
+    vi = Vi("Dynamic.vi")
+    registration = make_registration(vi)
+    control = vi.control(
+        "Registration", registration, REQUIRED, bounds=(40, 20, 62, 160)
+    )
+    if not in_loop:
+        events = event_structure(vi, [timeout_frame(), *frames], dynamic=registration)
+        vi.wire(control, events.dynamic)
+        return vi
+    loop = vi.loop("whileLoop", tunnels=[(registration, False)])
+    with vi.inside(loop.scopes[0]):
+        events = event_structure(vi, [timeout_frame(), *frames], dynamic=registration)
+    vi.wire(control, loop.tunnels[0].outer)
+    vi.wire(loop.tunnels[0].faces[0], events.dynamic)
     return vi
 
 
@@ -327,6 +409,4 @@ def _frame_nodes(
 
 def mouse_down_frame() -> FrameSpec:
     """A frame of an event lvkit does not generate code for."""
-    return FrameSpec(
-        MOUSE_DOWN, [("Source", _U32), ("Type", _U32), ("Time", _U32)]
-    )
+    return FrameSpec(MOUSE_DOWN, [("Source", _U32), ("Type", _U32), ("Time", _U32)])

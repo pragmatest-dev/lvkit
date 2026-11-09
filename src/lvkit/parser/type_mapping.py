@@ -14,6 +14,7 @@ from typing import Any
 from ..models import (
     ClusterField,
     EnumValue,
+    EventRegRow,
     LVType,
     LVTypeKind,
     PaneSlot,
@@ -256,6 +257,18 @@ def flat_type_descs(root: ET.Element) -> dict[int, ET.Element]:
     return flat_types
 
 
+def _event_reg_row(row: ET.Element, flat_types: dict[int, ET.Element]) -> EventRegRow:
+    """An Event Registration refnum's row: its user event refnum type's label and
+    the event type code (``CField4``)."""
+    type_id = row.get("TypeID")
+    code = row.get("CField4")
+    return EventRegRow(
+        name=_field_label(flat_types.get(int(type_id)) if type_id else None, "")
+        or None,
+        event_type=int(code, 16) if code else None,
+    )
+
+
 def _field_label(ref_td: ET.Element | None, default_name: str) -> str:
     """Resolve a cluster field's display name from its own TypeDesc.
 
@@ -420,6 +433,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             class_file = None
             element_type = None
             user_event_name = None
+            event_rows = None
 
             if ref_type == "UDClassInst":
                 # Extract fully qualified class name from <Item> chain.
@@ -438,6 +452,10 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 # not a bare "Queue refnum". Only when there's EXACTLY one nested
                 # ref (EventReg lists several event types — not a single element).
                 nested = td.findall("TypeDesc[@TypeID]")
+                if ref_type == "EventReg":
+                    event_rows = tuple(
+                        _event_reg_row(row, flat_types) for row in nested
+                    )
                 if len(nested) == 1:
                     tid = nested[0].get("TypeID")
                     if tid:
@@ -460,6 +478,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 class_file=class_file,
                 element_type=element_type,
                 user_event_name=user_event_name,
+                event_rows=event_rows,
             )
 
         elif type_name in _COLLECTION_TYPE_NAMES:

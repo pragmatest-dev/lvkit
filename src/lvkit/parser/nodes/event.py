@@ -79,6 +79,9 @@ EVENT_TUNNEL_DCO_CLASSES = (
 # BOTH the Event Data Node and the Event Filter Node (see module docstring).
 _EVENT_DATA_NODE_CLASS = "eventDataNode"
 
+# The ``EventSpec.type`` of a User Event (a dynamic event: ``source`` 1).
+USER_EVENT_TYPE_CODE = 1000
+
 # EventSpec.type codes confirmed clean-room by cross-checking the
 # reconstructed label against the displayed frame's own faithful heap text
 # (VI Tester About.vi — see module docstring). Add an entry here ONLY once
@@ -271,8 +274,11 @@ def _extract_event_specs(elem: ET.Element) -> dict[int, list[FrameEvent]]:
             continue
         ddo_uid = spec_elem.findtext("ddoUID")
         type_text = spec_elem.findtext("type")
+        dyn_text = spec_elem.findtext("dynIndex")
+        dyn_index = int(dyn_text) if dyn_text and dyn_text.isdigit() else 0
         specs.setdefault(int(idx_text), []).append(
             FrameEvent(
+                dyn_index=dyn_index or None,
                 source_ddo_uid=ddo_uid if ddo_uid and ddo_uid != "0" else None,
                 type_code=(
                     int(type_text)

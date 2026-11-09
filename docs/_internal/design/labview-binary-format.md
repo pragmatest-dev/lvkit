@@ -642,6 +642,17 @@ specifies one frame's event:
   `1073741825`=Timeout. Others (e.g. `-2147483645`=0x80000003, a filter-event) are NOT named —
   degrade to control-only or bare `[N]`, NEVER fabricate a type name ([[feedback_no_heuristics]]).
 
+- `source` / `type` / `dynIndex` — a dynamic User Event has `source` 1, `type` 1000 and `dynIndex` k >= 1;
+  a static event has `dynIndex` 0 (or none). k is the k-th row of the Event Registration refnum on the
+  structure's dynamic terminal (`eventDynDCO`). That refnum's type lists one child per row (the u16
+  fields `cfield0`, `cfield2`, `cfield4` = the row's event type, then the row's type index: pylabview
+  `LVdatatyperef.py` `RefnumEventReg`), and for a user event row the child is a UserEvent refnum
+  type whose own label is the row name. A cluster of registrations numbers its rows across its fields in
+  field order; LabVIEW's stored label for such a frame is `<Field.Label>` (WaveGen's displayed frame:
+  `[2] <Action.Event Data>: User Event`, field `Action`, row label `Event Data`). JKI `Results Status
+  Update Process__core.vi`: type 104, rows `ResultStatusChanged`, `SuiteStatusChanged`, `Exit`,
+  `TestStartedEventRef` (the row label, not the data cluster's own label). `graph/event_registration.py`.
+
 Label format `[N] "Control": EventType` (control+type) / `[N] EventType` (no control) / `[N]`
 (neither). Displayed frame's own `selString` still wins for its frame. Verified: VI Tester About.vi
 → Cancel/Website Button/copyrights Value Change; pco 9-frame struct → Timeout + Quit/Image Width

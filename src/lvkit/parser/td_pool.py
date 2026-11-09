@@ -36,6 +36,7 @@ from ..lv_type_codes import REFNUM_TYPE, TD_FULL_TYPE
 from ..models import (
     ClusterField,
     EnumValue,
+    EventRegRow,
     LVType,
     LVTypeKind,
     enum_values_from_labels,
@@ -351,6 +352,7 @@ class TdPool:
 
         element_type: LVType | None = None
         user_event_name: str | None = None
+        event_rows: tuple[EventRegRow, ...] | None = None
         classname: str | None = None
         class_file: str | None = None
         label_off: int | None
@@ -372,6 +374,22 @@ class TdPool:
             if kind in _EXTERNAL_FLAG_REFNUMS:
                 pos += 1
             label_off = pos
+        elif kind == REFNUM_TYPE.EventReg:
+            # u16 field0, u16 count, then per row four u16: three flag fields
+            # (the last is the event's type code) and the row's TD index.
+            (nrows,) = struct.unpack_from(">H", body, 4)
+            if len(body) < 6 + 8 * nrows:
+                raise PoolError("its body is shorter than its type's layout")
+            rows: list[EventRegRow] = []
+            for i in range(nrows):
+                _, _, event_type, row_index = struct.unpack_from(
+                    ">HHHH", body, 6 + 8 * i
+                )
+                rows.append(EventRegRow(self.names[row_index], event_type))
+                if nrows == 1:
+                    element_type = self._ref(row_index)
+            event_rows = tuple(rows)
+            label_off = 6 + 8 * nrows
         elif kind == REFNUM_TYPE.UDClassInst:
             items, label_off = _read_class_items(body)
             classname = ":".join(items)
@@ -393,6 +411,7 @@ class TdPool:
             class_file=class_file,
             element_type=element_type,
             user_event_name=user_event_name,
+            event_rows=event_rows,
         ), name
 
     def _decode_typedef(self, td: RawTD) -> tuple[LVType, str | None]:

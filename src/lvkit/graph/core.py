@@ -407,6 +407,7 @@ class InMemoryVIGraph(
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,
+            event_rows=parsed_type.event_rows,
             dotnet_type=parsed_type.dotnet_type,
             unreadable=parsed_type.unreadable,
             pane=parsed_type.pane,
