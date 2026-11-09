@@ -66,6 +66,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
     TUNNEL_CLASS_CASE_SEL,
 )
+from .data_fill import DefaultDataSpace, read_default_data_space
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
@@ -310,8 +311,9 @@ def parse_vi(
 
     # Parse case-structure selector-value tables from the dataspace XML. These
     # carry the real per-frame selector labels, which the block-diagram heap
-    # does not (see parse_selector_tables / _apply_selector_tables).
-    selector_tables, table_index_shift = _parse_selector_tables(main_xml)
+    # does not (see parse_selector_tables / _apply_selector_tables). The same read
+    # gives the default data that constants and controls keep their values in.
+    selector_tables, default_space = _parse_dataspace(main_xml)
 
     # Parse block diagram (+ optional geometry from the SAME parsed heap)
     block_diagram, bd_layout = _parse_block_diagram(
@@ -321,7 +323,8 @@ def parse_vi(
         selector_tables,
         want_layout=layout,
         main_xml=main_xml,
-        table_index_shift=table_index_shift,
+        table_index_shift=default_space.index_shift or 0,
+        default_space=default_space,
     )
 
     # Parse front panel
@@ -336,6 +339,7 @@ def parse_vi(
         block_diagram,
         metadata.type_map,
         unresolved_uids=unresolved_uids,
+        default_space=default_space,
         fonts=fonts,
     )
 
@@ -515,27 +519,20 @@ def _parse_metadata(
     )
 
 
-def _parse_selector_tables(
+def _parse_dataspace(
     main_xml_path: Path | str | None,
-) -> tuple[list[SelectorTable], int]:
-    """Parse case selector-value tables + the TM80 IndexShift from the main
-    dataspace XML. The shift converts a case's ``tdOffset`` (a TM80 client
-    index) to its table's absolute DataFill TypeID (see _apply_selector_tables).
-    """
+) -> tuple[list[SelectorTable], DefaultDataSpace]:
+    """Parse case selector-value tables and the default data space from the main
+    dataspace XML. The space's TM80 ``index_shift`` converts an object's
+    ``tdOffset`` (a TM80 client index) to its absolute DataFill TypeID (see
+    _apply_selector_tables)."""
     if main_xml_path is None:
-        return [], 0
+        return [], DefaultDataSpace()
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
-        return [], 0
+        return [], DefaultDataSpace()
     root = parsed_xml(main_xml)
-    tm80 = root.find("TM80/Section")
-    shift = 0
-    if tm80 is not None and (raw := tm80.get("IndexShift")) is not None:
-        try:
-            shift = int(raw)
-        except ValueError:
-            shift = 0
-    return parse_selector_tables(root), shift
+    return parse_selector_tables(root), read_default_data_space(root)
 
 
 def _parse_block_diagram(
@@ -547,6 +544,7 @@ def _parse_block_diagram(
     want_layout: bool = False,
     main_xml: Path | str | None = None,
     table_index_shift: int = 0,
+    default_space: DefaultDataSpace | None = None,
 ) -> tuple[ParsedBlockDiagram, Layout | None]:
     """Parse block diagram from BD XML.
 
@@ -561,7 +559,7 @@ def _parse_block_diagram(
     _resolve_bound_control_types(nodes, fp_xml)
     resolve_ext_func_calls(nodes, main_xml, type_map)
     resolve_xnode_libraries(nodes, main_xml)
-    constants = extract_constants(root)
+    constants = extract_constants(root, default_space, type_map)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
     fp_terminals = extract_fp_terminals(root, fp_xml, type_map)
@@ -625,9 +623,13 @@ def _parse_front_panel(
     block_diagram: ParsedBlockDiagram,
     type_map: dict[int, LVType] | None = None,
     unresolved_uids: set[str] | None = None,
+    default_space: DefaultDataSpace | None = None,
     fonts: Sequence[ParsedFPFont] = (),
 ) -> ParsedFrontPanel:
     """Parse front panel from FP XML.
+
+    A control with no ``DefaultData`` takes its default from ``default_space``,
+    the VI's default data, when it has been read.
 
     ``unresolved_uids``, if given, collects the uid of every control whose
     own label didn't resolve (see ``_placeholder_control_name``) so a caller
@@ -700,6 +702,7 @@ def _parse_front_panel(
         # Extract default data
         default_value = None
         field_defaults = None
+        default_raw: bytes | None = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
             # Strip only the wrapping quotes — NOT clean_labview_string, which
@@ -718,6 +721,18 @@ def _parse_front_panel(
             default_value, field_defaults = _decode_default_data(
                 raw_data, control_type, lv_type
             )
+        elif default_space is not None and default_space.controls_hold_value:
+            # A VI saved without the heap's DefaultData keeps the control's
+            # default in its default data space, under the control's tdOffset
+            # (a VI saved before LabVIEW 8.6 does not: see DefaultDataSpace).
+            stored = default_space.fill_value(fpdco.findtext("tdOffset"))
+            if stored.value_hex is not None:
+                stored_bytes = bytes.fromhex(stored.value_hex)
+                default_value, field_defaults = _decode_default_bytes(
+                    stored_bytes, ddo.get("class", "unknown"), lv_type
+                )
+                if contains_class_instance(lv_type):
+                    default_raw = stored_bytes
 
         control = _parse_ddo(
             ddo,
@@ -738,7 +753,8 @@ def _parse_front_panel(
                 and default_elem.text
                 and contains_class_instance(lv_type)
             ):
-                control.default_raw = decode_xml_entities_to_bytes(raw_data)
+                default_raw = decode_xml_entities_to_bytes(raw_data)
+            control.default_raw = default_raw
             controls.append(control)
 
     # The heap root's <ddoList> names every fPDCO in DCO-table order -- the
@@ -950,10 +966,16 @@ def _resolve_bound_control_types(
     if not fp_path.exists():
         return
     fp_root = parsed_xml(fp_path)
+    parents = {child: parent for parent in fp_root.iter() for child in parent}
     for bound_node in bound:
         ddo = fp_root.find(f".//*[@uid='{bound_node.bound_control_uid}']")
         if ddo is not None:
             bound_node.bound_control_type = reconstruct_control_lvtype(ddo)
+            holder: ET.Element | None = ddo
+            while holder is not None and holder.get("class") != "fPDCO":
+                holder = parents.get(holder)
+            if holder is not None:
+                bound_node.bound_control_dco_uid = holder.get("uid", "")
 
 
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:
@@ -2609,6 +2631,16 @@ def _decode_default_data(
     except (ValueError, UnicodeError):
         return None, None
 
+    return _decode_default_bytes(raw_bytes, control_type, lv_type)
+
+
+def _decode_default_bytes(
+    raw_bytes: bytes,
+    control_type: str,
+    lv_type: LVType | None = None,
+) -> tuple[str | None, object]:
+    """Decode the stored bytes of a control's default to a Python literal; the
+    return value is that of ``_decode_default_data``."""
     # Use the type-aware decoder when we have type info
     if lv_type is not None:
         decoded, _, structured = _decode_element(raw_bytes, lv_type)

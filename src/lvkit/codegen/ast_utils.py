@@ -106,6 +106,8 @@ def _cluster_default(lv_type: LVType) -> ast.expr:
 
 # The names a generated module spells bare and imports only when it uses them.
 _IMPLICIT_IMPORTS = {
+    "Callable": "from collections.abc import Callable",
+    "Enum": "from enum import Enum",
     "os": "import os",
     "Path": "from pathlib import Path",
     "SimpleNamespace": "from types import SimpleNamespace",
@@ -474,7 +476,13 @@ GENERATED_MODULE_NAMES = frozenset(
     }
 )  # fmt: skip
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
+# The keyword-only parameters of a VI that touches its front panel while it runs
+# (``panel_hooks``): no variable of the function takes their names.
+ON_UPDATE = "on_update"
+ON_READ = "on_read"
+EVENTS = "events"
+
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ, EVENTS}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
@@ -504,13 +512,16 @@ def to_function_name(vi_name: str) -> str:
     return to_var_name(name)
 
 
+def class_style_name(vi_name: str) -> str:
+    """The VI's function name in class style (``get_settings`` is
+    ``GetSettings``)."""
+    parts = to_function_name(vi_name).split("_")
+    return "".join(p.capitalize() for p in parts if p)
+
+
 def build_result_class_name(vi_name: str) -> str:
     """Build result class name from VI name."""
-    base = to_function_name(vi_name)
-    # Convert to CamelCase
-    parts = base.split("_")
-    camel = "".join(p.capitalize() for p in parts if p)
-    return f"{camel}Result"
+    return f"{class_style_name(vi_name)}Result"
 
 
 RESULT_CLASS_IMPORT = "from dataclasses import dataclass"

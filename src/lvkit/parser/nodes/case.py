@@ -16,6 +16,7 @@ from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, Tunnel
 from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS, TUNNEL_CLASS_CASE_SEL
+from ..data_fill import iter_data_fills
 from ..models import (
     ParsedCaseStructure,
     ParsedTerminalInfo,
@@ -662,12 +663,11 @@ def parse_selector_tables(main_root: ET.Element) -> list[SelectorTable]:
     table, which their ``tdOffset`` names (see :func:`_apply_selector_tables`).
     """
     tables: list[SelectorTable] = []
-    for df in main_root.iter("DataFill"):
-        tid = df.get("TypeID")
+    for type_id, df in iter_data_fills(main_root):
         cluster = df.find("Cluster")
-        if tid is None or cluster is None:
+        if cluster is None:
             continue
-        table = _decode_selector_table(int(tid), cluster)
+        table = _decode_selector_table(type_id, cluster)
         if table is not None:
             tables.append(table)
     tables.sort(key=lambda t: t.type_id)
