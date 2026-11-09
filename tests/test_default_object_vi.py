@@ -117,14 +117,15 @@ def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
 
 
 def test_properties_with_no_python_meaning_raise_where_they_run() -> None:
-    for class_name, name in (
-        ("App", "App.Version"),
-        ("App", "App.Kind"),
-        ("App", "App.LVTarget"),
-        ("App", "Disp.AllMonitors"),
-        ("VI", "IsInPackedLibrary"),
+    # Each property's code as the corpus stores it.
+    for class_name, name, code in (
+        ("App", "App.Version", 2),
+        ("App", "App.Kind", 3),
+        ("App", "App.LVTarget", 131),
+        ("App", "Disp.AllMonitors", 34),
+        ("VI", "IsInPackedLibrary", 681),
     ):
-        source = _vi(class_name, name, 0)
+        source = _vi(class_name, name, code)
         assert (
             f"raise NotImplementedError(\"Property '{name}' of the default "
             f"{class_name} object has no Python equivalent\\ngap kind: "

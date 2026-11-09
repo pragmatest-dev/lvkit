@@ -17,7 +17,7 @@
           "import sys",
           "from pathlib import Path"
         ],
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/application-directory-path.html"
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/applicationdirectory.html"
       }
     },
     "VI": {
@@ -39,7 +39,7 @@
         "name": "Callees' Names",
         "python": "[callee.__name__ for callee in {callees}]",
         "imports": [],
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/callees-names.html"
+        "doc_url": "https://labviewwiki.org/wiki/VI_class/Callees%27_Names_property"
       }
     }
   }
