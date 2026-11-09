@@ -373,3 +373,56 @@ D12 to D15 were approved ("Yes, your recommendations"). What was built, and wher
 - **D13.** Built as Option B (replaced, see 9.7): with no `events` and no Timeout the function waits for ever on an empty queue, as LabVIEW does, and no gap is recorded. Event Data Node fields are kept by name (maintainer, 2026-11-08: "By name. The event data node cluster is selective like a property node").
 - **PR7 grows.** A control's change handler puts the Value Change while a run is active, the toolbar's Close button asks Panel Close? and waits for its reply, Abort and Pause reach a VI blocked in its Event Structure. A browser tab closed by the browser is not intercepted.
 - Corpus VI served: `Debug Interface.vi` (JKI-VI-Tester), Value Change on its `stop` control only; its Event Structure has no wired Timeout, so it is the one gap above.
+
+## 12. User events across VIs (added 2026-11-09)
+
+Replaces D15's "same-VI user events" scope (maintainer, 2026-11-09: "List of queues, any VI"). Everything else in §9 is kept: the message shape (D12), `events` for the panel, and the Event Structure's dispatch (`codegen/nodes/event.py`).
+
+### 12.1 Evidence
+
+- **NI:**
+  - Create User Event: "Wire the user event out output to a Generate User Event function to send the event and associated data to all Event structures registered for the event."
+  - Generate User Event: "Broadcasts the user event … to each Event structure registered to handle the event."
+  - Register For Events: "References must be to local objects."
+  - A user event is a refnum like any other, so it passes between VIs.
+- **Corpus:** in the extracted diagrams, 20 VIs Create, 37 Generate, 12 Destroy and 29 Unregister. 23 VIs generate an event they did not create. Example: JKI `Graphical Test Runner - Main UI` creates, and the `TestResult` methods (`addSuccess` …) and `TestSuite:run` generate.
+- **Priority:** all 39 Generate User Event nodes in the 24 corpus VIs that have one leave priority unwired, so they use normal priority.
+- **How a frame names its user event:** the frame's `EventSpec` has `type` 1000 (User Event), `source` 1 (dynamic) and `dynIndex` k ≥ 1. That k is the k-th user event row of the Register For Events wired to the structure's dynamic terminal.
+  - Checked on JKI `Results Status Update Process__core.vi`: 4 rows; the frame with `dynIndex` 4 reads `testStarted`, the 4th row's data.
+  - The parser does not keep `dynIndex` today (`parser/nodes/event.py:273` reads only `type`). So 3 of those 4 frames are labelled `<unknown event 0x000003E8>` in describe and lvnet.
+
+### 12.2 Generated shape (plain Python, no helper)
+
+```python
+ev = []                                   # Create User Event: the list of registration queues
+reg = (Queue(), (ev_a, ev_b))             # Register For Events: one queue, the user events by row
+for registered in reg[1]:
+    registered.append(reg[0])
+for q in ev:                              # Generate User Event
+    q.put((ev, data, Kind.USER_EVENT, None))
+for registered in reg[1]:                 # Unregister For Events
+    registered.remove(reg[0])
+ev.clear()                                # Destroy User Event
+```
+
+- **The message keeps D12's shape.** The name position holds the user event itself, the list object, and its value is the event data.
+- **The Event Structure** wired to a registration reads `reg[0]`, not `events`. A frame with `dynIndex` k is chosen by `event[0] is reg[1][k - 1]`, by identity, never by label.
+- **A structure with both front-panel and user events:** the panel's messages and the registration's must reach one queue. Register For Events then uses the VI's `events` queue when the VI has one (`reg = (events, …)`), so one `get` serves both.
+- **Event Data Node fields of a user event** are the event data's fields by name (maintainer, 2026-11-08: "By name"); `UsrEvtRef` is `event[0]`.
+- **Register For Events with its input wired** (an existing registration): same queue, rows replaced (NI: "re-register").
+
+### 12.3 Gaps
+
+- Generate User Event with a priority other than an unwired or constant normal one (the switch to `PriorityQueue` is described in the 2026-11-09 decision: one place, but it changes the message shape for outside callers).
+- Register For Events rows of a control, VI or application reference (dynamic front-panel events).
+- A `dynIndex` that has no row.
+
+### 12.4 Decisions
+
+- **D24. DECIDED (maintainer, 2026-11-09):** a user event is a list of registration queues, in any VI.
+- **D25. DECIDED (maintainer, 2026-11-09):** plain `Queue`; high priority is a gap until a VI needs it.
+
+### 12.5 Steps
+
+1. **Parser:** `FrameEvent.dyn_index` from `dynIndex`. A dynamic event's frame label names the registered row's user event (`<testStarted>: User Event`), in describe, lvnet, JSON and the render. Tests on a handmade structure with 2 rows.
+2. **Codegen:** Create / Register / Generate / Unregister / Destroy, and the Event Structure's user-event frames. Tests execute a handmade VI that creates, registers and generates, with a frame reading the data. Also a two-VI case where one VI generates, the other creates and registers, and the user event passes as a parameter.
