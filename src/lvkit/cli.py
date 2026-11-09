@@ -52,6 +52,7 @@ from .project_store import (
     install_codex_skills,
     install_copilot_skills,
 )
+from .render_view import VIEW_CHOICES, RenderView, is_control, views_for
 from .run_report import (
     EXIT_USAGE,
     CacheWriteError,
@@ -830,6 +831,17 @@ def main() -> int:
             "Output format: 'svg' (default, the self-contained diagram) or "
             "'html' (an interactive single-VI viewer page with zoom/pan and a "
             "light/dark diagram-theme toggle)."
+        ),
+    )
+    render_parser.add_argument(
+        "--view",
+        choices=VIEW_CHOICES,
+        default=None,
+        help=(
+            "Which picture of a VI to draw: 'block-diagram' (the default), "
+            "'front-panel', or 'both' (two files: with -o X.svg, "
+            "X.block-diagram.svg and X.front-panel.svg). A .ctl control has "
+            "only its front panel, which is its default."
         ),
     )
     render_parser.add_argument(
@@ -1651,14 +1663,23 @@ def _build_options(
 
 
 def _render_options_tag(
-    args: argparse.Namespace, theme_mode: str, ref: str | None, build: BuildOptions
+    args: argparse.Namespace,
+    theme_mode: str,
+    ref: str | None,
+    build: BuildOptions,
+    view: RenderView,
 ) -> str:
     """The output-cache options key from CLI args — delegates to the shared
     ``render_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import render_options_tag
 
     return render_options_tag(
-        args.format, theme_mode, ref, build, getattr(args, "original_path", None)
+        args.format,
+        theme_mode,
+        ref,
+        build,
+        getattr(args, "original_path", None),
+        view,
     )
 
 
@@ -1685,8 +1706,9 @@ def _build_render_body(
     theme_mode: ThemeMode,
     ref: str | None,
     run: RunProblems,
+    view: RenderView,
 ) -> CachedBody | None:
-    """Build the render body. ``--no-cache`` with ``-o`` builds it and nothing
+    """Build the ``view`` render body. ``--no-cache`` with ``-o`` builds it and nothing
     else: the output file is the only thing written (no cache entry, no staging
     folder). Otherwise the shared cached core builds it and refreshes the slot."""
     kw = _render_build_kw(build, theme_mode, ref)
@@ -1700,6 +1722,7 @@ def _build_render_body(
             input_path,
             fmt=args.format,
             run_settings=run.settings,
+            view=view,
             **kw,  # type: ignore[arg-type]
         )
         return None if built is None else CachedBody(built.body, built.problems, False)
@@ -1713,18 +1736,31 @@ def _build_render_body(
         roots=build.library_roots(),
         return_cached=False,
         run_settings=run.settings,
+        view=view,
         **kw,
     )
 
 
+def _view_output(out: Path, view: RenderView, both: bool) -> Path:
+    """Where the ``view`` picture goes for ``-o out``: ``out`` itself, or, when
+    both pictures are drawn, ``out`` with the view before the extension
+    (``X.svg`` -> ``X.front-panel.svg``)."""
+    return out.with_name(f"{out.stem}.{view.value}{out.suffix}") if both else out
+
+
 def _emit_render(
-    args: argparse.Namespace, input_path: Path, body: str, build: BuildOptions
+    args: argparse.Namespace,
+    input_path: Path,
+    body: str,
+    build: BuildOptions,
+    view: RenderView,
+    both: bool,
 ) -> int:
     """Deliver a render body: to ``-o`` if given; otherwise the render lives in
     the cache slot (always written by the caller) and we report its path — every
     render warms the cache, ``-o`` is the switch that also writes a file."""
     if args.output:
-        out = Path(args.output)
+        out = _view_output(Path(args.output), view, both)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(body, encoding="utf-8")
         print(f"Rendered {out}")
@@ -1732,15 +1768,15 @@ def _emit_render(
     from .output_cache import render_slot
 
     stem = input_path.stem.replace("_BDHb", "")
-    slot = render_slot(input_path, args.format, build.library_roots())
+    slot = render_slot(input_path, args.format, build.library_roots(), view)
     print(f"Rendered {stem} → cached ({slot}). Pass -o FILE to write a file.")
     return 0
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful, graph-driven block-diagram SVG (or,
-    for a ``.ctl``, its front panel), or (``--format html``) a self-contained
-    single-file viewer page. A cached output
+    """Handle the render command — faithful, graph-driven block-diagram SVG and/or
+    front-panel SVG of a VI (a ``.ctl`` has only its front panel), or
+    (``--format html``) a self-contained single-file viewer page. A cached output
     for unchanged inputs is reused verbatim, skipping the build."""
     found = _input_path(args, args.input_path)
     if isinstance(found, int):
@@ -1757,10 +1793,39 @@ def cmd_render(args: argparse.Namespace) -> int:
         return 2
     if input_path.is_dir():
         return _cmd_render_dir(args, input_path)
+    if is_control(input_path) and args.view == RenderView.BLOCK_DIAGRAM.value:
+        print(
+            f"Error: {input_path.name} is a control, which has only a front panel "
+            "(use --view front-panel)",
+            file=sys.stderr,
+        )
+        return 2
 
     theme_mode = _theme_mode(args)
     build = _build_options(args)
-    options = _render_options_tag(args, theme_mode, args.ref, build)
+    run = command_run(args, args.original_path or input_path)
+    views = views_for(input_path, args.view)
+    for view in views:
+        code = _render_one_view(
+            args, input_path, view, len(views) > 1, theme_mode, build, run
+        )
+        if code is not None:
+            return code
+    return finish(run)
+
+
+def _render_one_view(
+    args: argparse.Namespace,
+    input_path: Path,
+    view: RenderView,
+    both: bool,
+    theme_mode: ThemeMode,
+    build: BuildOptions,
+    run: RunProblems,
+) -> int | None:
+    """Render and deliver one picture of ``input_path``. None when it was
+    delivered, else the exit code of the run that ended here."""
+    options = _render_options_tag(args, theme_mode, args.ref, build, view)
 
     # Fast path: a fresh cached render is served here before ANY miss-path setup.
     # cached_render(return_cached=True) would also skip the heavy render import on a
@@ -1769,7 +1834,6 @@ def cmd_render(args: argparse.Namespace) -> int:
     # for a short-lived CLI; MCP/web (warm processes) skip this and call the wrapper
     # directly. --no-cache skips this read (forcing a rebuild) but the rebuild below
     # still refreshes the slot.
-    run = command_run(args, args.original_path or input_path)
     if not args.no_cache:
         from .output_cache import lookup_render, render_problems
 
@@ -1781,25 +1845,27 @@ def cmd_render(args: argparse.Namespace) -> int:
             __version__,
             roots,
             build.project_store,
+            view,
         )
         if cached is not None:
-            run.take(render_problems(input_path, args.format, roots), announce=True)
-            code = _emit_render(args, input_path, cached, build)
-            return code or finish(run)
+            run.take(
+                render_problems(input_path, args.format, roots, view), announce=True
+            )
+            return _emit_render(args, input_path, cached, build, view, both) or None
 
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
     # because we already did the one read above (or were told to skip it) — no
     # double-check. The build refreshes the slot, except --no-cache with -o.
     try:
         built = _build_render_body(
-            args, input_path, options, build, theme_mode, args.ref, run
+            args, input_path, options, build, theme_mode, args.ref, run, view
         )
     except Exception as e:
         return stop_on(run, input_path, ProblemStage.RENDER, e)
     if built is None:
         return stop_on(run, input_path, ProblemStage.RENDER, declined(input_path))
     run.take(built.problems, announce=False)
-    return _emit_render(args, input_path, built.body, build) or finish(run)
+    return _emit_render(args, input_path, built.body, build, view, both) or None
 
 
 # The file kinds ``lvkit render`` draws: a VI's block diagram, a control's front panel.
@@ -1811,7 +1877,8 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     pass in one process — the ~250 ms import is paid once, not once per file).
     Already-fresh slots are skipped. With -o, also export a mirrored HTML/SVG tree
     there: ``Foo.vi`` -> ``Foo.svg``, ``Foo.ctl`` -> ``Foo.ctl.svg`` (so a VI and a
-    control sharing a stem don't collide)."""
+    control sharing a stem don't collide); with ``--view both`` a VI writes
+    ``Foo.block-diagram.svg`` and ``Foo.front-panel.svg``."""
     from .output_cache import lookup_render, render_problems
 
     vis = sorted(
@@ -1828,62 +1895,77 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     run = command_run(args, root)
     rendered = fresh = failed = 0
     for vi in vis:
-        body: str | None = None
+        views = views_for(vi, args.view)
         build = _build_options(args, roots=roots)
-        # no per-VI ref in batch
-        options = _render_options_tag(args, theme_mode, None, build)
-        if not args.no_cache:
-            body = lookup_render(
-                vi,
-                args.format,
-                options,
-                __version__,
-                build.library_roots(),
-                build.project_store,
-            )
+        for view in views:
+            body: str | None = None
+            # no per-VI ref in batch
+            options = _render_options_tag(args, theme_mode, None, build, view)
+            if not args.no_cache:
+                lib_roots = build.library_roots()
+                body = lookup_render(
+                    vi,
+                    args.format,
+                    options,
+                    __version__,
+                    lib_roots,
+                    build.project_store,
+                    view,
+                )
+                if body is not None:
+                    run.take(
+                        render_problems(vi, args.format, lib_roots, view),
+                        announce=True,
+                    )
             if body is not None:
-                run.take(
-                    render_problems(vi, args.format, build.library_roots()),
-                    announce=True,
-                )
-        if body is not None:
-            fresh += 1
-        else:
-            # Own lookup already done above → return_cached=False (no re-read);
-            # cached_render builds + refreshes the slot.
-            try:
-                built = _build_render_body(
-                    args, vi, options, build, theme_mode, None, run
-                )
-                body = None if built is None else built.body
-                if built is not None:
-                    run.take(built.problems, announce=False)
-            except Exception as e:
-                # Batch keeps going on a single VI's failure, but never silently:
-                # the problem is announced as it is found.
-                run.fail(vi, ProblemStage.RENDER, e, may_stop=True)
-                body = None
+                fresh += 1
             else:
-                if built is None:
-                    run.fail(vi, ProblemStage.RENDER, declined(vi), may_stop=True)
-            if body is None:
-                failed += 1
-                continue
-            rendered += 1
-        if outdir is not None:
-            rel = vi.relative_to(root)
-            dest = outdir / (
-                rel.with_name(f"{rel.name}.{ext}")
-                if vi.suffix.lower() == ".ctl"
-                else rel.with_suffix(f".{ext}")
-            )
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(body, encoding="utf-8")
+                # Own lookup already done above → return_cached=False (no re-read);
+                # cached_render builds + refreshes the slot.
+                try:
+                    built = _build_render_body(
+                        args, vi, options, build, theme_mode, None, run, view
+                    )
+                    body = None if built is None else built.body
+                    if built is not None:
+                        run.take(built.problems, announce=False)
+                except Exception as e:
+                    # Batch keeps going on a single VI's failure, but never
+                    # silently: the problem is announced as it is found.
+                    run.fail(vi, ProblemStage.RENDER, e, may_stop=True)
+                    body = None
+                else:
+                    if built is None:
+                        run.fail(vi, ProblemStage.RENDER, declined(vi), may_stop=True)
+                if body is None:
+                    failed += 1
+                    continue
+                rendered += 1
+            if outdir is not None:
+                dest = _dir_output(
+                    outdir, vi.relative_to(root), view, len(views) > 1, ext
+                )
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(body, encoding="utf-8")
 
     where = f" → {outdir}" if outdir is not None else " → cached"
     tail = f", {failed} failed" if failed else ""
     print(f"{len(vis)} files — {rendered} rendered, {fresh} already fresh{tail}{where}")
     return finish(run, failed > 0 and rendered == 0 and fresh == 0)
+
+
+def _dir_output(
+    outdir: Path, rel: Path, view: RenderView, both: bool, ext: str
+) -> Path:
+    """Where the ``view`` picture of the file ``rel`` (relative to the rendered
+    folder) goes in the exported tree: ``Foo.vi`` -> ``Foo.svg``, ``Foo.ctl`` ->
+    ``Foo.ctl.svg`` (so a VI and a control sharing a stem don't collide), and
+    ``Foo.block-diagram.svg`` / ``Foo.front-panel.svg`` when both pictures of a VI
+    are drawn."""
+    if is_control(rel):
+        return outdir / rel.with_name(f"{rel.name}.{ext}")
+    name = f"{rel.stem}.{view.value}.{ext}" if both else f"{rel.stem}.{ext}"
+    return outdir / rel.with_name(name)
 
 
 def _diff_options_tag(

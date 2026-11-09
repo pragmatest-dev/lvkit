@@ -54,7 +54,7 @@ def _facts_of_terminal(term: Terminal) -> DefaultFacts:
         lv_type.values
     )
     items = (
-        {name: item.value for name, item in (lv_type.values or {}).items()}
+        {name.strip(): item.value for name, item in (lv_type.values or {}).items()}
         if is_enum
         else {}
     )

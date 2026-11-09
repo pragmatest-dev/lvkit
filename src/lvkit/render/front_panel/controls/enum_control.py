@@ -10,6 +10,18 @@ from ...glyph import fit_label
 from ...style import Theme
 
 
+def selected_text(default_value: str | None, enum_values: tuple[str, ...]) -> str:
+    """The text a ring or enum shows: the item at its saved index, else the
+    saved value itself."""
+    try:
+        idx = int(default_value or 0)
+    except ValueError:
+        idx = 0
+    if enum_values and 0 <= idx < len(enum_values):
+        return enum_values[idx]
+    return default_value or ""
+
+
 @dataclass(frozen=True)
 class EnumControlGlyph:
     """A front-panel ring/enum control: a value cell showing the selected
@@ -21,16 +33,7 @@ class EnumControlGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        idx = 0
-        try:
-            idx = int(self.default_value or 0)
-        except ValueError:
-            idx = 0
-        text = (
-            self.enum_values[idx]
-            if self.enum_values and 0 <= idx < len(self.enum_values)
-            else (self.default_value or "")
-        )
+        text = selected_text(self.default_value, self.enum_values)
         backend.rect(x1, y1, x2, y2, fill=theme.fp_value_fill,
                      stroke=theme.struct_border, stroke_width=1.0)
         text_start = x1 + 6
