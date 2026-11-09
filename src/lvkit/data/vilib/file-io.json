@@ -1917,7 +1917,7 @@
         "import sys",
         "from pathlib import Path"
       ],
-      "python_code": "{application_directory} = Path(getattr(sys.modules['__main__'], '__file__', 'x')).resolve().parent",
+      "python_code": "{application_directory} = Path(sys.modules['__main__'].__file__).resolve().parent if hasattr(sys.modules['__main__'], '__file__') else Path.cwd()",
       "inline": true
     },
     {
