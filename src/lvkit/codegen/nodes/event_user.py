@@ -51,7 +51,6 @@ from ..event_kinds import (
 )
 
 _EVENT_REG = "EventReg"
-_USER_EVENT = "UserEvent"
 EVENTS = "events"
 
 
@@ -262,14 +261,19 @@ def make_events() -> ast.stmt:
 
 
 def _repoint(registration: str, registered: str) -> ast.stmt:
+    """Point ``registration`` at the VI's ``events`` once: each of its user events
+    gets ``events`` before it loses the old queue, so a Generate on another thread
+    always reaches one of them, and the old queue is emptied into ``events`` only
+    after no user event puts into it any more, so no message is left behind."""
     return parse_stmt(
         f"if {registration}[0] is not {EVENTS}:\n"
-        f"    while not {registration}[0].empty():\n"
-        f"        {EVENTS}.put({registration}[0].get())\n"
         f"    for {registered} in {registration}[2]:\n"
+        f"        if {EVENTS} not in {registered}:\n"
+        f"            {registered}.append({EVENTS})\n"
         f"        if {registration}[0] in {registered}:\n"
         f"            {registered}.remove({registration}[0])\n"
-        f"        {registered}.append({EVENTS})\n"
+        f"    while not {registration}[0].empty():\n"
+        f"        {EVENTS}.put({registration}[0].get())\n"
         f"    {registration}[0] = {EVENTS}"
     )
 
