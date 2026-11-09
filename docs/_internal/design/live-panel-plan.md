@@ -431,10 +431,10 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 
 ### 10.6 Decisions
 
-- **D16. Hook shape.** Recommend a separate `on_property(member, property, value)`. It keeps `on_update`'s two arguments (D2) unchanged for scripts and TesterKit, which only want values. Alternative: one `on_update(member, value, property="value")`.
-- **D17. Reads.** Recommend: reads stay gaps until the parser records each control's starting Visible / Disabled / range; that parser change is its own PR, through every view (describe may show them).
-- **D18. Value (Signaling).** Recommend: a gap until the Event Structure code from #257 can take it; then a write is the Value row plus `events.put((label, value, "Value Change", old))` (9.5).
-- **D19. First properties.** Recommend: DisabledEnum, Visible, Maximum, Minimum, Key Focus: 685 of the rows above (291 + 125 + 250 + 6 + 13). Then Frame Color and Number of Rows / Columns. Code 104013825, stored as `Disabled` (18 rows), has no NI page (the Control class documents only DisabledEnum, `control/disabledenum.html`), so it stays a gap until its data type and a public source settle what it does.
+- **D16. Hook shape.** Recommend a separate `on_property(member, property, value)`. It keeps `on_update`'s two arguments (D2) unchanged for scripts and TesterKit, which only want values. Alternative: one `on_update(member, value, property="value")`. **DECIDED (maintainer, 2026-11-09): as recommended.**
+- **D17. Reads.** Recommend: reads stay gaps until the parser records each control's starting Visible / Disabled / range; that parser change is its own PR, through every view (describe may show them). **DECIDED (maintainer, 2026-11-09): as recommended.**
+- **D18. Value (Signaling).** Recommend: a gap until the Event Structure code from #257 can take it; then a write is the Value row plus `events.put((label, value, "Value Change", old))` (9.5). **DECIDED (maintainer, 2026-11-09): as recommended.**
+- **D19. First properties.** Recommend: DisabledEnum, Visible, Maximum, Minimum, Key Focus: 685 of the rows above (291 + 125 + 250 + 6 + 13). Then Frame Color and Number of Rows / Columns. Code 104013825, stored as `Disabled` (18 rows), has no NI page (the Control class documents only DisabledEnum, `control/disabledenum.html`), so it stays a gap until its data type and a public source settle what it does. **DECIDED (maintainer, 2026-11-09): as recommended.**
 
 ### 10.7 Phased steps
 
