@@ -102,16 +102,20 @@ class UnreadPrivateData:
 @dataclass(frozen=True)
 class ValueNotStored:
     """A constant whose value is not in the block diagram: the VI keeps it in its
-    default data (DFDS), which this does not decode yet."""
+    default data (DFDS), which this does not decode yet. ``detail`` says which part
+    of the default data is not read, when it is known."""
+
+    detail: str | None = None
 
     def __str__(self) -> str:
         return "<value stored in the VI's default data, not decoded>"
 
     def reason(self) -> str:
-        return (
+        reason = (
             "a value the VI stores in its default data (DFDS), which lvkit does "
             "not decode yet"
         )
+        return f"{reason} ({self.detail})" if self.detail else reason
 
 
 @dataclass(frozen=True)
