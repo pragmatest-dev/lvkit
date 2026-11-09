@@ -87,6 +87,30 @@ def test_a_refnum_with_a_payload_resolves_via_its_own_ddo_child_typedesc(
     assert ctrl.lv_type == _QUEUE_STRING
 
 
+@pytest.mark.parametrize("has_payload", [False, True])
+def test_typedef_wraps_reference_control_not_its_payload(tmp_path, has_payload):
+    payload = (
+        '<ddo class="stdString" uid="4"><bounds>(0, 0, 10, 10)</bounds></ddo>'
+        if has_payload else ""
+    )
+    saved_type = _QUEUE_STRING if has_payload else _VI_SERVER_REF
+    fp_xml = _write_fp(
+        tmp_path,
+        '<SL__arrayElement class="fPDCO" uid="1">'
+        "<typeDesc>TypeID(7)</typeDesc>"
+        '<ddo class="typeDef" uid="2"><bounds>(0, 0, 40, 40)</bounds>'
+        '<partsList><SL__arrayElement class="stdRefNum" uid="3">'
+        "<bounds>(0, 0, 40, 40)</bounds>"
+        + payload
+        + "</SL__arrayElement></partsList></ddo></SL__arrayElement>",
+    )
+    fp = _parse_front_panel(fp_xml, _EMPTY_BD, type_map={7: saved_type})
+    (control,) = fp.controls
+    assert control.uid == "1"
+    assert control.control_type == "stdRefNum"
+    assert control.lv_type == saved_type
+
+
 def test_an_array_of_refnums_gets_the_elements_type_from_the_arrays_own(
     tmp_path: Path,
 ) -> None:
