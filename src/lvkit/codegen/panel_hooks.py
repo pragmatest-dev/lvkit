@@ -21,6 +21,12 @@ off-pane control the diagram reads (``entry_reads``)::
     if on_read is not None:
         stop = on_read(AcquireValue.STOP, stop)
 
+A VI whose bound Property Nodes write a listed control property
+(``control_properties.json``) takes a third, ``on_property: Callable[[AcquireValue,
+AcquireProperty, Any], None] | None = None``, and calls
+``on_property(AcquireValue.COUNT, AcquireProperty.VISIBLE, flag)`` at each such
+write.
+
 The name is a member of ``AcquireValue``, the ``(str, Enum)`` the module of the
 VI defines before its function (``PanelHooks.for_vi`` writes it): one member per
 control and indicator, the member's value the name string (``"count"``), so a
@@ -36,14 +42,16 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from lvkit.control_properties import ControlProperty
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext
+from lvkit.graph.models import PrimitiveNode, VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import (
+    ON_PROPERTY,
     ON_READ,
     ON_UPDATE,
     class_style_name,
@@ -53,6 +61,7 @@ from .ast_utils import (
     to_var_name,
     unique_names,
 )
+from .errors import CodeGenError
 from .label_names import python_label
 
 if TYPE_CHECKING:
@@ -69,13 +78,18 @@ class PanelHooks:
     defines, ``names`` maps the terminal id of each control and indicator of its
     front panel to the name the hooks pass for it and ``members`` to the
     enum's member that holds the name, ``indicators`` lists the terminal ids of
-    the indicators, pane first, and ``controls`` those of the controls."""
+    the indicators, pane first, and ``controls`` those of the controls.
+    ``property_enum`` is the name of the enum of the control properties the VI
+    writes (None when it writes none) and ``property_members`` maps the Python
+    name of each (``ControlProperty.member``) to the enum's member."""
 
     enum_name: str
     names: dict[str, str]
     members: dict[str, str]
     indicators: tuple[str, ...]
     controls: tuple[str, ...]
+    property_enum: str | None = None
+    property_members: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def for_vi(
@@ -85,13 +99,16 @@ class PanelHooks:
         graph: InMemoryVIGraph | None,
         vi_name: str,
         enum_name: str,
+        property_enum_name: str,
         taken: Iterable[str] = (),
         parameter_names: dict[str, str] | None = None,
     ) -> PanelHooks | None:
         """The hooks of ``vi_name``, None when its diagram does not touch its
         front panel while it runs. The enum is added to the module of ``ctx``
         under ``enum_name``, or a name made distinct from ``taken`` (the other
-        names the module defines) and the names it already holds.
+        names the module defines) and the names it already holds; so is the
+        enum of the control properties the VI writes, under ``property_enum_name``,
+        when it writes any (``InMemoryVIGraph.listed_property_writes``).
         ``parameter_names`` (terminal id to name) are the names a caller gave
         the parameters, when they are not the connector pane's own."""
         if graph is None or not graph.touches_panel_while_running(vi_name):
@@ -119,8 +136,25 @@ class PanelHooks:
                 [(members[t], names[t]) for t in names],
             )
         )
+        written_properties = _written_properties(graph, vi_name)
+        property_enum = None
+        if written_properties:
+            property_enum = ctx.add_module_function(
+                _enum_def(
+                    distinct_names(
+                        [*taken, *ctx.helper_names.values()], [property_enum_name]
+                    )[0],
+                    [(p.member.upper(), p.member.upper()) for p in written_properties],
+                )
+            )
         return cls(
-            written, names, members, tuple(t.id for t in indicators), named_controls
+            written,
+            names,
+            members,
+            tuple(t.id for t in indicators),
+            named_controls,
+            property_enum,
+            {p.member: p.member.upper() for p in written_properties},
         )
 
     def member(self, terminal_id: str) -> ast.expr:
@@ -131,12 +165,27 @@ class PanelHooks:
             ctx=ast.Load(),
         )
 
+    def property_member(self, prop: ControlProperty) -> ast.expr:
+        """``<PropertyEnum>.<MEMBER>``, the property passed for ``prop``."""
+        if self.property_enum is None:
+            raise CodeGenError("The VI has no property enum", None)
+        return ast.Attribute(
+            value=ast.Name(id=self.property_enum, ctx=ast.Load()),
+            attr=self.property_members[prop.member],
+            ctx=ast.Load(),
+        )
+
     def arguments(self) -> tuple[list[ast.arg], list[ast.expr]]:
         """The keyword-only parameters of the VI, and their defaults."""
         annotations = {
             ON_UPDATE: _annotation(self.enum_name, "None"),
             ON_READ: _annotation(self.enum_name, "Any"),
         }
+        if self.property_enum is not None:
+            annotations[ON_PROPERTY] = (
+                f"Callable[[{self.enum_name}, {self.property_enum}, Any], None]"
+                " | None"
+            )
         return (
             [
                 ast.arg(arg=name, annotation=parse_expr(annotation))
@@ -156,6 +205,31 @@ def method_enum_name(class_name: str, method_name: str) -> str:
     """The wanted name of the enum of a class method, the class, then the method
     (``ScopeAcquireValue``)."""
     return f"{class_name}{class_style_name(method_name)}Value"
+
+
+def function_property_enum_name(vi_name: str) -> str:
+    """The wanted name of the enum of the control properties a VI's function
+    writes (``acquire`` is ``AcquireProperty``)."""
+    return f"{class_style_name(vi_name)}Property"
+
+
+def method_property_enum_name(class_name: str, method_name: str) -> str:
+    """The wanted name of the enum of the control properties a class method
+    writes (``ScopeAcquireProperty``)."""
+    return f"{class_name}{class_style_name(method_name)}Property"
+
+
+def _written_properties(
+    graph: InMemoryVIGraph, vi_name: str
+) -> list[ControlProperty]:
+    """The control properties the Property Nodes of ``vi_name`` write, each once,
+    in diagram order."""
+    found: dict[str, ControlProperty] = {}
+    for node in graph.iter_nodes(vi_name):
+        if isinstance(node, PrimitiveNode) and node.bound_control_uid:
+            for _row, _term, prop in graph.listed_property_writes(node):
+                found.setdefault(prop.member, prop)
+    return list(found.values())
 
 
 def _enum_def(name: str, members: list[tuple[str, str]]) -> ast.ClassDef:
@@ -201,6 +275,35 @@ def update_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
                     args=[
                         hooks.member(terminal_id),
                         ast.Name(id=variable, ctx=ast.Load()),
+                    ],
+                    keywords=[],
+                )
+            )
+        ],
+        orelse=[],
+    )
+
+
+def property_stmt(
+    hooks: PanelHooks, terminal_id: str, prop: ControlProperty, variable: str
+) -> ast.stmt:
+    """``if on_property is not None: on_property(<Enum>.<MEMBER>,
+    <PropertyEnum>.<PROPERTY>, <variable>)``, the property ``prop`` of the
+    control or indicator ``terminal_id`` set to ``variable`` (an expression)."""
+    return ast.If(
+        test=ast.Compare(
+            left=ast.Name(id=ON_PROPERTY, ctx=ast.Load()),
+            ops=[ast.IsNot()],
+            comparators=[ast.Constant(value=None)],
+        ),
+        body=[
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id=ON_PROPERTY, ctx=ast.Load()),
+                    args=[
+                        hooks.member(terminal_id),
+                        hooks.property_member(prop),
+                        parse_expr(variable),
                     ],
                     keywords=[],
                 )

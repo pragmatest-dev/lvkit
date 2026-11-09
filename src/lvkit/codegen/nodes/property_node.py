@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.control_properties import control_property, is_value_row
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.graph.wire_queries import VALUE_PROPERTY
 from lvkit.models import Terminal
 
 from ..ast_utils import parse_expr, to_var_name
@@ -16,6 +16,7 @@ from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..panel_hooks import property_stmt
 from . import class_property_node, vi_reference
 from .base import (
     DefaultObjectError,
@@ -92,35 +93,49 @@ def _default_object_read(
 
 
 def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """A Property Node bound to a control of the VI whose rows are all ``Value``:
-    each read row reads the control's variable and each write row assigns it, the
-    same as a Local Variable of the control (``local_variable``). A node with any
-    other row, or bound to an indicator, is a gap."""
-    control = ctx.graph.bound_control(node) if ctx.graph is not None else None
-    only_value = bool(node.properties) and all(
-        [seg.name for seg in row.segments] == [VALUE_PROPERTY]
-        for row in node.properties
+    """A Property Node bound to a control or indicator of the VI whose rows are
+    each ``Value`` or a write of a listed control property
+    (``control_properties.json``). A ``Value`` row of a control reads the
+    control's variable or assigns it, the same as a Local Variable of the control
+    (``local_variable``); a listed write calls ``on_property`` (``panel_hooks``).
+    A node with any other row, or a ``Value`` row of an indicator, is a gap."""
+    graph = ctx.graph
+    bound = graph.bound_terminal(node) if graph is not None else None
+    control = graph.bound_control(node) if graph is not None else None
+    class_name = node.object_name or ""
+    rows = correlate_property_terminals(
+        node.properties, node.terminals, node.property_value_terminal_ids
     )
-    if control is None or not only_value:
+    supported = bound is not None and bool(rows)
+    for row, term in rows:
+        codes = [seg.code for seg in row.segments]
+        if is_value_row(class_name, codes):
+            supported = supported and control is not None
+        else:
+            listed = control_property(class_name, codes)
+            supported = (
+                supported
+                and listed is not None
+                and term is not None
+                and term.direction == "input"
+            )
+    if bound is None or not supported:
         raise ConversionGap(
             "Implicit property reference requires a binding model: only a Property "
-            f"Node of a control whose rows are all {VALUE_PROPERTY!r} is supported",
+            "Node of a control or indicator of the VI whose rows are Value (of a "
+            "control) and the listed control properties (written) is supported",
             node,
         )
-    variable = ctx.resolve(control.id)
-    if variable is None:
+    variable = ctx.resolve(control.id) if control is not None else None
+    if control is not None and variable is None:
         raise ConversionGap(f"The control {control.name!r} has no variable", node)
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
-    for _row, term in correlate_property_terminals(
-        node.properties, node.terminals, node.property_value_terminal_ids
-    ):
+    for row, term in rows:
         if term is None:
             raise CodeGenError("Property value terminal is missing", node)
-        if term.direction == "output":
-            statements += read_control(node, control, variable, ctx)
-            bindings[term.id] = variable
-        elif term.direction == "input":
+        codes = [seg.code for seg in row.segments]
+        if term.direction == "input":
             if not ctx.is_wired(term.id):
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
@@ -128,9 +143,30 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
-            statements += write_control(control, variable, value, ctx)
+        elif term.direction == "output":
+            value = ""
         else:
             raise CodeGenError("Property value direction is unresolved", node)
+        if is_value_row(class_name, codes):
+            if control is None or variable is None:
+                raise CodeGenError("Value row of a node without a control", node)
+            if term.direction == "output":
+                statements += read_control(node, control, variable, ctx)
+                bindings[term.id] = variable
+            else:
+                statements += write_control(control, variable, value, ctx)
+        else:
+            listed = control_property(class_name, codes)
+            hooks = ctx.panel_hooks
+            if listed is None:
+                raise CodeGenError("Property row is not a listed property", node)
+            if hooks is None or bound.id not in hooks.names:
+                raise ConversionGap(
+                    f"The {listed.name!r} property of {bound.name!r} is written, "
+                    "and this function has no panel hooks to report it to",
+                    node,
+                )
+            statements.append(property_stmt(hooks, bound.id, listed, value))
     return CodeFragment(statements=statements, bindings=bindings)
 
 

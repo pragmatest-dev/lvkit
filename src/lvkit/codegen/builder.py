@@ -41,7 +41,13 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
-from .panel_hooks import PanelHooks, entry_reads, function_enum_name, reads_in_frame
+from .panel_hooks import (
+    PanelHooks,
+    entry_reads,
+    function_enum_name,
+    function_property_enum_name,
+    reads_in_frame,
+)
 from .references import REFERENCE_KINDS, generated_nodes
 
 if TYPE_CHECKING:
@@ -113,6 +119,7 @@ def build_module(
         graph,
         vi_name,
         function_enum_name(vi_context.name),
+        function_property_enum_name(vi_context.name),
         taken=[ctx.function_name, build_result_class_name(vi_context.name)],
     )
     if hooks_out is not None and ctx.panel_hooks is not None:

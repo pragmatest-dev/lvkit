@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
-from ..models import FPTerminal, Terminal, TerminalDirection, TunnelTerminal
+from ..control_properties import ControlProperty, control_property, is_value_row
+from ..models import (
+    FPTerminal,
+    PropertyDef,
+    Terminal,
+    TerminalDirection,
+    TunnelTerminal,
+)
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -20,9 +27,7 @@ from .models import (
     VINode,
     WireEnd,
 )
-
-# The Property Node row that reads or writes a control's value.
-VALUE_PROPERTY = "Value"
+from .op_walk import correlate_property_terminals
 
 
 class WireQueriesMixin:
@@ -240,19 +245,43 @@ class WireQueriesMixin:
             elif (
                 isinstance(node, PrimitiveNode)
                 and node.bound_control_uid
-                and any(
-                    [s.name for s in row.segments] == [VALUE_PROPERTY]
-                    for row in node.properties
-                )
+                and (self.has_value_row(node) or self.listed_property_writes(node))
             ):
                 return True
         return False
 
-    def bound_control(self, node: PrimitiveNode) -> FPTerminal | None:
-        """The control of the VI that the bound Property Node ``node`` is tied to,
-        as its terminal: the control that holds the object the node is bound to
-        (a part of a type-defined control belongs to that control); None for an
-        unbound node or an indicator."""
+    def has_value_row(self, node: PrimitiveNode) -> bool:
+        """Whether a Property Node bound to a control has a ``Value`` row, found
+        by the row's property code in the control's class."""
+        return any(
+            is_value_row(node.object_name or "", [s.code for s in row.segments])
+            for row in node.properties
+        )
+
+    def listed_property_writes(
+        self, node: PrimitiveNode
+    ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
+        """The rows of the bound Property Node ``node`` that write a property
+        listed in ``control_properties.json``, in row order, each with its value
+        terminal; the node must be bound to a control or indicator of its VI."""
+        if self.bound_terminal(node) is None:
+            return []
+        writes: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
+        for row, term in correlate_property_terminals(
+            node.properties, node.terminals, node.property_value_terminal_ids
+        ):
+            listed = control_property(
+                node.object_name or "", [s.code for s in row.segments]
+            )
+            if term is not None and term.direction == "input" and listed is not None:
+                writes.append((row, term, listed))
+        return writes
+
+    def bound_terminal(self, node: PrimitiveNode) -> FPTerminal | None:
+        """The control or indicator of the VI that the bound Property Node
+        ``node`` is tied to, as its terminal: the one that holds the object the
+        node is bound to (a part of a type-defined control belongs to that
+        control); None for an unbound node."""
         vi = self.get_graph_node(node.vi_path)
         if not node.bound_control_dco_uid or vi is None:
             return None
@@ -260,10 +289,15 @@ class WireQueriesMixin:
             if (
                 isinstance(terminal, FPTerminal)
                 and terminal.fp_dco_uid == node.bound_control_dco_uid
-                and not terminal.is_indicator
             ):
                 return terminal
         return None
+
+    def bound_control(self, node: PrimitiveNode) -> FPTerminal | None:
+        """The control of the VI that the bound Property Node ``node`` is tied to;
+        None for an unbound node or an indicator (see ``bound_terminal``)."""
+        terminal = self.bound_terminal(node)
+        return terminal if terminal is not None and not terminal.is_indicator else None
 
     def indicators_written_in_a_frame(self, vi_name: str) -> dict[str, FPTerminal]:
         """The connector-pane indicators of a VI that something inside a
