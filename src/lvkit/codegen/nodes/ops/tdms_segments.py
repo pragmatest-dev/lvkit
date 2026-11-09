@@ -177,10 +177,11 @@ def _properties_object(
     group: str | None,
     channel: str | None,
     properties: str,
+    target: str,
 ) -> list[str]:
-    """The statements that make the object the properties are written on: the
-    channel's when a channel name has a value, else the group's when a group
-    name has, else the file's."""
+    """The statements that bind ``target`` to the object the properties are
+    written on: the channel's when a channel name has a value, else the group's
+    when a group name has, else the file's."""
     if channel is not None and group is None:
         raise ConversionGap(
             "TDMS Set Properties with a channel name and no group name: NI's "
@@ -196,12 +197,12 @@ def _properties_object(
         branches.append((group, f"nptdms.GroupObject({group}, {properties})"))
     root = f"nptdms.RootObject({properties})"
     if not branches:
-        return [f"segment_object = {root}"]
+        return [f"{target} = {root}"]
     lines: list[str] = []
     for i, (condition, made) in enumerate(branches):
         keyword = "if" if i == 0 else "elif"
-        lines += [f"{keyword} {condition}:", f"    segment_object = {made}"]
-    return [*lines, "else:", f"    segment_object = {root}"]
+        lines += [f"{keyword} {condition}:", f"    {target} = {made}"]
+    return [*lines, "else:", f"    {target} = {root}"]
 
 
 @register_op_fragment("TDMS_SET_PROPERTIES")
@@ -227,9 +228,8 @@ def tdms_set_properties(
     values = input_expression(ctx, node, pane.property_values)
     properties = f"dict(zip({names}, {values}))" if names and values else "{}"
     object_var = ctx.make_output_var("segment_object", node.id)
-    lines = _properties_object(node, group, channel, properties)
-    source = "\n".join(line.replace("segment_object", object_var) for line in lines)
-    source += f"\n{ref}[0].write_segment([{object_var}])"
+    lines = _properties_object(node, group, channel, properties, object_var)
+    source = "\n".join(lines) + f"\n{ref}[0].write_segment([{object_var}])"
     statements.extend(ast.parse(source).body)
     ctx.add_import(NPTDMS_IMPORT)
     bindings: dict[str, str] = {}
