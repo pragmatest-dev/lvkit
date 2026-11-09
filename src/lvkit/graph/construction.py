@@ -37,7 +37,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
-from ..parser.constants import TUNNEL_CLASS_CASE_SEL
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL, TUNNEL_CLASS_INIT_FEEDBACK
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -678,6 +678,9 @@ class ConstructionMixin:
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
         decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
         disable_by_uid = {ds.uid: ds for ds in bd.disable_structures}
+        # Feedback Node masters by the heap link their loop-border initializer
+        # names (``FeedbackNode.link_uid``).
+        feedback_master_by_link: dict[str, str] = {}
         event_by_uid = {es.uid: es for es in bd.event_structures}
 
         # Structure nodes (loop/case/sequence/IPES/disable/event) are built by
@@ -977,6 +980,8 @@ class ConstructionMixin:
             # feedback_output_bmps). The graph node itself stays a
             # GraphPrimitiveNode. See parser FeedbackNode.
             if isinstance(node, FeedbackNode):
+                if node.link_uid:
+                    feedback_master_by_link[node.link_uid] = q_node_uid
                 g.add_node(
                     q_node_uid,
                     node=graph_node,
@@ -988,6 +993,7 @@ class ConstructionMixin:
                     ),
                     feedback_delay=node.delay_depth,
                     feedback_output_bmps=node.output_bmps,
+                    feedback_other_terminals=tuple(node.other_terminals),
                 )
                 vi_node_uids.add(q_node_uid)
                 continue
@@ -1018,6 +1024,15 @@ class ConstructionMixin:
             q_loop_uid = self._qid(vi_key, loop.uid)
             for uid in loop.inner_node_uids:
                 _stamp(uid, q_loop_uid, None)
+            # A Feedback Node whose initializer was moved onto this loop's
+            # border: the master records that tunnel's two faces.
+            for tunnel in loop.tunnels:
+                master = feedback_master_by_link.get(tunnel.feedback_link_uid or "")
+                if tunnel.tunnel_type == TUNNEL_CLASS_INIT_FEEDBACK and master:
+                    g.nodes[master]["feedback_init_tunnel"] = (
+                        self._qid(vi_key, tunnel.outer_terminal_uid),
+                        self._qid(vi_key, tunnel.inner_terminal_uid),
+                    )
 
         for cs in bd.case_structures:
             q_cs_uid = self._qid(vi_key, cs.uid)

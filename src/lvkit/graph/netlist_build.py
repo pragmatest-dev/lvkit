@@ -1419,14 +1419,14 @@ def _build_feedback_gn(
 
     init_term = next((t for t in node.terminals if t.direction == "input"), None)
     out_term = next((t for t in node.terminals if t.direction == "output"), None)
+    # An initializer moved onto the loop's border is wired to that tunnel's outer
+    # face, not to the node.
+    border = graph.get_feedback_init_tunnel(node.id)
+    init_id = border[0] if border is not None else None
+    if init_term is not None:
+        init_id = init_term.id
     init = _resolve_or_default_gn(
-        graph,
-        ctx,
-        vi_name,
-        build_ctx,
-        init_term.id if init_term is not None else None,
-        init_term,
-        out_term,
+        graph, ctx, vi_name, build_ctx, init_id, init_term, out_term
     )
 
     recur: NetRef | None = None
