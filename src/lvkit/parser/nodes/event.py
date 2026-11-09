@@ -1,7 +1,8 @@
 """Event structure parsing.
 
 An Event Structure (heap ``class="eventStruct"``) is structurally close to a
-case structure: one frame ("diag") per registered event, a selector-style
+case structure: frames ("diag") referenced by one or more event registrations,
+a selector-style
 navigator at the top (``[N] EventName``), and border tunnels threading data
 through every frame. This module mirrors ``case.py``'s frame/tunnel
 extraction shape.
@@ -9,7 +10,7 @@ extraction shape.
 Frame labels: LabVIEW stores a real, faithful label for only ONE frame — the
 one it last displayed in the editor (heap ``selString``/``textRec``/``text``,
 keyed by the heap's own ``dIdx``). Every OTHER frame's label is RECONSTRUCTED
-(task #75 follow-up) from that frame's ``EventSpec`` entry
+(task #75 follow-up) from that frame's ``EventSpec`` entries
 (``EventNodeEvents/SL__arrayElement[@class='EventSpec']``, keyed by
 ``diagramIdx``): ``ddoUID`` names the source control — resolved to its
 caption via the FRONT-PANEL heap (``ddo[@uid=...]``, same
@@ -17,7 +18,7 @@ caption via the FRONT-PANEL heap (``ddo[@uid=...]``, same
 control names) — and ``type`` is the event-type code, matched against
 ``_CONFIRMED_EVENT_TYPES`` (a short, clean-room-verified table; an
 unconfirmed code is surfaced as an explicit ``<unknown event 0x...>``
-sentinel, never guessed at, see ``_format_event_label``). LabVIEW's
+sentinel, never guessed at, see ``_format_event_source``). LabVIEW's
 own convention BAKES the bracketed index into the label text itself
 (``" [3] "copyrights": Value Change "``), so the displayed frame's faithful
 label and every reconstructed label share the same visual shape — the
@@ -84,7 +85,7 @@ _EVENT_DATA_NODE_CLASS = "eventDataNode"
 # reconstructed label against the displayed frame's own faithful heap text
 # (VI Tester About.vi — see module docstring). Add an entry here ONLY once
 # confirmed the same way; an unconfirmed/unmapped code is never guessed at —
-# ``_format_event_label`` just omits the event-type name for it. Each later
+# ``_format_event_source`` shows the raw code. Each later
 # entry names a sample-corpus VI whose DISPLAYED frame carries that code and
 # names the event in its own heap text (pinned by
 # ``tests/test_event_parser.py::test_confirmed_type_matches_displayed_frame``).
@@ -262,14 +263,14 @@ def _frame_extra_node_uids(
     return extra
 
 
-def _extract_event_specs(elem: ET.Element) -> dict[int, _EventSpec]:
+def _extract_event_specs(elem: ET.Element) -> dict[int, list[_EventSpec]]:
     """Per-frame ``EventSpec`` info, keyed by ``diagramIdx`` — the ONLY heap
     source correlating a frame to its source control and event-type code
     (see module docstring). ``EventNodeEvents`` is the eventStruct's own
     array of ``EventSpec`` elements; absent (or malformed) entries are simply
     skipped, leaving that frame's reconstruction to degrade to ``"[N]"``.
     """
-    specs: dict[int, _EventSpec] = {}
+    specs: dict[int, list[_EventSpec]] = {}
     events_list = elem.find("EventNodeEvents")
     if events_list is None:
         return specs
@@ -279,13 +280,15 @@ def _extract_event_specs(elem: ET.Element) -> dict[int, _EventSpec]:
             continue
         ddo_uid = spec_elem.findtext("ddoUID")
         type_text = spec_elem.findtext("type")
-        specs[int(idx_text)] = _EventSpec(
-            ddo_uid=ddo_uid if ddo_uid and ddo_uid != "0" else None,
-            type_code=(
-                int(type_text)
-                if type_text and type_text.lstrip("-").isdigit()
-                else None
-            ),
+        specs.setdefault(int(idx_text), []).append(
+            _EventSpec(
+                ddo_uid=ddo_uid if ddo_uid and ddo_uid != "0" else None,
+                type_code=(
+                    int(type_text)
+                    if type_text and type_text.lstrip("-").isdigit()
+                    else None
+                ),
+            )
         )
     return specs
 
@@ -308,22 +311,17 @@ def _resolve_control_caption(
     return extract_label(ddo)
 
 
-def _format_event_label(
-    idx: int,
-    spec: _EventSpec | None,
+def _format_event_source(
+    spec: _EventSpec,
     fp_root: ET.Element | None,
 ) -> str:
-    """Reconstruct frame ``idx``'s display label from its ``EventSpec``,
-    matching LabVIEW's own displayed-frame format
-    (``[N] "<Control>": <EventType>``) exactly. Degrades honestly — a control
-    that can't be resolved is omitted, and a ``type`` code not in the
+    """Format one source in a reconstructed event frame label.
+
+    A control that can't be resolved is omitted, and a ``type`` code not in the
     clean-room-verified ``_CONFIRMED_EVENT_TYPES`` table becomes an explicit
     ``<unknown event 0x...>`` sentinel: never a guessed event NAME, but never a
     silently blank frame either, so the label states plainly that we don't
     recognise the event type (and carries the raw code for lookup/reporting)."""
-    base = f"[{idx}]"
-    if spec is None:
-        return base
     caption = _resolve_control_caption(fp_root, spec.ddo_uid) if spec.ddo_uid else None
     type_name = (
         _CONFIRMED_EVENT_TYPES.get(spec.type_code)
@@ -335,22 +333,20 @@ def _format_event_label(
     if type_name is None and spec.type_code is not None:
         type_name = f"<unknown event 0x{spec.type_code & 0xFFFFFFFF:08X}>"
     if caption and type_name:
-        return f'{base} "{caption}": {type_name}'
+        return f'"{caption}": {type_name}'
     if caption:
-        return f'{base} "{caption}"'
-    if type_name:
-        return f"{base} {type_name}"
-    return base
+        return f'"{caption}"'
+    return type_name or ""
 
 
 def _resolve_frame_labels(
     elem: ET.Element,
     num_frames: int,
-    event_specs: dict[int, _EventSpec],
+    event_specs: dict[int, list[_EventSpec]],
     fp_root: ET.Element | None,
 ) -> tuple[list[str], int | None]:
-    """Per-frame display labels: every frame is RECONSTRUCTED from its
-    ``EventSpec`` (see ``_format_event_label``); the frame LabVIEW last
+    """Reconstruct each frame's display label from its event registrations in
+    saved order (see ``_format_event_source``); the frame LabVIEW last
     displayed (heap ``dIdx``, omitted when 0 — the same "XML omits a 0
     field" convention as ``parmIndex``/``paramIdx`` elsewhere in this parser)
     then gets its own precomputed ``selString`` text INSTEAD, verbatim —
@@ -359,9 +355,14 @@ def _resolve_frame_labels(
     text is the ground truth this reconstruction was verified against, and
     it always wins over the reconstruction for its own frame.
     """
-    labels = [
-        _format_event_label(i, event_specs.get(i), fp_root) for i in range(num_frames)
-    ]
+    labels = []
+    for i in range(num_frames):
+        sources = "; ".join(
+            source
+            for spec in event_specs.get(i, [])
+            if (source := _format_event_source(spec, fp_root))
+        )
+        labels.append(f"[{i}] {sources}" if sources else f"[{i}]")
     # Event frames use the "omit dIdx when 0" convention, so absent -> frame 0.
     displayed = parse_displayed_frame(elem, num_frames, absent_is_zero=True)
     if displayed is None:

@@ -248,6 +248,24 @@ class TestEventSpecReconstruction:
     event-type name) — see event.py module docstring, verified against VI
     Tester About.vi (task #75 follow-up)."""
 
+    def test_two_sources_on_the_same_non_displayed_frame(self, tmp_path):
+        fp_path = _build_fp_xml(tmp_path, {"55": "Start", "56": "Stop"})
+        root = _build_event_xml(
+            "es1",
+            d_idx=0,
+            sel_string='"[0] Timeout"',
+            event_specs=[
+                (1, "55", 1073741826),
+                (0, "0", 1073741825),
+                (1, "56", 1073741826),
+            ],
+        )
+        es = extract_event_structures(root, fp_path)[0]
+        assert es.frames[0].event_label == "[0] Timeout"
+        assert es.frames[1].event_label == (
+            '[1] "Start": Value Change; "Stop": Value Change'
+        )
+
     def test_no_fp_heap_omits_unresolvable_control(self):
         """No FP heap path given at all: the control can't be resolved, but
         a confirmed event type still isn't withheld — same "omit what can't
