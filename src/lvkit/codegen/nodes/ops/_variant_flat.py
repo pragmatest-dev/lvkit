@@ -21,6 +21,7 @@ from ._flat_node import terminal
 TO_VARIANT = 8201
 VARIANT_TO_FLATTENED_STRING = 8203
 _TYPE_STRING_OUTPUT = 1
+_DATA_STRING_OUTPUT = 2
 _VARIANT_INPUT = 0
 _TO_VARIANT_INPUT = 1
 
@@ -81,4 +82,26 @@ def type_string_type(
     return None
 
 
-__all__ = ["TypeStringError", "type_string_type", "variant_static_type"]
+def is_pickled(ctx: CodeGenContext, data_string: Terminal | None) -> bool:
+    """Whether the data string wired to ``data_string`` is one Variant To
+    Flattened String pickled: its data string output, for a variant whose type
+    is not known when the code is generated. Only such a string can be unpickled;
+    any other (from Flatten To String, a Type Cast, a file) holds LabVIEW's
+    flattened bytes."""
+    if data_string is None:
+        return False
+    origin = _source_node(ctx, data_string.id)
+    return (
+        origin is not None
+        and origin[0].prim_id == VARIANT_TO_FLATTENED_STRING
+        and origin[1] == _DATA_STRING_OUTPUT
+        and variant_static_type(ctx, origin[0]) is None
+    )
+
+
+__all__ = [
+    "TypeStringError",
+    "is_pickled",
+    "type_string_type",
+    "variant_static_type",
+]

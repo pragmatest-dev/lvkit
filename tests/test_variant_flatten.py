@@ -161,9 +161,37 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         [("fp:v", "vf:0"), ("vf:1", "fp:t"), ("vf:2", "fp:d")],
     )
     assert "pickle.dumps" in flatten.source
-    type_string, data = result_values(flatten.function({"a": [1, 2.5]}))
+    type_string, _ = result_values(flatten.function({"a": [1, 2.5]}))
     assert type_string is None
-    unflatten = generate(
+    # The pickled data string, read back with a type string known only at run
+    # time, is unpickled.
+    both = generate(
+        {"v": VARIANT, "t": TS},
+        {"r": VARIANT},
+        [
+            node(
+                "vf",
+                8203,
+                [(0, "input", VARIANT), (1, "output", TS), (2, "output", STR)],
+            ),
+            node(
+                "fv",
+                8202,
+                [(3, "output", VARIANT), (6, "input", STR), (7, "input", TS)],
+            ),
+        ],
+        [("fp:v", "vf:0"), ("vf:2", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:r")],
+    )
+    assert "pickle.loads" in both.source
+    assert result_values(both.function({"a": [1, 2.5]}, [4, 3])) == ({"a": [1, 2.5]},)
+    ast.parse(both.source)
+
+
+def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
+    """A data string that did not come from a pickling Variant To Flattened
+    String holds LabVIEW's bytes (OpenG Get Default Data from TD reads a Type
+    Cast): with no type known when generating, that is a gap, never pickle."""
+    generated = generate(
         {"d": STR, "t": TS},
         {"v": VARIANT},
         [
@@ -175,9 +203,9 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         ],
         [("fp:d", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:v")],
     )
-    assert "pickle.loads" in unflatten.source
-    assert result_values(unflatten.function(data, [4, 3])) == ({"a": [1, 2.5]},)
-    ast.parse(unflatten.source)
+    assert "pickle.loads" not in generated.source
+    with pytest.raises(NotImplementedError, match="LabVIEW's flattened bytes"):
+        generated.function("\x00\x00\x00\x07", [4, 3])
 
 
 def test_a_known_type_with_no_flattened_form_is_a_gap_that_raises_where_it_runs() -> (

@@ -8,9 +8,11 @@ that type (``codegen/flat.py``), in LabVIEW's byte format: the same code Unflatt
 From String writes. A type that cannot be read that way is a gap.
 
 A ``type string`` computed as the program runs names no type the code can be
-written for: ``data string`` is unpickled, which reads what Variant To Flattened
-String wrote for a variant of unknown type. (Unpickling runs code the string
-names, so the string must come from a trusted source.)
+written for. When ``data string`` is what a Variant To Flattened String pickled
+(its variant's type unknown when generating) it is unpickled. (Unpickling runs
+code the string names, so the string must come from a trusted source.) Any other
+data string holds LabVIEW's flattened bytes, which only a known type reads: that
+is a gap.
 
 Terminals (from the primitives entry):
   in  index 4 = error in
@@ -37,7 +39,7 @@ from ._flat_node import (
     terminal,
     unsupported_layout_error,
 )
-from ._variant_flat import type_string_type
+from ._variant_flat import is_pickled, type_string_type
 
 
 @register_op_fragment("FLATTENED_STRING_TO_VARIANT")
@@ -56,6 +58,13 @@ def flattened_string_to_variant(
             f"Flattened String To Variant cannot read its type string: {error}", node
         ) from error
     if lv_type is None:
+        if not is_pickled(ctx, string_term):
+            raise ConversionGap(
+                "Flattened String To Variant's type is known only when the code "
+                "runs, and its data string holds LabVIEW's flattened bytes, not a "
+                "pickle: the generated code has no LabVIEW type to read them with",
+                node,
+            )
         ctx.add_import("import pickle")
         variable = ctx.make_output_var("variant", node.id, terminal_id=variant_term.id)
         return CodeFragment(
