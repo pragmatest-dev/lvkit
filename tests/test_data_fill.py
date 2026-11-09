@@ -150,3 +150,15 @@ def test_the_data_space_reads_the_shift_the_slots_and_the_fills() -> None:
         None,
         None,
     )
+
+
+def test_a_nan_keeps_the_bits_its_text_gives() -> None:
+    nan = "nan (0x7FFFFFFFFFFFFFFF)"
+    assert flatten_data_fill(_fill(f"<DBL>{nan}</DBL>")).data == bytes.fromhex(
+        "7fffffffffffffff"
+    )
+    single = flatten_data_fill(_fill("<SGL>nan (0x7FC00000)</SGL>"))
+    assert single.data == bytes.fromhex("7fc00000")
+    assert flatten_data_fill(_fill("<DBL>-inf</DBL>")).data == bytes.fromhex(
+        "fff0000000000000"
+    )

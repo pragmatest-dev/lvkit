@@ -721,9 +721,10 @@ def _parse_front_panel(
             default_value, field_defaults = _decode_default_data(
                 raw_data, control_type, lv_type
             )
-        elif default_space is not None:
+        elif default_space is not None and default_space.controls_hold_value:
             # A VI saved without the heap's DefaultData keeps the control's
-            # default in its default data space, under the control's tdOffset.
+            # default in its default data space, under the control's tdOffset
+            # (a VI saved before LabVIEW 8.6 does not: see DefaultDataSpace).
             stored = default_space.fill_value(fpdco.findtext("tdOffset"))
             if stored.value_hex is not None:
                 stored_bytes = bytes.fromhex(stored.value_hex)
