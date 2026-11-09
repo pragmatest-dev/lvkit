@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+from ...models import LVType
 from ..constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
+from ..data_fill import DefaultDataSpace
 from ..fp_heap_type import _multilabel_items, _wrapped_control, ring_sparse_values
 from ..models import ParsedConstant
+from ..type_resolution import resolve_type_rich
 from ..utils import (
     clean_labview_string,
     decode_xml_entities_to_bytes,
@@ -143,11 +146,21 @@ def _extract_collapsed(dco: ET.Element) -> bool:
     return bool(flags & _COLLAPSED_FLAG)
 
 
-def extract_constants(root: ET.Element) -> list[ParsedConstant]:
+def extract_constants(
+    root: ET.Element,
+    default_space: DefaultDataSpace | None = None,
+    type_map: dict[int, LVType] | None = None,
+) -> list[ParsedConstant]:
     """Extract constants from the block diagram.
+
+    A constant with no value on the diagram but a ``tdOffset`` takes its value
+    from ``default_space``, the VI's default data (see
+    :meth:`DefaultDataSpace.constant_value`); ``type_map`` gives its type.
 
     Args:
         root: XML root element
+        default_space: The VI's default data, when it has been read
+        type_map: The VI's types, by TypeID
 
     Returns:
         List of ParsedConstant values
@@ -163,6 +176,15 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
         uid = term.get("uid")
         type_desc = dco.find("typeDesc")
         value_hex = _extract_const_value_hex(dco)
+        value_gap = None
+        if value_hex is None and default_space is not None:
+            stored = default_space.constant_value(
+                dco.findtext("tdOffset"),
+                resolve_type_rich(type_desc.text, type_map)
+                if type_desc is not None and type_desc.text and type_map
+                else None,
+            )
+            value_hex, value_gap = stored.value_hex, stored.gap
         label = _extract_caption(dco)
         ring_labels, ring_values = _extract_ring(dco)
 
@@ -175,6 +197,7 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
                     else "unknown"
                 ),
                 value=value_hex,
+                value_gap=value_gap,
                 label=label,
                 display_format=_extract_display_format(dco),
                 collapsed=_extract_collapsed(dco),

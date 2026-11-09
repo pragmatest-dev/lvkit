@@ -90,6 +90,9 @@ class ParsedConstant:
     value: str | None
     label: str | None = None
     caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
+    # Why ``value`` is None although the VI's default data was looked in: the part
+    # of it that is not read (a tag, a type). None when it was not looked in.
+    value_gap: str | None = None
     # Raw printf-style display-format string from the constant's own numeric
     # label part (e.g. '%.0x' = hex, '%.2f' = 2 decimal digits), verbatim
     # from the DCO's ddo/partsList/numLabel/format XML element. None when
@@ -435,15 +438,6 @@ class ParsedResolvedTypeDefValue:
     description: str
     windows_path: str | None = None
     unix_path: str | None = None
-
-
-@dataclass
-class ParsedDefaultValue:
-    """A default value from the DFDS section."""
-
-    type_id: int
-    values: list[Any]  # Parsed values (bool, int, float, str, etc.)
-    structure: str  # "Cluster", "Array", "scalar", etc.
 
 
 ABSOLUTE_PATH_TYPE = 0
