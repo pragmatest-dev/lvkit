@@ -67,6 +67,7 @@ from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
+from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
 
 # A structure frame: the structure's node id and the frame's key
@@ -664,6 +665,15 @@ class CodeGenContext:
             self.add_import(statement)
         else:
             self.annotation_imports.add(statement)
+
+    def import_notifier(self) -> None:
+        """Import ``Notifier`` from the package's ``notifiers`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.notifier_import()
+        self.add_import(
+            statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
+        )
 
     def function_import(
         self, vi_name: str, callee_key: str | None = None

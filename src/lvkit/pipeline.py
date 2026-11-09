@@ -36,6 +36,11 @@ from lvkit.codegen.errors_module import (
 )
 from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.notifiers_module import (
+    NOTIFIER_NAME,
+    NOTIFIERS_MODULE_NAME,
+    NOTIFIERS_MODULE_SOURCE,
+)
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
 from lvkit.conversion_gap import ConversionGap
@@ -354,6 +359,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
         return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
 
+    def notifier_import() -> str:
+        dots, package, module = relative(output_dir / f"{NOTIFIERS_MODULE_NAME}.py")
+        return f"from {dots}{module} import {NOTIFIER_NAME}"
+
     def root_module_import(stem: str, alias: str) -> ModuleImport:
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
@@ -374,6 +383,7 @@ def create_import_resolver(
         taken,
         own_function_import,
         module_key if module_key is not None else caller_key,
+        notifier_import,
     )
 
 
@@ -391,17 +401,38 @@ def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _write_support_module(
+    package_root: Path, imported: str, name: str, source: str
+) -> None:
+    """Write the module ``name`` at the package root when a generated module
+    contains the import text ``imported``."""
+    if any(
+        imported in module.read_text(encoding="utf-8")
+        for module in sorted(package_root.rglob("*.py"))
+    ):
+        (package_root / f"{name}.py").write_text(source, encoding="utf-8")
+
+
+def _write_notifiers_module(package_root: Path) -> None:
+    """Write ``notifiers.py`` at the package root when a generated module imports
+    ``Notifier`` from it."""
+    _write_support_module(
+        package_root,
+        f"{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}",
+        NOTIFIERS_MODULE_NAME,
+        NOTIFIERS_MODULE_SOURCE,
+    )
+
+
 def _write_errors_module(package_root: Path) -> None:
     """Write ``errors.py`` at the package root when a generated module imports
     ``LabVIEWError`` from it."""
-    needle = f"import {LABVIEW_ERROR_NAME}"
-    if any(
-        needle in module.read_text(encoding="utf-8")
-        for module in sorted(package_root.rglob("*.py"))
-    ):
-        (package_root / f"{ERRORS_MODULE_NAME}.py").write_text(
-            ERRORS_MODULE_SOURCE, encoding="utf-8"
-        )
+    _write_support_module(
+        package_root,
+        f"import {LABVIEW_ERROR_NAME}",
+        ERRORS_MODULE_NAME,
+        ERRORS_MODULE_SOURCE,
+    )
 
 
 def _warn_unimportable_paths(package_root: Path) -> None:
@@ -834,10 +865,12 @@ def generate_python(
         order,
         project_root(input_path),
         shared=frozenset(poly_variants) | frozenset(class_of_member),
-        reserved=[ERRORS_MODULE_NAME],
+        reserved=[ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME],
     )
     package_modules = PackageModules.from_graph(
-        graph, order, reserved={*layout.root_names, ERRORS_MODULE_NAME}
+        graph,
+        order,
+        reserved={*layout.root_names, ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME},
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
     vi_paths: dict[str, Path] = {
@@ -1101,6 +1134,7 @@ def generate_python(
 
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
+    _write_notifiers_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
