@@ -145,15 +145,11 @@ def _generate_obtain(
     created_term = _consumed(by_index.get(10), ctx)
     ctx.import_notifier()
     bindings: dict[str, str] = {}
-    notifier = (
-        ctx.make_output_var("notifier", node.id, notifier_term.id)
-        if notifier_term is not None
-        else "_notifier"
+    notifier = ctx.make_output_var(
+        "notifier", node.id, notifier_term.id if notifier_term is not None else None
     )
-    created = (
-        ctx.make_output_var("created", node.id, created_term.id)
-        if created_term is not None
-        else "_created"
+    created = ctx.make_output_var(
+        "created", node.id, created_term.id if created_term is not None else None
     )
     if notifier_term is not None:
         bindings[notifier_term.id] = notifier
@@ -198,15 +194,11 @@ def _generate_wait(
     message_term = _consumed(by_index.get(9), ctx)
     timed_out_term = _consumed(by_index.get(10), ctx)
     bindings = _passthrough(by_index, notifier)
-    message = (
-        ctx.make_output_var("notification", node.id, message_term.id)
-        if message_term is not None
-        else "_notification"
+    message = ctx.make_output_var(
+        "notification", node.id, message_term.id if message_term else None
     )
-    timed_out = (
-        ctx.make_output_var("timed_out", node.id, timed_out_term.id)
-        if timed_out_term is not None
-        else "_timed_out"
+    timed_out = ctx.make_output_var(
+        "timed_out", node.id, timed_out_term.id if timed_out_term else None
     )
     if message_term is not None:
         bindings[message_term.id] = message
@@ -235,15 +227,11 @@ def _generate_release(
     name_term = _consumed(by_index.get(8), ctx)
     last_term = _consumed(by_index.get(9), ctx)
     bindings: dict[str, str] = {}
-    name = (
-        ctx.make_output_var("notifier_name", node.id, name_term.id)
-        if name_term is not None
-        else "_name"
+    name = ctx.make_output_var(
+        "notifier_name", node.id, name_term.id if name_term else None
     )
-    last = (
-        ctx.make_output_var("last_notification", node.id, last_term.id)
-        if last_term is not None
-        else "_last"
+    last = ctx.make_output_var(
+        "last_notification", node.id, last_term.id if last_term else None
     )
     if name_term is not None:
         bindings[name_term.id] = name
