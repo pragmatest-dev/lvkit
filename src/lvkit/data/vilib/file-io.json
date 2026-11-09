@@ -1901,18 +1901,24 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Application Directory",
-          "index": null,
+          "index": 0,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "application_directory",
           "description": "Application Directory is the path to the directory where this VI is running."
         }
-      ]
+      ],
+      "imports": [
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "python_code": "{application_directory} = Path(getattr(sys.modules['__main__'], '__file__', 'x')).resolve().parent",
+      "inline": true
     },
     {
       "name": "Temporary Directory Function",
@@ -5891,20 +5897,20 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "path",
-          "index": null,
+          "index": 11,
           "direction": "input",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "path",
           "description": "path specifies the path to the file or folder you want LabVIEW to look for."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -5913,32 +5919,37 @@
         },
         {
           "name": "dup path",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "dup_path",
           "description": "dup path returns path unchanged."
         },
         {
           "name": "file or folder exists?",
-          "index": null,
+          "index": 2,
           "direction": "output",
-          "type": null,
+          "type": "Boolean",
           "enum_values": null,
           "python_param": "file_or_folder_exists",
           "description": "file or folder exists? is TRUE if the file or folder you specify in path exists on disk and FALSE if the file or folder you specify in path does not exist on disk. If you wire an empty path to path , file or folder exists? returns TRUE because the empty path refers to the list of drives mapped to the computer. (macOS) The empty path refers to the mounted volumes. (Linux) The empty path refers to the root directory."
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
         }
-      ]
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "python_code": "{dup_path} = {path}\n{file_or_folder_exists} = {path} is not None and Path({path}).exists()",
+      "inline": true
     },
     {
       "name": "Recursive File List",
@@ -6334,20 +6345,20 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "file",
-          "index": null,
+          "index": 11,
           "direction": "input",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "file",
           "description": "file specifies the path to the file whose extension you want LabVIEW to return."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -6356,34 +6367,34 @@
         },
         {
           "name": "dup file",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "dup_file",
           "description": "dup file returns file unchanged."
         },
         {
           "name": "lowercase file extension",
-          "index": null,
+          "index": 2,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "lowercase_file_extension",
           "description": "lowercase file extension returns the extension of the file, without the period (.). LabVIEW always returns a lowercase file extension, even if file contains uppercase letters."
         },
         {
           "name": "filename without extension",
-          "index": null,
+          "index": 1,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "filename_without_extension",
           "description": "filename without extension returns the name of the file you specify in file without the directory path, period (.), or file extension. Unlike lowercase file extension , filename without extension matches the case of the original filename."
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6392,14 +6403,19 @@
         },
         {
           "name": "unmodified file extension",
-          "index": null,
+          "index": 4,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "unmodified_file_extension",
           "description": "unmodified file extension returns the extension of the file you specify in file , without the period (.). Unlike lowercase file extension , unmodified file extension matches the case of the original file extension."
         }
-      ]
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "python_code": "{dup_file} = {file}\n{filename_without_extension} = Path({file}).name.rpartition('.')[0] if '.' in Path({file}).name else Path({file}).name\n{unmodified_file_extension} = Path({file}).name.rpartition('.')[2] if '.' in Path({file}).name else ''\n{lowercase_file_extension} = {unmodified_file_extension}.lower()",
+      "inline": true
     },
     {
       "name": "File Checksum",
