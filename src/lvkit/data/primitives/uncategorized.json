@@ -1574,7 +1574,8 @@
         {
           "index": 2,
           "direction": "output",
-          "name": "max index",
+          "name": "max index (indices)",
+          "python_name": "max_index",
           "type": "NumInt32"
         },
         {
@@ -1586,7 +1587,8 @@
         {
           "index": 4,
           "direction": "output",
-          "name": "min index",
+          "name": "min index (indices)",
+          "python_name": "min_index",
           "type": "NumInt32"
         }
       ],
@@ -2697,7 +2699,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "menu_reference",
+          "name": "menu reference",
           "type": "Refnum"
         }
       ],

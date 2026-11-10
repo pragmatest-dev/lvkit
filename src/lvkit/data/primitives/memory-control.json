@@ -79,25 +79,25 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "data_value",
+          "name": "data value",
           "type": "polymorphic"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "data_value_reference",
+          "name": "data value reference",
           "type": "Refnum"
         }
       ],
