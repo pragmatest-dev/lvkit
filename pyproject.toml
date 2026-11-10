@@ -47,6 +47,9 @@ dependencies = [
 
 [project.optional-dependencies]
 visualize = ["pyvis"]
+panel = [
+    "nicegui>=3.12.1",
+]
 
 [project.urls]
 Repository = "https://github.com/pragmatest-dev/lvkit"
@@ -64,6 +67,7 @@ dev = [
     "pre-commit",
     "cairosvg>=2.9.0",
     "pytest-xdist>=3.8.0",
+    "nicegui>=3.12.1",
 ]
 
 [tool.hatch.build.targets.wheel]

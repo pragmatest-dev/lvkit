@@ -54,7 +54,7 @@ from ..parser.node_types import (
 from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
-from ..parser.vi import _decode_element
+from ..parser.vi import _decode_element, variant_is_empty
 from ..text_encoding import decode_labview_text
 from ..type_defaults import get_default_for_type
 from .builders import (
@@ -200,12 +200,14 @@ class DecodedConstant(NamedTuple):
     """A decoded constant: its Python type, its byte-faithful (latin-1) value for
     codegen, the codepage-decoded readable form for a string constant (else None,
     see ``ConstantNode.display_value``), and the array inside it whose values were
-    not kept (else None)."""
+    not kept (else None), and whether it is the empty Variant (no value, no
+    attributes), which is Python's ``None``."""
 
     python_type: str
     value: str
     display_value: str | None
     unwritable: UnwritableValue | None
+    empty_variant: bool = False
 
 
 def decode_constant(
@@ -221,7 +223,7 @@ def decode_constant(
     value = const.value
     if value is None:
         py_type = lv_type.to_python() if lv_type is not None else "raw"
-        marker = ValueNotStored()
+        marker = ValueNotStored(const.value_gap)
         return DecodedConstant(py_type, str(marker), None, marker)
 
     if lv_type is not None:
@@ -240,7 +242,11 @@ def decode_constant(
         py_type = lv_type.to_python()
         if decoded is not None:
             return DecodedConstant(
-                py_type, decoded, display, find_unwritable(structured)
+                py_type,
+                decoded,
+                display,
+                find_unwritable(structured),
+                underlying in ("LVVariant", "Variant") and variant_is_empty(raw_bytes),
             )
         return DecodedConstant(py_type, get_default_for_type(lv_type), display, None)
 
@@ -610,8 +616,8 @@ class ConstructionMixin:
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
             lv_type = self.with_class_levels(lv_type)
 
-            _, decoded_value, display_value, unwritable = decode_constant(
-                const, lv_type=lv_type
+            _, decoded_value, display_value, unwritable, empty_variant = (
+                decode_constant(const, lv_type=lv_type)
             )
 
             q_const_uid = self._qid(vi_key, const.uid)
@@ -631,6 +637,7 @@ class ConstructionMixin:
                 raw_value=const.value,
                 display_value=display_value,
                 unwritable=unwritable,
+                empty_variant=empty_variant,
                 label=const.label,
                 display_format=const.display_format,
                 collapsed=const.collapsed,

@@ -49,6 +49,9 @@ TERMINAL_MAPPING = "terminal_mapping"
 UNKNOWN_DEFAULT = "unknown_default"
 UNSUPPORTED_VI = "unsupported_vi"
 MISSING_VI = "missing_vi"
+# A front-panel control the generated panel (``generate --panel``) has no widget
+# for.
+UNSUPPORTED_CONTROL = "unsupported_control"
 
 
 @dataclass(frozen=True)

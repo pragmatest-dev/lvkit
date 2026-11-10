@@ -39,16 +39,28 @@ def off_pane_locals(
 
 
 def front_panel_docstring(
-    vi_context: VIContext, names: dict[str, str], spell: TypeNamer | None
+    vi_context: VIContext,
+    names: dict[str, str],
+    spell: TypeNamer | None,
+    lookup_parameters: Sequence[str] = (),
 ) -> ast.stmt | None:
-    """The docstring that lists the off-pane controls (the local variable, type
-    and saved default of each) and indicators (label and type); None when the VI
-    has neither."""
+    """The docstring that says which Variant parameters are dicts of attributes
+    (``lookup_parameters``: terminal ids) and lists the off-pane controls (the
+    local variable, type and saved default of each) and indicators (label and
+    type); None when the VI has none of them."""
     controls = list(vi_context.off_pane_inputs)
     indicators = list(vi_context.off_pane_outputs)
-    if not controls and not indicators:
+    tables = [names[t] for t in lookup_parameters if t in names]
+    if not controls and not indicators and not tables:
         return None
-    lines = [_HEADING]
+    lines = [
+        f"{name}: a dict of the variant's attributes (the caller builds it with "
+        "Set Variant Attribute)."
+        for name in sorted(tables)
+    ]
+    if not controls and not indicators:
+        return ast.Expr(value=ast.Constant(value="\n".join(lines) + "\n"))
+    lines.append(_HEADING)
     if controls:
         lines.append("  Controls (local variables, set to their saved default):")
         lines.extend(

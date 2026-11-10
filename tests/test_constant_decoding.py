@@ -39,8 +39,8 @@ def _array_of(underlying: str) -> LVType:
 
 
 def _decode(hex_val: str, lv_type: LVType) -> tuple[str, str]:
-    py_type, value, _display, _ = decode_constant(_make_const(hex_val), lv_type=lv_type)
-    return (py_type, value)
+    decoded = decode_constant(_make_const(hex_val), lv_type=lv_type)
+    return (decoded.python_type, decoded.value)
 
 
 # === Boolean ===
@@ -438,7 +438,7 @@ class TestTimestamp:
 
 class TestNoType:
     def test_no_type_returns_raw(self):
-        t, v, _, _ = decode_constant(_make_const("01"))
+        t, v, _, _, _ = decode_constant(_make_const("01"))
         assert t == "raw"
         assert v == "01"
 

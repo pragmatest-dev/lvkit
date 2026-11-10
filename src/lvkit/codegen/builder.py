@@ -41,6 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .panel_hooks import PanelHooks, entry_reads, function_enum_name, reads_in_frame
 from .references import REFERENCE_KINDS, generated_nodes
 
 if TYPE_CHECKING:
@@ -55,6 +56,7 @@ def build_module(
     data_files: dict[str, bytes] | None = None,
     gaps: list[Gap] | None = None,
     shared: ModuleParts | None = None,
+    hooks_out: list[PanelHooks] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -73,6 +75,8 @@ def build_module(
         shared: The module-level parts of a module that holds several VIs (the
             variants of a polymorphic VI): their helpers, declarations and
             globals are named against one another, never twice.
+        hooks_out: When a list, the hooks of the VI (``panel_hooks``) are added
+            to it when it has any: the names its panel passes and reads.
 
     Returns:
         Python source code as string
@@ -103,6 +107,16 @@ def build_module(
     ctx.qualified_vi_name = vi_context.qualified_name
     if shared is not None:
         shared.share_with(ctx)
+    ctx.panel_hooks = PanelHooks.for_vi(
+        ctx,
+        vi_context,
+        graph,
+        vi_name,
+        function_enum_name(vi_context.name),
+        taken=[ctx.function_name, build_result_class_name(vi_context.name)],
+    )
+    if hooks_out is not None and ctx.panel_hooks is not None:
+        hooks_out.append(ctx.panel_hooks)
 
     body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
     if graph is not None and in_import_cycle(graph, vi_name):
@@ -137,7 +151,9 @@ def function_body(
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
-        generated_nodes(ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS))
+        generated_nodes(
+            ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS), ctx
+        )
         if ctx.graph is not None
         else []
     )
@@ -149,14 +165,12 @@ def function_body(
         parameter_names
         or interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
     )
-    docstring = front_panel_docstring(vi_context, names, ctx.type_namer())
-    if docstring is not None:
-        body.append(docstring)
     body.extend(ctx.entry_raises)
 
     # A control that is not on the connector pane is a local variable set to its
     # saved default.
     body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
+    body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
 
     # Normalize unwired array inputs: they default to None (a mutable [] default
     # would be shared across calls), so map None -> [] up front, matching
@@ -172,6 +186,14 @@ def function_body(
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
     body.extend(ctx.local_indicators.statements_at_end())
+
+    # The docstring opens the function; it names the Variant parameters the body
+    # turned out to read as lookup tables.
+    docstring = front_panel_docstring(
+        vi_context, names, ctx.type_namer(), sorted(ctx.lookup_parameters)
+    )
+    if docstring is not None:
+        body.insert(0, docstring)
 
     # Add return statement
     final = (
@@ -216,6 +238,7 @@ def generate_body(
 
     statements: list[ast.stmt] = []
     if frame is not None:
+        statements.extend(reads_in_frame(ctx, frame))
         statements.extend(ctx.local_indicators.writes_in_frame(frame, ctx))
     for tier in topological_sort_tiered(operations, ctx):
         for node in tier:
@@ -434,7 +457,9 @@ def build_module_ast(
         module_body.extend(ctx.module_globals[name])
 
     # Function definition
-    func_def = build_function_def(vi_context, vi_name, body, spell)
+    func_def = build_function_def(
+        vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
+    )
     module_body.append(func_def)
 
     for statement in implicit_imports(module_body):
@@ -508,6 +533,7 @@ def build_function_def(
     vi_name: str,
     body: list[ast.stmt],
     spell: TypeNamer | None = None,
+    hooks: PanelHooks | None = None,
 ) -> ast.FunctionDef:
     """Build function definition."""
     # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
@@ -518,7 +544,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs, spell=spell)
+    args = build_args(vi_context.inputs, spell=spell, hooks=hooks)
 
     # Build return annotation
     returns = None
@@ -543,6 +569,7 @@ def build_args(
     inputs: list[Terminal],
     names: dict[str, str] | None = None,
     spell: TypeNamer | None = None,
+    hooks: PanelHooks | None = None,
 ) -> ast.arguments:
     """The parameters of a VI's function: its connector-pane ``inputs`` only.
 
@@ -554,7 +581,9 @@ def build_args(
 
     ``names`` maps terminal id -> parameter name (``interface_names``); when
     omitted it is computed over ``inputs``. An error in is a parameter like any
-    other, annotated ``LabVIEWError | None``.
+    other, annotated ``LabVIEWError | None``. A VI with ``hooks`` (one that touches
+    its front panel while it runs, ``panel_hooks``) ends with the keyword-only
+    hook parameters.
     """
     if names is None:
         names = interface_names(inputs, [], []).parameters
@@ -568,12 +597,13 @@ def build_args(
 
     required = [t for t in inputs if is_required(t, "input")]
     optional = [t for t in inputs if not is_required(t, "input")]
+    hook_args, hook_defaults = hooks.arguments() if hooks is not None else ([], [])
     return ast.arguments(
         posonlyargs=[],
         args=[argument(t) for t in required],
         vararg=None,
-        kwonlyargs=[argument(t) for t in optional],
-        kw_defaults=[parameter_default_expr(t) for t in optional],
+        kwonlyargs=[*(argument(t) for t in optional), *hook_args],
+        kw_defaults=[*(parameter_default_expr(t) for t in optional), *hook_defaults],
         kwarg=None,
         defaults=[],
     )
