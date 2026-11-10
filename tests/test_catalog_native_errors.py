@@ -32,7 +32,27 @@ DELETE = [
     ("OSError", 6),
 ]
 
+CREATE_FOLDER = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("FileExistsError", 10),
+    ("OSError", 6),
+]
+
+WRITE_TO_TEXT_FILE = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    *FILE_PATH_OPS,
+]
+
 PRIMITIVES = {
+    "file-io:Create Directory Recursive": [
+        ("PermissionError", 8),
+        ("FileExistsError", 10),
+        ("OSError", 6),
+    ],
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
     "8051:Read from Binary File": FILE_REFNUM_OPS,
     "8052:Close File": FILE_REFNUM_OPS,
@@ -44,9 +64,11 @@ PRIMITIVES = {
     "8070:Read from Text File": FILE_PATH_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8078:Write to Binary File": FILE_REFNUM_OPS,
+    "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8003:Variant To Data": [("TypeError", 91)],
     "1165:Unflatten From String": [("error", 116)],
+    "8202:Flattened String To Variant": [("error", 116)],
     "8083:List Folder": FILE_PATH_OPS,
     "9111:Enqueue Element": RELEASED_QUEUE,
     "9112:Preview Queue Element": RELEASED_QUEUE,
@@ -58,9 +80,19 @@ PRIMITIVES = {
         ("NullCharacterError", -4702),
         ("error", None),
     ],
+    "8055:Create Folder": CREATE_FOLDER,
     "8056:Delete": DELETE,
     "1417:Delete": DELETE,
     "8016:To More Specific Class": [("TypeError", 1448)],
+    "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
+    "2010:TDMS Write": FILE_REFNUM_OPS,
+    "24110:TDMS Write": FILE_REFNUM_OPS,
+    "2012:TDMS Open": COPY_MOVE,
+    "24112:TDMS Open": COPY_MOVE,
+    "2013:TDMS Close": FILE_REFNUM_OPS,
+    "24113:TDMS Close": FILE_REFNUM_OPS,
+    "2014:TDMS Set Properties": FILE_REFNUM_OPS,
+    "24114:TDMS Set Properties": FILE_REFNUM_OPS,
 }
 
 

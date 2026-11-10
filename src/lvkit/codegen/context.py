@@ -10,7 +10,7 @@ import copy as copy_module
 import math
 import warnings
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -125,6 +125,10 @@ class CodeGenContext:
     # The raises of what the function evaluates when it is entered and cannot
     # be written (a constant with no value to write); the body starts with them.
     entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
+    # The connector-pane Variant controls the function reads or edits as lookup
+    # tables (``InMemoryVIGraph.variant_lookup_parameters``), by terminal id; the
+    # docstring says each is a dict of attributes.
+    lookup_parameters: set[str] = field(default_factory=set, repr=False)
     # Files the generated module reads at run time (an array too large to write
     # into the module, a library of a Call Library Function Node), by path from
     # the module's folder; the caller writes each there.
@@ -632,6 +636,7 @@ class CodeGenContext:
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
+            lookup_parameters=self.lookup_parameters,  # Shared — one per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
             function_name=self.function_name,
@@ -663,6 +668,12 @@ class CodeGenContext:
         """Add an import statement (none when empty)."""
         if import_stmt:
             self.imports.add(import_stmt)
+
+    def require_packages(self, packages: Iterable[str]) -> None:
+        """Record the third-party ``packages`` the module's code imports, for
+        the package's ``requirements.txt`` (a VI generated alone has none)."""
+        if isinstance(self.import_resolver, ImportResolver):
+            self.import_resolver.require(packages)
 
     def import_labview_error(self, *, at_run_time: bool = True) -> None:
         """Import ``LabVIEWError`` from the package's ``errors`` module: for a
@@ -1384,6 +1395,9 @@ def _format_constant(
     member_ref = enum_member_constant(const, names)
     if member_ref is not None:
         return member_ref
+
+    if const.empty_variant:
+        return "None"
 
     python_hint = getattr(const, "python", None)
     if python_hint:

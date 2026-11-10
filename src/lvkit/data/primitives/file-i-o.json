@@ -465,7 +465,7 @@
         }
       ],
       "python_code": {
-        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11).read())",
+        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11, encoding=\"utf-8\").read())",
         "refnum_out": "in_11",
         "cancelled": "False",
         "error_out": "in_8"
@@ -548,6 +548,31 @@
     },
     "8080": {
       "name": "Write to Text File",
+      "op": "WRITE_TO_TEXT_FILE",
+      "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-text-file.html",
       "terminals": [
         {
@@ -572,7 +597,7 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "prompt",
+          "name": "prompt (Choose or enter file path)",
           "type": "String",
           "default": "Choose or enter file path"
         },
@@ -586,17 +611,16 @@
           "index": 10,
           "direction": "input",
           "name": "text",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "Path"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     }
   }
 }

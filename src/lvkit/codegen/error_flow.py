@@ -132,7 +132,8 @@ def guard(
     of its own (``CodeFragment.own_error``) reports it only when no error came
     in. A node with several error inputs (Merge Errors) combines them in its own
     code."""
-    if isinstance(node, StructureNode):
+    if isinstance(node, StructureNode) or ctx.is_feedback_node(node):
+        # A Feedback Node stores whatever it is given, an error cluster too.
         return fragment
     error_in, outputs = own_error_terminals(node)
     incoming = (

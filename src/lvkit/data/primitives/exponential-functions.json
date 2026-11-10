@@ -61,11 +61,15 @@
     },
     "1212": {
       "name": "Power Of 10",
+      "op": "POWER_OF_10",
+      "imports": ["import math"],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-10.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "10^x",
+          "python_name": "ten_to_x",
           "type": "NumFloat64"
         },
         {
@@ -75,8 +79,7 @@
           "type": "NumFloat64"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1213": {
       "name": "Power Of X",

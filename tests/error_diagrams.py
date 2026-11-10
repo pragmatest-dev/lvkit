@@ -141,6 +141,7 @@ class Structure:
     scopes: list[Scope]
     tunnels: list[Tunnel]
     shift_registers: list[ShiftRegister] = field(default_factory=list)
+    initializers: list[int] = field(default_factory=list)  # Feedback Node, outer
     xml: Callable[[], str] = lambda: ""
 
 
@@ -408,6 +409,59 @@ class Vi:
             f'<termList elements="{len(slots)}">{terms}</termList>'
             f"<primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
             "</SL__arrayElement>"
+        )
+        return uids
+
+    def feedback_node(
+        self,
+        type_id: int,
+        *,
+        initializer: bool = True,
+        delay: int = 1,
+        extra_terminal: bool = False,
+        link: int | None = None,
+    ) -> dict[str, int]:
+        """A Feedback Node, the pair of nodes a file stores: the read side (the
+        master) and the write side (the slave). Returns the terminals ``read``
+        (its output), ``write`` (the slave's input) and, when ``initializer`` is
+        on the node, ``init``; ``link`` is the uid a loop-border initializer
+        names (``loop(feedback_initializers=...)``; pass it as ``link`` when the loop is
+        made first). ``extra_terminal`` adds a
+        terminal the node does not have."""
+        master, slave = self.next_uid(), self.next_uid()
+        link = link or self.next_uid()
+        read, init, write, other = self.next_uid(4), None, self.next_uid(), None
+        pointer = f'<rsrDCO uid="{link}" />'
+        terms = _term(
+            read,
+            _dco("leftFeedback", read + 1, type_id=type_id, extra=pointer),
+        )
+        count = 1
+        uids = {"read": read, "write": write, "link": link}
+        if initializer:
+            init = self.next_uid(2)
+            terms += _term(
+                init, _dco("initFeedback", init + 1, type_id=type_id, extra=pointer)
+            )
+            uids["init"] = init
+            count += 1
+        if extra_terminal:
+            other = self.next_uid(2)
+            terms += _term(other, _dco("conditionalFeedbackDCO", other + 1))
+            count += 1
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="hiddenFBNode" uid="{master}">'
+            f'<termList elements="{count}">{terms}</termList>'
+            f"<feedbackNodeDelay>{delay:02X}</feedbackNodeDelay>"
+            f'<SlaveFBInputNode uid="{slave}" /></SL__arrayElement>'
+        )
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="slaveFBInputNode" uid="{slave}">'
+            f'<termList elements="1">'
+            + _term(
+                write, _dco("rightFeedback", link, type_id=type_id, flags=1)
+            )
+            + f'</termList><HiddenFBNode uid="{master}" /></SL__arrayElement>'
         )
         return uids
 
@@ -686,12 +740,16 @@ class Vi:
         tunnels: list[tuple[int, bool]] = (),  # type: ignore[assignment]
         shift_registers: list[int] = (),  # type: ignore[assignment]
         indexing_inputs: list[tuple[int, int]] = (),  # type: ignore[assignment]
+        feedback_initializers: list[tuple[int, int]] = (),  # type: ignore[assignment]
     ) -> Structure:
         """A ``forLoop`` (count terminal ``selector``) or ``whileLoop`` (stop
         terminal ``faces[0]``, continuing while False). ``tunnels`` are
         ``(type id, is output)``; ``shift_registers`` are the registers' type
         ids; ``indexing_inputs`` are auto-indexing input tunnels, ``(array type
-        id, element type id)``, after ``tunnels`` in ``Structure.tunnels``."""
+        id, element type id)``, after ``tunnels`` in ``Structure.tunnels``.
+        ``feedback_initializers`` are initializers of Feedback Nodes moved onto
+        the loop's border, ``(type id, the node's link)``; their outer terminals
+        are ``Structure.initializers``."""
         uid = self.next_uid()
         scope = self._new_scope()
         borders: list[str] = []
@@ -723,6 +781,21 @@ class Vi:
             )
             made.append(tun)
             borders.append(xml)
+        initializers: list[int] = []
+        for type_id, link in feedback_initializers:
+            outer = self.next_uid(2)
+            initializers.append(outer)
+            borders.append(
+                _term(
+                    outer,
+                    _dco(
+                        "initFeedback",
+                        outer + 1,
+                        type_id=type_id,
+                        extra=f'<rsrDCO uid="{link}" />',
+                    ),
+                )
+            )
         registers = []
         for type_id in shift_registers:
             left, left_xml = self.tunnel_terminal("lSR", type_id, [scope])
@@ -742,7 +815,9 @@ class Vi:
                 "</diagramList></SL__arrayElement>"
             )
 
-        structure = Structure(count, faces, [scope], made, registers, xml=xml)
+        structure = Structure(
+            count, faces, [scope], made, registers, initializers, xml=xml
+        )
         self._place(structure)
         return structure
 
