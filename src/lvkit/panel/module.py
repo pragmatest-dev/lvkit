@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .kinds import PanelControl
-from .layout import Box
+from .layout import Box, drawn
 from .widget_call import builders_used, widget_call
 
 
@@ -19,7 +19,7 @@ class PanelSource:
 
     vi_label: str
     controls: list[PanelControl]
-    boxes: list[Box]
+    boxes: list[Box]  # one for each drawn control
     width: int
     height: int
     module: str
@@ -55,13 +55,22 @@ def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) ->
     return widget_call(control, control.kind, _key(control, enum_name))
 
 
+def _argument(control: PanelControl, enum_name: str | None) -> str | None:
+    """How the function takes the control: the value on the panel. A control the
+    panel does not draw gets the type's default (``None``), written only when its
+    parameter has no default of its own."""
+    if control.hidden:
+        return f"{control.parameter}=None" if control.required else None
+    return f"{control.parameter}=values.value({_key(control, enum_name)})"
+
+
 def panel_source(spec: PanelSource) -> str:
     """The panel module."""
     enum = spec.enum_name
     used = sorted(
         {
             name
-            for c in spec.controls
+            for c in drawn(spec.controls)
             if c.kind is not None
             for name in builders_used(c, c.kind)
         }
@@ -71,9 +80,10 @@ def panel_source(spec: PanelSource) -> str:
         [f"{spec.function} as vi_function", *filter(None, [enum, spec.event_enum_name])]
     )
     arguments = [
-        f"{c.parameter}=values.value({_key(c, enum)})"
+        argument
         for c in spec.controls
         if c.parameter is not None and not c.is_indicator and c.kind is not None
+        if (argument := _argument(c, enum)) is not None
     ]
     if enum is not None:
         arguments += ["on_update=values.update", "on_read=values.read"]
@@ -82,7 +92,8 @@ def panel_source(spec: PanelSource) -> str:
     painted = [
         f"values.show({_key(c, enum)}, result.{c.field})"
         for c in spec.controls
-        if c.field is not None and c.is_indicator and c.kind is not None
+        if c.field is not None and c.is_indicator and not c.hidden
+        if c.kind is not None
     ]
     lines = [
         f'"""Front panel of {spec.vi_label}. Run it with ``python <this file>``."""',
@@ -123,10 +134,9 @@ def panel_source(spec: PanelSource) -> str:
             f"'position:relative;width:{spec.width}px;height:{spec.height}px;'):"
         ),
     ]
-    for control, box in zip(spec.controls, spec.boxes, strict=True):
+    for control, box in zip(drawn(spec.controls), spec.boxes, strict=True):
         style = (
-            f"position:absolute;left:{box.left}px;top:{box.top}px;"
-            f"width:{box.width}px;"
+            f"position:absolute;left:{box.left}px;top:{box.top}px;width:{box.width}px;"
         )
         lines += [
             f"        with ui.element('div').style({style!r}):",

@@ -15,9 +15,12 @@ class PanelKind(Enum):
     class and either the Python type of its value (a number, Boolean, string or
     path) or the kind of its LabVIEW type (an enum, ring or cluster). An error
     cluster is a cluster whose type is LabVIEW's error cluster; ``describe``
-    picks it, ``of`` never does."""
+    picks it, ``of`` never does. A variant is chosen by its control class alone,
+    and so are the references and LabVIEW class objects, which the panel does not
+    draw (``HIDDEN``): their value is the type's default."""
 
     NUMBER = ("number", "stdNum", ("int", "float"), ())
+    COMPLEX = ("complex", "stdNum", ("complex",), ())
     BOOLEAN = ("bool", "stdBool", ("bool",), ())
     STRING = ("string", "stdString", ("str",), ())
     PATH = ("path", "stdPath", ("Path | None",), ())
@@ -32,18 +35,24 @@ class PanelKind(Enum):
     )
 
     ERROR = ("error", "stdClust", (), ())
+    VARIANT = ("variant", "stdLvVariant", (), (), True)
+    HIDDEN = ("hidden", ("stdRefNum", "udClassDDO"), (), (), True)
 
     def __init__(
         self,
         stem: str,
-        control_type: str,
+        control_types: str | tuple[str, ...],
         python_types: tuple[str, ...],
         type_kinds: tuple[LVTypeKind, ...],
+        any_type: bool = False,
     ) -> None:
         self.control_builder = f"{stem}_control"
         self.indicator_builder = f"{stem}_indicator"
         self.port_builder = f"{stem}_port"
-        self.control_type = control_type
+        self.control_types = (
+            (control_types,) if isinstance(control_types, str) else control_types
+        )
+        self.any_type = any_type
         self.python_types = python_types
         self.type_kinds = type_kinds
 
@@ -52,9 +61,9 @@ class PanelKind(Enum):
         cls, control_type: str, python_type: str, lv_type: LVType | None
     ) -> PanelKind | None:
         for kind in cls:
-            if kind.control_type != control_type:
+            if control_type not in kind.control_types:
                 continue
-            if python_type in kind.python_types:
+            if kind.any_type or python_type in kind.python_types:
                 return kind
             if lv_type is not None and lv_type.kind in kind.type_kinds:
                 return kind
@@ -76,7 +85,8 @@ class PanelControl:
     says whether the function holds it as an object with those attributes (a
     cluster type definition) or as a tuple. A one-dimensional array has the
     control that draws one of its elements in ``element`` and the elements it is
-    saved with in ``initial``."""
+    saved with in ``initial``. ``required`` says whether the parameter has no
+    default in the function's signature."""
 
     label: str
     kind: PanelKind | None
@@ -86,7 +96,7 @@ class PanelControl:
     member: str | None
     parameter: str | None
     field: str | None
-    default: str | int | float | bool
+    default: str | int | float | bool | complex
     integer: bool
     gap: str | None = None
     items: tuple[tuple[str, int], ...] = ()
@@ -94,3 +104,10 @@ class PanelControl:
     members: tuple[PanelControl, ...] = ()
     element: PanelControl | None = None
     initial: tuple[object, ...] = ()
+    required: bool = False
+
+    @property
+    def hidden(self) -> bool:
+        """True for a control the panel does not draw (a reference or a LabVIEW
+        class object): the function gets the type's default for it."""
+        return self.kind is PanelKind.HIDDEN

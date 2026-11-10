@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **The generated front panel draws complex numbers and variants, and leaves references and class objects out** — a complex number is two number boxes (real, imaginary), also as an array cell; a variant is read-only text of its value; a reference or LabVIEW class object is not drawn and the function gets `None`; none is an `unsupported_control` gap any more.
 - **Fix: extended-precision (EXT) and complex (CSG/CDB/CXT) numbers are `float` and `complex` in generated code** — signatures said `Any` and an out-of-range read or unwired indicator gave `None`; it is now `0.0` / `0j`. A number with a unit is treated as its plain number in every view.
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **Fix: an LLB whose members could not all be cached is extracted again** — a cache where every member failed, or a cached member file that was deleted, is no longer reused as is.
