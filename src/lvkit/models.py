@@ -28,6 +28,8 @@ from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
 from .lv_type_codes import (
     BOOLEAN_TYPE_NAMES,
+    COMPLEX_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     STRING_TYPE_NAMES,
     is_boolean_type_name,
     is_int32_type_name,
@@ -1322,8 +1324,8 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumUInt16": "int",
     "NumUInt32": "int",
     "NumUInt64": "int",
-    "NumFloat32": "float",
-    "NumFloat64": "float",
+    **{name: "float" for name in REAL_FLOAT_TYPE_NAMES},
+    **{name: "complex" for name in COMPLEX_TYPE_NAMES},
     **{name: "str" for name in STRING_TYPE_NAMES},
     **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
     "Path": "Path | None",
