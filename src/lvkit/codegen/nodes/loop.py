@@ -16,6 +16,7 @@ from lvkit.models import (
     TunnelMode,
     TunnelTerminal,
 )
+from lvkit.parser.constants import TUNNEL_CLASS_INIT_FEEDBACK
 
 from ..ast_utils import (
     build_assign,
@@ -27,7 +28,7 @@ from ..ast_utils import (
 from ..context import CodeGenContext
 from ..error_flow import error_occurred
 from ..fragment import CodeFragment
-from . import while_indexing
+from . import feedback, while_indexing
 
 
 def _when_condition(
@@ -144,6 +145,18 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # this SR is never written to -- see step 5's docstring
                 # for why the rSR update does not mutate shift_var itself).
                 uninitialized_sr_writebacks.append((global_name, outer_term, shift_var))
+
+        elif tunnel_type == TUNNEL_CLASS_INIT_FEEDBACK:
+            # A Feedback Node's initializer moved onto this loop's border.
+            outer_t = term_by_id.get(outer_term)
+            pre_loop_stmts.extend(
+                feedback.bind_loop_initializer(
+                    tunnel,
+                    type_default_expr(outer_t.lv_type if outer_t else None),
+                    ctx,
+                    inner_ctx,
+                )
+            )
 
         elif tunnel_type == "lpTun" and _tunnel_is_input(outer_term, term_by_id):
             # INPUT tunnel (outer terminal direction is "input"): its outer has a

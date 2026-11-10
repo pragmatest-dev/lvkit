@@ -41,6 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .nodes.feedback import feedback_master_of
 from .panel_hooks import PanelHooks, entry_reads, function_enum_name, reads_in_frame
 from .references import REFERENCE_KINDS, generated_nodes
 
@@ -313,6 +314,13 @@ def topological_sort_tiered(
                 if graph is None or graph.terminal_vi(src_term) != home:
                     break
                 current = src_term
+
+    # A Feedback Node's write runs after its read: the read gives the value of
+    # the run before.
+    for op in operations:
+        master = feedback_master_of(op, ctx)
+        if master in dependencies:
+            dependencies[op.id].add(master)
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
     tiers: list[list[AnyGraphNode]] = []
