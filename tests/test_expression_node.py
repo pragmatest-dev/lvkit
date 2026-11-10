@@ -19,12 +19,19 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import FormulaNode
 from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.graph.render_lvnet import render_lvnet
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from lvkit.parser.expression_text import read_text_record
 from lvkit.parser.node_types import ExpressionNode
 from lvkit.parser.vi import parse_vi
 from lvkit.render import render_vi
-from tests.native_vi import Generated, array, generate, result_values, scalar
+from tests.native_vi import (
+    Generated,
+    array,
+    generate,
+    node,
+    result_values,
+    scalar,
+)
 
 _TERMS = (
     '<termList elements="2">'
@@ -378,6 +385,43 @@ def test_computed_input_is_bound_once() -> None:
 
 def test_named_input_is_not_rebound() -> None:
     assert _body("x*x+x", scalar("NumFloat64")) == "expr_expr = in_ * in_ + in_"
+
+
+def test_unbundled_input_is_written_in_place() -> None:
+    """An Unbundle output read straight from a control (``point[1]``) is not
+    bound to a new name first; the expression reads it in place."""
+    float64 = scalar("NumFloat64")
+    cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(name="x", type=float64),
+            ClusterField(name="y", type=float64),
+        ],
+    )
+    unbundle = node("ub", None, [], node_type="nMux")
+    unbundle.terminals = [
+        Terminal(
+            id="ub:0", index=0, direction="input", nmux_role="agg", lv_type=cluster
+        ),
+        Terminal(
+            id="ub:1",
+            index=1,
+            direction="output",
+            nmux_role="list",
+            nmux_field_index=1,
+            lv_type=float64,
+        ),
+    ]
+    generated = generate(
+        {"point": cluster},
+        {"out": float64},
+        [unbundle, _node("2*x+3", float64)],
+        [("fp:point", "ub:0"), ("ub:1", "expr:0"), ("expr:1", "fp:out")],
+    )
+    lines = [line.strip() for line in generated.source.splitlines()]
+    assert not any(line.startswith("expr_expr_input") for line in lines)
+    assert "expr_expr = 2 * point[1] + 3" in lines
+    assert result_values(generated.function((1.0, 4.0)))[0] == 11.0
 
 
 def test_text_record_gap_raises_where_the_node_runs() -> None:

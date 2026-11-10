@@ -40,6 +40,17 @@ def _numeric_element(node: FormulaNode, lv_type: LVType) -> tuple[str, int]:
     return lv_type.underlying_type, dimensions
 
 
+def _is_plain_read(expr: ast.expr) -> bool:
+    """Whether ``expr`` is a name, or an attribute or constant-index read of one."""
+    if isinstance(expr, ast.Name):
+        return True
+    if isinstance(expr, ast.Attribute):
+        return _is_plain_read(expr.value)
+    if isinstance(expr, ast.Subscript):
+        return isinstance(expr.slice, ast.Constant) and _is_plain_read(expr.value)
+    return False
+
+
 def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     if not node.script:
         raise ConversionGap(
@@ -72,9 +83,11 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
             iterable = wired if level == 0 else levels[level - 1]
             text = f"[{text} for {levels[level]} in {iterable}]"
     else:
-        # The variable may be used several times: a computed input is bound
-        # once and the expression reads the name.
-        if not wired.isidentifier():
+        # A name, attribute path or constant-index read (``a.b[1].c``) binds
+        # tighter than any operator and reads the same each time, so it is
+        # written in place. Anything else is bound once and the expression
+        # reads the name.
+        if not _is_plain_read(ast.parse(wired, mode="eval").body):
             bound = ctx.make_output_var(f"expr_{suffix}_input", node.id)
             statements += ast.parse(f"{bound} = {wired}").body
             wired = bound
