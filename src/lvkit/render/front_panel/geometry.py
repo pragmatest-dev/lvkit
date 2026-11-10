@@ -37,9 +37,11 @@ from ...parser.models import (
     ParsedFPObject,
     ParsedFPPane,
     ParsedFPSplitter,
+    ParsedFPSubPanel,
     ParsedFrontPanel,
 )
 from .controls.base import stored_rect
+from .controls.subpanel import subpanel_extent
 from .controls.tab import tab_row_rect
 
 # Panels saved before this LabVIEW major version store a container's children in
@@ -73,6 +75,7 @@ FPPlaced = (
     ParsedFPControl
     | ParsedFPLabel
     | ParsedFPDecoration
+    | ParsedFPSubPanel
     | FPWindowFrame
     | FPSplitterBar
     | FPPaneBackground
@@ -200,6 +203,8 @@ class _Placer:
                 self.boxes.append(FPBox(obj, rect, clip, _tab_extent(obj, rect)))
                 if obj.tab_pages:
                     self._place_tab_page(obj, rect, shift, clip)
+            elif isinstance(obj, ParsedFPSubPanel):
+                self.boxes.append(FPBox(obj, rect, clip, subpanel_extent(obj, rect)))
             else:
                 self.boxes.append(FPBox(obj, rect, clip))
 

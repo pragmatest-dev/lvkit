@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+from lvkit.parser.fp_parts import parse_fp_parts_list
 from lvkit.parser.models import ParsedFPControl, ParsedFPPart, ParsedFrontPanel
 from lvkit.parser.utils import heap_color
-from lvkit.parser.vi import _parse_fp_parts_list
 from lvkit.render.front_panel import render_front_panel_svg
 
 
@@ -32,7 +32,7 @@ def test_parser_records_a_parts_literal_colors() -> None:
         "<fgColor>01000000</fgColor></SL__arrayElement>"
         "</partsList></ddo>"
     )
-    frame, label = _parse_fp_parts_list(owner)
+    frame, label = parse_fp_parts_list(owner)
     assert (frame.fg_color, frame.bg_color) == ("#646464", "#CCCCCC")
     assert (label.fg_color, label.bg_color) == (None, None)
 

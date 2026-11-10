@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 from ..text_encoding import decode_labview_text
 from .fp_fonts import font_of_run, read_font_run
+from .fp_parts import parse_fp_parts_list
 from .models import (
     ParsedFPControl,
     ParsedFPDecoration,
@@ -25,6 +26,7 @@ from .models import (
     ParsedFPObject,
     ParsedFPPane,
     ParsedFPSplitter,
+    ParsedFPSubPanel,
     ParsedFPTabPage,
 )
 from .utils import (
@@ -44,6 +46,9 @@ _TAB_CONTROL_CLASS = "tabControl"
 # built-in id.
 _PANE_BACKGROUND_PART = "28"
 _PANE_BACKGROUND_IMAGE = "-704"
+
+# A Subpanel's caption is its part with this id.
+_SUBPANEL_LABEL_PART = "16"
 
 
 def read_panel_layout(
@@ -155,6 +160,7 @@ class _ObjectReader:
             "label": self._read_label,
             "cosm": self._read_decoration,
             "grouper": self._read_grouper,
+            "stdSubPanel": self._read_subpanel,
         }
         read = readers.get(object_class)
         if read is None:
@@ -214,6 +220,29 @@ class _ObjectReader:
             uid=elem.get("uid", ""),
             bounds=bounds,
             objects=self._read_objects(elem.find("partsList")),
+        )
+
+    def _read_subpanel(
+        self, elem: ET.Element, bounds: tuple[int, int, int, int]
+    ) -> ParsedFPSubPanel:
+        label_elem = next(
+            (
+                part
+                for part in elem.findall("partsList/SL__arrayElement[@class='label']")
+                if part.findtext("partID") == _SUBPANEL_LABEL_PART
+            ),
+            None,
+        )
+        label_bounds = _bounds(label_elem) if label_elem is not None else None
+        return ParsedFPSubPanel(
+            uid=elem.get("uid", ""),
+            bounds=bounds,
+            label=(
+                self._read_label(label_elem, label_bounds)
+                if label_elem is not None and label_bounds is not None
+                else None
+            ),
+            parts=parse_fp_parts_list(elem, self._fonts),
         )
 
     # --- tab controls --------------------------------------------------
