@@ -19,40 +19,20 @@ Terminals (from the primitives.json entry):
 
 from __future__ import annotations
 
-import ast
-
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...flat import (
-    BYTE_ORDER_PREFIX,
-    Functions,
-    Integer,
-    Real,
-    UnsupportedLayout,
-    layout_of,
-)
+from ...flat import BYTE_ORDER_PREFIX, UnsupportedLayout, layout_of
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
-
-
-def _constant(ctx: CodeGenContext, node: PrimitiveNode, index: int, default):
-    """The value of an input that must be a constant, or ``default`` unwired."""
-    term = terminal(node, "input", index)
-    text = ctx.wired_input(term.id, node) if term else None
-    if text is None:
-        return default
-    try:
-        return ast.literal_eval(text)
-    except (ValueError, SyntaxError) as error:
-        raise ConversionGap(
-            "Unflatten From String needs its byte order and size inputs to be "
-            "constants",
-            node,
-        ) from error
+from ._flat_node import (
+    add_flat_imports,
+    constant_input,
+    read_flattened,
+    terminal,
+    unsupported_layout_error,
+)
 
 
 @register_op_fragment("UNFLATTEN_FROM_STRING")
@@ -67,38 +47,19 @@ def unflatten_from_string(
         return CodeFragment.empty()
     string_term = terminal(node, "input", 11)
     text = (ctx.wired_input(string_term.id, node) if string_term else None) or "''"
-    prefix = bool(_constant(ctx, node, 10, True))
-    order = BYTE_ORDER_PREFIX[int(_constant(ctx, node, 9, 0))]
+    prefix = bool(constant_input(ctx, node, 10, True))
+    order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
     try:
         layout = layout_of(value_term.lv_type if value_term else None)
     except UnsupportedLayout as error:
         raise unsupported_layout_error(node, error) from error
-    fns = Functions(ctx, order)
-    data = ctx.make_output_var("flattened", node.id)
-    encoded = parse_expr(f"{text}.encode('latin-1')")
-    statements: list[ast.stmt] = [build_assign(data, encoded)]
+    statements, value_var, rest = read_flattened(
+        ctx, node, layout, text, order, prefix, value_term, wants_value
+    )
     bindings: dict[str, str] = {}
-    if isinstance(layout, (Integer, Real)):
-        read = f"struct.unpack_from({order + layout.code!r}, {data})"
-        value = f"complex(*{read})" if len(layout.code) == 2 else f"{read}[0]"
-        rest = f"{data}[{layout.width}:]"
-        position = None
-    else:
-        position = ctx.make_output_var("position", node.id)
-        value = None
-        rest = f"{data}[{position}:]"
-    if wants_value or position is not None:
+    if value_var is not None:
         assert value_term is not None
-        variable = ctx.make_output_var("value", node.id, terminal_id=value_term.id)
-        if position is None:
-            statements.append(build_assign(variable, parse_expr(value or "None")))
-        else:
-            statements.append(
-                parse_expr_statement(
-                    f"{variable}, {position} = {fns.reader(layout, prefix)}({data}, 0)"
-                )
-            )
-        bindings[value_term.id] = variable
+        bindings[value_term.id] = value_var
     if wants_rest:
         assert rest_term is not None
         variable = ctx.make_output_var(
@@ -110,7 +71,3 @@ def unflatten_from_string(
         bindings[rest_term.id] = variable
     add_flat_imports(ctx, statements)
     return CodeFragment(statements=statements, bindings=bindings)
-
-
-def parse_expr_statement(source: str) -> ast.stmt:
-    return ast.parse(source).body[0]

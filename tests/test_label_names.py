@@ -8,7 +8,7 @@ import inspect
 import pytest
 
 from lvkit.codegen.ast_utils import interface_names
-from lvkit.codegen.label_names import python_label
+from lvkit.codegen.label_names import catalog_python_label, python_label
 from lvkit.models import (
     EnumValue,
     LVType,
@@ -17,6 +17,7 @@ from lvkit.models import (
     Terminal,
     TerminalDirection,
 )
+from lvkit.primitive_resolver.models import PrimitiveTerminal
 from tests.error_diagrams import (
     ERR,
     I32,
@@ -146,3 +147,60 @@ def test_a_caller_passes_the_names_the_called_vi_takes(
     assert package.function(x=5).result == 5
     error = package.error(7)
     assert package.function(x=5, error_in=error).error_out is error
+
+
+def test_an_enum_default_may_be_written_value_colon_item() -> None:
+    assert python_label(_term("mode (1:Write)", MODE, "1")) == "mode"
+    assert python_label(_term("mode (0:read)", MODE, None)) == "mode"
+    # the value must be the default's, and the item must be that value's
+    assert python_label(_term("mode (0:Write)", MODE, "1")) == "mode (0:Write)"
+    assert python_label(_term("mode (1:read)", MODE, "1")) == "mode (1:read)"
+
+
+def _catalog(
+    label: str, type_: str, default: ScalarValue = None
+) -> PrimitiveTerminal:
+    return PrimitiveTerminal(
+        index=0,
+        direction=TerminalDirection.INPUT,
+        name=label,
+        type=type_,
+        default=default,
+    )
+
+
+@pytest.mark.parametrize(
+    ("label", "type_", "default", "expected"),
+    [
+        ("error in (no error)", "Error", None, "error in"),
+        ("error in (no error)", "ErrorCluster", None, "error in"),
+        ("data includes size? (T)", "Boolean", True, "data includes size?"),
+        ("data includes size? (T)", "boolean", True, "data includes size?"),
+        ("data includes size? (F)", "Boolean", True, "data includes size? (F)"),
+        ("count (0)", "NumInt32", None, "count"),
+        ("count (5)", "NumInt32", 5, "count"),
+        # the catalog records a default of a polymorphic terminal only when NI
+        # documents one; a number equal to it states it
+        ("offset (0)", "polymorphic", 0, "offset"),
+        ("offset (0)", "polymorphic", None, "offset (0)"),
+        ("offset (0)", "numeric", 0, "offset"),
+        # an enumerated default: the value is the default's; the item is text
+        (
+            "byte order (0:big-endian, network order)",
+            "UnitUInt16",
+            0,
+            "byte order",
+        ),
+        ("mode (1:other)", "Enum16", 1, "mode"),
+        ("mode (1:other)", "Enum16", 0, "mode (1:other)"),
+        # a unit or a note is not a default
+        ("timeout (ms)", "NumInt32", -1, "timeout (ms)"),
+        ("abs(x)", "polymorphic", 0, "abs(x)"),
+        ("delimiter (Tab)", "String", None, "delimiter (Tab)"),
+        ('delimiter ("\\09")', "String", "'\\t'", "delimiter"),
+    ],
+)
+def test_catalog_python_label_follows_the_same_rule(
+    label: str, type_: str, default: ScalarValue, expected: str
+) -> None:
+    assert catalog_python_label(_catalog(label, type_, default)) == expected

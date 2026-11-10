@@ -37,7 +37,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
-from ..parser.constants import TUNNEL_CLASS_CASE_SEL
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL, TUNNEL_CLASS_INIT_FEEDBACK
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -54,7 +54,7 @@ from ..parser.node_types import (
 from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
-from ..parser.vi import _decode_element
+from ..parser.vi import _decode_element, variant_is_empty
 from ..text_encoding import decode_labview_text
 from ..type_defaults import get_default_for_type
 from .builders import (
@@ -200,12 +200,14 @@ class DecodedConstant(NamedTuple):
     """A decoded constant: its Python type, its byte-faithful (latin-1) value for
     codegen, the codepage-decoded readable form for a string constant (else None,
     see ``ConstantNode.display_value``), and the array inside it whose values were
-    not kept (else None)."""
+    not kept (else None), and whether it is the empty Variant (no value, no
+    attributes), which is Python's ``None``."""
 
     python_type: str
     value: str
     display_value: str | None
     unwritable: UnwritableValue | None
+    empty_variant: bool = False
 
 
 def decode_constant(
@@ -240,7 +242,11 @@ def decode_constant(
         py_type = lv_type.to_python()
         if decoded is not None:
             return DecodedConstant(
-                py_type, decoded, display, find_unwritable(structured)
+                py_type,
+                decoded,
+                display,
+                find_unwritable(structured),
+                underlying in ("LVVariant", "Variant") and variant_is_empty(raw_bytes),
             )
         return DecodedConstant(py_type, get_default_for_type(lv_type), display, None)
 
@@ -610,8 +616,8 @@ class ConstructionMixin:
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
             lv_type = self.with_class_levels(lv_type)
 
-            _, decoded_value, display_value, unwritable = decode_constant(
-                const, lv_type=lv_type
+            _, decoded_value, display_value, unwritable, empty_variant = (
+                decode_constant(const, lv_type=lv_type)
             )
 
             q_const_uid = self._qid(vi_key, const.uid)
@@ -631,6 +637,7 @@ class ConstructionMixin:
                 raw_value=const.value,
                 display_value=display_value,
                 unwritable=unwritable,
+                empty_variant=empty_variant,
                 label=const.label,
                 display_format=const.display_format,
                 collapsed=const.collapsed,
@@ -678,6 +685,9 @@ class ConstructionMixin:
         flatseq_by_uid = {fs.uid: fs for fs in bd.flat_sequences}
         decompose_by_uid = {ds.uid: ds for ds in bd.decompose_structures}
         disable_by_uid = {ds.uid: ds for ds in bd.disable_structures}
+        # Feedback Node masters by the heap link their loop-border initializer
+        # names (``FeedbackNode.link_uid``).
+        feedback_master_by_link: dict[str, str] = {}
         event_by_uid = {es.uid: es for es in bd.event_structures}
 
         # Structure nodes (loop/case/sequence/IPES/disable/event) are built by
@@ -977,6 +987,8 @@ class ConstructionMixin:
             # feedback_output_bmps). The graph node itself stays a
             # GraphPrimitiveNode. See parser FeedbackNode.
             if isinstance(node, FeedbackNode):
+                if node.link_uid:
+                    feedback_master_by_link[node.link_uid] = q_node_uid
                 g.add_node(
                     q_node_uid,
                     node=graph_node,
@@ -988,6 +1000,7 @@ class ConstructionMixin:
                     ),
                     feedback_delay=node.delay_depth,
                     feedback_output_bmps=node.output_bmps,
+                    feedback_other_terminals=tuple(node.other_terminals),
                 )
                 vi_node_uids.add(q_node_uid)
                 continue
@@ -1018,6 +1031,15 @@ class ConstructionMixin:
             q_loop_uid = self._qid(vi_key, loop.uid)
             for uid in loop.inner_node_uids:
                 _stamp(uid, q_loop_uid, None)
+            # A Feedback Node whose initializer was moved onto this loop's
+            # border: the master records that tunnel's two faces.
+            for tunnel in loop.tunnels:
+                master = feedback_master_by_link.get(tunnel.feedback_link_uid or "")
+                if tunnel.tunnel_type == TUNNEL_CLASS_INIT_FEEDBACK and master:
+                    g.nodes[master]["feedback_init_tunnel"] = (
+                        self._qid(vi_key, tunnel.outer_terminal_uid),
+                        self._qid(vi_key, tunnel.inner_terminal_uid),
+                    )
 
         for cs in bd.case_structures:
             q_cs_uid = self._qid(vi_key, cs.uid)
