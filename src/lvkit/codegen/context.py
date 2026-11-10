@@ -65,6 +65,7 @@ from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
+from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
@@ -108,6 +109,10 @@ class CodeGenContext:
     # The name of the Python function this VI generates (what its callers call).
     function_name: str = ""
     imports: set[str] = field(default_factory=set)
+    # Imports whose names the signature of the function evaluates when the module
+    # loads (a default value), so they stay at module level where the imports of
+    # other generated modules move into the bodies of a module in an import cycle.
+    signature_imports: set[str] = field(default_factory=set)
     # Imports of the classes and typedefs the module's annotations name. They are
     # needed only by a type checker, so the module imports them under
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
@@ -695,6 +700,18 @@ class CodeGenContext:
             statement = self.import_resolver.notifier_import()
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
+        )
+
+    def import_live_io(self) -> None:
+        """Import ``LiveIO`` and ``NO_LIVE_IO`` from the package's ``live_io``
+        module: the default of the ``live_io`` parameter is a value, so the import
+        stays at module level."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.live_io_import()
+        self.signature_imports.add(
+            statement
+            or f"from .{LIVE_IO_MODULE_NAME} import {LIVE_IO_NAME}, {NO_LIVE_IO_NAME}"
         )
 
     def function_import(

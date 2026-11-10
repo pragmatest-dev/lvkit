@@ -1,12 +1,11 @@
 """Code generator for Event Structures.
 
 An Event Structure waits for an event of the front panel and runs the frame of the
-event that came. A VI that holds one takes a queue of the panel's events as
-``events`` (``codegen/event_kinds.py``), and the structure reads its next message
-from it::
+event that came. A VI that holds one takes the queue of the panel's events from
+``live_io.events`` (``codegen/panel_hooks.py``, ``codegen/event_kinds.py``), and
+the structure reads its next message from it::
 
-    if events is None:
-        events = Queue()
+    events = live_io.events or Queue()
     try:
         event = events.get(timeout=50 / 1000)
     except Empty:
@@ -22,7 +21,7 @@ The queue staying empty for the time of the Timeout terminal (-1 or unwired: for
 ever) is the Timeout. A frame is chosen by the control and the kind of event the
 file records for it, never by its label. The frame of a filter event (Panel
 Close?) ends by answering on the message's reply queue with the Event Filter
-Node's Discard?. A VI called with no ``events`` waits on an empty queue of its
+Node's Discard?. A VI called with no ``live_io.events`` waits on an empty queue of its
 own, as LabVIEW waits with nobody at the panel: with a Timeout it runs the Timeout
 frame, without one it waits for ever.
 
@@ -42,7 +41,7 @@ from lvkit.parser.constants import (
     TUNNEL_CLASS_EVENT_TIMEOUT,
 )
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import LIVE_IO, build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..event_kinds import (
     KIND,
@@ -62,8 +61,6 @@ from .frame_structure import (
     generate_frame_body,
     resolve_output_tunnels,
 )
-
-_EVENTS = "events"
 
 
 def generate(node: EventStructureNode, ctx: CodeGenContext) -> CodeFragment:
@@ -208,18 +205,19 @@ def _receive(
     )
     wired = ctx.wired_input(timeout.id, node) if timeout is not None else None
     literal = _integer(wired)
-    no_events = _statement(f"if {_EVENTS} is None:\n    {_EVENTS} = Queue()")
+    events = ctx.make_output_var("events", node.id)
+    own_queue = _statement(f"{events} = {LIVE_IO}.events or Queue()")
     if wired is None or (literal is not None and literal < 0):
-        return [no_events, _statement(f"{message} = {_EVENTS}.get()")]
+        return [own_queue, _statement(f"{message} = {events}.get()")]
     seconds = (
         f"{literal} / 1000"
         if literal is not None
         else f"None if {wired} < 0 else {wired} / 1000"
     )
     return [
-        no_events,
+        own_queue,
         _statement(
-            f"try:\n    {message} = {_EVENTS}.get(timeout={seconds})\n"
+            f"try:\n    {message} = {events}.get(timeout={seconds})\n"
             f"except Empty:\n    {message} = None"
         ),
     ]

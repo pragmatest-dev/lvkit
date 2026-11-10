@@ -36,6 +36,12 @@ from lvkit.codegen.errors_module import (
 )
 from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.live_io_module import (
+    LIVE_IO_MODULE_NAME,
+    LIVE_IO_MODULE_SOURCE,
+    LIVE_IO_NAME,
+    NO_LIVE_IO_NAME,
+)
 from lvkit.codegen.notifiers_module import (
     NOTIFIER_NAME,
     NOTIFIERS_MODULE_NAME,
@@ -365,6 +371,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{NOTIFIERS_MODULE_NAME}.py")
         return f"from {dots}{module} import {NOTIFIER_NAME}"
 
+    def live_io_import() -> str:
+        dots, package, module = relative(output_dir / f"{LIVE_IO_MODULE_NAME}.py")
+        return f"from {dots}{module} import {LIVE_IO_NAME}, {NO_LIVE_IO_NAME}"
+
     def root_module_import(stem: str, alias: str) -> ModuleImport:
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
@@ -386,6 +396,7 @@ def create_import_resolver(
         own_function_import,
         module_key if module_key is not None else caller_key,
         notifier_import,
+        live_io_import,
     )
 
 
@@ -423,6 +434,17 @@ def _write_notifiers_module(package_root: Path) -> None:
         f"{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}",
         NOTIFIERS_MODULE_NAME,
         NOTIFIERS_MODULE_SOURCE,
+    )
+
+
+def _write_live_io_module(package_root: Path) -> None:
+    """Write ``live_io.py`` at the package root when a generated module imports
+    ``LiveIO`` from it."""
+    _write_support_module(
+        package_root,
+        f"{LIVE_IO_MODULE_NAME} import {LIVE_IO_NAME}",
+        LIVE_IO_MODULE_NAME,
+        LIVE_IO_MODULE_SOURCE,
     )
 
 
@@ -870,12 +892,17 @@ def generate_python(
         order,
         project_root(input_path),
         shared=frozenset(poly_variants) | frozenset(class_of_member),
-        reserved=[ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME],
+        reserved=[ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME, LIVE_IO_MODULE_NAME],
     )
     package_modules = PackageModules.from_graph(
         graph,
         order,
-        reserved={*layout.root_names, ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME},
+        reserved={
+            *layout.root_names,
+            ERRORS_MODULE_NAME,
+            NOTIFIERS_MODULE_NAME,
+            LIVE_IO_MODULE_NAME,
+        },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
     vi_paths: dict[str, Path] = {
@@ -1154,6 +1181,7 @@ def generate_python(
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
+    _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
     package_modules.requirements.write(output_dir_resolved)

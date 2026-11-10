@@ -76,9 +76,7 @@ def panel_source(spec: PanelSource) -> str:
         if c.parameter is not None and not c.is_indicator and c.kind is not None
     ]
     if enum is not None:
-        arguments += ["on_update=values.update", "on_read=values.read"]
-    if spec.event_enum_name is not None:
-        arguments.append("events=values.events.queue")
+        arguments.append("live_io=values")
     painted = [
         f"values.show({_key(c, enum)}, result.{c.field})"
         for c in spec.controls

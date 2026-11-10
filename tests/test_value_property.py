@@ -2,8 +2,8 @@
 and writes the control's variable the way a Local Variable does
 (``codegen/nodes/property_node.py``, ``codegen/nodes/local_variable.py``); a row
 that writes a listed control property (``control_properties.json``) calls
-``on_property``; a node with any other row stays a gap. Each case is a tiny
-diagram, generated and called with recording hooks."""
+``live_io.set_property``; a node with any other row stays a gap. Each case is a tiny
+diagram, generated and called with a recording ``LiveIO``."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from tests.error_diagrams import (
     Vi,
     project,  # noqa: F401
 )
+from tests.live_io_recorder import Recorder
 from tests.panel_diagrams import value_property
 from tests.panel_harness import panel_of, run_once, simulate
 
@@ -57,7 +58,7 @@ def test_a_value_read_is_the_control_variable(project: Project) -> None:  # noqa
     project.add(vi)
     package = project.generate(NAME)
     assert package.gaps == []
-    assert "on_read(" not in package.source
+    assert "live_io.read(" not in package.source
     assert package.function(n=4).out == 4
 
 
@@ -70,10 +71,10 @@ def test_a_value_write_assigns_the_control_and_updates(
     package = project.generate(NAME)
     assert package.gaps == []
     assert "n = 5\n" in _body(package)
-    assert "on_update(PropValue.N, n)" in package.source
-    calls: list[tuple[str, Any]] = []
-    package.function(n=1, on_update=lambda name, v: calls.append((name, v)))
-    assert ("n", 5) in calls
+    assert "live_io.write(PropValue.N, n)" in package.source
+    recorder = Recorder()
+    package.function(n=1, live_io=recorder)
+    assert ("n", 5) in recorder.calls
     assert package.function(n=1).out == 0
 
 
@@ -94,18 +95,10 @@ def test_a_value_write_then_read_in_a_loop(project: Project) -> None:  # noqa: F
     project.add(vi)
     package = project.generate(NAME)
     assert package.gaps == []
-    events: list[tuple[str, str, Any]] = []
-
-    def update(name: str, value: Any) -> None:
-        events.append(("update", name, value))
-
-    def read_hook(name: str, value: Any) -> Any:
-        events.append(("read", name, value))
-        return 40
-
-    result = package.function(1, on_update=update, on_read=read_hook)
+    recorder = Recorder(40)
+    result = package.function(1, live_io=recorder)
     assert result.seen == 40
-    assert events == [("update", "n", 7), ("read", "n", 7), ("update", "seen", 40)]
+    assert recorder.log == [("write", "n", 7), ("read", "n", 7), ("write", "seen", 40)]
     assert package.function(n=1).seen == 7
 
 
@@ -146,7 +139,7 @@ def _properties(vi: Vi, *, on_indicator: bool = False) -> None:
 
 
 @pytest.mark.parametrize("on_indicator", [False, True])
-def test_listed_property_writes_call_on_property_in_row_order(
+def test_listed_property_writes_call_set_property_in_row_order(
     on_indicator: bool,
     project: Project,  # noqa: F811
 ) -> None:
@@ -156,18 +149,14 @@ def test_listed_property_writes_call_on_property_in_row_order(
     package = project.generate(NAME)
     assert package.gaps == []
     assert "class PropProperty(str, Enum)" in package.source
-    assert "on_property: Callable[[PropValue, PropProperty, Any], None] | None" in (
-        package.source
-    )
+    assert "live_io.set_property(PropValue." in package.source
     shown = "OUT" if on_indicator else "N"
-    calls: list[tuple[Any, Any, Any]] = []
-    result = package.function(
-        n=3, on_property=lambda *call: calls.append(call)
-    )
+    recorder = Recorder()
+    result = package.function(n=3, live_io=recorder)
     assert result.out == 3
     value = package.module.PropValue
     prop = package.module.PropProperty
-    assert calls == [
+    assert recorder.properties == [
         (getattr(value, shown), prop.DISABLED, 2),
         (getattr(value, shown), prop.VISIBLE, False),
     ]
@@ -189,15 +178,11 @@ def test_a_value_write_and_a_listed_write_run_in_row_order(
     project.add(vi)
     package = project.generate(NAME)
     assert package.gaps == []
-    events: list[tuple[Any, ...]] = []
-    package.function(
-        n=1,
-        on_update=lambda name, v: events.append(("update", name, v)),
-        on_property=lambda name, prop, v: events.append(("property", name, prop, v)),
-    )
+    recorder = Recorder()
+    package.function(n=1, live_io=recorder)
     prop = package.module.PropProperty
-    assert [e for e in events if e[1] == "n"] == [
-        ("update", "n", 5),
+    assert [e for e in recorder.log if e[1] == "n"] == [
+        ("write", "n", 5),
         ("property", "n", prop.VISIBLE, True),
     ]
 
@@ -214,9 +199,9 @@ def test_the_property_code_decides_not_the_stored_name(
     project.add(vi)
     package = project.generate(NAME)
     assert package.gaps == []
-    calls: list[tuple[Any, Any, Any]] = []
-    package.function(n=3, on_property=lambda *call: calls.append(call))
-    assert calls == [("n", package.module.PropProperty.DISABLED, 1)]
+    recorder = Recorder()
+    package.function(n=3, live_io=recorder)
+    assert recorder.properties == [("n", package.module.PropProperty.DISABLED, 1)]
 
 
 @pytest.mark.parametrize(
@@ -271,7 +256,7 @@ def test_a_vi_with_only_value_rows_has_no_property_hook(
     _write(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert "on_property" not in package.source
+    assert "set_property" not in package.source
     assert "Property" not in package.source
 
 
@@ -304,13 +289,7 @@ def test_the_views_of_a_vi_with_a_value_property_node_are_unchanged(
     after = project.views(NAME)
     for view in ("lvnet", "terse", "describe", "json"):
         assert getattr(after, view) == getattr(before, view)
-        for hook in (
-            "on_read",
-            "on_update",
-            "on_property",
-            "PropValue",
-            "PropProperty",
-        ):
+        for hook in ("live_io", "PropValue", "PropProperty"):
             assert hook not in str(getattr(after, view))
 
 
@@ -335,19 +314,11 @@ def test_a_node_bound_to_a_part_of_a_type_defined_control_is_the_control(
     project.add(vi)
     package = project.generate(NAME)
     assert package.gaps == []
-    events: list[tuple[str, str, Any]] = []
-
-    def update(name: str, value: Any) -> None:
-        events.append(("update", name, value))
-
-    def read_hook(name: str, value: Any) -> Any:
-        events.append(("read", name, value))
-        return 40
-
-    result = package.function(1, on_update=update, on_read=read_hook)
+    recorder = Recorder(40)
+    result = package.function(1, live_io=recorder)
     assert result.seen == 40
-    assert events == [
-        ("update", "input_", 7),
+    assert recorder.log == [
+        ("write", "input_", 7),
         ("read", "input_", 7),
-        ("update", "seen", 40),
+        ("write", "seen", 40),
     ]

@@ -507,14 +507,18 @@ def build_imports(
         imports.extend(tree.body)
 
     # Context-accumulated imports
-    for imp in sorted(ctx.imports):
+    for imp in sorted(ctx.imports | ctx.signature_imports):
         try:
             tree = ast.parse(imp)
             imports.extend(tree.body)
         except SyntaxError as e:
             raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
-    imports.extend(build_type_checking_block(ctx.annotation_imports - ctx.imports))
+    imports.extend(
+        build_type_checking_block(
+            ctx.annotation_imports - ctx.imports - ctx.signature_imports
+        )
+    )
     return imports
 
 

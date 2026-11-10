@@ -12,6 +12,7 @@ from types import ModuleType
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, ValueNotStored
 from tests.helpers import build_graph
@@ -61,6 +62,9 @@ def _install_package() -> None:
     sys.modules[_PACKAGE] = package
     sys.modules[f"{_PACKAGE}.errors"] = errors
     exec(compile(ERRORS_MODULE_SOURCE, "errors.py", "exec"), errors.__dict__)
+    live_io = ModuleType(f"{_PACKAGE}.live_io")
+    sys.modules[f"{_PACKAGE}.live_io"] = live_io
+    exec(compile(LIVE_IO_MODULE_SOURCE, "live_io.py", "exec"), live_io.__dict__)
 
 
 @dataclass

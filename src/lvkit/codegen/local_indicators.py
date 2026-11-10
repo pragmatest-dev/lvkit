@@ -34,7 +34,7 @@ from lvkit.graph.models import AnyGraphNode
 from lvkit.models import FPTerminal
 
 from .ast_utils import build_assign, control_default_expr, node_owned_name
-from .panel_hooks import PanelHooks, update_stmt
+from .panel_hooks import PanelHooks, write_stmt
 from .references import is_walked_read
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ class LocalIndicators:
 
     variables: dict[str, str] = field(default_factory=dict)
     kept: dict[str, _Kept] = field(default_factory=dict)
-    # The hooks of the VI (``panel_hooks``), whose ``on_update`` is called after
+    # The hooks of the VI (``panel_hooks``), whose ``live_io.write`` is called after
     # each write of an indicator; None in a VI that has none.
     hooks: PanelHooks | None = None
 
@@ -151,7 +151,7 @@ class LocalIndicators:
             statements.append(build_assign(kept.written_flag, ast.Constant(True)))
         if self.hooks is not None and terminal_id in self.hooks.indicators:
             statements.append(
-                update_stmt(self.hooks, terminal_id, self.variables[terminal_id])
+                write_stmt(self.hooks, terminal_id, self.variables[terminal_id])
             )
         return statements
 

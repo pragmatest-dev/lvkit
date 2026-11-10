@@ -477,19 +477,11 @@ GENERATED_MODULE_NAMES = frozenset(
     }
 )  # fmt: skip
 
-# The keyword-only parameters of a VI that touches its front panel while it runs
-# (``panel_hooks``): no variable of the function takes their names.
-ON_UPDATE = "on_update"
-ON_READ = "on_read"
-ON_PROPERTY = "on_property"
-EVENTS = "events"
+# The keyword-only parameter of a VI that touches its front panel while it runs
+# (``panel_hooks``): no variable of the function takes its name.
+LIVE_IO = "live_io"
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {
-    ON_UPDATE,
-    ON_READ,
-    ON_PROPERTY,
-    EVENTS,
-}
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {LIVE_IO}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
