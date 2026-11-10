@@ -495,18 +495,25 @@ def _generate_release_queue(
             "Release Queue uses its 'queue name' output; a queue.Queue has no name",
             node,
         )
+    # Release Queue runs even after an error in, when the Obtain Queue before it
+    # was skipped and the queue is None: then there is nothing to release.
+    released: list[ast.stmt] = []
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
     remaining = _consumed(by_index.get(9), ctx)
     if remaining is not None:
         name = ctx.make_output_var("remaining_elements", node.id, remaining.id)
-        statements.extend(_drain(queue, name))
+        statements.append(ast.parse(f"{name} = []").body[0])
+        released.extend(_drain(queue, name))
         bindings[remaining.id] = name
     force = _input(by_index.get(2), node, ctx)
     call = f"{queue}.shutdown()"
     if force is not None and _constant(force) is not False:
         call = f"{queue}.shutdown(immediate={force})"
-    statements.append(ast.Expr(value=parse_expr(call)))
+    released.append(ast.Expr(value=parse_expr(call)))
+    statements.append(
+        ast.If(test=parse_expr(f"{queue} is not None"), body=released, orelse=[])
+    )
     return CodeFragment(
         statements=statements, bindings=bindings, imports={_QUEUE_IMPORT}
     )
