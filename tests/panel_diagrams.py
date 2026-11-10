@@ -61,21 +61,40 @@ def counting_vi(name: str = NAME, *, with_text: bool = False) -> Vi:
     return vi
 
 
+# The property code a Property Node row stores for the properties the tests name.
+PROPERTY_CODES = {
+    "Visible": 104013824,
+    "Disabled": 104013825,
+    "Key Focus": 104013826,
+    "Value": 104013842,
+    "Value (Signaling)": 104013860,
+    "DisabledEnum": 104013885,
+    "Minimum": 104050693,
+    "Maximum": 104050694,
+}
+
+
 def value_property(
-    vi: Vi, pane_term: int, rows: list[str], *, inner: bool = False
+    vi: Vi,
+    pane_term: int,
+    rows: list[str | tuple[str, int]],
+    *,
+    inner: bool = False,
 ) -> list[int]:
     """A Property Node on the front-panel control or indicator whose terminal is
-    ``pane_term``, with one row per name in ``rows`` (``"Value"``, ``"Visible"``).
-    Returns the terminal of each row (a write when wired as a sink, a read when
-    wired as a source). With ``inner`` the node is bound to an object inside the
-    control (its label part), as for a type-defined control, not to the control's
-    own object."""
+    ``pane_term``, with one row per entry of ``rows``: a property name
+    (``"Value"``, ``"Visible"``) with its code in ``PROPERTY_CODES``, or a
+    ``(stored name, code)`` pair. Returns the terminal of each row (a write when
+    wired as a sink, a read when wired as a source). With ``inner`` the node is
+    bound to an object inside the control (its label part), as for a type-defined
+    control, not to the control's own object."""
     pane = next(p for p in vi.panes if vi.fp_terms[p.uid] == pane_term)
     uid = vi.next_uid(1 + 3 * len(rows))
     terms = ""
     dcos = ""
     terminals: list[int] = []
-    for i, name in enumerate(rows):
+    for i, row in enumerate(rows):
+        name, code = row if isinstance(row, tuple) else (row, PROPERTY_CODES[row])
         term = uid + 1 + 3 * i
         terminals.append(term)
         terms += (
@@ -83,7 +102,7 @@ def value_property(
             f'<dco class="propItem" uid="{term + 1}"><objFlags>1</objFlags>'
             '<propList elements="1">'
             f'<SL__arrayElement class="propItemInfo" uid="{term + 2}">'
-            f'<PropItemName>"{name}"</PropItemName><PropItemCode>{i}</PropItemCode>'
+            f'<PropItemName>"{name}"</PropItemName><PropItemCode>{code}</PropItemCode>'
             "</SL__arrayElement></propList></dco></SL__arrayElement>"
         )
         dcos += f'<SL__arrayElement uid="{term + 1}" />'

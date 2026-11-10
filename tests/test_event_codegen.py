@@ -32,7 +32,7 @@ def _event_node(frames: list[list[int]]) -> EventStructureNode:
 
 def _source(node: EventStructureNode) -> str:
     ctx = make_ctx()
-    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), "Event")
+    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), event_enum_name="Event")
     frag = generate(node, ctx)
     return "\n".join(ast.unparse(s) for s in frag.statements)
 
@@ -59,7 +59,7 @@ def test_a_frame_that_handles_timeout_and_another_event_is_a_gap() -> None:
 def test_the_gap_code_raises_when_it_runs() -> None:
     node = _event_node([[MOUSE_DOWN]])
     ctx = make_ctx()
-    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), "Event")
+    ctx.panel_hooks = PanelHooks("Value", {}, {}, (), (), event_enum_name="Event")
     module = ast.fix_missing_locations(
         ast.Module(body=generate(node, ctx).statements, type_ignores=[])
     )
