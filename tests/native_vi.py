@@ -5,17 +5,14 @@ a construct and execute it."""
 from __future__ import annotations
 
 import dataclasses
-import sys
 from dataclasses import dataclass
 from types import ModuleType
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
-from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, ValueNotStored
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_module
 
 
 def scalar(underlying: str) -> LVType:
@@ -46,25 +43,6 @@ def node(
             for i, d, t in terminals
         ],
     )
-
-
-# The package a generated module runs in, holding the ``errors`` module every
-# generated package has (``from .errors import LabVIEWError``).
-_PACKAGE = "native_package"
-
-
-def _install_package() -> None:
-    if f"{_PACKAGE}.errors" in sys.modules:
-        return
-    package = ModuleType(_PACKAGE)
-    package.__path__ = []
-    errors = ModuleType(f"{_PACKAGE}.errors")
-    sys.modules[_PACKAGE] = package
-    sys.modules[f"{_PACKAGE}.errors"] = errors
-    exec(compile(ERRORS_MODULE_SOURCE, "errors.py", "exec"), errors.__dict__)
-    live_io = ModuleType(f"{_PACKAGE}.live_io")
-    sys.modules[f"{_PACKAGE}.live_io"] = live_io
-    exec(compile(LIVE_IO_MODULE_SOURCE, "live_io.py", "exec"), live_io.__dict__)
 
 
 @dataclass
@@ -134,11 +112,5 @@ def generate(
     )
     graph = build_graph(context, context.name, nodes)
     source = build_module(context, context.name, graph=graph, gaps=gaps)
-    _install_package()
-    # The module is registered before its code runs: a result class is a
-    # ``dataclass``, which looks its module up while it is defined.
-    module = ModuleType(f"{_PACKAGE}.native_test")
-    module.__package__ = _PACKAGE
-    sys.modules[module.__name__] = module
-    exec(compile(source, "native_test.py", "exec"), module.__dict__)
+    module = exec_module(source, "native_test.py", "native_test")
     return Generated(source, module, module.__dict__["native_test"])
