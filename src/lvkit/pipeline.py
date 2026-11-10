@@ -42,6 +42,7 @@ from lvkit.codegen.notifiers_module import (
     NOTIFIERS_MODULE_SOURCE,
 )
 from lvkit.codegen.package_modules import PackageModules
+from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.type_module import build_type_module
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
@@ -52,6 +53,7 @@ from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.models import LVType
 from lvkit.module_layout import ModuleLayout
 from lvkit.package_copies import ModuleCopies, PackageCopies
+from lvkit.panel import write_panel
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_folders import project_root
 from lvkit.project_store import find_project_store
@@ -699,6 +701,7 @@ def generate_python(
     instrlib_root: Folders = None,
     search_path: SearchEntries = None,
     run: RunProblems | None = None,
+    panel: bool = False,
 ) -> dict:
     """Generate Python from VI files.
 
@@ -713,6 +716,8 @@ def generate_python(
         run: The run's problems (``run_report.py``). Each gap and each VI
             that cannot be written is recorded on its VI's node and collected in
             it; with ``fail_fast`` on, the run ends at the first problem.
+        panel: also write each VI's NiceGUI front panel next to its module
+            (``lvkit.panel``); a control it has no widget for is a gap.
 
     Returns:
         Summary dict with keys: vilib, ast, error, failed counts,
@@ -1054,6 +1059,7 @@ def generate_python(
                         copies=module_copies,
                     )
                     data_files: dict[str, bytes] = {}
+                    hooks: list[PanelHooks] = []
                     code = build_module(
                         vi_context,
                         vi_name,
@@ -1061,11 +1067,23 @@ def generate_python(
                         graph=graph,
                         data_files=data_files,
                         gaps=vi_gaps,
+                        hooks_out=hooks,
                     )
 
                     # Validate syntax
                     ast.parse(code)
                     _write_module_files(output_path, code, data_files, module_copies)
+                    if panel and not vi_context.properties.is_global_vi:
+                        write_panel(
+                            graph,
+                            vi_name,
+                            vi_context,
+                            hooks[0] if hooks else None,
+                            to_function_name(vi_context.name),
+                            output_path,
+                            output_dir_resolved,
+                            vi_gaps,
+                        )
                     _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
