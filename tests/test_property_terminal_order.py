@@ -246,14 +246,21 @@ def test_nested_property_writes_then_reads_its_attribute_chain():
     assert namespace["ref"].label.text == 1000
 
 
-def _generate_unwired_app(rows, ni_name="App.UserName"):
-    node, ctx, namespace = fixture(rows, ref_value=None, class_name="App")
-    node.properties = [PropertyDef(segments=[PropertySegment(name=ni_name, code=1)])]
+def _generate_unwired(rows, class_name, ni_name, code):
+    node, ctx, namespace = fixture(rows, ref_value=None, class_name=class_name)
+    ctx.function_name = "my_function"
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name=ni_name, code=code)])
+    ]
     fragment = property_node.generate(node, ctx)
     code = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     return fragment, code, namespace
+
+
+def _generate_unwired_app(rows, ni_name="App.UserName", code=1):
+    return _generate_unwired(rows, "App", ni_name, code)
 
 
 def test_unwired_app_user_name_is_the_account_running_the_process():
@@ -266,7 +273,7 @@ def test_unwired_app_user_name_is_the_account_running_the_process():
 
 def test_an_undocumented_default_object_property_stops_generation():
     with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
-        _generate_unwired_app([("Value", "output")], "App.Kind")
+        _generate_unwired_app([("Value", "output")], "App.Kind", 3)
 
 
 def test_writing_a_default_object_property_stops_generation():
@@ -293,7 +300,7 @@ def test_wired_reference_without_a_value_is_an_error():
 
 def test_an_undocumented_default_object_property_becomes_a_raise():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
-    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=1)])]
+    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
     fragment = generate_node(node, ctx)
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
@@ -308,3 +315,34 @@ def test_an_undocumented_default_object_property_becomes_a_raise():
     assert [g.reason for g in ctx.gaps] == [
         "Property 'App.Kind' of the default App object has no Python equivalent"
     ]
+
+
+def test_the_property_code_decides_not_the_stored_name():
+    with pytest.raises(ConversionGap, match="'App.UserName' of the default App"):
+        _generate_unwired_app([("Value", "output")], "App.UserName", 3)
+
+
+def test_an_unwired_app_directory_path_by_its_long_name():
+    _, long_code, _ = _generate_unwired_app(
+        [("Value", "output")], "Application:Directory Path", 25
+    )
+    _, short_code, _ = _generate_unwired_app([("Value", "output")], "App.Dir", 25)
+    expression = "Path(sys.argv[0]).resolve().parent"
+    assert ast.unparse(long_code).endswith(f" = {expression}")
+    assert ast.unparse(short_code).endswith(f" = {expression}")
+
+
+@pytest.mark.parametrize("stored_name", ["Name", "VI Name"])
+def test_an_unwired_vi_name_reads_the_function_name_by_either_name(stored_name):
+    fragment, code, namespace = _generate_unwired(
+        [("Value", "output")], "VI", stored_name, 500
+    )
+    assert ast.unparse(code).endswith(" = my_function.__name__")
+
+    def my_function():
+        pass
+
+    namespace["my_function"] = my_function
+    (variable,) = fragment.bindings.values()
+    exec(compile(code, "property-test", "exec"), namespace)
+    assert namespace[variable] == "my_function"
