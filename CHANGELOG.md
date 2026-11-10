@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a copied LabVIEW object shares its references, as in LabVIEW** — a value that must be copied is copied one level (`copy.copy`), so a queue, data value reference or VI reference in a field stays the same object (a deep copy duplicated the data a reference points to); a nested write copies each container on its path first.
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **Fix: an LLB whose members could not all be cached is extracted again** — a cache where every member failed, or a cached member file that was deleted, is no longer reused as is.
 - **A front panel's Subpanel control is read and drawn** — its frame, content area and caption show in `render --view front-panel`, and `EXE Test.vi` and `Add Attributes to Message.vi` no longer record "could not read an object of kind stdSubPanel".

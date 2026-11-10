@@ -46,7 +46,6 @@ from .class_attributes import (
     storage_names,
 )
 from .receiver_flow import carries_receiver
-from .value_copy import holds_refnum
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
@@ -93,9 +92,8 @@ class MethodShape:
     root_class_key: str
 
 
-# The methods the class body has that no VI makes (``class_builder/init_builder``,
-# ``value_copy.share_refnums_method``).
-GENERATED_NAMES = ("__init__", "_share_refnums", "__deepcopy__")
+# The methods the class body has that no VI makes (``class_builder/init_builder``).
+GENERATED_NAMES = ("__init__",)
 
 
 class MemberKind(str, Enum):
@@ -646,12 +644,3 @@ def has_result_class(model: ClassModel, shape: MethodShape) -> bool:
 def declares_result_class(model: ClassModel, shape: MethodShape) -> bool:
     """Whether the module of the class defines the result class of ``shape``."""
     return has_result_class(model, shape) and shape.root_class_key == model.key
-
-
-def shares_refnums(graph: InMemoryVIGraph, class_key: str) -> bool:
-    """Whether the class at ``class_key``, or a class it descends from, holds a
-    refnum in its private data (its copies share the refnum)."""
-    if any(holds_refnum(f.type) for f in graph.class_own_fields(class_key)):
-        return True
-    parent = graph.class_parent_key(class_key)
-    return parent is not None and shares_refnums(graph, parent)
