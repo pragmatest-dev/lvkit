@@ -8,7 +8,7 @@ from lvkit.control_properties import control_property, is_value_row
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.models import Terminal
+from lvkit.models import PropertyDef, Terminal
 
 from ..ast_utils import parse_expr, to_var_name
 from ..called_vi import run_call
@@ -71,21 +71,24 @@ def _default_object_expression(
 
 
 def _default_object_read(
-    node: PrimitiveNode, class_name: str, property_name: str, term: Terminal
+    node: PrimitiveNode, class_name: str, prop: PropertyDef, term: Terminal
 ) -> DefaultObjectProperty:
     """The Python value of a property read on the default object of
-    ``class_name``; a write, or a property with no documented Python value, stops
-    code generation naming the class and the property."""
+    ``class_name``, found by the property's code path; a write, or a property with
+    no documented Python value, is a gap naming the class and the property as the
+    diagram shows it."""
     if term.direction != "output":
         raise DefaultObjectError(
-            f"Property '{property_name}' is written on the default {class_name} "
+            f"Property '{prop.name}' is written on the default {class_name} "
             "object, which has no Python equivalent",
             node,
         )
-    value = default_object_property(class_name, property_name)
+    value = default_object_property(
+        class_name, tuple(seg.code for seg in prop.segments)
+    )
     if value is None:
         raise DefaultObjectError(
-            f"Property '{property_name}' of the default {class_name} object has "
+            f"Property '{prop.name}' of the default {class_name} object has "
             "no Python equivalent",
             node,
         )
@@ -213,7 +216,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise ConversionGap("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
         if default_class is not None:
-            value_expr = _default_object_read(node, default_class, prop.name, term)
+            value_expr = _default_object_read(node, default_class, prop, term)
             var_name = ctx.make_output_var(attr_name, term.id, term.id)
             statements.append(
                 ast.Assign(
