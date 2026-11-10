@@ -452,7 +452,7 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
 
-## 11. One `live_io` object instead of hook parameters (PROPOSED 2026-11-10, for the maintainer's approval)
+## 11. One `live_io` object instead of hook parameters (DECIDED: maintainer, 2026-11-10, "Nice, approved")
 
 ### 11.1 What changes
 
