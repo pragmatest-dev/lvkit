@@ -84,7 +84,7 @@
         }
       ],
       "python_code": {
-        "call chain": "[]"
+        "call_chain": "[]"
       },
       "inline": true,
       "verified": false,
@@ -217,21 +217,21 @@
         {
           "index": 6,
           "direction": "input",
-          "name": "password",
+          "name": "password (\"\")",
           "type": "String",
           "default": ""
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "application_reference",
+          "name": "type specifier VI Refnum (for type only)",
           "type": "Refnum",
           "default_behavior": "application of the calling VI"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
@@ -244,26 +244,26 @@
         {
           "index": 10,
           "direction": "input",
-          "name": "vi_path",
+          "name": "vi path",
           "type": "Path"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "type_specifier",
+          "name": "application reference (local)",
           "type": "Refnum",
           "default_behavior": "generic VI reference"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "vi_reference",
+          "name": "vi reference",
           "type": "Refnum"
         }
       ],
@@ -280,7 +280,7 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
@@ -292,7 +292,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         }
       ],

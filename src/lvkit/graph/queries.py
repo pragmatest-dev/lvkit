@@ -966,6 +966,7 @@ class QueryMixin:
                     raw_value=gnode.raw_value,
                     referenced_vi_key=gnode.referenced_vi_key,
                     unwritable=gnode.unwritable,
+                    empty_variant=gnode.empty_variant,
                     label=gnode.label,
                     parent=gnode.parent,
                     frame=gnode.frame,

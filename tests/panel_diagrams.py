@@ -96,3 +96,50 @@ def value_property(
         f'<nodeName>"{pane.label}"</nodeName></SL__arrayElement>'
     )
     return terminals
+
+
+def cluster_type(vi: Vi, field_types: list[int]) -> int:
+    """The type of an anonymous cluster of the fields of ``field_types``, added to
+    ``vi``."""
+    fields = "".join(f'<TypeDesc TypeID="{t}" />' for t in field_types)
+    return vi.add_type(f'<TypeDesc Type="Cluster">{fields}</TypeDesc>')
+
+
+def cluster_fields(vi: Vi, fields: list[tuple[str, str, int]]) -> str:
+    """The heap xml of a cluster control's fields, ``(label, ddo class, type id)``
+    each, in cluster order: what goes in ``inner`` of the cluster's pane."""
+    uids = [vi.next_uid(3) for _ in fields]
+    order = "".join(f'<SL__arrayElement uid="{uid}" />' for uid in uids)
+    controls = "".join(
+        f'<SL__arrayElement class="{ddo_class}" uid="{uid}">'
+        f"<typeDesc>TypeID({type_id})</typeDesc><partsList>"
+        f'<SL__arrayElement class="label" uid="{uid + 1}">'
+        f'<textRec class="textHair"><text>"{label}"</text></textRec>'
+        "</SL__arrayElement></partsList></SL__arrayElement>"
+        for uid, (label, ddo_class, type_id) in zip(uids, fields, strict=True)
+    )
+    return (
+        f"<ddoList>{order}</ddoList>"
+        f'<paneHierarchy class="pane" uid="{vi.next_uid()}">'
+        f"<zPlaneList>{controls}</zPlaneList></paneHierarchy>"
+    )
+
+
+def array_type(vi: Vi, element_type: int) -> int:
+    """The type of a one-dimensional array of ``element_type``, added to ``vi``."""
+    return vi.add_type(
+        '<TypeDesc Type="Array" Format="inline">'
+        '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
+        f'<TypeDesc TypeID="{element_type}" /></TypeDesc>'
+    )
+
+
+def array_element(vi: Vi, ddo_class: str, type_id: int, inner: str = "") -> str:
+    """The heap xml of an array control's element, its class and type, with the
+    element's own heap xml ``inner`` (a cluster's fields): what goes in ``inner``
+    of the array's pane."""
+    return (
+        f'<ddo class="{ddo_class}" uid="{vi.next_uid()}">'
+        "<bounds>(0, 0, 22, 80)</bounds>"
+        f"<typeDesc>TypeID({type_id})</typeDesc>{inner}</ddo>"
+    )

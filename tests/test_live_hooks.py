@@ -528,7 +528,7 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
     assert package.function(n=3, gain=7, flag=True).seen == 7
 
 
-def test_a_control_in_an_event_structure_hooks_the_vi_and_the_structure_is_a_gap(
+def test_a_control_in_an_event_structure_hooks_the_vi_and_takes_events(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
@@ -543,12 +543,9 @@ def test_a_control_in_an_event_structure_hooks_the_vi_and_the_structure_is_a_gap
     vi._place(Structure(0, [], [scope], [], xml=xml))
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["stop", "on_update", "on_read"]
+    assert _signature(package) == ["stop", "on_update", "on_read", "events"]
     assert "Callable[[LiveValue, Any], Any] | None=None" in package.source
-    # The structure has no Python meaning (``codegen/nodes/event.py``): the
-    # function raises where it would run, before any frame is generated.
-    with pytest.raises(NotImplementedError, match="Event Structure not supported"):
-        package.function(stop=False)
+    assert package.gaps == []
 
 
 def _off_pane_control(vi: Vi, *, wired: bool) -> None:

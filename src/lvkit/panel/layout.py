@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .model import PanelControl
+from .kinds import PanelControl
 
 CAPTION_HEIGHT = 16
 MARGIN = 12

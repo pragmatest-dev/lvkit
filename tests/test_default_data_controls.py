@@ -19,9 +19,15 @@ from tests.test_default_data_values import (
 _EMPTY_ARRAY = "<SpecialDSTMCluster><Array><dim>0</dim></Array></SpecialDSTMCluster>"
 
 
-def _control_vi(folder: Path, extra: str, slots: list[tuple[str, str | None]]) -> Views:
+def _control_vi(
+    folder: Path,
+    extra: str,
+    slots: list[tuple[str, str | None]],
+    version: tuple[int, int] | None = None,
+) -> Views:
     """A VI with one array control ``indices`` on the connector pane, carrying
-    ``extra`` (its ``tdOffset`` or its ``DefaultData``)."""
+    ``extra`` (its ``tdOffset`` or its ``DefaultData``), saved by LabVIEW
+    ``version``."""
     folder.mkdir()
     fp = _front_panel(
         _indicator(30, "indices", ARRAY, "indArr", extra, indicator=False), {0: 30}
@@ -39,7 +45,7 @@ def _control_vi(folder: Path, extra: str, slots: list[tuple[str, str | None]]) -
         ],
         [],
     )
-    return _load(folder, xml, slots, fp)
+    return _load(folder, xml, slots, fp, version)
 
 
 def test_a_control_with_no_default_takes_it_from_the_default_data(
@@ -72,3 +78,20 @@ def test_a_control_whose_slot_holds_its_default_keeps_no_default(
     assert "  indices: [I32] = " not in views.describe
     assert views.json["connector_pane"]["terminals"][0]["default"] is None
     assert "default" not in views.terse
+
+
+def test_a_control_of_a_vi_saved_before_8_6_takes_no_default_from_the_default_data(
+    tmp_path: Path,
+) -> None:
+    """Before LabVIEW 8.6 a control's ``tdOffset`` names its range or options
+    entry, so no value is taken from it; the same VI saved by 8.6 or later takes
+    one."""
+    slots = [("empty array", _EMPTY_ARRAY)]
+    offset = "<tdOffset>0</tdOffset>"
+    saved_8_5 = _control_vi(tmp_path / "v85", offset, slots, version=(8, 5))
+    saved_8_6 = _control_vi(tmp_path / "v86", offset, slots, version=(8, 6))
+    saved_9_0 = _control_vi(tmp_path / "v90", offset, slots, version=(9, 0))
+    assert "  indices: [I32]" in saved_8_5.describe.splitlines()
+    assert saved_8_5.json["connector_pane"]["terminals"][0]["default"] is None
+    assert '  indices: [I32] = "[]"' in saved_8_6.describe.splitlines()
+    assert saved_8_6.describe == saved_9_0.describe

@@ -71,12 +71,12 @@ Bundle/Unbundle By Name""",
     out  error out : Error             recommended @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error_in  : Error             = error in
+      in   error in  : Error             = error in
       in   refnum    : ByteStream refnum = file
-      out  error_out : Error
+      out  error out : Error
       out  path      : Path
     path = Close_File_120::path
-    error out = Close_File_120::error_out""",
+    error out = Close_File_120::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
@@ -86,12 +86,12 @@ Bundle/Unbundle By Name""",
     out  error out : Error             @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error_in  : Error             = error in
+      in   error in  : Error             = error in
       in   refnum    : ByteStream refnum = file
-      out  error_out : Error
+      out  error out : Error
       out  path      : Path
     path = Close_File_120::path
-    error out = Close_File_120::error_out""",
+    error out = Close_File_120::error out""",
         "describe": r"""# Err.vi
 
   err(file: ByteStream refnum, error in: Error) -> path: Path, error out: Error
@@ -109,7 +109,7 @@ Bundle/Unbundle By Name""",
 
 ## Operations
 Close File [prim 8052]""",
-        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error_in"},{"net":{"bare":"file","terminal":"file"},"terminal":"refnum"}],"kind":"instance","name":"Close File","outputs":[{"bare":"error_out","node":"Close File","terminal":"error_out"},{"bare":"path","node":"Close File","terminal":"path"}],"qualified_name":"Close File","uid":"120"}]',
+        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"},{"net":{"bare":"file","terminal":"file"},"terminal":"refnum"}],"kind":"instance","name":"Close File","outputs":[{"bare":"error out","node":"Close File","terminal":"error out"},{"bare":"path","node":"Close File","terminal":"path"}],"qualified_name":"Close File","uid":"120"}]',
     },
     "catalog_node_skips": {
         "lvnet": r"""vi Err.vi :
@@ -121,13 +121,13 @@ Close File [prim 8052]""",
     out  error out : Error             recommended @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error_in   : Error             = error in
-      in   refnum     : ByteStream refnum = file
-      out  error_out  : Error
-      out  size       : I64
-      out  refnum_out : ByteStream refnum
-    size = Get_File_Size_122::size
-    error out = Get_File_Size_122::error_out""",
+      in   error in        : Error             = error in
+      in   file            : ByteStream refnum = file
+      out  error out       : Error
+      out  size (in bytes) : I64
+      out  refnum out      : ByteStream refnum
+    size = Get_File_Size_122::size (in bytes)
+    error out = Get_File_Size_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
@@ -137,13 +137,13 @@ Close File [prim 8052]""",
     out  error out : Error             @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error_in   : Error             = error in
-      in   refnum     : ByteStream refnum = file
-      out  error_out  : Error
-      out  size       : I64
-      out  refnum_out : ByteStream refnum
-    size = Get_File_Size_122::size
-    error out = Get_File_Size_122::error_out""",
+      in   error in        : Error             = error in
+      in   file            : ByteStream refnum = file
+      out  error out       : Error
+      out  size (in bytes) : I64
+      out  refnum out      : ByteStream refnum
+    size = Get_File_Size_122::size (in bytes)
+    error out = Get_File_Size_122::error out""",
         "describe": r"""# Err.vi
 
   err(file: ByteStream refnum, error in: Error) -> size: I64, error out: Error
@@ -161,7 +161,7 @@ Close File [prim 8052]""",
 
 ## Operations
 Get File Size [prim 8063]""",
-        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error_in"},{"net":{"bare":"file","terminal":"file"},"terminal":"refnum"}],"kind":"instance","name":"Get File Size","outputs":[{"bare":"error_out","node":"Get File Size","terminal":"error_out"},{"bare":"size","node":"Get File Size","terminal":"size"},{"bare":"refnum_out","node":"Get File Size","terminal":"refnum_out"}],"qualified_name":"Get File Size","uid":"122"}]',
+        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"},{"net":{"bare":"file","terminal":"file"},"terminal":"file"}],"kind":"instance","name":"Get File Size","outputs":[{"bare":"error out","node":"Get File Size","terminal":"error out"},{"bare":"size (in bytes)","node":"Get File Size","terminal":"size (in bytes)"},{"bare":"refnum out","node":"Get File Size","terminal":"refnum out"}],"qualified_name":"Get File Size","uid":"122"}]',
     },
     "clear_errors": {
         "lvnet": r"""vi Err.vi :
@@ -1219,13 +1219,13 @@ Step C.vi(x, error in) -> r, error out""",
     out  error out : Error             recommended @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error_in  : Error             = error in
-      in   file_path : Path              = path
-      out  error_out : Error
-      out  cancelled : TF
-      out  refnum    : ByteStream refnum
-    refnum = Open/Create/Replace_File_122::refnum
-    error out = Open/Create/Replace_File_122::error_out""",
+      in   error in               : Error             = error in
+      in   file path (use dialog) : Path              = path
+      out  error out              : Error
+      out  cancelled              : TF
+      out  refnum out             : ByteStream refnum
+    refnum = Open/Create/Replace_File_122::refnum out
+    error out = Open/Create/Replace_File_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
@@ -1235,13 +1235,13 @@ Step C.vi(x, error in) -> r, error out""",
     out  error out : Error             @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error_in  : Error             = error in
-      in   file_path : Path              = path
-      out  error_out : Error
-      out  cancelled : TF
-      out  refnum    : ByteStream refnum
-    refnum = Open/Create/Replace_File_122::refnum
-    error out = Open/Create/Replace_File_122::error_out""",
+      in   error in               : Error             = error in
+      in   file path (use dialog) : Path              = path
+      out  error out              : Error
+      out  cancelled              : TF
+      out  refnum out             : ByteStream refnum
+    refnum = Open/Create/Replace_File_122::refnum out
+    error out = Open/Create/Replace_File_122::error out""",
         "describe": r"""# Err.vi
 
   err(path: Path, error in: Error) -> refnum: ByteStream refnum, error out: Error
@@ -1259,7 +1259,7 @@ Step C.vi(x, error in) -> r, error out""",
 
 ## Operations
 Open/Create/Replace File [prim 8050]""",
-        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error_in"},{"net":{"bare":"path","terminal":"path"},"terminal":"file_path"}],"kind":"instance","name":"Open/Create/Replace File","outputs":[{"bare":"error_out","node":"Open/Create/Replace File","terminal":"error_out"},{"bare":"cancelled","node":"Open/Create/Replace File","terminal":"cancelled"},{"bare":"refnum","node":"Open/Create/Replace File","terminal":"refnum"}],"qualified_name":"Open/Create/Replace File","uid":"122"}]',
+        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"},{"net":{"bare":"path","terminal":"path"},"terminal":"file path (use dialog)"}],"kind":"instance","name":"Open/Create/Replace File","outputs":[{"bare":"error out","node":"Open/Create/Replace File","terminal":"error out"},{"bare":"cancelled","node":"Open/Create/Replace File","terminal":"cancelled"},{"bare":"refnum out","node":"Open/Create/Replace File","terminal":"refnum out"}],"qualified_name":"Open/Create/Replace File","uid":"122"}]',
     },
     "simple_error_handler": {
         "lvnet": r"""vi Err.vi :

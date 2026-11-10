@@ -469,9 +469,10 @@ GENERATED_MODULE_NAMES = frozenset(
     {
         "builtins", "concurrent", "copy", "ctypes", "filecmp", "functools",
         "getpass",
-        "importlib", "inspect", "ipaddress", "keyword", "math", "nidaqmx",
+        "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
-        "os", "pathlib", "pyvisa", "re", "serial", "shutil", "socket", "stat",
+        "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
+        "shutil", "socket", "stat",
         "struct", "sys", "tempfile", "time",
     }
 )  # fmt: skip
@@ -480,8 +481,9 @@ GENERATED_MODULE_NAMES = frozenset(
 # (``panel_hooks``): no variable of the function takes their names.
 ON_UPDATE = "on_update"
 ON_READ = "on_read"
+EVENTS = "events"
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ}
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {ON_UPDATE, ON_READ, EVENTS}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:

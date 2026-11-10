@@ -125,6 +125,9 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         entry = ctx.primitive_catalog.get_by_id(node.prim_id) if node.prim_id else None
         if entry is None:
             return fragment
+        # The packages the node's code imports, for the package's
+        # requirements.txt.
+        ctx.require_packages(entry.get("requires", ()))
         # The catalog marks a primitive NI runs even when an error came in, and
         # the failures of its operation that are its error out.
         if entry.get("runs_on_error", False):

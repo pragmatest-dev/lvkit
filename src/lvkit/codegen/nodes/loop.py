@@ -7,6 +7,7 @@ import keyword
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import ConstantNode, LoopNode
+from lvkit.graph.shift_registers import pair_by_position
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -430,13 +431,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # would just sit in its own freshly-named variable, never written back
     # into the lSR's local, so the next loop *iteration* (not call) would
     # keep reading the stale initial value.
-    lsr_outers_ordered = [
-        t.outer_terminal_uid for t in tunnels if t.tunnel_type == "lSR"
-    ]
-    rsr_outers_ordered = [
-        t.outer_terminal_uid for t in tunnels if t.tunnel_type == "rSR"
-    ]
-    rsr_to_lsr_outer = dict(zip(rsr_outers_ordered, lsr_outers_ordered, strict=False))
+    rsr_to_lsr_outer = {
+        rsr.outer_terminal_uid: lsr.outer_terminal_uid
+        for lsr, rsr in pair_by_position(
+            [t for t in tunnels if t.tunnel_type == "lSR"],
+            [t for t in tunnels if t.tunnel_type == "rSR"],
+        )
+        if rsr is not None
+    }
 
     # Feedback writes (lSR local <- rSR's new value) are emitted AFTER every
     # updated_var assignment, so cross-register reads in the same iteration
