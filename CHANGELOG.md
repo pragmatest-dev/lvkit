@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: `VI Name` and the other long or short property names read the built-in VI and Application properties** — a Property Node on the unwired default VI or Application is found by its property code, so `VI Name` and `Name` (or `App.Dir` and `Application:Directory Path`) generate the same Python instead of a gap.
 - **TDMS Open, Write, Set Properties and Close generate npTDMS code, and the package lists what it imports** — a new `requirements.txt` at the package root names each third-party package the generated code needs; a byte order other than little-endian, a waveform and a 2D array written to a channel are gaps.
 - **Variant To Flattened String and Flattened String To Variant generate code** — a type known when the code is generated (a typed To Variant wire, a constant or round-tripped `type string`) uses `struct` calls in LabVIEW's byte format and a literal `type string`; a variant of unknown type is `pickle`d.
 - **Flatten To String generates `struct` code** — any number, Boolean, string, array or cluster, with `byte order` and `prepend array or string size?` read from their constants; the 7.x `type string` output is a gap.
