@@ -547,12 +547,26 @@ def _llb_failures(meta: dict[str, Any]) -> tuple[LlbFailure, ...]:
     return tuple(LlbFailure(member, reason) for member, reason in meta["failures"])
 
 
+def _llb_cache_is_usable(cache_dir: Path, meta: dict[str, Any]) -> bool:
+    members = meta.get("members")
+    if not isinstance(members, list):
+        return False
+    # An empty archive can be cached; an extraction with only failures must
+    # retry. On a partial success, reuse the members and report the failures.
+    return (bool(members) or not meta["failures"]) and all(
+        isinstance(name, str)
+        and Path(name).name == name
+        and (cache_dir / name).is_file()
+        for name in members
+    )
+
+
 def extract_llb_members(llb_path: Path) -> LlbExtraction:
     """Extract all member VIs from an LLB archive to a cache directory.
 
-    Skips extraction if the cache dir already exists and is newer than the
-    LLB file.  Returns the cache directory and the members that could not be
-    extracted (recorded in the folder, so a later call reports them too).
+    Reuses a current cache when all recorded members are still present and
+    extraction did not fail for every member. Returns the cache directory and
+    the failures, which are also recorded for cache hits.
 
     Supports both classic UCRF/CPRF/ZCRF LLBs and modern LVzp (XOR-ZIP) LLBs.
 
@@ -572,7 +586,11 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
     # than the LLB file.
     sentinel = cache_dir / LLB_SENTINEL
     meta = read_llb_meta(cache_dir)
-    if meta is not None and sentinel.stat().st_mtime >= llb_path.stat().st_mtime:
+    if (
+        meta is not None
+        and sentinel.stat().st_mtime >= llb_path.stat().st_mtime
+        and _llb_cache_is_usable(cache_dir, meta)
+    ):
         return LlbExtraction(cache_dir, _llb_failures(meta))
 
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -582,7 +600,7 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
     except Exception as exc:
         raise RuntimeError(f"Failed to open LLB {llb_path}: {exc}") from exc
 
-    extracted_any = False
+    members: set[str] = set()
     failures: list[LlbFailure] = []
 
     # Try classic block types in priority order
@@ -599,12 +617,12 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
             try:
                 bldata: io.BytesIO = block.getData(section_num=snum)
                 atomic_write_bytes(cache_dir / member_name, bldata.read())
-                extracted_any = True
+                members.add(member_name)
             except Exception as exc:
                 failures.append(LlbFailure(member_name, str(exc)))
 
     # Fall back to modern LVzp format (XOR-encrypted ZIP)
-    if not extracted_any:
+    if not members:
         block = vi.get("LVzp")
         if block is not None and block.sections:
             snum = next(iter(block.sections))
@@ -615,26 +633,22 @@ def extract_llb_members(llb_path: Path) -> LlbExtraction:
                         if is_vi_file(member):
                             member_name = _UNSAFE_CHARS.sub("-", Path(member).name)
                             atomic_write_bytes(cache_dir / member_name, zf.read(member))
-                            extracted_any = True
+                            members.add(member_name)
             except Exception as exc:
                 failures.append(LlbFailure(None, f"LVzp block: {exc}"))
 
-    # The sentinel records the archive (so a VI in this folder is known by the
-    # .llb's path) and what could not be extracted, and tells future calls to skip
-    # re-extraction.
+    # Record origin, successful writes, and failures so a later call can
+    # validate the cache without reopening the archive.
     sentinel.write_text(
         json.dumps(
             {
                 "source": str(llb_path),
+                "members": sorted(members),
                 "failures": [[f.member, f.reason] for f in failures],
             }
         ),
         encoding="utf-8",
     )
-
-    if not extracted_any:
-        # Empty LLB or unrecognised format — cache dir exists but is empty
-        pass
 
     return LlbExtraction(cache_dir, tuple(failures))
 
