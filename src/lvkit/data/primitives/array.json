@@ -6,7 +6,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "sorted_array",
+          "name": "sorted array",
           "type": "Array"
         },
         {
@@ -26,6 +26,8 @@
     },
     "1168": {
       "name": "Array To Cluster",
+      "op": "ARRAY_TO_CLUSTER",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-to-cluster.html",
       "terminals": [
         {
           "index": 0,
@@ -40,11 +42,12 @@
           "type": "Array"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1169": {
       "name": "Cluster To Array",
+      "op": "CLUSTER_TO_ARRAY",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/cluster-to-array.html",
       "terminals": [
         {
           "index": 0,
@@ -59,8 +62,7 @@
           "type": "Cluster"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1809": {
       "name": "Array Size",
@@ -70,7 +72,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "size",
+          "name": "size(s)",
+          "python_name": "size",
           "type": "NumInt32"
         },
         {
@@ -89,7 +92,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "reversed_array",
+          "name": "reversed array",
           "type": "Array"
         },
         {
@@ -113,13 +116,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "index_of_element",
+          "name": "index of element",
           "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "start_index",
+          "name": "start index (0)",
           "type": "NumInt32",
           "default": 0
         },
@@ -132,7 +135,7 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "array",
+          "name": "1D array",
           "type": "array"
         }
       ],
@@ -150,13 +153,13 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "transposed_array",
+          "name": "transposed array",
           "type": "Array"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "array",
+          "name": "2D array",
           "type": "Array"
         }
       ],
@@ -199,7 +202,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "array (rotated)",
+          "name": "array (last n elements first)",
+          "python_name": "array_rotated",
           "type": "Array"
         },
         {
@@ -216,7 +220,7 @@
         }
       ],
       "python_code": {
-        "array (rotated)": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
+        "array_rotated": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
       },
       "verified": false
     },
@@ -250,8 +254,8 @@
         }
       ],
       "python_code": {
-        "second subarray": "in_3[in_2:]",
-        "first subarray": "in_3[:in_2]"
+        "second_subarray": "in_3[in_2:]",
+        "first_subarray": "in_3[:in_2]"
       },
       "verified": false
     },

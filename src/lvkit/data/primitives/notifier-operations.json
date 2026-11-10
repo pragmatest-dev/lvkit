@@ -3,61 +3,64 @@
     "9101": {
       "name": "Obtain Notifier",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-notifier.html",
+      "verified": true,
       "terminals": [
         {
           "index": 0,
           "direction": "input",
-          "name": "name",
+          "name": "name (unnamed)",
           "type": "String",
           "default": ""
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "element_data_type",
-          "type": "Boolean"
+          "name": "element data type",
+          "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "create_if_not_found",
+          "name": "create if not found? (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "created_new",
+          "name": "created new?",
+          "python_name": "created",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
-          "type": "cluster"
+          "name": "error out",
+          "type": "Cluster"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "verified": false,
-      "note": "Obtain Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+      "python_code": {
+        "_body": "raise RuntimeError('Obtain Notifier (9101) should be dispatched to codegen/nodes/notifier_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Notifier op (ref_type=NotifierRef on idx8; the refnum's element type is the notification type). Pane checked against the JKI VI Tester, Actor Framework and Icon Editor callers. Handled by codegen/nodes/notifier_ops.py (dispatched by primResID, not this template)."
     },
     "9102": {
       "name": "Release Notifier",
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -68,39 +71,39 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "force_destroy",
+          "name": "force destroy? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_name",
+          "name": "notifier name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "output",
-          "name": "last_notification",
-          "type": "Boolean"
+          "name": "last notification",
+          "type": "polymorphic"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
-          "type": "cluster"
+          "name": "error out",
+          "type": "Cluster"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "verified": false,
-      "note": "Release Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+      "python_code": {
+        "_body": "raise RuntimeError('Release Notifier (9102) should be dispatched to codegen/nodes/notifier_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Notifier op. Pane checked against the JKI VI Tester, Actor Framework and Icon Editor callers. Handled by codegen/nodes/notifier_ops.py (dispatched by primResID, not this template)."
     },
     "9103": {
       "name": "Get Notifier Status",
@@ -156,6 +159,7 @@
     "9104": {
       "name": "Send Notification",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send-notification.html",
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -167,35 +171,42 @@
           "index": 1,
           "direction": "input",
           "name": "notification",
-          "type": "Boolean"
+          "type": "polymorphic"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
-          "type": "cluster"
+          "name": "error out",
+          "type": "Cluster"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "verified": false,
-      "note": "Send Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+      "python_code": {
+        "_body": "raise RuntimeError('Send Notification (9104) should be dispatched to codegen/nodes/notifier_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Notifier op. Pane checked against the JKI VI Tester and Icon Editor callers. Handled by codegen/nodes/notifier_ops.py (dispatched by primResID, not this template)."
     },
     "9105": {
       "name": "Wait on Notification",
+      "errors": [
+        {
+          "exception": "ReferenceError",
+          "code": 1122
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-notification.html",
+      "verified": true,
       "terminals": [
         {
           "index": 0,
@@ -206,52 +217,53 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "ignore_previous",
+          "name": "ignore previous (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "timeout_ms",
+          "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
           "index": 9,
           "direction": "output",
           "name": "notification",
-          "type": "Boolean"
+          "type": "polymorphic"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "timed_out",
-          "type": "Boolean"
+          "name": "timed out?",
+          "type": "Boolean",
+          "on_failure": true
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
-          "type": "cluster"
+          "name": "error out",
+          "type": "Cluster"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "verified": false,
-      "note": "Wait on Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+      "python_code": {
+        "_body": "raise RuntimeError('Wait on Notification (9105) should be dispatched to codegen/nodes/notifier_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Notifier op. Pane checked against the JKI VI Tester, Actor Framework and Icon Editor callers. Handled by codegen/nodes/notifier_ops.py (dispatched by primResID, not this template). NI: a released notifier stops the wait with error 1122, and timed out? is TRUE when an error occurs."
     },
     "9106": {
       "name": "Wait on Notification from Multiple",

@@ -33,7 +33,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "byte_integer",
+          "name": "8bit integer",
+          "python_name": "byte_integer",
           "type": "NumInt8"
         },
         {
@@ -53,7 +54,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "int16_value",
+          "name": "16bit integer",
+          "python_name": "int16_value",
           "type": "NumInt16"
         },
         {
@@ -79,7 +81,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "long_integer",
+          "name": "32bit integer",
+          "python_name": "long_integer",
           "type": "NumInt32"
         },
         {
@@ -99,13 +102,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "unsigned 8bit integer",
+          "python_name": "result",
           "type": "NumUInt8"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "x",
+          "name": "number",
           "type": "numeric"
         }
       ],
@@ -123,7 +127,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "uint16_value",
+          "name": "unsigned 16bit integer",
+          "python_name": "uint16_value",
           "type": "NumUInt16"
         },
         {
@@ -176,7 +181,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "single precision float",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -198,7 +204,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "double precision float",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -220,7 +227,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "extended precision float",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -242,7 +250,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "single precision complex",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -264,7 +273,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "double precision complex",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -286,7 +296,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "extended precision complex",
+          "python_name": "result",
           "type": "polymorphic"
         }
       ],
@@ -322,13 +333,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "unsigned 64bit integer",
+          "python_name": "result",
           "type": "NumUInt64"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "x",
+          "name": "number",
           "type": "polymorphic"
         }
       ],
@@ -402,29 +414,29 @@
     },
     "2402": {
       "name": "Coerce To Type",
+      "op": "COERCE_TO_TYPE",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/coerce-to-type.html",
       "terminals": [
         {
           "index": 0,
           "direction": "input",
           "name": "x",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "type",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "output",
           "name": "coerced x",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "verified": true
     },
     "5561": {
       "name": "To Fixed-Point",

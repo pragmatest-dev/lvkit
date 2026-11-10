@@ -56,6 +56,7 @@ The output of `generate` is a Python port, not LabVIEW running in Python. **It i
 
 - **The generated package mirrors the project's folder hierarchy.** A VI's module path is its project-relative file path (each folder a package, the file stem the module, one fixed string transform). A file is placed from the path LabVIEW stores for it: a library file, inside the project or not, by its pseudo path (`<userlib>/…` is the package `userlib/…`), and a file outside the project and every library folder by `external/<its own project folder>/…`, so the output folder can be copied anywhere. Paths are unique, so modules are unique: no flat output, no collision numbering. Generated code that computes a VI path at run time imports it with `importlib` by the same transform.
 - **Generated code imports nothing from `lvkit`.** No `lvkit.runtime`, no `lvkit.labview_error`, no `LabVIEWObject`, no `labview_queue`, no registry or table that re-implements LabVIEW at run time. A count of `lvkit` imports in the generated sample corpus only ever goes down.
+- **Where Python's standard library has no equivalent, generated code may import a standard third-party package** (maintainer, 2026-11-08): TDMS files are `npTDMS`; NI drivers are NI's own `nidaqmx` / `nifgen` / `nidigital`. The catalog entry that needs one names it (`"requires"`), and the generated package lists every such package once, sorted, in `requirements.txt` at its root (no file when there are none). **Prefer a Python-native equivalent where LabVIEW's exact bytes are not expected to persist** ("we can insert things like pkl or things that are Python equivalents. Especially where there's no expectation of persistence and can be just run-time Python-native"): a value whose type is known at generation time keeps LabVIEW's flattened format, and one known only at run time is flattened with `pickle`. Text files are opened with `encoding="utf-8"` and hold `str`; flattened or binary data goes through binary file I/O. A variant is the Python value itself; LabVIEW's "variant as lookup table" (an empty variant given attributes) is a `dict` of the attributes, decided at generation time. Approved helpers generated once into the package beside `errors.py`: `notifiers.py` (a `Notifier` on `threading.Condition`: Python has no "latest value, wake every waiter, wait for the next" construct).
 - A VI reference whose path is computed only at run time resolves against the project's VIs, listed at generation time: a plain dict in the generated module of the VIs matching the reference's connector pane, keyed by project-relative path. If the project has the VIs it works; if it has none, that node is a gap (below). What has no Python meaning is never emulated.
 - **ONE rule for every gap, across the whole generation process: warn at generation time, raise at run time.** A gap is anything generation cannot convert (unknown primitive or vi.lib VI, placeholder primitive, a property with no Python meaning, a library file not found, a VI reference with nothing to resolve to, …). Every gap goes through one mechanism: generation prints a warning naming the VI, the node and the reason (`lvkit unresolved` lists the same warnings), and the generated code raises `NotImplementedError("<reason>")` where the node would run, its outputs bound to `None`; a gap outside any node makes the VI's function body that `raise`. A run with gaps is a PARTIAL success and never looks like a full one: `generate` says so in its summary and exits with its own nonzero code (distinct from a stopped run), and every warning and every raise message carries enough detail (VI, node, kind, what was needed) for a person or an AI to finish the conversion. No per-site variant, no lvkit import, and no flag that changes what a gap generates; the one run option is `--fail-fast`, which stops the run at the first gap's warning (exit 1, the output is incomplete) for people who don't want to wait for a long run. Generation stops only for what makes the package itself unwritable (two files mapping to one module, a VI with no file and no recorded path) and for lvkit's own internal checks (a bug in lvkit, not a gap in the VI).
 - **Exit codes (every command):** 0 complete, 1 stopped or an lvkit error, 2 usage error (a bad flag, a missing input path, or an input that is not a VI), 3 partial (output written, with problems or gaps).
@@ -190,19 +191,17 @@ LabVIEW primitives are identified by `primResID`. When `lvkit generate` warns ab
 {
   "1234": {
     "name": "My Primitive",
-    "category": "numeric",
-    "python_code": "{a} + {b}",
-    "inputs": [
-      {"index": 0, "name": "a", "type": "DBL"}
-    ],
-    "outputs": [
-      {"index": 2, "name": "result", "type": "DBL"}
+    "python_code": "in_1 + in_2",
+    "terminals": [
+      {"index": 1, "direction": "input", "name": "x", "type": "NumFloat64"},
+      {"index": 2, "direction": "input", "name": "y", "type": "NumFloat64"},
+      {"index": 0, "direction": "output", "name": "x+y", "python_name": "sum_of_x_and_y", "type": "NumFloat64"}
     ]
   }
 }
 ```
 
-Use the caller's dataflow in the exception output to determine correct terminal indices — do not guess.
+A terminal's `name` is NI's label as LabVIEW shows it, taken from NI's public page (`error in (no error)`, `x+y`), not a Python identifier. Its Python name is derived from the label (a default parenthetical is dropped); give a terminal a `"python_name"` only when the derived name is a poor one for generated code (`x+y` derives `xy`). A dict `python_code` is keyed by the output Python names. Use the caller's dataflow in the exception output to determine correct terminal indices — do not guess.
 
 ## Adding New VILib VIs
 

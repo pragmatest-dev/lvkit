@@ -111,55 +111,55 @@
         {
           "index": 4,
           "direction": "input",
-          "name": "after_item",
+          "name": "after item",
           "type": "String"
         },
         {
           "index": 5,
           "direction": "input",
-          "name": "menu_tag",
+          "name": "menu tag",
           "type": "String"
         },
         {
           "index": 6,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "input",
-          "name": "item_tags",
+          "name": "item tags",
           "type": "Array"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "item_names",
+          "name": "item names",
           "type": "Array"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "menu_reference",
+          "name": "menu reference",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "item_tags_out",
+          "name": "item tags out",
           "type": "Array"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "menu_reference_out",
+          "name": "menu reference out",
           "type": "Refnum"
         }
       ],
@@ -175,7 +175,7 @@
         {
           "index": 6,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
@@ -187,25 +187,25 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "menu_tag",
+          "name": "menu tag",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "input",
-          "name": "menu_reference",
+          "name": "menu reference",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "menu_reference_out",
+          "name": "menu reference out",
           "type": "Refnum"
         }
       ],
@@ -221,25 +221,25 @@
         {
           "index": 7,
           "direction": "input",
-          "name": "item_tag",
+          "name": "item tag",
           "type": "String"
         },
         {
           "index": 8,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
           "direction": "input",
-          "name": "menu_reference",
+          "name": "menu reference",
           "type": "Refnum"
         },
         {
           "index": 0,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         },
         {
@@ -251,13 +251,13 @@
         {
           "index": 2,
           "direction": "output",
-          "name": "item_name",
+          "name": "item name",
           "type": "String"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": "menu_reference_out",
+          "name": "menu reference out",
           "type": "Refnum"
         },
         {
@@ -269,13 +269,14 @@
         {
           "index": 5,
           "direction": "output",
-          "name": "submenu_tags",
+          "name": "submenu tags",
           "type": "Array"
         },
         {
           "index": 6,
           "direction": "output",
-          "name": "shortcut_info",
+          "name": "short cut",
+          "python_name": "shortcut_info",
           "type": "Cluster"
         }
       ],

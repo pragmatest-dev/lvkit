@@ -42,18 +42,23 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "relative seconds",
-          "index": null,
+          "index": 0,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "relative_seconds",
           "description": "relative seconds returns the value of the second timer in seconds."
         }
-      ]
+      ],
+      "imports": [
+        "import time"
+      ],
+      "python_code": "{relative_seconds} = time.perf_counter()",
+      "inline": true
     },
     {
       "name": "Wait (ms) Function",

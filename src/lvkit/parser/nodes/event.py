@@ -313,18 +313,25 @@ def _format_event_label(
     events: list[FrameEvent],
     fp_root: ET.Element | None,
 ) -> str:
-    """Reconstruct frame ``idx``'s display label from its ``EventSpec``,
-    matching LabVIEW's own displayed-frame format
-    (``[N] "<Control>": <EventType>``) exactly. Degrades honestly — a control
-    that can't be resolved is omitted, and a ``type`` code not in the
-    clean-room-verified ``CONFIRMED_EVENT_TYPES`` table becomes an explicit
-    ``<unknown event 0x...>`` sentinel: never a guessed event NAME, but never a
-    silently blank frame either, so the label states plainly that we don't
-    recognise the event type (and carries the raw code for lookup/reporting)."""
-    base = f"[{idx}]"
-    if not events:
-        return base
-    spec = events[-1]
+    """Reconstruct frame ``idx``'s display label from its ``EventSpec``
+    entries, in saved order: ``[N]`` then each event's part
+    (``_format_event_source``), joined by ``, `` as a case frame joins its
+    values. For a frame of one event this is LabVIEW's own displayed-frame
+    format (``[N] "<Control>": <EventType>``) exactly."""
+    sources = ", ".join(
+        source for spec in events if (source := _format_event_source(spec, fp_root))
+    )
+    return f"[{idx}] {sources}" if sources else f"[{idx}]"
+
+
+def _format_event_source(spec: FrameEvent, fp_root: ET.Element | None) -> str:
+    """One event's part of a frame label: ``"<Control>": <EventType>``.
+    Degrades honestly — a control that can't be resolved is omitted, and a
+    ``type`` code not in the clean-room-verified ``CONFIRMED_EVENT_TYPES``
+    table becomes an explicit ``<unknown event 0x...>`` sentinel: never a
+    guessed event NAME, but never a silently blank part either, so the label
+    states plainly that we don't recognise the event type (and carries the raw
+    code for lookup/reporting). Empty when the event has neither."""
     caption = (
         _resolve_control_caption(fp_root, spec.source_ddo_uid)
         if spec.source_ddo_uid
@@ -340,12 +347,10 @@ def _format_event_label(
     if type_name is None and spec.type_code is not None:
         type_name = f"<unknown event 0x{spec.type_code & 0xFFFFFFFF:08X}>"
     if caption and type_name:
-        return f'{base} "{caption}": {type_name}'
+        return f'"{caption}": {type_name}'
     if caption:
-        return f'{base} "{caption}"'
-    if type_name:
-        return f"{base} {type_name}"
-    return base
+        return f'"{caption}"'
+    return type_name or ""
 
 
 def _resolve_frame_labels(

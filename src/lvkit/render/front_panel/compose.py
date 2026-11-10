@@ -1,5 +1,5 @@
 """Draw every placed front-panel object: a control's own label or caption and
-its resolved value glyph, a free label, a decoration, a splitter bar and the
+its resolved value glyph, a free label, a decoration, a Subpanel, a splitter bar and the
 saved window's frame. Recursion into a cluster's fields or an array's element
 is the resolved glyph's OWN job (``ClusterConstantGlyph``/``ArrayControlGlyph``,
 see ``controls/``), not this module's.
@@ -7,12 +7,18 @@ see ``controls/``), not this module's.
 
 from __future__ import annotations
 
-from ...parser.models import ParsedFPControl, ParsedFPDecoration, ParsedFPLabel
+from ...parser.models import (
+    ParsedFPControl,
+    ParsedFPDecoration,
+    ParsedFPLabel,
+    ParsedFPSubPanel,
+)
 from ..backend import Backend
 from ..style import Theme
 from .controls import control_value_bounds, draw_label, resolve_glyph
 from .controls.decoration import draw_decoration
 from .controls.free_label import draw_free_label
+from .controls.subpanel import draw_subpanel
 from .geometry import FPBox, FPPaneBackground, FPSplitterBar, FPWindowFrame
 
 
@@ -36,6 +42,8 @@ def _draw_box(box: FPBox, backend: Backend, theme: Theme) -> None:
         draw_free_label(obj, box.bounds, backend, theme)
     elif isinstance(obj, ParsedFPDecoration):
         draw_decoration(obj, box.bounds, backend, theme)
+    elif isinstance(obj, ParsedFPSubPanel):
+        draw_subpanel(obj, box.bounds, backend, theme)
     elif isinstance(obj, FPPaneBackground):
         backend.rect(*box.bounds, fill=obj.color)
     elif isinstance(obj, FPSplitterBar):

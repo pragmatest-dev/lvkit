@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import math
-import re
 import struct
 import warnings
 import xml.etree.ElementTree as ET
@@ -77,7 +76,7 @@ from .flags import (
     is_output_terminal,
 )
 from .flat_type import descriptor_type, read_descriptors, read_var_size
-from .fp_fonts import font_of_text, read_font_table
+from .fp_fonts import read_font_table
 from .fp_heap_type import (
     _direct_fields,
     _wrapped_control,
@@ -85,6 +84,7 @@ from .fp_heap_type import (
     ring_sparse_values,
 )
 from .fp_listbox import read_listbox
+from .fp_parts import parse_bounds, parse_fp_parts_list, parse_multi_label_buf
 from .fp_pictures import attach_panel_pictures
 from .fp_structure import read_panel_layout
 from .front_panel import (
@@ -140,7 +140,6 @@ from .models import (
     ParsedFPControl,
     ParsedFPFont,
     ParsedFPPart,
-    ParsedFPPartState,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedNode,
@@ -180,9 +179,7 @@ from .utils import (
     extract_label,
     extract_label_strict,
     extract_xtunnel_name,
-    heap_color,
     heap_rect,
-    int_or_none,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -658,7 +655,7 @@ def _parse_front_panel(
     # Get panel bounds
     pbounds_elem = root.find("pBounds")
     if pbounds_elem is not None and pbounds_elem.text:
-        panel_bounds = _parse_bounds(pbounds_elem.text)
+        panel_bounds = parse_bounds(pbounds_elem.text)
     else:
         panel_bounds = (0, 0, 400, 600)
 
@@ -1006,15 +1003,6 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     return wires
 
 
-def _parse_multi_label_buf(buf_text: str) -> list[str]:
-    """The quoted item labels out of a ``multiLabel`` ``<buf>`` text (e.g.
-    ``(3)"No Op""Increment""Reset"``) -- shared by ``_extract_enum_labels``
-    (every enum/ring in a whole XML tree, keyed by uid) and ``_enum_labels_of``
-    (one control's own multiLabel), since both solve the identical "regex the
-    quoted items out of this buffer" step."""
-    return re.findall(r'"([^"]*)"', buf_text)
-
-
 def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     """Extract enum/ring labels from the XML.
 
@@ -1025,7 +1013,7 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     for multi_label in root.findall(f".//*[@class='{MULTI_LABEL_CLASS}']"):
         buf = multi_label.find("buf")
         if buf is not None and buf.text:
-            labels = _parse_multi_label_buf(buf.text)
+            labels = parse_multi_label_buf(buf.text)
             if labels:
                 uid = multi_label.get("uid")
                 if uid:
@@ -1889,18 +1877,6 @@ def _extract_subvi_info(
 # === Front panel parsing helpers ===
 
 
-def _parse_bounds(bounds_str: str) -> tuple[int, int, int, int]:
-    """Parse bounds string like '(0, 0, 100, 200)' to tuple."""
-    try:
-        clean = bounds_str.strip("()")
-        parts = [int(x.strip()) for x in clean.split(",")]
-        if len(parts) == 4:
-            return tuple(parts)  # type: ignore
-    except (ValueError, AttributeError):
-        pass
-    return (0, 0, 100, 200)
-
-
 def _placeholder_control_name(uid: str, unresolved_uids: set[str]) -> str:
     """Placeholder name for a front-panel control whose own label didn't
     resolve (e.g. a build/repackaging step nulled the label string but left
@@ -2001,88 +1977,6 @@ def _recover_unresolved_labels(
     return unlabeled
 
 
-def _part_states(part: ET.Element) -> tuple[ParsedFPPartState, ...]:
-    """A ``bigMultiCosm`` part's ``SubCosm`` states, in stored order; empty for
-    every other part class."""
-    return tuple(
-        ParsedFPPartState(
-            bounds=heap_rect(sub.find("Bounds")) or (0, 0, 0, 0),
-            fg_color=heap_color(sub.findtext("FGColor")),
-            bg_color=heap_color(sub.findtext("BGColor")),
-            image_id=int_or_none(sub.findtext("Image/ImageResID")),
-        )
-        for sub in part.findall("table/SL__arrayElement[@class='SubCosm']")
-    )
-
-
-def _part_texts(part: ET.Element) -> tuple[str, ...]:
-    """A ``multiLabel`` part's texts (its ``buf``), in stored order."""
-    if part.get("class") != MULTI_LABEL_CLASS:
-        return ()
-    return tuple(_parse_multi_label_buf(part.findtext("buf") or ""))
-
-
-def _part_image_ids(
-    part: ET.Element, states: tuple[ParsedFPPartState, ...]
-) -> tuple[int, ...]:
-    """The picture ids a part records, in stored order, whichever of the three
-    forms it uses: ``image/ImageResID`` (``cosm``, ``label``, ``numLabel``), one
-    ``table`` ``Image`` per state (``multiCosm``), or one ``SubCosm`` ``Image``
-    per state (``bigMultiCosm``, already read into ``states``)."""
-    if states:
-        return tuple(st.image_id for st in states if st.image_id is not None)
-    single = int_or_none(part.findtext("image/ImageResID"))
-    if single is not None:
-        return (single,)
-    return tuple(
-        image_id
-        for sub in part.findall("table/SL__arrayElement[@class='Image']")
-        if (image_id := int_or_none(sub.findtext("ImageResID"))) is not None
-    )
-
-
-def _parse_fp_parts_list(
-    owner: ET.Element, fonts: Sequence[ParsedFPFont] = ()
-) -> list[ParsedFPPart]:
-    """``owner``'s ``partsList`` entries as parts (each with its own bounds,
-    objFlags, and -- recursively -- its own sub-parts). objFlags bit 0x8 =
-    hidden, the SAME convention ``layout._field_label_hidden`` reads for a
-    cluster field's label part, so a view can tell a DEVELOPER-HIDDEN chrome
-    part (e.g. an array's own index display, toggled off per-control) from one
-    that's simply absent from this control's shape."""
-    parts: list[ParsedFPPart] = []
-    parts_list = owner.find("partsList")
-    if parts_list is None:
-        return parts
-    for part in parts_list:
-        bounds_elem = part.find("bounds")
-        if bounds_elem is None or not bounds_elem.text:
-            continue
-        pid_elem = part.find("partID")
-        pid_text = pid_elem.text if pid_elem is not None else None
-        part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
-        states = _part_states(part)
-        parts.append(
-            ParsedFPPart(
-                part_id=part_id,
-                part_class=part.get("class", ""),
-                bounds=_parse_bounds(bounds_elem.text),
-                parts=_parse_fp_parts_list(part, fonts),
-                fg_color=heap_color(part.findtext("fgColor")),
-                bg_color=heap_color(part.findtext("bgColor")),
-                image_ids=_part_image_ids(part, states),
-                flags=safe_int(part.find("objFlags")),
-                states=states,
-                texts=_part_texts(part),
-                text_color=heap_color(
-                    part.findtext("textRec/fr/SL__arrayElement/fontcolor")
-                ),
-                font=font_of_text(part.find("textRec"), fonts),
-            )
-        )
-    return parts
-
-
 def _parse_fp_parts(
     ddo: ET.Element, fonts: Sequence[ParsedFPFont] = ()
 ) -> list[ParsedFPPart]:
@@ -2106,7 +2000,7 @@ def _parse_fp_parts(
     whether the control is a top-level scalar or a cluster field (standalone or
     inside an array-of-clusters).
     """
-    parts = _parse_fp_parts_list(ddo, fonts)
+    parts = parse_fp_parts_list(ddo, fonts)
     # The array element type/cell: the direct <ddo> child (its class is the
     # element control type; its bounds one cell's real geometry; its scalar-text
     # children are the element's PROPERTIES -- representation/range/increment for
@@ -2127,9 +2021,9 @@ def _parse_fp_parts(
                 ParsedFPPart(
                     None,
                     element.get("class", ""),
-                    _parse_bounds(eb.text),
+                    parse_bounds(eb.text),
                     props,
-                    parts=_parse_fp_parts_list(element, fonts),
+                    parts=parse_fp_parts_list(element, fonts),
                     flags=safe_int(element.find("objFlags")),
                 )
             )
@@ -2151,7 +2045,7 @@ def _parse_fp_parts(
                     ParsedFPPart(
                         None,
                         ddo.get("class", ""),
-                        _parse_bounds(own_bounds.text),
+                        parse_bounds(own_bounds.text),
                         props,
                     )
                 )
@@ -2167,7 +2061,7 @@ def _enum_labels_of(ddo: ET.Element) -> list[str]:
     if ml is not None:
         buf = ml.find("buf")
         if buf is not None and buf.text:
-            return _parse_multi_label_buf(buf.text)
+            return parse_multi_label_buf(buf.text)
     return []
 
 
@@ -2362,7 +2256,7 @@ def _parse_ddo(
     # Get bounds
     bounds_elem = ddo.find("bounds")
     if bounds_elem is not None and bounds_elem.text:
-        bounds = _parse_bounds(bounds_elem.text)
+        bounds = parse_bounds(bounds_elem.text)
     else:
         bounds = (0, 0, 100, 200)
 
@@ -2549,7 +2443,7 @@ def _parse_ddo(
 
 def _is_hidden(ddo: ET.Element) -> bool:
     """A control is hidden when bit 0x8 of its own ddo's ``objFlags`` is set
-    (the hidden bit ``_parse_fp_parts_list`` reads for a part; for a control it
+    (the hidden bit ``parse_fp_parts_list`` reads for a part; for a control it
     is the ddo's DIRECT ``objFlags``, never a nested payload ddo's)."""
     return bool(safe_int(ddo.find("objFlags")) & HIDDEN_FLAG)
 
@@ -2757,6 +2651,47 @@ def _decode_collection(
     return "{" + ", ".join(f"{e[0]}: {e[1]}" for e in entries) + "}", pos, structured
 
 
+def _variant_head(
+    data: bytes | memoryview,
+) -> tuple[LVType | None, bool, int] | None:
+    """The start of a flattened Variant: the type its value has (None when it
+    holds no value), whether the value is Void, and the offset after the value
+    (the attribute count). None for a Variant saved by LabVIEW 7 or older (it
+    stores a byte count where the version is), one whose descriptors do not
+    read, or whose value has a type this does not read."""
+    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+        return None
+    count = int.from_bytes(data[4:8], "big")
+    read = read_descriptors(data, 8, count)
+    if read is None:
+        return None
+    descriptors, pos = read
+    has_value = read_var_size(data, pos)
+    if has_value is None:
+        return None
+    present, pos = has_value
+    if not present:
+        return None, True, pos
+    typed = read_var_size(data, pos)
+    if typed is None:
+        return None
+    index, pos = typed
+    value_type = descriptor_type(descriptors, index)
+    if value_type is None:
+        return None
+    return value_type, value_type.underlying_type == "Void", pos
+
+
+def variant_is_empty(data: bytes | memoryview) -> bool:
+    """Whether a flattened Variant holds no value (type Void) and no attributes:
+    the empty Variant, which is Python's ``None``."""
+    head = _variant_head(data)
+    if head is None or not head[1]:
+        return False
+    pos = head[2]
+    return len(data) >= pos + 4 and int.from_bytes(data[pos : pos + 4], "big") == 0
+
+
 def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     """One flattened Variant: ``[version][type count][type descriptors]
     [has value][value type index][value][attribute count][attributes]``, each
@@ -2768,33 +2703,18 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     Returns ``(None, 0, None)`` for a Variant saved by LabVIEW 7 or older (it
     stores a byte count where the version is) or whose value has a type this
     does not read."""
-    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+    head = _variant_head(data)
+    if head is None:
         return None, 0, None
-    count = int.from_bytes(data[4:8], "big")
-    read = read_descriptors(data, 8, count)
-    if read is None:
-        return None, 0, None
-    descriptors, pos = read
-    has_value = read_var_size(data, pos)
-    if has_value is None:
-        return None, 0, None
-    present, pos = has_value
+    value_type, is_void, pos = head
     shown = "Variant()"
     structured: object = shown
-    if present:
-        typed = read_var_size(data, pos)
-        if typed is None:
+    if value_type is not None and not is_void:
+        value, consumed, structured = _decode_element(data[pos:], value_type)
+        if value is None and consumed == 0:
             return None, 0, None
-        index, pos = typed
-        value_type = descriptor_type(descriptors, index)
-        if value_type is None:
-            return None, 0, None
-        if value_type.underlying_type != "Void":
-            value, consumed, structured = _decode_element(data[pos:], value_type)
-            if value is None and consumed == 0:
-                return None, 0, None
-            pos += consumed
-            shown = f"Variant({value})"
+        pos += consumed
+        shown = f"Variant({value})"
     if pos + 4 > len(data):
         return None, 0, None
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")
