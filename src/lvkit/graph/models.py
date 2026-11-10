@@ -243,6 +243,8 @@ class PrimitiveNode(GraphNode):
     # for the full heap discriminator (a direct ``<ddo>`` child + a
     # ``<label>`` naming the control, both absent when explicit).
     bound_control_uid: str = ""
+    # The uid of the front-panel control (fPDCO) that holds the bound object.
+    bound_control_dco_uid: str = ""
     # The bound control's reconstructed LVType (``parser.fp_heap_type.
     # reconstruct_control_lvtype``, resolved at PARSE time against the
     # front-panel heap -- see ``parser.vi._resolve_bound_control_types``).

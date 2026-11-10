@@ -15,6 +15,7 @@ from lvkit.models import (
     CaseFrame,
     DisableStructureKind,
     EventFrame,
+    FrameEvent,
     SequenceFrame,
     Terminal,
     TerminalDirection,
@@ -171,6 +172,21 @@ class CaseBuildHandler(StructureBuildHandler):
         )
 
 
+def _with_source_terminals(
+    frame: EventFrame, ctx: GraphBuildContext
+) -> list[FrameEvent]:
+    """The events of ``frame``, each with the front-panel terminal of its
+    source control."""
+    return [
+        event.model_copy(
+            update={
+                "source_terminal_id": ctx.front_panel_terminal_id(event.source_ddo_uid)
+            }
+        )
+        for event in frame.events
+    ]
+
+
 class EventBuildHandler(StructureBuildHandler):
     """Builds an Event Structure — same frame-tunnel wiring as
     CaseBuildHandler (border tunnels use the identical per-frame ``selTun``-
@@ -188,7 +204,10 @@ class EventBuildHandler(StructureBuildHandler):
         parser_tunnels: list = []
         if event_struct:
             parser_tunnels = event_struct.tunnels
-            event_frames = list(event_struct.frames)
+            event_frames = [
+                frame.model_copy(update={"events": _with_source_terminals(frame, ctx)})
+                for frame in event_struct.frames
+            ]
             displayed_frame = event_struct.displayed_frame
 
         structure_terminals = ctx.build_structure_terminals(

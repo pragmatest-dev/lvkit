@@ -157,7 +157,10 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
 
-    if not type_map:
+    # A VI with no heap type comments keeps its heap types in a DTHP sidecar. (Its
+    # data space type map's own `TypeID N: Kind` comments do not count as heap
+    # types: they number data-space types.)
+    if not heap_to_consolidated:
         heap = _parse_pre_lv9_heap_types(xml_path)
         type_map.update(heap.types)
         type_map.pool_failure = heap.failure
