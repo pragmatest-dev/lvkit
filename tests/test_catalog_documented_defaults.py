@@ -29,18 +29,22 @@ from tests.structure_diagrams import (
 
 # (primResID, input, documented default)
 PRIMITIVE_DEFAULTS = [
-    ("8053", "overwrite", False),
-    ("8053", "prompt", "Choose or enter target path for copy"),
-    ("8055", "prompt", "Create Folder"),
-    ("8080", "prompt", "Choose or enter file path"),
-    ("1538", "offset", 0),
-    ("1510", "string", ""),
+    ("8053", "overwrite (F)", False),
+    (
+        "8053",
+        "prompt (Choose or enter target path for copy)",
+        "Choose or enter target path for copy",
+    ),
+    ("8055", "prompt (Create Folder)", "Create Folder"),
+    ("8080", "prompt (Choose or enter file path)", "Choose or enter file path"),
+    ("1538", "offset (0)", 0),
+    ("1510", 'string ("")', ""),
     ("24202", "default null elements? (F)", False),
     ("24202", "enable LabVIEW extensions? (T)", True),
     ("24202", "strict validation? (F)", False),
-    ("8073", "offset", 0),
+    ("8073", "offset (in bytes) (0)", 0),
     ("1713", "abort (F)", False),
-    ("8100", "utc_format", False),
+    ("8100", "UTC format", False),
     ("8101", "allow empty tokens? (F)", False),
     ("8101", "use cached delim/oper data? (F)", False),
     ("2308", "access mode", 0),
@@ -49,19 +53,23 @@ PRIMITIVE_DEFAULTS = [
     ("1187", "offset", 0),
     ("1714", "timeout ms (25000)", 25000),
     ("2302", "mask (16)", 16),
-    ("8068", "overwrite", False),
-    ("8068", "prompt", "Choose or enter target path for move"),
-    ("9110", "return_elements", False),
+    ("8068", "overwrite (F)", False),
+    (
+        "8068",
+        "prompt (Choose or enter target path for move)",
+        "Choose or enter target path for move",
+    ),
+    ("9110", "return elements? (F)", False),
     ("8058", "default_name", ""),
     ("8058", "pattern_label", "Custom Pattern"),
-    ("8078", "prepend_size", True),
+    ("8078", "prepend array or string size? (T)", True),
     ("9006", "enabled", DefaultBehavior("unchanged")),
     ("1512", 'string ("")', ""),
     ("1715", "local port", 0),
     ("24201", "enable LabVIEW extensions? (T)", True),
-    ("9108", "name", ""),
-    ("8050", "access", 0),
-    ("8050", "operation", 0),
+    ("9108", "name (unnamed)", ""),
+    ("8050", "access (0:read/write)", 0),
+    ("8050", "operation (0:open)", 0),
     ("8014", "application refnum", DefaultBehavior("application of the calling VI")),
     ("8014", "options", 0),
     (
@@ -70,9 +78,9 @@ PRIMITIVE_DEFAULTS = [
         DefaultBehavior("generic VI reference"),
     ),
     ("8014", "vi type (standard vi)", 1),
-    ("9105", "ignore_previous", False),
-    ("1341", "f_button_name", "Cancel"),
-    ("1341", "t_button_name", "OK"),
+    ("9105", "ignore previous (F)", False),
+    ("1341", 'F button name ("Cancel")', "Cancel"),
+    ("1341", 'T button name ("OK")', "OK"),
     ("8012", 'machine name ("":  open local reference)', ""),
     ("8012", "port number or service name (3363)", 3363),
     ("8012", "timeout ms (60000)", 60000),
@@ -81,7 +89,7 @@ PRIMITIVE_DEFAULTS = [
     ("2401", "?(T)", True),
     ("1716", "mode (standard)", 0),
     ("1716", "timeout ms (25000)", 25000),
-    ("1701", "ignore_previous", True),
+    ("1701", "ignore previous (T)", True),
 ]
 
 # (VI name, input, documented default)
@@ -137,13 +145,14 @@ VILIB_DEFAULTS = [
 # they stay the bare `default`.
 STAYS_BARE = [
     ("8070", "count"),  # one line or the whole file, by a menu setting
-    ("8073", "from"),  # depends on whether `offset` is wired
-    ("8051", "count"),  # NI describes a single element
+    ("8073", "from (0:start)"),  # depends on whether `offset` is wired
+    ("8051", "count (1)"),  # NI describes a single element
     ("2135", "include static events? (T)"),  # depends on the event case
     ("8058", "start_path"),  # the last directory viewed
     ("8058", "prompt"),  # the dialog title differs between Windows/Linux and macOS
-    ("8051", "byte_order"),  # a String on the calls in the corpus, not an item value
-    ("8078", "byte_order"),
+    # the enum is not an item value on the calls in the corpus
+    ("8051", "byte order (0:big-endian, network order)"),
+    ("8078", "byte order (0:big-endian, network order)"),
 ]
 
 
@@ -198,10 +207,10 @@ def _views(tmp_path: Path, node_xml: str) -> Views:
 def test_move_shows_overwrite_and_prompt(tmp_path: Path) -> None:
     views = _views(tmp_path, primitive(10, 8068, [(9, BOOL), (7, STR)], out_type=BOOL))
     assert (
-        '      in   prompt    : String default "Choose or enter target path for move"'
-        in views.lvnet
+        "      in   prompt (Choose or enter target path for move) : String default "
+        '"Choose or enter target path for move"' in views.lvnet
     )
-    assert "      in   overwrite : TF     default False\n" in views.lvnet
+    assert "      in   overwrite (F) : TF     default False\n" in views.lvnet
 
 
 def test_obtain_queue_shows_the_unnamed_queue(tmp_path: Path) -> None:
@@ -211,7 +220,7 @@ def test_obtain_queue_shows_the_unnamed_queue(tmp_path: Path) -> None:
 
 def test_search_split_shows_offset_zero(tmp_path: Path) -> None:
     views = _views(tmp_path, primitive(10, 1538, [(3, I32)], out_type=I32))
-    assert "      in   offset          : I32 default 0\n" in views.lvnet
+    assert "      in   offset (0)      : I32 default 0\n" in views.lvnet
 
 
 I32_T = scalar("NumInt32")

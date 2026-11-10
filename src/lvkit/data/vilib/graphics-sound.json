@@ -5894,6 +5894,56 @@
       ]
     },
     {
+      "name": "RGB to Color",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/colorconv-llb/rgb-to-color-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Converts a red, green, and blue value from 0 to 255 to the corresponding RGB color.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "R",
+          "index": 1,
+          "direction": "input",
+          "type": "NumUInt8",
+          "enum_values": null,
+          "python_param": "r",
+          "description": "R is the red value for the color, 0 to 255."
+        },
+        {
+          "name": "G",
+          "index": 2,
+          "direction": "input",
+          "type": "NumUInt8",
+          "enum_values": null,
+          "python_param": "g",
+          "description": "G is the green value for the color, 0 to 255."
+        },
+        {
+          "name": "B",
+          "index": 3,
+          "direction": "input",
+          "type": "NumUInt8",
+          "enum_values": null,
+          "python_param": "b",
+          "description": "B is the blue value for the color, 0 to 255."
+        },
+        {
+          "name": "Color",
+          "index": 0,
+          "direction": "output",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "color",
+          "description": "Color is the RGB color value that corresponds to R, G, and B."
+        }
+      ],
+      "python_code": "{color} = (({r} & 0xFF) << 16) | (({g} & 0xFF) << 8) | ({b} & 0xFF)",
+      "inline": true
+    },
+    {
       "name": "Color to RGB",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/colorconv-llb/color-to-rgb-vi.html",
       "category": "Graphics & Sound",
@@ -5901,54 +5951,56 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Color",
-          "index": null,
+          "index": 0,
           "direction": "input",
-          "type": null,
+          "type": "NumUInt32",
           "enum_values": null,
           "python_param": "color",
           "description": "Color is the color that you want to convert to its respective red, green, and blue components."
         },
         {
           "name": "Resolved Color",
-          "index": null,
+          "index": 1,
           "direction": "output",
-          "type": null,
+          "type": "NumUInt32",
           "enum_values": null,
           "python_param": "resolved_color",
           "description": "resolved color is the resolved color in RGB format."
         },
         {
           "name": "R",
-          "index": null,
+          "index": 2,
           "direction": "output",
-          "type": null,
+          "type": "NumUInt8",
           "enum_values": null,
           "python_param": "r",
           "description": "R is the red component of the RGB value, 0 to 255."
         },
         {
           "name": "G",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "NumUInt8",
           "enum_values": null,
           "python_param": "g",
           "description": "G is the green component of the RGB value, 0 to 255."
         },
         {
           "name": "B",
-          "index": null,
+          "index": 4,
           "direction": "output",
-          "type": null,
+          "type": "NumUInt8",
           "enum_values": null,
           "python_param": "b",
           "description": "B is the blue component of the RGB value, 0 to 255."
         }
-      ]
+      ],
+      "python_code": "{resolved_color} = {color} & 0xFFFFFF\n{r} = ({color} >> 16) & 0xFF\n{g} = ({color} >> 8) & 0xFF\n{b} = {color} & 0xFF",
+      "inline": true
     },
     {
       "name": "Graphics Formats",

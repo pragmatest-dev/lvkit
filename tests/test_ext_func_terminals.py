@@ -241,11 +241,11 @@ def test_lvnet_verbose(tmp_path: Path) -> None:
     text = render_lvnet(build_netlist_from_graph(graph, vi_name), verbose=True)
     assert text.endswith(
         "    function String_To_IP_10 : String To IP\n"
-        "      out  net_address : String\n"
+        "      out  net address : String\n"
         "    function lib.dll:DoWork_20 : lib.dll:DoWork\n"
         "      in   path in             : Path   default\n"
         "      in   error in (no error) : I32    default\n"
-        "      in   name                : String = String_To_IP_10::net_address\n"
+        "      in   name                : String = String_To_IP_10::net address\n"
         "      in   retries             : I32    default\n"
         "      out  path out            : Path\n"
         "      out  error out           : I32\n"
@@ -253,7 +253,7 @@ def test_lvnet_verbose(tmp_path: Path) -> None:
         "      out  name output         : String\n"
         "      out  retries output      : I32\n"
         "    function IP_To_String_50 : IP To String\n"
-        "      in   net_address : String = lib.dll:DoWork_20::name output"
+        "      in   net address : String = lib.dll:DoWork_20::name output"
     )
 
 

@@ -469,10 +469,11 @@ GENERATED_MODULE_NAMES = frozenset(
     {
         "builtins", "concurrent", "copy", "ctypes", "filecmp", "functools",
         "getpass",
-        "importlib", "inspect", "ipaddress", "keyword", "math", "nidaqmx",
+        "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
-        "os", "pathlib", "pyvisa", "re", "serial", "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "time",
+        "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
+        "shutil", "socket", "stat",
+        "struct", "sys", "tempfile", "time", "uuid",
     }
 )  # fmt: skip
 

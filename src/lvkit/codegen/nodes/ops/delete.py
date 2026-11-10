@@ -31,14 +31,8 @@ from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from . import register_op_fragment
 from ._flat_node import terminal
+from ._path_checks import absolute_path_check
 from ._regex_node import input_expression, literal, string_variable
-
-# NI, General LabVIEW Error Codes, 1430, and 1 ("An input parameter is invalid.
-# For example if the input is a path, the path might contain a character not
-# allowed by the OS"): raised as the classes of Delete's own the catalog entry
-# names (``base``), so no other ValueError is taken for them.
-EMPTY_OR_RELATIVE = "The path is empty or relative. You must use an absolute path."
-INVALID_PATH = "An input parameter is invalid: the path contains a null character."
 
 # Input and output terminal indices of each Delete primitive.
 _PANES = {
@@ -76,12 +70,9 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
             else f"if {hierarchy}:\n        {whole}\n    else:\n        {folder}"
         )
     source = (
-        f"if {path} is None or not os.path.isabs({path}):\n"
-        f"    raise EmptyOrRelativePathError({EMPTY_OR_RELATIVE!r})\n"
-        f"if '\\0' in os.fspath({path}):\n"
-        f"    raise InvalidPathError({INVALID_PATH!r})\n"
-        f"if os.path.isdir({path}):\n    {folder}\n"
-        f"else:\n    os.remove({path})"
+        absolute_path_check(path)
+        + f"if os.path.isdir({path}):\n    {folder}\n"
+        + f"else:\n    os.remove({path})"
     )
     statements.extend(ast.parse(source).body)
     bindings: dict[str, str] = {}

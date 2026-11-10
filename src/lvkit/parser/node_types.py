@@ -274,6 +274,14 @@ class FeedbackNode(ParsedNode):
     partner_uid: str | None = None  # the linked slave (master) / master (slave)
     output_bmps: int | None = None  # master only; see docstring above
     delay_depth: int | None = None  # z^-N depth from feedbackNodeDelay; master only
+    # The ``<rsrDCO>`` uid of the master's output terminal: the uid a loop-border
+    # initializer (``Tunnel.feedback_link_uid``) names to say it initializes this
+    # node. Master only.
+    link_uid: str | None = None
+    # The heap classes of this node's terminals that are none of the three a
+    # Feedback Node is known to have (``leftFeedback``, ``initFeedback``,
+    # ``rightFeedback``): a terminal lvkit does not model, e.g. an enable terminal.
+    other_terminals: list[str] = field(default_factory=list)
 
 
 # =============================================================================
@@ -473,6 +481,15 @@ class CallByRefHandler(NodeTypeHandler):
         )
 
 
+_KNOWN_FEEDBACK_TERMINALS = frozenset({"leftFeedback", "initFeedback", "rightFeedback"})
+
+
+def _other_feedback_terminals(elem: ET.Element) -> list[str]:
+    """The classes of a Feedback Node half's terminals that lvkit does not model."""
+    classes = [d.get("class", "") for d in elem.findall("termList/*/dco")]
+    return [c for c in classes if c not in _KNOWN_FEEDBACK_TERMINALS]
+
+
 class FeedbackMasterHandler(NodeTypeHandler):
     """Handler for the Feedback Node master/read side (class="hiddenFBNode").
 
@@ -505,12 +522,16 @@ class FeedbackMasterHandler(NodeTypeHandler):
                 output_bmps = int(bmps_text)
             except ValueError:
                 output_bmps = None
+        link = elem.find(".//dco[@class='leftFeedback']/rsrDCO")
+        other = _other_feedback_terminals(elem)
         return FeedbackNode(
             **common,
             is_master=True,
             partner_uid=partner_uid,
             delay_depth=delay_depth,
             output_bmps=output_bmps,
+            link_uid=link.get("uid") if link is not None else None,
+            other_terminals=other,
         )
 
 
@@ -535,6 +556,7 @@ class FeedbackSlaveHandler(NodeTypeHandler):
             **common,
             is_master=False,
             partner_uid=partner_uid,
+            other_terminals=_other_feedback_terminals(elem),
         )
 
 
