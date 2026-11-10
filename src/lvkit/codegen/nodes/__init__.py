@@ -52,6 +52,7 @@ from . import (
     local_variable,
     loop,
     nmux,
+    notifier_ops,
     primitive,
     printf,
     property_node,
@@ -173,6 +174,10 @@ def _generate_primitive(
     # tell them apart, so dispatch by prim_id before the node_type registry.
     if node.node_type == "prim" and node.prim_id in queue_ops.QUEUE_PRIM_IDS:
         return queue_ops.generate(node, ctx)
+    # Notifier Operations are generic `class="prim"` nodes too -- see
+    # nodes/notifier_ops.py.
+    if node.node_type == "prim" and node.prim_id in notifier_ops.NOTIFIER_PRIM_IDS:
+        return notifier_ops.generate(node, ctx)
     # First Call? (1083) is likewise a generic `class="prim"` node
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:

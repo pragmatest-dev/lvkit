@@ -53,12 +53,12 @@ def test_the_views_show_the_same_frame_labels(project: Project) -> None:  # noqa
     views, node = _frames(project)
     assert [f.event_label for f in node.frames] == [
         "[0] Timeout",
-        '[1] "Offset": Value Change',
+        '[1] "Gain": Value Change, "Offset": Value Change',
         "[2] Panel Close?",
     ]
     for label in (
         "[0] Timeout",
-        '[1] "Offset": Value Change',
+        '[1] "Gain": Value Change, "Offset": Value Change',
         "[2] Panel Close?",
     ):
         assert f"Frame {label}:" in views.describe
