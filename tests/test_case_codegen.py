@@ -1,6 +1,6 @@
 """Tests for case structure code generation helpers.
 
-Focuses on _pre_declare_outputs correctness — the function that emits
+Focuses on pre_declare_outputs correctness — the function that emits
 `var = None` before match/if statements for variables that may not be
 assigned in all branches.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.codegen.context import CodeGenContext
-from lvkit.codegen.nodes.case import _pre_declare_outputs
+from lvkit.codegen.nodes.frame_structure import pre_declare_outputs
 from lvkit.graph.models import CaseStructureNode
 from lvkit.models import Terminal, Tunnel
 from tests.helpers import make_ctx, make_graph_with_edge, tunnel_terminals
@@ -28,7 +28,7 @@ def _case_node(
     output_tunnel_inner: str | None = None,
     extra_terminals: list[Terminal] | None = None,
 ) -> CaseStructureNode:
-    """Build a minimal CaseStructureNode for _pre_declare_outputs tests."""
+    """Build a minimal CaseStructureNode for pre_declare_outputs tests."""
     terminals: list[Terminal] = []
     tunnels: list[Tunnel] = []
 
@@ -97,7 +97,7 @@ class TestPreDeclareOutputs:
         )
         output_bindings = {"out_outer": "result_var"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "result_var" in _declared_names(stmts)
 
@@ -123,7 +123,7 @@ class TestPreDeclareOutputs:
         )
         output_bindings = {"out_outer": "frame_var"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         # frame_var MUST be pre-declared even though BFS from out_outer finds it
         assert "frame_var" in _declared_names(stmts)
@@ -137,7 +137,7 @@ class TestPreDeclareOutputs:
         # upstream_val is both an output binding AND comes from input tunnel
         output_bindings = {"in_outer": "upstream_val"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         # upstream_val is already defined (it's an input) — don't re-declare it
         assert "upstream_val" not in _declared_names(stmts)
@@ -154,7 +154,7 @@ class TestPreDeclareOutputs:
         )
         output_bindings = {"out_outer": "myparam"}  # to_var_name("myParam") = "myparam"
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "myparam" not in _declared_names(stmts)
 
@@ -169,7 +169,7 @@ class TestPreDeclareOutputs:
         )
         output_bindings = {"t1": "shared_var", "t2": "shared_var"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         names = _declared_names(stmts)
         assert names == {"shared_var"}
@@ -187,7 +187,7 @@ class TestPreDeclareSkipsInvalidTargets:
         node = _case_node()
         output_bindings = {"t1": "True"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "True" not in _declared_names(stmts)
 
@@ -197,7 +197,7 @@ class TestPreDeclareSkipsInvalidTargets:
         node = _case_node()
         output_bindings = {"t1": "False"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "False" not in _declared_names(stmts)
 
@@ -207,7 +207,7 @@ class TestPreDeclareSkipsInvalidTargets:
         node = _case_node()
         output_bindings = {"t1": "None"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "None" not in _declared_names(stmts)
 
@@ -217,7 +217,7 @@ class TestPreDeclareSkipsInvalidTargets:
         node = _case_node()
         output_bindings = {"t1": "0.0"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         # No statements at all (not even something broken)
         assert not stmts
@@ -228,7 +228,7 @@ class TestPreDeclareSkipsInvalidTargets:
         node = _case_node()
         output_bindings = {"t1": "42"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert not stmts
 
@@ -242,7 +242,7 @@ class TestPreDeclareSkipsInvalidTargets:
         )
         output_bindings = {"out_t": "my_result"}
 
-        stmts = _pre_declare_outputs(node, output_bindings, ctx)
+        stmts = pre_declare_outputs(node, output_bindings, ctx)
 
         assert "my_result" in _declared_names(stmts)
 
@@ -362,7 +362,7 @@ class TestPreDeclareOutputsTypeDefault:
             terminals=[outer, inner],
         )
         ctx = make_ctx()
-        stmts = _pre_declare_outputs(node, {"o": "result"}, ctx)
+        stmts = pre_declare_outputs(node, {"o": "result"}, ctx)
         mod = ast.fix_missing_locations(ast.Module(body=stmts, type_ignores=[]))
         return ast.unparse(mod)
 

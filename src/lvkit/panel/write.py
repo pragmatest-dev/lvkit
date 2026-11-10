@@ -6,13 +6,15 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import UNSUPPORTED_CONTROL, Gap
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 
+from .kinds import PanelControl
 from .layout import place
-from .model import PanelControl, panel_controls
+from .model import panel_controls
 from .module import PanelSource, panel_source
 
 CONTROLS_PACKAGE = "controls"
@@ -20,7 +22,11 @@ _RUNTIME = Path(__file__).parent / "runtime"
 
 
 def _write_controls(package_root: Path) -> None:
-    """The helper package of the panels, written once into the package root."""
+    """The helper package of the panels, written once into the package root, and
+    the package's ``errors`` module it imports when the package has none yet."""
+    errors = package_root / f"{ERRORS_MODULE_NAME}.py"
+    if not errors.exists():
+        errors.write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
     target = package_root / CONTROLS_PACKAGE
     if not target.exists():
         shutil.copytree(_RUNTIME, target, ignore=shutil.ignore_patterns("__pycache__"))
@@ -73,6 +79,7 @@ def write_panel(
             ),
             function=function,
             enum_name=hooks.enum_name if hooks is not None else None,
+            event_enum_name=hooks.event_enum_name if hooks is not None else None,
             root=package_root.name,
             depth=len(in_package.parts),
         )

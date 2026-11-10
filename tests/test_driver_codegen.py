@@ -193,9 +193,9 @@ class TestWaitMsPrimitive:
         outputs = [t for t in resolved.terminals if t.direction == "output"]
 
         assert len(inputs) == 1
-        assert inputs[0].name == "milliseconds_to_wait"
+        assert inputs[0].name == "milliseconds to wait"
         assert len(outputs) == 1
-        assert outputs[0].name == "millisecond_timer_value"
+        assert outputs[0].name == "millisecond timer value"
 
 
 # =============================================================

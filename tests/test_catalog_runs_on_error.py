@@ -62,6 +62,7 @@ PRIMITIVE_ENTRIES = frozenset(
         "1726:UDP Close",
         "1922:VISA Close",
         "1959:GPIB Status",
+        "2013:TDMS Close",
         "2075:Destroy User Event",
         "2076:Unregister For Events",
         "23783:Close Variable Connection",

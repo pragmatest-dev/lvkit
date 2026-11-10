@@ -243,19 +243,19 @@ def test_describe_shows_each_node_once_in_its_own_frame(tmp_path: Path) -> None:
 
 
 _LVNET_CASE = """\
-    case Random_Number_(0-1)_400::number :
+    case Random_Number_(0-1)_400::number: 0 to 1 :
       frame "1" :
         function Random_Number_(0-1)_500 : Random Number (0-1)
-          out  number : ?
+          out  number: 0 to 1 : ?
         function Wait_(ms)_520 : Wait (ms)
-          in   milliseconds_to_wait    : ? = Random_Number_(0-1)_500::number
-          out  millisecond_timer_value : ?
+          in   milliseconds to wait    : ? = Random_Number_(0-1)_500::number: 0 to 1
+          out  millisecond timer value : ?
       frame "1" :
         function Tick_Count_(ms)_510 : Tick Count (ms)
-          out  millisecond_timer_value : ?
+          out  millisecond timer value : ?
         function Wait_(ms)_530 : Wait (ms)
-          in   milliseconds_to_wait    : ? = Tick_Count_(ms)_510::millisecond_timer_value
-          out  millisecond_timer_value : ?
+          in   milliseconds to wait    : ? = Tick_Count_(ms)_510::millisecond timer value
+          out  millisecond timer value : ?
 """  # noqa: E501 (the lvnet line is one long line)
 
 
@@ -331,21 +331,21 @@ def test_frames_with_different_names_keep_their_names(tmp_path: Path) -> None:
 _LVNET_TUNNEL_CASE = """\
       frame "1" :
         function Random_Number_(0-1)_500 : Random Number (0-1)
-          out  number : ?
+          out  number: 0 to 1 : ?
         function Wait_(ms)_520 : Wait (ms)
-          in   milliseconds_to_wait    : ? = Random_Number_(0-1)_500::number
-          out  millisecond_timer_value : ?
-        case_600::out0 = Random_Number_(0-1)_500::number
+          in   milliseconds to wait    : ? = Random_Number_(0-1)_500::number: 0 to 1
+          out  millisecond timer value : ?
+        case_600::out0 = Random_Number_(0-1)_500::number: 0 to 1
       frame "1" :
         function Tick_Count_(ms)_510 : Tick Count (ms)
-          out  millisecond_timer_value : ?
+          out  millisecond timer value : ?
         function Wait_(ms)_530 : Wait (ms)
-          in   milliseconds_to_wait    : ? = Tick_Count_(ms)_510::millisecond_timer_value
-          out  millisecond_timer_value : ?
-        case_600::out0 = Tick_Count_(ms)_510::millisecond_timer_value
+          in   milliseconds to wait    : ? = Tick_Count_(ms)_510::millisecond timer value
+          out  millisecond timer value : ?
+        case_600::out0 = Tick_Count_(ms)_510::millisecond timer value
     function Wait_(ms)_700 : Wait (ms)
-      in   milliseconds_to_wait    : ? = case_600::out0
-      out  millisecond_timer_value : ?
+      in   milliseconds to wait    : ? = case_600::out0
+      out  millisecond timer value : ?
 """  # noqa: E501 (the lvnet line is one long line)
 
 
@@ -477,11 +477,11 @@ def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
         graphs.append((graph, graph.list_vis()[0]))
     (graph_a, vi_a), (graph_b, vi_b) = graphs
     assert format_diff(graph_a, graph_b, vi_a, vi_b).splitlines()[:3] == [
-        "  case (Random Number (0-1)#1.number):",
+        "  case (Random Number (0-1)#1.number: 0 to 1):",
         '    "1":',
-        "-     Wait (ms)#2(milliseconds_to_wait="
-        "Tick Count (ms).millisecond_timer_value)"
-        " -> millisecond_timer_value",
+        "-     Wait (ms)#2(milliseconds to wait="
+        "Tick Count (ms).millisecond timer value)"
+        " -> millisecond timer value",
     ]
     data = diff_to_dict(graph_a, graph_b, vi_a, vi_b)
     (change,) = data["changes"]
@@ -616,15 +616,15 @@ def test_a_diff_across_an_inserted_and_a_renamed_frame(tmp_path: Path) -> None:
     assert text.body.splitlines() == [
         "  case:",
         '+   "5":',
-        "+     Tick Count (ms)#1() -> millisecond_timer_value",
+        "+     Tick Count (ms)#1() -> millisecond timer value",
         '~   "3": 2 -> 3',
-        "      case (Tick Count (ms)#2.millisecond_timer_value):",
+        "      case (Tick Count (ms)#2.millisecond timer value):",
         '        "7":',
-        "+         Tick Count (ms)#3() -> millisecond_timer_value",
+        "+         Tick Count (ms)#3() -> millisecond timer value",
         '        "8":',
-        "-         Random Number (0-1)#3() -> number",
+        "-         Random Number (0-1)#3() -> number: 0 to 1",
         '-       "9":',
-        "-         Tick Count (ms)#3() -> millisecond_timer_value",
+        "-         Tick Count (ms)#3() -> millisecond timer value",
     ]
 
 

@@ -7,25 +7,25 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "output_string",
+          "name": "output string",
           "type": "String"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "line_index",
+          "name": "line index",
           "type": "NumInt32"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "multi_line_string",
+          "name": "multi-line string",
           "type": "String"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "string",
+          "name": "string (\"\")",
           "type": "String",
           "default": ""
         }
@@ -219,32 +219,33 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "offset_of_match",
+          "name": "offset of match",
           "type": "NumInt32"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "match_rest_of_string",
+          "name": "match + rest of string",
+          "python_name": "match_rest_of_string",
           "type": "String"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "substring_before_match",
+          "name": "substring before match",
           "type": "String"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "offset",
+          "name": "offset (0)",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 4,
           "direction": "input",
-          "name": "search_string_char",
+          "name": "search string/char (-)",
           "type": "String",
           "default": ""
         },

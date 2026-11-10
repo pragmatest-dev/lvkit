@@ -137,6 +137,7 @@ from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
 )
+from .shift_registers import pair_by_position
 from .unwired_default import instance_default, pane_default
 
 if TYPE_CHECKING:
@@ -544,7 +545,7 @@ def _loop_shift_register_pairs_gn(
     tunnels = _tunnels_from_terminals_gn(node.terminals)
     lsrs = [t for t in tunnels if t.tunnel_type == "lSR"]
     rsrs = [t for t in tunnels if t.tunnel_type == "rSR"]
-    return [(lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)]
+    return pair_by_position(lsrs, rsrs)
 
 
 def _paired_tunnel_id_gn(term: Terminal) -> str | None:
@@ -1419,14 +1420,14 @@ def _build_feedback_gn(
 
     init_term = next((t for t in node.terminals if t.direction == "input"), None)
     out_term = next((t for t in node.terminals if t.direction == "output"), None)
+    # An initializer moved onto the loop's border is wired to that tunnel's outer
+    # face, not to the node.
+    border = graph.get_feedback_init_tunnel(node.id)
+    init_id = border[0] if border is not None else None
+    if init_term is not None:
+        init_id = init_term.id
     init = _resolve_or_default_gn(
-        graph,
-        ctx,
-        vi_name,
-        build_ctx,
-        init_term.id if init_term is not None else None,
-        init_term,
-        out_term,
+        graph, ctx, vi_name, build_ctx, init_id, init_term, out_term
     )
 
     recur: NetRef | None = None
