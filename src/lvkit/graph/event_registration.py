@@ -22,7 +22,7 @@ from ..models import (
     TunnelTerminal,
 )
 from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC
-from ..parser.nodes.event import USER_EVENT_TYPE_CODE
+from ..parser.nodes.event import USER_EVENT_TYPE_CODE, frame_label
 
 _EVENT_REG = "EventReg"
 
@@ -118,20 +118,23 @@ def with_dynamic_names(
     rows: list[EventRegRow],
     displayed_frame: int | None,
 ) -> EventFrame:
-    """``frame`` with each of its dynamic User Events named after its row and, when
-    the frame's own label names its last event, that label as LabVIEW writes it
-    (``[2] <Action.Event Data>: User Event``). The frame LabVIEW last displayed
-    keeps the label the file stores."""
+    """``frame`` with each of its dynamic User Events named after its row, its part
+    of the label written as LabVIEW writes it (``<Action.Event Data>: User
+    Event``), and the frame's label rebuilt from every event's part
+    (``[2] <Start>: User Event, "Stop": Value Change``). The frame LabVIEW last
+    displayed keeps the label the file stores."""
     named: list[FrameEvent] = []
     for event in events:
         row = _row_of(event, rows)
-        named.append(
-            event.model_copy(update={"dynamic_name": row.name if row else None})
-        )
+        update_event: dict[str, object] = {"dynamic_name": row.name if row else None}
+        if row is not None and row.name:
+            update_event["label"] = f"<{row.name}>: User Event"
+        named.append(event.model_copy(update=update_event))
     update: dict[str, object] = {"events": named}
-    last = named[-1] if named else None
-    if last is not None and last.dynamic_name and frame.index != displayed_frame:
-        update["event_label"] = f"[{frame.index}] <{last.dynamic_name}>: User Event"
+    if any(event.dynamic_name for event in named) and frame.index != displayed_frame:
+        update["event_label"] = frame_label(
+            frame.index, [event.label for event in named]
+        )
     return frame.model_copy(update=update)
 
 

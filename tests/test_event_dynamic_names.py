@@ -6,6 +6,7 @@ registrations. Every view prints the same label."""
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from lvkit.graph.models import EventStructureNode
 from tests.corpus_graphs import load_corpus_vi
 from tests.error_diagrams import Project, project  # noqa: F401
 from tests.event_diagrams import (
+    PANEL_CLOSE,
     USER_EVENT,
     Vi,
     array_type,
@@ -75,6 +77,32 @@ def test_registered_rows_name_their_frames_in_every_view(
     assert [(e.dyn_index, e.dynamic_name) for e in events] == [
         (1, "Start"),
         (2, "Stop"),
+    ]
+
+
+def test_a_frame_with_a_user_event_and_another_event_names_both(
+    project: Project,  # noqa: F811
+) -> None:
+    mixed = replace(user_event_frame(1), more=[(PANEL_CLOSE, None)])
+    project.add(
+        dynamic_events_vi(
+            lambda vi: registration_type(vi, _START_STOP),
+            [mixed, user_event_frame(2)],
+        )
+    )
+    views = project.views("Dynamic.vi")
+    _assert_every_view_shows(
+        views,
+        [
+            "[0] Timeout",
+            "[1] <Start>: User Event, Panel Close?",
+            "[2] <Stop>: User Event",
+        ],
+    )
+    events = _node(views.graph, views.vi).frames[1].events
+    assert [(e.dynamic_name, e.label) for e in events] == [
+        ("Start", "<Start>: User Event"),
+        (None, "Panel Close?"),
     ]
 
 
