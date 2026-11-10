@@ -57,7 +57,7 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "button_name",
+          "name": "button name (\"OK\")",
           "type": "String",
           "default": "OK"
         },
@@ -89,20 +89,21 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "t_button_pressed",
+          "name": "T button?",
+          "python_name": "t_button_pressed",
           "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "f_button_name",
+          "name": "F button name (\"Cancel\")",
           "type": "String",
           "default": "Cancel"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "t_button_name",
+          "name": "T button name (\"OK\")",
           "type": "String",
           "default": "OK"
         },

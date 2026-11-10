@@ -7,45 +7,45 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "name",
+          "name": "name (unnamed)",
           "type": "String",
           "default": ""
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "element_data_type",
+          "name": "notification data type",
           "type": "Boolean"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "create_if_not_found",
+          "name": "create if not found? (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
           "index": 10,
           "direction": "output",
-          "name": "created_new",
+          "name": "created new?",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         }
       ],
@@ -68,32 +68,32 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "force_destroy",
+          "name": "force destroy? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_name",
+          "name": "notifier name",
           "type": "String"
         },
         {
           "index": 9,
           "direction": "output",
-          "name": "last_notification",
+          "name": "last notification",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         }
       ],
@@ -172,19 +172,19 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         }
       ],
@@ -206,27 +206,27 @@
         {
           "index": 1,
           "direction": "input",
-          "name": "ignore_previous",
+          "name": "ignore previous (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "timeout_ms",
+          "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
           "direction": "output",
-          "name": "notifier_out",
+          "name": "notifier out",
           "type": "Refnum"
         },
         {
@@ -238,13 +238,13 @@
         {
           "index": 10,
           "direction": "output",
-          "name": "timed_out",
+          "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 11,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "cluster"
         }
       ],

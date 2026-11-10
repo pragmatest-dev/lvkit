@@ -28,6 +28,7 @@ from ..ast_utils import (
     parse_stmt,
     to_var_name,
 )
+from ..catalog_names import catalog_python_names
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
 from ..error_flow import merge_errors, status_read
@@ -338,8 +339,10 @@ def _build_input_map(
     # Expandable groups: base_index → list of resolved values (in dimension order)
     expandable_groups: dict[int, list[str]] = {}
 
-    # Build index → (name, default expression) dict from resolved terminals
+    # Build index → (Python name, default expression) dict from resolved
+    # terminals; ``input_labels`` holds the labels the messages show.
     resolved_inputs: dict[int, tuple[str, str | None]] = {}
+    input_labels: dict[int, str] = {}
     behaviors: dict[int, DefaultBehavior | None] = {}
     # Inputs whose default is a documented behaviour, written in terms of the
     # function's other inputs (``in_<index>``).
@@ -348,10 +351,15 @@ def _build_input_map(
     # Inputs that take only the status of an error cluster wired to them.
     status_inputs: set[int] = set()
     if resolved and resolved.terminals:
+        python_names = catalog_python_names(resolved.terminals)
         for rt in resolved.terminals:
             if rt.direction == TerminalDirection.INPUT:
                 default = _catalog_default(rt, resolved)
-                resolved_inputs[rt.index] = (rt.name or "", default)
+                resolved_inputs[rt.index] = (
+                    python_names.get((rt.direction, rt.index), ""),
+                    default,
+                )
+                input_labels[rt.index] = rt.name or ""
                 behaviors[rt.index] = rt.default_behavior
                 if rt.default is None and default is not None:
                     behavior_written.add(rt.index)
@@ -394,6 +402,7 @@ def _build_input_map(
         term_id = term.id
         term_index = term.index
         term_name = term.name or ""
+        label = term_name
         default_value = None
 
         # Match by connector pane index (sparse dict lookup)
@@ -401,6 +410,7 @@ def _build_input_map(
             resolved_name, default_value = resolved_inputs[term_index]
             if not term_name:
                 term_name = resolved_name
+                label = input_labels[term_index]
         elif laid_out_slot.get(term_index) in resolved_inputs:
             # An input added by resizing the node holds what the catalog terminal
             # it repeats holds.
@@ -409,7 +419,7 @@ def _build_input_map(
         # Resolve from context: a wired data input always has a variable (a
         # constant that is a gap is bound to None; its function raises where it
         # starts); an unwired error in is no error (``NO_ERROR``) below.
-        value = ctx.wired_input(term_id, node, term_name or term_index)
+        value = ctx.wired_input(term_id, node, label or term_index)
         if value:
             # Wired terminal with -1 index: resolution failure
             if term_index == -1:
@@ -434,7 +444,7 @@ def _build_input_map(
             function = resolved.name if resolved and resolved.name else node.name
             raise UnknownDefault(
                 function or "a function",
-                term_name or str(term_index),
+                label or str(term_index),
                 node,
                 behaviors.get(laid_out_slot.get(term_index, term_index)),
             )
@@ -484,7 +494,7 @@ def _build_input_map(
     elif expandable_groups:
         for base_idx, values in expandable_groups.items():
             name = resolved_inputs.get(base_idx, ("expandable",))[0]
-            key = to_var_name(name) + "_values"
+            key = name + "_values"
             input_map[key] = ", ".join(values)
     # Also expose each expandable group under its bare terminal NAME, so a
     # template that references the input by name works in the common 1-D case
@@ -493,9 +503,7 @@ def _build_input_map(
     for base_idx, values in expandable_groups.items():
         name = resolved_inputs.get(base_idx, ("",))[0]
         if name and name not in input_map:
-            joined = ", ".join(values)
-            input_map[name] = joined
-            input_map[to_var_name(name)] = joined
+            input_map[name] = ", ".join(values)
 
     # An input the code reads that the call does not have: the catalog numbers the
     # function's terminals differently from the call.
@@ -508,8 +516,7 @@ def _build_input_map(
                 and template_reads(
                     template_str,
                     f"in_{rt.index}",
-                    rt.name or "",
-                    to_var_name(rt.name or ""),
+                    python_names.get((rt.direction, rt.index), ""),
                 )
             ):
                 raise TerminalNotOnCall(
@@ -594,10 +601,12 @@ def _output_index_ordinals(
     carries no resolution.
     """
     if resolved and resolved.terminals and hint_keys:
+        python_names = catalog_python_names(resolved.terminals)
         by_name = {
-            to_var_name(rt.name or ""): rt.index
+            python_names[(rt.direction, rt.index)]: rt.index
             for rt in resolved.terminals
             if rt.direction == TerminalDirection.OUTPUT
+            and (rt.direction, rt.index) in python_names
         }
         keyed = [to_var_name(key) for key in hint_keys]
         if len(set(keyed)) == len(keyed) and all(k in by_name for k in keyed):
@@ -635,15 +644,17 @@ def _get_wired_outputs(
     """The wired outputs of the primitive, in terminal order.
 
     Matches by connector pane index (sparse dict lookup).
-    Terminal names in the primitive JSON should be valid Python identifiers.
     """
-    # Build index → name dict from resolved terminals
+    # Build index → Python name dict from resolved terminals
     resolved_outputs: dict[int, str] = {}
     expandable_out_index: int | None = None
     if resolved and resolved.terminals:
+        python_names = catalog_python_names(resolved.terminals)
         for rt in resolved.terminals:
             if rt.direction == TerminalDirection.OUTPUT:
-                resolved_outputs[rt.index] = rt.name or ""
+                resolved_outputs[rt.index] = python_names.get(
+                    (rt.direction, rt.index), ""
+                )
                 if getattr(rt, "expandable", False):
                     expandable_out_index = rt.index
 
@@ -684,9 +695,7 @@ def _get_wired_outputs(
         if expandable_out_index is not None and term_index == expandable_out_index:
             base_name = resolved_outputs.get(expandable_out_index, "element")
             outputs.append(
-                _WiredOutput(
-                    term_id, f"{to_var_name(base_name)}_{len(outputs)}", term_index
-                )
+                _WiredOutput(term_id, f"{base_name}_{len(outputs)}", term_index)
             )
             continue
 
