@@ -223,10 +223,73 @@ def test_two_dimensional_array_input() -> None:
     assert _call("x*2", array("NumFloat64", 2), value) == [[2.0, 4.0], [6.0]]
 
 
-def test_expression_function_is_a_module_level_function() -> None:
+def _body(script: str, lv_type) -> str:
+    """The generated lines of the VI function that belong to the node."""
+    lines = _run(script, lv_type).source.splitlines()
+    return "\n".join(
+        line.strip() for line in lines if line.strip().startswith("expr_expr")
+    )
+
+
+def test_expression_is_written_inline() -> None:
     source = _run("2*x+3", scalar("NumFloat64")).source
-    assert "def _expression_native_test_expr(*, x):" in source
+    assert "def _expression" not in source
+    assert "_result" not in source
     assert "lvkit" not in source
+    assert _body("2*x+3", scalar("NumFloat64")) == "expr_expr = 2 * in_ + 3"
+
+
+def test_integer_expression_rounds_and_wraps_inline() -> None:
+    assert _body("2*x+3", scalar("NumUInt16")) == (
+        "expr_expr = ctypes.c_uint16(round(2 * in_ + 3)).value"
+    )
+
+
+def test_array_expression_is_a_comprehension() -> None:
+    assert _body("2*x+3", array("NumUInt16")) == (
+        "expr_expr = [ctypes.c_uint16(round(2 * x + 3)).value for x in in_]"
+    )
+    assert _body("x*2", array("NumFloat64", 2)) == (
+        "expr_expr = [[x * 2 for x in x_0] for x_0 in in_]"
+    )
+
+
+def test_loop_variable_is_a_safe_name() -> None:
+    assert "for round_ in in_]" in _body("round+1", array("NumFloat64"))
+    assert _call("round+1", array("NumFloat64"), [1.0]) == [2.0]
+
+
+def test_guarded_function_runs_inline_and_in_a_comprehension() -> None:
+    assert _call("sqrt(x)", scalar("NumFloat64"), 16.0) == 4.0
+    assert math.isnan(_call("sqrt(x)", scalar("NumFloat64"), -1.0))
+    values = _call("sqrt(x)", array("NumFloat64"), [4.0, -1.0, 9.0])
+    assert values[0] == 2.0 and math.isnan(values[1]) and values[2] == 3.0
+    assert "_t1 :=" in _body("sqrt(x)", array("NumFloat64"))
+
+
+def test_computed_input_is_bound_once() -> None:
+    float64 = scalar("NumFloat64")
+    generated = generate(
+        {},
+        {"out": float64},
+        [_node("x*x+x", float64)],
+        [("c", "expr:0"), ("expr:1", "fp:out")],
+        constants={"c": (4.0, float64)},
+    )
+    body = "\n".join(
+        line.strip()
+        for line in generated.source.splitlines()
+        if line.strip().startswith("expr_expr")
+    )
+    assert body == (
+        "expr_expr_input = 4.0\n"
+        "expr_expr = expr_expr_input * expr_expr_input + expr_expr_input"
+    )
+    assert result_values(generated.function())[0] == 20.0
+
+
+def test_named_input_is_not_rebound() -> None:
+    assert _body("x*x+x", scalar("NumFloat64")) == "expr_expr = in_ * in_ + in_"
 
 
 def test_text_record_gap_raises_where_the_node_runs() -> None:

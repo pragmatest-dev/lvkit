@@ -3,21 +3,18 @@
 An Expression Node (block-diagram class ``exprNode``) is one expression over one
 variable, in the same syntax and with the same functions as a Formula Node.
 The input terminal is the variable and the output terminal is the expression's
-value, of the input's type. It is transpiled as the Formula Node script
+value, of the input's type. It is emitted as the Formula Node script
 ``<result> = <expression>;`` with the variable as an input and the result as an
 output of the same numeric type, so the Formula Node's numeric rules apply
-unchanged.
+unchanged (``emit.emit_expression``).
 """
 
 from __future__ import annotations
 
 from . import FormulaTranspileError
 from .cparser import parse
-from .emit import TranspileResult, VarSpec, transpile
+from .emit import EXPRESSION_RESULT
 from .nodes import Assign, Binary, Call, Expr, Index, Num, Unary, Var
-
-# The expression's value. Not a name an expression can use as its variable.
-RESULT_NAME = "_result"
 
 # The variable name of an expression that names none (``2+3``).
 _DEFAULT_VARIABLE = "x"
@@ -48,7 +45,7 @@ def _variables(e: Expr, found: list[str]) -> None:
 def expression_variable(text: str) -> str:
     """The one variable of the expression ``text`` (``x`` for ``2*x+3``). An
     expression that names none has ``x``; one that names several is an error."""
-    tree = parse(f"{RESULT_NAME} = {text};")
+    tree = parse(f"{EXPRESSION_RESULT} = {text};")
     statement = tree.stmts[0] if len(tree.stmts) == 1 else None
     if not isinstance(statement, Assign):
         raise FormulaTranspileError(f"{text!r} is not a single expression")
@@ -60,19 +57,3 @@ def expression_variable(text: str) -> str:
             "an Expression Node has one"
         )
     return found[0] if found else _DEFAULT_VARIABLE
-
-
-def transpile_expression(
-    text: str, variable: str, lv_type: str, func_name: str
-) -> TranspileResult:
-    """The Python function ``func_name(*, <variable>)`` returning
-    ``{RESULT_NAME: value}`` for the expression ``text``; ``lv_type`` is the
-    numeric type name of the variable and of the value."""
-    return transpile(
-        f"{RESULT_NAME} = {text};",
-        [
-            VarSpec(variable, lv_type, "in", False),
-            VarSpec(RESULT_NAME, lv_type, "out", False),
-        ],
-        func_name=func_name,
-    )

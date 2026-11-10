@@ -1,9 +1,9 @@
 """Code generation for Expression Nodes (exprNode).
 
-The formula is transpiled to a module-level Python function of its one variable
-(``lvkit.formula.expression``), and the node is a call to it. An array input is
-processed element by element, one comprehension level per dimension, as the
-Expression Node applies its expression to each element of an array.
+The formula is emitted as one Python expression at the node's place
+(``lvkit.formula.emit.emit_expression``). An array input is processed element by
+element, one comprehension level per dimension, as the Expression Node applies
+its expression to each element of an array.
 """
 
 from __future__ import annotations
@@ -13,15 +13,12 @@ import re
 from typing import TYPE_CHECKING
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.formula.expression import (
-    RESULT_NAME,
-    expression_variable,
-    transpile_expression,
-)
+from lvkit.formula.emit import emit_expression
+from lvkit.formula.expression import expression_variable
 from lvkit.graph.models import FormulaNode
 from lvkit.models import LVType, LVTypeKind
 
-from ..ast_utils import node_owned_name
+from ..ast_utils import to_var_name
 from ..fragment import CodeFragment
 
 if TYPE_CHECKING:
@@ -59,26 +56,35 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     numeric, dimensions = _numeric_element(node, source.lv_type)
 
     variable = expression_variable(node.script)
-    function = node_owned_name("_expression", ctx.function_name, node.id)
-    transpiled = transpile_expression(node.script, variable, numeric, function)
-    function = ctx.add_module_function(transpiled.func_def, owner=node.id)
-
+    suffix = re.sub(r"\W", "_", node.id.split("::")[-1])
     wired = ctx.wired_input(source.id, node)
     if wired is None:
         wired = "[]" if dimensions else "0"
-    # One comprehension level per dimension, the innermost over the elements.
-    element = f"_e{dimensions - 1}" if dimensions else wired
-    value = f"{function}({variable}={element})[{RESULT_NAME!r}]"
-    for level in reversed(range(dimensions)):
-        value = (
-            f"[{value} for _e{level} in {wired if level == 0 else f'_e{level - 1}'}]"
-        )
+    statements: list[ast.stmt] = []
+    if dimensions:
+        # The input is the iterable of the outermost comprehension, evaluated
+        # once. Each inner level iterates the element of the level above.
+        loop = to_var_name(variable)
+        value = emit_expression(node.script, variable, numeric, loop)
+        levels = [f"{loop}_{level}" for level in range(dimensions - 1)] + [loop]
+        text = value.source
+        for level in reversed(range(dimensions)):
+            iterable = wired if level == 0 else levels[level - 1]
+            text = f"[{text} for {levels[level]} in {iterable}]"
+    else:
+        # The variable may be used several times: a computed input is bound
+        # once and the expression reads the name.
+        if not wired.isidentifier():
+            bound = ctx.make_output_var(f"expr_{suffix}_input", node.id)
+            statements += ast.parse(f"{bound} = {wired}").body
+            wired = bound
+        value = emit_expression(node.script, variable, numeric, wired)
+        text = value.source
 
-    suffix = re.sub(r"\W", "_", node.id.split("::")[-1])
     out_var = ctx.make_output_var(f"expr_{suffix}", node.id, terminal_id=result.id)
-    statements = ast.parse(f"{out_var} = {value}").body
+    statements += ast.parse(f"{out_var} = {text}").body
     return CodeFragment(
         statements=statements,
         bindings={result.id: out_var},
-        imports=set(transpiled.imports),
+        imports=set(value.imports),
     )
