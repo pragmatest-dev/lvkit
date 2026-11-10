@@ -31,7 +31,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
-from ..panel_hooks import PanelHooks, method_enum_name
+from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..type_fields import annotation_imports
 
 if TYPE_CHECKING:
@@ -108,6 +108,7 @@ class _MethodBuilderMixin:
                 graph,
                 key,
                 method_enum_name(self._model.name, shape.name),
+                method_property_enum_name(self._model.name, shape.name),
                 taken=self._module_names(),
                 parameter_names=names,
             )

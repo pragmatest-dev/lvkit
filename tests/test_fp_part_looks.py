@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 
 from lvkit.parser.fp_listbox import read_listbox
+from lvkit.parser.fp_parts import parse_fp_parts_list
 from lvkit.parser.fp_structure import read_panel_layout
 from lvkit.parser.models import ParsedFPPane
-from lvkit.parser.vi import _parse_fp_parts_list
 from tests.corpus_graphs import load_corpus_vi
 
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -22,7 +22,7 @@ _MP = _SAMPLES / "measurement-plugin-labview" / "Source" / "Generator"
 
 def _parts(xml: str):
     ddo = ET.fromstring(f"<ddo><partsList>{xml}</partsList></ddo>")
-    return _parse_fp_parts_list(ddo)
+    return parse_fp_parts_list(ddo)
 
 
 def test_single_image_id_of_a_cosm_label_and_numlabel() -> None:

@@ -82,7 +82,9 @@ class ImportResolver:
         module_names: set[str] | None = None,
         own_function_import: Callable[[str], NameImport] | None = None,
         module_key: str | None = None,
+        notifier_import: Callable[[], str] | None = None,
     ) -> None:
+        self._notifier_import = notifier_import
         self._function_import = function_import
         self._module_import = module_import
         self._type_import = type_import
@@ -177,6 +179,11 @@ class ImportResolver:
     def error_import(self) -> str:
         """The statement importing ``LabVIEWError`` from the package root."""
         return self._error_import()
+
+    def notifier_import(self) -> str | None:
+        """The statement importing ``Notifier`` from the package root's
+        ``notifiers`` module; None when this resolver has no package."""
+        return self._notifier_import() if self._notifier_import else None
 
     @property
     def has_package_modules(self) -> bool:

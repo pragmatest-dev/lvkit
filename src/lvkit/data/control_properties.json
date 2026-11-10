@@ -1,0 +1,44 @@
+{
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name. 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written (bool, enum, number), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. A property is listed only when NI's page says what it does.",
+  "value_codes": {
+    "inherited": [104013842],
+    "classes": {
+      "CmbBox": [104099840],
+      "Path": [104032256],
+      "Str": [104093696]
+    }
+  },
+  "inherited": {
+    "104013824": {
+      "name": "Visible",
+      "member": "visible",
+      "value": "bool",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/visible.html"
+    },
+    "104013826": {
+      "name": "Key Focus",
+      "member": "key_focus",
+      "value": "bool",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/keyfocus.html"
+    },
+    "104013885": {
+      "name": "Disabled",
+      "member": "disabled",
+      "value": "enum",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/disabledenum.html"
+    },
+    "104050693": {
+      "name": "Data Entry Limits:Minimum",
+      "member": "minimum",
+      "value": "number",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/rangeminimum.html"
+    },
+    "104050694": {
+      "name": "Data Entry Limits:Maximum",
+      "member": "maximum",
+      "value": "number",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/rangemaximum.html"
+    }
+  },
+  "classes": {}
+}
