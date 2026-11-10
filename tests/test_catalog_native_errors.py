@@ -79,6 +79,14 @@ PRIMITIVES = {
     "1417:Delete": DELETE,
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
+    "2010:TDMS Write": FILE_REFNUM_OPS,
+    "24110:TDMS Write": FILE_REFNUM_OPS,
+    "2012:TDMS Open": COPY_MOVE,
+    "24112:TDMS Open": COPY_MOVE,
+    "2013:TDMS Close": FILE_REFNUM_OPS,
+    "24113:TDMS Close": FILE_REFNUM_OPS,
+    "2014:TDMS Set Properties": FILE_REFNUM_OPS,
+    "24114:TDMS Set Properties": FILE_REFNUM_OPS,
 }
 
 

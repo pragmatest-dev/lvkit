@@ -103,6 +103,10 @@ class PrimitiveEntry(BaseModel):
     )
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
+    # Standard third-party packages (by their PyPI name) the node's generated
+    # code imports because Python has no construct of its own for the function;
+    # the generated package lists them in ``requirements.txt``.
+    requires: list[str] = Field(default_factory=list)
     icon: NodeIcon | None = None
     # NI's page says the node runs even when an error comes in on its error in.
     runs_on_error: bool = False

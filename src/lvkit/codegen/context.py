@@ -10,7 +10,7 @@ import copy as copy_module
 import math
 import warnings
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -667,6 +667,12 @@ class CodeGenContext:
         """Add an import statement (none when empty)."""
         if import_stmt:
             self.imports.add(import_stmt)
+
+    def require_packages(self, packages: Iterable[str]) -> None:
+        """Record the third-party ``packages`` the module's code imports, for
+        the package's ``requirements.txt`` (a VI generated alone has none)."""
+        if isinstance(self.import_resolver, ImportResolver):
+            self.import_resolver.require(packages)
 
     def import_labview_error(self, *, at_run_time: bool = True) -> None:
         """Import ``LabVIEWError`` from the package's ``errors`` module: for a
