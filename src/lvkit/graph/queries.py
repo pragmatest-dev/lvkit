@@ -966,6 +966,7 @@ class QueryMixin:
                     raw_value=gnode.raw_value,
                     referenced_vi_key=gnode.referenced_vi_key,
                     unwritable=gnode.unwritable,
+                    empty_variant=gnode.empty_variant,
                     label=gnode.label,
                     parent=gnode.parent,
                     frame=gnode.frame,
@@ -1209,6 +1210,25 @@ class QueryMixin:
         if is_master is None:
             return None
         return is_master, data.get("feedback_partner"), data.get("feedback_delay")
+
+    def get_feedback_other_terminals(self, node_id: str) -> tuple[str, ...]:
+        """The heap classes of a Feedback Node half's terminals that are none of
+        the three lvkit models (an enable terminal, for one); empty for any other
+        node."""
+        if node_id not in self._graph:
+            return ()
+        return self._graph.nodes[node_id].get("feedback_other_terminals", ())
+
+    def get_feedback_init_tunnel(self, node_id: str) -> tuple[str, str] | None:
+        """The loop-border initializer of the Feedback Node master ``node_id``
+        (its initializer "moved one loop out"): ``(outer terminal, inner
+        terminal)`` of that loop's ``initFeedback`` tunnel, the outer face being
+        the one the initial value is wired to. ``None`` for a node whose
+        initializer stays on the node, and for anything that is not a master."""
+        if node_id not in self._graph:
+            return None
+        tunnel = self._graph.nodes[node_id].get("feedback_init_tunnel")
+        return tunnel if isinstance(tunnel, tuple) else None
 
     def get_feedback_output_bmps(self, node_id: str) -> int | None:
         """The Feedback Node MASTER's own output (``leftFeedback`` dco)

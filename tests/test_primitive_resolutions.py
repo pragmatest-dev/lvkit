@@ -223,13 +223,13 @@ def test_1116_is_not_equal_to_zero():
     assert r is not None
     assert r.name == "Not Equal To 0?"
     assert r.confidence != "placeholder"
-    assert r.python_code == {"result": "in_1 != 0"}
+    assert r.python_code == {"x__0": "in_1 != 0"}
 
     from lvkit._data import load_primitives
 
     entry = load_primitives()["primitives"]["1116"]
     assert entry.get("verified") is False
-    assert entry["python_code"] == {"result": "in_1 != 0"}
+    assert entry["python_code"] == {"x__0": "in_1 != 0"}
     assert "placeholder" not in entry
 
 

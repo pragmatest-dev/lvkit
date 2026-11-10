@@ -69,7 +69,7 @@
         {
           "index": 8,
           "direction": "input",
-          "name": "variant",
+          "name": "Variant",
           "type": "polymorphic"
         },
         {
@@ -106,7 +106,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "variant",
+          "name": "Variant",
           "type": "polymorphic"
         },
         {

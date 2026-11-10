@@ -1,8 +1,26 @@
 {
   "primitives": {
-    "24110": {
+    "2010": {
       "name": "TDMS Write",
+      "op": "TDMS_WRITE",
+      "requires": [
+        "npTDMS",
+        "numpy"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
+        {
+          "index": 1,
+          "direction": "input",
+          "name": "data layout (0:decimated)",
+          "type": "Enum16",
+          "default": 0
+        },
         {
           "index": 0,
           "direction": "input",
@@ -11,10 +29,322 @@
           "refnum_type": "tdms_file"
         },
         {
+          "index": 5,
+          "direction": "input",
+          "name": "group name in (Untitled)",
+          "type": "String",
+          "default": "Untitled"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "channel name(s) in (Untitled)",
+          "type": "Array"
+        },
+        {
+          "index": 9,
+          "direction": "input",
+          "name": "data",
+          "type": "polymorphic"
+        },
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 6,
+          "direction": "output",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "output",
+          "name": "channel name(s) out",
+          "type": "Array"
+        },
+        {
+          "index": 15,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-write.html",
+      "verified": true
+    },
+    "2012": {
+      "name": "TDMS Open",
+      "op": "TDMS_OPEN",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "terminals": [
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 10,
+          "direction": "input",
+          "name": "operation (0:open)",
+          "type": "Enum16",
+          "default": 0
+        },
+        {
+          "index": 9,
+          "direction": "input",
+          "name": "byte order (2:little-endian)",
+          "type": "Enum16",
+          "default": 2
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "file format version (2.0)",
+          "type": "Enum16",
+          "default": 1
+        },
+        {
+          "index": 6,
+          "direction": "input",
+          "name": "disable buffering? (T)",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "create index file? (T)",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-open.html",
+      "verified": true
+    },
+    "2013": {
+      "name": "TDMS Close",
+      "runs_on_error": true,
+      "op": "TDMS_CLOSE",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "terminals": [
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "file path out",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-close.html",
+      "verified": true
+    },
+    "2014": {
+      "name": "TDMS Set Properties",
+      "op": "TDMS_SET_PROPERTIES",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "terminals": [
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 10,
+          "direction": "input",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "input",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "property names",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "property values",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "output",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "output",
+          "name": "channel name out",
+          "type": "String"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-set-properties.html",
+      "verified": true
+    },
+    "24110": {
+      "name": "TDMS Write",
+      "op": "TDMS_WRITE",
+      "requires": [
+        "npTDMS",
+        "numpy"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "terminals": [
+        {
           "index": 1,
           "direction": "input",
           "name": "data layout (0:decimated)",
-          "type": "Enum16"
+          "type": "Enum16",
+          "default": 0
+        },
+        {
+          "index": 0,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 3,
+          "direction": "input",
+          "name": "group name in (Untitled)",
+          "type": "String",
+          "default": "Untitled"
+        },
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "channel name(s) in (Untitled)",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "data",
+          "type": "polymorphic"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
         },
         {
           "index": 2,
@@ -24,22 +354,10 @@
           "refnum_type": "tdms_file"
         },
         {
-          "index": 3,
-          "direction": "input",
-          "name": "group name in (Untitled)",
-          "type": "String"
-        },
-        {
           "index": 4,
           "direction": "output",
           "name": "group name out",
           "type": "String"
-        },
-        {
-          "index": 5,
-          "direction": "input",
-          "name": "channel name(s) in (Untitled)",
-          "type": "Array"
         },
         {
           "index": 6,
@@ -48,25 +366,14 @@
           "type": "Array"
         },
         {
-          "index": 7,
-          "direction": "input",
-          "name": "data",
-          "type": "Array"
-        },
-        {
-          "index": 8,
-          "direction": "input",
-          "name": "error in (no error)",
-          "type": "ErrorCluster"
-        },
-        {
           "index": 9,
           "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
       ],
-      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-write.html",
+      "verified": true,
       "source": "vi-scripting-nodes-lv2025"
     },
     "24111": {
@@ -164,12 +471,75 @@
     },
     "24112": {
       "name": "TDMS Open",
+      "op": "TDMS_OPEN",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
-          "index": 0,
-          "direction": "output",
-          "name": "error out",
+          "index": 8,
+          "direction": "input",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "operation (0:open)",
+          "type": "Enum16",
+          "default": 0
+        },
+        {
+          "index": 6,
+          "direction": "input",
+          "name": "byte order (2:little-endian)",
+          "type": "Enum16",
+          "default": 2
+        },
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "input",
+          "name": "file format version (2.0)",
+          "type": "Enum16",
+          "default": 1
+        },
+        {
+          "index": 3,
+          "direction": "input",
+          "name": "disable buffering? (T)",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "index": 2,
+          "direction": "input",
+          "name": "create index file? (T)",
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 1,
@@ -179,59 +549,41 @@
           "refnum_type": "tdms_file"
         },
         {
-          "index": 2,
-          "direction": "input",
-          "name": "create index file? (T)",
-          "type": "Boolean"
-        },
-        {
-          "index": 3,
-          "direction": "input",
-          "name": "disable buffering? (T)",
-          "type": "Boolean"
-        },
-        {
-          "index": 4,
-          "direction": "input",
-          "name": "file format version (2.0)",
-          "type": "Enum16"
-        },
-        {
-          "index": 5,
-          "direction": "input",
-          "name": "error in (no error)",
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
           "type": "ErrorCluster"
-        },
-        {
-          "index": 6,
-          "direction": "input",
-          "name": "byte order (2:little-endian)",
-          "type": "Enum16"
-        },
-        {
-          "index": 7,
-          "direction": "input",
-          "name": "operation (0:open)",
-          "type": "Enum16"
-        },
-        {
-          "index": 8,
-          "direction": "input",
-          "name": "file path",
-          "type": "Path"
         }
       ],
-      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-open.html",
+      "verified": true,
       "source": "vi-scripting-nodes-lv2025"
     },
     "24113": {
       "name": "TDMS Close",
       "runs_on_error": true,
+      "op": "TDMS_CLOSE",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
       "terminals": [
         {
-          "index": 0,
-          "direction": "output",
-          "name": "error out",
+          "index": 3,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "input",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
@@ -241,42 +593,65 @@
           "type": "Path"
         },
         {
-          "index": 2,
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-close.html",
+      "verified": true,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24114": {
+      "name": "TDMS Set Properties",
+      "op": "TDMS_SET_PROPERTIES",
+      "requires": [
+        "npTDMS"
+      ],
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "terminals": [
+        {
+          "index": 9,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 6,
           "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 5,
           "direction": "input",
-          "name": "tdms file",
-          "type": "Refnum",
-          "refnum_type": "tdms_file"
-        }
-      ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
-    },
-    "24114": {
-      "name": "TDMS Set Properties",
-      "terminals": [
-        {
-          "index": 0,
-          "direction": "output",
-          "name": "error out",
-          "type": "ErrorCluster"
+          "name": "property names",
+          "type": "Array"
         },
         {
-          "index": 1,
-          "direction": "output",
-          "name": "channel name out",
-          "type": "String"
-        },
-        {
-          "index": 2,
-          "direction": "output",
-          "name": "group name out",
-          "type": "String"
+          "index": 4,
+          "direction": "input",
+          "name": "property values",
+          "type": "polymorphic"
         },
         {
           "index": 3,
@@ -286,44 +661,26 @@
           "refnum_type": "tdms_file"
         },
         {
-          "index": 4,
-          "direction": "input",
-          "name": "property values",
-          "type": "Array"
+          "index": 2,
+          "direction": "output",
+          "name": "group name out",
+          "type": "String"
         },
         {
-          "index": 5,
-          "direction": "input",
-          "name": "property names",
-          "type": "Array"
+          "index": 1,
+          "direction": "output",
+          "name": "channel name out",
+          "type": "String"
         },
         {
-          "index": 6,
-          "direction": "input",
-          "name": "error in (no error)",
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
           "type": "ErrorCluster"
-        },
-        {
-          "index": 7,
-          "direction": "input",
-          "name": "channel name",
-          "type": "String"
-        },
-        {
-          "index": 8,
-          "direction": "input",
-          "name": "group name",
-          "type": "String"
-        },
-        {
-          "index": 9,
-          "direction": "input",
-          "name": "tdms file",
-          "type": "Refnum",
-          "refnum_type": "tdms_file"
         }
       ],
-      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-set-properties.html",
+      "verified": true,
       "source": "vi-scripting-nodes-lv2025"
     },
     "24115": {

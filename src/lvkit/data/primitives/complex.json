@@ -7,24 +7,26 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "x",
+          "name": "x + iy",
           "type": "NumComplex"
         },
         {
           "index": 1,
           "direction": "output",
-          "name": "re",
+          "name": "x",
+          "python_name": "re_",
           "type": "NumFloat64"
         },
         {
           "index": 2,
           "direction": "output",
-          "name": "im",
+          "name": "y",
+          "python_name": "im",
           "type": "NumFloat64"
         }
       ],
       "python_code": {
-        "re": "in_0.real",
+        "re_": "in_0.real",
         "im": "in_0.imag"
       },
       "note": "re/im output index order (out1=re,out2=im) assumed by convention; confirm geometry.",

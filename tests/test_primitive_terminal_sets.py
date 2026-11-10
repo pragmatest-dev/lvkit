@@ -70,13 +70,13 @@ def _graph(tmp_path: Path, slots: list[tuple[int, str]]) -> tuple[InMemoryVIGrap
 LVNET_NODE = (
     "    function Variant_To_Data_10 : Variant To Data\n"
     "      in   error in  : ? default\n"
-    "      in   variant   : ? default\n"
+    "      in   Variant   : ? default\n"
     "      in   type      : ? default\n"
     "      out  error out : ?\n"
     "      out  data      : ?"
 )
 TOOLTIP = (
-    "<title>Variant To Data\nInputs:\n  error in: ?\n  variant: ?\n  type: ?\n"
+    "<title>Variant To Data\nInputs:\n  error in: ?\n  Variant: ?\n  type: ?\n"
     "Outputs:\n  error out: ?\n  data: ?\n"
 )
 
@@ -129,7 +129,7 @@ def test_a_chosen_numbering_renumbers_terminals() -> None:
     assert [(t.index, t.direction, t.name) for t in new.terminals] == [
         (0, "input", "error in"),
         (3, "output", "error out"),
-        (8, "input", "variant"),
+        (8, "input", "Variant"),
         (9, "input", "type"),
         (11, "output", "data"),
     ]
@@ -137,7 +137,7 @@ def test_a_chosen_numbering_renumbers_terminals() -> None:
     assert [(t.index, t.direction, t.name, t.type) for t in old.terminals] == [
         (0, "input", "error in", "ErrorCluster"),
         (1, "output", "error out", "cluster"),
-        (2, "input", "variant", "polymorphic"),
+        (2, "input", "Variant", "polymorphic"),
         (3, "input", "type", "polymorphic"),
         (4, "output", "data", "polymorphic"),
     ]
