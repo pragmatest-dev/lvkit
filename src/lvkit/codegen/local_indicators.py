@@ -34,6 +34,8 @@ from lvkit.graph.models import AnyGraphNode
 from lvkit.models import FPTerminal
 
 from .ast_utils import build_assign, control_default_expr, node_owned_name
+from .panel_hooks import PanelHooks, update_stmt
+from .references import is_walked_read
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -56,13 +58,17 @@ class LocalIndicators:
 
     variables: dict[str, str] = field(default_factory=dict)
     kept: dict[str, _Kept] = field(default_factory=dict)
+    # The hooks of the VI (``panel_hooks``), whose ``on_update`` is called after
+    # each write of an indicator; None in a VI that has none.
+    hooks: PanelHooks | None = None
 
     @classmethod
     def declare(
         cls, ctx: CodeGenContext, vi_name: str
     ) -> tuple[LocalIndicators, list[ast.stmt]]:
         """The indicators of ``vi_name`` read by a Local Variable or written in
-        a structure frame, each bound to a variable, and the statements that
+        a structure frame (every indicator, in a VI that has the hooks of
+        ``panel_hooks``), each bound to a variable, and the statements that
         start them."""
         found = LocalIndicators()
         statements: list[ast.stmt] = []
@@ -70,6 +76,12 @@ class LocalIndicators:
             return found, statements
         read = ctx.graph.indicator_local_reads(vi_name)
         held = {**read, **ctx.graph.indicators_written_in_a_frame(vi_name)}
+        if ctx.panel_hooks is not None:
+            for terminal_id in ctx.panel_hooks.indicators:
+                control = ctx.graph.get_terminal(terminal_id)
+                if isinstance(control, FPTerminal):
+                    held[terminal_id] = control
+            found.hooks = ctx.panel_hooks
         clears = ctx.graph.get_vi_properties(
             vi_name
         ).execution.clear_indicators_when_called
@@ -96,9 +108,10 @@ class LocalIndicators:
                 statements.append(build_assign(variable, control_default_expr(control)))
             # A control or constant on the VI's own diagram wired straight to
             # the indicator has no node to assign it after: it sets the variable
-            # here. A frame's inside face writes it in the frame.
+            # here. A frame's inside face writes it in the frame, and a Local
+            # Variable read in the walk after its node.
             for source in ctx.graph.indicator_sources(terminal_id):
-                if ctx.graph.inside_a_frame(source):
+                if ctx.graph.inside_a_frame(source) or is_walked_read(source, ctx):
                     continue
                 value = ctx.resolve(source, allow_none=True)
                 if value is not None and value != variable:
@@ -136,6 +149,10 @@ class LocalIndicators:
         kept = self.kept.get(terminal_id)
         if kept is not None and kept.written_flag is not None:
             statements.append(build_assign(kept.written_flag, ast.Constant(True)))
+        if self.hooks is not None and terminal_id in self.hooks.indicators:
+            statements.append(
+                update_stmt(self.hooks, terminal_id, self.variables[terminal_id])
+            )
         return statements
 
     def assignments_after(

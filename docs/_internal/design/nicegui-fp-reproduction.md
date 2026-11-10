@@ -3,6 +3,13 @@
 Captures the design as directed (2026-09-11). Goal: a VI becomes a lean, idiomatic
 Python **script** plus an *optional* faithful NiceGUI **front panel** bound to it.
 
+**Extended 2026-11-07 by `live-panel-plan.md` (approved):** how a running VI
+exchanges live values with a UI: `on_update(name, value)` for front-panel values
+written while running, `on_read(name, value)` for controls polled while running,
+an `events` queue for Event Structures, and `on_prompt` for dialogs, only on the
+VIs that need them. The generated logic now transliterates (CLAUDE.md "GENERATED
+PYTHON IS NATIVE PYTHON"), so "idiomatic" below means the plain-function base.
+
 ## Clusters — plan (standalone + arrays of clusters)
 
 Status (2026-09-11): `state.py` already nests a cluster as a bindable dataclass

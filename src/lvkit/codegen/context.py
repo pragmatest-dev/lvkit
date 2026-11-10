@@ -67,6 +67,7 @@ from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
+from .panel_hooks import PanelHooks
 from .references import REFERENCE_KINDS, generated_nodes
 
 # A structure frame: the structure's node id and the frame's key
@@ -186,6 +187,13 @@ class CodeGenContext:
     local_indicators: LocalIndicators = field(
         default_factory=LocalIndicators, repr=False
     )
+    # The hooks of a VI that touches its front panel while it runs (see
+    # ``panel_hooks``); None for any other VI. One per function, shared by child
+    # contexts.
+    panel_hooks: PanelHooks | None = field(default=None, repr=False)
+    # The variable that holds the message an Event Structure handles, by the id of
+    # the structure. One per function, shared by child contexts.
+    event_messages: dict[str, str] = field(default_factory=dict, repr=False)
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -548,7 +556,8 @@ class CodeGenContext:
         return generated_nodes(
             self.graph.child_nodes(
                 node.id, self.vi_name or "", extra_kinds=REFERENCE_KINDS
-            )
+            ),
+            self,
         )
 
     def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
@@ -617,6 +626,8 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
+            panel_hooks=self.panel_hooks,
+            event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function

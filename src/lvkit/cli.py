@@ -545,6 +545,16 @@ def main() -> int:
         default="outputs",
         help="Output directory",
     )
+    gen_parser.add_argument(
+        "--panel",
+        action="store_true",
+        help=(
+            "Also write each VI's NiceGUI front panel as <vi>_panel.py next to "
+            "its module, with the shared 'controls' package at the package root "
+            "(needs `pip install lvkit[panel]` only to run the panel). "
+            "A control the panel has no widget for is a gap."
+        ),
+    )
     add_fail_fast_arg(gen_parser)
     _add_project_root_arg(gen_parser)
     _add_load_mode_arg(gen_parser)
@@ -2133,6 +2143,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             instrlib_root=instrlib_root,
             search_path=search_path,
             run=run,
+            panel=args.panel,
         )
         return finish(run, result["stopped"])
 
