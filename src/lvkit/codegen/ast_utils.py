@@ -6,6 +6,7 @@ import ast
 import builtins
 import keyword
 import re
+import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -591,6 +592,17 @@ def module_part(name: str) -> str:
     if keyword.iskeyword(result):
         result += "_"
     return result or "module"
+
+
+def package_root_name(stem: str) -> str:
+    """The generated package's name: the input file's ``stem`` by ``module_part``,
+    with ``_`` after a name Python already has as a top-level module (the
+    standard library's, or a package generated code imports), so importing the
+    package never hides that module (``Numbers.vi`` is the package ``numbers_``)."""
+    name = module_part(stem)
+    if name in sys.stdlib_module_names or name in GENERATED_MODULE_NAMES:
+        name += "_"
+    return name
 
 
 def to_module_name(vi_name: str) -> str:

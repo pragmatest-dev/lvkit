@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a generated package always imports and never hides a Python module** — the package is named by the same rule as every module (`1D Tools.vi` is `var_1d_tools`, which imports), and a name Python already has gets `_` after it (`Numbers.vi` is `numbers_`, not a package that hides the standard `numbers`).
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **Fix: an LLB whose members could not all be cached is extracted again** — a cache where every member failed, or a cached member file that was deleted, is no longer reused as is.
 - **A front panel's Subpanel control is read and drawn** — its frame, content area and caption show in `render --view front-panel`, and `EXE Test.vi` and `Add Attributes to Message.vi` no longer record "could not read an object of kind stdSubPanel".
