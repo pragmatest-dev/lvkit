@@ -14,6 +14,7 @@ from pathlib import Path
 from lvkit.graph import InMemoryVIGraph
 
 from .ast_utils import unique_names
+from .package_requirements import PackageRequirements
 from .queue_module import QUEUES_MODULE, PackageQueues
 from .shared_variable_module import SHARED_VARIABLES_MODULE, PackageSharedVariables
 
@@ -29,6 +30,11 @@ class PackageModules:
     queues_stem: str = QUEUES_MODULE
     shared_variables_stem: str = SHARED_VARIABLES_MODULE
     reserved: Collection[str] = field(default=(), repr=False)
+    # The third-party packages the package's modules import, collected while the
+    # VIs are generated.
+    requirements: PackageRequirements = field(
+        default_factory=PackageRequirements, repr=False
+    )
 
     @classmethod
     def from_graph(

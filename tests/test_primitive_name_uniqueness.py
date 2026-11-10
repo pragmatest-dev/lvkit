@@ -11,7 +11,7 @@ panes, e.g. one variant returning a view onto the other's result). So
 duplicates are not banned outright: they must be **explicitly reviewed**.
 Anything not listed below fails, which makes an accidental duplicate
 impossible to land silently while a proven twin is a one-line, evidence-carrying
-addition. (REVIEWED_DUPLICATES is currently empty — its last two entries,
+addition. (Its earlier entries,
 Absolute Value 1054/1057 and Split 1D Array 1056/1908, turned out not to be
 twins after all: nodes.json's VI-Scripting export (#59) proved 1057 is really
 Increment and 1056 is really Quotient & Remainder, each a different function
@@ -21,7 +21,7 @@ To add an entry here you must have compared the two panes AS OBSERVED in the
 corpus (scripts/audit_primitive_consistency.py + the duplicate pane dump) — not
 just the names.
 
-SCOPE — deliberately the SHIPPED catalog only (``src/lvkit/data/primitives.json``).
+SCOPE — deliberately the SHIPPED catalog only (``src/lvkit/data/primitives/*.json``).
 Name uniqueness is an invariant *within* one catalog, never across catalogs. A
 project-local ``.lvkit/primitives.json`` entry that reuses a shipped name is the
 designed OVERRIDE mechanism (resolvers read ``.lvkit/`` first and fall back to the
@@ -38,9 +38,6 @@ the same name. That override must win and must never fail this gate. Do NOT
 from __future__ import annotations
 
 import collections
-from pathlib import Path
-
-PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
 
 # name -> (pids, status). CONFIRMED-TWIN = panes compared and identical.
 # NEEDS-ADJUDICATION = panes materially DIFFER, so one of the pair is mislabeled;
@@ -62,8 +59,21 @@ REVIEWED_DUPLICATES: dict[str, set[str]] = {
     # (1057's own output terminal is literally named "x+1", not an
     # absolute-value expression) — 1057 was corrected to "Increment", which
     # dissolves this duplicate too, so it is no longer listed here either.
-    # REVIEWED_DUPLICATES is currently empty; kept as the mechanism for a
-    # FUTURE pane-compared twin.
+    # REVIEWED_DUPLICATES holds only the pane-compared twins below.
+    #
+    # The four TDM Streaming functions are each one function under two numberings
+    # (maintainer decision, 2026-11-08): the corpus VIs carry 2010/2012/2013/2014,
+    # read off the nodes' ``parmIndex`` (54 VIs hold TDMS Open, 53 TDMS Close,
+    # 23 TDMS Write, 7 TDMS Set Properties), and the VI-Scripting node list
+    # numbers the same functions 24110/24112/24113/24114 with sequential
+    # indices. Their panes are the same terminals under different indices
+    # (compared against NI's four pages: same labels, same types, same
+    # direction); no cached VI holds a 241xx id, so the pairs are
+    # twins by name and pane, not by a corpus node.
+    "TDMS Write": {"2010", "24110"},
+    "TDMS Open": {"2012", "24112"},
+    "TDMS Close": {"2013", "24113"},
+    "TDMS Set Properties": {"2014", "24114"},
 }
 # RESOLVED, no longer duplicated (kept as a record of what the gate caught):
 #   Close File / Open/Create/Replace File — 8011/8010 were never file I/O; they are

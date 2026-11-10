@@ -41,6 +41,7 @@ from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .nodes.feedback import feedback_master_of
 from .panel_hooks import (
     PanelHooks,
     entry_reads,
@@ -172,9 +173,6 @@ def function_body(
         parameter_names
         or interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
     )
-    docstring = front_panel_docstring(vi_context, names, ctx.type_namer())
-    if docstring is not None:
-        body.append(docstring)
     body.extend(ctx.entry_raises)
 
     # A control that is not on the connector pane is a local variable set to its
@@ -196,6 +194,14 @@ def function_body(
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
     body.extend(ctx.local_indicators.statements_at_end())
+
+    # The docstring opens the function; it names the Variant parameters the body
+    # turned out to read as lookup tables.
+    docstring = front_panel_docstring(
+        vi_context, names, ctx.type_namer(), sorted(ctx.lookup_parameters)
+    )
+    if docstring is not None:
+        body.insert(0, docstring)
 
     # Add return statement
     final = (
@@ -315,6 +321,13 @@ def topological_sort_tiered(
                 if graph is None or graph.terminal_vi(src_term) != home:
                     break
                 current = src_term
+
+    # A Feedback Node's write runs after its read: the read gives the value of
+    # the run before.
+    for op in operations:
+        master = feedback_master_of(op, ctx)
+        if master in dependencies:
+            dependencies[op.id].add(master)
 
     # Tiered Kahn's algorithm — drain all ready ops per iteration
     tiers: list[list[AnyGraphNode]] = []

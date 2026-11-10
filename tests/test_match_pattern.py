@@ -409,7 +409,7 @@ def test_describe_and_lvnet_show_the_node_terminals(tmp_path) -> None:
         "    function Match_Pattern_10 : Match Pattern\n"
         "      in   string             : ? default\n"
         "      in   regular expression : ? default\n"
-        "      in   offset             : ? default\n"
+        "      in   offset (0)         : ? default\n"
         "      out  before substring   : ?\n"
         "      out  match substring    : ?\n"
         "      out  after substring    : ?\n"
