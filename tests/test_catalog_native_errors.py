@@ -32,6 +32,21 @@ DELETE = [
     ("OSError", 6),
 ]
 
+CREATE_FOLDER = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("FileExistsError", 10),
+    ("OSError", 6),
+]
+
+WRITE_TO_TEXT_FILE = [
+    ("EmptyOrRelativePathError", 1430),
+    ("InvalidPathError", 1),
+    *FILE_PATH_OPS,
+]
+
 PRIMITIVES = {
     "8050:Open/Create/Replace File": FILE_PATH_OPS,
     "8051:Read from Binary File": FILE_REFNUM_OPS,
@@ -44,6 +59,7 @@ PRIMITIVES = {
     "8070:Read from Text File": FILE_PATH_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8078:Write to Binary File": FILE_REFNUM_OPS,
+    "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8003:Variant To Data": [("TypeError", 91)],
     "1165:Unflatten From String": [("error", 116)],
@@ -57,9 +73,11 @@ PRIMITIVES = {
         ("NullCharacterError", -4702),
         ("error", None),
     ],
+    "8055:Create Folder": CREATE_FOLDER,
     "8056:Delete": DELETE,
     "1417:Delete": DELETE,
     "8016:To More Specific Class": [("TypeError", 1448)],
+    "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
 }
 
 

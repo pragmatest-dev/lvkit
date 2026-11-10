@@ -414,29 +414,29 @@
     },
     "2402": {
       "name": "Coerce To Type",
+      "op": "COERCE_TO_TYPE",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/coerce-to-type.html",
       "terminals": [
         {
           "index": 0,
           "direction": "input",
           "name": "x",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "type",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "output",
           "name": "coerced x",
-          "type": "NumFloatExt"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "verified": true
     },
     "5561": {
       "name": "To Fixed-Point",

@@ -137,6 +137,7 @@ from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
 )
+from .shift_registers import pair_by_position
 from .unwired_default import instance_default, pane_default
 
 if TYPE_CHECKING:
@@ -544,7 +545,7 @@ def _loop_shift_register_pairs_gn(
     tunnels = _tunnels_from_terminals_gn(node.terminals)
     lsrs = [t for t in tunnels if t.tunnel_type == "lSR"]
     rsrs = [t for t in tunnels if t.tunnel_type == "rSR"]
-    return [(lsr, rsrs[i] if i < len(rsrs) else None) for i, lsr in enumerate(lsrs)]
+    return pair_by_position(lsrs, rsrs)
 
 
 def _paired_tunnel_id_gn(term: Terminal) -> str | None:
