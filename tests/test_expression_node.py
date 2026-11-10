@@ -14,8 +14,10 @@ import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
+from lvkit.graph.lvnet_parse import netlist_signature, parse_lvnet
+from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import FormulaNode
-from lvkit.graph.netlist import build_netlist_from_graph
+from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.expression_text import read_text_record
@@ -152,11 +154,9 @@ def test_every_view_shows_the_formula(tmp_path: Path) -> None:
         "## Operations\nExpression Node `2*x+3`"
     )
     assert render_lvnet(build_netlist_from_graph(graph, vi_name)).endswith(
-        "    formula-node Expression_Node_10 : Expression Node\n"
+        '    expression-node Expression_Node_10 : "2*x+3"\n'
         "      in   0 : ? default\n"
-        "      out  1 : ?\n"
-        "      # TODO(lvnet): formula-node script rendering needs the `script` "
-        "field plumbed onto the model first (md §17 item 6)"
+        "      out  1 : ?"
     )
     svg = render_vi(graph, vi_name, interactive=False)
     assert svg is not None
@@ -181,6 +181,94 @@ def test_formula_node_views_are_unchanged(tmp_path: Path) -> None:
     assert describe_vi(graph, vi_name).endswith(
         "## Operations\nFormula Node [Formula Node]"
     )
+
+
+# --- the formula in lvnet and JSON ------------------------------------------
+
+_FORMULA_SCRIPT = 'a = "q";\nb = x\t;'
+
+
+def _netlist(tmp_path: Path, xml: str):
+    graph = InMemoryVIGraph()
+    graph.load_vi(_write(tmp_path, xml), layout=True)
+    return build_netlist_from_graph(graph, graph.list_vis()[0])
+
+
+def _body_lines(text: str) -> str:
+    """The node's declaration and terminal block (after the ``vi`` line,
+    ``block-diagram :`` header included)."""
+    return "\n".join(text.splitlines()[1:])
+
+
+def _assert_round_trips(module, text: str, verbose: bool) -> None:
+    parsed = parse_lvnet(text)
+    assert netlist_signature(parsed) == netlist_signature(module)
+    assert render_lvnet(reconstruct_module(parsed), verbose=verbose) == text
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_formula_node_script_is_one_quoted_literal(
+    tmp_path: Path, verbose: bool
+) -> None:
+    module = _netlist(tmp_path, _bd_xml("fBox", f'<text>"{_FORMULA_SCRIPT}"</text>'))
+    text = render_lvnet(module, verbose=verbose)
+    assert _body_lines(text) == (
+        "  block-diagram :\n"
+        '    formula-node Formula_Node_10 : "a = \\"q\\";\\nb = x\\t;"\n'
+        "      in   0 : ? default\n"
+        "      out  1 : ?"
+    )
+    _assert_round_trips(module, text, verbose)
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_expression_node_formula_is_one_quoted_literal(
+    tmp_path: Path, verbose: bool
+) -> None:
+    module = _netlist(tmp_path, _bd_xml("exprNode", _inline_text("2*x+3")))
+    text = render_lvnet(module, verbose=verbose)
+    assert _body_lines(text) == (
+        "  block-diagram :\n"
+        '    expression-node Expression_Node_10 : "2*x+3"\n'
+        "      in   0 : ? default\n"
+        "      out  1 : ?"
+    )
+    _assert_round_trips(module, text, verbose)
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_expression_node_without_text_has_no_component(
+    tmp_path: Path, verbose: bool
+) -> None:
+    module = _netlist(tmp_path, _bd_xml("exprNode", "<textRec>28</textRec>"))
+    text = render_lvnet(module, verbose=verbose)
+    assert _body_lines(text) == (
+        "  block-diagram :\n"
+        "    expression-node Expression_Node_10\n"
+        "      in   0 : ? default\n"
+        "      out  1 : ?"
+    )
+    _assert_round_trips(module, text, verbose)
+
+
+def test_json_has_the_script_of_formula_and_expression_nodes(
+    tmp_path: Path,
+) -> None:
+    def instance(xml: str, name: str) -> dict:
+        (item,) = netlist_to_dict(_netlist(tmp_path / name, xml))["body"]
+        return item
+
+    (tmp_path / "f").mkdir()
+    (tmp_path / "e").mkdir()
+    (tmp_path / "n").mkdir()
+    formula = instance(_bd_xml("fBox", f'<text>"{_FORMULA_SCRIPT}"</text>'), "f")
+    assert formula["name"] == "Formula Node"
+    assert formula["script"] == _FORMULA_SCRIPT
+    expression = instance(_bd_xml("exprNode", _inline_text("2*x+3")), "e")
+    assert expression["name"] == "Expression Node"
+    assert expression["script"] == "2*x+3"
+    no_text = instance(_bd_xml("exprNode", "<textRec>28</textRec>"), "n")
+    assert no_text["script"] is None
 
 
 # --- generated Python, run --------------------------------------------------

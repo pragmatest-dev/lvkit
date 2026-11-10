@@ -3,7 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **An Expression Node generates Python and shows its formula** — `2*x+3`, `sin(x)` or `(x/pi)*180.0` becomes a function of its one variable with the result in the input's number type (an array input is computed element by element); `describe` and `render` show the formula, including one a VI keeps in a text record; a cluster input is a reported gap.
+- **An Expression Node generates Python and shows its formula** — `2*x+3`, `sin(x)` or `(x/pi)*180.0` becomes an inline expression with the result in the input's number type (an array input is computed element by element); `describe` and `render` show the formula, including one a VI keeps in a text record; a cluster input is a reported gap.
+- **`describe --format lvnet` and the netlist JSON show a Formula Node's and an Expression Node's formula** — the node's header is `formula-node <handle> : "<script>"` or `expression-node <handle> : "2*x+3"` (one quoted literal, read back losslessly), and the JSON has a `script` field.
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **Fix: an LLB whose members could not all be cached is extracted again** — a cache where every member failed, or a cached member file that was deleted, is no longer reused as is.
 - **A front panel's Subpanel control is read and drawn** — its frame, content area and caption show in `render --view front-panel`, and `EXE Test.vi` and `Add Attributes to Message.vi` no longer record "could not read an object of kind stdSubPanel".
