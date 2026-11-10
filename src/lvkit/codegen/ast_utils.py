@@ -473,7 +473,7 @@ GENERATED_MODULE_NAMES = frozenset(
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
         "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "time",
+        "struct", "sys", "tempfile", "time", "uuid",
     }
 )  # fmt: skip
 
