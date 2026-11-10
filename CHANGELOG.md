@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Variant To Flattened String and Flattened String To Variant generate code** — a type known when the code is generated (a typed To Variant wire, a constant or round-tripped `type string`) uses `struct` calls in LabVIEW's byte format and a literal `type string`; a variant of unknown type is `pickle`d.
+- **Flatten To String generates `struct` code** — any number, Boolean, string, array or cluster, with `byte order` and `prepend array or string size?` read from their constants; the 7.x `type string` output is a gap.
 - **A primitive's terminals show NI's own labels in every view** — `error in (no error)`, `byte order (0:big-endian, network order)`, `x+y`, `size (in bytes)` instead of `error_in`, `byte_order`, `sum`, `size`; generated Python keeps its variable names and a gap message names the terminal by its label.
 - **A VI with an Event Structure runs from the generated front panel** — it takes an `events` queue; Timeout, Value Change on a control and Panel Close? frames are generated, a control change on the panel pushes a Value Change, and Close asks the Panel Close? frame; any other event is a gap that names it.
 - **Constants and control defaults in VIs saved by LabVIEW 9.0 are read** — a value LabVIEW 9.0.0 kept only in the VI's default data is read (Pico examples: 8,964 constant gaps down to 1,972); 9.0-era control defaults show (OpenG `Delete Elements from 1D Array` `indices` is `[]`); a refnum constant with no saved value is Not a Refnum (`None`). **LabVIEW 8.2/8.5 constants are read too** (703 of 715 in the corpus; Pico examples' DFDS gaps 1,972 down to 8), as are those VIs' case-frame selector values; their control defaults are not read.
