@@ -451,3 +451,73 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-A:** the property table plus the code-based Value test, and generated `on_property` writes with the property Enum. Tests: a handmade VI with one node writing DisabledEnum, Visible and Value. Every view is checked, `generate` executes with a recording `on_property`, and the expected calls are asserted. Neighbouring cases: a node with an unlisted row stays a gap, and a Value-only node is unchanged.
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
+
+## 11. One `live_io` object instead of hook parameters (PROPOSED 2026-11-10, for the maintainer's approval)
+
+### 11.1 What changes
+
+A VI that touches its front panel while it runs takes ONE keyword-only parameter, `live_io: LiveIO = NO_LIVE_IO`, in place of `on_update`, `on_read`, `on_property`, `events` and the planned `on_prompt`. Which VIs get it is unchanged (`touches_panel_while_running`, 2.3, plus D8 and 9.3), as are D4 (with or without `--panel`) and D6 (not passed to subVIs, except D21 below).
+
+`LiveIO` is a base class generated once into the package (as `errors.py` is), so generated code still imports nothing from lvkit. Its methods are the five things a VI does with its own front panel, each a no-op that needs no state:
+
+| Method | Replaces | Base behaviour |
+|---|---|---|
+| `write(name, value)` | `on_update` | nothing |
+| `read(name, value) -> value` | `on_read` | returns `value` (the function's own variable) |
+| `set_property(name, prop, value) -> Any` | `on_property` | nothing; returns `None` (D21's Inserted VI returns the embedded VI's `LiveIO`) |
+| `prompt(...)` | `on_prompt` (D5) | `input()`, D5's decided fallback |
+| `events` attribute | `events=` | `None`: the function waits on its own empty `Queue`, as today (9.4) |
+
+`get_property(name, prop, value) -> value` is added by PR-C, with the same base behaviour as `read`. `NO_LIVE_IO` is one shared instance; the base holds no state, so a shared default is safe.
+
+Before and after, the Timer example's loop (`Example - Simple.vi`):
+
+```python
+# today
+if on_read is not None:
+    quit_program = on_read(ExampleSimpleValue.QUIT_PROGRAM, quit_program)
+...
+timer_time_min = get_time_result.timer_time_min
+if on_update is not None:
+    on_update(ExampleSimpleValue.TIMER_TIME_MIN, timer_time_min)
+
+# with live_io
+quit_program = live_io.read(ExampleSimpleValue.QUIT_PROGRAM, quit_program)
+...
+timer_time_min = get_time_result.timer_time_min
+live_io.write(ExampleSimpleValue.TIMER_TIME_MIN, timer_time_min)
+```
+
+The Timer class and example have 27 guarded hook calls today (21 in `timer.py`, 6 in the example); each becomes one line.
+
+### 11.2 Why
+
+- **It is the standard pattern** (null object plus dependency injection), and the shape `LiveValues` already has.
+- **New capabilities stop changing signatures.** `on_property` (D16), `events` (9.3) and `on_prompt` (D5) were each a new parameter on every affected VI; with `LiveIO` a new capability is a new method with a no-op default, and generated signatures and existing adapters keep working.
+- **New destinations are new subclasses**, with no change to the generator or to a generated VI: the panel's `LiveValues`, a TesterKit adapter (11.4), a test recorder, a remote UI over a data service (11.5).
+- **Cost:** about 9 ns per call with no `live_io` passed (`.tmp/time_noop_panel.py`, 1,000,000 iterations, best of 5: guarded `None` 0.007 s, no-op method 0.016 s, bare loop 0.006 s); a caller that wants one callback writes a three-line subclass instead of passing a function; one more generated module.
+
+### 11.3 Recorded decisions this touches
+
+- **Decision 1 (2026-11-07), section 0:** REPLACED in part. It replaced a `front_panel=None` parameter with `<VI>Panel` class and `fp.x` attribute access by callbacks. `LiveIO` keeps the callbacks' semantics (name + value, the function's variables stay the values) and keeps out `fp.x` access; it packages the callbacks as methods of one object.
+- **2.3 "Why a plain `if ... is not None:` and no helper":** REPLACED. That reasoning called a do-nothing helper runtime emulation. It is not: the base re-implements nothing of LabVIEW; it is the null-object pattern. The uniform rule of 2.3 (which access becomes which call, and where) is KEPT; only the call's form changes.
+- **D2 names (generated `(str, Enum)` per VI):** KEPT; `write`/`read` take the member as today.
+- **D5 dialogs:** EXTENDED: `on_prompt` becomes `live_io.prompt`, the `input()` fallback is the base method.
+- **D16 (separate `on_property`, so `on_update` stays two arguments for scripts and TesterKit):** EXTENDED: `set_property` stays separate from `write`, so `write(name, value)` keeps D16's two arguments; a single-function caller uses a subclass.
+- **D21 (Subpanel live, `on_property` returns the embedded hooks dict, Run VI does `fn(**(inserted_hooks or {}))`):** EXTENDED: `set_property(..., INSERTED_VI, ...)` returns the embedded VI's `LiveIO`, and Run VI passes `live_io=inserted_io` (or `NO_LIVE_IO`).
+- **Reserved names (`ast_utils.py:481-491`):** `on_update`, `on_read`, `on_property`, `events` are replaced by `live_io`. A control labeled `events` gets its own parameter name back.
+- **Naming:** per `code-style.md` "Names in generated Python": `LiveIO` / `live_io` are lvkit's construct, so Python names; the docstring says "the controls and indicators this function reads and writes while it runs (its LabVIEW front panel)". Not `io` (hides the `io` module that Write to Text File imports, `nodes/ops/write_to_text_file.py:112`).
+
+### 11.4 The panel side and TesterKit
+
+- `LiveValues` subclasses `LiveIO`; the generated panel calls `vi_function(live_io=values)`.
+- `build_panel(forward: LiveIO | None = None)`: writes go to the panel and then to `forward`; reads come from the panel. One run then shows on screen and records elsewhere, with neither the panel nor the generated function knowing where.
+- TesterKit maps onto the methods with no change on either side (read from `testerkit/src/testerkit/` 2026-11-10): `write` → `channels.write(name.value, value, namespace=<VI>)` (`channels.py:81`, every write a sample) or `Context.observe` (`execution/harness.py:270`, the last value as the test's output); `read` → `Context.get_param(name.value, value)` (`harness.py:894`, the same shape: the default is the VI's own value); `prompt` → `prompts.ask` (`prompts/core.py:57`). TesterKit's namespace is output-only by design (`harness.py:314-320`); the adapter chooses whether controls share one parameter per name.
+
+### 11.5 Remote UIs over a data service
+
+A remote `LiveIO` publishes on `write` and returns; `read` returns a local copy the remote UI keeps current (a round trip per `read` in a loop would slow the VI to network speed); Pause and Abort arrive as messages checked at each call, as `LiveValues._checkpoint` does. TesterKit channels carry both directions (`latest` for control values, `live` for every event); Panel Close? needs a reply channel they do not have. Values that are live Python objects (queue, Data Value Reference, VI reference, class object) cannot cross a process boundary; a remote UI shows a stand-in for them.
+
+### 11.6 Steps
+
+One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
