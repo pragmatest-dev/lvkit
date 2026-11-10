@@ -75,12 +75,12 @@ class NodeBuildHandler(ABC):
 
 class FormulaBuildHandler(NodeBuildHandler):
     def build(self, node, node_name, q_node_uid, node_terminals, description, ctx):
-        # The "fBox" class is only ever parsed into a ParserFormulaNode; anything
-        # else means the parser dispatch is broken — fail loud rather than
-        # silently drop the script.
+        # The "fBox" and "exprNode" classes are only ever parsed into a
+        # ParserFormulaNode; anything else means the parser dispatch is broken
+        # — fail loud rather than silently drop the script.
         if not isinstance(node, ParserFormulaNode):
             raise TypeError(
-                f"fBox node {q_node_uid!r} is {type(node).__name__}, "
+                f"{node.node_type} node {q_node_uid!r} is {type(node).__name__}, "
                 "expected ParserFormulaNode (script would be lost)"
             )
         return GraphFormulaNode(
@@ -319,6 +319,7 @@ _subvi_handler = SubVIBuildHandler()
 
 NODE_BUILD_HANDLERS: dict[str, NodeBuildHandler] = {
     "fBox": FormulaBuildHandler(),
+    "exprNode": FormulaBuildHandler(),
     "sharedVariable": SharedVariableBuildHandler(),
     **{nt: _subvi_handler for nt in SUBVI_CALL_NODE_TYPES},
 }

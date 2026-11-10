@@ -61,7 +61,7 @@ from ..models import (
     unique_names,
 )
 from ..num_format import format_numeric_const as _format_numeric_const
-from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES, NODE_CLASS_EXPRESSION
 from ..parser.error_ring import ERROR_RING_PATH, ErrorRing
 from ..parser.layout import ClusterGeom, Rect, RefnumPayload
 from ..parser.node_types import get_display_name
@@ -335,6 +335,9 @@ _CONVERTER_ABBR = {
     1167: "0,1",  # Boolean To (0,1)
 }
 
+
+# Padding inside an Expression Node box (a Formula Node uses the glyph default).
+_EXPRESSION_PAD = 3.0
 
 _T = TypeVar("_T")
 
@@ -1866,6 +1869,10 @@ class GeneratedGlyphResolver:
                 refnum_payload=ctx.refnum_payload.get(raw_uid),
             )
         if isinstance(node, FormulaNode):
+            if node.node_type == NODE_CLASS_EXPRESSION:
+                # An Expression Node is a one-line box, too short for the
+                # Formula Node's padding.
+                return FormulaNodeGlyph(node.script or "", pad=_EXPRESSION_PAD)
             return FormulaNodeGlyph(node.script or "")
         if isinstance(node, GlobalVariableNode):
             # A Global Variable: the control's NAME in the local-variable box,

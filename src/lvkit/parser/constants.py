@@ -71,6 +71,7 @@ NODE_CLASS_GREF = "gRef"  # Local Variable reference
 NODE_CLASS_STAT_VI_REF = "statVIRef"  # Static VI Reference constant
 NODE_CLASS_SHARED_VARIABLE = "sharedVariable"  # Shared Variable node
 NODE_CLASS_FORMULA = "fBox"  # Formula Node (embedded C-like script)
+NODE_CLASS_EXPRESSION = "exprNode"  # Expression Node (one-variable formula)
 # In Place Element Structure (IPES)
 NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 
@@ -149,6 +150,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_STAT_VI_REF,
     NODE_CLASS_SHARED_VARIABLE,
     NODE_CLASS_FORMULA,
+    NODE_CLASS_EXPRESSION,
     NODE_CLASS_CALL_PARENT,
     NODE_CLASS_CALL_BY_REF,
     NODE_CLASS_DECOMPOSE_RECOMPOSE,

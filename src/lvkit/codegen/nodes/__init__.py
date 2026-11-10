@@ -27,6 +27,7 @@ from lvkit.graph.models import (
     SharedVariableNode,
     VINode,
 )
+from lvkit.parser.constants import NODE_CLASS_EXPRESSION
 
 from .. import error_flow
 from ..context import CodeGenContext
@@ -42,6 +43,7 @@ from . import (
     constant,
     disable,
     event,
+    expression,
     ext_func,
     feedback,
     first_call,
@@ -106,6 +108,8 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
             return vi_reference.generate_call(node, ctx)
         return subvi.generate(node, ctx)
     if isinstance(node, FormulaNode):
+        if node.node_type == NODE_CLASS_EXPRESSION:
+            return expression.generate(node, ctx)
         return formula.generate(node, ctx)
     if isinstance(node, GlobalVariableNode):
         return global_variable.generate(node, ctx)
