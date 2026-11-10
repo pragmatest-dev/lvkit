@@ -97,6 +97,33 @@ def test_invalid_archive_retains_open_error(tmp_path):
         extractor.extract_llb(archive)
 
 
+def test_retries_after_no_members_could_be_written(tmp_path, monkeypatch):
+    archive = _write_archive(tmp_path, "UCRF", _MEMBERS)
+    original_write = extractor.atomic_write_bytes
+
+    def unavailable(path, data):
+        raise OSError("cache temporarily unavailable")
+
+    monkeypatch.setattr(extractor, "atomic_write_bytes", unavailable)
+    failed = extractor.extract_llb_members(archive)
+    assert {failure.member for failure in failed.failures} == set(_MEMBERS)
+    assert not list(failed.cache_dir.glob("*.vi"))
+
+    monkeypatch.setattr(extractor, "atomic_write_bytes", original_write)
+    retried = extractor.extract_llb_members(archive)
+    assert retried.failures == ()
+    assert {p.name: p.read_bytes() for p in retried.cache_dir.glob("*.vi")} == _MEMBERS
+
+
+def test_reextracts_a_missing_cached_member(tmp_path):
+    archive = _write_archive(tmp_path, "UCRF", _MEMBERS)
+    cache = extractor.extract_llb(archive)
+    (cache / "second.vi").unlink()
+
+    assert extractor.extract_llb(archive) == cache
+    assert (cache / "second.vi").read_bytes() == _MEMBERS["second.vi"]
+
+
 def test_a_member_that_cannot_be_extracted_is_a_problem_on_its_own_vi(
     tmp_path, monkeypatch
 ):
