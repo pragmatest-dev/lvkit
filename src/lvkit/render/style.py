@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from itertools import groupby
 
 from lvkit.lv_type_codes import (
+    COMPLEX_TYPE_NAMES,
     INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     is_boolean_type_name,
     is_string_type_name,
 )
@@ -226,10 +228,6 @@ _CLASS_CHAIN_PATTERN: tuple[int, ...] = (0xC3,) * 8
 _CLASS_WIRE_W = 3.0
 _CLASS_WIRE_CORE_W = 1.0
 
-_FLOAT_TYPES = {"NumFloat32", "NumFloat64", "NumFloatExt"}
-# Complex is orange like floats in LabVIEW (was falling through to "unknown").
-_COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
-
 # LabVIEW data-type terminal text, exactly as the reference manual draws it
 # (e.g. an orange `[DBL]` box for a DBL array — verified against the PDF).
 # The numeric/Boolean/Path tokens are shared with ``LVType.type_descriptor()``'s
@@ -244,7 +242,7 @@ _TYPE_REPR = {
 }
 
 
-_NUMERIC_TYPES = INTEGER_TYPE_NAMES | _FLOAT_TYPES | _COMPLEX_TYPES
+_NUMERIC_TYPES = INTEGER_TYPE_NAMES | REAL_FLOAT_TYPE_NAMES | COMPLEX_TYPE_NAMES
 
 # An enum/ring is stored as an unsigned integer (the UnitUInt8/16/32 codes
 # 0x15/0x16/0x17) and coerces to/from numerics AS that integer — so it takes a
@@ -400,7 +398,7 @@ def type_family(lv_type: LVType | None) -> str:
         return "error_cluster" if _is_error_cluster(lv_type) else "cluster"
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         ut = lv_type.underlying_type or ""
-        if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
+        if ut in REAL_FLOAT_TYPE_NAMES or ut in COMPLEX_TYPE_NAMES:
             return "float"
         if ut in INTEGER_TYPE_NAMES:
             return "int"

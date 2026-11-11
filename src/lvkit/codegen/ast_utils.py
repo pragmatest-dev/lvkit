@@ -11,7 +11,9 @@ from dataclasses import dataclass
 
 from lvkit.graph.core import uid_of
 from lvkit.lv_type_codes import (
+    COMPLEX_TYPE_NAMES,
     INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     is_boolean_type_name,
     is_string_type_name,
 )
@@ -82,8 +84,10 @@ def _scalar_default(underlying: str | None) -> ast.Constant:
         return ast.Constant(value=False)
     if underlying in INTEGER_TYPE_NAMES:
         return ast.Constant(value=0)
-    if underlying in ("NumFloat32", "NumFloat64"):
+    if underlying in REAL_FLOAT_TYPE_NAMES:
         return ast.Constant(value=0.0)
+    if underlying in COMPLEX_TYPE_NAMES:
+        return ast.Constant(value=0j)
     return ast.Constant(value=None)
 
 
@@ -633,7 +637,7 @@ def saved_default_expr(dv: ScalarValue, lv_type: LVType | None) -> ast.expr | No
             return ast.Constant(value=int(dv))
         if underlying and underlying.startswith(("NumInt", "NumUInt")):
             return ast.Constant(value=int(dv))
-        if underlying in ("NumFloat32", "NumFloat64"):
+        if underlying in REAL_FLOAT_TYPE_NAMES:
             return ast.Constant(value=float(dv))
         if underlying == "Boolean":
             return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))

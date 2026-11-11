@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import logging
 
-from ..lv_type_codes import is_boolean_type_name, is_string_type_name
+from ..lv_type_codes import (
+    INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
 from ..models import LVType, LVTypeKind, ScalarValue, Terminal, TerminalDirection
 from ..path_value import is_path_text
 from ..primitive_resolver import PrimitiveResolver
@@ -29,20 +34,6 @@ from .terminal_layout import LaidOutTerminal, lay_out_node
 BARE = "?"
 _logger = logging.getLogger(__name__)
 
-_INTEGER_TYPES = frozenset(
-    {
-        "NumInt8",
-        "NumInt16",
-        "NumInt32",
-        "NumInt64",
-        "NumUInt8",
-        "NumUInt16",
-        "NumUInt32",
-        "NumUInt64",
-    }
-)
-_FLOAT_TYPES = frozenset({"NumFloat32", "NumFloat64", "NumFloatExt"})
-
 
 def default_fits(value: ScalarValue, lv_type: LVType | None) -> bool:
     """Whether a documented value is a value of the terminal's type."""
@@ -55,9 +46,9 @@ def default_fits(value: ScalarValue, lv_type: LVType | None) -> bool:
     underlying = lv_type.underlying_type or ""
     if is_boolean_type_name(underlying):
         return isinstance(value, bool)
-    if underlying in _INTEGER_TYPES:
+    if underlying in INTEGER_TYPE_NAMES:
         return isinstance(value, int) and not isinstance(value, bool)
-    if underlying in _FLOAT_TYPES:
+    if underlying in REAL_FLOAT_TYPE_NAMES:
         return isinstance(value, (int, float)) and not isinstance(value, bool)
     if underlying == "Path":
         return isinstance(value, str) and is_path_text(value)
