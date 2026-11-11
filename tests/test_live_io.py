@@ -90,7 +90,10 @@ def test_a_subclass_that_sets_no_events_leaves_the_timeout_frame_to_run(
 ) -> None:
     project.add(event_loop_vi(timeout=10))
     package = project.generate("Events.vi")
-    assert "= live_io.events or Queue()" in package.source
+    # The function is named ``events`` (Events.vi), so the queue takes the next
+    # free name.
+    assert "events_2 = live_io.events\n" in package.source
+    assert "if events_2 is None:\n" in package.source
     function = package.function
     live_io = _live_io(package).LiveIO()
     assert live_io.events is None

@@ -201,6 +201,10 @@ class CodeGenContext:
     # ``panel_hooks``); None for any other VI. One per function, shared by child
     # contexts.
     panel_hooks: PanelHooks | None = field(default=None, repr=False)
+    # The variable that holds the queue of events of a VI with an Event Structure
+    # (``panel_hooks.entry_events``), set when its function starts; one per
+    # function, copied to child contexts.
+    events_var: str | None = None
     # The variable that holds the message an Event Structure handles, by the id of
     # the structure. One per function, shared by child contexts.
     event_messages: dict[str, str] = field(default_factory=dict, repr=False)
@@ -637,6 +641,7 @@ class CodeGenContext:
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
+            events_var=self.events_var,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
@@ -775,6 +780,16 @@ class CodeGenContext:
         return numbered_name(
             derived, lambda n: n == self.function_name or self._holds(n)
         )
+
+    def claim_name(self, wanted: str) -> str:
+        """``wanted``, or a numbered form of it when the function or one of its
+        parameters or variables already has that name; taken from here on."""
+        def taken(n: str) -> bool:
+            return n == self.function_name or self._holds(n)
+
+        name = numbered_name(wanted, taken) if taken(wanted) else wanted
+        self._allocated_vars.add(name)
+        return name
 
     def _holds(self, name: str) -> bool:
         """Whether a parameter or variable of this function has ``name``."""

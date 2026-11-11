@@ -76,6 +76,8 @@ COMPLEX_TYPE_NAMES: frozenset[str] = frozenset(
         TD_FULL_TYPE.UnitComplexExt,
     )
 )
+# The real floating-point numbers (SGL, DBL, EXT), with or without a unit.
+REAL_FLOAT_TYPE_NAMES: frozenset[str] = FLOAT_TYPE_NAMES - COMPLEX_TYPE_NAMES
 
 # Every number type: integers, floating-point and complex numbers (with or
 # without a unit), the unsigned integers an enum or ring is stored as

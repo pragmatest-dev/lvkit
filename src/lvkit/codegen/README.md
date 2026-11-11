@@ -90,7 +90,7 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | `property_node.py` | Property read/write (`propNode`) | `obj.attr` / `obj.attr = val`; an unwired reference reads the default object's documented value written in |
 | `queue_ops.py` | Queue Operations | `queue.Queue` calls: `put`/`get(timeout=...)`, `shutdown()`, named queues from `queues.py` |
 | `shared_variable.py` | Shared Variable nodes | attribute read/write on the `shared_variables` module |
-| `invoke_node.py` | Invoke nodes (`invokeNode`) | `obj.method(args)` |
+| `invoke_node.py` | Invoke nodes (`invokeNode`) other than Run VI | a gap: warning, and `NotImplementedError` where it runs |
 | `ext_func.py` | Call Library Function Node (`extFunc`) | module-level `ctypes` library, prototype and structures; a call that packs each parameter and reads it back (library loading: `ext_func_library.py`, below) |
 | `printf.py` | Format Into String | f-string or `%` formatting |
 | `nmux.py` | Node multiplexer | Passthrough / conditional select |

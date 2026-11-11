@@ -634,7 +634,7 @@ def test_a_value_read_by_another_branch_is_copied_before_it_is_changed(
     tmp_path: Path,
 ) -> None:
     package = fork_project(tmp_path, forked=True).generate()
-    assert "copy.deepcopy(self)" in package.sources["counter"]
+    assert "copy.copy(self)" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
         original._Counter__count = 3
@@ -646,7 +646,7 @@ def test_a_value_read_by_another_branch_is_copied_before_it_is_changed(
 
 def test_a_value_nothing_else_reads_is_changed_where_it_is(tmp_path: Path) -> None:
     package = fork_project(tmp_path, forked=False).generate()
-    assert "deepcopy" not in package.sources["counter"]
+    assert "copy.copy" not in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
         # The object is changed in place, so the method returns nothing.
@@ -689,7 +689,7 @@ def test_a_named_cluster_is_copied_when_it_forks(tmp_path: Path) -> None:
 
     project.add_vi("Edit", build)
     package = project.generate()
-    assert "copy.deepcopy(data)" in package.sources["edit"]
+    assert "copy.copy(data)" in package.sources["edit"]
     with package.use() as module:
         from types import SimpleNamespace
 
@@ -756,7 +756,7 @@ def test_a_value_entering_a_loop_through_an_input_tunnel_is_shared() -> None:
 # --- 6: a class that holds a refnum ----------------------------------------------
 
 
-def test_a_class_holding_a_refnum_copies_everything_but_the_refnum(
+def test_a_copy_of_a_class_holding_a_refnum_keeps_the_same_refnum(
     tmp_path: Path,
 ) -> None:
     project = Project(tmp_path)
@@ -772,16 +772,17 @@ def test_a_class_holding_a_refnum_copies_everything_but_the_refnum(
         ],
     )
     package = project.generate()
-    assert "def __deepcopy__" in package.sources["holder"]
+    assert "__deepcopy__" not in package.sources["holder"]
     with package.use() as module:
         holder = module("holder").Holder()
         holder._Holder__queue = queue.Queue()
         holder._Holder__items = [1, 2]
-        clone = copy.deepcopy(holder)
+        clone = copy.copy(holder)
         assert clone._Holder__queue is holder._Holder__queue
         assert clone._Holder__items == [1, 2]
-        assert clone._Holder__items is not holder._Holder__items
         assert type(clone) is type(holder)
+        clone._Holder__items = [3]
+        assert holder._Holder__items == [1, 2]
 
 
 # --- 8: a parent that was not found ----------------------------------------------
@@ -1072,7 +1073,7 @@ def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> N
     project.add_method("Holder", "Take", take, static=True)
     package = project.generate()
     assert package.gaps == []
-    assert "copy.deepcopy(self.__inner)" in package.sources["holder"]
+    assert "copy.copy(self.__inner)" in package.sources["holder"]
     with package.use() as module:
         holding = module("holder").Holder()
         holding._Holder__inner = module("counter").Counter()
@@ -1176,7 +1177,7 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
     project.add_method("Counter", "Run", run, static=True)
     package = project.generate()
     assert package.gaps == []
-    assert "copy.deepcopy(" in package.sources["counter"]
+    assert "copy.copy(" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
         result = original.run(v=7, n=2).out
@@ -1280,7 +1281,7 @@ def test_call_parent_of_a_forked_object_works_on_a_copy(tmp_path: Path) -> None:
     project.add_method("Child", "Probe", child_probe)
     package = project.generate()
     child_source = package.sources["child"]
-    assert "copy.deepcopy(self)" in child_source
+    assert "copy.copy(self)" in child_source
     assert "super(Child, " in child_source
     with package.use() as module:
         child = module("child").Child()
@@ -1522,17 +1523,6 @@ def test_only_a_private_member_is_spelled_with_two_underscores() -> None:
         False,
         False,
     ]
-
-
-def test_a_member_named_like_a_method_lvkit_writes_is_a_gap(tmp_path: Path) -> None:
-    project = Project(tmp_path)
-    project.add_class("Base", [COUNT])
-    project.add_method("Base", "share_refnums", passthrough(BASE), "protected")
-    gaps: list[Gap] = []
-    package = project.generate(gaps)
-    (gap,) = gaps
-    assert "'_share_refnums'" in gap.reason
-    assert "def _share_refnums" not in package.sources["base"]
 
 
 # --- a reference value that may hold a method of a class -----------------------------

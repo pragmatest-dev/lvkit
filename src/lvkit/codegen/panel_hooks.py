@@ -54,12 +54,14 @@ from lvkit.graph.models import EventStructureNode, PrimitiveNode, VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import (
+    EVENTS,
     LIVE_IO,
     build_assign,
     class_style_name,
     distinct_names,
     interface_names,
     parse_expr,
+    parse_stmt,
     to_var_name,
     unique_names,
 )
@@ -383,6 +385,19 @@ def event_value_stmts(
     member = ast.unparse(hooks.member(terminal_id))
     test = parse_expr(f"{message}[{NAME}] == {member}")
     return [ast.If(test=test, body=[assign], orelse=[])]
+
+
+def entry_events(ctx: CodeGenContext) -> list[ast.stmt]:
+    """``events = live_io.events`` at entry of a VI with an Event Structure: the
+    one queue its Event Structures and Register For Events nodes share
+    (``nodes/event_user.py``); it stays ``None`` until the first that needs it
+    makes one, when no panel passed its queue. The variable is ``events``, or a
+    numbered form when the VI already has that name (``ctx.events_var``)."""
+    hooks = ctx.panel_hooks
+    if hooks is None or hooks.event_enum_name is None:
+        return []
+    ctx.events_var = ctx.claim_name(EVENTS)
+    return [parse_stmt(f"{ctx.events_var} = {LIVE_IO}.events")]
 
 
 def entry_reads(ctx: CodeGenContext, off_pane: list[Terminal]) -> list[ast.stmt]:

@@ -8,25 +8,10 @@ its type is the one spelling the text can round-trip.
 
 from __future__ import annotations
 
+from ..lv_type_codes import INTEGER_TYPE_NAMES, REAL_FLOAT_TYPE_NAMES
 from ..models import LVType, LVTypeKind, ScalarValue
 from ..path_value import is_path_text
 from ..string_literal import quote_string
-
-_INTEGER_UNDERLYING_TYPES = frozenset(
-    {
-        "NumInt8",
-        "NumInt16",
-        "NumInt32",
-        "NumInt64",
-        "NumUInt8",
-        "NumUInt16",
-        "NumUInt32",
-        "NumUInt64",
-    }
-)
-_FLOAT_UNDERLYING_TYPES = frozenset(
-    {"NumFloat32", "NumFloat64", "NumFloatExt", "UnitFloat32", "UnitFloat64"}
-)
 
 
 def lvnet_typed_scalar(value: ScalarValue, lv_type: LVType | None) -> ScalarValue:
@@ -45,15 +30,14 @@ def lvnet_typed_scalar(value: ScalarValue, lv_type: LVType | None) -> ScalarValu
             return False
         return value
     is_integer = lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING) or (
-        lv_type.kind == LVTypeKind.PRIMITIVE
-        and underlying in _INTEGER_UNDERLYING_TYPES
+        lv_type.kind == LVTypeKind.PRIMITIVE and underlying in INTEGER_TYPE_NAMES
     )
     if is_integer:
         try:
             return int(value)
         except ValueError:
             return value
-    if lv_type.kind == LVTypeKind.PRIMITIVE and underlying in _FLOAT_UNDERLYING_TYPES:
+    if lv_type.kind == LVTypeKind.PRIMITIVE and underlying in REAL_FLOAT_TYPE_NAMES:
         try:
             return float(value)
         except ValueError:

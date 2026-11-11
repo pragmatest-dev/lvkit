@@ -291,5 +291,5 @@ def test_the_index_tool_takes_the_userlib_folder(outside: _Project) -> None:
     assert done["vis"] == 1
     found = asyncio.run(srv.query(_KEYS, project=root, userlib=str(outside.userlib)))
     assert found["rows"] == [[str((outside.userlib / "Sub/X.vi").resolve())]]
-    without = asyncio.run(srv.query(_KEYS, project=root))
+    without = asyncio.run(srv.query(_KEYS, project=root, no_auto_vilib=True))
     assert without["rows"] == [[None]]
