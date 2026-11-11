@@ -18,7 +18,7 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
     plain_number_name,
 )
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import EventRegRow, LVType, LVTypeKind
 from lvkit.parser import td_pool
 from lvkit.primitive_resolver import get_resolver
 
@@ -151,3 +151,26 @@ def test_variant_cluster_members_keep_their_labels():
     assert end == len(data)
     cluster = descriptor_type(descriptors, 2)
     assert [f.name for f in cluster.fields] == ["count", "field_1"]
+
+
+def test_an_event_registration_lists_its_rows_with_their_labels_and_event_types():
+    element = _td(0x03, b"", flags=0)
+    go = _td(0x70, struct.pack(">HHH", REFNUM_TYPE.UserEvent, 1, 0) + _pstr("Go"))
+    stop = _td(0x70, struct.pack(">HHH", REFNUM_TYPE.UserEvent, 1, 0) + _pstr("Stop"))
+    rows = struct.pack(">HHHH", 1, 0, 0x03E8, 1) + struct.pack(">HHHH", 1, 0, 0x03E8, 2)
+    registration = _td(
+        0x70,
+        struct.pack(">HHH", REFNUM_TYPE.EventReg, 0, 2) + rows + _pstr("reg"),
+    )
+    pool = td_pool.TdPool(
+        td_pool.read_td_list(
+            struct.pack(">I", 4) + element + go + stop + registration
+        ).tds
+    )
+    assert pool.failures == {}
+    assert pool.names[3] == "reg"
+    assert pool.lvtypes[3].ref_type == "EventReg"
+    assert pool.lvtypes[3].event_rows == (
+        EventRegRow("Go", 0x03E8),
+        EventRegRow("Stop", 0x03E8),
+    )

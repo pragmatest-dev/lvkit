@@ -41,8 +41,14 @@ def delete_from_array(
     # Index Array, an out-of-range single delete yields the element DEFAULT (the
     # array shrinks each pass, so a stale index must not raise) — the slice form
     # silently returned [], scalar subscript would raise IndexError instead.
+    # The run deleted is ``[index, index + length)`` clipped to the array (NI: a
+    # negative index with a wired length deletes ``length - |index|`` elements,
+    # none when ``length`` is smaller than ``|index|``); a Python slice would
+    # count a negative bound from the end instead.
+    start = "max(index, 0)"
+    stop = "max(index + length, index, 0)"
     if dt is not None and dt.kind == LVTypeKind.ARRAY:
-        deleted_expr = "array[index:index + length]"
+        deleted_expr = f"array[{start}:{stop}]"
     else:
         default = ast.unparse(type_default_expr(dt))
         deleted_expr = guarded_index("array", "index", default)
@@ -50,7 +56,7 @@ def delete_from_array(
         # Dict order mirrors output-index order (0 then 3) — the ordinal the
         # dict-hint pairing uses.
         "deleted portion": deleted_expr,
-        "output array": "array[:index] + array[index + length:]",
+        "output array": f"array[:{start}] + array[{stop}:]",
     }
 
 

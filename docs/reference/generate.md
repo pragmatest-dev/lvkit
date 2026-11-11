@@ -41,9 +41,13 @@ This writes the generated Python to `outputs/convert_file_extension_string/`.
 
 ## Output layout
 
-`generate` creates one subfolder per input, named after the input's stem
-(lowercased, non-word characters replaced with `_`), directly under `-o`. So
-`-o outputs` on `MyVI.vi` writes to `outputs/myvi/`. **That subfolder is wiped
+`generate` creates one subfolder per input, directly under `-o`: the package,
+named after the input's stem the same way every module is named (lowercased,
+spaces and hyphens to `_`, other characters dropped, `var_` before a leading
+digit, `_` after a Python keyword). A name Python already has as a top-level
+module gets `_` after it, so importing the package never hides that module:
+`Numbers.vi` is the package `numbers_`. So `-o outputs` on `MyVI.vi` writes to
+`outputs/myvi/`. **That subfolder is wiped
 and recreated on each run**, so point `-o` at a throwaway directory, not one
 holding hand-written code. A `.lvlib`, `.lvclass`, or directory input generates
 every VI it contains into that one subfolder, in dependency order.
