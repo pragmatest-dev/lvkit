@@ -43,6 +43,7 @@ from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
+from .panel_attributes import attribute_statements, function_label_maps
 from .panel_hooks import (
     PanelHooks,
     entry_events,
@@ -485,6 +486,9 @@ def build_module_ast(
         vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
+    module_body.extend(
+        attribute_statements(func_def.name, *function_label_maps(vi_context))
+    )
 
     for statement in implicit_imports(module_body):
         ctx.add_import(statement)

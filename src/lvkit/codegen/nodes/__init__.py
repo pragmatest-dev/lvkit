@@ -41,6 +41,7 @@ from . import (
     case,
     compound,
     constant,
+    ctrl_val,
     disable,
     event,
     event_register,
@@ -126,6 +127,8 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
             return property_node.generate(node, ctx)
         if run_vi.is_run_vi(node):
             return run_vi.generate(node, ctx)
+        if ctrl_val.is_ctrl_val(node):
+            return ctrl_val.generate(node, ctx)
         if node.method_name:
             return invoke_node.generate(node, ctx)
         fragment = _generate_primitive(node, ctx)

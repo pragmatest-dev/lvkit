@@ -196,7 +196,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _bound_value(node, ctx)
     if ctx.graph is not None and class_property_node.is_class_property_node(node):
         return class_property_node.generate(node, ctx)
-    fixed =[term for term in node.terminals if term.id not in value_ids]
+    fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
 
@@ -231,9 +231,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
-            reflected = vi_reference.vi_property_read(node, prop, ref_var)
-            if reflected is not None:
-                imports.add("import inspect")
+            reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],

@@ -34,6 +34,7 @@ from lvkit.models import LVType, LVTypeKind
 from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
+from tests.helpers import without_panel_attributes
 
 _X = d.Constant(200, "5", "NumInt32", 41)
 _PATH = d.Constant(300, 'Path("Callee_BDHb.xml")', "Path", 23)
@@ -82,8 +83,12 @@ _STATIC_NAME_OPEN_START = (
 
 
 def _source(loaded: d.Loaded) -> str:
-    return build_module(
-        loaded.graph.get_vi_context(loaded.caller), loaded.caller, graph=loaded.graph
+    return without_panel_attributes(
+        build_module(
+            loaded.graph.get_vi_context(loaded.caller),
+            loaded.caller,
+            graph=loaded.graph,
+        )
     )
 
 
@@ -143,7 +148,7 @@ def test_static_reference_then_call_views_and_source(tmp_path: Path) -> None:
     assert _lvnet(loaded).endswith(
         '    constant Callee_10 : VIRefnum = "Callee.vi"\n'
         "    subVI Call_By_Reference_30 : Call By Reference\n"
-        '      in   0  : ?        = 5\n'
+        "      in   0  : ?        = 5\n"
         "      in   -3 : ?        default\n"
         "      in   -1 : VIRefnum = Callee_10\n"
         "      out  1  : ?\n"
@@ -166,7 +171,7 @@ def test_open_vi_reference_of_a_constant_path_calls_that_vi(tmp_path: Path) -> N
         '      in   vi path      : ? = Path("Callee_BDHb.xml")\n'
         "      out  vi reference : ?\n"
         "    subVI Call_By_Reference_30 : Call By Reference\n"
-        '      in   0  : ? = 5\n'
+        "      in   0  : ? = 5\n"
         "      in   -3 : ? default\n"
         "      in   -1 : ? = Open_VI_Reference_20::vi reference\n"
         "      out  1  : ?\n"
@@ -235,7 +240,7 @@ def test_static_reference_name_open_start_submits_the_call(tmp_path: Path) -> No
         "      in   vi path      : ? = Property_Node_60::Name\n"
         "      out  vi reference : ?\n"
         "    subVI Start_Asynchronous_Call_30 : Start Asynchronous Call\n"
-        '      in   0  : ? = 5\n'
+        "      in   0  : ? = 5\n"
         "      in   -3 : ? default\n"
         "      in   -1 : ? = Open_VI_Reference_20::vi reference\n"
         "      out  1  : ?\n"
@@ -609,7 +614,7 @@ def _refs_source_is_only(loaded: d.Loaded) -> str:
     )
     assert gaps == []
     assert "NotImplementedError" not in source
-    return source
+    return without_panel_attributes(source)
 
 
 def test_close_reference_of_a_reference_control_generates_nothing(

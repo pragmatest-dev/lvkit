@@ -268,14 +268,13 @@ undiscoverable.
 
 33. **What primitives / vi.lib VIs are unresolved across this repo?**
     - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
-    - *Ground truth (`TestCase.lvclass`, this branch):* **18 distinct gaps = 10
+    - *Ground truth (`TestCase.lvclass`, this branch):* **13 distinct gaps = 5
       nodes without code generation** (OpenG Get TDEnum from Data reading a
-      variant, two kinds of Run VI whose VI reference is only known when the
-      code runs, the type string of a Flatten To String of a refnum, the
+      variant, the type string of a Flatten To String of a refnum, the
       Flattened String To Variant reading those bytes with a type known only at
-      run time, and five Invoke Node methods with no Python equivalent: Ctrl
-      Val.Set, Ctrl Val.Set (Deprecated), Ctrl Val.Get, Ctrl Val.Get All and
-      Ctrl Val.Get All (Deprecated)) **+ 8 VIs that were not found** on the search path. The
+      run time, and two Invoke Node methods that move a value as flattened
+      bytes and a type string: Ctrl Val.Set (Deprecated) and Ctrl Val.Get All
+      (Deprecated)) **+ 8 VIs that were not found** on the search path. The
       notifier functions and the user events of `TestSuite.lvclass:run.vi`
       generate code. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
       -- if a future change resolves one of these, that test fails: update the

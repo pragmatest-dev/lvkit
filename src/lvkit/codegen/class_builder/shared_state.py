@@ -28,6 +28,8 @@ class ModuleParts:
     helper_names: dict[str, str] = field(default_factory=dict)
     globals: dict[str, list[ast.stmt]] = field(default_factory=dict)
     flat_functions: dict[tuple[Any, ...], str] = field(default_factory=dict)
+    # The label maps of the methods, set after the class (``panel_attributes``).
+    panel_attributes: list[ast.stmt] = field(default_factory=list)
 
     def share_with(self, ctx: CodeGenContext) -> None:
         """Make ``ctx`` add its module-level code to this module's, so two

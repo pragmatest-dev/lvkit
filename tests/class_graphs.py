@@ -19,6 +19,10 @@ from types import ModuleType
 
 from lvkit.codegen import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
+from lvkit.codegen.front_panels_module import (
+    FRONT_PANELS_MODULE_NAME,
+    FRONT_PANELS_MODULE_SOURCE,
+)
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.type_module import build_type_module
@@ -363,6 +367,10 @@ class Project:
             (out / f"{module}.py").write_text(source, encoding="utf-8")
         if any(f"{LIVE_IO_MODULE_NAME} import" in s for s in sources.values()):
             (out / f"{LIVE_IO_MODULE_NAME}.py").write_text(LIVE_IO_MODULE_SOURCE)
+        if any(f"{FRONT_PANELS_MODULE_NAME} import" in s for s in sources.values()):
+            (out / f"{FRONT_PANELS_MODULE_NAME}.py").write_text(
+                FRONT_PANELS_MODULE_SOURCE
+            )
         return Package(out, sources, gaps)
 
 

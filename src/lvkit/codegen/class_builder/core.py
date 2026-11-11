@@ -102,7 +102,12 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             decorator_list=[],
         )
         results = self._result_classes()
-        definitions = [*results, *self._parts.statements(), class_def]
+        definitions = [
+            *results,
+            *self._parts.statements(),
+            class_def,
+            *self._parts.panel_attributes,
+        ]
         self._parts.imports.update(implicit_imports(definitions))
         module_body = [*self._build_imports(base), *definitions]
         module = ast.Module(body=module_body, type_ignores=[])

@@ -25,12 +25,14 @@ from ..builder import (
     function_body,
     output_value,
 )
+from ..class_attributes import run_time_name
 from ..class_model import ClassModel, MethodKind, MethodShape
 from ..context import type_namer
 from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
+from ..panel_attributes import attribute_statements, labelled
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..type_fields import annotation_imports
 
@@ -151,6 +153,10 @@ class _MethodBuilderMixin:
 
         body = vi_body(ctx, key, build)
         self._parts.collect(ctx)
+        if not property_accessor:
+            self._parts.panel_attributes.extend(
+                self._panel_attributes(shape, vi_context, names)
+            )
         imports = ctx.imports
         if self._lazy:
             body, imports = imports_inside(body, imports)
@@ -171,6 +177,31 @@ class _MethodBuilderMixin:
             ),
         )
 
+    def _panel_attributes(
+        self, shape: MethodShape, vi_context: VIContext, names: dict[str, str]
+    ) -> list[ast.stmt]:
+        """The label maps of the method, set after its class: its connector-pane
+        controls by the parameter of the method (``self`` for the class wire), its
+        indicators by the field of its result and a class output that is the object
+        the method ran on by ``self``."""
+        outputs = _outputs_by_index(vi_context)
+        receiver = _receiver_of(vi_context, shape)
+        passed = (
+            labelled([(outputs[shape.receiver_out], names[receiver.id])])
+            if receiver is not None
+            and shape.receiver_out is not None
+            and shape.receiver_out not in shape.results
+            else {}
+        )
+        return attribute_statements(
+            f"{self._model.name}.{run_time_name(self._model.name, shape.name)}",
+            labelled((t, names[t.id]) for t in vi_context.inputs if t.id in names),
+            labelled(
+                (outputs[index], shape.result_fields[index]) for index in shape.results
+            ),
+            passed,
+        )
+
     def _return_stmt(
         self,
         shape: MethodShape,
@@ -184,9 +215,7 @@ class _MethodBuilderMixin:
             return None
         outputs = _outputs_by_index(vi_context)
         vi_node = self._graph.get_graph_node(shape.key)
-        values = [
-            output_value(outputs[index], vi_node, ctx) for index in shape.results
-        ]
+        values = [output_value(outputs[index], vi_node, ctx) for index in shape.results]
         if property_accessor and len(values) == 1:
             return ast.Return(value=values[0])
         assert shape.result_class is not None

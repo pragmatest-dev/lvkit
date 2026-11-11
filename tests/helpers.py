@@ -346,6 +346,19 @@ _generated_modules = itertools.count()
 GENERATED_PACKAGE = "generated_package"
 
 
+_PANEL_ATTRIBUTE = re.compile(r"^[\w.]+\.panel_(controls|indicators|passed) = ")
+
+
+def without_panel_attributes(source: str) -> str:
+    """``source`` without the lines that set the label maps after a function
+    (``codegen/panel_attributes.py``): a test that pins a function's exact source
+    is about the function, and ``tests/test_front_panel_reference.py`` pins the
+    maps."""
+    return "\n".join(
+        line for line in source.split("\n") if not _PANEL_ATTRIBUTE.match(line)
+    )
+
+
 def install_generated_package() -> None:
     """Register ``GENERATED_PACKAGE`` and its ``errors`` and ``live_io`` modules
     in ``sys.modules`` (once)."""
@@ -377,6 +390,8 @@ def exec_module(
     sys.modules[module.__name__] = module
     exec(compile(source, filename, "exec"), module.__dict__)  # noqa: S102
     return module
+
+
 def vi_key(graph, text: str) -> str:
     """The key of the one VI of ``graph`` that ``text`` names: a key, a
     qualified name, or a file name. A test's way to say which VI it loaded."""

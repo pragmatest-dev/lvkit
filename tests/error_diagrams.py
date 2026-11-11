@@ -34,6 +34,7 @@ from lvkit.graph.netlist_json import netlist_to_dict
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from tests.case_structure_fixture import FrameSpec, _selector_xml
+from tests.helpers import without_panel_attributes
 from tests.structure_diagrams import dco as _dco
 from tests.structure_diagrams import term as _term
 
@@ -211,9 +212,7 @@ class Vi:
         if rule is not None:
             slot = sum(1 for p in self.panes if p.slot is not None)
         self.panes.append(
-            Pane(
-                uid, label, type_id, indicator, rule, slot, ddo_class, bounds, inner
-            )
+            Pane(uid, label, type_id, indicator, rule, slot, ddo_class, bounds, inner)
         )
         term = uid + 1
         self.fp_terms[uid] = term
@@ -458,9 +457,7 @@ class Vi:
         self.scope.nodes.append(
             f'<SL__arrayElement class="slaveFBInputNode" uid="{slave}">'
             f'<termList elements="1">'
-            + _term(
-                write, _dco("rightFeedback", link, type_id=type_id, flags=1)
-            )
+            + _term(write, _dco("rightFeedback", link, type_id=type_id, flags=1))
             + f'</termList><HiddenFBNode uid="{master}" /></SL__arrayElement>'
         )
         return uids
@@ -1047,7 +1044,7 @@ class Project:
         for stem, body in (stubs or {}).items():
             (package_dir / f"{stem}.py").write_text(textwrap.dedent(body))
         stem = _module_stem(name)
-        source = (package_dir / f"{stem}.py").read_text()
+        source = without_panel_attributes((package_dir / f"{stem}.py").read_text())
         sys.path.insert(0, str(package_dir.parent))
         importlib.invalidate_caches()
         pkg = package_dir.name

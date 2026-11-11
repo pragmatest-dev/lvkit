@@ -3,8 +3,8 @@
 Run VI runs the VI with the current values of its front-panel controls, passing
 no data through parameters (NI: properties-and-methods/vi-server/vi/run.html). A
 VI is a Python function, so Run VI on a reference whose VI is known when the code
-is generated (``InMemoryVIGraph.referenced_vi``) is a call of that function with
-no arguments:
+is generated (``InMemoryVIGraph.referenced_vi``), with nothing set on that
+reference, is a call of that function with no arguments:
 
 - Wait Until Done TRUE (its default, when unwired) is ``function()``;
 - Wait Until Done FALSE starts the function and goes on, on the thread pool
@@ -15,8 +15,13 @@ no arguments:
 
 A gap where a call with no arguments cannot be that run: Wait Until Done computed
 when the diagram runs; a VI with a Required input; a dynamic dispatch member VI;
-and a diagram that sets a value on the same VI reference (an Invoke Node such as
-Set Control Value, or a Property Node write), which the run would use."""
+and a diagram that writes a property of the same VI reference or calls another
+method on it (Set Control Value, say), which the run would use.
+
+Run VI on a reference the code only knows when it runs, or on a VI whose front
+panel the diagram reaches through the reference (Ctrl Val.Set, Get and Get All,
+or a reference passed to a subVI), is ``FrontPanel.of(reference).run(wait)``
+(``ctrl_val``): the front panel holds the values the run uses."""
 
 from __future__ import annotations
 
@@ -24,14 +29,16 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.interface_order import is_required
-from lvkit.graph.models import ConstantNode, PrimitiveNode
+from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode
 from lvkit.graph.vi_reference import VI_CLASS, ReferencedVI, VIReferenceUnresolved
 from lvkit.models import Terminal
 
-from ..ast_utils import parse_expr
+from ..ast_utils import build_assign, parse_expr
 from ..class_model import MethodKind, member_shape
 from ..context import CodeGenContext, _format_constant
 from ..fragment import CodeFragment
+from ..front_panels_module import FRONT_PANEL_NAME
+from . import ctrl_val
 from .vi_reference import submit_to_pool
 
 RUN_VI_METHOD_CODE = 1003
@@ -52,16 +59,18 @@ def is_run_vi(node: PrimitiveNode) -> bool:
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """The call of the function of the VI the reference holds, waited for or
-    started on the thread pool."""
+    """The run of the function of the VI the reference holds: a call of it, waited
+    for or started on the thread pool, or a run of its front panel."""
     assert ctx.graph is not None
     reference = _input(node, _REFERENCE_IN)
     if reference is None or not ctx.is_wired(reference.id):
         raise ConversionGap("Run VI: the VI reference input is not wired.", node)
     try:
-        target = ctx.graph.referenced_vi(reference.id)
-    except VIReferenceUnresolved as problem:
-        raise ConversionGap(f"Run VI: {problem}", node) from None
+        target: ReferencedVI | None = ctx.graph.referenced_vi(reference.id)
+    except VIReferenceUnresolved:
+        target = None
+    if target is None or _front_panel_used(node, ctx, target):
+        return _run_front_panel(node, ctx, target)
     wait = _wait_until_done(node, ctx)
     _check_runs_with_defaults(node, ctx, target)
     function = ctx.vi_reference_expression(target.name, target.key)
@@ -84,6 +93,75 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         else submit_to_pool(ctx, function, [])
     )
     return CodeFragment(statements=[ast.Expr(value=run)], bindings=bindings)
+
+
+def _run_front_panel(
+    node: PrimitiveNode, ctx: CodeGenContext, target: ReferencedVI | None
+) -> CodeFragment:
+    """``FrontPanel.of(reference).run(wait)``: the VI runs with the values its
+    front panel holds. Wait Until Done is the value wired to it, TRUE when
+    unwired."""
+    assert ctx.graph is not None
+    if target is not None and not ctx.graph.is_loaded_vi(target.key):
+        raise ConversionGap(
+            f"Run VI: the VI {target.name!r} is not loaded with this VI.", node
+        )
+    reference = ctrl_val.reference_value(node, ctx)
+    wait_in = _input(node, _WAIT_UNTIL_DONE)
+    wait = (
+        ctx.wired_input(wait_in.id, node)
+        if wait_in is not None and ctx.is_wired(wait_in.id)
+        else None
+    ) or "True"
+    panel = ctx.make_output_var("front_panel", node.id)
+    reference_out = ctrl_val.terminal_at(node, "output", _REFERENCE_OUT)
+    bindings = {reference_out.id: reference} if reference_out is not None else {}
+    ctx.import_front_panel()
+    return ctrl_val.report_panel_error(
+        node,
+        ctx,
+        [build_assign(panel, parse_expr(f"{FRONT_PANEL_NAME}.of({reference})"))],
+        bindings,
+        after=[ast.Expr(value=parse_expr(f"{panel}.run({wait})"))],
+    )
+
+
+def _front_panel_used(
+    node: PrimitiveNode, ctx: CodeGenContext, target: ReferencedVI
+) -> bool:
+    """Whether another node of this diagram reaches the front panel of the VI
+    ``target`` holds through a reference to it: Ctrl Val.Set, Get or Get All, or a
+    subVI the reference is passed to, which may set a value on it."""
+    assert ctx.graph is not None and ctx.vi_name is not None
+    for other in ctx.graph.iter_nodes(ctx.vi_name):
+        if other is node:
+            continue
+        if isinstance(other, PrimitiveNode) and ctrl_val.is_ctrl_val(other):
+            terminals = [ctrl_val.terminal_at(other, "input", _REFERENCE_IN)]
+        elif isinstance(other, VINode):
+            terminals = [
+                t
+                for t in other.terminals
+                if t.direction == "input"
+                and t.lv_type is not None
+                and t.lv_type.underlying_type == "Refnum"
+            ]
+        else:
+            continue
+        for terminal in terminals:
+            if terminal is not None and _holds(ctx, terminal, target):
+                return True
+    return False
+
+
+def _holds(ctx: CodeGenContext, terminal: Terminal, target: ReferencedVI) -> bool:
+    assert ctx.graph is not None
+    if not ctx.is_wired(terminal.id):
+        return False
+    try:
+        return ctx.graph.referenced_vi(terminal.id).key == target.key
+    except VIReferenceUnresolved:
+        return False
 
 
 def _input(node: PrimitiveNode, index: int) -> Terminal | None:
@@ -156,8 +234,8 @@ def _value_set_on(
     node: PrimitiveNode, ctx: CodeGenContext, target: ReferencedVI
 ) -> str | None:
     """The name of a node of this diagram that changes the VI ``target`` through
-    a reference to it: an Invoke Node other than Run VI (Set Control Value,
-    Ctrl Val.Set, ...) or a Property Node that writes a property. None when
+    a reference to it: an Invoke Node other than Run VI and the Ctrl Val methods
+    (Set Control Value, ...) or a Property Node that writes a property. None when
     there is none."""
     assert ctx.graph is not None and ctx.vi_name is not None
     for other in ctx.graph.iter_nodes(ctx.vi_name):
@@ -165,6 +243,7 @@ def _value_set_on(
             other is node
             or not isinstance(other, PrimitiveNode)
             or other.object_name != VI_CLASS
+            or ctrl_val.is_ctrl_val(other)
         ):
             continue
         reference = _input(other, _REFERENCE_IN)

@@ -62,6 +62,11 @@ from .class_model import class_import, member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
+from .front_panels_module import (
+    FRONT_PANEL_ERROR_NAME,
+    FRONT_PANEL_NAME,
+    FRONT_PANELS_MODULE_NAME,
+)
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
@@ -707,6 +712,18 @@ class CodeGenContext:
             statement = self.import_resolver.notifier_import()
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
+        )
+
+    def import_front_panel(self) -> None:
+        """Import ``FrontPanel`` and ``FrontPanelError`` from the package's
+        ``front_panels`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.front_panels_import()
+        self.add_import(
+            statement
+            or f"from .{FRONT_PANELS_MODULE_NAME} import "
+            f"{FRONT_PANEL_NAME}, {FRONT_PANEL_ERROR_NAME}"
         )
 
     def import_live_io(self) -> None:

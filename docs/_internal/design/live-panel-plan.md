@@ -601,3 +601,12 @@ A Python function has no front panel that holds values between calls, so the pac
 - Each generated function carries its label maps as function attributes, set after its `def` (or after its class for a method): LabVIEW label to parameter name, and LabVIEW label to result field. A value never set is the control's default from the signature.
 - Codegen: Ctrl Val.Set is `front_panels.panel(ref).set(name, value)`, Ctrl Val.Get `.get(name)`, Ctrl Val.Get All `.get_all()`; Run VI on a reference that is only known when the code runs, or on which the diagram sets controls, is `.run(wait)`. Run VI on a VI known when the code is generated, with nothing set on it, stays the direct call (`codegen/nodes/run_vi.py`).
 - A label the function does not have raises the error LabVIEW gives for an unknown control name (number from NI's public error list), on the Invoke Node's error out.
+
+As built (the points where the code settles what the list above leaves open):
+
+- The accessor is `FrontPanel.of(function)`, not a module function `panel`: the generated code imports `FrontPanel`, as it imports `Notifier`, so no control named `panel` can hide it.
+- `get_all(controls)` takes NI's Controls input (properties-and-methods/vi-server/vi/getallctrlvalvariant.html: TRUE returns every control, FALSE, the default, every indicator), so it lists one kind, not controls then indicators.
+- A method whose class output is the object it was called on returns no field for it, so a third function attribute, `panel_passed` (indicator label to `self`), names it.
+- An unknown label is error 1100 ("No object of that name was found.", NI's General LabVIEW Error Codes) and a reference that is Not a Refnum is error 1026; NI's Ctrl Val pages name no error of their own.
+- `Execution.State` of a VI reference reads `FrontPanel.of(reference).state` (1 Idle, 2 Run top level while a run is in progress; NI's execstate.html lists Bad 0, Idle 1, Run top level 2, Running 3).
+- The deprecated forms (Ctrl Val.Set (Deprecated), Get All (Deprecated)) take and return the value as an array of flattened bytes and a type string; they stay a gap.

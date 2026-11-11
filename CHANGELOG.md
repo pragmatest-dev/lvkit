@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Ctrl Val.Set, Get and Get All and Run VI generate Python on a VI reference** — a generated `front_panels.py` holds each VI's control and indicator values between calls (`FrontPanel.of(function)`), so a value set in one VI is the value another runs and reads; Run VI on a reference known only when the code runs, and a property read of Exec.State, use it; each function carries its label maps as `panel_controls` / `panel_indicators`.
 - **Generated code no longer sets a variable it overwrites at once** — `x = None` straight before `x = ...`, and a default that every branch of an `if`/`else` or `match` ending in `else`/`case _` assigns first, are gone; a default the next line reads once is written in place of that read.
 - **Generated variable names are numbered `name_2`, `name_3` on a collision, never with a node id** — `error_out_549` is `error_out_2`, `expr_263` is `expr`, and a Formula Node's result variable is `formula_result`.
 - **Fix: In Place Element on a Data Value Reference no longer writes back an element it did not change** — `ref[0] = ref[0]` is gone.

@@ -44,6 +44,7 @@ from lvkit.graph.vi_reference import (
     OPEN_VI_PATH_INDEX,
     OPEN_VI_REFERENCE_INDEX,
     VI_CLASS,
+    VI_EXEC_STATE_PROPERTY_CODE,
     VI_NAME_PROPERTY_CODE,
     VI_PATH_PROPERTY_CODE,
     ReferencedVI,
@@ -73,6 +74,7 @@ from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..front_panels_module import FRONT_PANEL_NAME
 from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
@@ -690,16 +692,22 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
 
 
 def vi_property_read(
-    node: PrimitiveNode, prop: PropertyDef, reference: str
+    node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
-    function: Name is the function's name, Path its file. None for a property of
-    another class, or one with no such reading."""
+    function: Name is the function's name, Path its file, Exec.State the state of
+    its front panel (``FrontPanel.state``: 1 Idle, 2 Run top level while it runs).
+    None for a property of another class, or one with no such reading. The
+    imports the read needs are added to ``ctx``."""
     if node.object_name != VI_CLASS or len(prop.segments) != 1:
         return None
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.__name__")
     if code == VI_PATH_PROPERTY_CODE:
+        ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")
+    if code == VI_EXEC_STATE_PROPERTY_CODE:
+        ctx.import_front_panel()
+        return parse_expr(f"{FRONT_PANEL_NAME}.of({reference}).state")
     return None
