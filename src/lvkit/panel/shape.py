@@ -8,8 +8,8 @@ from __future__ import annotations
 import ast
 from dataclasses import replace
 
-from lvkit.codegen.ast_utils import field_attribute_names
-from lvkit.models import LVType, _is_error_cluster
+from lvkit.codegen.ast_utils import field_attribute_names, saved_default_expr
+from lvkit.models import LVType, ScalarValue, _is_error_cluster
 from lvkit.parser.models import ParsedFPControl
 
 from .choices import choice_default, choice_items
@@ -23,16 +23,24 @@ def _value_type(_named: LVType) -> None:
 
 
 def _scalar_default(
-    kind: PanelKind, saved: object
+    kind: PanelKind, saved: ScalarValue, lv_type: LVType | None
 ) -> str | int | float | bool | complex:
+    """The value a control starts from: its saved default read the way the
+    generated function reads it (``saved_default_expr``), else its type's empty
+    value. A path's is the ``Path`` expression itself, so the panel spells its
+    volume for the system it runs on, as the function does."""
+    expression = saved_default_expr(saved, lv_type)
+    if kind is PanelKind.PATH:
+        return ast.unparse(expression) if expression is not None else "Path('')"
+    value = expression.value if isinstance(expression, ast.Constant) else None
     if kind is PanelKind.COMPLEX:
-        return saved if isinstance(saved, complex) else 0j
+        return value if isinstance(value, complex) else 0j
     if kind is PanelKind.BOOLEAN:
-        return bool(saved)
-    if kind in (PanelKind.STRING, PanelKind.PATH):
-        return "" if saved is None else str(saved)
-    if isinstance(saved, (int, float)) and not isinstance(saved, bool):
-        return saved
+        return value if isinstance(value, bool) else False
+    if kind is PanelKind.STRING:
+        return value if isinstance(value, str) else ""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
     return 0
 
 
@@ -193,7 +201,7 @@ def _array(
 def describe(
     control: ParsedFPControl,
     lv_type: LVType | None,
-    saved: object,
+    saved: ScalarValue,
     key: str,
     *,
     indicator: bool | None = None,
@@ -235,4 +243,4 @@ def describe(
                 ),
             )
         return replace(base, items=items, default=choice_default(items, saved))
-    return replace(base, default=_scalar_default(kind, saved))
+    return replace(base, default=_scalar_default(kind, saved, lv_type))

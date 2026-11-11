@@ -11,6 +11,7 @@ import importlib
 import sys
 from collections.abc import Awaitable, Callable
 from types import ModuleType
+from typing import Any
 
 import pytest
 from nicegui import Client, ui
@@ -144,28 +145,29 @@ def test_an_indicator_wired_to_a_control_in_the_loop_shows_each_re_read_value(
     project.add(counting_vi(with_text=True))
     package = project.generate(NAME, panel=True)
     names = _enum(package)
-    holder = _controls(package).LiveValues()
     shown: list[object] = []
-    holder.add_indicator(names.ECHO, shown.append)
     seen: list[object] = []
     stops = 0
     texts = iter(["a", "b", "c"])
 
-    def on_read(name: str, value: object) -> object:
-        nonlocal stops
-        if name == names.STOP:
-            stops += 1
-            return stops >= 3
-        if name == names.MESSAGE:
-            return next(texts)
-        return value
+    class Holder(_controls(package).LiveValues):
+        def read(self, name: Any, value: object) -> object:
+            nonlocal stops
+            if name == names.STOP:
+                stops += 1
+                return stops >= 3
+            if name == names.MESSAGE:
+                return next(texts)
+            return value
 
-    def on_update(name: str, value: object) -> None:
-        if name == names.ECHO:
-            seen.append(value)
-        holder.update(name, value)
+        def write(self, name: Any, value: object) -> None:
+            if name == names.ECHO:
+                seen.append(value)
+            super().write(name, value)
 
-    result = package.function(False, 0, "", on_update=on_update, on_read=on_read)
+    holder = Holder()
+    holder.add_indicator(names.ECHO, shown.append)
+    result = package.function(False, 0, "", live_io=holder)
     assert seen == ["a", "b", "c"]
     assert result.echo == "c"
     holder.paint()
@@ -178,18 +180,19 @@ def test_a_run_with_a_stop_after_three_reads_leaves_the_last_count_in_the_holder
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
     names = _enum(package)
-    holder = _controls(package).LiveValues()
     shown: list[object] = []
-    holder.add_indicator(names.COUNT, shown.append)
     reads: list[str] = []
 
-    def on_read(name: str, value: object) -> object:
-        reads.append(name)
-        if name == names.STOP:
-            return reads.count(names.STOP) >= 3
-        return value
+    class Holder(_controls(package).LiveValues):
+        def read(self, name: Any, value: object) -> object:
+            reads.append(name)
+            if name == names.STOP:
+                return reads.count(names.STOP) >= 3
+            return value
 
-    result = package.function(False, 0, on_update=holder.update, on_read=on_read)
+    holder = Holder()
+    holder.add_indicator(names.COUNT, shown.append)
+    result = package.function(False, 0, live_io=holder)
     assert result.count == 3
     holder.paint()
     assert shown == [3]
@@ -220,7 +223,7 @@ def test_abort_ends_the_run_at_the_next_hook_call(
     holder = controls.LiveValues()
     holder.request_abort()
     with pytest.raises(controls.Abort):
-        package.function(False, 0, on_update=holder.update, on_read=holder.read)
+        package.function(False, 0, live_io=holder)
     assert not issubclass(controls.Abort, Exception)
     holder.clear_abort()
     assert holder.read(names.STOP, True) is True

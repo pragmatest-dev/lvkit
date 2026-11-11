@@ -102,6 +102,7 @@ from .lvnet_grammar import (
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LOOP_CONDITION_TERMINAL,
     _LVNET_RING_OPEN,
+    _LVNET_SCRIPT_KINDS,
     _LVNET_TERMINAL_SEP,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
@@ -208,20 +209,20 @@ def _handle_base_and_suffix(handle: str) -> tuple[str, str]:
     return base, suffix
 
 
-def _derive_instance_name(kind: str, handle: str, component: str) -> str:
+def _derive_instance_name(kind: str, handle: str, component: str | None) -> str:
     """The display ``name`` to give a reconstructed ``NetlistInstance`` so
     ``_lvnet_handle_base(name)`` reproduces the SAME base ``_assign_lvnet_
     handles`` would have used to mint this handle (see module docstring).
 
-    - ``function``/``in-place-element``/``formula-node``: ``.name`` IS the
-      rendered component text verbatim (``_lvnet_component``'s fallback
-      branch returns ``instance.name`` directly for these three kinds), so
-      it must be the full component text, unstripped -- the SAME field
-      the original render derived the handle from, so its base always
+    - ``function``: ``.name`` IS the rendered component text verbatim
+      (``_lvnet_component``'s fallback branch returns ``instance.name``
+      directly), so it must be the full component text, unstripped -- the SAME
+      field the original render derived the handle from, so its base always
       matches by construction (no separate "display name" concept here).
-    - ``subVI``/``property-node``/``invoke-node``: ``.name`` is never read
-      by ``_lvnet_component`` for these (it reads ``qualified_name``/
-      ``object_name``/``method_name`` instead) -- and for ``subVI``
+    - ``subVI``/``property-node``/``invoke-node``/``formula-node``/
+      ``expression-node``: ``.name`` is never read by ``_lvnet_component`` for
+      these (it reads ``qualified_name``/``object_name``/``method_name``/
+      ``script`` instead) -- and for ``subVI``
       specifically, a REAL VI's own display name (what actually drove the
       original handle) can genuinely differ from its qualified/component
       text: a polymorphic VI's call site shows the SPECIFIC resolved
@@ -236,9 +237,11 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
       ``.name`` is invisible to rendering for these kinds, this always
       reproduces the identical handle with no loss.
     """
-    if kind in ("function", "in-place-element", "formula-node"):
+    if kind == "function":
+        assert component is not None
         return component
     if kind == NetlistInstanceKind.SHARED_VARIABLE.value:
+        assert component is not None
         # The component is ``<library>::<variable name> : <read|write>``; the
         # variable name is the instance's name, exactly (``_lvnet_component``
         # renders it).
@@ -258,7 +261,7 @@ def _index_handles(
     declaration regardless of where in the body it sits."""
     for item in items:
         if isinstance(item, ParsedNode):
-            assert item.handle is not None and item.component is not None
+            assert item.handle is not None
             name = _derive_instance_name(item.kind, item.handle, item.component)
             _, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = HandleTarget(name=name, uid=uid, is_constant=False)
@@ -655,7 +658,7 @@ def _reconstruct_instance(
     memo: dict[str, LVType],
     fresh_uid: _UidSource,
 ) -> NetlistInstance:
-    assert item.handle is not None and item.component is not None
+    assert item.handle is not None
     target = registry[item.handle]
     kind_enum = _REVERSE_INSTANCE_KEYWORDS.get(item.kind)
     if kind_enum is None:
@@ -668,19 +671,27 @@ def _reconstruct_instance(
     library: str | None = None
     network_path: str | None = None
     library_unreadable: str | None = None
-    if kind_enum is NetlistInstanceKind.SHARED_VARIABLE:
-        shared = split_shared_variable_component(item.component)
+    script: str | None = None
+    component = item.component
+    if kind_enum in _LVNET_SCRIPT_KINDS:
+        script = None if component is None else _unescape_lvnet_string(component)
+    elif component is None:
+        raise LvnetReconstructError(
+            f"node {item.handle!r} has no ' : <component>' (§7)"
+        )
+    elif kind_enum is NetlistInstanceKind.SHARED_VARIABLE:
+        shared = split_shared_variable_component(component)
         library, access = shared.library, shared.access
         network_path = shared.network_path
         library_unreadable = shared.library_unreadable
     elif kind_enum is NetlistInstanceKind.SUBVI:
-        qualified_name = item.component
+        qualified_name = component
     elif kind_enum is NetlistInstanceKind.PROPERTY_NODE:
-        object_name = item.component
+        object_name = component
     elif kind_enum is NetlistInstanceKind.INVOKE_NODE:
-        object_name, sep, method_name = item.component.rpartition(".")
+        object_name, sep, method_name = component.rpartition(".")
         if not sep:
-            object_name, method_name = item.component, "?"
+            object_name, method_name = component, "?"
 
     inputs: list[NetlistTerminalBinding] = []
     outputs: list[NetlistOutput] = []
@@ -748,6 +759,7 @@ def _reconstruct_instance(
         library=library,
         network_path=network_path,
         library_unreadable=library_unreadable,
+        script=script,
     )
 
 

@@ -92,6 +92,18 @@ class FormulaNode(ParsedNode):
 
 
 @dataclass
+class ExpressionNode(FormulaNode):
+    """An Expression Node (class="exprNode"): a one-variable formula.
+
+    ``script`` is the formula text. When the VI stores it in a text record
+    instead of the diagram heap, ``text_record`` is that record's number and
+    ``script`` stays ``None`` until ``resolve_expression_texts`` reads it.
+    """
+
+    text_record: int | None = None
+
+
+@dataclass
 class LoopNode(ParsedNode):
     """Loop structure node (class="whileLoop" or "forLoop")."""
 
@@ -1939,6 +1951,30 @@ class FormulaNodeHandler(NodeTypeHandler):
         return FormulaNode(**common, script=script)
 
 
+class ExpressionNodeHandler(NodeTypeHandler):
+    """Handler for Expression Nodes (class="exprNode")."""
+
+    xml_class = "exprNode"
+    display_name = "Expression Node"
+
+    def parse(self, elem: ET.Element) -> ExpressionNode:
+        common = self._extract_common(elem)
+        # The formula is the ``textNodeLabel``'s text. A VI that keeps it in a
+        # text record has the record's number (hex) in place of ``<text>``.
+        label = elem.find("textNodeLabel")
+        script = None
+        text_record = None
+        if label is not None:
+            text_elem = label.find("textRec/text")
+            if text_elem is not None and text_elem.text is not None:
+                script = clean_labview_string(text_elem.text).strip()
+            else:
+                record = (label.findtext("textRec") or "").strip()
+                if re.fullmatch(r"[0-9A-Fa-f]+", record):
+                    text_record = int(record, 16)
+        return ExpressionNode(**common, script=script, text_record=text_record)
+
+
 @dataclass
 class ExtFuncNode(ParsedNode):
     """A Call Library Function Node (class="extFunc"): ``rows`` are the drawn
@@ -2043,6 +2079,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     SharedVariableHandler(),
     StatVIRefHandler(),
     FormulaNodeHandler(),
+    ExpressionNodeHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
     _DecomposeDataValRefHandler(),

@@ -19,6 +19,7 @@ from ..models import (
     Terminal,
     TunnelTerminal,
 )
+from ..parser.constants import NODE_CLASS_EXPRESSION
 from ..parser.node_types import get_display_name
 from ..path_value import is_path_text
 from ..vi_files import strip_vi_extension
@@ -30,6 +31,7 @@ from .models import (
     DisableStructureNode,
     EventStructureNode,
     ExecutionProps,
+    FormulaNode,
     GlobalVariableNode,
     InPlaceNode,
     InstanceProps,
@@ -1086,6 +1088,9 @@ def _describe_single_op(
             if node.prim_id is not None:
                 return f"{name} [prim {node.prim_id}]"
             return name
+        case FormulaNode() if node.node_type == NODE_CLASS_EXPRESSION:
+            formula = f" `{node.script}`" if node.script else ""
+            return f"Expression Node{formula}"
         case GlobalVariableNode():
             access = "write" if node.is_write else "read"
             return (

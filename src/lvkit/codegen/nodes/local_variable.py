@@ -2,8 +2,8 @@
 
 A Local Variable of a control of the VI is its variable (the control's
 parameter): a write assigns it, a read reads it. In a VI that has the hooks
-(``panel_hooks``) a write is followed by ``on_update``, and a read inside a loop
-or Event Structure is preceded by ``on_read``.
+(``panel_hooks``) a write is followed by ``live_io.write``, and a read inside a loop
+or Event Structure is preceded by ``live_io.read``.
 
 "This VI" is the VI being generated, and a VI is its function: the reference is
 that function (``CodeGenContext.this_vi_expression``), so a subVI that is passed
@@ -24,7 +24,7 @@ from lvkit.models import FPTerminal
 from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..panel_hooks import read_stmt, update_stmt
+from ..panel_hooks import read_stmt, write_stmt
 from ..references import asks_for_control, referenced_control
 
 
@@ -71,7 +71,7 @@ def _control_access(
 def write_control(
     control: FPTerminal, variable: str, value: str, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """``variable = value``, then ``on_update`` in a VI that has the hooks: the
+    """``variable = value``, then ``live_io.write`` in a VI that has the hooks: the
     statements that write the control ``control`` (whose variable is
     ``variable``)."""
     hooks = ctx.panel_hooks
@@ -79,14 +79,14 @@ def write_control(
     if value != variable:
         statements.append(build_assign(variable, parse_expr(value)))
     if hooks is not None and control.id in hooks.names:
-        statements.append(update_stmt(hooks, control.id, variable))
+        statements.append(write_stmt(hooks, control.id, variable))
     return statements
 
 
 def read_control(
     node: AnyGraphNode, control: FPTerminal, variable: str, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """The statements that read the control ``control`` at ``node``: ``on_read``
+    """The statements that read the control ``control`` at ``node``: ``live_io.read``
     when the node asks the caller for the value (``asks_for_control``)."""
     hooks = ctx.panel_hooks
     if hooks is not None and asks_for_control(node, control, ctx):

@@ -10,7 +10,12 @@ moves the data to the upper bytes of type and fills the remaining bytes with
 zeros", so a shorter value is padded with zero bytes on the right.
 
 A cast whose source and destination type are the same, or from one refnum to
-another (an opaque handle, not bytes), keeps the value as it is.
+another (an opaque handle, not bytes), keeps the value as it is. So does a cast
+between a refnum and an integer: LabVIEW code keeps a reference in an integer
+(a class's private data, a U32 field) and casts it back, and in Python the
+reference is the object itself, so the integer holds that object (maintainer,
+2026-11-10: pass the object through, no table of handles). An integer ``0`` cast
+to a refnum is ``None``, Not a Refnum.
 
 Terminals (from the primitives.json entry):
   in  index 0 = x (data to reinterpret)
@@ -23,6 +28,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import INTEGER_TYPE_NAMES
 from lvkit.models import LVType
 
 from ...ast_utils import build_assign, parse_expr
@@ -45,6 +51,22 @@ def _is_refnum(lt: LVType | None) -> bool:
     return lt is not None and lt.underlying_type == "Refnum"
 
 
+def _is_integer(lt: LVType | None) -> bool:
+    return lt is not None and lt.underlying_type in INTEGER_TYPE_NAMES
+
+
+def _integer_to_refnum(
+    node: PrimitiveNode, ctx: CodeGenContext, value: str, result_id: str
+) -> CodeFragment:
+    """The integer is the reference it was cast from; ``0`` is Not a Refnum."""
+    variable = ctx.make_output_var("reference", node.id, terminal_id=result_id)
+    expression = f"None if {value} == 0 else {value}"
+    return CodeFragment(
+        statements=[build_assign(variable, parse_expr(expression))],
+        bindings={result_id: variable},
+    )
+
+
 @register_op_fragment("TYPE_CAST")
 def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     source = terminal(node, "input", 0)
@@ -55,9 +77,11 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     src_type = source.lv_type if source else None
     dst_type = result.lv_type
     if (src_type is not None and src_type == dst_type) or (
-        _is_refnum(src_type) and _is_refnum(dst_type)
+        _is_refnum(src_type) and (_is_refnum(dst_type) or _is_integer(dst_type))
     ):
         return CodeFragment(bindings={result.id: value})
+    if _is_integer(src_type) and _is_refnum(dst_type):
+        return _integer_to_refnum(node, ctx, value, result.id)
     try:
         src = layout_of(src_type)
         dst = layout_of(dst_type)

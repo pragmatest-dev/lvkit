@@ -1,7 +1,7 @@
 """The live values of a running VI, shared by the worker thread that runs it and
 the NiceGUI event loop that shows it.
 
-Only NiceGUI's loop touches a widget. The running function calls ``update`` and
+Only NiceGUI's loop touches a widget. The running function calls ``write`` and
 ``read`` from its worker thread; they touch plain data under a lock, never a
 widget. One timer on the loop calls ``paint``, which writes the latest value of
 each changed indicator into its widget.
@@ -14,11 +14,12 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from ..live_io import LiveIO
 from .events import PanelEvents
 
 
 class Abort(BaseException):
-    """Raised from ``update`` and ``read`` once Abort was pressed, so the running
+    """Raised from ``write`` and ``read`` once Abort was pressed, so the running
     function ends at its next panel value. A ``BaseException`` so no
     ``except Exception`` in the function swallows it."""
 
@@ -29,13 +30,17 @@ def key_of(name: Any) -> str:
     return str(getattr(name, "value", name))
 
 
-class LiveValues:
-    """``kinds`` is the event enum of the VI's module when the VI holds an Event
-    Structure (it then takes ``events.queue`` as its ``events``), else None."""
+class LiveValues(LiveIO):
+    """The ``live_io`` the panel passes to the function. ``kinds`` is the event
+    enum of the VI's module when the VI holds an Event Structure (it then reads
+    the queue of ``panel_events`` from ``events``), else None."""
 
     def __init__(self, kinds: Any = None) -> None:
-        self.events = (
+        self.panel_events = (
             PanelEvents(kinds, self._checkpoint) if kinds is not None else None
+        )
+        self.events = (
+            self.panel_events.queue if self.panel_events is not None else None
         )
         self._lock = threading.Lock()
         self._latest: dict[str, Any] = {}
@@ -57,8 +62,8 @@ class LiveValues:
         key = key_of(name)
         old = self._controls.get(key)
         self._controls[key] = value
-        if self.events is not None:
-            self.events.value_changed(key, value, old)
+        if self.panel_events is not None:
+            self.panel_events.value_changed(key, value, old)
 
     def add_indicator(self, name: Any, painter: Callable[[Any], None]) -> None:
         """An indicator, with the function that shows a value in its widget."""
@@ -121,8 +126,8 @@ class LiveValues:
 
     # -- the hooks (on the worker thread) ---------------------------------
 
-    def update(self, name: Any, value: Any) -> None:
-        """``on_update``: the function wrote an indicator."""
+    def write(self, name: Any, value: Any) -> None:
+        """The function wrote an indicator."""
         self._checkpoint()
         key = key_of(name)
         snapshot = copy.copy(value)
@@ -131,7 +136,7 @@ class LiveValues:
             self._dirty[key] = None
 
     def read(self, name: Any, value: Any) -> Any:
-        """``on_read``: the control's current value, or ``value`` (the one the
+        """The control's current value, or ``value`` (the one the
         function holds) when the panel has no such control."""
         self._checkpoint()
         held = self._controls.get(key_of(name), value)

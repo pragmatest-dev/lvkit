@@ -4,8 +4,7 @@ Split out of ``netlist.py`` (the facade that still re-exports the IR build
 and ``netlist_to_dict``). This module owns ONLY ``render_lvnet`` and
 everything it exclusively depends on: see
 ``docs/_internal/design/netlist-language.md`` §2-§10 for the CLOSED grammar
-every character here traces to (an OPEN construct, §17, emits its header
-keyword plus a literal ``# TODO(lvnet): ...`` and no invented inner syntax).
+every character here traces to.
 
 A frame label that is text (an event, a Conditional Disable condition) is a §4
 string literal (``lvnet_literal_token``), written and read back one way.
@@ -75,13 +74,13 @@ from .lvnet_grammar import (
     _LVNET_RESERVED_CONTROL_PREFIXES,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
+    _LVNET_SCRIPT_KINDS,
     _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _LVNET_UNINITIALIZED,
-    _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
@@ -116,9 +115,7 @@ from .op_walk import _format_error_cluster
 # render_lvnet -- the lvnet surface (docs/_internal/design/netlist-language.md)
 #
 # Emits ONLY the §2-§10 CLOSED grammar; every character traces to a rule in
-# that spec. An OPEN construct (§17) gets its header keyword plus a literal
-# ``# TODO(lvnet): ...`` and NO invented inner syntax -- see
-# ``_OPEN_INSTANCE_TRAILING_TODO``.
+# that spec.
 # ============================================================
 
 
@@ -1010,7 +1007,7 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     return lvnet_net_separator(literal)
 
 
-def _lvnet_component(instance: NetlistInstance) -> str:
+def _lvnet_component(instance: NetlistInstance) -> str | None:
     """The ``<component>`` half of a declaration line (§3/§7) -- the
     faithful identity spelled ONLY at the declaration, never repeated on a
     net reference. Per §7's table: a subVI's fully-qualified
@@ -1018,10 +1015,14 @@ def _lvnet_component(instance: NetlistInstance) -> str:
     (``object_name``, e.g. ``Bool``, ``Tree (strict)``); an Invoke Node's
     ``<ObjectClass>.<Method>`` (the method IS the node's identity, since
     LabVIEW stores no per-call param names to distinguish it otherwise);
-    everything else (``function``/``in-place-element``/``formula-node``) --
-    §7's table gives no OTHER identity to spell for these, so the node's own
-    display ``name`` is used, exactly like a primitive's LabVIEW name.
+    a Formula Node's / Expression Node's formula text as one quoted literal
+    (``None`` when the VI stores none, so the header has no component);
+    everything else (``function``) -- §7's table gives no OTHER identity to
+    spell for these, so the node's own display ``name`` is used, exactly like a
+    primitive's LabVIEW name.
     """
+    if instance.kind in _LVNET_SCRIPT_KINDS:
+        return None if instance.script is None else lvnet_literal_token(instance.script)
     if instance.kind == NetlistInstanceKind.SUBVI:
         return instance.qualified_name or instance.name
     if instance.kind == NetlistInstanceKind.PROPERTY_NODE:
@@ -1068,9 +1069,7 @@ def _render_lvnet_instance(
     parameter terminals by their raw index (LabVIEW stores no param names)
     -- the SAME generic terminal-rendering loop below (shared with
     subVI/function) already reads ``b.terminal``/``o.net.terminal`` faithfully
-    either way. In-place-element/formula-node render that same terminal
-    block, THEN one trailing ``# TODO(lvnet): ...`` for their one remaining
-    undesigned part (``_OPEN_INSTANCE_TRAILING_TODO``) -- never more.
+    either way. A Formula/Expression Node renders that same terminal block.
     """
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
         _render_lvnet_local_variable(instance, indent, lines, handles)
@@ -1087,7 +1086,10 @@ def _render_lvnet_instance(
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
-    lines.append(f"{indent}{header_kw} {handle}{_LVNET_TYPE_SEP}{component}")
+    header = f"{indent}{header_kw} {handle}"
+    if component is not None:
+        header += f"{_LVNET_TYPE_SEP}{component}"
+    lines.append(header)
 
     entries: list[_TermLine] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
@@ -1112,10 +1114,6 @@ def _render_lvnet_instance(
         type_label = _lvnet_type_label(o.type, o.lv_type)
         entries.append(_TermLine("out", o.net.terminal, type_label, None))
     lines.extend(_render_term_group(entries, indent + _LVNET_INDENT))
-
-    trailing_todo = _OPEN_INSTANCE_TRAILING_TODO.get(instance.kind)
-    if trailing_todo is not None:
-        lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {trailing_todo}")
 
 
 def _lvnet_global_part_token(name: str, *, may_hold_separator: bool) -> str:
@@ -2186,8 +2184,7 @@ def render_lvnet(
 ) -> str:
     """Render a ``NetlistModule`` to the lvnet text surface -- see
     ``docs/_internal/design/netlist-language.md`` §2-§10 (CLOSED grammar
-    only; an OPEN construct, §17, emits its header keyword plus a literal
-    ``# TODO(lvnet): ...`` and no invented inner syntax).
+    only).
 
     ``display_name`` exists because ``module.vi_name`` is the resolved
     ``vi_key`` -- a source-path identity, not fit for display, per

@@ -228,9 +228,9 @@ class NetlistInstanceKind(str, Enum):
     ``LocalVariableNode``/``InPlaceNode``/``FormulaNode``), never off
     ``qualified_name`` (which is set even for a plain primitive -- see
     ``_build_instance_gn``). CLOSED (§2-§10, fully rendered): ``SUBVI``,
-    ``FUNCTION``. Every other member is an OPEN construct (§17 item 6/7) --
-    ``render_lvnet`` emits ONLY that member's header keyword plus a
-    ``# TODO(lvnet): ...`` placeholder, never invented inner syntax.
+    ``FUNCTION``. A Formula Node and an Expression Node write their script as
+    the header's quoted component (§7); every other member is an OPEN construct
+    (§17 item 7).
     """
 
     SUBVI = "subvi"
@@ -243,6 +243,7 @@ class NetlistInstanceKind(str, Enum):
     SHARED_VARIABLE = "shared-variable"
     IN_PLACE_ELEMENT = "in-place-element"
     FORMULA_NODE = "formula-node"
+    EXPRESSION_NODE = "expression-node"
 
 
 class ReferenceTargetKind(Enum):
@@ -336,6 +337,10 @@ class NetlistInstance:
     # What a VI Server reference constant references (``kind`` is
     # ``VI_SERVER_REFERENCE``) -- ``None`` for every other instance kind.
     reference: ReferenceTarget | None = None
+    # A Formula Node's or Expression Node's formula text -- ``None`` for every
+    # other instance kind and for a node whose text the VI does not store where
+    # lvkit reads it.
+    script: str | None = None
 
 
 @dataclass
