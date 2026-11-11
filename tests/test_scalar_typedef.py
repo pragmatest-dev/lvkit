@@ -22,7 +22,7 @@ from lvkit.graph.netlist_models import (
     WiringRequirement,
 )
 from lvkit.models import ClusterField, EnumValue, FPTerminal, LVType, LVTypeKind
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 from tests.test_lvnet_identity import _assert_graph_identity
 
 U32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
@@ -194,7 +194,7 @@ def test_generated_code_runs_with_the_typedef_module() -> None:
         "from .controls.iecolorctl import IEColor", "IEColor = int"
     )
     namespace: dict = {}
-    exec(compile(source, "check_color.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "check_color.py")  # noqa: S102
     assert namespace["check_color"](color_in=7).color_out == 7
 
 

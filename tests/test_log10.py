@@ -10,7 +10,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 
 def numeric_type(underlying: str | None, rank: int = 0) -> LVType | None:
@@ -68,7 +68,7 @@ def generated_log10(rank=0, input_type="NumFloat64", output_type="NumFloat64"):
     graph = build_graph(context, context.name, [primitive])
     source = build_module(context, context.name, graph=graph)
     namespace = {}
-    exec(compile(source, context.name, "exec"), namespace)
+    exec_generated(source, namespace, context.name)
     return namespace["log10_test"]
 
 

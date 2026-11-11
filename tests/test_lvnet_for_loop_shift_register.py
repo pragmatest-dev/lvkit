@@ -18,6 +18,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from tests.helpers import exec_generated
 from tests.structure_diagrams import (
     I32,
     Views,
@@ -139,6 +140,6 @@ def test_the_generated_function_returns_the_register_value(
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     assert namespace["t"]().result == 10  # type: ignore[operator]
     assert "state = 7" in source and "for i in range(3):" in source

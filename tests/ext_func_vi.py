@@ -11,7 +11,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 
 def lv_type(name: str | LVType) -> LVType:
@@ -150,5 +150,5 @@ def build_vi(
     if not load:
         return None, source
     namespace: dict[str, Any] = {}
-    exec(compile(source, context.name, "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, context.name)  # noqa: S102
     return namespace["clfn_test"], source

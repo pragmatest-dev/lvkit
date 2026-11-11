@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import builtins
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -15,8 +14,6 @@ from lvkit.codegen.context import CodeGenContext
 from .clfn_generated import generated_vi  # noqa: F401  (a fixture)
 from .fake_kernel32 import kernel32  # noqa: F401  (a fixture)
 from .helpers import (
-    GENERATED_PACKAGE,
-    install_generated_package,
     make_ctx,
     make_graph_with_terminals,
 )
@@ -95,26 +92,6 @@ def _hermetic_cache(request, tmp_path_factory, monkeypatch):
 
     yield
     staging.release_all()
-
-
-@pytest.fixture(autouse=True)
-def _bare_generated_modules_import_the_generated_package(monkeypatch):
-    """A test that runs a generated module's source in a bare namespace
-    (``exec(source, {})``) gives it the package a generated module runs in: every
-    generated function imports ``Panel`` from the package's ``panels`` module, a
-    relative import, which a namespace with no ``__name__`` cannot resolve."""
-    real_import = builtins.__import__
-
-    def importer(name, globals=None, locals=None, fromlist=(), level=0):
-        if level and globals is not None and "__name__" not in globals:
-            install_generated_package()
-            globals = {
-                "__name__": f"{GENERATED_PACKAGE}.bare",
-                "__package__": GENERATED_PACKAGE,
-            }
-        return real_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", importer)
 
 
 @pytest.fixture(autouse=True)

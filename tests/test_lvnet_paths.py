@@ -20,6 +20,7 @@ from lvkit.graph.models import Constant
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.models import LVType, LVTypeKind
 from lvkit.path_value import format_path, python_path
+from tests.helpers import exec_generated
 from tests.structure_diagrams import (
     BOOL,
     PATH,
@@ -121,7 +122,7 @@ def _generate(views: Views):
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     return namespace["t"], source
 
 
@@ -223,7 +224,7 @@ def test_a_symbolic_folder_path_is_a_plain_path_value(
     source = build_module(context, views.vi, graph=views.graph, gaps=gaps)
     assert gaps == []
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     value = namespace["t"]()
     assert value.result.parts == (symbolic.decode(), "x.vi")
     assert "import os" not in source

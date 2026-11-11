@@ -18,6 +18,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.run_report import ProblemKind, ProblemStage
 from tests import structure_xml_cases as cases
+from tests.helpers import exec_generated
 from tests.structure_diagrams import Views, expression_tree, front_panel_xml, load
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -340,7 +341,7 @@ def test_a_condition_reads_by_its_tree_in_every_view(
         views.graph.get_vi_context(views.vi), views.vi, graph=views.graph
     )
     namespace: dict[str, object] = {}
-    exec(compile(source, "t.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "t.py")  # noqa: S102
     assert namespace["t"]() is None
 
 
@@ -353,7 +354,7 @@ def test_generate_runs_the_enabled_frame_of_a_conditional_disable(
         views.graph.get_vi_context(views.vi), views.vi, graph=views.graph
     )
     namespace: dict[str, object] = {}
-    exec(compile(source, "t.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "t.py")  # noqa: S102
     function = namespace["t"]
     assert callable(function)
     assert function() is None

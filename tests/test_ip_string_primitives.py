@@ -19,7 +19,7 @@ from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import get_resolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 _BD_XML = """<?xml version='1.0' encoding='utf-8'?>
 <SL__rootObject class="oHExt" uid="1">
@@ -192,7 +192,7 @@ def _generated(dot_notation_wired: bool):
     graph = build_graph(context, context.name, [to_ip, to_string])
     source = build_module(context, context.name, graph=graph)
     namespace: dict = {}
-    exec(compile(source, context.name, "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, context.name)  # noqa: S102
     return source, namespace["ip_test"]
 
 

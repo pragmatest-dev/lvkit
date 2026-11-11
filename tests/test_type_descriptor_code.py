@@ -19,7 +19,7 @@ from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.lv_type_codes import TD_FULL_TYPE, type_descriptor_code
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.vilib_resolver import VIEntry, VILibResolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 _CATALOG = Path(__file__).parent.parent / "src/lvkit/data/openg/variant.json"
 _ENTRY = VIEntry.model_validate(json.loads(_CATALOG.read_text())["entries"][0])
@@ -94,7 +94,7 @@ def test_the_code_of_the_wired_type_is_a_constant(
     assert gaps == []
     assert f"return CallerResult(t={code})" in source
     namespace: dict = {}
-    exec(compile(source, "caller.py", "exec"), namespace)
+    exec_generated(source, namespace, "caller.py")
     assert namespace["caller"](None).t == code
 
 

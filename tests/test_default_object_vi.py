@@ -17,7 +17,7 @@ from lvkit.models import (
     PropertySegment,
     Terminal,
 )
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 
 def _vi(class_name: str, property_name: str, code: int, extra_nodes=()):
@@ -66,7 +66,7 @@ def _run(source: str, tmp_path: Path):
     path = tmp_path / "user.py"
     path.write_text(source)
     namespace: dict = {"__file__": str(path)}
-    exec(compile(source, str(path), "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, str(path))  # noqa: S102
     return str(namespace["user"]().user)
 
 

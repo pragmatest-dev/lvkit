@@ -24,7 +24,7 @@ from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
 from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
 from tests.corpus_graphs import OPENG_USERLIB
-from tests.helpers import without_panel_attributes
+from tests.helpers import exec_generated, without_panel_attributes
 from tests.test_call_identity import _Call, _record, _run, _static, _Tree
 from tests.test_run_vi import runner
 
@@ -321,7 +321,7 @@ def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
     assert "def scalar(s: Shape)" in source
     assert "def array(s: Shape)" in source
     namespace: dict[str, object] = {}
-    exec(compile(source, str(module), "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, str(module))  # noqa: S102
     assert "scalar" in namespace and "array" in namespace
 
 

@@ -405,6 +405,30 @@ def exec_module(
     return module
 
 
+class _NamespaceModule:
+    """What ``sys.modules`` holds for a namespace ``exec_generated`` runs in."""
+
+
+def exec_generated(
+    source, namespace: dict | None = None, filename: str = "<generated>"
+) -> dict:
+    """Run generated ``source`` (text or an ``ast.Module``) in ``namespace`` (a
+    fresh one when None) as a module of ``GENERATED_PACKAGE``, so its relative
+    imports (``from .panels import Panel``) resolve the way they do in a generated
+    package. Returns the namespace."""
+    install_generated_package()
+    ns = {} if namespace is None else namespace
+    ns.setdefault("__name__", f"{GENERATED_PACKAGE}._bare_{next(_generated_modules)}")
+    ns.setdefault("__package__", GENERATED_PACKAGE)
+    # A result class is a ``dataclass``, which looks its module up in
+    # ``sys.modules`` while it is defined: register one whose dict is ``ns``.
+    holder = _NamespaceModule()
+    holder.__dict__ = ns
+    sys.modules[ns["__name__"]] = holder  # type: ignore[assignment]
+    exec(compile(source, filename, "exec"), ns)  # noqa: S102
+    return ns
+
+
 def vi_key(graph, text: str) -> str:
     """The key of the one VI of ``graph`` that ``text`` names: a key, a
     qualified name, or a file name. A test's way to say which VI it loaded."""

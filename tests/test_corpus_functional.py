@@ -33,6 +33,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import exec_generated
 
 pytestmark = [pytest.mark.functional, pytest.mark.needs_samples]
 
@@ -60,7 +61,7 @@ def _run_leaf(vi_rel: str, *args: object, **kwargs: object) -> Any:
     if "from .." in code:
         pytest.skip(f"{vi_rel} has SubVI imports; not a leaf (needs package case)")
     ns: dict = {}
-    exec(compile(code, f"<{vi_rel}>", "exec"), ns)  # noqa: S102
+    exec_generated(code, ns, f"<{vi_rel}>")  # noqa: S102
     func_name = to_function_name(ctx.name)
     fn = ns.get(func_name)
     assert callable(fn), f"entry function {func_name} not defined"
@@ -166,7 +167,7 @@ def test_boolean_trigger_rising_and_falling_edges_are_independent() -> None:
     ctx = graph.get_vi_context(name)
     code = build_module(ctx, name, graph=graph)
     ns: dict = {}
-    exec(compile(code, "<boolean_trigger>", "exec"), ns)  # noqa: S102
+    exec_generated(code, ns, "<boolean_trigger>")  # noqa: S102
     fn = ns[to_function_name(ctx.name)]
 
     def set_state(first_call: bool, prev: bool) -> None:

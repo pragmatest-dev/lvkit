@@ -21,6 +21,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.graph.netlist_json import netlist_to_dict
+from tests.helpers import exec_generated
 from tests.structure_diagrams import (
     Views,
     main_xml,
@@ -206,7 +207,7 @@ def _generate(views: Views) -> tuple[object, str, list[Gap]]:
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph, gaps=gaps)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     return namespace["t"], source, gaps
 
 

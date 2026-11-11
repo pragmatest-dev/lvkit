@@ -34,7 +34,7 @@ from lvkit.run_report import (
     RunProblems,
     RunSettings,
 )
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 from tests.test_ext_func_library import Project
 
 
@@ -307,7 +307,7 @@ def test_a_constant_with_no_value_to_write_raises_first_in_the_function() -> Non
         None,
     )
     namespace: dict = {}
-    exec(compile(source, "const", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "const")  # noqa: S102
     with pytest.raises(NotImplementedError, match="Frame"):
         namespace["const"]()
 
@@ -341,7 +341,7 @@ def test_a_class_whose_parent_is_not_loaded_is_defined_and_raises_when_used() ->
     assert "/p/" not in gap.reason
     # The module imports; the class has no base, and making one raises the gap.
     namespace: dict = {}
-    exec(compile(source, "child", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "child")  # noqa: S102
     assert namespace["Child"].__bases__ == (object,)
     with pytest.raises(NotImplementedError, match="parent class Base"):
         namespace["Child"]()

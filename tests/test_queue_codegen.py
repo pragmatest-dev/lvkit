@@ -23,7 +23,12 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
-from tests.helpers import build_graph, without_panel_attributes, write_support_modules
+from tests.helpers import (
+    build_graph,
+    exec_generated,
+    without_panel_attributes,
+    write_support_modules,
+)
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 TEXT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
@@ -182,7 +187,7 @@ def package_of(vis: list[Vi]):
 
 def run(source: str, function: str):
     namespace: dict = {}
-    exec(compile(source, "queue_test", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "queue_test")  # noqa: S102
     return namespace[function]
 
 
