@@ -41,13 +41,14 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 from lvkit.primitive_resolver import NativeError
 
-from ..ast_utils import parse_expr, type_default_expr
+from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver, ModuleImport
 from ..native_failure import exception_import, exception_name
 from ..queue_module import PackageQueues, QueueUse
+from ..type_default import type_default
 
 
 class QueueOp(IntEnum):
@@ -380,7 +381,7 @@ def _generate_dequeue(
     attempt: list[ast.stmt] = [taken]
     on_timeout: list[ast.stmt] = []
     if element_term is not None and element is not None:
-        on_timeout.append(_assign(element, type_default_expr(element_term.lv_type)))
+        on_timeout.append(_assign(element, type_default(ctx, element_term.lv_type)))
     if timed_out is not None:
         flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
         bindings[timed_out.id] = flag
@@ -420,7 +421,7 @@ def _generate_preview(
         if timed_out is not None
         else None
     )
-    default = type_default_expr(element_term.lv_type if element_term else None)
+    default = type_default(ctx, element_term.lv_type if element_term else None)
     wait = f"{queue}.not_empty.wait_for(lambda: {queue}.queue or {_shut_down(queue)}"
     wait += ")" if timeout is None else f", {timeout})"
     peek = f"{queue}.queue[0] if {queue}.queue else {ast.unparse(default)}"

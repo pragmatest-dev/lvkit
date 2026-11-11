@@ -13,6 +13,7 @@ import ast
 import copy
 from typing import cast
 
+from .ast_utils import is_default_object
 from .gaps import is_gap_raise
 
 
@@ -584,8 +585,10 @@ class DeadDefaultRemover(ast.NodeTransformer):
 
 
 def _is_default(value: ast.expr) -> bool:
-    return isinstance(value, ast.Constant) or (
-        isinstance(value, (ast.List, ast.Tuple)) and not value.elts
+    return (
+        isinstance(value, ast.Constant)
+        or (isinstance(value, (ast.List, ast.Tuple)) and not value.elts)
+        or is_default_object(value)
     )
 
 

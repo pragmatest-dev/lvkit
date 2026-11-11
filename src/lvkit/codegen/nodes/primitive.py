@@ -150,7 +150,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
         op_template = get_op_template(resolved.op)
         if op_template is not None:
-            resolved.python_code = op_template(node, resolved)
+            resolved.python_code = op_template(node, resolved, ctx)
 
     # A primitive known by name but with no implementation raises where it runs.
     if resolved.confidence == "placeholder":

@@ -449,7 +449,16 @@ def with_file_keys(lv_type, keys: dict[str, str]):
 
 def key_graph_types(graph, keys: dict[str, str]) -> None:
     """Give every class and typedef type on the terminals of ``graph``'s nodes
-    its ``file_key`` (``with_file_keys``), and a constant's own type too."""
+    its ``file_key`` (``with_file_keys``), and a constant's own type too, and the
+    class and typedef types of the private data of every class node."""
+    import dataclasses
+
+    for _, data in graph._dep_graph.nodes(data=True):
+        if data.get("fields"):
+            data["fields"] = [
+                dataclasses.replace(f, type=with_file_keys(f.type, keys))
+                for f in data["fields"]
+            ]
     for _, data in graph._graph.nodes(data=True):
         node = data.get("node")
         if getattr(node, "lv_type", None) is not None:

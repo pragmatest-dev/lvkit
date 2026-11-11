@@ -3,7 +3,8 @@
 A Shared Variable holds one value for everything that reads or writes it, as a
 global variable does, and belongs to a project library, so it is named by the
 library's file and the variable. The package gets a module, ``shared_variables``,
-that holds each as a module-level name set to the variable's type default, and a
+that holds each as a module-level name set to the variable's type default (``None``
+for a class, which the VI that reads it makes the object for, ``type_default``), and a
 ``<name>_timestamp`` set to ``0.0``; a VI that reads or writes the variable
 imports the module and uses the attribute, so every VI that names the same
 library and variable reaches the same value. A write also sets the timestamp to
@@ -25,9 +26,9 @@ from lvkit.graph.package_queries import SharedVariableUse
 from .ast_utils import (
     implicit_imports,
     to_var_name,
-    type_default_expr,
     unique_names,
 )
+from .type_default import state_seed
 
 SHARED_VARIABLES_MODULE = "shared_variables"
 
@@ -58,7 +59,7 @@ class PackageSharedVariables:
         ordered = sorted(uses, key=lambda u: (u.library_key, u.variable, u.node_id))
         defaults: dict[tuple[str, str], set[str]] = {}
         for use in ordered:
-            default = ast.unparse(type_default_expr(use.value_type))
+            default = ast.unparse(state_seed(use.value_type))
             defaults.setdefault((use.library_key, use.variable), set()).add(default)
         keys = list(defaults)
         names: dict[tuple[str, str], str] = {}
@@ -74,7 +75,7 @@ class PackageSharedVariables:
         for use in ordered:
             key = (use.library_key, use.variable)
             found = defaults[key]
-            default = ast.unparse(type_default_expr(use.value_type))
+            default = ast.unparse(state_seed(use.value_type))
             error = None
             if len(found) > 1:
                 error = (

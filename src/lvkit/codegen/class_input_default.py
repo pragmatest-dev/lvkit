@@ -21,12 +21,11 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.interface_order import is_required
 from lvkit.models import Terminal
 
-from .ast_utils import build_assign, parse_expr
-from .gaps import gap_of, raise_statement
+from .ast_utils import parse_expr
+from .type_default import default_if_none
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -54,22 +53,15 @@ def build_class_input_defaults(
             continue
         name = names[inp.id]
         label = inp.name or name
-        try:
-            default: ast.stmt = build_assign(
-                name,
-                parse_expr(
-                    f"{ctx.class_expression(inp.lv_type, _reason_start(label))}()"
-                ),
-            )
-        except ConversionGap as exc:
-            gap = gap_of(exc, ctx.vi_name or "", None, f"input {label}")
-            ctx.gaps.append(gap)
-            default = raise_statement(gap.message)
+        lv_type = inp.lv_type
         stmts.append(
-            ast.If(
-                test=parse_expr(f"{name} is None"),
-                body=[default],
-                orelse=[],
+            default_if_none(
+                name,
+                lambda lv_type=lv_type, label=label: parse_expr(
+                    f"{ctx.class_expression(lv_type, _reason_start(label))}()"
+                ),
+                ctx,
+                f"input {label}",
             )
         )
     return stmts

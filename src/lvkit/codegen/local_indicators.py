@@ -33,9 +33,10 @@ from typing import TYPE_CHECKING
 from lvkit.graph.models import AnyGraphNode
 from lvkit.models import FPTerminal
 
-from .ast_utils import build_assign, control_default_expr, node_owned_name
+from .ast_utils import build_assign, node_owned_name
 from .panel_hooks import PanelHooks, write_stmt
 from .references import is_walked_read
+from .type_default import control_default, default_if_unset, holds_class, state_seed
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -98,6 +99,14 @@ class LocalIndicators:
             if terminal_id in read and not clears:
                 kept = found._keep(ctx, terminal_id, control, variable)
                 statements.append(ast.Global(names=[kept.module_name]))
+                statements.extend(
+                    default_if_unset(
+                        kept.module_name,
+                        control.lv_type,
+                        ctx,
+                        f"the indicator {control.name or variable}",
+                    )
+                )
                 start = ast.Name(id=kept.module_name, ctx=ast.Load())
                 statements.append(build_assign(variable, start))
                 if kept.written_flag is not None:
@@ -105,7 +114,7 @@ class LocalIndicators:
                         build_assign(kept.written_flag, ast.Constant(value=False))
                     )
             else:
-                statements.append(build_assign(variable, control_default_expr(control)))
+                statements.append(build_assign(variable, control_default(ctx, control)))
             # A control or constant on the VI's own diagram wired straight to
             # the indicator has no node to assign it after: it sets the variable
             # here. A frame's inside face writes it in the frame, and a Local
@@ -127,9 +136,12 @@ class LocalIndicators:
     ) -> _Kept:
         assert ctx.graph is not None
         module_name = node_owned_name("_lv_indicator", ctx.function_name, terminal_id)
-        ctx.add_state_global(
-            module_name, control_default_expr(control), owner=terminal_id
+        seed = (
+            state_seed(control.lv_type)
+            if holds_class(control.lv_type)
+            else control_default(ctx, control)
         )
+        ctx.add_state_global(module_name, seed, owner=terminal_id)
         flag = (
             ctx.make_output_var(f"{variable}_written", terminal_id)
             if control.is_public
@@ -210,7 +222,7 @@ class LocalIndicators:
                 statements.extend(self._write(indicator, written))
         return statements
 
-    def statements_at_end(self) -> list[ast.stmt]:
+    def statements_at_end(self, ctx: CodeGenContext) -> list[ast.stmt]:
         """The statements that end the call: an indicator the call did not
         write takes its default, and every kept indicator is stored back."""
         statements: list[ast.stmt] = []
@@ -224,7 +236,7 @@ class LocalIndicators:
                         ),
                         body=[
                             build_assign(
-                                kept.variable, control_default_expr(kept.control)
+                                kept.variable, control_default(ctx, kept.control)
                             )
                         ],
                         orelse=[],

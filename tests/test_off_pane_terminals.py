@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -36,7 +37,8 @@ from lvkit.graph.netlist_models import (
 from lvkit.load_mode import LoadMode
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.models import ParsedWiringRule
-from tests.helpers import exec_module
+from lvkit.pipeline import create_import_resolver
+from tests.helpers import GENERATED_PACKAGE, exec_module, install_generated_package
 from tests.test_lvnet_identity import _assert_graph_identity
 
 _ISSUES = Path(__file__).resolve().parent / "corpus" / "issues"
@@ -211,7 +213,25 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
     graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
-    code = build_module(graph.get_vi_context(key), key, graph=graph)
+    # The VI's class indicators start at their class's default object, so the
+    # module imports the class; a stand-in module of the generated package
+    # defines it.
+    out = Path("generated")
+    paths = {
+        class_key: out / f"{Path(class_key).stem.lower()}.py"
+        for class_key in graph.list_class_keys()
+    }
+    paths[key] = out / "failunlesserror.py"
+    resolver = create_import_resolver(
+        GENERATED_PACKAGE, out, paths, paths[key], caller_key=key, graph=graph
+    )
+    code = build_module(
+        graph.get_vi_context(key), key, import_resolver=resolver, graph=graph
+    )
+    install_generated_package()
+    stand_in = ModuleType(f"{GENERATED_PACKAGE}.testcase")
+    stand_in.TestCase = type("TestCase", (), {})  # type: ignore[attr-defined]
+    sys.modules[stand_in.__name__] = stand_in
     assert "task" not in code.split("):", 1)[0]
     assert "live_io.read(FailunlesserrorValue.TASK, '')" in code
     namespace = exec_module(code, "<failUnlessError>").__dict__

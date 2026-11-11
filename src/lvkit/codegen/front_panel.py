@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
@@ -22,17 +23,21 @@ from .ast_utils import (
     to_var_name,
 )
 from .label_names import python_label
+from .type_default import control_default
+
+if TYPE_CHECKING:
+    from .context import CodeGenContext
 
 _HEADING = "Front panel, not on the connector pane:"
 
 
 def off_pane_locals(
-    controls: Sequence[Terminal], names: dict[str, str]
+    controls: Sequence[Terminal], names: dict[str, str], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """The assignment of each off-pane control's saved default to its local
     variable (``names``: terminal id to name), in front-panel order."""
     return [
-        build_assign(names[c.id], control_default_expr(c))
+        build_assign(names[c.id], control_default(ctx, c))
         for c in controls
         if c.id in names
     ]

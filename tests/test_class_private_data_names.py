@@ -38,7 +38,10 @@ def test_init_keeps_every_field() -> None:
         ],
         parent_class="LabVIEW Object",
     )
-    init = ClassBuilder()._build_init(  # noqa: SLF001
+    builder = ClassBuilder()
+    builder._graph = graph  # noqa: SLF001
+    builder._import_resolver = None  # type: ignore[assignment]  # noqa: SLF001
+    init = builder._build_init(  # noqa: SLF001
         class_model(graph, "/src/C.lvclass"),
         graph.class_own_fields("/src/C.lvclass"),
         False,

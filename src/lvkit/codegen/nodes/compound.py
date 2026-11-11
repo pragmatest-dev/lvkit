@@ -12,13 +12,14 @@ from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
-from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..error_flow import status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_array import replace_subarray_statements
 from ..output_binding import bind_output
+from ..type_default import type_default
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -678,7 +679,7 @@ def generate_array_reshape(
         val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
-    default_expr = type_default_expr(lv_type.element_type)
+    default_expr = type_default(ctx, lv_type.element_type)
 
     flat_var = "_flat"
     flat_stmt = build_assign(flat_var, flat_expr)

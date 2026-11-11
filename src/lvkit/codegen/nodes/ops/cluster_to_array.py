@@ -6,7 +6,7 @@ the same data type. ... The order of the elements in array is the same as the
 cluster order of the elements." An unwired cluster is the default of its type.
 
 A cluster is a tuple, or a ``SimpleNamespace`` when it is a typedef (the forms
-cluster constants take, ``ast_utils.type_default_expr``).
+cluster constants take, ``type_default.type_default``).
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from ...ast_utils import (
     build_assign,
     field_attribute_names,
     parse_expr,
-    type_default_expr,
 )
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
+from ...type_default import type_default
 from . import register_op_fragment
 from ._cluster_node import cluster_type
 from ._flat_node import terminal
@@ -34,7 +34,7 @@ def cluster_to_array(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment |
     in_type = cluster_type(node, "input")
     cluster = input_expression(ctx, node, 1)
     if cluster is None:
-        cluster = ast.unparse(type_default_expr(in_type))
+        cluster = ast.unparse(type_default(ctx, in_type))
     statements: list[ast.stmt] = []
     if in_type.typedef_name:
         names = field_attribute_names(f.name for f in in_type.fields or [])

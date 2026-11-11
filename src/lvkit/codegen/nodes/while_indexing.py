@@ -15,8 +15,9 @@ import ast
 
 from lvkit.models import Terminal, Tunnel, TunnelMode
 
-from ..ast_utils import build_assign, parse_expr, type_default_expr
+from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
+from ..type_default import type_default
 
 
 def indexing_inputs(tunnels: list[Tunnel], inputs: set[str]) -> list[Tunnel]:
@@ -50,7 +51,7 @@ def bind_elements(
         if array is None:
             continue
         inner = term_by_id.get(tunnel.inner_terminal_uid)
-        default = type_default_expr(inner.lv_type if inner is not None else None)
+        default = type_default(ctx, inner.lv_type if inner is not None else None)
         element = ctx.make_output_var("element", loop_id, tunnel.inner_terminal_uid)
         statements.append(
             build_assign(

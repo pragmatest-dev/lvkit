@@ -14,9 +14,10 @@ from lvkit.graph.models import AnyGraphNode, CaseStructureNode, EventStructureNo
 from lvkit.graph.operations import frame_key, position_of
 from lvkit.models import CaseFrame, EventFrame, LVType, TunnelTerminal
 
-from ..ast_utils import build_assign, parse_expr, type_default_expr
+from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..type_default import type_default
 
 # The structures whose frame is chosen at run time.
 FrameStructure = CaseStructureNode | EventStructureNode
@@ -49,9 +50,7 @@ def _frame_of(node: FrameStructure, inner: object) -> str | int | None:
     return str(inner.frame_position) if inner.frame_position is not None else None
 
 
-def _output_tunnels(
-    node: FrameStructure, ctx: CodeGenContext
-) -> list[_OutputTunnel]:
+def _output_tunnels(node: FrameStructure, ctx: CodeGenContext) -> list[_OutputTunnel]:
     """Collect the output tunnels of a structure (outer terminals whose data flows
     OUT of the structure), each with its per-frame inner terminals."""
     outer_by_id = {t.id: t for t in node.terminals}
@@ -172,8 +171,6 @@ def generate_frame_body(
     )
 
 
-
-
 def pre_declare_outputs(
     node: FrameStructure,
     output_bindings: dict[str, str],
@@ -217,7 +214,7 @@ def pre_declare_outputs(
         # the pre-declaration with that default so an unwired frame is faithful.
         # (Always-wired tunnels overwrite it, so this is safe in all cases.)
         outer = outer_id_to_term.get(_outer_term)
-        default = type_default_expr(outer.lv_type if outer else None)
+        default = type_default(ctx, outer.lv_type if outer else None)
         pre_decls.append(build_assign(var_name, default))
 
     return pre_decls

@@ -35,8 +35,12 @@ if TYPE_CHECKING:
 
 # op tag -> produces a python_code template (dict[label -> expr] or str).
 OpTemplate = Callable[[PrimitiveNode, ResolvedPrimitive], "str | dict[str, str]"]
+# The same for a handler that needs the module it writes into (to import a class).
+ContextOpTemplate = Callable[
+    [PrimitiveNode, ResolvedPrimitive, "CodeGenContext"], "str | dict[str, str]"
+]
 
-_OP_PYTHON: dict[str, OpTemplate] = {}
+_OP_PYTHON: dict[str, ContextOpTemplate] = {}
 
 
 def register_op(op: str) -> Callable[[OpTemplate], OpTemplate]:
@@ -45,13 +49,26 @@ def register_op(op: str) -> Callable[[OpTemplate], OpTemplate]:
     def deco(fn: OpTemplate) -> OpTemplate:
         if op in _OP_PYTHON:
             raise ValueError(f"duplicate Python op handler for {op!r}")
+        _OP_PYTHON[op] = lambda node, resolved, _ctx: fn(node, resolved)
+        return fn
+
+    return deco
+
+
+def register_context_op(op: str) -> Callable[[ContextOpTemplate], ContextOpTemplate]:
+    """Register a handler for a neutral op tag that also takes the
+    ``CodeGenContext`` (it imports a class the template names)."""
+
+    def deco(fn: ContextOpTemplate) -> ContextOpTemplate:
+        if op in _OP_PYTHON:
+            raise ValueError(f"duplicate Python op handler for {op!r}")
         _OP_PYTHON[op] = fn
         return fn
 
     return deco
 
 
-def get_op_template(op: str) -> OpTemplate | None:
+def get_op_template(op: str) -> ContextOpTemplate | None:
     """The registered handler for ``op``, or None if no backend covers it yet."""
     return _OP_PYTHON.get(op)
 

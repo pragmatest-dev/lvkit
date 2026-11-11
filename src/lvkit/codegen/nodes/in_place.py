@@ -34,12 +34,13 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import parse_expr, type_default_expr
+from ..ast_utils import parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import guarded_index, replaced_element
+from ..type_default import type_default
 from ..value_copy import COPY_IMPORT, own_path, owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
 
@@ -273,7 +274,7 @@ def _take_element_out(
             return None
         # An index outside the array reads the element type's default, as Index
         # Array does, and its write leaves the array as it is.
-        default = ast.unparse(type_default_expr(element_out.lv_type))
+        default = ast.unparse(type_default(ctx, element_out.lv_type))
         ctx.bind(element_out.id, guarded_index(whole, index, default))
         return _Element(whole, index)
     dvr_in = next(

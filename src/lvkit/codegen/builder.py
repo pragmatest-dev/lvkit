@@ -20,7 +20,6 @@ from .ast_utils import (
     build_assign,
     build_result_class_name,
     build_type_checking_block,
-    control_default_expr,
     implicit_imports,
     interface_names,
     parameter_default_expr,
@@ -53,6 +52,7 @@ from .panel_hooks import (
     reads_in_frame,
 )
 from .references import REFERENCE_KINDS, generated_nodes
+from .type_default import control_default
 
 if TYPE_CHECKING:
     from .class_builder.shared_state import ModuleParts
@@ -182,7 +182,7 @@ def function_body(
 
     # A control that is not on the connector pane is a local variable set to its
     # saved default.
-    body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
+    body.extend(off_pane_locals(vi_context.off_pane_inputs, names, ctx))
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
@@ -203,7 +203,7 @@ def function_body(
 
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
-    body.extend(ctx.local_indicators.statements_at_end())
+    body.extend(ctx.local_indicators.statements_at_end(ctx))
 
     # The docstring opens the function; it names the Variant parameters the body
     # turned out to read as lookup tables.
@@ -419,7 +419,7 @@ def output_value(
         return parse_expr(value)
     if ctx.is_wired(out.id):
         return ast.Constant(value=None)
-    return control_default_expr(out)
+    return control_default(ctx, out)
 
 
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:

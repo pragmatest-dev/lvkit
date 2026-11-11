@@ -31,6 +31,7 @@ from .context import _format_constant, type_namer
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
+from .type_default import holds_class, state_seed
 
 
 def _saved_default(
@@ -40,7 +41,8 @@ def _saved_default(
     saved value, formatted by the same path as a cluster or array constant on a
     diagram; unlike a function parameter default this is not a signature default,
     so a mutable container is the intended initial value. Every other control
-    takes ``control_default_expr``."""
+    takes ``control_default_expr``; a class (or a cluster holding one) is ``None``,
+    which the VI that reads it makes the object for (``type_default``)."""
     lv_type = control.lv_type
     default = control.default_value
     if control.unwritable is not None:
@@ -73,6 +75,8 @@ def _saved_default(
             return ast.parse(text, mode="eval").body
         except SyntaxError:
             pass
+    if holds_class(lv_type):
+        return state_seed(lv_type)
     return control_default_expr(control)
 
 

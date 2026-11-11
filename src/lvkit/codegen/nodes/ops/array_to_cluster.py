@@ -12,7 +12,7 @@ a shorter one fills the extra cluster values with the default of the element
 type, which is what is written here.
 
 A cluster is a tuple, or a ``SimpleNamespace`` when it is a typedef (the forms
-cluster constants take, ``ast_utils.type_default_expr``).
+cluster constants take, ``type_default.type_default``).
 """
 
 from __future__ import annotations
@@ -25,10 +25,10 @@ from ...ast_utils import (
     build_assign,
     field_attribute_names,
     parse_expr,
-    type_default_expr,
 )
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
+from ...type_default import type_default
 from . import register_op_fragment
 from ._cluster_node import cluster_type
 from ._flat_node import terminal
@@ -44,10 +44,8 @@ def array_to_cluster(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment |
     array = string_variable(
         ctx, node, input_expression(ctx, node, 1) or "[]", statements, base="array"
     )
-    default = ast.unparse(type_default_expr(fields[0].type))
-    cluster = (
-        f"(*{array}[:{size}], *({default} for _ in range({size} - len({array}))))"
-    )
+    default = ast.unparse(type_default(ctx, fields[0].type))
+    cluster = f"(*{array}[:{size}], *({default} for _ in range({size} - len({array}))))"
     if out_type.typedef_name:
         names = field_attribute_names(f.name for f in fields)
         cluster = f"SimpleNamespace(**dict(zip({tuple(names)!r}, {cluster})))"

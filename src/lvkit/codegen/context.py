@@ -48,7 +48,6 @@ from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
-from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
@@ -58,7 +57,7 @@ from .ast_utils import (
     to_function_name,
     to_var_name,
 )
-from .class_model import class_import, member_reference, member_shape
+from .class_model import class_reference, member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -855,18 +854,12 @@ class CodeGenContext:
         ``object`` (a generated class with no parent has no base). A class that
         is not loaded, or has no module, is a gap whose reason starts with
         ``what`` (the node it is for)."""
-        if lv_type.classname == ROOT_CLASS:
-            return "object"
-        class_key = (
-            self.graph.class_type_key(lv_type) if self.graph is not None else None
+        resolver = (
+            self.import_resolver
+            if isinstance(self.import_resolver, ImportResolver)
+            else None
         )
-        if class_key is None or not isinstance(self.import_resolver, ImportResolver):
-            raise ConversionGap(
-                f"{what} {lv_type.classname} names a class that is "
-                "not loaded; add it to the project or a --search-path"
-            )
-        assert self.graph is not None
-        imported = class_import(self.graph, class_key, self.import_resolver)
+        imported = class_reference(self.graph, resolver, lv_type, what)
         self.add_import(imported.statement)
         return imported.name
 

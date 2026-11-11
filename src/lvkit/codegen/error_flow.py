@@ -6,7 +6,7 @@ warning (``False``). A node on an error chain (an error in and an error out)
 skips its work when an error occurred, as LabVIEW's nodes do, and passes the
 incoming error on to its error out; a warning does not skip it. So the node's
 statements run inside ``if err is None or not err.status:``, its outputs take
-their type's default when it skips (``ast_utils.type_default_expr``), and an
+their type's default when it skips (``type_default.type_default``), and an
 error out the node does not set itself is its error in.
 
 A node is not skipped by its caller when its own code reads the error in: a
@@ -32,8 +32,9 @@ from lvkit.graph.vi_reference import CALL_ERROR_IN, CALL_ERROR_OUT
 from lvkit.models import Terminal
 from lvkit.parser.constants import NODE_CLASS_CALL_BY_REF
 
-from .ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
+from .ast_utils import build_assign, parse_expr, to_var_name
 from .fragment import CodeFragment
+from .type_default import type_default
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -288,7 +289,7 @@ def output_defaults(
             expr = (
                 parse_expr(given)
                 if given is not None
-                else type_default_expr(term.lv_type)
+                else type_default(ctx, term.lv_type)
             )
             defaults.setdefault(value, build_assign(value, expr))
         elif error is not None:

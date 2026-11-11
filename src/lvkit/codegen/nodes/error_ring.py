@@ -27,11 +27,12 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVTypeKind
 from lvkit.parser.error_ring import ErrorRing
 
-from ..ast_utils import build_assign, parse_expr, type_default_expr
+from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
 from ..error_codes import describe_error_code
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
+from ..type_default import type_default
 
 # A Format Into String specifier: ``%%`` or ``%`` up to its conversion letter.
 _SPECIFIER = re.compile(r"%(%|[^a-zA-Z%]*[a-zA-Z])")
@@ -107,5 +108,5 @@ def _message(node: PrimitiveNode, ring: ErrorRing, ctx: CodeGenContext) -> str:
         ):
             raise ConversionGap(f"Error Ring input {term.index} is not a string", node)
         wired = ctx.wired_input(term.id, node) if ctx.is_wired(term.id) else None
-        arguments.append(wired or ast.unparse(type_default_expr(lv_type)))
+        arguments.append(wired or ast.unparse(type_default(ctx, lv_type)))
     return f"{ring.description!r} % ({', '.join(arguments)},)"
