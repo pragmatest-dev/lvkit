@@ -4,12 +4,14 @@ handmade diagram whose generated package is imported and run."""
 
 from __future__ import annotations
 
+import ast
 import threading
 from pathlib import Path
 from types import ModuleType
 
 from lvkit.codegen.front_panels_module import FRONT_PANELS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.panel_attributes import required_defaults
 from lvkit.graph.models import ConstantNode, GraphNode, PrimitiveNode, VIContext
 from lvkit.models import (
     ClusterField,
@@ -22,6 +24,7 @@ from lvkit.models import (
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
+    Package,
     Project,
     Recipe,
     add,
@@ -561,3 +564,175 @@ def test_a_deprecated_ctrl_val_method_is_a_gap_naming_why(tmp_path: Path) -> Non
         "value as flattened bytes and a type string, which the generated code has "
         "no LabVIEW type to read or write"
     ]
+
+
+def with_front_panels(package: Package) -> Package:
+    """The package with ``front_panels.py`` written, for a project no diagram of
+    which uses the front panel by reference."""
+    (package.root / "front_panels.py").write_text(FRONT_PANELS_MODULE_SOURCE)
+    return package
+
+
+def required_and_optional(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    """``y`` = ``x`` + ``o``: ``x`` a Required control saved at 5, ``o`` an
+    optional one saved at 3."""
+    x = pane(vi, "input", "x", INT, "x", 0)
+    x.default_value = 5
+    o = pane(vi, "input", "o", INT, "o", 1, ParsedWiringRule.RECOMMENDED)
+    o.default_value = 3
+    return (
+        VIContext(
+            name=vi,
+            inputs=[x, o],
+            outputs=[pane(vi, "output", "y", INT, "y", 2)],
+            data_flow=[
+                wire(vi, "x", "add.x"),
+                wire(vi, "o", "add.y"),
+                wire(vi, "add.sum", "y"),
+            ],
+        ),
+        [add(vi, "add")],
+    )
+
+
+def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) -> None:
+    """The front panel runs a VI with the values its controls hold, a Required
+    control included: initially its default."""
+    project = Project(tmp_path)
+    project.add_vi("Target", required_and_optional)
+    package = with_front_panels(project.generate())
+    with package.use() as module:
+        target = module("target").target
+        assert target.panel_defaults.keys() == {"x"}
+        panel = module("front_panels").FrontPanel.of(target)
+        assert panel.get("x") == 5
+        assert panel.get("o") == 3
+        panel.run()
+        assert panel.get("y") == 8
+        panel.set("x", 10)
+        assert panel.get("x") == 10
+        panel.run()
+        assert panel.get("y") == 13
+        panel.set("o", 1)
+        panel.run()
+        assert panel.get("y") == 11
+
+
+def test_a_required_class_control_is_a_new_object_each_run(tmp_path: Path) -> None:
+    cls = class_type("Cls")
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "c", cls, "c", 0)],
+                outputs=[pane(vi, "output", "d", cls, "d", 1)],
+                data_flow=[wire(vi, "c", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    project.add_vi("Take", take)
+    gaps: list[Gap] = []
+    package = with_front_panels(project.generate(gaps))
+    assert gaps == []
+    with package.use() as module:
+        take_function = module("take").take
+        panel = module("front_panels").FrontPanel.of(take_function)
+        panel.run()
+        first = panel.get("d")
+        panel.run()
+        second = panel.get("d")
+        assert isinstance(first, module("cls").Cls)
+        assert isinstance(second, module("cls").Cls)
+        assert first is not second
+
+
+def test_a_required_array_control_is_a_new_list_each_run(tmp_path: Path) -> None:
+    array = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=INT)
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "a", array, "a", 0)],
+                outputs=[],
+                data_flow=[],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Take", take)
+    package = with_front_panels(project.generate())
+    assert "panel_defaults = {'a': lambda: []}" in package.sources["take"]
+    with package.use() as module:
+        fronts = module("front_panels")
+        seen: list[object] = []
+
+        def record(a: list[int]) -> None:
+            seen.append(a)
+
+        record.panel_controls = {"a": "a"}
+        record.panel_defaults = module("take").take.panel_defaults
+        panel = fronts.FrontPanel.of(record)
+        panel.run()
+        panel.run()
+        assert seen == [[], []]
+        assert seen[0] is not seen[1]
+
+
+def test_a_function_without_the_attribute_still_runs_with_none(
+    tmp_path: Path,
+) -> None:
+    """A function lvkit did not generate has no ``panel_defaults``."""
+    package = with_front_panels(Project(tmp_path).generate())
+    with package.use() as module:
+        seen: list[object] = []
+
+        def other(x: int) -> None:
+            seen.append(x)
+
+        other.panel_controls = {"x": "x"}
+        panel = module("front_panels").FrontPanel.of(other)
+        assert panel.get("x") is None
+        panel.run()
+        assert seen == [None]
+
+
+class ImportingContext:
+    """What a default needs of its module: a class imported from another
+    generated module."""
+
+    def __init__(self) -> None:
+        self.imports: set[str] = {"from .kept import kept"}
+
+    def class_expression(self, lv_type: LVType, what: str) -> str:
+        self.imports.add("from .other import Other")
+        return "Other"
+
+
+def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy() -> (
+    None
+):
+    """A module in an import cycle imports other generated modules inside its
+    functions, so a default naming a class of one imports it where it is made."""
+    control = pane("v", "input", "c", class_type("Other"), "c", 0)
+    lazy_context = ImportingContext()
+    lazy = required_defaults([control], lazy_context, "f", True)  # type: ignore[arg-type]
+    module = ast.fix_missing_locations(ast.Module(lazy.statements, []))
+    assert ast.unparse(module) == (
+        "def _f_default_0():\n    from .other import Other\n    return Other()"
+    )
+    assert ast.unparse(lazy.entries["c"]) == "_f_default_0"
+    assert lazy_context.imports == {"from .kept import kept"}
+    eager_context = ImportingContext()
+    eager = required_defaults([control], eager_context, "f", False)  # type: ignore[arg-type]
+    assert eager.statements == []
+    assert ast.unparse(eager.entries["c"]) == "lambda: Other()"
+    assert eager_context.imports == {
+        "from .kept import kept",
+        "from .other import Other",
+    }

@@ -32,7 +32,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
-from ..panel_attributes import attribute_statements, labelled
+from ..panel_attributes import attribute_statements, labelled, required_defaults
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..type_fields import annotation_imports
 
@@ -155,7 +155,7 @@ class _MethodBuilderMixin:
         self._parts.collect(ctx)
         if not property_accessor:
             self._parts.panel_attributes.extend(
-                self._panel_attributes(shape, vi_context, names)
+                self._panel_attributes(shape, vi_context, names, ctx)
             )
         imports = ctx.imports
         if self._lazy:
@@ -178,7 +178,11 @@ class _MethodBuilderMixin:
         )
 
     def _panel_attributes(
-        self, shape: MethodShape, vi_context: VIContext, names: dict[str, str]
+        self,
+        shape: MethodShape,
+        vi_context: VIContext,
+        names: dict[str, str],
+        ctx: CodeGenContext,
     ) -> list[ast.stmt]:
         """The label maps of the method, set after its class: its connector-pane
         controls by the parameter of the method (``self`` for the class wire), its
@@ -193,13 +197,20 @@ class _MethodBuilderMixin:
             and shape.receiver_out not in shape.results
             else {}
         )
+        target = f"{self._model.name}.{run_time_name(self._model.name, shape.name)}"
         return attribute_statements(
-            f"{self._model.name}.{run_time_name(self._model.name, shape.name)}",
+            target,
             labelled((t, names[t.id]) for t in vi_context.inputs if t.id in names),
             labelled(
                 (outputs[index], shape.result_fields[index]) for index in shape.results
             ),
             passed,
+            required_defaults(
+                [t for t in vi_context.inputs if t.id in names],
+                ctx,
+                target.replace(".", "_"),
+                self._lazy,
+            ),
         )
 
     def _return_stmt(

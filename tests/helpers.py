@@ -346,7 +346,9 @@ _generated_modules = itertools.count()
 GENERATED_PACKAGE = "generated_package"
 
 
-_PANEL_ATTRIBUTE = re.compile(r"^[\w.]+\.panel_(controls|indicators|passed) = ")
+_PANEL_ATTRIBUTE = re.compile(
+    r"^[\w.]+\.panel_(controls|indicators|passed|defaults) = "
+)
 
 
 def without_panel_attributes(source: str) -> str:

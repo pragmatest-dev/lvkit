@@ -42,7 +42,11 @@ from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
-from .panel_attributes import attribute_statements, function_label_maps
+from .panel_attributes import (
+    attribute_statements,
+    function_label_maps,
+    required_defaults,
+)
 from .panel_hooks import (
     PanelHooks,
     entry_events,
@@ -208,7 +212,7 @@ def function_body(
     # The docstring opens the function; it names the Variant parameters the body
     # turned out to read as lookup tables.
     docstring = front_panel_docstring(
-        vi_context, names, ctx.type_namer(), sorted(ctx.lookup_parameters)
+        vi_context, names, ctx.type_namer(), ctx, sorted(ctx.lookup_parameters)
     )
     if docstring is not None:
         body.insert(0, docstring)
@@ -487,7 +491,16 @@ def build_module_ast(
     )
     module_body.append(func_def)
     module_body.extend(
-        attribute_statements(func_def.name, *function_label_maps(vi_context))
+        attribute_statements(
+            func_def.name,
+            *function_label_maps(vi_context),
+            defaults=required_defaults(
+                vi_context.inputs,
+                ctx,
+                func_def.name,
+                ctx.graph is not None and in_import_cycle(ctx.graph, vi_name),
+            ),
+        )
     )
 
     for statement in implicit_imports(module_body):

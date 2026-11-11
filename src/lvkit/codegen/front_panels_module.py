@@ -13,7 +13,9 @@ Each generated function carries two function attributes, set after its ``def``
 (after its class, for a method): ``panel_controls`` maps the label of each
 connector-pane control to the function's parameter, and ``panel_indicators`` the
 label of each indicator to the field of the result; ``panel_passed`` maps the
-label of a class output that is the object the method ran on to its parameter.
+label of a class output that is the object the method ran on to its parameter;
+``panel_defaults`` maps the label of each control whose parameter has no default
+to a function that makes the control's default, which an unset control holds.
 """
 
 from __future__ import annotations
@@ -59,6 +61,9 @@ class FrontPanel:
             getattr(function, "panel_indicators", {})
         )
         self._passed: dict[str, str] = dict(getattr(function, "panel_passed", {}))
+        self._defaults: dict[str, Callable[[], Any]] = dict(
+            getattr(function, "panel_defaults", {})
+        )
         self._parameters = inspect.signature(function).parameters
         self._values: dict[str, Any] = {}
         self._lock = threading.RLock()
@@ -124,9 +129,13 @@ class FrontPanel:
     def _execute(self) -> None:
         with self._lock:
             arguments = {
-                parameter: self._values[label]
+                parameter: (
+                    self._values[label]
+                    if label in self._values
+                    else self._defaults[label]()
+                )
                 for label, parameter in self._controls.items()
-                if label in self._values
+                if label in self._values or label in self._defaults
             }
         for parameter, found in self._parameters.items():
             if (
@@ -157,6 +166,8 @@ class FrontPanel:
     def _value(self, label: str) -> Any:
         if label in self._values:
             return self._values[label]
+        if label in self._defaults:
+            return self._defaults[label]()
         parameter = self._parameters.get(self._controls.get(label, ""))
         if parameter is None or parameter.default is inspect.Parameter.empty:
             return None

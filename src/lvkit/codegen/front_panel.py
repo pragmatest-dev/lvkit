@@ -17,7 +17,6 @@ from lvkit.models import Terminal, TypeNamer
 
 from .ast_utils import (
     build_assign,
-    control_default_expr,
     distinct_names,
     terminal_annotation,
     to_var_name,
@@ -47,6 +46,7 @@ def front_panel_docstring(
     vi_context: VIContext,
     names: dict[str, str],
     spell: TypeNamer | None,
+    ctx: CodeGenContext,
     lookup_parameters: Sequence[str] = (),
 ) -> ast.stmt | None:
     """The docstring that says which Variant parameters are dicts of attributes
@@ -70,7 +70,7 @@ def front_panel_docstring(
         lines.append("  Controls (local variables, set to their saved default):")
         lines.extend(
             f"    {names[c.id]}: {terminal_annotation(c, spell)} = "
-            f"{ast.unparse(control_default_expr(c))}"
+            f"{ast.unparse(control_default(ctx, c))}"
             for c in controls
         )
     if indicators:

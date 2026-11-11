@@ -304,6 +304,7 @@ def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
         "from __future__ import annotations",
         "from typing import TYPE_CHECKING",
         "from .shape import Shape",
+        "from types import SimpleNamespace",
     ]
     assert "def scalar(s: Shape)" in source
     assert "def array(s: Shape)" in source
