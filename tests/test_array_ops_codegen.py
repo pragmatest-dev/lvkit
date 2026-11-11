@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import copy
+from types import SimpleNamespace
 
 import pytest
 
@@ -149,7 +150,7 @@ class TestArrayInit2D:
 
 
 class TestArrayInitMutableElement:
-    """A cluster/array-typed element must be deep-copied per slot."""
+    """A cluster/array-typed element is copied (one level) per slot."""
 
     def test_mutable_element_slots_are_independent(self):
         ctx = make_ctx("elem", "dim0", "out")
@@ -341,6 +342,35 @@ class TestArrayReplaceSubset:
             {"data": [1, 2, 3], "sub": [], "i": 1},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
+
+
+    def test_each_slot_of_named_cluster_elements_is_its_own_object(self):
+        ctx = make_ctx("elem", "dim0", "out")
+        ctx.bind("elem", "fill_value")
+        ctx.bind("dim0", "n")
+        terminals = [
+            Terminal(id="elem", index=0, direction="input", lv_type=CLUSTER_TYPE),
+            Terminal(id="out", index=1, direction="output"),
+            Terminal(id="dim0", index=2, direction="input"),
+        ]
+        op = PrimitiveNode(
+            id="init1",
+            vi_path="test.vi",
+            name="Initialize Array",
+            node_type="aInit",
+            terminals=terminals,
+        )
+        fragment = compound.generate_array_init(op, ctx)
+        shared = [0]
+        result = _compile_and_run(
+            fragment.statements,
+            {"fill_value": SimpleNamespace(x=1, ref=shared), "n": 3},
+        )
+        arr = result[fragment.bindings["out"]]
+        arr[0].x = 99
+        assert [e.x for e in arr] == [99, 1, 1]
+        assert len({id(e) for e in arr}) == 3
+        assert all(e.ref is shared for e in arr)
 
 
 def _replace_op_nd(rank: int, sets: int, element_types=None) -> PrimitiveNode:
@@ -890,3 +920,22 @@ class TestArrayReshape2DSource:
             {"data": [[1, 2], [3, 4], [5]], "n": 5},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3, 4, 5]
+
+
+class TestArrayReplaceOneLevelCopy:
+    """The output array is a one-level copy: the input array is unchanged, and a
+    row of a 2-D array the write does not reach is the input's own row."""
+
+    def test_a_2d_element_write_leaves_the_input_rows_as_they_were(self):
+        ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "out")
+        for tid, var in (("arr", "grid"), ("el0", "x"), ("ix0_0", "r"), ("ix0_1", "c")):
+            ctx.bind(tid, var)
+        fragment = compound.generate_array_replace(_replace_op_nd(2, 1), ctx)
+        grid = [[0, 0], [0, 0], [0, 0]]
+        result = _compile_and_run(
+            fragment.statements, {"grid": grid, "x": 7, "r": 1, "c": 0}
+        )
+        out = result[fragment.bindings["out"]]
+        assert out == [[0, 0], [7, 0], [0, 0]]
+        assert grid == [[0, 0], [0, 0], [0, 0]]
+        assert out[0] is grid[0] and out[1] is not grid[1]

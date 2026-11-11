@@ -31,7 +31,6 @@ from .context import type_namer
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
 from .type_fields import TYPING_IMPORTS, annotation_imports, field_annotations
-from .value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
 
 
 def build_type_module(
@@ -92,16 +91,7 @@ def _typedef_definition(
                 type_namer(import_resolver),
             ),
         ]
-        names = field_attribute_names(f.name for f in root.fields)
-        refnums = [
-            (attribute, f.type)
-            for attribute, f in zip(names, root.fields, strict=True)
-            if holds_refnum(f.type)
-        ]
         imports = {"from types import SimpleNamespace", *TYPING_IMPORTS}
-        if refnums:
-            body.extend(share_refnums_method(refnums, base_shares=False))
-            imports.add(COPY_IMPORT)
         definition = ast.ClassDef(
             name=name,
             bases=[ast.Name(id="SimpleNamespace", ctx=ast.Load())],

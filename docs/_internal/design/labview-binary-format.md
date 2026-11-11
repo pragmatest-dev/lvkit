@@ -642,6 +642,22 @@ specifies one frame's event:
   `1073741825`=Timeout. Others (e.g. `-2147483645`=0x80000003, a filter-event) are NOT named —
   degrade to control-only or bare `[N]`, NEVER fabricate a type name ([[feedback_no_heuristics]]).
 
+- `source` / `type` / `dynIndex` — a dynamic User Event has `source` 1, `type` 1000 and `dynIndex` k >= 1;
+  a static event has `dynIndex` 0 (or none). k is the k-th row of the Event Registration refnum on the
+  structure's dynamic terminal (`eventDynDCO`). That refnum's type lists one child per row (the u16
+  fields `cfield0`, `cfield2`, `cfield4` = the row's event type, then the row's type index: pylabview
+  `LVdatatyperef.py` `RefnumEventReg`), and for a user event row the child is a UserEvent refnum
+  type whose own label is the row name. Every row takes the next index, whatever it registers (a control row too); a row that is a cluster
+  (through its TypeDef) is followed by its elements, recursively, each taking an index, and an array row is one
+  index. LabVIEW's stored labels: `<Accessor:Server RPC Methods.MeasurementService GetMetadata gRPC UE>` (cluster
+  label, a dot, element label; Measurement Service V2 `Start Async.vi`, rows Server Stop, the cluster, dynIndex 1, 3, 4)
+  and `[2] <#1>: User Event` for an array row (`Monitor for Stop.vi`, an unlabelled array: `#` and the row number).
+  A cluster of registrations numbers its rows across its fields in
+  field order; LabVIEW's stored label for such a frame is `<Field.Label>` (WaveGen's displayed frame:
+  `[2] <Action.Event Data>: User Event`, field `Action`, row label `Event Data`). JKI `Results Status
+  Update Process__core.vi`: type 104, rows `ResultStatusChanged`, `SuiteStatusChanged`, `Exit`,
+  `TestStartedEventRef` (the row label, not the data cluster's own label). `graph/event_registration.py`.
+
 Label format `[N] "Control": EventType` (control+type) / `[N] EventType` (no control) / `[N]`
 (neither). Displayed frame's own `selString` still wins for its frame. Verified: VI Tester About.vi
 → Cancel/Website Button/copyrights Value Change; pco 9-frame struct → Timeout + Quit/Image Width
