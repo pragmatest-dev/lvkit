@@ -1,6 +1,8 @@
-"""A VI's front panel by reference (``codegen/nodes/ctrl_val.py``): Ctrl Val.Set,
-Get and Get All and Run VI through ``front_panels.FrontPanel``. Each case is a
-handmade diagram whose generated package is imported and run."""
+"""Every VI has a front panel, reached through its reference
+(``codegen/nodes/ctrl_val.py``, ``codegen/nodes/run_vi.py``): Ctrl Val.Set, Get and
+Get All and Run VI through ``panel_of(reference)`` of the generated ``panels``
+module. Each case is a handmade diagram whose generated package is imported and
+run."""
 
 from __future__ import annotations
 
@@ -9,9 +11,11 @@ import threading
 from pathlib import Path
 from types import ModuleType
 
-from lvkit.codegen.front_panels_module import FRONT_PANELS_MODULE_SOURCE
+import pytest
+
 from lvkit.codegen.gaps import Gap
-from lvkit.codegen.panel_attributes import required_defaults
+from lvkit.codegen.panel_description import default_functions
+from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
 from lvkit.graph.models import ConstantNode, GraphNode, PrimitiveNode, VIContext
 from lvkit.models import (
     ClusterField,
@@ -24,7 +28,6 @@ from lvkit.models import (
 from lvkit.parser.models import ParsedWiringRule
 from tests.class_graphs import (
     INT,
-    Package,
     Project,
     Recipe,
     add,
@@ -33,7 +36,7 @@ from tests.class_graphs import (
     pane,
     wire,
 )
-from tests.test_run_vi import project_with as run_vi_project
+from tests.helpers import without_panel_attributes
 
 BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
 VI_REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="VIRefnum")
@@ -225,7 +228,7 @@ def test_set_run_get_through_a_static_reference(tmp_path: Path) -> None:
     package = project_with(tmp_path, steps, "value").generate(gaps)
     assert gaps == []
     source = package.sources["runner"]
-    assert "FrontPanel.of(" in source
+    assert "panel_of(" in source
     assert "target()" not in source
     with package.use() as module:
         result = module("runner").runner()
@@ -246,7 +249,7 @@ def test_set_and_run_with_the_reference_wired_in_parallel_use_the_front_panel(
     with package.use() as module:
         runner = module("runner")
         runner.runner()
-        panel = module("front_panels").FrontPanel.of(module("target").target)
+        panel = module("target").target.panel
         assert panel.get("y") == 5
         assert panel.get("x") == 4
 
@@ -260,7 +263,7 @@ def test_get_all_lists_the_controls_or_the_indicators(tmp_path: Path) -> None:
     package = project_with(tmp_path, both, "entries").generate()
     with package.use() as module:
         assert module("runner").runner().out == [("y", 5)]
-        panel = module("front_panels").FrontPanel.of(module("target").target)
+        panel = module("target").target.panel
         assert panel.get_all(True) == [("x", 4)]
         assert panel.get_all(False) == [("y", 5)]
 
@@ -278,7 +281,7 @@ def test_unknown_control_name_is_error_1_and_nothing_runs(tmp_path: Path) -> Non
         assert result.error_out.message == '"nope" not found'
         # The Set failed, so the error skipped the run and the read.
         assert result.out is None
-        panel = module("front_panels").FrontPanel.of(module("target").target)
+        panel = module("target").target.panel
         assert panel.get("y") is None
 
 
@@ -287,11 +290,13 @@ def test_the_front_panel_is_one_per_function(tmp_path: Path) -> None:
         tmp_path, [step("Ctrl Val.Get", GET, name="y")], "value"
     ).generate()
     with package.use() as module:
-        fronts = module("front_panels")
+        panels = module("panels")
         target = module("target").target
-        assert fronts.FrontPanel.of(target) is fronts.FrontPanel.of(target)
-        assert target.panel_controls == {"x": "x"}
-        assert target.panel_indicators == {"y": "y"}
+        assert isinstance(target.panel, panels.Panel)
+        assert panels.panel_of(target) is target.panel
+        assert target.panel.get_all(True) == [("x", 0)]
+        assert target.panel.get_all(False) == [("y", None)]
+        assert module("runner").runner.panel is not target.panel
 
 
 def test_a_set_in_a_subvi_is_the_value_the_run_in_another_uses(
@@ -402,6 +407,7 @@ def test_a_reference_the_code_receives_is_a_front_panel_too(tmp_path: Path) -> N
         assert module("runner").runner(ref=module("target").target).out == 10
         # A reference that is Not a Refnum is error 1026 on the node's error out.
         assert module("runner").runner(ref=None).out is None
+        assert module("runner").runner(ref=object()).out is None
 
 
 def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
@@ -410,9 +416,8 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
         step("Run VI", RUN, wait="False"),
     ]
     package = project_with(tmp_path, steps, None).generate()
-    assert "run(False)" in package.sources["runner"]
+    assert "run(False, _async_call_pool.submit)" in package.sources["runner"]
     with package.use() as module:
-        fronts = module("front_panels")
         release, ran = threading.Event(), threading.Event()
 
         def blocking(x: int = 0) -> object:
@@ -420,9 +425,9 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
             ran.set()
             return type("Result", (), {"y": x + 1})()
 
-        blocking.panel_controls = {"x": "x"}
-        blocking.panel_indicators = {"y": "y"}
-        panel = fronts.FrontPanel.of(blocking)
+        panel = module("panels").Panel(
+            blocking, controls={"x": ("x", None)}, indicators={"y": "y"}
+        )
         assert panel.state == 1
         panel.set("x", 41)
         panel.run(False)
@@ -433,6 +438,61 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
         while panel.state != 1:
             pass
         assert panel.get("y") == 42
+
+
+def test_the_run_is_recorded_before_the_work_is_submitted(tmp_path: Path) -> None:
+    """Start Asynchronous Call's pool may start the work late: the state the caller
+    reads right after ``run`` is already Running, and a second run is refused with
+    the error NI gives for a VI already reserved for execution."""
+    package = project_with(tmp_path, [step("Ctrl Val.Get", GET, name="y")], None)
+    with package.generate().use() as module:
+        panels = module("panels")
+        panel = module("target").target.panel
+        pending: list[object] = []
+        panel.run(False, pending.append)
+        assert panel.state == 2
+        assert len(pending) == 1
+        with pytest.raises(panels.PanelError) as refused:
+            panel.run()
+        assert refused.value.code == 42
+        assert "already reserved for execution" in refused.value.message
+        pending[0]()
+        assert panel.state == 1
+        panel.run()  # the VI is idle again
+
+
+def test_a_failed_run_is_idle_again_and_tells_the_views(tmp_path: Path) -> None:
+    package = project_with(tmp_path, [step("Ctrl Val.Get", GET, name="y")], None)
+    with package.generate().use() as module:
+        panels = module("panels")
+
+        def failing() -> None:
+            raise ValueError("boom")
+
+        events: list[tuple[str, object]] = []
+
+        class Recorder(panels.PanelView):
+            def run_started(self) -> None:
+                events.append(("started", None))
+
+            def run_finished(self, error: object) -> None:
+                events.append(("finished", error))
+
+            def control_changed(self, label: str, value: object) -> None:
+                events.append((label, value))
+
+        panel = panels.Panel(failing)
+        panel.attach(recorder := Recorder())
+        with pytest.raises(ValueError, match="boom"):
+            panel.run()
+        assert panel.state == 1
+        assert [kind for kind, _ in events] == ["started", "finished"]
+        assert isinstance(events[1][1], ValueError)
+        panel.detach(recorder)
+        panel.run_count = 0
+        with pytest.raises(ValueError, match="boom"):
+            panel.run()
+        assert len(events) == 2
 
 
 def test_execution_state_reads_the_front_panel(tmp_path: Path) -> None:
@@ -476,7 +536,7 @@ def test_execution_state_reads_the_front_panel(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     package = project.generate(gaps)
     assert gaps == []
-    assert "FrontPanel.of(" in package.sources["reader"]
+    assert "panel_of(" in package.sources["reader"]
     with package.use() as module:
         assert module("reader").reader().state == 1
 
@@ -525,33 +585,62 @@ def test_a_class_member_is_run_with_its_object_as_self(tmp_path: Path) -> None:
     package = project.generate(gaps)
     assert gaps == []
     with package.use() as module:
-        panel_module: ModuleType = module("front_panels")
+        panel_module: ModuleType = module("panels")
         thing_class = module("thing").Thing
         function = thing_class.echo
-        assert function.panel_controls == {"Thing in": "self"}
-        assert function.panel_passed == {"Thing out": "self"}
-        assert not hasattr(function, "panel_indicators")
+        assert panel_module.panel_of(function) is function.panel
+        # The class control holds its class's default object until one is set.
+        [(label, default)] = function.panel.get_all(True)
+        assert label == "Thing in"
+        assert isinstance(default, thing_class)
         thing_object = thing_class()
+        # A method's panel is reached through the object's class.
+        assert getattr(type(thing_object), "echo").panel is function.panel
         result = module("runner").runner(obj=thing_object)
         assert result.out is thing_object
-        assert panel_module.FrontPanel.of(function).get("Thing out") is thing_object
+        assert function.panel.get("Thing out") is thing_object
 
 
 def test_the_support_module_imports_nothing_from_lvkit() -> None:
-    assert "lvkit" not in FRONT_PANELS_MODULE_SOURCE
+    assert "lvkit" not in PANELS_MODULE_SOURCE
 
 
-def test_run_on_a_known_vi_with_nothing_set_stays_the_direct_call(
+def test_a_subvi_call_stays_a_direct_call_and_leaves_the_panel_alone(
     tmp_path: Path,
 ) -> None:
-    package = run_vi_project(tmp_path, None).generate()
-    assert package.sources["runner"] == (
+    """The panel of a called VI is not touched by calling it as a subVI."""
+    project = Project(tmp_path)
+    target_key = project.add_vi("Target", callee)
+
+    def caller(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "out", INT, "out", 0)],
+                data_flow=[wire(vi, "t.y", "out")],
+            ),
+            [call(vi, "t", target_key, "iUse", [("x", 0, INT)], [("y", 1, INT)])],
+        )
+
+    runner_key = project.add_vi("Runner", caller)
+    project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
+    package = project.generate()
+    assert without_panel_attributes(package.sources["runner"]) == (
         "from __future__ import annotations\n"
+        "from dataclasses import dataclass\n"
         "from .target import target\n"
         "\n"
-        "def runner():\n"
-        "    target()"
+        "@dataclass(frozen=True)\n"
+        "class RunnerResult:\n"
+        "    out: int\n"
+        "\n"
+        "def runner() -> RunnerResult:\n"
+        "    target_result = target()\n"
+        "    return RunnerResult(out=target_result.y)"
     )
+    with package.use() as module:
+        assert module("runner").runner().out == 1
+        assert module("target").target.panel.get("y") is None
 
 
 def test_a_deprecated_ctrl_val_method_is_a_gap_naming_why(tmp_path: Path) -> None:
@@ -564,13 +653,6 @@ def test_a_deprecated_ctrl_val_method_is_a_gap_naming_why(tmp_path: Path) -> Non
         "value as flattened bytes and a type string, which the generated code has "
         "no LabVIEW type to read or write"
     ]
-
-
-def with_front_panels(package: Package) -> Package:
-    """The package with ``front_panels.py`` written, for a project no diagram of
-    which uses the front panel by reference."""
-    (package.root / "front_panels.py").write_text(FRONT_PANELS_MODULE_SOURCE)
-    return package
 
 
 def required_and_optional(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -600,11 +682,13 @@ def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) ->
     control included: initially its default."""
     project = Project(tmp_path)
     project.add_vi("Target", required_and_optional)
-    package = with_front_panels(project.generate())
+    package = project.generate()
+    assert (
+        "controls={'x': ('x', lambda: 5), 'o': ('o', None)}"
+        in package.sources["target"]
+    )
     with package.use() as module:
-        target = module("target").target
-        assert target.panel_defaults.keys() == {"x"}
-        panel = module("front_panels").FrontPanel.of(target)
+        panel = module("target").target.panel
         assert panel.get("x") == 5
         assert panel.get("o") == 3
         panel.run()
@@ -638,11 +722,10 @@ def test_a_required_class_control_holds_one_default_object(tmp_path: Path) -> No
     project.add_class("Cls", [])
     project.add_vi("Take", take)
     gaps: list[Gap] = []
-    package = with_front_panels(project.generate(gaps))
+    package = project.generate(gaps)
     assert gaps == []
     with package.use() as module:
-        take_function = module("take").take
-        panel = module("front_panels").FrontPanel.of(take_function)
+        panel = module("take").take.panel
         panel.run()
         first = panel.get("d")
         panel.run()
@@ -669,41 +752,158 @@ def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) ->
 
     project = Project(tmp_path)
     project.add_vi("Take", take)
-    package = with_front_panels(project.generate())
-    assert "panel_defaults = {'a': lambda: []}" in package.sources["take"]
+    package = project.generate()
+    assert "controls={'a': ('a', lambda: [])}" in package.sources["take"]
     with package.use() as module:
-        fronts = module("front_panels")
-        seen: list[object] = []
-
-        def record(a: list[int]) -> None:
-            seen.append(a)
-
-        record.panel_controls = {"a": "a"}
-        record.panel_defaults = module("take").take.panel_defaults
-        panel = fronts.FrontPanel.of(record)
+        panel = module("take").take.panel
+        first = panel.get("a")
+        assert first == []
+        assert panel.get("a") is first
         panel.run()
+        assert panel.get("a") is first
         panel.set("a", [1, 2])
-        panel.run()
-        assert seen == [[], [1, 2]]
         assert panel.get("a") == [1, 2]
+        other = module("panels").Panel(module("take").take, controls={"a": ("a", list)})
+        assert other.get("a") is not first
 
 
-def test_a_function_without_the_attribute_still_runs_with_none(
-    tmp_path: Path,
-) -> None:
-    """A function lvkit did not generate has no ``panel_defaults``."""
-    package = with_front_panels(Project(tmp_path).generate())
+def test_a_function_without_a_default_still_runs_with_none(tmp_path: Path) -> None:
+    """A control with no default made for it, whose parameter has none either,
+    holds None."""
+    project = Project(tmp_path)
+    project.add_vi("Target", callee)
+    package = project.generate()
+    seen: list[object] = []
+
+    def other(x: int) -> None:
+        seen.append(x)
+
     with package.use() as module:
-        seen: list[object] = []
-
-        def other(x: int) -> None:
-            seen.append(x)
-
-        other.panel_controls = {"x": "x"}
-        panel = module("front_panels").FrontPanel.of(other)
+        panel = module("panels").Panel(other, controls={"x": ("x", None)})
         assert panel.get("x") is None
         panel.run()
         assert seen == [None]
+
+
+def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
+    tmp_path: Path,
+) -> None:
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        hidden = pane(vi, "input", "hidden", INT, "hidden", 0)
+        hidden.is_public = False
+        shown = pane(vi, "output", "shown", INT, "shown", 1)
+        shown.is_public = False
+        return (
+            VIContext(name=vi, off_pane_inputs=[hidden], off_pane_outputs=[shown]),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Take", take)
+    package = project.generate()
+    assert (
+        "controls={'hidden': (None, lambda: 0)}, indicators={'shown': None}"
+        in package.sources["take"]
+    )
+    with package.use() as module:
+        panel = module("take").take.panel
+        assert panel.get("hidden") == 0
+        panel.set("hidden", 3)
+        assert panel.get("hidden") == 3
+        panel.run()
+        assert panel.get("hidden") == 3
+        assert panel.get_all(False) == [("shown", None)]
+
+
+def test_a_label_two_objects_share_is_an_error_the_panel_names(tmp_path: Path) -> None:
+    """The first object in the tabbing order answers a Ctrl Val method, an order
+    lvkit does not read: the panel records the label as a duplicate."""
+
+    def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "a", INT, "same", 0)],
+                outputs=[pane(vi, "output", "b", INT, "same", 1)],
+                data_flow=[wire(vi, "a", "b")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Twice", twice)
+    package = project.generate()
+    assert "duplicates=['same']" in package.sources["twice"]
+    with package.use() as module:
+        panel = module("twice").twice.panel
+        with pytest.raises(module("panels").PanelError) as raised:
+            panel.get("same")
+        assert raised.value.code == 1
+        assert "more than one control or indicator" in raised.value.message
+
+
+def test_ctrl_val_on_a_shared_label_is_a_gap_at_generation(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    target_key = project.add_vi("Target", twice_target)
+    runner_key = project.add_vi(
+        "Runner", chained(target_key, [step("Ctrl Val.Get", GET, name="same")], None)
+    )
+    project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert [g.reason for g in gaps] == [
+        "Ctrl Val.Get: more than one control or indicator of Target.vi is "
+        "labelled 'same', and the front panel tabbing order that says which one "
+        "answers is not read."
+    ]
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="labelled 'same'"):
+            module("runner").runner()
+
+
+def twice_target(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    return (
+        VIContext(
+            name=vi,
+            inputs=[pane(vi, "input", "a", INT, "same", 0)],
+            outputs=[pane(vi, "output", "b", INT, "same", 1)],
+            data_flow=[wire(vi, "a", "b")],
+        ),
+        [],
+    )
+
+
+def test_panel_of_an_object_with_no_panel_is_error_1026(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Target", callee)
+    with project.generate().use() as module:
+        panels = module("panels")
+        for reference in (None, object(), lambda: None):
+            with pytest.raises(panels.PanelError) as raised:
+                panels.panel_of(reference)
+            assert raised.value.code == 1026
+
+
+def test_every_vi_has_a_panel_with_or_without_the_panel_output(
+    tmp_path: Path,
+) -> None:
+    """D4: the function's module is the same with ``--panel`` and without."""
+    from tests.error_diagrams import Project as DiagramProject
+    from tests.panel_diagrams import NAME, counting_vi
+
+    sources: dict[bool, str] = {}
+    for with_panel in (False, True):
+        folder = tmp_path / str(with_panel)
+        folder.mkdir()
+        diagrams = DiagramProject(folder)
+        diagrams.add(counting_vi())
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr("lvkit.graph.loading.extract_vi_xml", diagrams.extract)
+            package = diagrams.generate(NAME, panel=with_panel)
+        sources[with_panel] = (package.root / "panel_demo.py").read_text()
+        diagrams.close()
+    assert sources[False] == sources[True]
+    assert "panel_demo.panel = Panel(panel_demo," in sources[False]
 
 
 class ImportingContext:
@@ -725,7 +925,7 @@ def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy(
     functions, so a default naming a class of one imports it where it is made."""
     control = pane("v", "input", "c", class_type("Other"), "c", 0)
     lazy_context = ImportingContext()
-    lazy = required_defaults([control], lazy_context, "f", True)  # type: ignore[arg-type]
+    lazy = default_functions([(control, "c")], lazy_context, "f", True)  # type: ignore[arg-type]
     module = ast.fix_missing_locations(ast.Module(lazy.statements, []))
     assert ast.unparse(module) == (
         "def _f_default_0():\n    from .other import Other\n    return Other()"
@@ -733,10 +933,24 @@ def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy(
     assert ast.unparse(lazy.entries["c"]) == "_f_default_0"
     assert lazy_context.imports == {"from .kept import kept"}
     eager_context = ImportingContext()
-    eager = required_defaults([control], eager_context, "f", False)  # type: ignore[arg-type]
+    eager = default_functions([(control, "c")], eager_context, "f", False)  # type: ignore[arg-type]
     assert eager.statements == []
     assert ast.unparse(eager.entries["c"]) == "lambda: Other()"
     assert eager_context.imports == {
         "from .kept import kept",
         "from .other import Other",
     }
+
+
+def test_a_pool_that_cannot_start_the_work_leaves_the_vi_idle(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Target", callee)
+    with project.generate().use() as module:
+        panel = module("target").target.panel
+
+        def refusing(work: object) -> None:
+            raise RuntimeError("pool is shut down")
+
+        with pytest.raises(RuntimeError, match="shut down"):
+            panel.run(False, refusing)
+        assert panel.state == 1

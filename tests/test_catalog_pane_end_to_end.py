@@ -16,7 +16,7 @@ from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.vilib_resolver import get_resolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, write_support_modules
 
 KEY = "/vilib/Utility/sysdir.llb/Get System Directory.vi"
 RECORDED = ["<vilib>", "Utility", "sysdir.llb", "Get System Directory.vi"]
@@ -186,6 +186,7 @@ def test_an_unwired_input_gets_the_loaded_controls_saved_default(
     assert implementation is not None
     (package / "sysdir.py").write_text(implementation, encoding="utf-8")
     (package / "caller.py").write_text(source, encoding="utf-8")
+    write_support_modules(package)
     missing = tmp_path / "cache"
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_CACHE_HOME", str(missing))

@@ -10,7 +10,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from tests import vi_reference_diagrams as d
-from tests.helpers import build_graph, exec_module
+from tests.helpers import build_graph, exec_module, without_panel_attributes
 
 _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 
@@ -87,7 +87,9 @@ def test_a_caller_reads_the_fields_and_passes_the_keywords_the_callee_names(
         "    return SimpleNamespace(r_1=a_b_2, r_1_2=a_b)\n"
     )
     body = "\n".join(
-        line for line in caller_source.splitlines() if not line.startswith("from .")
+        line
+        for line in without_panel_attributes(caller_source).splitlines()
+        if not line.startswith("from .")
     )
     namespace = exec_module(body + "\n" + callee, "caller").__dict__
     result = namespace["caller"](first=1, second=2)

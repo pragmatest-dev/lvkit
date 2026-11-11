@@ -17,6 +17,7 @@ from typing import Any
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
+from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.load_mode import LoadMode
@@ -346,19 +347,15 @@ _generated_modules = itertools.count()
 GENERATED_PACKAGE = "generated_package"
 
 
-_PANEL_ATTRIBUTE = re.compile(
-    r"^[\w.]+\.panel_(controls|indicators|passed|defaults) = "
-)
+_PANEL_LINE = re.compile(r"^([\w.]+\.panel = Panel\(|from \.+panels import )")
 
 
 def without_panel_attributes(source: str) -> str:
-    """``source`` without the lines that set the label maps after a function
-    (``codegen/panel_attributes.py``): a test that pins a function's exact source
-    is about the function, and ``tests/test_front_panel_reference.py`` pins the
-    maps."""
-    return "\n".join(
-        line for line in source.split("\n") if not _PANEL_ATTRIBUTE.match(line)
-    )
+    """``source`` without the lines that give a function its ``panel`` and import
+    ``Panel`` (``codegen/panel_description.py``): a test that pins a function's
+    exact source is about the function, and ``tests/test_front_panel_reference.py``
+    pins the panel."""
+    return "\n".join(line for line in source.split("\n") if not _PANEL_LINE.match(line))
 
 
 def install_generated_package() -> None:
@@ -372,10 +369,24 @@ def install_generated_package() -> None:
     for name, source in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+        (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
     ):
         module = ModuleType(f"{GENERATED_PACKAGE}.{name}")
         sys.modules[module.__name__] = module
         exec(compile(source, f"{name}.py", "exec"), module.__dict__)  # noqa: S102
+
+
+def write_support_modules(package_dir: Path) -> None:
+    """Write the modules every generated package root has (``errors.py`` and
+    ``panels.py``) into ``package_dir``, for a test that writes a package by
+    hand. A module already there is kept."""
+    for name, source in (
+        (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+    ):
+        module = package_dir / f"{name}.py"
+        if not module.exists():
+            module.write_text(source, encoding="utf-8")
 
 
 def exec_module(

@@ -16,6 +16,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.nodes import global_variable as global_variable_codegen
+from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -88,7 +89,7 @@ def test_lv_icon_lvnet_lists_the_global_and_keeps_its_real_locals() -> None:
     graph, key = load_corpus_vi(LV_ICON)
     text = render_lvnet(build_netlist_from_graph(graph, key), verbose=True)
     assert "global-variable Debug_18698 : read Data.vi::Debug" in text
-    assert 'global-variable Debug_19484 : write Data.vi::Debug = False' in text
+    assert "global-variable Debug_19484 : write Data.vi::Debug = False" in text
     assert "    global  Data.vi" in text
     assert not any(
         isinstance(n, LocalVariableNode) and n.control_name == "Debug"
@@ -234,6 +235,7 @@ def test_generated_caller_and_global_module_share_state() -> None:
             sys.modules[m.__name__] = m
             setattr(package, sub, m)
         _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("panels", PANELS_MODULE_SOURCE, package)
         caller = _import_generated("loadtemplates", caller_src, package)
         data.all_templates = "Changed by another VI"
         data_in = types.SimpleNamespace(

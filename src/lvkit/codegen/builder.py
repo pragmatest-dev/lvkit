@@ -42,11 +42,7 @@ from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
-from .panel_attributes import (
-    attribute_statements,
-    function_label_maps,
-    required_defaults,
-)
+from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
     entry_events,
@@ -491,15 +487,11 @@ def build_module_ast(
     )
     module_body.append(func_def)
     module_body.extend(
-        attribute_statements(
+        function_panel_statements(
+            vi_context,
+            ctx,
             func_def.name,
-            *function_label_maps(vi_context),
-            defaults=required_defaults(
-                vi_context.inputs,
-                ctx,
-                func_def.name,
-                ctx.graph is not None and in_import_cycle(ctx.graph, vi_name),
-            ),
+            ctx.graph is not None and in_import_cycle(ctx.graph, vi_name),
         )
     )
 

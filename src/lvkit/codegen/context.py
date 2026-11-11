@@ -61,11 +61,6 @@ from .class_model import class_reference, member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
-from .front_panels_module import (
-    FRONT_PANEL_ERROR_NAME,
-    FRONT_PANEL_NAME,
-    FRONT_PANELS_MODULE_NAME,
-)
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
@@ -74,6 +69,7 @@ from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
+from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
 
 # A structure frame: the structure's node id and the frame's key
@@ -713,17 +709,19 @@ class CodeGenContext:
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
 
-    def import_front_panel(self) -> None:
-        """Import ``FrontPanel`` and ``FrontPanelError`` from the package's
-        ``front_panels`` module."""
+    def import_panels(self, names: str, at_module_level: bool = False) -> None:
+        """Import ``names`` (``Panel``, ``panel_of``, ``PanelError``, comma
+        separated) from the package's ``panels`` module: where the function runs,
+        or at module level (``at_module_level``) for the ``Panel`` a function
+        carries."""
         statement = None
         if isinstance(self.import_resolver, ImportResolver):
-            statement = self.import_resolver.front_panels_import()
-        self.add_import(
-            statement
-            or f"from .{FRONT_PANELS_MODULE_NAME} import "
-            f"{FRONT_PANEL_NAME}, {FRONT_PANEL_ERROR_NAME}"
-        )
+            statement = self.import_resolver.panels_import(names)
+        statement = statement or f"from .{PANELS_MODULE_NAME} import {names}"
+        if at_module_level:
+            self.signature_imports.add(statement)
+        else:
+            self.add_import(statement)
 
     def import_live_io(self) -> None:
         """Import ``LiveIO`` and ``NO_LIVE_IO`` from the package's ``live_io``

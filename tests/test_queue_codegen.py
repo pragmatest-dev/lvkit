@@ -23,7 +23,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
-from tests.helpers import build_graph
+from tests.helpers import build_graph, without_panel_attributes, write_support_modules
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 TEXT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
@@ -437,6 +437,7 @@ def package(tmp_path: Path, vis: dict[str, Vi], reverse: bool = False) -> Path:
         )
         (root / f"{module}.py").write_text(vi.source(resolver, graph))
     assert [p.name for p in modules.write(root)] == ["queues.py"]
+    write_support_modules(root)
     return root
 
 
@@ -676,7 +677,7 @@ def test_release_shuts_the_queue_down_and_force_destroy_does_it_immediately() ->
         resolver = create_import_resolver(
             "pkg", Path("/x"), {}, Path("/x/c.py"), package_modules=modules
         )
-        return vi.source(resolver, graph)
+        return without_panel_attributes(vi.source(resolver, graph))
 
     assert generated(None).endswith("queue.shutdown()")
     assert generated(False).endswith("queue.shutdown()")

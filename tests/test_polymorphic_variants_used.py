@@ -24,6 +24,7 @@ from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
 from tests.class_graphs import INT, Project, Recipe, add, call, pane, wire
 from tests.corpus_graphs import OPENG_USERLIB
+from tests.helpers import without_panel_attributes
 from tests.test_call_identity import _Call, _record, _run, _static, _Tree
 from tests.test_run_vi import runner
 
@@ -191,13 +192,18 @@ def test_a_call_runs_the_variant_its_caller_records(
     result = generate_python(poly.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    assert (package / "main.py").read_text().splitlines()[1:] == [
+    assert without_panel_attributes((package / "main.py").read_text()).splitlines()[
+        1:
+    ] == [
         "from .wrap import array",
         "",
         "def main():",
         "    array()",
     ]
-    assert (package / "wrap.py").read_text().splitlines() == _WRAP_MODULE
+    assert (
+        without_panel_attributes((package / "wrap.py").read_text()).splitlines()
+        == _WRAP_MODULE
+    )
     main = _run(package, "main")
     ran: list[str] = []
     main.array.__globals__["scalar"] = lambda: ran.append("scalar")
@@ -216,7 +222,9 @@ def test_two_callers_each_call_the_variant_they_record(
     assert not result["gaps"]
     package = out / built.root.name
     calls = {
-        caller: (package / f"{caller}.py").read_text().splitlines()[1:]
+        caller: without_panel_attributes(
+            (package / f"{caller}.py").read_text()
+        ).splitlines()[1:]
         for caller in ("main", "other")
     }
     assert calls == {
@@ -236,7 +244,7 @@ def test_one_caller_of_two_variants_imports_each_by_its_own_name(
     result = generate_python(built.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    lines = (package / "main.py").read_text().splitlines()
+    lines = without_panel_attributes((package / "main.py").read_text()).splitlines()
     assert lines[1:3] == ["from .wrap import array", "from .wrap import scalar"]
     assert lines[3:] == ["", "def main():", "    array()", "    scalar()"]
     _run(package, "main").main()
@@ -254,7 +262,7 @@ def test_variants_that_call_one_subvi_import_it_once(
     result = generate_python(built.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    assert (package / "wrap.py").read_text().splitlines() == [
+    assert without_panel_attributes((package / "wrap.py").read_text()).splitlines() == [
         '"""The variants of the polymorphic VI wrap.vi."""',
         "from __future__ import annotations",
         "from .shared.helper import helper",
@@ -299,7 +307,11 @@ def test_variants_that_take_one_typedef_import_it_once(tmp_path: Path) -> None:
     source = pipeline._generate_polymorphic_module(  # noqa: SLF001
         wrap, variants, project.graph, None, "pkg", out, paths, layout
     )
-    imports = [line.strip() for line in source.splitlines() if "import" in line]
+    imports = [
+        line.strip()
+        for line in without_panel_attributes(source).splitlines()
+        if "import" in line
+    ]
     assert imports == [
         "from __future__ import annotations",
         "from typing import TYPE_CHECKING",
@@ -341,7 +353,7 @@ def test_a_call_that_records_no_variant_is_a_gap(
     )
     assert "Partial: 1 VIs generated, 1 with gaps (1 gaps)" in captured.out
     package = out / "main"
-    source = (package / "main.py").read_text()
+    source = without_panel_attributes((package / "main.py").read_text())
     assert f"raise NotImplementedError('{_NO_VARIANT}\\ngap kind: " in source
     assert not (package / "wrap.py").exists()
     with pytest.raises(NotImplementedError, match="records no variant"):

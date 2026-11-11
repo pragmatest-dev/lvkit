@@ -50,6 +50,7 @@ from lvkit.parser.link_table import (
 )
 from lvkit.parser.node_types import SharedVariableTerminal
 from lvkit.pipeline import create_import_resolver
+from tests.helpers import write_support_modules
 
 from .test_link_table import build_hpvl_record
 from .test_lvnet_identity import _assert_graph_identity
@@ -92,6 +93,7 @@ def _generated_package(
     assert "lvkit" not in source
     (root / "sv_sample.py").write_text(source)
     modules.write(root)
+    write_support_modules(root)
     monkeypatch.syspath_prepend(str(tmp_path))
     try:
         yield (

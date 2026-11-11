@@ -452,6 +452,10 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
 
+### 10.8 A row with no Python meaning is a gap (decided 2026-11-11, recorded with §15)
+
+A Property Node row (on a control, or on a VI reference) that has no Python meaning is a gap: the generated code warns at generation and raises where the node would run, as every gap does (CLAUDE.md "ONE rule for every gap"). The listed control properties (10.2) and a VI reference's Name, Path and Exec.State (`vi_reference.vi_property_read`) are the rows that have one; no row is silently ignored.
+
 ## 11. One `live_io` object instead of hook parameters (DECIDED: maintainer, 2026-11-10, "Nice, approved")
 
 ### 11.1 What changes
@@ -590,7 +594,7 @@ ev.clear()                                # Destroy User Event
 - **P3. The structure's queue is the VI's `events`.** A structure with a cluster of registrations (D27) or a registration from another VI reads `events` and re-points each registration's lists to it, guarded (`if reg[0] is not events`), moving waiting messages first. No new function-entry seam. A structure wired to one registration made in this VI reads `reg[0]`, which is `events` when the VI has static panel events.
 - **P4.** (a) Unregister removes tolerantly (`if q in registered`), since Destroy clears the list. (b) Event data is copied per queue only for by-value objects (`value_copy`). (c) Priority: NI's Generate User Event page gives "0 high priority, 1 normal priority (default)"; unwired or a constant 1 generates, anything else is a gap.
 
-## 13. A VI's front panel by reference: Ctrl Val and Run VI (DECIDED: maintainer, 2026-11-11, "Approve"; TO BE REPLACED by §15, proposed)
+## 13. A VI's front panel by reference: Ctrl Val and Run VI (DECIDED: maintainer, 2026-11-11, "Approve"; REPLACED by §15, implemented 2026-11-11: the `Panel` of the generated `panels.py`)
 
 JKI VI Tester runs a test method across three VIs. `openMethodViReference` opens the method's VI by name; `Set Front Panel Object Control Value.vi` reads every control of that VI (Ctrl Val.Get All), finds the one of the TestCase class and sets it (Ctrl Val.Set); `CallTestMethod` runs the VI (Run VI) and reads the TestCase indicator and `error out` back (Ctrl Val.Get, Ctrl Val.Get All). The values live on the VI between those calls, set in one VI and read in another. Earlier decision kept: the by-name pick is the method on the object's class, and the controls are passed by label as keyword arguments (TASKS 0.9.0, maintainer 2026-11-10).
 

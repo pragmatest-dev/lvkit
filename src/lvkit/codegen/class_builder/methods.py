@@ -32,7 +32,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
-from ..panel_attributes import attribute_statements, labelled, required_defaults
+from ..panel_description import NamedTerminal, panel_statements, panel_terminals
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..type_fields import annotation_imports
 
@@ -154,9 +154,7 @@ class _MethodBuilderMixin:
         body = vi_body(ctx, key, build)
         self._parts.collect(ctx)
         if not property_accessor:
-            self._parts.panel_attributes.extend(
-                self._panel_attributes(shape, vi_context, names, ctx)
-            )
+            self._parts.panels.extend(self._panel(shape, vi_context, names, ctx))
         imports = ctx.imports
         if self._lazy:
             body, imports = imports_inside(body, imports)
@@ -177,40 +175,43 @@ class _MethodBuilderMixin:
             ),
         )
 
-    def _panel_attributes(
+    def _panel(
         self,
         shape: MethodShape,
         vi_context: VIContext,
         names: dict[str, str],
         ctx: CodeGenContext,
     ) -> list[ast.stmt]:
-        """The label maps of the method, set after its class: its connector-pane
+        """The ``panel`` of the method, set after its class: its connector-pane
         controls by the parameter of the method (``self`` for the class wire), its
         indicators by the field of its result and a class output that is the object
-        the method ran on by ``self``."""
+        the method ran on by ``self``; the controls and indicators off the
+        connector pane have no name."""
         outputs = _outputs_by_index(vi_context)
         receiver = _receiver_of(vi_context, shape)
-        passed = (
-            labelled([(outputs[shape.receiver_out], names[receiver.id])])
+        passed: list[NamedTerminal] = (
+            [(outputs[shape.receiver_out], names[receiver.id])]
             if receiver is not None
             and shape.receiver_out is not None
             and shape.receiver_out not in shape.results
-            else {}
+            else []
         )
-        target = f"{self._model.name}.{run_time_name(self._model.name, shape.name)}"
-        return attribute_statements(
-            target,
-            labelled((t, names[t.id]) for t in vi_context.inputs if t.id in names),
-            labelled(
-                (outputs[index], shape.result_fields[index]) for index in shape.results
-            ),
+        controls: list[NamedTerminal] = [
+            (t, names[t.id]) for t in vi_context.inputs if t.id in names
+        ]
+        controls += [(t, None) for t in vi_context.off_pane_inputs]
+        indicators: list[NamedTerminal] = [
+            (outputs[index], shape.result_fields[index]) for index in shape.results
+        ]
+        indicators += [(t, None) for t in vi_context.off_pane_outputs]
+        return panel_statements(
+            ctx,
+            f"{self._model.name}.{run_time_name(self._model.name, shape.name)}",
+            controls,
+            indicators,
+            panel_terminals(vi_context),
+            self._lazy,
             passed,
-            required_defaults(
-                [t for t in vi_context.inputs if t.id in names],
-                ctx,
-                target.replace(".", "_"),
-                self._lazy,
-            ),
         )
 
     def _return_stmt(

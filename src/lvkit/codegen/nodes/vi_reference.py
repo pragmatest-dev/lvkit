@@ -74,10 +74,10 @@ from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from ..front_panels_module import FRONT_PANEL_NAME
 from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
+from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -407,16 +407,21 @@ def _made_only_with_a_vi(
     return fragment
 
 
+def pool_submit(ctx: CodeGenContext) -> str:
+    """The ``submit`` of the module's thread pool, which this adds: what starts a
+    call that goes on while the caller does not wait for it."""
+    ctx.add_import(_EXECUTOR_IMPORT)
+    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
+    return f"{_EXECUTOR}.submit"
+
+
 def submit_to_pool(
     ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
 ) -> ast.Call:
-    """``function(**keywords)`` started on the module's thread pool, which this
-    adds: the call goes on while the caller does not wait for it. Its value is
-    the call's ``Future``."""
-    ctx.add_import(_EXECUTOR_IMPORT)
-    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
+    """``function(**keywords)`` started on the module's thread pool
+    (``pool_submit``). Its value is the call's ``Future``."""
     return ast.Call(
-        func=parse_expr(f"{_EXECUTOR}.submit"),
+        func=parse_expr(pool_submit(ctx)),
         args=[parse_expr(function)],
         keywords=keywords,
     )
@@ -696,7 +701,7 @@ def vi_property_read(
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
     function: Name is the function's name, Path its file, Exec.State the state of
-    its front panel (``FrontPanel.state``: 1 Idle, 2 Run top level while it runs).
+    its front panel (``Panel.state``: 1 Idle, 2 Run top level while it runs).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if node.object_name != VI_CLASS or len(prop.segments) != 1:
@@ -708,6 +713,6 @@ def vi_property_read(
         ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")
     if code == VI_EXEC_STATE_PROPERTY_CODE:
-        ctx.import_front_panel()
-        return parse_expr(f"{FRONT_PANEL_NAME}.of({reference}).state")
+        ctx.import_panels(PANEL_CALL_IMPORTS)
+        return parse_expr(f"{PANEL_OF_NAME}({reference}).state")
     return None

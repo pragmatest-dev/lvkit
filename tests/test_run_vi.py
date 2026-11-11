@@ -1,7 +1,6 @@
-"""Run VI on a VI reference (``codegen/nodes/run_vi.py``): a call of the VI's
-function with no arguments, waited for or started on the thread pool; a gap where
-such a call is not the run. Each case is a handmade diagram whose generated
-package is imported and run."""
+"""Run VI on a VI reference (``codegen/nodes/run_vi.py``): a run of the front panel
+of the VI the reference holds, waited for or started on the thread pool. Each case
+is a handmade diagram whose generated package is imported and run."""
 
 from __future__ import annotations
 
@@ -121,74 +120,113 @@ def project_with(
     return project
 
 
+def counting_view(module):
+    """A view of a panel that counts the runs it was told of."""
+
+    class Runs(module("panels").PanelView):
+        def __init__(self) -> None:
+            self.started = 0
+            self.finished: list[object] = []
+
+        def run_started(self) -> None:
+            self.started += 1
+
+        def run_finished(self, error: object) -> None:
+            self.finished.append(error)
+
+    return Runs()
+
+
 @pytest.mark.parametrize("wait", [None, "True"])
-def test_run_vi_waiting_calls_the_function(tmp_path: Path, wait: str | None) -> None:
+def test_run_vi_waiting_runs_the_front_panel(tmp_path: Path, wait: str | None) -> None:
     package = project_with(tmp_path, wait).generate()
     assert package.gaps == []
-    assert "\n    target()" in package.sources["runner"]
+    assert "panel_of(target).run(True)" in package.sources["runner"]
+    assert "_async_call_pool" not in package.sources["runner"]
     with package.use() as module:
-        runner_module = module("runner")
-        calls: list[str] = []
-        runner_module.target = lambda: calls.append("run")
-        runner_module.runner()
-        assert calls == ["run"]
+        panel = module("target").target.panel
+        panel.set("x", 7)
+        module("runner").runner()
+        assert panel.get("out") == 7
+        assert panel.state == 1
 
 
-def test_run_vi_not_waiting_starts_the_function_and_goes_on(tmp_path: Path) -> None:
+def test_run_vi_not_waiting_goes_on_while_the_vi_runs(tmp_path: Path) -> None:
     package = project_with(tmp_path, "False").generate()
     assert package.gaps == []
-    assert "_async_call_pool.submit(target)" in package.sources["runner"]
+    assert "run(False, _async_call_pool.submit)" in package.sources["runner"]
     with package.use() as module:
         runner_module = module("runner")
         release, ran = threading.Event(), threading.Event()
 
-        def blocking() -> None:
+        def blocking(x: int = 0) -> object:
             release.wait(5)
             ran.set()
+            return SimpleNamespace(out=x)
 
+        panel = module("panels").Panel(
+            blocking, controls={"x": ("x", None)}, indicators={"out": "out"}
+        )
+        blocking.panel = panel  # type: ignore[attr-defined]
         runner_module.target = blocking
         runner_module.runner()  # returns while the VI still runs
+        assert panel.state == 2
         assert not ran.is_set()
         release.set()
         assert ran.wait(5)
+        while panel.state != 1:
+            pass
+        assert panel.get("out") == 0
 
 
-@pytest.mark.parametrize(
-    ("wait", "required", "set_value", "reason"),
-    [
-        (
-            "input",
-            False,
-            False,
-            "Run VI: Wait Until Done is computed when the diagram runs, so whether "
-            "to wait for the VI is not known when the code is written.",
-        ),
-        (
-            None,
-            True,
-            False,
-            "Run VI passes no inputs; 'x' of Target.vi is Required.",
-        ),
-        (
-            None,
-            False,
-            True,
-            "Run VI: the diagram sets a value on the VI reference (Invoke Node Set "
-            "Control Value), which the run would use; a call with no arguments "
-            "cannot pass it.",
-        ),
-    ],
-    ids=["computed wait", "required input", "set control value"],
-)
-def test_run_vi_that_a_call_cannot_be_is_a_gap(
-    tmp_path: Path, wait: str | None, required: bool, set_value: bool, reason: str
-) -> None:
-    gaps: list[Gap] = []
-    package = project_with(tmp_path, wait, required, set_value).generate(gaps)
-    assert [g.reason for g in gaps if g.reason.startswith("Run VI")] == [reason]
+def test_run_vi_with_a_computed_wait_passes_it(tmp_path: Path) -> None:
+    """Wait Until Done computed when the diagram runs is the value the panel's run
+    gets: TRUE waits, FALSE returns while the VI runs."""
+    package = project_with(tmp_path, "input").generate()
+    assert package.gaps == []
+    assert "run(go, _async_call_pool.submit)" in package.sources["runner"]
     with package.use() as module:
-        with pytest.raises(NotImplementedError, match="Run VI|Set Control Value"):
-            module("runner").runner(**({"go": True} if wait == "input" else {}))
+        runner_module = module("runner")
+        panel = module("target").target.panel
+        runs = counting_view(module)
+        panel.attach(runs)
+        runner_module.runner(go=True)
+        assert runs.started == 1
+        runner_module.runner(go=False)
+        while len(runs.finished) < 2:
+            pass
+        assert runs.started == 2
+
+
+def test_run_vi_on_a_required_input_runs_with_its_default(tmp_path: Path) -> None:
+    """A front panel runs a VI with the values its controls hold, a Required
+    control included: initially its default."""
+    package = project_with(tmp_path, None, required=True).generate()
+    assert package.gaps == []
+    with package.use() as module:
+        module("runner").runner()
+        assert module("target").target.panel.get("out") == 0
+
+
+def test_run_vi_on_a_running_vi_is_the_nodes_error(tmp_path: Path) -> None:
+    """A VI already reserved for execution cannot be run again (NI's Run VI)."""
+    package = project_with(tmp_path, "False").generate()
+    with package.use() as module:
+        runner_module = module("runner")
+        release = threading.Event()
+
+        def blocking(x: int = 0) -> object:
+            release.wait(5)
+            return SimpleNamespace(out=x)
+
+        blocking.panel = module("panels").Panel(  # type: ignore[attr-defined]
+            blocking, controls={"x": ("x", None)}, indicators={"out": "out"}
+        )
+        runner_module.target = blocking
+        runner_module.runner()
+        with pytest.raises(Exception, match="already reserved"):
+            blocking.panel.run()
+        release.set()
 
 
 ERROR = LVType(
@@ -264,21 +302,22 @@ def test_run_vi_on_an_error_chain_runs_when_no_error_came_in(tmp_path: Path) -> 
     package = project.generate()
     assert package.gaps == []
     source = package.sources["runner"]
-    assert "    if error_in is None or not error_in.status:\n        target()" in (
-        source
-    )
-    assert "return RunnerResult(error_out=error_in)" in source
+    assert (
+        "    if error_in is None or not error_in.status:\n        try:\n"
+        "            panel_of(target).run(True)"
+    ) in source
+    assert "error_out = error_in if error_in is not None and error_in.status" in source
     with package.use() as module:
         runner_module = module("runner")
-        calls: list[str] = []
-        runner_module.target = lambda: calls.append("run")
+        runs = counting_view(module)
+        module("target").target.panel.attach(runs)
         assert runner_module.runner().error_out is None
-        assert calls == ["run"]
+        assert runs.started == 1
         error = SimpleNamespace(status=True, code=1, source="x")
         assert runner_module.runner(error_in=error).error_out is error
         warning = SimpleNamespace(status=False, code=1, source="x")
         assert runner_module.runner(error_in=warning).error_out is warning
-        assert calls == ["run", "run"]
+        assert runs.started == 2
 
 
 def abort_runner(target_key: str, method: str, code: int) -> Recipe:

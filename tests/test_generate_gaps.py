@@ -248,7 +248,12 @@ def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_three(
     assert code == 3
     warnings = _warnings(captured.err)
     assert len(warnings) == 2
-    assert _modules(out) == ["clfn_bdhbxml.py", "second_bdhbxml.py"]
+    assert _modules(out) == [
+        "clfn_bdhbxml.py",
+        "errors.py",
+        "panels.py",
+        "second_bdhbxml.py",
+    ]
     assert "Partial: 2 VIs generated, 2 with gaps (2 gaps)" in captured.out
 
 
