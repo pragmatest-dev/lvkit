@@ -7,6 +7,8 @@ from typing import NamedTuple
 from lvkit.lv_type_codes import (
     COMPLEX_TYPE_NAMES,
     INTEGER_BYTE_WIDTHS,
+    INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     SIGNED_INTEGER_TYPE_NAMES,
     TD_FULL_TYPE,
     is_boolean_type_name,
@@ -14,20 +16,6 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
 )
 from lvkit.models import LVType, LVTypeKind
-
-_FLOAT = frozenset({"NumFloat32", "NumFloat64", "NumFloatExt"})
-_INTEGER = frozenset(
-    {
-        "NumInt8",
-        "NumInt16",
-        "NumInt32",
-        "NumInt64",
-        "NumUInt8",
-        "NumUInt16",
-        "NumUInt32",
-        "NumUInt64",
-    }
-)
 
 
 def _scalar_underlying(lv_type: LVType | None) -> str | None:
@@ -40,13 +28,13 @@ def _scalar_underlying(lv_type: LVType | None) -> str | None:
 
 def is_float(lv_type: LVType | None) -> bool:
     """An IEEE floating-point numeric (SGL/DBL/EXT), or an array of one."""
-    return _scalar_underlying(lv_type) in _FLOAT
+    return _scalar_underlying(lv_type) in REAL_FLOAT_TYPE_NAMES
 
 
 def is_real(lv_type: LVType | None) -> bool:
     """A non-complex numeric (integer or floating-point), or an array of one."""
     underlying = _scalar_underlying(lv_type)
-    return underlying in _FLOAT or underlying in _INTEGER
+    return underlying in REAL_FLOAT_TYPE_NAMES or underlying in INTEGER_TYPE_NAMES
 
 
 def is_array(lv_type: LVType | None) -> bool:

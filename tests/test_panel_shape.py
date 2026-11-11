@@ -4,6 +4,8 @@ the call the panel module writes for a cluster names every builder it needs."""
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -18,10 +20,17 @@ from lvkit.panel.runtime import (
     cluster_indicator,
     cluster_port,
     number_port,
+    path_text,
 )
 from lvkit.panel.shape import describe
-from lvkit.panel.widget_call import builders_used, member_call, widget_call
+from lvkit.panel.widget_call import (
+    builders_used,
+    member_call,
+    modules_used,
+    widget_call,
+)
 from lvkit.parser.models import ParsedFPControl, ParsedFPPart
+from lvkit.path_value import format_path
 from tests.panel_harness import found, simulate
 
 
@@ -344,6 +353,61 @@ def test_an_array_saved_with_values_of_another_kind_starts_empty() -> None:
     assert _array_of_numbers("[True]").initial == ()
     assert _array_of_numbers("not a list").initial == ()
     assert _array_of_numbers(None).initial == ()
+
+
+def _scalar(control_type: str, type_name: str, saved: object) -> Any:
+    return describe(
+        _fp("Value", control_type), _primitive(type_name), saved, "value"
+    )
+
+
+def test_a_string_control_starts_from_the_text_it_is_saved_with() -> None:
+    # The parser keeps a saved string as a Python string literal.
+    described = _scalar("stdString", "String", "'abc'")
+    assert described.default == "abc"
+    assert widget_call(described, described.kind, "'value'") == (
+        "string_control(values, 'value', 'abc')"
+    )
+    assert _scalar("stdString", "String", "''").default == ""
+    assert _scalar("stdString", "String", None).default == ""
+
+
+def test_a_boolean_or_number_saved_as_text_starts_from_its_value() -> None:
+    assert _scalar("stdBool", "Boolean", "False").default is False
+    assert _scalar("stdBool", "Boolean", "True").default is True
+    assert _scalar("stdBool", "Boolean", None).default is False
+    assert _scalar("stdNum", "NumFloat64", "2.5").default == 2.5
+    assert _scalar("stdNum", "NumInt32", "7").default == 7
+    assert _scalar("stdNum", "NumInt32", None).default == 0
+
+
+def test_a_path_control_starts_from_its_saved_path_on_the_system_it_runs_on() -> (
+    None
+):
+    saved = format_path(0, ["D", "data", "run1.tdms"])
+    described = _scalar("stdPath", "Path", saved)
+    call = widget_call(described, described.kind, "'value'")
+    assert call == (
+        "path_control(values, 'value', path_text(Path('D:/' if os.name == 'nt' "
+        "else '/D', 'data', 'run1.tdms')))"
+    )
+    assert "path_text" in builders_used(described, described.kind)
+    assert modules_used(described) == {"os"}
+    names = {"path_text": path_text, "Path": Path, "os": os}
+    volume = "D:/" if os.name == "nt" else "/D"
+    assert eval(f"path_text({described.default})", names) == str(
+        Path(volume, "data", "run1.tdms")
+    )
+
+
+def test_an_empty_or_unsaved_path_starts_with_no_text() -> None:
+    for saved in (format_path(1, []), None):
+        described = _scalar("stdPath", "Path", saved)
+        assert widget_call(described, described.kind, "'value'") == (
+            "path_control(values, 'value', path_text(Path('')))"
+        )
+        assert modules_used(described) == set()
+        assert path_text(Path("")) == ""
 
 
 def test_an_enum_type_definition_is_an_enum_control_of_its_items() -> None:

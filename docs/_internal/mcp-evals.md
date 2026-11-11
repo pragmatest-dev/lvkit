@@ -268,16 +268,16 @@ undiscoverable.
 
 33. **What primitives / vi.lib VIs are unresolved across this repo?**
     - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
-    - *Ground truth (`TestCase.lvclass`, this branch):* **22 distinct gaps = 1
-      placeholder primitive** (Unregister For Events, known but unimplemented)
-      **+ 1 unknown primitive** (Generate User Event) **+ 12 nodes without code
-      generation** (the Event Structure, its Register For Events node, OpenG Get
-      TDEnum from Data reading a variant, two kinds of Run VI whose VI reference
-      is only known when the code runs, the type string of a Flatten To String
-      of a refnum, and the Flattened String To Variant reading those bytes with
-      a type known only at run time, and five Invoke Node methods with no Python
-      equivalent: Ctrl Val.Set, Ctrl Val.Set (Deprecated), Ctrl Val.Get, Ctrl Val.Get
-      All, Ctrl Val.Get All (Deprecated)) **+ 8 VIs that were not found** on the search path. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
+    - *Ground truth (`TestCase.lvclass`, this branch):* **18 distinct gaps = 10
+      nodes without code generation** (OpenG Get TDEnum from Data reading a
+      variant, two kinds of Run VI whose VI reference is only known when the
+      code runs, the type string of a Flatten To String of a refnum, the
+      Flattened String To Variant reading those bytes with a type known only at
+      run time, and five Invoke Node methods with no Python equivalent: Ctrl
+      Val.Set, Ctrl Val.Set (Deprecated), Ctrl Val.Get, Ctrl Val.Get All and
+      Ctrl Val.Get All (Deprecated)) **+ 8 VIs that were not found** on the search path. The
+      notifier functions and the user events of `TestSuite.lvclass:run.vi`
+      generate code. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
       -- if a future change resolves one of these, that test fails: update the
       pin AND this line.
       Distinct from Q26's 149 unresolved-*type* terminals.

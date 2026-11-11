@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import ast
 import os
-import re
 import shutil
 import sys
 import traceback
@@ -23,6 +22,7 @@ from lvkit.codegen.ast_optimizer import (
 )
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
+    package_root_name,
     to_function_name,
     unique_names,
 )
@@ -731,10 +731,8 @@ def generate_python(
     output_dir_root = Path(output_dir)
     run = run or RunProblems(RunSettings(echo=True, root=project_root(input_path)))
 
-    # Create VI-named subfolder within output directory
-    vi_folder_name = input_path.stem
-    vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
-    vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
+    # The package, named after the input file, inside the output directory.
+    vi_folder_name = package_root_name(input_path.stem)
 
     output_dir_given = output_dir_root / vi_folder_name
     output_dir_resolved = extended_length(output_dir_given)

@@ -30,7 +30,6 @@ from ..class_model import (
     class_model,
     declares_result_class,
     result_class_imports,
-    shares_refnums,
 )
 from ..context import type_namer
 from ..errors import CodeGenError
@@ -38,7 +37,6 @@ from ..gaps import Gap, gap_of
 from ..import_cycles import in_import_cycle
 from ..import_resolver import ImportResolver, NameImport
 from ..type_fields import annotation_imports
-from ..value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
 from .config import ClassConfig
 from .init_builder import _InitBuilderMixin
 from .methods import _MethodBuilderMixin
@@ -134,7 +132,6 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             )
         body.extend(self._field_annotations(model, fields, spell))
         body.append(self._build_init(model, fields, base is not None, parent_gap))
-        body.extend(self._refnum_methods(class_key, fields))
 
         properties: list[tuple[MethodShape, Accessor]] = []
         methods: list[MethodShape] = []
@@ -154,22 +151,6 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         variants are members of their own) and not one that was not found."""
         graph = self._graph
         return not graph.is_stub(key) and not graph.get_poly_variants(key)
-
-    def _refnum_methods(self, class_key: str, fields: list) -> list[ast.stmt]:
-        """``__deepcopy__`` and its helper for a class that holds refnums: a copy
-        of an object shares the refnums."""
-        own = [
-            (attribute, f.type)
-            for attribute, f in zip(self._model.attributes.fields, fields, strict=True)
-            if holds_refnum(f.type)
-        ]
-        if not own:
-            return []
-        parent = self._graph.class_parent_key(class_key)
-        self._parts.imports.add(COPY_IMPORT)
-        return share_refnums_method(
-            own, base_shares=parent is not None and shares_refnums(self._graph, parent)
-        )
 
     def _result_classes(self) -> list[ast.stmt]:
         """The result class of each method of the class that returns two or more
