@@ -719,6 +719,9 @@ def test_a_vi_that_calls_itself_while_a_control_has_its_name(tmp_path: Path) -> 
     package = project.generate()
     source = package.sources["again"]
     assert "\n    from .again import again as again_2\n" in source
-    assert "    again = 1\n" in source and "again_2(a=again)" in source
+    assert (
+        "    again = live_io.read(AgainValue.AGAIN, 1)\n" in source
+        and "again_2(a=again)" in source
+    )
     with package.use() as module:
         assert callable(module("again").again)
