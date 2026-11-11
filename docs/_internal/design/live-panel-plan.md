@@ -451,3 +451,71 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-A:** the property table plus the code-based Value test, and generated `on_property` writes with the property Enum. Tests: a handmade VI with one node writing DisabledEnum, Visible and Value. Every view is checked, `generate` executes with a recording `on_property`, and the expected calls are asserted. Neighbouring cases: a node with an unlisted row stays a gap, and a Value-only node is unchanged.
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
+
+## 12. User events across VIs (added 2026-11-09)
+
+Replaces D15's "same-VI user events" scope (maintainer, 2026-11-09: "List of queues, any VI"). Everything else in §9 is kept: the message shape (D12), `events` for the panel, and the Event Structure's dispatch (`codegen/nodes/event.py`).
+
+### 12.1 Evidence
+
+- **NI:**
+  - Create User Event: "Wire the user event out output to a Generate User Event function to send the event and associated data to all Event structures registered for the event."
+  - Generate User Event: "Broadcasts the user event … to each Event structure registered to handle the event."
+  - Register For Events: "References must be to local objects."
+  - A user event is a refnum like any other, so it passes between VIs.
+- **Corpus:** in the extracted diagrams, 20 VIs Create, 37 Generate, 12 Destroy and 29 Unregister. 23 VIs generate an event they did not create. Example: JKI `Graphical Test Runner - Main UI` creates, and the `TestResult` methods (`addSuccess` …) and `TestSuite:run` generate.
+- **Priority:** all 39 Generate User Event nodes in the 24 corpus VIs that have one leave priority unwired, so they use normal priority.
+- **How a frame names its user event:** the frame's `EventSpec` has `type` 1000 (User Event), `source` 1 (dynamic) and `dynIndex` k ≥ 1. That k is the k-th user event row of the Register For Events wired to the structure's dynamic terminal.
+  - Checked on JKI `Results Status Update Process__core.vi`: 4 rows; the frame with `dynIndex` 4 reads `testStarted`, the 4th row's data.
+  - The parser does not keep `dynIndex` today (`parser/nodes/event.py:273` reads only `type`). So 3 of those 4 frames are labelled `<unknown event 0x000003E8>` in describe and lvnet.
+
+### 12.2 Generated shape (plain Python, no helper)
+
+```python
+ev = []                                   # Create User Event: the list of registration queues
+reg = (Queue(), (ev_a, ev_b))             # Register For Events: one queue, the user events by row
+for registered in reg[1]:
+    registered.append(reg[0])
+for q in ev:                              # Generate User Event
+    q.put((ev, data, Kind.USER_EVENT, None))
+for registered in reg[1]:                 # Unregister For Events
+    registered.remove(reg[0])
+ev.clear()                                # Destroy User Event
+```
+
+- **The message keeps D12's shape.** The name position holds the user event itself, the list object, and its value is the event data.
+- **The Event Structure** wired to a registration reads `reg[0]`, not `events`. A frame with `dynIndex` k is chosen by `event[0] is reg[1][k - 1]`, by identity, never by label.
+- **A structure with both front-panel and user events:** the panel's messages and the registration's must reach one queue. Register For Events then uses the VI's `events` queue when the VI has one (`reg = (events, …)`), so one `get` serves both.
+- **Event Data Node fields of a user event** are the event data's fields by name (maintainer, 2026-11-08: "By name"); `UsrEvtRef` is `event[0]`.
+- **Register For Events with its input wired** (an existing registration): same queue, rows replaced (NI: "re-register").
+
+### 12.3 Gaps
+
+- Generate User Event with a priority other than an unwired or constant normal one (the switch to `PriorityQueue` is described in the 2026-11-09 decision: one place, but it changes the message shape for outside callers).
+- Register For Events rows of a control, VI or application reference (dynamic front-panel events).
+- A `dynIndex` that has no row.
+
+### 12.4 Decisions
+
+- **D24. DECIDED (maintainer, 2026-11-09):** a user event is a list of registration queues, in any VI.
+- **D25. DECIDED (maintainer, 2026-11-09):** plain `Queue`; high priority is a gap until a VI needs it.
+
+### 12.5 Steps
+
+1. **Parser:** `FrameEvent.dyn_index` from `dynIndex`. A dynamic event's frame label names the registered row's user event (`<testStarted>: User Event`), in describe, lvnet, JSON and the render. Tests on a handmade structure with 2 rows.
+2. **Codegen:** Create / Register / Generate / Unregister / Destroy, and the Event Structure's user-event frames. Tests execute a handmade VI that creates, registers and generates, with a frame reading the data. Also a two-VI case where one VI generates, the other creates and registers, and the user event passes as a parameter.
+
+### 12.6 Revised after step 1's research (maintainer, 2026-11-09)
+
+- **D26. DECIDED: frame names come from the registration's type.** Register For Events copies the label of each user event wired into a row into the type of the registration it outputs (the Event Registration refnum type lists one entry per row, each a User Event refnum type whose `Label` is the row name: JKI `Results Status Update Process__core.xml` type at line 5084). That type travels with the wire through subVI outputs, shift registers and clusters, so the names are the ones the Register For Events node stored wherever it is. WaveGen's three registrations come from WaveGen's own node and from two `Read Event.vi` subVIs.
+  - The frame for `dynIndex` k is the k-th row, counted across the registrations of a cluster in field order.
+  - A cluster field gives LabVIEW's own `Field.Label` form; LabVIEW's stored label for WaveGen's frame 2 is `[2] <Action.Event Data>: User Event`.
+  - A dynamic terminal whose type carries no rows (a bare `EventReg refnum`, DCAF's subVI output) keeps today's label.
+- **D27. DECIDED: one structure, several registrations.** When the Event Structure first runs, it makes its own queue. For each registration it listens to, it moves the waiting messages over and re-points each of the registration's user-event lists from the old queue to its own (`ev.remove(old); ev.append(mine)`). This replaces §12.2's "the Event Structure … reads `reg[0]`" for a cluster of registrations.
+
+### 12.7 Decided for code generation (maintainer, 2026-11-09)
+
+- **P1. A registration has three items.** `reg = [Queue(), rows, registered]`, a list (not a tuple) because a structure that reads the VI's `events` replaces `reg[0]` (P3). `rows` is in dynIndex order for frame tests: a user event, a tuple of the events of an array row, or `None` at a cluster row's own index. `registered` is the flat tuple of every user-event list that holds the queue (arrays expanded at registration). Register, Unregister and re-register loop over `reg[2]`, so they need no row layout. This replaces §12.2's pair.
+- **P2. Kind.** Generate User Event puts the literal `'User Event'` as the kind, so a VI with no Event Structure needs no enum. The `<Vi>Event` enum of a VI with an Event Structure gains `USER_EVENT = 'User Event'`; the kind has an explicit name, and 1000 is not added to the confirmed event types (they name frame labels).
+- **P3. The structure's queue is the VI's `events`.** A structure with a cluster of registrations (D27) or a registration from another VI reads `events` and re-points each registration's lists to it, guarded (`if reg[0] is not events`), moving waiting messages first. No new function-entry seam. A structure wired to one registration made in this VI reads `reg[0]`, which is `events` when the VI has static panel events.
+- **P4.** (a) Unregister removes tolerantly (`if q in registered`), since Destroy clears the list. (b) Event data is copied per queue only for by-value objects (`value_copy`). (c) Priority: NI's Generate User Event page gives "0 high priority, 1 normal priority (default)"; unwired or a constant 1 generates, anything else is a gap.

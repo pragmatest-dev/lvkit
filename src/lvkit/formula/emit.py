@@ -36,6 +36,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
+from lvkit.lv_type_codes import REAL_FLOAT_TYPE_NAMES
 from lvkit.python_numeric import CTYPES_INTEGER, float_divide
 
 from . import FormulaTranspileError
@@ -66,7 +67,6 @@ from .nodes import (
 # LabVIEW numeric type-name (parser's ParsedType.type_name) -> the ``ctypes``
 # integer type a store into it wraps to. Float types have none.
 _LV_INT_HELPER = {name: ctype for name, (ctype, _) in CTYPES_INTEGER.items()}
-_LV_FLOAT = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 
 # Formula-node declaration keyword -> ``ctypes`` integer type. ``float`` is a
 # LabVIEW alias for float64.
@@ -188,7 +188,7 @@ def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
     """Return ("int"|"float", int-coercion-helper-or-None) for an LV type."""
     if lv_type in _LV_INT_HELPER:
         return "int", _LV_INT_HELPER[lv_type]
-    if lv_type in _LV_FLOAT:
+    if lv_type in REAL_FLOAT_TYPE_NAMES:
         return "float", None
     raise FormulaTranspileError(f"unsupported variable type {lv_type!r}")
 
