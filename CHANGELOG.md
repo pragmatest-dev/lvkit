@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Delete From Array with a negative or out-of-range index no longer duplicates elements** — the run deleted is clipped to the array as NI documents (a negative index with `length` wired deletes `length` minus its size); a Python slice counted a negative index from the end.
 - **Fix: extended-precision (EXT) and complex (CSG/CDB/CXT) numbers are `float` and `complex` in generated code** — signatures said `Any` and an out-of-range read or unwired indicator gave `None`; it is now `0.0` / `0j`. A number with a unit is treated as its plain number in every view.
 - **Fix: a generated front panel starts each control from its saved value** — a string control showed its saved text in quotes (`''` for an empty one) and passed the quotes to the VI; a Boolean or number saved as text, and a path, now start from the value the generated function uses.
 - **User events generate Python** — Create, Register For Events, Generate, Unregister and Destroy User Event are a list of queues in plain Python, in any VI; an Event Structure frame for a registered user event runs and reads its data fields by name; a row that registers a control reference or a Generate with a priority other than normal is a gap.
