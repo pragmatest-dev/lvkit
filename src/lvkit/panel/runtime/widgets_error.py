@@ -15,8 +15,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Port, bind_control, bind_indicator
+from .view import PanelWidgets
 from .widgets import CAPTION_CLS, caption
 
 LIGHT_ON = "text-red-500"
@@ -86,9 +86,9 @@ def error_port(*, readonly: bool) -> Port:
     return port
 
 
-def error_control(live: LiveValues, name: Any) -> Port:
-    return bind_control(live, name, error_port(readonly=False))
+def error_control(view: PanelWidgets, name: Any) -> Port:
+    return bind_control(view, name, error_port(readonly=False))
 
 
-def error_indicator(live: LiveValues, name: Any) -> Port:
-    return bind_indicator(live, name, error_port(readonly=True))
+def error_indicator(view: PanelWidgets, name: Any) -> Port:
+    return bind_indicator(view, name, error_port(readonly=True))

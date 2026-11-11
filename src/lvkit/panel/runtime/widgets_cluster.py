@@ -14,8 +14,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Member, Port, bind_control, bind_indicator
+from .view import PanelWidgets
 from .widgets import caption
 from .widgets_opaque import hidden_port
 
@@ -53,12 +53,12 @@ def cluster_port(named: bool, members: list[Member], *, readonly: bool) -> Port:
 
 
 def cluster_control(
-    live: LiveValues, name: Any, named: bool, members: list[Member]
+    view: PanelWidgets, name: Any, named: bool, members: list[Member]
 ) -> Port:
-    return bind_control(live, name, cluster_port(named, members, readonly=False))
+    return bind_control(view, name, cluster_port(named, members, readonly=False))
 
 
 def cluster_indicator(
-    live: LiveValues, name: Any, named: bool, members: list[Member]
+    view: PanelWidgets, name: Any, named: bool, members: list[Member]
 ) -> Port:
-    return bind_indicator(live, name, cluster_port(named, members, readonly=True))
+    return bind_indicator(view, name, cluster_port(named, members, readonly=True))

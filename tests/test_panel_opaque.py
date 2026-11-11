@@ -4,8 +4,6 @@ or class object is not drawn and the function gets the default of its type."""
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from nicegui import ui
 from nicegui.testing.user import User
@@ -29,6 +27,8 @@ from tests.panel_harness import (
     controls_of,
     found,
     panel_of,
+    panel_with,
+    record_calls,
     run_once,
     simulate,
 )
@@ -53,18 +53,6 @@ def _fp(name: str, control_type: str, *children: ParsedFPControl) -> ParsedFPCon
 
 def _class_type() -> LVType:
     return LVType(kind=LVTypeKind.CLASS, underlying_type="Class", classname="X.lvclass")
-
-
-def _record_calls(monkeypatch: pytest.MonkeyPatch, panel: Any) -> list[dict[str, Any]]:
-    calls: list[dict[str, Any]] = []
-    original = panel.vi_function
-
-    def recorded(**arguments: Any) -> Any:
-        calls.append(arguments)
-        return original(**arguments)
-
-    monkeypatch.setattr(panel, "vi_function", recorded)
-    return calls
 
 
 # -- what the panel makes of each control ------------------------------------
@@ -215,7 +203,7 @@ def test_a_complex_control_is_two_number_boxes_and_the_indicator_shows_both_part
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         real, imaginary = found(user, ui.number)
@@ -250,11 +238,11 @@ def test_a_required_reference_is_not_drawn_and_gets_none(
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
-    assert "ref=None," in source
+    assert "ref=" not in source  # the panel gives the VI its default
     assert "caption('Ref')" not in source
     assert "caption('On')" in source
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         await run_once(user)
@@ -295,7 +283,7 @@ def test_a_variant_control_and_indicator_are_read_only_text_of_the_value(
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = found(user, ui.input)
@@ -314,14 +302,17 @@ def test_a_variant_indicator_shows_the_text_of_what_the_function_writes(
     project.add(_variant_vi())
     package = project.generate(NAME, panel=True)
     controls = controls_of(package)
-    holder = controls.LiveValues()
+    panel = panel_with("v")
+    holder = controls.PanelWidgets(panel)
+    panel.attach(holder)
 
     def build() -> None:
         controls.variant_indicator(holder, "v")
 
     async def scenario(user: User) -> None:
         (shown,) = found(user, ui.input)
-        holder.show("v", [1, "a"])
+        panel.set("v", [1, "a"])
+        holder.paint()
         assert shown.value == "[1, 'a']"
 
     simulate(build, scenario)
@@ -333,7 +324,8 @@ def test_a_cluster_holds_none_for_a_field_it_does_not_draw(
     project.add(_variant_vi())
     package = project.generate(NAME, panel=True)
     controls = controls_of(package)
-    holder = controls.LiveValues()
+    panel = panel_with("c")
+    holder = controls.PanelWidgets(panel)
     members = [
         controls.Member("ref", "Ref", controls.hidden_port),
         controls.Member("gain", "Gain", controls.number_port, 0, True),
@@ -343,9 +335,9 @@ def test_a_cluster_holds_none_for_a_field_it_does_not_draw(
         controls.cluster_control(holder, "c", False, members)
 
     async def scenario(user: User) -> None:
-        assert holder.value("c") == (None, 0)
+        assert panel.get("c") == (None, 0)
         found(user, ui.number)[0].set_value(5)
-        assert holder.value("c") == (None, 5)
+        assert panel.get("c") == (None, 5)
         assert "Ref" not in " ".join(
             str(e.text) for e in user.find(kind=ui.label).elements
         )
@@ -362,7 +354,8 @@ def test_an_array_of_complex_numbers_has_a_real_and_an_imaginary_column(
     project.add(_complex_vi())
     package = project.generate(NAME, panel=True)
     controls = controls_of(package)
-    holder = controls.LiveValues()
+    panel = panel_with("zs")
+    holder = controls.PanelWidgets(panel)
     element = controls.Member("value", "", controls.complex_port, 0j)
 
     def build() -> None:
@@ -376,8 +369,8 @@ def test_an_array_of_complex_numbers_has_a_real_and_an_imaginary_column(
             {"value_re": 1.0, "value_im": 2.0},
             {"value_re": 0.0, "value_im": 3.0},
         ]
-        assert holder.value("zs") == [1 + 2j, 3j]
+        assert panel.get("zs") == [1 + 2j, 3j]
         user.find(marker="add-row").click()
-        assert holder.value("zs") == [1 + 2j, 3j, 0j]
+        assert panel.get("zs") == [1 + 2j, 3j, 0j]
 
     simulate(build, scenario)

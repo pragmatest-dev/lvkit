@@ -20,8 +20,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Member, Port, bind_control, bind_indicator
+from .view import PanelWidgets
 from .widgets import as_number, bool_port, complex_port, number_port, string_port
 from .widgets_choice import choice_port
 from .widgets_cluster import cluster_port
@@ -286,12 +286,12 @@ def array_port(
 
 
 def array_control(
-    live: LiveValues, name: Any, element: Member, rows: int, initial: list[Any]
+    view: PanelWidgets, name: Any, element: Member, rows: int, initial: list[Any]
 ) -> Port:
-    return bind_control(live, name, array_port(element, rows, initial, readonly=False))
+    return bind_control(view, name, array_port(element, rows, initial, readonly=False))
 
 
 def array_indicator(
-    live: LiveValues, name: Any, element: Member, rows: int, initial: list[Any]
+    view: PanelWidgets, name: Any, element: Member, rows: int, initial: list[Any]
 ) -> Port:
-    return bind_indicator(live, name, array_port(element, rows, initial, readonly=True))
+    return bind_indicator(view, name, array_port(element, rows, initial, readonly=True))

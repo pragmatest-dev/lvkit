@@ -31,8 +31,15 @@ which a Ctrl Val method cannot tell apart.
 
 A view of the panel (the NiceGUI tab, a test recorder, a remote mirror) is a
 ``PanelView`` attached with ``Panel.attach``: the panel tells each attached view
-when a control or an indicator changes and when a run starts and ends. With no
-view attached the panel runs headless.
+when a control or an indicator changes, when a control property is written and when
+a run starts and ends. With no view attached the panel runs headless.
+
+A run passes a function that takes ``live_io`` (the VI reads or writes its own
+panel while it runs) a ``PanelIO``: its reads give the panel's control values, its
+writes store the indicator on the panel and tell the views, and every call is a
+point where ``Panel.abort`` ends the run and ``Panel.pause`` holds it. The
+function's Event Structure reads ``Panel.events``, the queue of the run, which a
+view pushes its events into.
 """
 
 from __future__ import annotations
@@ -54,12 +61,17 @@ PANELS_MODULE_SOURCE = '''"""The front panel of a VI."""
 
 from __future__ import annotations
 
+import copy
 import inspect
 import threading
+import time
 from collections.abc import Callable, Iterable, Mapping
+from queue import Empty, Queue
 from typing import Any
 
 from .errors import LabVIEWError
+
+ABORT_POLL = 0.1
 
 
 class PanelError(LabVIEWError):
@@ -67,16 +79,32 @@ class PanelError(LabVIEWError):
     name the VI does not have, or a VI that is already running."""
 
 
+class Abort(BaseException):
+    """Raised from the points of a run (``PanelIO`` and the run's events queue)
+    once ``Panel.abort`` was called, so the running function ends there. A
+    ``BaseException`` so no ``except Exception`` in the function swallows it."""
+
+
+def key_of(name: Any) -> str:
+    """The string a ``live_io`` name stands for: the value of the enum member the
+    function passes, or the string itself."""
+    return str(getattr(name, "value", name))
+
+
 class PanelView:
-    """What the panel tells a view attached to it, each a no-op to override. A
-    view must not call back into the panel from these methods while the change
-    that called it is still being made on another thread."""
+    """What the panel tells a view attached to it, each a no-op to override. The
+    panel tells from the thread that made the change, outside its own lock; a
+    view that draws records the change and draws on its own thread."""
 
     def control_changed(self, label: str, value: Any) -> None:
         """A control (or indicator) of the panel was set."""
 
     def indicator_changed(self, label: str, value: Any) -> None:
         """A run stored the value of an indicator."""
+
+    def property_changed(self, label: str, prop: str, value: Any) -> None:
+        """The running VI set the property ``prop`` (the name of the property) of
+        the control or indicator labelled ``label``."""
 
     def run_started(self) -> None:
         """A run of the VI began."""
@@ -93,6 +121,56 @@ ControlEntry = tuple[str | None, Callable[[], Any] | None]
 
 def _start_thread(work: Callable[[], Any]) -> None:
     threading.Thread(target=work, daemon=True).start()
+
+
+class _Inbox(Queue):
+    """The queue of a run's events. A wait for the next event is a point of the
+    run too: it ends when the run is aborted and holds while it is paused, so a VI
+    blocked in its Event Structure can be aborted; the wait's own timeout is
+    kept."""
+
+    def __init__(self, checkpoint: Callable[[], None]) -> None:
+        super().__init__()
+        self._checkpoint = checkpoint
+
+    def get(self, block: bool = True, timeout: float | None = None) -> Any:
+        if not block:
+            return super().get(block=False)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            self._checkpoint()
+            step = ABORT_POLL
+            if deadline is not None:
+                step = min(step, max(0.0, deadline - time.monotonic()))
+            try:
+                return super().get(timeout=step)
+            except Empty:
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise
+
+
+class PanelIO:
+    """The ``live_io`` of one run: what the VI does with its own panel while it
+    runs goes to the ``Panel`` and its views. ``events`` is the run's queue. It has
+    the methods of ``LiveIO`` without importing it, so a package whose VIs take no
+    ``live_io`` has no ``live_io.py``."""
+
+    def __init__(self, panel: Panel, events: Queue[Any]) -> None:
+        self._panel = panel
+        self.events = events
+
+    def read(self, name: Any, value: Any) -> Any:
+        """The panel's value of the control ``name``, else ``value``."""
+        self._panel._checkpoint()
+        return self._panel._live_read(key_of(name), value)
+
+    def write(self, name: Any, value: Any) -> None:
+        self._panel._checkpoint()
+        self._panel._live_write(key_of(name), copy.copy(value))
+
+    def set_property(self, name: Any, prop: Any, value: Any) -> Any:
+        self._panel._checkpoint()
+        self._panel._live_property(key_of(name), key_of(prop), value)
 
 
 class Panel:
@@ -121,6 +199,17 @@ class Panel:
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
         self._running = False
+        self._abort = False
+        self._go = threading.Event()
+        self._go.set()
+        self._io: PanelIO | None = None
+        # The label of each name a running function passes ``live_io``: the
+        # parameter of a control, the field of an indicator (a view adds the
+        # names it knows).
+        self._names: dict[str, str] = {
+            **{f: label for label, f in self._indicators.items() if f is not None},
+            **{n: label for label, (n, _) in self._controls.items() if n is not None},
+        }
 
     @property
     def state(self) -> int:
@@ -129,11 +218,30 @@ class Panel:
         with self._lock:
             return 2 if self._running else 1
 
-    def attach(self, view: PanelView) -> None:
-        """Tell ``view`` of every change from now on."""
+    @property
+    def paused(self) -> bool:
+        return not self._go.is_set()
+
+    @property
+    def aborted(self) -> bool:
+        """Whether the last run was aborted (cleared when the next run starts)."""
+        return self._abort
+
+    @property
+    def events(self) -> Queue[Any] | None:
+        """The events queue of the run in progress, None when nothing runs or the
+        function takes no ``live_io``."""
+        with self._lock:
+            return self._io.events if self._io is not None else None
+
+    def attach(self, view: PanelView, names: Mapping[str, str] | None = None) -> None:
+        """Tell ``view`` of every change from now on. ``names`` maps the names a
+        running function passes ``live_io`` to the labels of the controls and
+        indicators the view draws."""
         with self._lock:
             if view not in self._views:
                 self._views.append(view)
+            self._names.update(names or {})
 
     def detach(self, view: PanelView) -> None:
         with self._lock:
@@ -146,6 +254,19 @@ class Panel:
         with self._lock:
             self._values[label] = value
         self._tell("control_changed", label, value)
+
+    def has(self, label: str) -> bool:
+        """Whether ``label`` names exactly one control or indicator."""
+        return label not in self._duplicates and (
+            label in self._controls or label in self._indicator_labels()
+        )
+
+    def seed(self, label: str, value: Any) -> Any:
+        """The value of ``label``, which is ``value`` when none was set yet (a
+        view starts a control at the value its widget has). No view is told."""
+        self._check(label)
+        with self._lock:
+            return self._values.setdefault(label, value)
 
     def get(self, label: str) -> Any:
         """The value of the control or indicator labelled ``label``: the last set
@@ -178,6 +299,10 @@ class Panel:
                     message="The VI is not in a state compatible with this operation.",
                 )
             self._running = True
+            self._abort = False
+            self._go.set()
+            if "live_io" in inspect.signature(self.function).parameters:
+                self._io = PanelIO(self, _Inbox(self._checkpoint))
         self._tell("run_started")
         if wait:
             self._execute()
@@ -191,11 +316,13 @@ class Panel:
     def _execute(self) -> None:
         error: BaseException | None = None
         try:
-            # A run that shows its panel would pass a ``live_io`` that forwards
-            # the function's reads and writes to the attached views here.
             arguments = self._arguments()
+            if self._io is not None:
+                arguments["live_io"] = self._io
             result = self.function(**arguments)
             self._store(result, arguments)
+        except Abort:
+            pass
         except BaseException as raised:
             error = raised
             raise
@@ -206,7 +333,61 @@ class Panel:
         """The run is over: the VI is idle again and the views are told."""
         with self._lock:
             self._running = False
+            self._io = None
+            self._go.set()
         self._tell("run_finished", error)
+
+    def abort(self) -> None:
+        """End the run in progress at its next point (a ``live_io`` call or a wait
+        for an event); a paused run is released so it reaches that point. A VI that
+        takes no ``live_io`` has no such point and runs to its end."""
+        with self._lock:
+            if self._running:
+                self._abort = True
+                self._go.set()
+
+    def pause(self) -> None:
+        """Hold the run in progress at its next point."""
+        with self._lock:
+            if self._running:
+                self._go.clear()
+
+    def resume(self) -> None:
+        """Release a run held by ``pause``."""
+        self._go.set()
+
+    def _checkpoint(self) -> None:
+        """A point of the run: block while paused, then end the run if it was
+        aborted."""
+        self._go.wait()
+        if self._abort:
+            raise Abort
+
+    def _live_read(self, key: str, held: Any) -> Any:
+        """The panel's value of the control ``key`` names, a copy the function may
+        change; ``held`` (the function's own) when the panel has none."""
+        label = self._names.get(key)
+        with self._lock:
+            if label is None or label not in self._values:
+                return copy.deepcopy(held)
+            return copy.deepcopy(self._values[label])
+
+    def _live_write(self, key: str, value: Any) -> None:
+        """The function wrote the indicator, or the control through a Local
+        Variable, ``key`` names."""
+        label = self._names.get(key)
+        if label is None:
+            return
+        with self._lock:
+            self._values[label] = value
+            is_control = label in self._controls
+        changed = "control_changed" if is_control else "indicator_changed"
+        self._tell(changed, label, value)
+
+    def _live_property(self, key: str, prop: str, value: Any) -> None:
+        label = self._names.get(key)
+        if label is not None:
+            self._tell("property_changed", label, prop, value)
 
     def _arguments(self) -> dict[str, Any]:
         """The keyword arguments of a run: each control of the connector pane that

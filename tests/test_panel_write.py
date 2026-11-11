@@ -63,7 +63,7 @@ def test_the_panel_is_written_next_to_the_module_with_the_controls_package(
     assert (package.root / f"{STEM}_panel.py").exists()
     assert {p.name for p in (package.root / "controls").glob("*.py")} >= {
         "__init__.py",
-        "live.py",
+        "view.py",
         "port.py",
         "runtoolbar.py",
         "widgets.py",
@@ -94,7 +94,6 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
     assert imported == {
         "__future__",
         "pathlib",
-        "typing",
         "nicegui",
         f"{root}.controls",
         f"{root}.{STEM}",
@@ -139,18 +138,22 @@ def test_the_panel_builds_headless_with_a_widget_for_each_control(
     _simulate(panel.build_panel, scenario)
 
 
+def _live_io(package: Package) -> type:
+    """The ``LiveIO`` class of the package's ``live_io`` module."""
+    return importlib.import_module(f"{package.module.__package__}.live_io").LiveIO
+
+
 def test_an_indicator_wired_to_a_control_in_the_loop_shows_each_re_read_value(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(counting_vi(with_text=True))
     package = project.generate(NAME, panel=True)
     names = _enum(package)
-    shown: list[object] = []
     seen: list[object] = []
     stops = 0
     texts = iter(["a", "b", "c"])
 
-    class Holder(_controls(package).LiveValues):
+    class Recorder(_live_io(package)):  # type: ignore[misc]
         def read(self, name: Any, value: object) -> object:
             nonlocal stops
             if name == names.STOP:
@@ -163,70 +166,65 @@ def test_an_indicator_wired_to_a_control_in_the_loop_shows_each_re_read_value(
         def write(self, name: Any, value: object) -> None:
             if name == names.ECHO:
                 seen.append(value)
-            super().write(name, value)
 
-    holder = Holder()
-    holder.add_indicator(names.ECHO, shown.append)
-    result = package.function(False, 0, "", live_io=holder)
+    result = package.function(False, 0, "", live_io=Recorder())
     assert seen == ["a", "b", "c"]
     assert result.echo == "c"
-    holder.paint()
-    assert shown == ["c"]
 
 
-def test_a_run_with_a_stop_after_three_reads_leaves_the_last_count_in_the_holder(
+def test_a_run_with_a_stop_after_three_reads_leaves_the_last_count(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
     names = _enum(package)
-    shown: list[object] = []
     reads: list[str] = []
+    written: list[object] = []
 
-    class Holder(_controls(package).LiveValues):
+    class Recorder(_live_io(package)):  # type: ignore[misc]
         def read(self, name: Any, value: object) -> object:
             reads.append(name)
             if name == names.STOP:
                 return reads.count(names.STOP) >= 3
             return value
 
-    holder = Holder()
-    holder.add_indicator(names.COUNT, shown.append)
-    result = package.function(False, 0, live_io=holder)
+        def write(self, name: Any, value: object) -> None:
+            if name == names.COUNT:
+                written.append(value)
+
+    result = package.function(False, 0, live_io=Recorder())
     assert result.count == 3
-    holder.paint()
-    assert shown == [3]
-    holder.paint()
-    assert shown == [3]
+    assert written == [1, 2, 3]
 
 
-def test_the_holder_keys_a_name_by_the_value_of_its_enum_member(
+def test_the_panel_io_reads_the_panel_value_of_a_control_by_the_value_of_its_member(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
     names = _enum(package)
-    holder = _controls(package).LiveValues()
-    holder.add_control(names.OFFSET, 5)
-    assert holder.read("offset", 0) == 5
-    assert holder.read(names.OFFSET, 0) == 5
-    assert holder.read(names.STOP, True) is True
+    panels = importlib.import_module(f"{package.module.__package__}.panels")
+    panel = package.function.panel
+    io = panels.PanelIO(panel, panels.Queue())
+    panel.set("Offset", 5)
+    assert io.read("offset", 0) == 5
+    assert io.read(names.OFFSET, 0) == 5
+    assert io.read(names.STOP, True) is True  # the panel holds no Stop: the VI's own
 
 
-def test_abort_ends_the_run_at_the_next_hook_call(
+def test_the_panel_io_ends_the_run_at_its_next_call_once_the_run_is_aborted(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
-    names = _enum(package)
-    controls = _controls(package)
-    holder = controls.LiveValues()
-    holder.request_abort()
-    with pytest.raises(controls.Abort):
-        package.function(False, 0, live_io=holder)
-    assert not issubclass(controls.Abort, Exception)
-    holder.clear_abort()
-    assert holder.read(names.STOP, True) is True
+    panels = importlib.import_module(f"{package.module.__package__}.panels")
+    panel = package.function.panel
+    io = panels.PanelIO(panel, panels.Queue())
+    panel._running = True
+    panel.abort()
+    with pytest.raises(panels.Abort):
+        io.read("stop", True)
+    assert not issubclass(panels.Abort, Exception)
 
 
 def test_run_calls_the_function_and_paints_the_result_when_it_returns(

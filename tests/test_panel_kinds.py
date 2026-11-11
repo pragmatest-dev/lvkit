@@ -28,6 +28,7 @@ from tests.panel_harness import (
     controls_of,
     found,
     panel_of,
+    record_calls,
     run_once,
     simulate,
 )
@@ -41,9 +42,7 @@ def _path_vi() -> Vi:
     folder = vi.control(
         "Folder", PATH, REQUIRED, ddo_class="stdPath", bounds=(40, 20, 62, 260)
     )
-    shown = vi.indicator(
-        "Shown", PATH, ddo_class="stdPath", bounds=(40, 300, 62, 540)
-    )
+    shown = vi.indicator("Shown", PATH, ddo_class="stdPath", bounds=(40, 300, 62, 540))
     vi.wire(folder, shown)
     return vi
 
@@ -57,9 +56,7 @@ def _enum_vi() -> Vi:
     level = vi.control(
         "Level", kind, REQUIRED, ddo_class="stdEnum", bounds=(40, 20, 62, 160)
     )
-    shown = vi.indicator(
-        "Shown", kind, ddo_class="stdEnum", bounds=(40, 300, 62, 440)
-    )
+    shown = vi.indicator("Shown", kind, ddo_class="stdEnum", bounds=(40, 300, 62, 440))
     vi.wire(level, shown)
     return vi
 
@@ -79,7 +76,11 @@ def _ring_vi(values: list[int] | None = None) -> Vi:
         + (f"<ringSparseValues>{sparse}</ringSparseValues>" if values else "")
     )
     gain = vi.control(
-        "Gain", kind, REQUIRED, ddo_class="stdRing", bounds=(40, 20, 62, 160),
+        "Gain",
+        kind,
+        REQUIRED,
+        ddo_class="stdRing",
+        bounds=(40, 20, 62, 160),
         inner=ring,
     )
     shown = vi.indicator(
@@ -87,20 +88,6 @@ def _ring_vi(values: list[int] | None = None) -> Vi:
     )
     vi.wire(gain, shown)
     return vi
-
-
-def _record_calls(
-    monkeypatch: pytest.MonkeyPatch, panel: Any
-) -> list[dict[str, Any]]:
-    calls: list[dict[str, Any]] = []
-    original = panel.vi_function
-
-    def recorded(**arguments: Any) -> Any:
-        calls.append(arguments)
-        return original(**arguments)
-
-    monkeypatch.setattr(panel, "vi_function", recorded)
-    return calls
 
 
 def test_a_path_control_passes_a_path_and_the_indicator_shows_its_text(
@@ -111,7 +98,7 @@ def test_a_path_control_passes_a_path_and_the_indicator_shows_its_text(
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         folder, shown = found(user, ui.input)
@@ -132,7 +119,7 @@ def test_an_empty_path_control_passes_the_empty_path_and_shows_no_text(
     project.add(_path_vi())
     package = project.generate(NAME, panel=True)
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         _, shown = found(user, ui.input)
@@ -191,7 +178,7 @@ def test_an_enum_control_offers_the_items_of_its_type_and_passes_the_item_number
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = _selects(user)
@@ -214,7 +201,7 @@ def test_a_ring_control_passes_the_value_the_ring_stores_for_the_item(
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = _selects(user)
@@ -234,7 +221,7 @@ def test_a_ring_numbered_from_zero_passes_the_item_number(
     project.add(_ring_vi())
     package = project.generate(NAME, panel=True)
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = _selects(user)
@@ -246,6 +233,7 @@ def test_a_ring_numbered_from_zero_passes_the_item_number(
 
     simulate(panel.build_panel, scenario)
 
+
 def test_an_enum_indicator_shows_a_value_that_is_not_one_of_its_items(
     project: Project,  # noqa: F811
 ) -> None:
@@ -255,7 +243,7 @@ def test_an_enum_indicator_shows_a_value_that_is_not_one_of_its_items(
     ports: list[Any] = []
 
     def build() -> None:
-        holder = controls.LiveValues()
+        holder = controls.PanelWidgets()
         ports.append(
             controls.choice_indicator(holder, "level", (("Low", 0), ("High", 1)), 0)
         )
@@ -299,7 +287,11 @@ def _cluster_vi(
     kind = cluster_type(vi, [type_id for _, _, type_id in fields])
     inner = cluster_fields(vi, fields)
     point = vi.control(
-        "Point", kind, REQUIRED, ddo_class="stdClust", bounds=(40, 20, 180, 200),
+        "Point",
+        kind,
+        REQUIRED,
+        ddo_class="stdClust",
+        bounds=(40, 20, 180, 200),
         inner=inner,
     )
     shown = vi.indicator(
@@ -318,7 +310,7 @@ def test_a_cluster_control_passes_its_fields_as_a_tuple_and_the_indicator_shows_
     assert package.gaps == []
     assert "def kind_demo(point: tuple | None)" in package.source
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         number = found(user, ui.number)[0]
@@ -339,9 +331,7 @@ def test_a_cluster_control_passes_its_fields_as_a_tuple_and_the_indicator_shows_
 def test_a_cluster_with_a_field_the_panel_has_no_widget_for_is_one_gap(
     project: Project,  # noqa: F811
 ) -> None:
-    project.add(
-        _cluster_vi([("X", "stdNum", I32), ("Level", "stdSlide", I32)])
-    )
+    project.add(_cluster_vi([("X", "stdNum", I32), ("Level", "stdSlide", I32)]))
     package = project.generate(NAME, panel=True)
     assert [(g.kind, g.node_name) for g in package.gaps] == [
         ("unsupported_control", "Point"),

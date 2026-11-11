@@ -20,7 +20,14 @@ from tests.error_diagrams import (  # noqa: F401
     project,
 )
 from tests.panel_diagrams import NAME
-from tests.panel_harness import controls_of, found, panel_of, run_once, simulate
+from tests.panel_harness import (
+    controls_of,
+    found,
+    panel_of,
+    record_calls,
+    run_once,
+    simulate,
+)
 
 STEM = "panel_demo"
 OFF = "text-green-500"
@@ -42,18 +49,6 @@ def _passthrough() -> Vi:
 
 def _panel(package: Package) -> ModuleType:
     return panel_of(package, STEM)
-
-
-def _record(panel: ModuleType, monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    received: list[Any] = []
-    original = panel.vi_function
-
-    def recording(**arguments: Any) -> Any:
-        received.append(arguments["error_in"])
-        return original(**arguments)
-
-    monkeypatch.setattr(panel, "vi_function", recording)
-    return received
 
 
 def _light(user: User) -> str:
@@ -79,11 +74,11 @@ def test_a_run_with_no_error_leaves_the_indicator_with_status_off(
     project.add(_passthrough())
     package = project.generate(NAME, panel=True)
     panel = _panel(package)
-    received = _record(panel, monkeypatch)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         await run_once(user)
-        assert received == [None]
+        assert [c["error_in"] for c in calls] == [None]
         assert OFF in _light(user)
         numbers = found(user, ui.number)
         assert [n.value for n in numbers] == [0, 0]
@@ -99,14 +94,15 @@ def test_a_control_with_status_on_passes_a_labview_error_and_the_indicator_shows
     project.add(_passthrough())
     package = project.generate(NAME, panel=True)
     panel = _panel(package)
-    received = _record(panel, monkeypatch)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         found(user, ui.switch)[0].set_value(True)
         found(user, ui.number)[0].set_value(5000)
         found(user, ui.input)[0].set_value("x")
         await run_once(user)
-        (error,) = received
+        (call,) = calls
+        error = call["error_in"]
         assert isinstance(error, package.errors.LabVIEWError)
         assert (error.code, error.source, error.status) == (5000, "x", True)
         assert ON in _light(user)
@@ -123,12 +119,13 @@ def test_status_off_with_a_code_is_a_warning(
     project.add(_passthrough())
     package = project.generate(NAME, panel=True)
     panel = _panel(package)
-    received = _record(panel, monkeypatch)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         found(user, ui.number)[0].set_value(1)
         await run_once(user)
-        (error,) = received
+        (call,) = calls
+        error = call["error_in"]
         assert isinstance(error, package.errors.LabVIEWError)
         assert (error.code, error.status) == (1, False)
         assert OFF in _light(user)

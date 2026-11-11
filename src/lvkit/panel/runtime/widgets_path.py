@@ -13,8 +13,8 @@ from typing import Any
 from nicegui import ui
 
 from .filepicker import FilePicker
-from .live import LiveValues
 from .port import Port, bind_control, bind_indicator
+from .view import PanelWidgets
 
 
 def path_text(value: Any) -> str:
@@ -50,9 +50,9 @@ def path_port(default: str, *, readonly: bool) -> Port:
     return port
 
 
-def path_control(live: LiveValues, name: Any, default: str) -> Port:
-    return bind_control(live, name, path_port(default, readonly=False))
+def path_control(view: PanelWidgets, name: Any, default: str) -> Port:
+    return bind_control(view, name, path_port(default, readonly=False))
 
 
-def path_indicator(live: LiveValues, name: Any, default: str) -> Port:
-    return bind_indicator(live, name, path_port(default, readonly=True))
+def path_indicator(view: PanelWidgets, name: Any, default: str) -> Port:
+    return bind_indicator(view, name, path_port(default, readonly=True))

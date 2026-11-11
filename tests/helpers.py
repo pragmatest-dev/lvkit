@@ -376,10 +376,17 @@ def install_generated_package() -> None:
         exec(compile(source, f"{name}.py", "exec"), module.__dict__)  # noqa: S102
 
 
+def generated_panels() -> ModuleType:
+    """The ``panels`` module of ``GENERATED_PACKAGE``: ``Panel`` and the rest, as a
+    generated package holds them."""
+    install_generated_package()
+    return sys.modules[f"{GENERATED_PACKAGE}.{PANELS_MODULE_NAME}"]
+
+
 def write_support_modules(package_dir: Path) -> None:
     """Write the modules every generated package root has (``errors.py`` and
-    ``panels.py``) into ``package_dir``, for a test that writes a package by
-    hand. A module already there is kept."""
+    ``panels.py``) into ``package_dir``, for a test that writes a package by hand.
+    A module already there is kept."""
     for name, source in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
