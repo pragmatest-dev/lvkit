@@ -30,6 +30,7 @@ from .ast_utils import (
     to_function_name,
     with_statements_after_docstring,
 )
+from .class_input_default import build_class_input_defaults, has_class_default
 from .context import CodeGenContext
 from .elementwise import arrayify_module
 from .error_flow import share_guards
@@ -148,10 +149,12 @@ def function_body(
     ctx: CodeGenContext,
     parameter_names: dict[str, str] | None = None,
     return_stmt: Callable[[], ast.stmt | None] | None = None,
+    receiver: Terminal | None = None,
 ) -> list[ast.stmt]:
     """The statements of the VI's function. ``parameter_names`` (terminal id to
-    name) and ``return_stmt`` are given by a caller that names the parameters or
-    returns the results itself (a method of a class)."""
+    name), ``return_stmt`` and ``receiver`` (the class input the method is called
+    on) are given by a caller that names the parameters or returns the results
+    itself (a method of a class)."""
     for term in annotated_terminals(vi_context):
         ctx.import_types(term.lv_type, at_run_time=False)
         if term.is_error_cluster:
@@ -189,6 +192,9 @@ def function_body(
     # already-empty list to [] harmlessly.
     parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
     body.extend(build_array_input_normalization(parameters, names))
+    # An unwired class input is a new default object of its class.
+    class_inputs = [t for t in vi_context.inputs if t is not receiver]
+    body.extend(build_class_input_defaults(class_inputs, names, ctx))
 
     # The indicators held in variables start here (``LocalIndicators``).
     ctx.local_indicators, indicator_starts = LocalIndicators.declare(ctx, vi_name)
@@ -611,9 +617,14 @@ def build_args(
         names = interface_names(inputs, [], []).parameters
 
     def argument(term: Terminal) -> ast.arg:
-        # Arrays and anonymous clusters use a conservative None default.
+        # Arrays, anonymous clusters and class inputs a caller may leave unwired
+        # default to None.
         type_hint = terminal_annotation(term, spell)
-        if _is_array_input(term) or _is_anonymous_cluster(term):
+        if (
+            _is_array_input(term)
+            or _is_anonymous_cluster(term)
+            or has_class_default(term)
+        ):
             type_hint = f"{type_hint} | None"
         return ast.arg(arg=names[term.id], annotation=parse_expr(type_hint))
 

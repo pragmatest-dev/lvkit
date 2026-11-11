@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: an unwired class input is the class's default object** — a class input left unwired was `None` in the generated code and flowed into the calls that take it; the function now makes a new default object of the class (`if test_in is None: test_in = TestCase()`), and a class that is not loaded makes that branch a gap.
 - **The generated front panel draws complex numbers and variants, and leaves references and class objects out** — a complex number is two number boxes (real, imaginary), also as an array cell; a variant is read-only text of its value; a reference or LabVIEW class object is not drawn and the function gets `None`; none is an `unsupported_control` gap any more.
 - **An Expression Node generates Python and shows its formula** — `2*x+3`, `sin(x)` or `(x/pi)*180.0` becomes an inline expression with the result in the input's number type (an array input is computed element by element); `describe` and `render` show the formula, including one a VI keeps in a text record; a cluster input is a reported gap.
 - **`describe --format lvnet` and the netlist JSON show a Formula Node's and an Expression Node's formula** — the node's header is `formula-node <handle> : "<script>"` or `expression-node <handle> : "2*x+3"` (one quoted literal, read back losslessly), and the JSON has a `script` field.
