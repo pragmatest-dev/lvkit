@@ -175,3 +175,15 @@ NEVER use heuristic guesswork. Either we KNOW something from actual data or we D
 - No magic strings: don't `split(" (")` to derive a base name. Store it explicitly.
 - No string manipulation to "figure out" relationships. If A relates to B, store the relationship as data.
 - Every string split, regex, name derivation, or pattern assumption is a heuristic. Find the data or store it.
+
+## Names in generated Python: the VI's names stay, lvkit's constructs are Python, LabVIEW words go in text
+
+Generated code is a standalone Python port (CLAUDE.md "GENERATED PYTHON IS NATIVE PYTHON"), read by people who know the VI and people who know Python. Three tiers (maintainer, 2026-11-10):
+
+1. **The VI's own names stay.** VI names, control and indicator labels, class names, typedef and enum items are what the author chose and how anyone matches the Python back to the VI. They are converted to legal identifiers (`to_var_name`, `to_module_name`), never renamed. `error_in` / `error_out` are labels, so they stay.
+2. **What lvkit adds is named for what it is in Python.** A parameter, method, helper variable, base class or generated module that has no label in the VI gets a Python name, not a LabVIEW one: `live_io.read(...)`, not `front_panel.get_control_value(...)`.
+3. **LabVIEW words go in text.** Docstrings, comments and gap messages say "control", "indicator", "Local Variable", "Event Structure" (CLAUDE.md "NO JARGON"): they say where the code came from, and a person finishing a conversion needs that.
+
+**Also:** a name lvkit adds becomes a reserved name (`ast_utils.RESERVED_NAMES`), which renames any control with that label. So pick one no VI author would use as a label (`live_io`, not `host` or `channel`), and never one that hides a module the generated code imports (`GENERATED_MODULE_NAMES`: `io`, `time`, …).
+
+**Prefer the standard Python pattern.** Before inventing a shape for something generated code exposes, name the standard pattern for it (null object, dependency injection, adapter, context manager) and use it unless a recorded rule forbids it. "No LabVIEW emulation" bans re-implementing LabVIEW at run time; it does not ban ordinary Python patterns.
