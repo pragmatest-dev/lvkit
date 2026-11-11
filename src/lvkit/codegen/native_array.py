@@ -22,6 +22,14 @@ def guarded_index(array: str, index: str, default: str) -> str:
     return f"({array}[{index}] if 0 <= {index} < len({array}) else {default})"
 
 
+def replaced_element(array: str, index: str, new: str) -> str:
+    """A new array equal to ``array`` with the element at ``index`` replaced by
+    ``new``; ``array`` itself is not changed. An index outside the array (negative
+    or past the end) gives the array as it is."""
+    a, i = operand(array), operand(index)
+    return f"({a}[:{i}] + [{new}] + {a}[{i} + 1:] if 0 <= {i} < len({a}) else {a})"
+
+
 def dimension_sizes(array: str, rank: int) -> list[str]:
     """One expression per dimension of a ``rank``-dimensional array: the length
     along that axis, read down the first element of each outer axis (an empty
