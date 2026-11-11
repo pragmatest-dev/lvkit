@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .kinds import PanelControl
-from .layout import Box, drawn
+from .layout import PanelRows, drawn
 from .widget_call import builders_used, modules_used, widget_call
 
 
@@ -19,9 +19,7 @@ class PanelSource:
 
     vi_label: str
     controls: list[PanelControl]
-    boxes: list[Box]  # one for each drawn control
-    width: int
-    height: int
+    rows: PanelRows  # the drawn controls, grouped
     module: str
     function: str
     enum_name: str | None
@@ -132,21 +130,18 @@ def panel_source(spec: PanelSource) -> str:
         "    )",
         "    controller.toolbar()",
         "    ui.timer(0.1, values.paint)",
-        (
-            "    with ui.element('div').style("
-            f"'position:relative;width:{spec.width}px;height:{spec.height}px;'):"
-        ),
+        "    with ui.column().classes('gap-6'):",
     ]
-    for control, box in zip(drawn(spec.controls), spec.boxes, strict=True):
-        style = (
-            f"position:absolute;left:{box.left}px;top:{box.top}px;width:{box.width}px;"
-        )
-        lines += [
-            f"        with ui.element('div').style({style!r}):",
-            f"            caption({control.label!r})",
-            f"            {_widget_call(control, enum, spec.vi_label)}",
-        ]
-    if not spec.controls:
+    for row in spec.rows:
+        lines.append("        with ui.row().classes('items-start gap-6'):")
+        for column in row:
+            lines.append("            with ui.column():")
+            for control in column:
+                lines += [
+                    f"                caption({control.label!r})",
+                    f"                {_widget_call(control, enum, spec.vi_label)}",
+                ]
+    if not spec.rows:
         lines.append("        pass")
     lines += [
         "",

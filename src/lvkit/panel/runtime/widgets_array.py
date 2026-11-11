@@ -29,6 +29,9 @@ from .widgets_path import path_port, path_text
 
 ROW_HEIGHT = 24
 HEADER_HEIGHT = 24
+# The grid fills its container, so the array has one width of its own: without
+# it the grid shrinks to the width of its caption.
+WIDTH_CLS = "w-80"
 
 _REMOVE = (
     '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" '
@@ -221,7 +224,7 @@ def array_port(
         "suppressCellFocus": readonly,
     }
     port: Port
-    with ui.column().classes("w-full gap-1"):
+    with ui.column().classes(f"{WIDTH_CLS} gap-1"):
         if not readonly:
             add = ui.button(icon="add", on_click=lambda: add_row())
             add.props("flat dense round size=xs").classes("text-gray-500")
