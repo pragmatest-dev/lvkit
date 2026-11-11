@@ -13,15 +13,17 @@ A ``Panel`` is described by the labels LabVIEW shows
 
     my_vi.panel = Panel(
         my_vi,
-        controls={"x": ("x", None), "list": ("list_", lambda: [])},
+        controls={"x": "x", "list": "list_"},
         indicators={"y": "y"},
         passed={"Thing out": "self"},
         duplicates=["x"],
+        defaults={"list": lambda: []},
     )
 
 ``controls`` maps a label to the parameter that takes it (None for a control
-that is not on the connector pane) and the function that makes its default (None
-when the parameter's own default is it); ``indicators`` a label to the field of
+that is not on the connector pane); ``defaults`` a label to the function that
+makes the control's default (a control with none takes the parameter's own);
+``indicators`` a label to the field of
 the result that holds it (None for an indicator not on the connector pane);
 ``passed`` the label of a class output that is the object the method ran on to the
 parameter (``self``) that holds it; ``duplicates`` the labels two objects share,
@@ -83,8 +85,9 @@ class PanelView:
         """A run of the VI ended, with the error it raised, else None."""
 
 
-# A control: the parameter that takes it (None off the connector pane) and the
-# function that makes its default (None for the parameter's own).
+# A control as the panel holds it: the parameter that takes it (None off the
+# connector pane) and the function that makes its default (None for the
+# parameter's own).
 ControlEntry = tuple[str | None, Callable[[], Any] | None]
 
 
@@ -100,13 +103,17 @@ class Panel:
     def __init__(
         self,
         function: Callable[..., Any],
-        controls: Mapping[str, ControlEntry] | None = None,
+        controls: Mapping[str, str | None] | None = None,
         indicators: Mapping[str, str | None] | None = None,
         passed: Mapping[str, str] | None = None,
         duplicates: Iterable[str] = (),
+        defaults: Mapping[str, Callable[[], Any]] | None = None,
     ) -> None:
         self.function = function
-        self._controls = dict(controls or {})
+        made = defaults or {}
+        self._controls: dict[str, ControlEntry] = {
+            label: (name, made.get(label)) for label, name in (controls or {}).items()
+        }
         self._indicators = dict(indicators or {})
         self._passed = dict(passed or {})
         self._duplicates = frozenset(duplicates)

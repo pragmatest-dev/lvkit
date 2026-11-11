@@ -165,7 +165,7 @@ def test_run_vi_not_waiting_goes_on_while_the_vi_runs(tmp_path: Path) -> None:
             return SimpleNamespace(out=x)
 
         panel = module("panels").Panel(
-            blocking, controls={"x": ("x", None)}, indicators={"out": "out"}
+            blocking, controls={"x": "x"}, indicators={"out": "out"}
         )
         blocking.panel = panel  # type: ignore[attr-defined]
         runner_module.target = blocking
@@ -220,7 +220,7 @@ def test_run_vi_on_a_running_vi_is_the_nodes_error(tmp_path: Path) -> None:
             return SimpleNamespace(out=x)
 
         blocking.panel = module("panels").Panel(  # type: ignore[attr-defined]
-            blocking, controls={"x": ("x", None)}, indicators={"out": "out"}
+            blocking, controls={"x": "x"}, indicators={"out": "out"}
         )
         runner_module.target = blocking
         runner_module.runner()

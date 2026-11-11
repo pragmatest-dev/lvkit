@@ -5,13 +5,14 @@ its ``def`` (after its class, for a method), naming its controls and indicators 
 the label LabVIEW shows (``codegen/panels_module.py`` holds ``Panel``):
 
 - ``controls``: the label of each control to the parameter that takes it (None for
-  a control off the connector pane) and the function that makes its default. A
-  control whose parameter has no default (a Required input) holds its default until
-  a run sets it, and so does a control that is not on the connector pane (no
-  parameter, so a run cannot pass its value): the function is a ``lambda`` making
-  the control's default (its saved default, else its type's, a class's default
-  object), so each run gets a fresh list or object. Every other control's default
-  is its parameter's own;
+  a control off the connector pane);
+- ``defaults``: the label of each control that needs one to the function that makes
+  its default. A control whose parameter has no default (a Required input) holds
+  its default until a run sets it, and so does a control that is not on the
+  connector pane (no parameter, so a run cannot pass its value): the function is a
+  ``lambda`` making the control's default (its saved default, else its type's, a
+  class's default object), so each run gets a fresh list or object. Every other
+  control's default is its parameter's own;
 - ``indicators``: the label of each indicator to the field of the result that holds
   it (None for one off the connector pane);
 - ``passed``: the label of a class output that is the object the method ran on to
@@ -163,34 +164,18 @@ def panel_statements(
     passed: Sequence[NamedTerminal] = (),
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., passed=...,
-    duplicates=...)``, ``target`` the expression of the function, preceded by the
-    ``def`` of each default function a lazy module needs. A keyword with no entry
-    is left out. ``all_terminals`` are every control and indicator the VI has,
-    which the duplicate labels are found among."""
+    duplicates=..., defaults=...)``, ``target`` the expression of the function,
+    preceded by the ``def`` of each default function a lazy module needs. A keyword
+    with no entry is left out. ``all_terminals`` are every control and indicator the
+    VI has, which the duplicate labels are found among."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
     defaults = default_functions(controls, ctx, target, lazy)
     keywords: list[tuple[str, ast.expr]] = []
-    control_names = _first_by_label(controls)
-    if control_names:
-        keywords.append(
-            (
-                "controls",
-                ast.Dict(
-                    keys=[ast.Constant(value=label) for label in control_names],
-                    values=[
-                        ast.Tuple(
-                            elts=[
-                                ast.Constant(value=name),
-                                defaults.entries.get(label, ast.Constant(value=None)),
-                            ],
-                            ctx=ast.Load(),
-                        )
-                        for label, name in control_names.items()
-                    ],
-                ),
-            )
-        )
-    for entry in (_name_map("indicators", indicators), _name_map("passed", passed)):
+    for entry in (
+        _name_map("controls", controls),
+        _name_map("indicators", indicators),
+        _name_map("passed", passed),
+    ):
         if entry is not None:
             keywords.append(entry)
     duplicates = duplicate_labels(all_terminals)
@@ -201,6 +186,16 @@ def panel_statements(
                 ast.List(
                     elts=[ast.Constant(value=label) for label in duplicates],
                     ctx=ast.Load(),
+                ),
+            )
+        )
+    if defaults.entries:
+        keywords.append(
+            (
+                "defaults",
+                ast.Dict(
+                    keys=[ast.Constant(value=label) for label in defaults.entries],
+                    values=list(defaults.entries.values()),
                 ),
             )
         )

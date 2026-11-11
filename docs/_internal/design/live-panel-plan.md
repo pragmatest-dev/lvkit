@@ -653,7 +653,7 @@ Audits of earlier drafts: `.tmp/design_audit_15.md`, `15b.md`, `15c.md` (lvkit-f
 | LabVIEW | Python |
 |---|---|
 | a VI | its generated function |
-| its front panel | `function.panel`, a `Panel` from the generated `panels.py`, set right after the `def` (after the class for a method) on EVERY generated VI: `my_vi.panel = Panel(my_vi, controls={label: (name, default_factory)}, indicators={label: field})`. Values are created on first use (tracking on demand). |
+| its front panel | `function.panel`, a `Panel` from the generated `panels.py`, set right after the `def` (after the class for a method) on EVERY generated VI: `my_vi.panel = Panel(my_vi, controls={label: name}, indicators={label: field}, defaults={label: lambda: <default>})` (`defaults` only for a Required or off-pane control, left out when empty). Values are created on first use (tracking on demand). |
 | a VI reference | the function; `ref.panel` |
 | no VI (Not a Refnum, or an object with no panel) | `panel_of(ref)` raises the LabVIEW error 1026 as an error-out value (no AttributeError) |
 | Ctrl Val.Set / Get / Get All | `panel_of(ref).set(label, value)` / `.get(label)` / `.get_all(controls)`; unknown label: error 1; a duplicate label: a gap at generation time for that VI's panel description until the tabbing order is read (PLAN:630) |

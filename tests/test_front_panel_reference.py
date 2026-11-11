@@ -426,7 +426,7 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
             return type("Result", (), {"y": x + 1})()
 
         panel = module("panels").Panel(
-            blocking, controls={"x": ("x", None)}, indicators={"y": "y"}
+            blocking, controls={"x": "x"}, indicators={"y": "y"}
         )
         assert panel.state == 1
         panel.set("x", 41)
@@ -684,8 +684,8 @@ def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) ->
     project.add_vi("Target", required_and_optional)
     package = project.generate()
     assert (
-        "controls={'x': ('x', lambda: 5), 'o': ('o', None)}"
-        in package.sources["target"]
+        "controls={'x': 'x', 'o': 'o'}" in package.sources["target"]
+        and "defaults={'x': lambda: 5}" in package.sources["target"]
     )
     with package.use() as module:
         panel = module("target").target.panel
@@ -753,7 +753,8 @@ def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) ->
     project = Project(tmp_path)
     project.add_vi("Take", take)
     package = project.generate()
-    assert "controls={'a': ('a', lambda: [])}" in package.sources["take"]
+    assert "controls={'a': 'a'}" in package.sources["take"]
+    assert "defaults={'a': lambda: []}" in package.sources["take"]
     with package.use() as module:
         panel = module("take").take.panel
         first = panel.get("a")
@@ -763,7 +764,9 @@ def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) ->
         assert panel.get("a") is first
         panel.set("a", [1, 2])
         assert panel.get("a") == [1, 2]
-        other = module("panels").Panel(module("take").take, controls={"a": ("a", list)})
+        other = module("panels").Panel(
+            module("take").take, controls={"a": "a"}, defaults={"a": list}
+        )
         assert other.get("a") is not first
 
 
@@ -779,7 +782,7 @@ def test_a_function_without_a_default_still_runs_with_none(tmp_path: Path) -> No
         seen.append(x)
 
     with package.use() as module:
-        panel = module("panels").Panel(other, controls={"x": ("x", None)})
+        panel = module("panels").Panel(other, controls={"x": "x"})
         assert panel.get("x") is None
         panel.run()
         assert seen == [None]
@@ -802,8 +805,8 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     project.add_vi("Take", take)
     package = project.generate()
     assert (
-        "controls={'hidden': (None, lambda: 0)}, indicators={'shown': None}"
-        in package.sources["take"]
+        "controls={'hidden': None}, indicators={'shown': None}, "
+        "defaults={'hidden': lambda: 0}" in package.sources["take"]
     )
     with package.use() as module:
         panel = module("take").take.panel
