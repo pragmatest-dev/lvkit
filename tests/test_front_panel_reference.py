@@ -618,7 +618,9 @@ def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) ->
         assert panel.get("y") == 11
 
 
-def test_a_required_class_control_is_a_new_object_each_run(tmp_path: Path) -> None:
+def test_a_required_class_control_holds_one_default_object(tmp_path: Path) -> None:
+    """The panel holds one value: an unset required class control is its class's
+    default object, made once and the same on every read and run."""
     cls = class_type("Cls")
 
     def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -646,11 +648,12 @@ def test_a_required_class_control_is_a_new_object_each_run(tmp_path: Path) -> No
         panel.run()
         second = panel.get("d")
         assert isinstance(first, module("cls").Cls)
-        assert isinstance(second, module("cls").Cls)
-        assert first is not second
+        assert second is first
 
 
-def test_a_required_array_control_is_a_new_list_each_run(tmp_path: Path) -> None:
+def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) -> None:
+    """An unset required array control holds ``[]``, made once (a default never
+    shared with another function's panel); a set value replaces it."""
     array = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=INT)
 
     def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -679,9 +682,10 @@ def test_a_required_array_control_is_a_new_list_each_run(tmp_path: Path) -> None
         record.panel_defaults = module("take").take.panel_defaults
         panel = fronts.FrontPanel.of(record)
         panel.run()
+        panel.set("a", [1, 2])
         panel.run()
-        assert seen == [[], []]
-        assert seen[0] is not seen[1]
+        assert seen == [[], [1, 2]]
+        assert panel.get("a") == [1, 2]
 
 
 def test_a_function_without_the_attribute_still_runs_with_none(

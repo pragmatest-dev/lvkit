@@ -129,11 +129,7 @@ class FrontPanel:
     def _execute(self) -> None:
         with self._lock:
             arguments = {
-                parameter: (
-                    self._values[label]
-                    if label in self._values
-                    else self._defaults[label]()
-                )
+                parameter: self._value(label)
                 for label, parameter in self._controls.items()
                 if label in self._values or label in self._defaults
             }
@@ -164,10 +160,13 @@ class FrontPanel:
         return [*self._indicators, *self._passed]
 
     def _value(self, label: str) -> Any:
+        """The panel's value of ``label``. A required control never set holds
+        its default from the first read on, as a front panel holds one value."""
         if label in self._values:
             return self._values[label]
         if label in self._defaults:
-            return self._defaults[label]()
+            self._values[label] = self._defaults[label]()
+            return self._values[label]
         parameter = self._parameters.get(self._controls.get(label, ""))
         if parameter is None or parameter.default is inspect.Parameter.empty:
             return None
