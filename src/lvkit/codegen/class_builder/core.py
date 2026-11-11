@@ -40,6 +40,7 @@ from ..import_resolver import ImportResolver, NameImport
 from ..type_fields import annotation_imports
 from ..value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
 from .config import ClassConfig
+from .equality import value_equality_method
 from .init_builder import _InitBuilderMixin
 from .methods import _MethodBuilderMixin
 from .properties import _PropertyBuilderMixin
@@ -134,6 +135,8 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             )
         body.extend(self._field_annotations(model, fields, spell))
         body.append(self._build_init(model, fields, base is not None, parent_gap))
+        if base is None:
+            body.append(value_equality_method())
         body.extend(self._refnum_methods(class_key, fields))
 
         properties: list[tuple[MethodShape, Accessor]] = []

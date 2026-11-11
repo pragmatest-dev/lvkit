@@ -3,6 +3,7 @@
 - :mod:`.config` -- :class:`ClassConfig` generation options
 - :mod:`.core` -- :class:`ClassBuilder` module and class assembly
 - :mod:`.init_builder` -- the attributes and ``__init__`` from private data fields
+- :mod:`.equality` -- the ``__eq__`` of a root class: objects compare by value
 - :mod:`.properties` -- ``@property`` generation from accessor pairs
 - :mod:`.methods` -- method AST generation from a ``MethodShape``
 - :mod:`.shared_state` -- the module-level code the methods share
