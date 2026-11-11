@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 import copy
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -82,7 +82,9 @@ class ImportResolver:
         module_names: set[str] | None = None,
         own_function_import: Callable[[str], NameImport] | None = None,
         module_key: str | None = None,
+        notifier_import: Callable[[], str] | None = None,
     ) -> None:
+        self._notifier_import = notifier_import
         self._function_import = function_import
         self._module_import = module_import
         self._type_import = type_import
@@ -178,11 +180,22 @@ class ImportResolver:
         """The statement importing ``LabVIEWError`` from the package root."""
         return self._error_import()
 
+    def notifier_import(self) -> str | None:
+        """The statement importing ``Notifier`` from the package root's
+        ``notifiers`` module; None when this resolver has no package."""
+        return self._notifier_import() if self._notifier_import else None
+
     @property
     def has_package_modules(self) -> bool:
         """Whether this resolver belongs to a generated package that defines
         shared queues and Shared Variables."""
         return self._package_modules is not None
+
+    def require(self, packages: Iterable[str]) -> None:
+        """Record third-party ``packages`` the generated package imports, when
+        this resolver belongs to a package (see ``package_requirements``)."""
+        if self._package_modules is not None:
+            self._package_modules.requirements.add(packages)
 
     def _modules(
         self, what: str, node: AnyGraphNode | None

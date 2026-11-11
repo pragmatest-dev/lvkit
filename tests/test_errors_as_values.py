@@ -1265,6 +1265,18 @@ def test_release_queue_passes_no_error_when_nothing_failed(
     assert result.error_out is None
 
 
+def test_release_queue_of_no_queue_releases_nothing(
+    project: Project,  # noqa: F811
+) -> None:
+    """Release Queue runs even after an error, when the Obtain Queue before it
+    was skipped and the queue is None: nothing to release, the error passes."""
+    package = generate(
+        project, C.release_queue_after_step, {"step_a": failing_step("step_a", 7)}
+    )
+    result = package.function(x=1, queue=None)
+    assert (result.error_out.code, result.error_out.status) == (7, True)
+
+
 def test_the_error_of_a_node_that_runs_despite_an_error_is_the_first_one() -> None:
     expression = first_error("incoming", "own")
     error = SimpleNamespace(status=True, code=7)

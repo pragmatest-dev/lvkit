@@ -12,7 +12,7 @@ import pytest
 
 from tests.error_diagrams import Package, Project, project  # noqa: F401
 from tests.event_diagrams import event_loop_vi, mouse_down_frame
-from tests.panel_diagrams import NAME, counting_vi
+from tests.panel_diagrams import NAME, counting_vi, value_property
 
 
 def _function(package: Package) -> Any:
@@ -194,3 +194,25 @@ def test_the_fields_of_a_value_change_are_found_by_name_wherever_the_cluster_put
         package, (_names(package).GAIN, 7, _kinds(package).VALUE_CHANGE, 3)
     )
     assert (result.last_new, result.last_old) == (7, 3)
+
+
+def test_a_vi_with_an_event_structure_and_a_property_write_takes_both_hooks(
+    project: Project,  # noqa: F811
+) -> None:
+    """``on_property`` comes before ``events``; a Visible write on ``Gain`` calls
+    the one and the Event Structure reads the other."""
+    vi = event_loop_vi(timeout=10)
+    gain = next(vi.fp_terms[p.uid] for p in vi.panes if p.label == "Gain")
+    (visible,) = value_property(vi, gain, ["Visible"])
+    vi.wire(vi.bool_constant(False), visible)
+    project.add(vi)
+    package = project.generate("Events.vi")
+    assert package.gaps == []
+    keywords = list(inspect.signature(_function(package)).parameters)
+    assert keywords[-4:] == ["on_update", "on_read", "on_property", "events"]
+    calls: list[tuple[Any, ...]] = []
+    result = _function(package)(0, 0, on_property=lambda *call: calls.append(call))
+    assert result.timed_out is True
+    assert calls == [
+        (_names(package).GAIN, package.module.EventsProperty.VISIBLE, False)
+    ]

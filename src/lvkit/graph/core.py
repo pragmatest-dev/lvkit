@@ -170,6 +170,7 @@ from .operations import OperationsMixin  # noqa: E402
 from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
+from .variant_source import VariantSourceMixin  # noqa: E402
 from .vi_reference import VIReferenceMixin  # noqa: E402
 from .wire_queries import WireQueriesMixin  # noqa: E402
 
@@ -183,6 +184,7 @@ class InMemoryVIGraph(
     OperationsMixin,
     PackageQueriesMixin,
     WireQueriesMixin,
+    VariantSourceMixin,
     ErrorBehaviourMixin,
     TypedefMixin,
     VIReferenceMixin,
@@ -407,6 +409,7 @@ class InMemoryVIGraph(
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,
+            event_rows=parsed_type.event_rows,
             dotnet_type=parsed_type.dotnet_type,
             unreadable=parsed_type.unreadable,
             pane=parsed_type.pane,

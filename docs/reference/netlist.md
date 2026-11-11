@@ -282,8 +282,8 @@ for:
 
 ```text
 while (Or.result):
-  Greater?(x=While Loop.0, y=Increment.result) -> x_greater_than_y
-  Open/Create/Replace File(operation=2, file_path=VI names) -> error_out, refnum_out
+  Greater?(x=While Loop.0, y=Increment.x+1) -> x > y?
+  Open/Create/Replace File(operation (0:open)=2, file path (use dialog)=VI names) -> error out, refnum out
 ```
 
 ```text

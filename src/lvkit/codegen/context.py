@@ -10,7 +10,7 @@ import copy as copy_module
 import math
 import warnings
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -67,6 +67,7 @@ from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
+from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
 from .references import REFERENCE_KINDS, generated_nodes
 
@@ -124,6 +125,10 @@ class CodeGenContext:
     # The raises of what the function evaluates when it is entered and cannot
     # be written (a constant with no value to write); the body starts with them.
     entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
+    # The connector-pane Variant controls the function reads or edits as lookup
+    # tables (``InMemoryVIGraph.variant_lookup_parameters``), by terminal id; the
+    # docstring says each is a dict of attributes.
+    lookup_parameters: set[str] = field(default_factory=set, repr=False)
     # Files the generated module reads at run time (an array too large to write
     # into the module, a library of a Call Library Function Node), by path from
     # the module's folder; the caller writes each there.
@@ -631,6 +636,7 @@ class CodeGenContext:
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
+            lookup_parameters=self.lookup_parameters,  # Shared — one per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
             function_name=self.function_name,
@@ -663,6 +669,12 @@ class CodeGenContext:
         if import_stmt:
             self.imports.add(import_stmt)
 
+    def require_packages(self, packages: Iterable[str]) -> None:
+        """Record the third-party ``packages`` the module's code imports, for
+        the package's ``requirements.txt`` (a VI generated alone has none)."""
+        if isinstance(self.import_resolver, ImportResolver):
+            self.import_resolver.require(packages)
+
     def import_labview_error(self, *, at_run_time: bool = True) -> None:
         """Import ``LabVIEWError`` from the package's ``errors`` module: for a
         value the module builds, or (``at_run_time`` False) for its annotations
@@ -675,6 +687,15 @@ class CodeGenContext:
             self.add_import(statement)
         else:
             self.annotation_imports.add(statement)
+
+    def import_notifier(self) -> None:
+        """Import ``Notifier`` from the package's ``notifiers`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.notifier_import()
+        self.add_import(
+            statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
+        )
 
     def function_import(
         self, vi_name: str, callee_key: str | None = None
@@ -1374,6 +1395,9 @@ def _format_constant(
     member_ref = enum_member_constant(const, names)
     if member_ref is not None:
         return member_ref
+
+    if const.empty_variant:
+        return "None"
 
     python_hint = getattr(const, "python", None)
     if python_hint:

@@ -13,7 +13,12 @@ class PrimitiveTerminal(TerminalDefault):
 
     index: int
     direction: TerminalDirection
+    # NI's label for the terminal, as LabVIEW shows it. Generated code names the
+    # terminal from it (``codegen/catalog_names.py``).
     name: str | None = ""
+    # The Python name generated code gives the terminal, when it is not the one
+    # derived from the label (``label_names.catalog_python_label``).
+    python_name: str | None = None
     # LabVIEW type: "numeric", "string", "boolean", "array",
     # "cluster", "path", "refnum", "variant", "polymorphic"
     type: str | None = None
@@ -98,6 +103,10 @@ class PrimitiveEntry(BaseModel):
     )
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
+    # Standard third-party packages (by their PyPI name) the node's generated
+    # code imports because Python has no construct of its own for the function;
+    # the generated package lists them in ``requirements.txt``.
+    requires: list[str] = Field(default_factory=list)
     icon: NodeIcon | None = None
     # NI's page says the node runs even when an error comes in on its error in.
     runs_on_error: bool = False

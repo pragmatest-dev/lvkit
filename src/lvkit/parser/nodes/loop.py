@@ -255,11 +255,14 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                         # terminal a normal TunnelTerminal/type/color through
                         # the existing machinery with no collision risk.
                         elif dco_class == TUNNEL_CLASS_INIT_FEEDBACK and term_uid:
+                            link = dco.find("rsrDCO")
+                            link_uid = link.get("uid") if link is not None else None
                             tunnels.append(
                                 Tunnel(
                                     outer_terminal_uid=term_uid,
                                     inner_terminal_uid=f"{term_uid}$initFeedbackInner",
                                     tunnel_type=TUNNEL_CLASS_INIT_FEEDBACK,
+                                    feedback_link_uid=link_uid,
                                 )
                             )
                         # A while-loop serializes the RIGHT shift register

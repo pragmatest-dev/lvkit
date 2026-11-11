@@ -75,7 +75,7 @@ def test_8_5_error_string_constants_are_read() -> None:
         "I32 = -1",
     ):
         assert text in describe
-    assert "y     : I32 = -1" in lvnet
+    assert "y        : I32 = -1" in lvnet
     assert _NOT_DECODED not in describe + lvnet
     assert "string = 'PICO_STATUS OK '" in source
     assert "'PICO_STATUS Unknown Error ' + '\\r' + 'Error code '" in source
@@ -86,7 +86,7 @@ def test_8_5_error_string_constants_are_read() -> None:
 def test_8_5_status_codes_are_read() -> None:
     describe, lvnet, source, _ = _views(_PICO / "shared" / "PicoStatus2.vi")
     for code in (39, 281, 282, 286):
-        assert f"y     : U32 = {code}" in lvnet
+        assert f"y        : U32 = {code}" in lvnet
         assert f"{code} == pico_status" in source
     assert _NOT_DECODED not in describe + lvnet
 

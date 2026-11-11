@@ -14,6 +14,7 @@ from ..models import (
     ClusterField,
     DisableStructureKind,
     EventFrame,
+    EventRegRow,
     LVType,
     PaneSlot,
     ServerClass,
@@ -59,6 +60,7 @@ class ParsedType:
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
+    event_rows: tuple[EventRegRow, ...] | None = None  # Event Registration rows
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
     pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
@@ -865,7 +867,26 @@ class ParsedFPGrouper:
     objects: list[ParsedFPObject]
 
 
-ParsedFPObject = ParsedFPControl | ParsedFPLabel | ParsedFPDecoration | ParsedFPGrouper
+@dataclass(frozen=True)
+class ParsedFPSubPanel:
+    """A Subpanel control: it shows another VI's front panel and has no
+    terminal. ``bounds`` is in the space of the holder; ``label`` (None when
+    the file stores none) and ``parts`` -- the label, the content area, the
+    edges and the frame -- are relative to the Subpanel's own top-left."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    label: ParsedFPLabel | None
+    parts: list[ParsedFPPart]
+
+
+ParsedFPObject = (
+    ParsedFPControl
+    | ParsedFPLabel
+    | ParsedFPDecoration
+    | ParsedFPGrouper
+    | ParsedFPSubPanel
+)
 
 
 @dataclass

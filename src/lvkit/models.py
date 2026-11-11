@@ -278,6 +278,19 @@ class ServerClass(str, Enum):
     APPLICATION = "Application"
 
 
+@dataclass(frozen=True)
+class EventRegRow:
+    """One row of an Event Registration refnum type: the label of the event the
+    row registers (a User Event row carries the user event refnum's label) and the
+    event's type code as the file stores it (1000 for a User Event)."""
+
+    name: str | None
+    event_type: int | None
+    # The row's type: a User Event refnum, an array of them, a cluster holding more
+    # rows, or another kind of reference (a control). None when it was not read.
+    type: LVType | None = field(default=None, compare=False, repr=False)
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
@@ -294,6 +307,8 @@ class LVType:
     # constant's own instance of it, not the .ctl file name). None for every
     # other refnum and for an unlabeled data type.
     user_event_name: str | None = None
+    # An Event Registration refnum's rows, in row order; None for every other type.
+    event_rows: tuple[EventRegRow, ...] | None = None
     # The .NET type of a .NET node's terminal, as the VI records it. The VI types
     # the terminal as a DotNet refnum (or, for a .NET enum, an I32); this is the
     # type the node actually passes.
@@ -1116,6 +1131,11 @@ class Tunnel(BaseModel):
     # face sits in. Set for the structures whose inner faces are per frame
     # (Event, Sequence); None elsewhere.
     frame_position: int | None = None
+    # - feedback_link_uid: the Feedback Node a ``tunnel_type == "initFeedback"``
+    #   tunnel is the initializer of, as the heap links them: the ``<rsrDCO>`` uid
+    #   the Feedback Node's own output terminal (``FeedbackNode.link_uid``) also
+    #   carries. None on every other tunnel_type.
+    feedback_link_uid: str | None = None
 
 
 class PropertySegment(BaseModel):
@@ -1234,6 +1254,18 @@ class FrameEvent(BaseModel):
     # the graph is built; None when the event has no control or the VI has no
     # terminal for it.
     source_terminal_id: str | None = None
+    # A dynamic event's position among the rows of the registration the structure's
+    # dynamic terminal carries (1-based), as the file stores it; None for a static
+    # event (stored as 0).
+    dyn_index: int | None = None
+    # The registered row's name (``Label`` of a plain registration's row,
+    # ``Field.Label`` for a cluster of registrations), set when the graph is built;
+    # None when the event is not a dynamic User Event or the type has no such row.
+    dynamic_name: str | None = None
+    # The event's part of its frame's label (``"<Control>": <EventType>``,
+    # ``Timeout``), set by the parser; empty when the event has no control and no
+    # type code.
+    label: str = ""
 
 
 class EventFrame(Frame):

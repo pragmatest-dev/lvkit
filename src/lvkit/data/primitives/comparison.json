@@ -7,7 +7,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "equal",
+          "name": "x = y?",
+          "python_name": "equal",
           "type": "polymorphic"
         },
         {
@@ -40,7 +41,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "greater_or_equal",
+          "name": "x >= y?",
+          "python_name": "greater_or_equal",
           "type": "polymorphic"
         },
         {
@@ -73,7 +75,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "x_less_or_equal_y",
+          "name": "x <= y?",
+          "python_name": "x_less_or_equal_y",
           "type": "boolean"
         },
         {
@@ -106,7 +109,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x != y?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -139,7 +143,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x > y?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -172,7 +177,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "x_less_than_y",
+          "name": "x < y?",
+          "python_name": "x_less_than_y",
           "type": "Boolean"
         },
         {
@@ -203,13 +209,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "is_empty",
+          "name": "empty?",
+          "python_name": "is_empty",
           "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "string_or_path",
+          "name": "string/path",
           "type": "polymorphic"
         }
       ],
@@ -227,7 +234,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "x_equals_zero",
+          "name": "x = 0?",
+          "python_name": "x_equals_zero",
           "type": "Boolean"
         },
         {
@@ -252,7 +260,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x >= 0?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -276,7 +285,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x <= 0?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -311,7 +321,7 @@
         }
       ],
       "python_code": {
-        "result": "in_1 != 0"
+        "x__0": "in_1 != 0"
       },
       "inline": true,
       "verified": false,
@@ -325,7 +335,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x > 0?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -350,7 +361,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "x < 0?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -374,7 +386,8 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "digit?",
+          "python_name": "result",
           "type": "Boolean"
         },
         {
@@ -503,7 +516,7 @@
       ],
       "python_code": {
         "in_range": "in_2 <= in_3 <= in_4",
-        "coerced": "max(in_2, min(in_3, in_4))"
+        "coercedx": "max(in_2, min(in_3, in_4))"
       },
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
@@ -514,13 +527,14 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "not_a_refnum",
+          "name": "NaN/Path/Refnum?",
+          "python_name": "not_a_refnum",
           "type": "Boolean"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "value",
+          "name": "number/path/refnum",
           "type": "polymorphic"
         }
       ],
@@ -557,26 +571,27 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "result",
+          "name": "s? t:f",
+          "python_name": "result",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "f_value",
+          "name": "f",
           "type": "polymorphic"
         },
         {
           "index": 2,
           "direction": "input",
-          "name": "selector",
+          "name": "s",
           "type": "Boolean",
           "error_cluster_status": true
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "t_value",
+          "name": "t",
           "type": "polymorphic"
         }
       ],
@@ -594,7 +609,7 @@
         {
           "index": 0,
           "direction": "output",
-          "name": "empty",
+          "name": "empty?",
           "type": "Boolean"
         },
         {

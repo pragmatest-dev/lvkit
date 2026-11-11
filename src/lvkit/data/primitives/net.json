@@ -5,29 +5,27 @@
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unregister-for-events.html",
       "verified": false,
-      "placeholder": true,
       "terminals": [
         {
           "index": 0,
           "direction": "input",
-          "name": "event_reg_refnum",
+          "name": "event registration refnum",
           "type": "Refnum"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],
-      "python_code": "pass",
-      "note": "Unregister For Events -- event registration refnum + error in -> error out only; matches NI Unregister For Events doc. Terminals from 'DAQmx AO.vi' (lv-flex-channel-examples). Placeholder codegen (no lvkit event-registration runtime yet)."
+      "note": "Unregister For Events -- event registration refnum + error in -> error out only; matches NI Unregister For Events doc. Terminals from 'DAQmx AO.vi' (lv-flex-channel-examples). Code is written by codegen/nodes/user_events.py."
     },
     "2078": {
       "name": "Register Event Callback",
