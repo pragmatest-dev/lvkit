@@ -26,20 +26,14 @@ from .base import (
 from .local_variable import read_control, write_control
 
 
-def _attribute_chain(
-    ref_var: str, segment_names: list[str], ctx: ast.expr_context
-) -> ast.expr:
-    """``ref.seg1.seg2`` -- one ``ast.Attribute`` per path segment; only the
-    outermost attribute carries ``ctx`` (Store for a write)."""
-    expr = parse_expr(ref_var)
-    last = len(segment_names) - 1
-    for i, seg_name in enumerate(segment_names):
-        expr = ast.Attribute(
-            value=expr,
-            attr=to_var_name(seg_name),
-            ctx=ctx if i == last else ast.Load(),
-        )
-    return expr
+def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionGap:
+    """The gap of a property row on a wired reference that has no Python reading
+    or writing: it names the property as the diagram shows it and the class."""
+    class_name = node.object_name or ""
+    on_class = f" on a {class_name} reference" if class_name else ""
+    return ConversionGap(
+        f"Property '{prop.name}'{on_class} has no Python equivalent", node
+    )
 
 
 def _callees(ctx: CodeGenContext) -> str:
@@ -177,10 +171,11 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
-    The caller supplies an object implementing the named Python attributes; a
-    nested property is an attribute chain (``ref.label.text``). Implicit
-    control bindings require a separate runtime model and are rejected
-    instead of fabricating reference values. Error-cluster terminals are
+    A row on a wired reference is Python only where Python has the value: a VI
+    reference's Name, Path and Exec.State (``vi_reference.vi_property_read``);
+    every other read, and every write, is a gap naming the property and the
+    reference's class. Implicit control bindings are rejected unless the node is
+    bound to a control of the VI. Error-cluster terminals are
     not read here: the node's error out is its error in, and the node is
     skipped when an error comes in (``error_flow.guard``).
     """
@@ -232,11 +227,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
             reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
+            if reflected is None:
+                raise _no_python_equivalent(node, prop)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=reflected
-                    or _attribute_chain(ref_var, segment_names, ast.Load()),
+                    value=reflected,
                 )
             )
             bindings[term.id] = var_name
@@ -245,15 +241,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
-            value = ctx.wired_input(term.id, node)
-            if value is None:
-                raise CodeGenError("Property write value is unresolved", node)
-            statements.append(
-                ast.Assign(
-                    targets=[_attribute_chain(ref_var, segment_names, ast.Store())],
-                    value=parse_expr(value),
-                )
-            )
+            raise _no_python_equivalent(node, prop)
         else:
             raise CodeGenError("Property value direction is unresolved", node)
 

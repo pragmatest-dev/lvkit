@@ -231,64 +231,19 @@ class TestNMuxRoles:
 class TestPropertyReads:
     """Each saved property row executes exactly once."""
 
-    def test_three_rows_with_one_wired_result(self):
-        """Unwired read results do not remove their property accesses."""
-        graph = make_graph_with_terminals("ref_in", "out_1", "out_2", "out_3")
-        ctx = CodeGenContext(graph=graph)
-        ctx.bind("ref_in", "my_ref")
-
-        # Wire ref_in → out_1 so out_1 is wired
-        assert ctx.graph is not None
-        nid_ref = ctx.graph._term_to_node["ref_in"]
-        nid_out = ctx.graph._term_to_node["out_1"]
-        ctx.graph._graph.add_edge(
-            nid_ref,
-            nid_out,
-            source=WireEnd(terminal_id="ref_in", node_id=nid_ref),
-            dest=WireEnd(terminal_id="out_1", node_id=nid_out),
-        )
-
-        op = PrimitiveNode(
-            id="prop_1",
-            vi_path="test.vi",
-            name="Property Node",
-            node_type="propNode",
-            terminals=[
-                Terminal(id="ref_in", index=0, direction="input"),
-                Terminal(id="out_1", index=4, direction="output"),
-                Terminal(id="out_2", index=5, direction="output"),
-                Terminal(id="out_3", index=6, direction="output"),
-            ],
-            properties=[
-                PropertyDef(segments=[PropertySegment(name="controls", code=0)]),
-                PropertyDef(segments=[PropertySegment(name="indicator", code=0)]),
-                PropertyDef(segments=[PropertySegment(name="value", code=0)]),
-            ],
-            property_value_terminal_ids=["out_1", "out_2", "out_3"],
-        )
-        fragment = property_node.generate(op, ctx)
-        assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
-        assert len(assigns) == 3
-        assert [
-            s.value.attr for s in assigns if isinstance(s.value, ast.Attribute)
-        ] == ["controls", "indicator", "value"]
-
     def test_each_property_uses_its_own_terminal(self):
-        """Write ActiveDev, then read DevIsSimulated / ProductType / BusType
-        with only the last two wired (DCAF Config.vi's DAQmx Device node):
+        """Read Name, Path, Name of a VI reference with only the last two wired:
         each wired terminal gets ITS property, not the next one in line."""
         ctx = CodeGenContext.from_wires(
             [
                 Wire.from_terminals(
                     from_terminal_id="ref_src", to_terminal_id="ref_in"
                 ),
-                Wire.from_terminals(from_terminal_id="name_src", to_terminal_id="dev"),
-                Wire.from_terminals(from_terminal_id="prod", to_terminal_id="sink_1"),
-                Wire.from_terminals(from_terminal_id="bus", to_terminal_id="sink_2"),
+                Wire.from_terminals(from_terminal_id="path", to_terminal_id="sink_1"),
+                Wire.from_terminals(from_terminal_id="again", to_terminal_id="sink_2"),
             ]
         )
-        ctx.bind("ref_src", "device")
-        ctx.bind("name_src", "device_name")
+        ctx.bind("ref_src", "vi")
         op = PrimitiveNode(
             id="prop_1",
             vi_path="test.vi",
@@ -296,103 +251,27 @@ class TestPropertyReads:
             node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
-                Terminal(id="dev", index=4, direction="input"),
-                Terminal(id="sim", index=5, direction="output"),
-                Terminal(id="prod", index=6, direction="output"),
-                Terminal(id="bus", index=7, direction="output"),
+                Terminal(id="name", index=4, direction="output"),
+                Terminal(id="path", index=5, direction="output"),
+                Terminal(id="again", index=6, direction="output"),
             ],
             properties=[
-                PropertyDef(segments=[PropertySegment(name=name, code=0)])
-                for name in ("ActiveDev", "DevIsSimulated", "ProductType", "BusType")
+                PropertyDef(segments=[PropertySegment(name=name, code=code)])
+                for name, code in (("Name", 500), ("Path", 501), ("Name", 500))
             ],
-            property_value_terminal_ids=["dev", "sim", "prod", "bus"],
+            property_value_terminal_ids=["name", "path", "again"],
+            object_name="VI",
         )
         fragment = property_node.generate(op, ctx)
         module = ast.Module(body=fragment.statements, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(module)).splitlines()
         assert code == [
-            "device.activedev = device_name",
-            "device_devissimulated = device.devissimulated",
-            "device_producttype = device.producttype",
-            "device_bustype = device.bustype",
+            "vi_name = vi.__name__",
+            "vi_path = inspect.getfile(vi)",
+            "vi_name_2 = vi.__name__",
         ]
-        assert fragment.bindings["prod"] == "device_producttype"
-        assert fragment.bindings["bus"] == "device_bustype"
-
-
-class TestNestedPropertyChain:
-    """A nested property (``Label.Text``) is an attribute chain."""
-
-    def _node_and_ctx(self, direction: str):
-        graph = make_graph_with_terminals("ref_in", "val")
-        ctx = CodeGenContext(graph=graph)
-        ctx.bind("ref_in", "ref")
-        ctx.bind("val", "'hello'")
-        assert ctx.graph is not None
-        nid_ref = ctx.graph._term_to_node["ref_in"]
-        nid_val = ctx.graph._term_to_node["val"]
-        src, dst = ("ref_in", "val") if direction == "output" else ("val", "ref_in")
-        nid_src, nid_dst = (nid_ref, nid_val) if src == "ref_in" else (nid_val, nid_ref)
-        ctx.graph._graph.add_edge(
-            nid_src,
-            nid_dst,
-            source=WireEnd(terminal_id=src, node_id=nid_src),
-            dest=WireEnd(terminal_id=dst, node_id=nid_dst),
-        )
-        op = PrimitiveNode(
-            id="prop_1",
-            vi_path="test.vi",
-            name="Property Node",
-            node_type="propNode",
-            terminals=[
-                Terminal(id="ref_in", index=0, direction="input"),
-                Terminal(
-                    id="val",
-                    index=1,
-                    direction="input" if direction == "input" else "output",
-                ),
-            ],
-            properties=[
-                PropertyDef(
-                    segments=[
-                        PropertySegment(name="Label", code=104013829),
-                        PropertySegment(name="Text", code=103995392),
-                    ]
-                )
-            ],
-            property_value_terminal_ids=["val"],
-        )
-        return op, ctx
-
-    def test_read_emits_attribute_chain(self):
-        op, ctx = self._node_and_ctx("output")
-        fragment = property_node.generate(op, ctx)
-        source = ast.unparse(
-            ast.fix_missing_locations(
-                ast.Module(body=fragment.statements, type_ignores=[])
-            )
-        )
-        assert source == "ref_label_text = ref.label.text"
-
-    def test_write_emits_attribute_chain_and_executes(self):
-        op, ctx = self._node_and_ctx("input")
-        fragment = property_node.generate(op, ctx)
-        source = ast.unparse(
-            ast.fix_missing_locations(
-                ast.Module(body=fragment.statements, type_ignores=[])
-            )
-        )
-        assert "ref.label.text = " in source
-
-        class _Label:
-            text = ""
-
-        class _Ref:
-            label = _Label()
-
-        ref = _Ref()
-        exec(source, {"ref": ref})
-        assert ref.label.text == "hello"
+        assert fragment.bindings["path"] == "vi_path"
+        assert fragment.bindings["again"] == "vi_name_2"
 
 
 # ── Passthrough elimination ────────────────────────────────────────
