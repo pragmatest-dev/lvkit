@@ -1182,6 +1182,7 @@ def generate_python(
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
+    package_modules.requirements.add_imported(output_dir_resolved)
     package_modules.requirements.write(output_dir_resolved)
     copies.write()
     # Two different files for one place stop generation, the package written

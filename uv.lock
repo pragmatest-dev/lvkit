@@ -664,6 +664,15 @@ wheels = [
 ]
 
 [[package]]
+name = "hightime"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/37/3466f0022ea7879f48c35b7869b83ccc76ed365f2e12f4cf48555252d76a/hightime-1.0.0.tar.gz", hash = "sha256:480d2a03e2c3ed44916d2406d40ab6d10a276ed7f101619fc3fcc1e00c46aacf", size = 11346, upload-time = "2025-10-02T20:17:53.914Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/f9/3b018f6eec88a35f3cce2103015cb1918b66cc8316ff5c2510ff1c19cb26/hightime-1.0.0-py3-none-any.whl", hash = "sha256:ba86d42976c36451b14e11c736e61f296f9f00dbb79c8488e18d70c6b2dbb395", size = 12610, upload-time = "2025-10-02T20:17:52.845Z" },
+]
+
+[[package]]
 name = "httpcore2"
 version = "2.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -974,6 +983,7 @@ name = "lvkit"
 version = "0.8.12"
 source = { editable = "." }
 dependencies = [
+    { name = "hightime" },
     { name = "mcp" },
     { name = "networkx" },
     { name = "pydantic" },
@@ -1002,6 +1012,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "hightime", specifier = ">=1.0" },
     { name = "mcp", specifier = ">=1.2" },
     { name = "networkx" },
     { name = "nicegui", marker = "extra == 'panel'", specifier = ">=3.12.1" },

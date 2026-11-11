@@ -22,6 +22,7 @@ from dataclasses import dataclass, field, replace
 from enum import IntEnum, StrEnum
 from typing import Literal
 
+import hightime
 from pydantic import BaseModel
 
 from .conversion_gap import ConversionGap
@@ -36,6 +37,7 @@ from .lv_type_codes import (
     is_string_type_name,
 )
 from .string_literal import quote_string
+from .timestamp_value import TIMESTAMP_FLAVOR, timestamp_value_text
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -154,7 +156,9 @@ class VariantData:
 def plain_structured(value: object) -> object:
     """``value`` as a front-panel default shows it: a Variant is the display text
     ``Variant()`` when empty, else the value it holds; arrays and clusters are
-    read the same way inside."""
+    read the same way inside; a timestamp is its display text."""
+    if isinstance(value, hightime.datetime):
+        return timestamp_value_text(value)
     if isinstance(value, VariantData):
         if value.value_type is None:
             return "Variant()"
@@ -402,6 +406,14 @@ class LVType:
             return self.element_type._refnum_leaf()
         return self.kind == LVTypeKind.PRIMITIVE and self.underlying_type == "Refnum"
 
+    @property
+    def is_timestamp(self) -> bool:
+        """Whether this is a timestamp."""
+        return (
+            self.underlying_type == "MeasureData"
+            and self.measure_flavor == TIMESTAMP_FLAVOR
+        )
+
     def is_named_scalar(self) -> bool:
         """Whether this is a typedef of a single value (a numeric, string,
         Boolean, Path, ...): a named type with no members, so its name stands
@@ -471,6 +483,8 @@ class LVType:
                 return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
             return "Any"
         if self.kind == LVTypeKind.PRIMITIVE:
+            if self.is_timestamp:
+                return "hightime.datetime"
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
             inner = self.element_type.to_python(names) if self.element_type else "Any"

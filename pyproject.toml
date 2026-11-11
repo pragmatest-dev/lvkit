@@ -42,6 +42,7 @@ dependencies = [
     "networkx",
     "mcp>=1.2",
     "pydantic>=2.0.0",
+    "hightime>=1.0",
 ]
 
 [project.optional-dependencies]

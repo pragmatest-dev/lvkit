@@ -3,17 +3,17 @@ decoded value, never as a string of its display text."""
 
 from __future__ import annotations
 
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 
+import hightime
 import pytest
 
-from lvkit.codegen.constant_value import TIMESTAMP_GAP
 from lvkit.codegen.context import CodeGenContext
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.construction import decode_constant
 from lvkit.graph.models import ConstantNode, VIContext
-from lvkit.measure_data import TIMESTAMP_FLAVOR
 from lvkit.models import (
     ClusterField,
     LVType,
@@ -23,6 +23,7 @@ from lvkit.models import (
 )
 from lvkit.parser.models import ParsedConstant
 from lvkit.parser.vi import _decode_element
+from lvkit.timestamp_value import EPOCH_1904, TIMESTAMP_FLAVOR
 from tests.class_graphs import Project, class_type, pane, wire
 
 _EMPTY_VARIANT = bytes.fromhex("0900800000000001000400000001000000000000")
@@ -102,7 +103,8 @@ def _string(text: str) -> bytes:
 
 
 def _evaluate(expression: str) -> object:
-    return eval(expression, {"SimpleNamespace": SimpleNamespace})  # noqa: S307
+    scope = {"SimpleNamespace": SimpleNamespace, "hightime": hightime, "UTC": UTC}
+    return eval(expression, scope)  # noqa: S307
 
 
 def test_a_cluster_of_a_string_and_an_empty_variant_is_a_tuple() -> None:
@@ -172,24 +174,24 @@ def test_a_variant_with_attributes_in_a_cluster_is_a_gap() -> None:
         _expression(lv_type, _ONE_ATTRIBUTE + bytes(4))
 
 
-def test_a_timestamp_constant_is_a_gap() -> None:
-    with pytest.raises(ConversionGap) as raised:
-        _expression(_TIMESTAMP, bytes(16))
-    assert (
-        str(raised.value)
-        == TIMESTAMP_GAP
-        == (
-            "A timestamp constant has no Python value yet: lvkit has not chosen how "
-            "generated code holds a timestamp"
-        )
+def test_a_timestamp_constant_is_the_exact_hightime_datetime() -> None:
+    data = (3_800_000_000).to_bytes(8, "big") + (2**63).to_bytes(8, "big")
+    expression = _expression(_TIMESTAMP, data)
+    assert expression == (
+        "hightime.datetime(2024, 5, 31, 11, 33, 20, microsecond=500000, tzinfo=UTC)"
+    )
+    assert _evaluate(expression) == EPOCH_1904 + hightime.timedelta(
+        seconds=3_800_000_000.5
     )
 
 
-def test_a_cluster_with_a_timestamp_field_is_the_same_gap() -> None:
+def test_a_cluster_with_a_timestamp_field_holds_the_datetime() -> None:
     lv_type = _cluster(("test", _ROOT), ("startTimestamp", _TIMESTAMP))
-    with pytest.raises(ConversionGap) as raised:
-        _expression(lv_type, bytes(4) + bytes(16))
-    assert str(raised.value) == TIMESTAMP_GAP
+    expression = _expression(lv_type, bytes(4) + bytes(16))
+    assert (
+        expression == "(object(), hightime.datetime(1904, 1, 1, 0, 0, 0, tzinfo=UTC))"
+    )
+    assert _evaluate(expression)[1] == EPOCH_1904
 
 
 def test_a_part_with_no_python_value_is_a_gap_naming_the_field_and_type() -> None:

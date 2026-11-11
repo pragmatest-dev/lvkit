@@ -28,6 +28,7 @@ from lvkit.models import (
     _is_error_cluster,
 )
 from lvkit.path_value import python_path
+from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 from lvkit.vi_files import strip_vi_extension
 
 from .errors import CodeGenError
@@ -41,7 +42,8 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     to it and every other "default of the type" takes.
 
     A number is 0, a Boolean False, a string ``""``, an enum or ring its first
-    item, a path the empty path, an array ``[]``; a named cluster is a
+    item, a path the empty path, a timestamp 1904-01-01 00:00:00 UTC, an array
+    ``[]``; a named cluster is a
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
     error). A type with no Python value (a refnum, a variant) is ``None``, and so
@@ -59,6 +61,8 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     if kind == LVTypeKind.PRIMITIVE:
         if underlying == "Path":
             return parse_expr("Path('')")
+        if lv_type.is_timestamp:
+            return parse_expr(EPOCH_1904_EXPRESSION)
         return _scalar_default(underlying)
     if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
@@ -70,10 +74,14 @@ def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
     control saves none: the type's default for a number, Boolean, string, enum
     or ring, and ``None`` for anything else (a ``def`` default is evaluated once,
     so a list or object there would be shared by every call; the function makes
-    the array or class object for ``None`` in its body)."""
+    the array or class object for ``None`` in its body). A timestamp is the type's
+    default: a ``hightime.datetime`` cannot change, so every call shares it
+    safely."""
     if lv_type is None:
         return ast.Constant(value=None)
     if lv_type.kind == LVTypeKind.PRIMITIVE:
+        if lv_type.is_timestamp:
+            return parse_expr(EPOCH_1904_EXPRESSION)
         return _scalar_default(lv_type.underlying_type)
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
@@ -115,6 +123,8 @@ def _cluster_default(lv_type: LVType) -> ast.expr:
 _IMPLICIT_IMPORTS = {
     "Callable": "from collections.abc import Callable",
     "Enum": "from enum import Enum",
+    "UTC": "from datetime import UTC",
+    "hightime": "import hightime",
     "os": "import os",
     "Path": "from pathlib import Path",
     "SimpleNamespace": "from types import SimpleNamespace",
@@ -475,7 +485,7 @@ _PY_BUILTINS = frozenset(dir(builtins))
 GENERATED_MODULE_NAMES = frozenset(
     {
         "builtins", "concurrent", "copy", "ctypes", "filecmp", "functools",
-        "getpass",
+        "getpass", "hightime",
         "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",

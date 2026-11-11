@@ -59,7 +59,7 @@ from .ast_utils import (
     to_var_name,
 )
 from .class_model import class_import, member_reference, member_shape
-from .constant_value import constant_value_expression, is_timestamp
+from .constant_value import constant_value_expression
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -888,7 +888,7 @@ class CodeGenContext:
         if lv_type is not None and _is_error_cluster(lv_type):
             return self._error_constant(const)
         if lv_type is not None and (
-            is_timestamp(lv_type)
+            lv_type.is_timestamp
             or (
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)

@@ -5,16 +5,18 @@ Each part is written from its own type: a cluster as a tuple (anonymous) or a
 ``SimpleNamespace`` (named), an array as a list, a class object as a new object of
 its class, a Variant as the value it holds (``None`` when empty), an error cluster
 as the value of an error wire, any other value through the scalar formatting a
-constant of that type goes through. A part with no Python value is a gap."""
+constant of that type goes through. A timestamp is a ``hightime.datetime``. A part
+with no Python value is a gap."""
 
 from __future__ import annotations
 
 import ast
 from typing import TYPE_CHECKING
 
+import hightime
+
 from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import is_numeric_type_name
-from lvkit.measure_data import TIMESTAMP_FLAVOR
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -22,31 +24,18 @@ from lvkit.models import (
     _is_error_cluster,
     unique_names,
 )
+from lvkit.timestamp_value import timestamp_expression
 
 from .ast_utils import field_attribute_names
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
 
-TIMESTAMP_GAP = (
-    "A timestamp constant has no Python value yet: lvkit has not chosen how "
-    "generated code holds a timestamp"
-)
-
 # Types written as ``None`` whatever the decoded value.
 _NO_VALUE_TYPES = frozenset({"Void", "Picture"})
 # Types whose decoded value is the display text the scalar formatting reads.
 _SCALAR_TYPES = frozenset({"Boolean", "String", "Tag", "Path", "Refnum"})
 _VARIANT_TYPES = frozenset({"LVVariant", "Variant"})
-
-
-def is_timestamp(lv_type: LVType | None) -> bool:
-    """Whether ``lv_type`` is a timestamp."""
-    return (
-        lv_type is not None
-        and lv_type.underlying_type == "MeasureData"
-        and lv_type.measure_flavor == TIMESTAMP_FLAVOR
-    )
 
 
 def constant_value_expression(
@@ -70,8 +59,10 @@ def constant_value_expression(
         if value.value_type is None:
             return "None"
         return constant_value_expression(ctx, value.value_type, value.value, where)
-    if is_timestamp(lv_type):
-        raise ConversionGap(TIMESTAMP_GAP)
+    if lv_type.is_timestamp:
+        if not isinstance(value, hightime.datetime):
+            raise ConversionGap(_not_read(where, lv_type))
+        return timestamp_expression(value)
     if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields is not None:
         if not isinstance(value, dict):
             raise ConversionGap(_not_read(where, lv_type))
