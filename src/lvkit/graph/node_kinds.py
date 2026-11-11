@@ -1,15 +1,15 @@
 """The closed sets of dependency-graph vocabulary: what kind of file a node is
-(``node_type``) and what an edge means (``rel``). Both are ``(str, Enum)`` so a
+(``node_type``) and what an edge means (``rel``). Both are ``StrEnum`` so a
 member equals the raw string the graph stores, drop-in for ``== "class"``."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class NodeType(str, Enum):
+class NodeType(StrEnum):
     """The ``node_type`` a dependency-graph node carries."""
 
     VI = "vi"
@@ -19,7 +19,7 @@ class NodeType(str, Enum):
     UNKNOWN = "unknown"
 
 
-class EdgeRel(str, Enum):
+class EdgeRel(StrEnum):
     """The ``rel`` an ownership edge carries (a plain reference has none).
 
     ``OWNS``: a library owns its member VIs / controls / classes, and a class

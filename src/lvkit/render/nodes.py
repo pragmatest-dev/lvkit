@@ -26,7 +26,7 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol, TypeVar
 
@@ -145,7 +145,7 @@ def _format_const(value: object) -> str:
     return str(value)
 
 
-_LV_TIMESTAMP_EPOCH = datetime(1904, 1, 1, tzinfo=timezone.utc)
+_LV_TIMESTAMP_EPOCH = datetime(1904, 1, 1, tzinfo=UTC)
 # Whole seconds, optionally with a decimal fraction -- parser.vi's default-
 # data decoder emits the fraction as decimal MICROSECONDS (e.g.
 # "Timestamp(1234567890.500000)"), threading LabVIEW's 128-bit timestamp's

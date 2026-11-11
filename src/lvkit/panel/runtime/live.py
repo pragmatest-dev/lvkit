@@ -46,7 +46,7 @@ class LiveValues(LiveIO):
         self._latest: dict[str, Any] = {}
         self._dirty: dict[str, None] = {}
         self._controls: dict[str, Any] = {}
-        self._painters: dict[str, Callable[[Any], None]] = {}
+        self._painters: dict[str, Callable[[Any], object]] = {}
         self._abort = False
         self._running = threading.Event()
         self._running.set()
@@ -65,7 +65,7 @@ class LiveValues(LiveIO):
         if self.panel_events is not None:
             self.panel_events.value_changed(key, value, old)
 
-    def add_indicator(self, name: Any, painter: Callable[[Any], None]) -> None:
+    def add_indicator(self, name: Any, painter: Callable[[Any], object]) -> None:
         """An indicator, with the function that shows a value in its widget."""
         self._painters[key_of(name)] = painter
 

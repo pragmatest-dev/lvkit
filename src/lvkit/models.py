@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import Literal
 
 from pydantic import BaseModel
@@ -195,12 +195,12 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     return None
 
 
-class LVTypeKind(str, Enum):
+class LVTypeKind(StrEnum):
     """The family of a resolved ``LVType`` — its top-level discriminator.
 
     A CLOSED set: every ``LVType`` is built with one of these (an unrecognized
     LabVIEW type name collapses to ``PRIMITIVE`` in ``parser.type_mapping``); there
-    is no "unknown" kind. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member IS
+    is no "unknown" kind. A ``StrEnum``, so a member IS
     its string and compares equal to a raw ``"primitive"`` literal drop-in — the
     ~40 construction sites and the comparisons all keep working.
     """
@@ -260,10 +260,10 @@ def vi_kind_label(code: int) -> str:
         return f"unknown (code {code})"
 
 
-class SharedVariableKind(str, Enum):
+class SharedVariableKind(StrEnum):
     """How a Shared Variable is published, as the variable type string the VI's
     block-diagram link table records for it (``Global`` is LabVIEW's recorded name
-    for a single-process variable). ``(str, Enum)`` so a member equals the recorded
+    for a single-process variable). A ``StrEnum``, so a member equals the recorded
     string it was read from."""
 
     SINGLE_PROCESS = "Global"
@@ -301,7 +301,7 @@ class PaneSlot:
     dynamic_dispatch: bool = False
 
 
-class ServerClass(str, Enum):
+class ServerClass(StrEnum):
     """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
     says (``CtlFlags``, ``labview-binary-format.md``)."""
 
@@ -797,17 +797,14 @@ class TypeResolutionNeeded(ConversionGap):
         super().__init__(msg)
 
 
-class TerminalDirection(str, Enum):
+class TerminalDirection(StrEnum):
     """Which way data flows through a terminal: into its node or out of it.
     One value set for a graph terminal and a catalog (primitive, vi.lib)
-    terminal; a ``str`` mix-in because the raw value is compared at many
+    terminal; a ``StrEnum`` because the raw value is compared at many
     sites, and it prints as that value."""
 
     INPUT = "input"
     OUTPUT = "output"
-
-    def __str__(self) -> str:
-        return self.value
 
     @classmethod
     def of(cls, is_output: bool) -> TerminalDirection:
@@ -917,7 +914,7 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
-class InPlaceBorderSide(str, Enum):
+class InPlaceBorderSide(StrEnum):
     """Which half of an In Place Element Structure's border a tile is: the READ
     tile takes the element out of the data, the WRITE tile puts it back."""
 
@@ -1035,7 +1032,7 @@ class FPTerminal(Terminal):
     frame: str | int | None = None
 
 
-class DisableStructureKind(str, Enum):
+class DisableStructureKind(StrEnum):
     """Which disable-family structure a ``class="commentNode"`` is. All three
     share the heap element class and frame shape but LabVIEW draws them
     differently, so the render styles per kind (dotted border for the two
@@ -1067,7 +1064,7 @@ class DisableStructureKind(str, Enum):
         return "Diagram Disable structure"
 
 
-class TunnelMode(str, Enum):
+class TunnelMode(StrEnum):
     """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a
     ``None`` ``Tunnel.mode`` means "not a loop tunnel", not "unknown"; every
     other tunnel kind -- lSR/rSR/lMax/csTun/seqTun/... -- never carries a

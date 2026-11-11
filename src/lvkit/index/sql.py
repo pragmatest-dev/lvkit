@@ -40,17 +40,14 @@ from pathlib import Path
 
 from . import store
 
-# --- SQLite authorizer action codes (stable ABI values) ---------------------
-# The ``sqlite3`` module only exposes these as named constants on Python 3.11+;
-# lvkit targets 3.10, so we pin the integer values (they are part of SQLite's
-# stable C ABI and never change).
-_SQLITE_READ = 20
-_SQLITE_SELECT = 21
-_SQLITE_FUNCTION = 31
-_SQLITE_RECURSIVE = 33
-
+# The SQLite authorizer actions a read-only query may perform.
 _ALLOWED_ACTIONS = frozenset(
-    {_SQLITE_READ, _SQLITE_SELECT, _SQLITE_FUNCTION, _SQLITE_RECURSIVE}
+    {
+        sqlite3.SQLITE_READ,
+        sqlite3.SQLITE_SELECT,
+        sqlite3.SQLITE_FUNCTION,
+        sqlite3.SQLITE_RECURSIVE,
+    }
 )
 
 DEFAULT_ROW_CAP = 1000

@@ -47,7 +47,7 @@ Sources (see graph/queries.py, models.py):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 
 from ..models import LVTypeKind
 
@@ -56,12 +56,12 @@ INPUT = "input"
 OUTPUT = "output"
 
 
-class WiredTo(str, Enum):
+class WiredTo(StrEnum):
     """What a block-diagram constant's output wire feeds — precomputed on
     ``ConstantFact.wired_to`` so "constants wired to indicators" is a filter, not
-    a per-query wire trace. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member
-    IS its string: it lands verbatim in a SQLite ``TEXT`` column and compares
-    equal to the plain string read back out."""
+    a per-query wire trace. A ``StrEnum``, so a member IS its string: it lands
+    verbatim in a SQLite ``TEXT`` column and compares equal to the plain
+    string read back out."""
 
     INDICATOR = "indicator"
     CONTROL = "control"
@@ -69,11 +69,11 @@ class WiredTo(str, Enum):
     UNWIRED = "unwired"
 
 
-class NodeKind(str, Enum):
+class NodeKind(StrEnum):
     """The specific kind of one block-diagram node — the discriminator on
-    ``NodeFact``. ``(str, Enum)`` (not ``StrEnum``, 3.10 target) so a member IS
-    its string in a SQLite ``TEXT`` column and compares equal to the value read
-    back, exactly like ``WiredTo`` above.
+    ``NodeFact``. A ``StrEnum``, so a member IS its string in a SQLite ``TEXT``
+    column and compares equal to the value read back, exactly like ``WiredTo``
+    above.
 
     Structure members reuse the netlist scope vocabulary verbatim
     (graph/netlist.py ``_build_*_scope``: case/disabled/event/sequence, and

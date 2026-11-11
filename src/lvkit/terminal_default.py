@@ -9,14 +9,14 @@ neither has no documented default.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 from .models import ScalarValue
 
 
-class DefaultBehavior(str, Enum):
+class DefaultBehavior(StrEnum):
     """A documented default that is no value."""
 
     REST = "rest"

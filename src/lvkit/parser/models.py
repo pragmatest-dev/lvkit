@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -270,7 +270,7 @@ class SelectorTable:
         return bool(self.strings)
 
 
-class SelectorKind(str, Enum):
+class SelectorKind(StrEnum):
     """What a case structure's selector terminal carries, as far as framing its
     values goes."""
 
