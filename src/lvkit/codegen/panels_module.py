@@ -42,10 +42,11 @@ PANEL_OF_NAME = "panel_of"
 # What a node that calls a method of a panel imports where it runs.
 PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
 
-# A second Run VI on a VI that is running raises error 42 (Generic error) in
-# ``Panel.run``: NI's Run VI page says only that a VI "already reserved for
-# execution by another VI" cannot be run (properties-and-methods/vi-server/vi/
-# run.html) and gives no code.
+# A second Run VI on a VI that is running raises error 1000 in ``Panel.run``: NI,
+# General LabVIEW Error Codes (errors/general-labview-error-codes.html), 1000 "The
+# VI is not in a state compatible with this operation. … This error also can occur
+# if you try to run a VI using the run method while the target VI is running or
+# reserved for running."
 
 PANELS_MODULE_SOURCE = '''"""The front panel of a VI."""
 
@@ -165,9 +166,9 @@ class Panel:
         with self._lock:
             if self._running:
                 raise PanelError(
-                    code=42,
+                    code=1000,
                     source="Panel.run",
-                    message="The VI is already reserved for execution by another VI.",
+                    message="The VI is not in a state compatible with this operation.",
                 )
             self._running = True
         self._tell("run_started")

@@ -224,7 +224,7 @@ def test_run_vi_on_a_running_vi_is_the_nodes_error(tmp_path: Path) -> None:
         )
         runner_module.target = blocking
         runner_module.runner()
-        with pytest.raises(Exception, match="already reserved"):
+        with pytest.raises(Exception, match="Error 1000: The VI is not in a state"):
             blocking.panel.run()
         release.set()
 

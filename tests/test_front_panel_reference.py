@@ -454,8 +454,8 @@ def test_the_run_is_recorded_before_the_work_is_submitted(tmp_path: Path) -> Non
         assert len(pending) == 1
         with pytest.raises(panels.PanelError) as refused:
             panel.run()
-        assert refused.value.code == 42
-        assert "already reserved for execution" in refused.value.message
+        assert refused.value.code == 1000
+        assert "not in a state compatible" in refused.value.message
         pending[0]()
         assert panel.state == 1
         panel.run()  # the VI is idle again
