@@ -607,6 +607,6 @@ As built (the points where the code settles what the list above leaves open):
 - The accessor is `FrontPanel.of(function)`, not a module function `panel`: the generated code imports `FrontPanel`, as it imports `Notifier`, so no control named `panel` can hide it.
 - `get_all(controls)` takes NI's Controls input (properties-and-methods/vi-server/vi/getallctrlvalvariant.html: TRUE returns every control, FALSE, the default, every indicator), so it lists one kind, not controls then indicators.
 - A method whose class output is the object it was called on returns no field for it, so a third function attribute, `panel_passed` (indicator label to `self`), names it.
-- An unknown label is error 1100 ("No object of that name was found.", NI's General LabVIEW Error Codes) and a reference that is Not a Refnum is error 1026; NI's Ctrl Val pages name no error of their own.
+- An unknown label is error 1 with the message `"<label>" not found` (maintainer, 2026-11-11: no NI page gives an error for it; the one observed case, NI forum thread "Help with Set Control Value, Control Name", reports "ERR1" with `"X" not found` for a wrong control name). A reference that is Not a Refnum is error 1026.
 - `Execution.State` of a VI reference reads `FrontPanel.of(reference).state` (1 Idle, 2 Run top level while a run is in progress; NI's execstate.html lists Bad 0, Idle 1, Run top level 2, Running 3).
 - The deprecated forms (Ctrl Val.Set (Deprecated), Get All (Deprecated)) take and return the value as an array of flattened bytes and a type string; they stay a gap.

@@ -146,9 +146,9 @@ class FrontPanel:
     def _check(self, label: str) -> None:
         if label not in self._controls and label not in self._indicator_labels():
             raise FrontPanelError(
-                code=1100,
+                code=1,
                 source="FrontPanel",
-                message="No object of that name was found.",
+                message=f'"{label}" not found',
             )
 
     def _indicator_labels(self) -> list[str]:

@@ -262,7 +262,7 @@ def test_get_all_lists_the_controls_or_the_indicators(tmp_path: Path) -> None:
         assert panel.get_all(False) == [("y", 5)]
 
 
-def test_unknown_control_name_is_error_1100_and_nothing_runs(tmp_path: Path) -> None:
+def test_unknown_control_name_is_error_1_and_nothing_runs(tmp_path: Path) -> None:
     steps = [
         step("Ctrl Val.Set", SET, name="nope", value=("4", INT)),
         step("Run VI", RUN),
@@ -271,8 +271,8 @@ def test_unknown_control_name_is_error_1100_and_nothing_runs(tmp_path: Path) -> 
     package = project_with(tmp_path, steps, "value").generate()
     with package.use() as module:
         result = module("runner").runner()
-        assert result.error_out.code == 1100
-        assert result.error_out.message == "No object of that name was found."
+        assert result.error_out.code == 1
+        assert result.error_out.message == '"nope" not found'
         # The Set failed, so the error skipped the run and the read.
         assert result.out is None
         panel = module("front_panels").FrontPanel.of(module("target").target)
