@@ -65,6 +65,7 @@ from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
+from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
@@ -108,6 +109,10 @@ class CodeGenContext:
     # The name of the Python function this VI generates (what its callers call).
     function_name: str = ""
     imports: set[str] = field(default_factory=set)
+    # Imports whose names the signature of the function evaluates when the module
+    # loads (a default value), so they stay at module level where the imports of
+    # other generated modules move into the bodies of a module in an import cycle.
+    signature_imports: set[str] = field(default_factory=set)
     # Imports of the classes and typedefs the module's annotations name. They are
     # needed only by a type checker, so the module imports them under
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
@@ -196,6 +201,10 @@ class CodeGenContext:
     # ``panel_hooks``); None for any other VI. One per function, shared by child
     # contexts.
     panel_hooks: PanelHooks | None = field(default=None, repr=False)
+    # The variable that holds the queue of events of a VI with an Event Structure
+    # (``panel_hooks.entry_events``), set when its function starts; one per
+    # function, copied to child contexts.
+    events_var: str | None = None
     # The variable that holds the message an Event Structure handles, by the id of
     # the structure. One per function, shared by child contexts.
     event_messages: dict[str, str] = field(default_factory=dict, repr=False)
@@ -632,6 +641,7 @@ class CodeGenContext:
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
+            events_var=self.events_var,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
@@ -697,6 +707,18 @@ class CodeGenContext:
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
 
+    def import_live_io(self) -> None:
+        """Import ``LiveIO`` and ``NO_LIVE_IO`` from the package's ``live_io``
+        module: the default of the ``live_io`` parameter is a value, so the import
+        stays at module level."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.live_io_import()
+        self.signature_imports.add(
+            statement
+            or f"from .{LIVE_IO_MODULE_NAME} import {LIVE_IO_NAME}, {NO_LIVE_IO_NAME}"
+        )
+
     def function_import(
         self, vi_name: str, callee_key: str | None = None
     ) -> NameImport:
@@ -758,6 +780,16 @@ class CodeGenContext:
         return numbered_name(
             derived, lambda n: n == self.function_name or self._holds(n)
         )
+
+    def claim_name(self, wanted: str) -> str:
+        """``wanted``, or a numbered form of it when the function or one of its
+        parameters or variables already has that name; taken from here on."""
+        def taken(n: str) -> bool:
+            return n == self.function_name or self._holds(n)
+
+        name = numbered_name(wanted, taken) if taken(wanted) else wanted
+        self._allocated_vars.add(name)
+        return name
 
     def _holds(self, name: str) -> bool:
         """Whether a parameter or variable of this function has ``name``."""

@@ -45,6 +45,7 @@ from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
 from .panel_hooks import (
     PanelHooks,
+    entry_events,
     entry_reads,
     function_enum_name,
     function_property_enum_name,
@@ -182,6 +183,8 @@ def function_body(
     # saved default.
     body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
+    # A VI with an Event Structure reads the queue of events from ``live_io``.
+    body.extend(entry_events(ctx))
 
     # Normalize unwired array inputs: they default to None (a mutable [] default
     # would be shared across calls), so map None -> [] up front, matching
@@ -513,14 +516,18 @@ def build_imports(
         imports.extend(tree.body)
 
     # Context-accumulated imports
-    for imp in sorted(ctx.imports):
+    for imp in sorted(ctx.imports | ctx.signature_imports):
         try:
             tree = ast.parse(imp)
             imports.extend(tree.body)
         except SyntaxError as e:
             raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
-    imports.extend(build_type_checking_block(ctx.annotation_imports - ctx.imports))
+    imports.extend(
+        build_type_checking_block(
+            ctx.annotation_imports - ctx.imports - ctx.signature_imports
+        )
+    )
     return imports
 
 

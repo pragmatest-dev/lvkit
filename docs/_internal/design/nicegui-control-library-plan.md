@@ -116,17 +116,18 @@ inline `ui.input` fallback.
 
 ## 4. Layout / alignment fidelity (`panel_gen._render_container`)
 
-- Position from `bounds.left/top` (done) AND **size from bounds**: set width =
-  `right-left` and min-height = `bottom-top` on the wrapper; let the control fill
-  it (`.classes('w-full h-full')`). Tall array boxes then render tall.
-- Normalize by the min bounds (done) so the panel isn't offset; keep the 16px
-  margin.
-- Remove NiceGUI default margins/gaps on the absolute wrappers so positions are
-  exact (`.style('margin:0')`, container `position:relative` with explicit
-  width/height = panel extent — already emitted).
-- LV alignment is already encoded in the bounds (controls the author aligned
-  share an edge coordinate); faithfully reproducing bounds reproduces the
-  alignment. Add a light grid/snap only if a visual pass shows sub-pixel drift.
+Maintainer decision, 2026-11-11: "don't make the NiceGUI code too beholden to LV and ensure that the code is readable using the nice stacking and such vs pixel perfection. I'd use LV as guide for layout and order". This replaces the earlier steps of this section (position
+from `bounds.left/top`, size from bounds, absolute wrappers).
+
+- The controls' bounds give the **order and grouping**, not pixels. A row is a run
+  of controls whose vertical ranges overlap, in order of (top, left); within a
+  row, a column is a run whose horizontal ranges overlap, in order of (left, top),
+  its controls stacked by top (`panel/layout.py` `arrange`).
+- The panel is nested `ui.column()` / `ui.row()` blocks with a few constant
+  Tailwind classes; no pixel position or size is written per control.
+- A widget that cannot render without a width gets one constant width of its own in
+  the runtime builder (the array grid: `widgets_array.WIDTH_CLS`), never a
+  per-control size.
 
 ## 5. Parser support tasks (surfaced, do alongside)
 
@@ -149,7 +150,7 @@ inline `ui.input` fallback.
    panel, enter `[10,20,30]` + `[2,0,1]`, Run → indicator array control shows
    `[30,10,20]`; verified headless (build_panel runs) + served HTTP 200.
 3. Parser: array/cluster defaults + array element_type → controls seed correctly.
-4. Layout: size-from-bounds (height) + margin reset → visual alignment matches LV.
+4. Layout: rows and columns grouped from the bounds (replaces size-from-bounds, §4).
 5. Cluster control (recursive) + cluster-child bounds parser fix.
 6. 2D array control; path folder affordance; enum-as-int.
 - **Guardrails:** every step keeps `pytest -m functional` green and does not

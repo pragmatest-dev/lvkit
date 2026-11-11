@@ -1,5 +1,6 @@
 """The widget of a cluster control and indicator: a bordered box with each field
-built by its own kind.
+built by its own kind. A field the panel does not draw (a reference or LabVIEW
+class object) has no caption and holds ``None``.
 
 The value that crosses to the function is the one it holds a cluster as: an
 object with an attribute for each field (``types.SimpleNamespace``) for a cluster
@@ -16,6 +17,7 @@ from nicegui import ui
 from .live import LiveValues
 from .port import Member, Port, bind_control, bind_indicator
 from .widgets import caption
+from .widgets_opaque import hidden_port
 
 
 def _field(value: Any, member: Member, position: int, named: bool) -> Any:
@@ -26,7 +28,8 @@ def cluster_port(named: bool, members: list[Member], *, readonly: bool) -> Port:
     ports: list[Port] = []
     with ui.column().classes("w-full gap-1 p-2 border rounded"):
         for member in members:
-            caption(member.label)
+            if member.builder is not hidden_port:
+                caption(member.label)
             ports.append(member.build(readonly=readonly))
 
     def get() -> Any:

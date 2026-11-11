@@ -444,15 +444,13 @@ parsing the handle.
 at any node is uniform (`propRef_1580::Value`) and a downstream reader never has to
 special-case its source. Naming the wire and drawing the node's insides are
 separate problems: the handle solves the first for *all* kinds; the second is
-designed per kind. `property-node`, `invoke-node`, `feedback-node`, and
-`local-variable` now have a designed rendering (rows below) — they emit like
+designed per kind. `property-node`, `invoke-node`, `feedback-node`,
+`local-variable`, `formula-node` and `expression-node` now have a designed
+rendering (rows below) — they emit like
 any other node (`local-variable`'s own shape is a single `read`/`write` line,
 not the generic handle+terminal-block form the others use). `in-place-element`
 is a **structure**, not a node — it now renders as a scope (§8), so it is no
-longer pending here. Still pending only their *special content* (handle +
-terminals still render): `formula-node` (the `script` body — needs the `script`
-field plumbed). It emits its handle + typed terminals with a
-`# TODO(lvnet): …` on the one undesigned part — never an invented form.
+longer pending here. No node kind with a node row below is pending.
 
 | Node | keyword | rendering |
 |---|---|---|
@@ -466,7 +464,8 @@ field plumbed). It emits its handle + typed terminals with a
 | VI Server Reference | `vi-server-reference` | a Control Reference constant (`ctlRefConst`): `vi-server-reference <handle> : <target>`, one line, no terminal block. It is a SOURCE whose single output is the reference itself (a refnum), not the value of a control; a reader references it as `<handle>::<port>` like any node's output, and the consumer's terminal line spells the refnum type. `<target>` is read from decoded fields, never from the constant's label: `This VI` / `This Application` when the reference's type records that VI Server class (`CtlFlags` 0x0002 / 0x0001, `labview-binary-format.md`) and the constant names no control; the referenced control as a §4 control-name token when the constant's `ddo` resolves to a front-panel control (`Tree`; a control named `This VI`, `This Application` or `?` is quoted); `?` when neither is decoded (a VI saved before the type records its class). A reference constant is never a `local-variable`, which taps a control's value. |
 | Global Variable | `global-variable` | a TAP on one control of a Global VI, shaped like a local variable but naming its target: a **read** is a SOURCE, `global-variable <handle> : read <Global VI>::<control>`; a **write** is a SINK, `global-variable <handle> : write <Global VI>::<control> = <source>`. The handle base is the control name (`Debug_18698`). `<Global VI>` is the qualified name the calling VI's block-diagram link table records for the VI, `<control>` the control of it that the node's connector cluster names at the node's control index; both halves follow the §4 name-safety rule, and the Global VI half is also quoted when it contains `::`. The Global VI additionally appears under `uses :` as a `global` entry. The node has no wire to any control of the calling VI. |
 | Shared Variable | `shared-variable` | a node reading or writing a variable of a project library: `shared-variable <handle> : <library>::<variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`, and on a read node that shows it `timestamp`; a terminal whose ID is not a confirmed one shows its number). `<library>` is the qualified name the calling VI's block-diagram link table records for the variable's library (found by the node's uid, never from the node's label text); both halves are §4 name tokens, and a half that contains `::` or opens with a quote is quoted. When the link table holds no record for the node, the `<library>::` half is absent: `shared-variable <handle> : <variable name> : read|write`. The library additionally appears under `uses :` as a `library` entry. A trailing parenthetical **attribute** after `read`/`write` (like a Feedback Node's `(N iterations)`) carries the rest: `(network-published "<path>")` for a variable published to the network (the path the link table records, a §4 quoted literal; a single-process variable carries none), and `(library unreadable "<reason>")` for a node whose link-table record could not be decoded (the library is then absent and the reason is the decoder's, a quoted literal) -- at most one. The first ` : ` outside a quoted name ends the target; `read`/`write` and the attribute follow it. |
-| Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
+| Formula Node | `formula-node` | `formula-node <handle> : "<script>"`, then its terminal block. The script is the node's whole text as ONE §4 quoted literal (the one string-literal rule: `\"`, `\\`, `\n`, `\r`, `\t`, other control characters `\xHH`), so a multi-line script stays on one physical line and reads back to the same text. A node whose VI stores no script has no component: `formula-node <handle>`. Designed 2026-11-10 (maintainer: "Quoted text on the node"). |
+| Expression Node | `expression-node` | `expression-node <handle> : "2*x+3"`: the same form as the Formula Node, the formula as one §4 quoted literal, then its terminal block; no component when the VI stores no formula text where lvkit reads it. Designed 2026-11-10. |
 | Free label / comment | `comment` | non-executing text. |
 
 **Boundary vs. off-pane front panel:** an FP control/indicator **on** the
@@ -1141,7 +1140,9 @@ in   GUID : String = GUID_142
    constant's field-value syntax remains OPEN.
 6. **Concrete line syntax** — DESIGNED for property-node / invoke-node /
    feedback-node / local-variable (§7) and in-place-element (now a scope, §8).
-   Still open: formula-node script rendering (needs the `script` field plumbed).
+   formula-node and expression-node: DESIGNED (2026-11-10, maintainer) — the
+   script is the header's quoted component (§7); the netlist JSON carries
+   it as `script`.
 7. **Not-yet-modeled constructs** — `timed-loop`, Call By Reference,
    MathScript (proposed keywords, unverified). `global-variable` and
    `shared-variable` are designed (§7).

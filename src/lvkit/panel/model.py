@@ -9,6 +9,7 @@ from dataclasses import replace
 from lvkit.codegen.ast_utils import interface_names, to_var_name
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
@@ -87,6 +88,8 @@ def panel_controls(
                     if terminal.id in on_pane_outputs
                     else None
                 ),
+                required=terminal.id in on_pane_inputs
+                and is_required(terminal, "input"),
             )
         )
     return controls

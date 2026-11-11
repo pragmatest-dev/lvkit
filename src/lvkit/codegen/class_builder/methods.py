@@ -155,6 +155,7 @@ class _MethodBuilderMixin:
         if self._lazy:
             body, imports = imports_inside(body, imports)
         self._parts.imports.update(imports)
+        self._parts.imports.update(ctx.signature_imports)
         if shape.kind is MethodKind.STATIC:
             decorators = [
                 ast.Name(id="staticmethod", ctx=ast.Load()),

@@ -1,6 +1,7 @@
 """The widgets of a front panel for a numeric, a Boolean and a string, each built as
 a ``Port`` (``port.py``) and as a control (the user changes it, the function reads
-it) or an indicator (the function writes it, the panel shows it).
+it) or an indicator (the function writes it, the panel shows it). A complex number
+is two number boxes, real and imaginary.
 
 A control keeps the ``LiveValues`` holder up to date from its change handler. An
 indicator registers the function that shows a value in it; the holder calls that
@@ -60,6 +61,41 @@ def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
     return port
 
 
+def complex_port(default: complex, *, readonly: bool) -> Port:
+    held = complex(default)
+    port: Port
+    real: Any
+    imaginary: Any
+    with ui.row().classes("w-full no-wrap gap-1"):
+        if readonly:
+            real = ui.input(label="re", value=str(held.real))
+            imaginary = ui.input(label="im", value=str(held.imag))
+            for box in (real, imaginary):
+                box.props("outlined dense readonly").classes("col")
+        else:
+
+            def changed(_: Any) -> None:
+                nonlocal held
+                if real.value is not None and imaginary.value is not None:
+                    held = complex(float(real.value), float(imaginary.value))
+                    port.changed()
+
+            real = ui.number(label="re", value=held.real, on_change=changed)
+            imaginary = ui.number(label="im", value=held.imag, on_change=changed)
+            for box in (real, imaginary):
+                box.props("outlined dense").classes("col")
+
+    def show_complex(value: Any) -> None:
+        nonlocal held
+        held = complex(value)
+        shown = str if readonly else float
+        real.set_value(shown(held.real))
+        imaginary.set_value(shown(held.imag))
+
+    port = Port(lambda: held, show_complex)
+    return port
+
+
 def bool_port(default: bool, *, readonly: bool) -> Port:
     if readonly:
         light = ui.icon("circle", size="28px")
@@ -99,6 +135,14 @@ def number_indicator(
     live: LiveValues, name: Any, default: float, integer: bool
 ) -> Port:
     return bind_indicator(live, name, number_port(default, integer, readonly=True))
+
+
+def complex_control(live: LiveValues, name: Any, default: complex) -> Port:
+    return bind_control(live, name, complex_port(default, readonly=False))
+
+
+def complex_indicator(live: LiveValues, name: Any, default: complex) -> Port:
+    return bind_indicator(live, name, complex_port(default, readonly=True))
 
 
 def bool_control(live: LiveValues, name: Any, default: bool) -> Port:

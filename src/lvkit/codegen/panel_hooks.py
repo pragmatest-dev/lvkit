@@ -4,28 +4,27 @@ A VI whose diagram reads or writes its own front panel while it runs (a control
 or indicator terminal inside a loop or Event Structure, a Local Variable of one
 of its controls or indicators, a Value Property Node bound to one of its
 controls, or an Event Structure: ``InMemoryVIGraph.touches_panel_while_running``)
-takes two keyword-only parameters after its connector-pane ones::
+takes one keyword-only parameter after its connector-pane ones::
 
-    on_update: Callable[[AcquireValue, Any], None] | None = None
-    on_read: Callable[[AcquireValue, Any], Any] | None = None
+    live_io: LiveIO = NO_LIVE_IO
 
-and calls ``on_update(AcquireValue.COUNT, value)`` after every write of one of
-its indicators, and of one of its controls by a Local Variable. A caller that
-passes nothing gets the VI exactly as it is without the parameters.
-``on_read`` is called before a control that the diagram reads while running is
-used: at the start of the diagram that holds a control terminal inside a loop
+``LiveIO`` is the class of the ``live_io`` module the package holds
+(``codegen/live_io_module.py``); its methods do nothing, so a caller that passes
+nothing gets the VI exactly as it is without the parameter. The VI calls
+``live_io.write(AcquireValue.COUNT, value)`` after every write of one of its
+indicators, and of one of its controls by a Local Variable.
+``live_io.read`` is called before a control that the diagram reads while running
+is used: at the start of the diagram that holds a control terminal inside a loop
 (``reads_in_frame``), at a Local Variable read of a control inside a loop (the
 node generator of ``nodes/local_variable.py``), and once at entry for an
 off-pane control the diagram reads (``entry_reads``)::
 
-    if on_read is not None:
-        stop = on_read(AcquireValue.STOP, stop)
+    stop = live_io.read(AcquireValue.STOP, stop)
 
 A VI whose bound Property Nodes write a listed control property
-(``control_properties.json``) takes a third, ``on_property: Callable[[AcquireValue,
-AcquireProperty, Any], None] | None = None``, and calls
-``on_property(AcquireValue.COUNT, AcquireProperty.VISIBLE, flag)`` at each such
-write.
+(``control_properties.json``) calls
+``live_io.set_property(AcquireValue.COUNT, AcquireProperty.VISIBLE, flag)`` at
+each such write.
 
 The name is a member of ``AcquireValue``, the ``(str, Enum)`` the module of the
 VI defines before its function (``PanelHooks.for_vi`` writes it): one member per
@@ -34,13 +33,12 @@ panel imports the enum with the function and its logic and the panel share one
 definition. The name is the control's parameter name or the indicator's result
 field name, made distinct across the controls and indicators of the VI (a
 control and an indicator may share a label). A cluster is passed whole. The
-generated code uses plain ``if on_update is not None`` and imports nothing from
-lvkit.
+generated code imports nothing from lvkit.
 
-A VI that holds an Event Structure also takes ``events: Queue | None = None``
-after those, the front panel's events pushed in (``event_kinds``, ``nodes/event.py``);
-``PanelHooks.for_vi`` also writes the ``(str, Enum)`` of the kinds of event
-(``AcquireEvent``) before its function.
+A VI that holds an Event Structure takes the front panel's events from
+``live_io.events`` (``event_kinds``, ``nodes/event.py``); ``PanelHooks.for_vi``
+also writes the ``(str, Enum)`` of the kinds of event (``AcquireEvent``) before
+its function.
 """
 
 from __future__ import annotations
@@ -57,14 +55,13 @@ from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import (
     EVENTS,
-    ON_PROPERTY,
-    ON_READ,
-    ON_UPDATE,
+    LIVE_IO,
     build_assign,
     class_style_name,
     distinct_names,
     interface_names,
     parse_expr,
+    parse_stmt,
     to_var_name,
     unique_names,
 )
@@ -77,13 +74,10 @@ from .event_kinds import (
     VALUE_CHANGE_CODE,
 )
 from .label_names import python_label
+from .live_io_module import LIVE_IO_NAME, NO_LIVE_IO_NAME
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
-
-
-def _annotation(enum_name: str, result: str) -> str:
-    return f"Callable[[{enum_name}, Any], {result}] | None"
 
 
 @dataclass(frozen=True)
@@ -98,7 +92,7 @@ class PanelHooks:
     name of each (``ControlProperty.member``) to the enum's member.
     ``event_enum_name`` is the name of the enum of the kinds of event
     (``codegen/event_kinds.py``) a VI with an Event Structure defines and takes
-    the ``events`` queue for, None for a VI without one."""
+    the front panel's events for, None for a VI without one."""
 
     enum_name: str
     names: dict[str, str]
@@ -148,6 +142,7 @@ class PanelHooks:
             [name.upper().strip("_") or "NAME" for name in names.values()]
         )
         members = dict(zip(names, member_names, strict=True))
+        ctx.import_live_io()
         written = ctx.add_module_function(
             _enum_def(
                 distinct_names([*taken, *ctx.helper_names.values()], [enum_name])[0],
@@ -210,24 +205,15 @@ class PanelHooks:
         )
 
     def arguments(self) -> tuple[list[ast.arg], list[ast.expr]]:
-        """The keyword-only parameters of the VI, and their defaults."""
-        annotations = {
-            ON_UPDATE: _annotation(self.enum_name, "None"),
-            ON_READ: _annotation(self.enum_name, "Any"),
-        }
-        if self.property_enum is not None:
-            annotations[ON_PROPERTY] = (
-                f"Callable[[{self.enum_name}, {self.property_enum}, Any], None]"
-                " | None"
-            )
-        if self.event_enum_name is not None:
-            annotations[EVENTS] = "Queue | None"
+        """The keyword-only parameter of the VI, and its default."""
         return (
             [
-                ast.arg(arg=name, annotation=parse_expr(annotation))
-                for name, annotation in annotations.items()
+                ast.arg(
+                    arg=LIVE_IO,
+                    annotation=ast.Name(id=LIVE_IO_NAME, ctx=ast.Load()),
+                )
             ],
-            [ast.Constant(value=None) for _ in annotations],
+            [ast.Name(id=NO_LIVE_IO_NAME, ctx=ast.Load())],
         )
 
 
@@ -301,52 +287,49 @@ def _indicator_name(indicator: Terminal, fields: dict[str, str]) -> str:
     )
 
 
-def _hook_call(hook: str, args: list[ast.expr], target: str | None) -> ast.stmt:
-    """``if <hook> is not None: <hook>(<args>)``, the result assigned to
-    ``target`` when one is given."""
-    call = ast.Call(func=ast.Name(id=hook, ctx=ast.Load()), args=args, keywords=[])
-    body: ast.stmt = (
-        ast.Expr(value=call)
-        if target is None
-        else ast.Assign(targets=[ast.Name(id=target, ctx=ast.Store())], value=call)
-    )
-    return ast.If(
-        test=ast.Compare(
-            left=ast.Name(id=hook, ctx=ast.Load()),
-            ops=[ast.IsNot()],
-            comparators=[ast.Constant(value=None)],
+def _live_io_call(
+    method: str, args: list[ast.expr], target: str | None
+) -> ast.stmt:
+    """``live_io.<method>(<args>)``, the result assigned to ``target`` when one
+    is given."""
+    call = ast.Call(
+        func=ast.Attribute(
+            value=ast.Name(id=LIVE_IO, ctx=ast.Load()), attr=method, ctx=ast.Load()
         ),
-        body=[body],
-        orelse=[],
+        args=args,
+        keywords=[],
     )
+    if target is None:
+        return ast.Expr(value=call)
+    return ast.Assign(targets=[ast.Name(id=target, ctx=ast.Store())], value=call)
 
 
-def update_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
-    """``if on_update is not None: on_update(<Enum>.<MEMBER>, <variable>)``, the
-    member of the control or indicator ``terminal_id``."""
+def write_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
+    """``live_io.write(<Enum>.<MEMBER>, <variable>)``, the member of the control
+    or indicator ``terminal_id``."""
     args = [hooks.member(terminal_id), ast.Name(id=variable, ctx=ast.Load())]
-    return _hook_call(ON_UPDATE, args, None)
+    return _live_io_call("write", args, None)
 
 
 def property_stmt(
     hooks: PanelHooks, terminal_id: str, prop: ControlProperty, value: str
 ) -> ast.stmt:
-    """``if on_property is not None: on_property(<Enum>.<MEMBER>,
-    <PropertyEnum>.<PROPERTY>, <value>)``, the property ``prop`` of the control
-    or indicator ``terminal_id`` set to ``value`` (an expression)."""
+    """``live_io.set_property(<Enum>.<MEMBER>, <PropertyEnum>.<PROPERTY>,
+    <value>)``, the property ``prop`` of the control or indicator ``terminal_id``
+    set to ``value`` (an expression)."""
     args = [
         hooks.member(terminal_id),
         hooks.property_member(prop),
         parse_expr(value),
     ]
-    return _hook_call(ON_PROPERTY, args, None)
+    return _live_io_call("set_property", args, None)
 
 
 def read_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:
-    """``if on_read is not None: <variable> = on_read(<Enum>.<MEMBER>,
-    <variable>)``, the member of the control ``terminal_id``."""
+    """``<variable> = live_io.read(<Enum>.<MEMBER>, <variable>)``, the member of
+    the control ``terminal_id``."""
     args = [hooks.member(terminal_id), ast.Name(id=variable, ctx=ast.Load())]
-    return _hook_call(ON_READ, args, variable)
+    return _live_io_call("read", args, variable)
 
 
 def reads_in_frame(
@@ -402,6 +385,19 @@ def event_value_stmts(
     member = ast.unparse(hooks.member(terminal_id))
     test = parse_expr(f"{message}[{NAME}] == {member}")
     return [ast.If(test=test, body=[assign], orelse=[])]
+
+
+def entry_events(ctx: CodeGenContext) -> list[ast.stmt]:
+    """``events = live_io.events`` at entry of a VI with an Event Structure: the
+    one queue its Event Structures and Register For Events nodes share
+    (``nodes/event_user.py``); it stays ``None`` until the first that needs it
+    makes one, when no panel passed its queue. The variable is ``events``, or a
+    numbered form when the VI already has that name (``ctx.events_var``)."""
+    hooks = ctx.panel_hooks
+    if hooks is None or hooks.event_enum_name is None:
+        return []
+    ctx.events_var = ctx.claim_name(EVENTS)
+    return [parse_stmt(f"{ctx.events_var} = {LIVE_IO}.events")]
 
 
 def entry_reads(ctx: CodeGenContext, off_pane: list[Terminal]) -> list[ast.stmt]:

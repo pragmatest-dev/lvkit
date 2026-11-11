@@ -8,12 +8,13 @@ from pathlib import Path
 
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import UNSUPPORTED_CONTROL, Gap
+from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 
 from .kinds import PanelControl
-from .layout import place
+from .layout import arrange, drawn
 from .model import panel_controls
 from .module import PanelSource, panel_source
 
@@ -23,10 +24,15 @@ _RUNTIME = Path(__file__).parent / "runtime"
 
 def _write_controls(package_root: Path) -> None:
     """The helper package of the panels, written once into the package root, and
-    the package's ``errors`` module it imports when the package has none yet."""
-    errors = package_root / f"{ERRORS_MODULE_NAME}.py"
-    if not errors.exists():
-        errors.write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
+    the package's ``errors`` and ``live_io`` modules it imports when the package
+    has none yet."""
+    for name, source in (
+        (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+    ):
+        module = package_root / f"{name}.py"
+        if not module.exists():
+            module.write_text(source, encoding="utf-8")
     target = package_root / CONTROLS_PACKAGE
     if not target.exists():
         shutil.copytree(_RUNTIME, target, ignore=shutil.ignore_patterns("__pycache__"))
@@ -63,17 +69,12 @@ def write_panel(
     for control in controls:
         if control.gap is not None:
             gaps.append(_gap_of(vi_name, control))
-    front_panel = graph.get_vi_front_panel(vi_name)
-    panel_bounds = front_panel.panel_bounds if front_panel else (0, 0, 400, 600)
-    boxes, width, height = place(controls, panel_bounds)
     in_package = logic_path.relative_to(package_root)
     source = panel_source(
         PanelSource(
             vi_label=Path(vi_name).name,
             controls=controls,
-            boxes=boxes,
-            width=width,
-            height=height,
+            rows=arrange(drawn(controls)),
             module=".".join(
                 logic_path.relative_to(package_root.parent).with_suffix("").parts
             ),
