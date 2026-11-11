@@ -36,6 +36,9 @@ class FrameSpec:
     # The row of the registration on the dynamic terminal the first event is
     # (``dynIndex``); 0 for a static event.
     dyn_index: int = 0
+    # The ``<i>`` a field's drawer stores where it differs from its position (the
+    # index counts a cluster field's own members, depth first).
+    flat: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -383,10 +386,11 @@ def _frame_nodes(
     drawers = []
     for name in spec.read:
         index = [n for n, _ in spec.fields].index(name)
+        stored = spec.flat.get(name, index)
         t = vi.next_uid(2)
         terms.data[name] = t
         drawers.append(t + 1)
-        order = f"<i>{index}</i>" if index else ""
+        order = f"<i>{stored}</i>" if stored else ""
         body += (
             f'<SL__arrayElement class="term" uid="{t}"><dco class="nmxDCO" '
             f'uid="{t + 1}"><objFlags>1</objFlags>'
