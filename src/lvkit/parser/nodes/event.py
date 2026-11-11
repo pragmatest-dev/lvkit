@@ -17,7 +17,7 @@ caption via the FRONT-PANEL heap (``ddo[@uid=...]``, same
 control names) — and ``type`` is the event-type code, matched against
 ``CONFIRMED_EVENT_TYPES`` (a short, clean-room-verified table; an
 unconfirmed code is surfaced as an explicit ``<unknown event 0x...>``
-sentinel, never guessed at, see ``_format_event_label``). LabVIEW's
+sentinel, never guessed at, see ``_format_event_source``). LabVIEW's
 own convention BAKES the bracketed index into the label text itself
 (``" [3] "copyrights": Value Change "``), so the displayed frame's faithful
 label and every reconstructed label share the same visual shape — the
@@ -79,11 +79,14 @@ EVENT_TUNNEL_DCO_CLASSES = (
 # BOTH the Event Data Node and the Event Filter Node (see module docstring).
 _EVENT_DATA_NODE_CLASS = "eventDataNode"
 
+# The ``EventSpec.type`` of a User Event (a dynamic event: ``source`` 1).
+USER_EVENT_TYPE_CODE = 1000
+
 # EventSpec.type codes confirmed clean-room by cross-checking the
 # reconstructed label against the displayed frame's own faithful heap text
 # (VI Tester About.vi — see module docstring). Add an entry here ONLY once
 # confirmed the same way; an unconfirmed/unmapped code is never guessed at —
-# ``_format_event_label`` just omits the event-type name for it. Each later
+# ``_format_event_source`` just omits the event-type name for it. Each later
 # entry names a sample-corpus VI whose DISPLAYED frame carries that code and
 # names the event in its own heap text (pinned by
 # ``tests/test_event_parser.py::test_confirmed_type_matches_displayed_frame``).
@@ -163,8 +166,8 @@ def _extract_one_event_structure(
     num_frames = len(diag_elems)
 
     tunnels = _extract_event_tunnels(elem)
-    event_specs = _extract_event_specs(elem)
-    labels, displayed = _resolve_frame_labels(elem, num_frames, event_specs, fp_root)
+    event_specs = _extract_event_specs(elem, fp_root)
+    labels, displayed = _resolve_frame_labels(elem, num_frames, event_specs)
     data_node_uids = _list_uids(elem.find("dataNodeList"))
     filter_node_uids = _list_uids(elem.find("filterNodeList"))
 
@@ -252,12 +255,15 @@ def _frame_extra_node_uids(
     return extra
 
 
-def _extract_event_specs(elem: ET.Element) -> dict[int, list[FrameEvent]]:
+def _extract_event_specs(
+    elem: ET.Element, fp_root: ET.Element | None
+) -> dict[int, list[FrameEvent]]:
     """Per-frame ``EventSpec`` info, keyed by ``diagramIdx`` — the ONLY heap
     source correlating a frame to its source control and event-type code
     (see module docstring). ``EventNodeEvents`` is the eventStruct's own
     array of ``EventSpec`` elements; a frame that handles several events has
-    one element for each, kept in file order. Absent (or malformed) entries are
+    one element for each, kept in file order, each with its part of the frame
+    label (``_format_event_source``). Absent (or malformed) entries are
     simply skipped, leaving that frame's reconstruction to degrade to
     ``"[N]"``.
     """
@@ -271,16 +277,19 @@ def _extract_event_specs(elem: ET.Element) -> dict[int, list[FrameEvent]]:
             continue
         ddo_uid = spec_elem.findtext("ddoUID")
         type_text = spec_elem.findtext("type")
-        specs.setdefault(int(idx_text), []).append(
-            FrameEvent(
-                source_ddo_uid=ddo_uid if ddo_uid and ddo_uid != "0" else None,
-                type_code=(
-                    int(type_text)
-                    if type_text and type_text.lstrip("-").isdigit()
-                    else None
-                ),
-            )
+        dyn_text = spec_elem.findtext("dynIndex")
+        dyn_index = int(dyn_text) if dyn_text and dyn_text.isdigit() else 0
+        event = FrameEvent(
+            dyn_index=dyn_index or None,
+            source_ddo_uid=ddo_uid if ddo_uid and ddo_uid != "0" else None,
+            type_code=(
+                int(type_text)
+                if type_text and type_text.lstrip("-").isdigit()
+                else None
+            ),
         )
+        event.label = _format_event_source(event, fp_root)
+        specs.setdefault(int(idx_text), []).append(event)
     return specs
 
 
@@ -302,19 +311,12 @@ def _resolve_control_caption(
     return extract_label(ddo)
 
 
-def _format_event_label(
-    idx: int,
-    events: list[FrameEvent],
-    fp_root: ET.Element | None,
-) -> str:
-    """Reconstruct frame ``idx``'s display label from its ``EventSpec``
-    entries, in saved order: ``[N]`` then each event's part
-    (``_format_event_source``), joined by ``, `` as a case frame joins its
-    values. For a frame of one event this is LabVIEW's own displayed-frame
+def frame_label(idx: int, parts: list[str]) -> str:
+    """Frame ``idx``'s display label: ``[N]`` then each event's part, in saved
+    order, joined by ``, `` as a case frame joins its values; an empty part is
+    left out. For a frame of one event this is LabVIEW's own displayed-frame
     format (``[N] "<Control>": <EventType>``) exactly."""
-    sources = ", ".join(
-        source for spec in events if (source := _format_event_source(spec, fp_root))
-    )
+    sources = ", ".join(part for part in parts if part)
     return f"[{idx}] {sources}" if sources else f"[{idx}]"
 
 
@@ -351,10 +353,9 @@ def _resolve_frame_labels(
     elem: ET.Element,
     num_frames: int,
     event_specs: dict[int, list[FrameEvent]],
-    fp_root: ET.Element | None,
 ) -> tuple[list[str], int | None]:
     """Per-frame display labels: every frame is RECONSTRUCTED from its
-    ``EventSpec`` (see ``_format_event_label``); the frame LabVIEW last
+    ``EventSpec`` entries (see ``frame_label``); the frame LabVIEW last
     displayed (heap ``dIdx``, omitted when 0 — the same "XML omits a 0
     field" convention as ``parmIndex``/``paramIdx`` elsewhere in this parser)
     then gets its own precomputed ``selString`` text INSTEAD, verbatim —
@@ -364,7 +365,7 @@ def _resolve_frame_labels(
     it always wins over the reconstruction for its own frame.
     """
     labels = [
-        _format_event_label(i, event_specs.get(i, []), fp_root)
+        frame_label(i, [event.label for event in event_specs.get(i, [])])
         for i in range(num_frames)
     ]
     # Event frames use the "omit dIdx when 0" convention, so absent -> frame 0.
