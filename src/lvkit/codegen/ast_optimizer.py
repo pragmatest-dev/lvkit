@@ -627,9 +627,17 @@ def _reads(node: ast.AST, name: str) -> int:
 
 
 def _leaves_block(node: ast.AST) -> bool:
-    """True when ``node`` holds a ``break`` or ``continue``: the branch can end
-    before a later statement of it runs."""
-    return any(isinstance(n, (ast.Break, ast.Continue)) for n in ast.walk(node))
+    """True when ``node`` holds a ``break`` or ``continue`` of the loop around
+    the branch: the branch can end before a later statement of it runs. One
+    inside a loop nested in ``node`` ends only that loop (its ``else`` block
+    still belongs to the loop around)."""
+    if isinstance(node, (ast.Break, ast.Continue)):
+        return True
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return False
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        return any(_leaves_block(s) for s in node.orelse)
+    return any(_leaves_block(child) for child in ast.iter_child_nodes(node))
 
 
 def _mentions(node: ast.AST, name: str) -> bool:

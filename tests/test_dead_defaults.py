@@ -307,6 +307,25 @@ def test_the_default_is_kept_when_a_branch_can_break_before_assigning():
     assert _run(_clean(code), "f", [3, 9]) == 0
 
 
+def test_a_break_of_a_loop_inside_the_branch_does_not_keep_the_default():
+    code = """
+    def f(flag, items):
+        out = 0
+        if flag:
+            for item in items:
+                if item > 5:
+                    break
+            out = 1
+        else:
+            out = 2
+        return out
+    """
+    assert "out = 0" not in _clean(code)
+    assert _run(_clean(code), "f", True, [9]) == _run(
+        textwrap.dedent(code), "f", True, [9]
+    ) == 1
+
+
 def test_the_default_is_kept_when_a_branch_can_continue_before_assigning():
     _unchanged(
         """
