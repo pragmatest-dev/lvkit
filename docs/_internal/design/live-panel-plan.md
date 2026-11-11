@@ -609,4 +609,20 @@ As built (the points where the code settles what the list above leaves open):
 - A method whose class output is the object it was called on returns no field for it, so a third function attribute, `panel_passed` (indicator label to `self`), names it.
 - An unknown label is error 1 with the message `"<label>" not found` (maintainer, 2026-11-11: no NI page gives an error for it; the one observed case, NI forum thread "Help with Set Control Value, Control Name", reports "ERR1" with `"X" not found` for a wrong control name). A reference that is Not a Refnum is error 1026.
 - `Execution.State` of a VI reference reads `FrontPanel.of(reference).state` (1 Idle, 2 Run top level while a run is in progress; NI's execstate.html lists Bad 0, Idle 1, Run top level 2, Running 3).
-- The deprecated forms (Ctrl Val.Set (Deprecated), Get All (Deprecated)) take and return the value as an array of flattened bytes and a type string; they stay a gap.
+- The deprecated forms (Ctrl Val.Set (Deprecated), Get All (Deprecated)) take and return the value as an array of flattened bytes and a type string; they stay a gap. Their general form would follow the flatten rule (CLAUDE.md "GENERATED PYTHON": a type known at generation time keeps LabVIEW's flattened format) for every type with a public layout, a class or refnum staying a gap; built only if the corpus uses them in 10+ places (maintainer, 2026-11-11: "a general converter, not a JKI-only converter").
+
+## 14. Control references: Panel, Controls[], Label.Text, Indicator, Value (PROPOSED, 2026-11-11; plan approved, mechanism to be seen)
+
+Extends §13 (`FrontPanel`) and §10/§11 (rows by class + property code; UI-state writes through `live_io.set_property`). Nothing recorded is replaced. Unmapped rows stay gaps (#294).
+
+**Corpus** (Property Node rows on a wired reference, 11 sample folders, distinct rows, `.tmp/prop_hits` in lvkit-fpref): Ctl Label.Text 23 read + 8 write, VI Panel 20, Pnl Controls[] 16, Clust AllObjs[] 13 + Clust Controls[] 8, Ctl Value 8 read (+ typed classes: Str Value 5 write, Ring Value 4 write), Ctl Indicator 5, Ctl Caption / HasCaption 4 each, Visible / Disabled writes on typed classes 4 each.
+
+**NI's definitions** (docs-be `labview-api-ref`, `properties-and-methods/vi-server/generic/gobject/...`): Controls[] "Array of references to the controls and indicators on the front panel. The array contains the references in tabbing order." (`panel/controls.html`); Indicator "If TRUE, the front panel object is an indicator." (`control/indicator.html`); Value "Data value of the control (LV variant)", read/write while running (`control/value.html`); Label "Reference to the label object. You can use this reference with the Text properties." (`control/label.html`).
+
+**Mechanism** (in the generated `front_panels.py`, no lvkit import):
+- A VI reference's `Panel` is `FrontPanel.of(ref)`.
+- `FrontPanel.controls` is a list of `Control` objects, one per control and indicator of the function, in tabbing order. Each has `label` (the LabVIEW label, read-only), `indicator` (from `panel_indicators` / `panel_passed`), and `value`, a property whose get / set is the panel's `get` / `set` (§13), so Value through a reference and Ctrl Val agree.
+- Rows are matched by class + property code (§10.2): Label.Text read → `ctl.label`; Indicator read → `ctl.indicator`; Value read / write on Ctl and every class that inherits Value's code → `ctl.value`.
+- Everything else stays a gap for now: Label.Text write (renaming a control while running), Caption, Visible / Disabled through a reference (the referenced VI's `live_io` is not reachable from a `FrontPanel`), cluster element references (Clust Controls[] / AllObjs[]).
+
+**Open: the tabbing order.** The parser records no tab order (`parser/` has none). Candidate sources in the front-panel heap: `ddoList` (the panel's object list) and `zPlaneList` (drawing order). Settle from the corpus and public sources before use; until settled, `Controls[]` is a gap rather than a guessed order.
