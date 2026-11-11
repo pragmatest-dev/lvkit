@@ -139,21 +139,21 @@ class _Kinds:
 
 def test_events_are_queued_only_while_listening() -> None:
     live = LiveValues(_Kinds)
-    assert live.events is not None
+    assert live.panel_events is not None
     live.add_control("gain", 1)
     live.set_control("gain", 2)
-    assert live.events.queue.empty()
-    live.events.start()
+    assert live.panel_events.queue.empty()
+    live.panel_events.start()
     live.set_control("gain", 3)
-    assert live.events.queue.get() == ("gain", 3, "Value Change", 2)
-    live.events.stop()
-    assert live.events.ask_close() is None
+    assert live.panel_events.queue.get() == ("gain", 3, "Value Change", 2)
+    live.panel_events.stop()
+    assert live.panel_events.ask_close() is None
 
 
 def test_a_wait_for_an_event_keeps_its_timeout_and_ends_on_abort() -> None:
     live = LiveValues(_Kinds)
-    assert live.events is not None
-    inbox = live.events.queue
+    assert live.panel_events is not None
+    inbox = live.panel_events.queue
     with pytest.raises(queue.Empty):
         inbox.get(timeout=0.05)
     live.request_abort()
@@ -162,5 +162,8 @@ def test_a_wait_for_an_event_keeps_its_timeout_and_ends_on_abort() -> None:
 
 
 def test_a_vi_without_an_event_structure_has_no_events() -> None:
+    assert LiveValues().panel_events is None
     assert LiveValues().events is None
-    assert isinstance(LiveValues(_Kinds).events, PanelEvents)
+    assert isinstance(LiveValues(_Kinds).panel_events, PanelEvents)
+    inbox = LiveValues(_Kinds)
+    assert inbox.events is inbox.panel_events.queue

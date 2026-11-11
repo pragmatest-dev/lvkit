@@ -15,6 +15,8 @@ from types import ModuleType
 from typing import Any
 
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
+from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.load_mode import LoadMode
@@ -338,12 +340,40 @@ def error_cluster_type() -> Any:
 
 _generated_modules = itertools.count()
 
+# The package a generated module runs in, holding the modules every generated
+# package root has (``from .errors import LabVIEWError``, ``from .live_io import
+# LiveIO, NO_LIVE_IO``).
+GENERATED_PACKAGE = "generated_package"
 
-def exec_module(source: str, filename: str = "<generated>") -> ModuleType:
-    """Run generated module ``source`` as a module registered in ``sys.modules``:
-    a result class is a ``dataclass``, which looks its module up while it is
-    defined."""
-    module = ModuleType(f"_generated_{next(_generated_modules)}")
+
+def install_generated_package() -> None:
+    """Register ``GENERATED_PACKAGE`` and its ``errors`` and ``live_io`` modules
+    in ``sys.modules`` (once)."""
+    if GENERATED_PACKAGE in sys.modules:
+        return
+    package = ModuleType(GENERATED_PACKAGE)
+    package.__path__ = []
+    sys.modules[GENERATED_PACKAGE] = package
+    for name, source in (
+        (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+    ):
+        module = ModuleType(f"{GENERATED_PACKAGE}.{name}")
+        sys.modules[module.__name__] = module
+        exec(compile(source, f"{name}.py", "exec"), module.__dict__)  # noqa: S102
+
+
+def exec_module(
+    source: str, filename: str = "<generated>", name: str | None = None
+) -> ModuleType:
+    """Run generated module ``source`` as the module ``name`` (a fresh one when
+    None) of ``GENERATED_PACKAGE``, registered in ``sys.modules`` before its code
+    runs: a result class is a ``dataclass``, which looks its module up while it
+    is defined."""
+    install_generated_package()
+    module_name = name or f"_generated_{next(_generated_modules)}"
+    module = ModuleType(f"{GENERATED_PACKAGE}.{module_name}")
+    module.__package__ = GENERATED_PACKAGE
     sys.modules[module.__name__] = module
     exec(compile(source, filename, "exec"), module.__dict__)  # noqa: S102
     return module

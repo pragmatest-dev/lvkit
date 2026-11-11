@@ -32,6 +32,7 @@ from tests.event_diagrams import (
     user_event_frame,
     value_change_frame,
 )
+from tests.live_io_recorder import Recorder
 from tests.user_event_diagrams import (
     BOOL,
     ListenFrame,
@@ -435,7 +436,7 @@ def test_front_panel_events_and_a_user_event_share_the_events_queue(
     kinds = package.module.MixedEvent
     panel: queue.Queue = queue.Queue()
     panel.put((names.GAIN, 4, kinds.VALUE_CHANGE, 1))
-    result = package.function(0, events=panel)
+    result = package.function(0, live_io=Recorder(events=panel))
     assert (result.last_new, result.seen) == (4, 3)
 
 

@@ -36,7 +36,7 @@ from ..cluster_members import member_expression
 from ..context import CodeGenContext
 from ..event_kinds import QUEUE_IMPORT
 from ..fragment import CodeFragment
-from .event_user import EVENTS, has_static_events, make_events
+from .event_user import events_var, has_static_events, make_events
 from .user_events import unregister_statement
 
 _USER_EVENT = "UserEvent"
@@ -66,8 +66,8 @@ def generate_register(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if old is not None:
         queue = f"{old}[0]"
     elif has_static_events(ctx):
-        statements.append(make_events())
-        queue = EVENTS
+        queue = events_var(ctx)
+        statements.append(make_events(queue))
     else:
         queue = "Queue()"
     registration = ctx.make_output_var(

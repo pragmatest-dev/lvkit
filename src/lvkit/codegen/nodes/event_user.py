@@ -16,7 +16,8 @@ Which queue a structure reads: the registration's own (``registration[0]``) when
 is the only one and the VI has no front-panel events. When the VI has some, or the
 terminal carries a cluster of registrations, the structure reads the VI's
 ``events`` queue and points each registration to it (``events`` is the queue of
-the whole VI, as for the front panel's events): it moves the messages waiting in the
+the whole VI, set from ``live_io.events`` when the function starts,
+``panel_hooks.entry_events``): it moves the messages waiting in the
 registration's queue to ``events``, replaces the queue in each user event's list
 (``registered``) and in the registration. That is idempotent, so a structure in a
 loop does it at every pass.
@@ -43,6 +44,7 @@ from lvkit.models import EventFrame, EventRegRow, FrameEvent, LVType, LVTypeKind
 from ..ast_utils import parse_stmt
 from ..cluster_members import member_expression
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..event_kinds import (
     NAME,
     NEW_VALUE,
@@ -51,7 +53,6 @@ from ..event_kinds import (
 )
 
 _EVENT_REG = "EventReg"
-EVENTS = "events"
 
 
 @dataclass(frozen=True)
@@ -242,39 +243,52 @@ def receive_queue(
     """The queue the structure reads its next message from, and the statements that
     come first: for the VI's ``events``, making it when none came in and pointing
     each registration to it."""
+    events = events_var(ctx)
     if reg is None:
-        return EVENTS, [make_events()]
+        return events, [make_events(events)]
     registrations = _registrations(node, reg, ctx)
     if len(registrations) == 1 and not has_static_events(ctx):
         return f"{registrations[0]}[0]", []
-    statements = [make_events()]
+    statements = [make_events(events)]
     for registration in registrations:
         statements.append(
-            _repoint(registration, ctx.make_output_var("registered", node.id))
+            _repoint(registration, ctx.make_output_var("registered", node.id), events)
         )
-    return EVENTS, statements
+    return events, statements
 
 
-def make_events() -> ast.stmt:
+def events_var(ctx: CodeGenContext) -> str:
+    """The variable that holds the VI's queue of events, set when its function
+    starts (``panel_hooks.entry_events``)."""
+    if ctx.events_var is None:
+        raise CodeGenError(
+            "an Event Structure or Register For Events node is generated in a VI "
+            "whose function did not read its queue of events from live_io",
+            None,
+        )
+    return ctx.events_var
+
+
+def make_events(events: str) -> ast.stmt:
     """``if events is None: events = Queue()``."""
-    return parse_stmt(f"if {EVENTS} is None:\n    {EVENTS} = Queue()")
+    return parse_stmt(f"if {events} is None:\n    {events} = Queue()")
 
 
-def _repoint(registration: str, registered: str) -> ast.stmt:
+def _repoint(registration: str, registered: str, events: str) -> ast.stmt:
     """Point ``registration`` at the VI's ``events`` once: each of its user events
     gets ``events`` before it loses the old queue, so a Generate on another thread
     always reaches one of them, and the old queue is emptied into ``events`` only
     after no user event puts into it any more, so no message is left behind."""
     return parse_stmt(
-        f"if {registration}[0] is not {EVENTS}:\n"
+        f"if {registration}[0] is not {events}:\n"
         f"    for {registered} in {registration}[2]:\n"
-        f"        if {EVENTS} not in {registered}:\n"
-        f"            {registered}.append({EVENTS})\n"
+        f"        if {events} not in {registered}:\n"
+        f"            {registered}.append({events})\n"
         f"        if {registration}[0] in {registered}:\n"
         f"            {registered}.remove({registration}[0])\n"
         f"    while not {registration}[0].empty():\n"
-        f"        {EVENTS}.put({registration}[0].get())\n"
-        f"    {registration}[0] = {EVENTS}"
+        f"        {events}.put({registration}[0].get())\n"
+        f"    {registration}[0] = {events}"
     )
 
 
@@ -282,6 +296,7 @@ __all__ = [
     "DynamicRegistration",
     "data_fields",
     "dynamic_registration",
+    "events_var",
     "has_static_events",
     "make_events",
     "receive_queue",

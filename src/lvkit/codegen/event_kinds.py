@@ -1,7 +1,8 @@
 """The events of an Event Structure that generated code handles.
 
-A VI that holds an Event Structure takes a queue of the front panel's events as
-``events``. A message is ``(name, new_value, kind, old_value)``: the name of the
+A VI that holds an Event Structure takes a queue of the front panel's events
+from ``live_io.events`` (``panel_hooks``). A message is
+``(name, new_value, kind, old_value)``: the name of the
 control the event comes from (the member of the VI's name enum, empty for an
 event with no control), the value it holds after the event, the kind of event
 (a member of the VI's event enum, below) and the value before. A filter event

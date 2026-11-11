@@ -3,7 +3,7 @@
 A control is a variable of the function (its parameter), so a Local Variable of
 a control is an assignment (a write) or a read of that variable. A write is a
 node of the walk. A read is a node of the walk when it asks the caller for the
-control's current value (``on_read``, ``panel_hooks``), which it does inside a
+control's current value (``live_io.read``, ``panel_hooks``), which it does inside a
 loop or Event Structure of a VI that has the hooks, or when the VI also writes
 the control by a Local Variable (so the read gives the variable where its node
 runs); every other read resolves through the wire to the control's parameter,

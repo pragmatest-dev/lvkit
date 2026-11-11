@@ -1,10 +1,13 @@
 """Code generator for Event Structures.
 
 An Event Structure waits for an event of the front panel and runs the frame of the
-event that came. A VI that holds one takes a queue of the panel's events as
-``events`` (``codegen/event_kinds.py``), and the structure reads its next message
-from it::
+event that came. A VI that holds one reads the queue of the panel's events from
+``live_io.events`` into ``events`` when its function starts
+(``panel_hooks.entry_events``, ``codegen/event_kinds.py``), and the structure reads
+its next message from it::
 
+    events = live_io.events           # at the start of the function
+    ...
     if events is None:
         events = Queue()
     try:
@@ -22,7 +25,7 @@ The queue staying empty for the time of the Timeout terminal (-1 or unwired: for
 ever) is the Timeout. A frame is chosen by the control and the kind of event the
 file records for it, never by its label. The frame of a filter event (Panel
 Close?) ends by answering on the message's reply queue with the Event Filter
-Node's Discard?. A VI called with no ``events`` waits on an empty queue of its
+Node's Discard?. A VI called with no ``live_io.events`` waits on an empty queue of its
 own, as LabVIEW waits with nobody at the panel: with a Timeout it runs the Timeout
 frame, without one it waits for ever.
 
