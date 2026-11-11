@@ -709,8 +709,16 @@ class TestIPESBorderDataFlowIds:
 
     def _array_structure(self, *, second_index: bool = False):
         ctx = make_ctx(
-            "arr", "idx", "idx2", "arr_out", "t_arr", "elem", "t_idx", "t_idx2",
-            "new", "w_arr",
+            "arr",
+            "idx",
+            "idx2",
+            "arr_out",
+            "t_arr",
+            "elem",
+            "t_idx",
+            "t_idx2",
+            "new",
+            "w_arr",
         )
         ctx.bind("arr", "items")
         ctx.bind("idx", "i")
@@ -841,6 +849,45 @@ class TestIPESBorderDataFlowIds:
         )
         assert ctx.resolve("r_data") == "ref[0]"
         assert "ref[0] = updated" in code
+        assert frag.bindings["dvr_out"] == "ref"
+
+    def test_data_value_reference_element_passed_through_is_not_written_back(self):
+        ctx = make_ctx("dvr", "dvr_out", "r_in", "r_data", "w_data", "w_out")
+        ctx.bind("dvr", "ref")
+        # The element reaches the write tile as the expression the read bound.
+        ctx.bind("w_data", "ref[0]")
+        reference = LVType(
+            kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
+        )
+        tiles = [
+            _tile(
+                "read",
+                "decomposeDataValRefNode",
+                None,
+                [
+                    _term("r_in", "input", dco="DVR", lv_type=reference),
+                    _term("r_data", "output", 1),
+                ],
+            ),
+            _tile(
+                "write",
+                "decomposeDataValRefNode",
+                None,
+                [
+                    _term("w_data", "input"),
+                    _term("w_out", "output", 1, dco="DVR2", lv_type=reference),
+                ],
+            ),
+        ]
+        ports = [
+            _term("dvr", "input", 0, dco="DVR"),
+            _term("dvr_out", "output", 1, dco="DVR2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+
+        frag = in_place.generate(node, ctx)
+
+        assert frag.statements == []
         assert frag.bindings["dvr_out"] == "ref"
 
 
