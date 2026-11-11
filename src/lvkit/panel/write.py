@@ -13,7 +13,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 
 from .kinds import PanelControl
-from .layout import drawn, place
+from .layout import arrange, drawn
 from .model import panel_controls
 from .module import PanelSource, panel_source
 
@@ -63,17 +63,12 @@ def write_panel(
     for control in controls:
         if control.gap is not None:
             gaps.append(_gap_of(vi_name, control))
-    front_panel = graph.get_vi_front_panel(vi_name)
-    panel_bounds = front_panel.panel_bounds if front_panel else (0, 0, 400, 600)
-    boxes, width, height = place(drawn(controls), panel_bounds)
     in_package = logic_path.relative_to(package_root)
     source = panel_source(
         PanelSource(
             vi_label=Path(vi_name).name,
             controls=controls,
-            boxes=boxes,
-            width=width,
-            height=height,
+            rows=arrange(drawn(controls)),
             module=".".join(
                 logic_path.relative_to(package_root.parent).with_suffix("").parts
             ),

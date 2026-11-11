@@ -104,18 +104,21 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
         assert "lvkit" not in text.replace("``lvkit.panel.write``", "")
 
 
-def test_each_control_sits_at_its_stored_bounds_with_its_label_above(
+def test_controls_are_stacked_in_rows_and_columns_in_the_order_of_their_bounds(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
     source = (package.root / f"{STEM}_panel.py").read_text()
-    # Stop (40, 20, 70, 120): left 20 + 12, top 40 - 16 + 12, width 100.
-    assert "left:32px;top:36px;width:100px;" in source
-    # Count (40, 160, 62, 300) sits at the same top, to the right.
-    assert "left:172px;top:36px;width:140px;" in source
-    assert "caption('Stop')" in source
-    assert "caption('Count')" in source
+    # Stop (40, 20, 70, 120) and Count (40, 160, 62, 300) share the first row,
+    # Stop on the left; Offset (110, 20, 132, 160) is a second row.
+    assert "position:absolute" not in source
+    assert source.count("ui.row()") == 2
+    assert source.count("ui.column()") == 4  # the panel and one for each of three
+    stop, count, offset = (
+        source.index(f"caption('{label}')") for label in ("Stop", "Count", "Offset")
+    )
+    assert stop < count < offset
 
 
 def test_the_panel_builds_headless_with_a_widget_for_each_control(
@@ -162,9 +165,7 @@ def test_an_indicator_wired_to_a_control_in_the_loop_shows_each_re_read_value(
             seen.append(value)
         holder.update(name, value)
 
-    result = package.function(
-        False, 0, "", on_update=on_update, on_read=on_read
-    )
+    result = package.function(False, 0, "", on_update=on_update, on_read=on_read)
     assert seen == ["a", "b", "c"]
     assert result.echo == "c"
     holder.paint()
@@ -244,9 +245,7 @@ def test_run_calls_the_function_and_paints_the_result_when_it_returns(
             ):
                 break
         await user.should_see("done")
-        counted = [
-            e.value for e in user.find(kind=ui.input).elements if e.value
-        ]
+        counted = [e.value for e in user.find(kind=ui.input).elements if e.value]
         assert counted and int(counted[0]) >= 3
 
     _simulate(panel.build_panel, scenario)
@@ -276,9 +275,7 @@ def test_abort_in_the_panel_ends_a_run_that_is_waiting_for_stop(
 
 def _slide_control_vi() -> Vi:
     vi = counting_vi()
-    vi.control(
-        "Level", I32, REQUIRED, ddo_class="stdSlide", bounds=(250, 20, 272, 260)
-    )
+    vi.control("Level", I32, REQUIRED, ddo_class="stdSlide", bounds=(250, 20, 272, 260))
     return vi
 
 
@@ -310,9 +307,7 @@ def _build_in_a_page(build_panel: Callable[[], None]) -> None:
     asyncio.run(run())
 
 
-def _generate(
-    monkeypatch: pytest.MonkeyPatch, *arguments: str
-) -> int:
+def _generate(monkeypatch: pytest.MonkeyPatch, *arguments: str) -> int:
     monkeypatch.setattr(sys, "argv", ["lvkit", "generate", *arguments, "--panel"])
     return main()
 
