@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **An Event Structure frame for a registered user event is named after its row** — `[1] <Start>: User Event`, or `<Field.Label>` when the registration is a cluster of registrations, in describe, lvnet, JSON and the render, where it read `<unknown event 0x000003E8>`; JSON types show an Event Registration's `event_rows`.
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
 - **Fix: an LLB whose members could not all be cached is extracted again** — a cache where every member failed, or a cached member file that was deleted, is no longer reused as is.
 - **A front panel's Subpanel control is read and drawn** — its frame, content area and caption show in `render --view front-panel`, and `EXE Test.vi` and `Add Attributes to Message.vi` no longer record "could not read an object of kind stdSubPanel".
