@@ -6,12 +6,15 @@ import ast
 import builtins
 import keyword
 import re
+import sys
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from lvkit.graph.core import uid_of
 from lvkit.lv_type_codes import (
+    COMPLEX_TYPE_NAMES,
     INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     is_boolean_type_name,
     is_string_type_name,
 )
@@ -41,9 +44,10 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     item, a path the empty path, an array ``[]``; a named cluster is a
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
-    error). A type with no Python value (a refnum, a class, a variant) is
-    ``None``. The module that holds the expression imports what it names
-    (``implicit_imports``)."""
+    error). A type with no Python value (a refnum, a variant) is ``None``, and so
+    is a class: an unwired class input holds the class's default object, which
+    the function makes in its body (``class_input_default``). The module that
+    holds the expression imports what it names (``implicit_imports``)."""
     if lv_type is None:
         return ast.Constant(value=None)
     kind = lv_type.kind
@@ -65,7 +69,8 @@ def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
     """The default a parameter of a LabVIEW type takes in a ``def`` when the
     control saves none: the type's default for a number, Boolean, string, enum
     or ring, and ``None`` for anything else (a ``def`` default is evaluated once,
-    so a list or object there would be shared by every call)."""
+    so a list or object there would be shared by every call; the function makes
+    the array or class object for ``None`` in its body)."""
     if lv_type is None:
         return ast.Constant(value=None)
     if lv_type.kind == LVTypeKind.PRIMITIVE:
@@ -82,8 +87,10 @@ def _scalar_default(underlying: str | None) -> ast.Constant:
         return ast.Constant(value=False)
     if underlying in INTEGER_TYPE_NAMES:
         return ast.Constant(value=0)
-    if underlying in ("NumFloat32", "NumFloat64"):
+    if underlying in REAL_FLOAT_TYPE_NAMES:
         return ast.Constant(value=0.0)
+    if underlying in COMPLEX_TYPE_NAMES:
+        return ast.Constant(value=0j)
     return ast.Constant(value=None)
 
 
@@ -477,19 +484,16 @@ GENERATED_MODULE_NAMES = frozenset(
     }
 )  # fmt: skip
 
-# The keyword-only parameters of a VI that touches its front panel while it runs
-# (``panel_hooks``): no variable of the function takes their names.
-ON_UPDATE = "on_update"
-ON_READ = "on_read"
-ON_PROPERTY = "on_property"
+# The keyword-only parameter of a VI that touches its front panel while it runs
+# (``panel_hooks``): no variable of the function takes its name.
+LIVE_IO = "live_io"
+
+# The wanted name of the variable that holds the queue of events of a VI with an
+# Event Structure (``panel_hooks.entry_events``); numbered when the VI already has
+# the name, so it is not reserved.
 EVENTS = "events"
 
-RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {
-    ON_UPDATE,
-    ON_READ,
-    ON_PROPERTY,
-    EVENTS,
-}
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES | {LIVE_IO}
 
 
 def node_owned_name(prefix: str, function_name: str, node_id: str) -> str:
@@ -593,6 +597,17 @@ def module_part(name: str) -> str:
     return result or "module"
 
 
+def package_root_name(stem: str) -> str:
+    """The generated package's name: the input file's ``stem`` by ``module_part``,
+    with ``_`` after a name Python already has as a top-level module (the
+    standard library's, or a package generated code imports), so importing the
+    package never hides that module (``Numbers.vi`` is the package ``numbers_``)."""
+    name = module_part(stem)
+    if name in sys.stdlib_module_names or name in GENERATED_MODULE_NAMES:
+        name += "_"
+    return name
+
+
 def to_module_name(vi_name: str) -> str:
     """Convert VI name to Python module name (strips library prefix).
 
@@ -609,7 +624,7 @@ def to_module_name(vi_name: str) -> str:
 def parameter_default_expr(inp: Terminal) -> ast.expr:
     """The default of a control as a ``def`` parameter: its saved default when
     that maps cleanly to its scalar type, else ``parameter_default_expr_of_type``."""
-    saved = _saved_scalar_default(inp)
+    saved = saved_default_expr(inp.default_value, inp.lv_type)
     return saved if saved is not None else parameter_default_expr_of_type(inp.lv_type)
 
 
@@ -617,23 +632,23 @@ def control_default_expr(inp: Terminal) -> ast.expr:
     """The value a control or indicator holds as a variable of the function (an
     off-pane control, an indicator a Local Variable reads): its saved default
     when that maps cleanly to its scalar type, else ``type_default_expr``."""
-    saved = _saved_scalar_default(inp)
+    saved = saved_default_expr(inp.default_value, inp.lv_type)
     return saved if saved is not None else type_default_expr(inp.lv_type)
 
 
-def _saved_scalar_default(inp: Terminal) -> ast.expr | None:
-    """A control's saved default as its scalar type reads it; None when it saves
-    none or one that is not a scalar of its type."""
-    dv = inp.default_value
+def saved_default_expr(dv: ScalarValue, lv_type: LVType | None) -> ast.expr | None:
+    """A control's saved default ``dv`` as its scalar type ``lv_type`` reads it (the
+    generated function and the generated front panel both start a control from
+    it); None when it saves none or one that is not a scalar of its type."""
     if dv is None:
         return None
-    underlying = inp.lv_type.underlying_type if inp.lv_type else None
+    underlying = lv_type.underlying_type if lv_type else None
     try:
-        if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        if lv_type and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             return ast.Constant(value=int(dv))
         if underlying and underlying.startswith(("NumInt", "NumUInt")):
             return ast.Constant(value=int(dv))
-        if underlying in ("NumFloat32", "NumFloat64"):
+        if underlying in REAL_FLOAT_TYPE_NAMES:
             return ast.Constant(value=float(dv))
         if underlying == "Boolean":
             return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))

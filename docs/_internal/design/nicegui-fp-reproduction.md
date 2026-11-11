@@ -165,13 +165,23 @@ Buttons reference (docs, not artwork):
 **Clean-room:** draw OUR OWN glyphs in these shapes — NEVER ship NI's GIFs
 (`noloc_env_*.gif`). CLAUDE.md forbids NI-derived artwork.
 
-**Styleable, faithful baseline:** the layout + toolbar are reproduced
-**deterministically** from the VI (people invested work in their LV UI — start
-them exactly there), but the *look* is a swappable theme: a clean **modern**
-default and an optional **classic/ancient** LabVIEW look. Restyling changes
-appearance only, never the deterministic layout/geometry.
+**Styleable baseline:** the toolbar is reproduced **deterministically** from the
+VI, and the *look* is a swappable theme: a clean **modern** default and an
+optional **classic/ancient** LabVIEW look. Restyling changes appearance only,
+never the order and grouping of the controls.
 
-## 3. Faithful layout from the REAL front-panel XML (no invented constants)
+**Layout is a readable stacking, not pixel positions.** Maintainer decision, 2026-11-11: "don't make the NiceGUI code too beholden to LV and ensure that the code is readable using the nice stacking and such vs pixel perfection. I'd use LV as guide for layout and order". The controls'
+stored bounds give the order and the neighbours: at generation time they are
+grouped into rows (controls whose vertical ranges overlap) and, inside a row, into
+columns (controls whose horizontal ranges overlap), stacked top to bottom
+(`panel/layout.py` `arrange`), and written as nested `ui.column()`/`ui.row()`
+blocks with no pixel position or size. This replaces the earlier rule that the
+layout is reproduced from the bounds at each control's pixel position.
+
+## 3. Faithful widget geometry from the REAL front-panel XML (no invented constants)
+
+(Where a control sits on the panel follows the stacking rule of §2; this section
+is about the sizes inside a widget, such as an array's index display and cells.)
 
 The FPHb heap records each control's **internal parts**, and the parser currently
 keeps only the control's outer box and discards the rest — so the panel invented

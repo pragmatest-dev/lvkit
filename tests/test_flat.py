@@ -142,6 +142,27 @@ def test_type_cast_refnum_flattens_as_a_32_bit_integer() -> None:
     assert cast(refnum, U32)(4660).r == 4660
 
 
+_DVR = LVType(
+    kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
+)
+
+
+def test_a_reference_kept_in_an_integer_is_the_same_object_after_the_cast_back() -> (
+    None
+):
+    # A class keeps its data value reference in a U32 field and casts it back:
+    # in Python the reference is the object, and the integer holds that object.
+    held = [2.5]
+    as_number = cast(_DVR, U32)(held).r
+    assert as_number is held
+    assert cast(U32, _DVR)(as_number).r is held
+    assert cast(I32, _DVR)(held).r is held
+
+
+def test_an_integer_zero_cast_to_a_reference_is_not_a_reference() -> None:
+    assert cast(U32, _DVR)(0).r is None
+
+
 def test_types_with_no_flattened_form_raise_where_they_run() -> None:
     with pytest.raises(NotImplementedError, match="does not handle"):
         cast(U32, scalar("Variant"))(0)

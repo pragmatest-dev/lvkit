@@ -141,6 +141,7 @@ class _MethodBuilderMixin:
                         return_stmt=lambda: self._return_stmt(
                             shape, vi_context, ctx, property_accessor
                         ),
+                        receiver=receiver,
                     ),
                 )
             except CodeGenError as error:
@@ -154,6 +155,7 @@ class _MethodBuilderMixin:
         if self._lazy:
             body, imports = imports_inside(body, imports)
         self._parts.imports.update(imports)
+        self._parts.imports.update(ctx.signature_imports)
         if shape.kind is MethodKind.STATIC:
             decorators = [
                 ast.Name(id="staticmethod", ctx=ast.Load()),

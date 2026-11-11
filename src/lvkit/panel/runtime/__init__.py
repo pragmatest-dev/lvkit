@@ -10,6 +10,9 @@ from .widgets import (
     bool_indicator,
     bool_port,
     caption,
+    complex_control,
+    complex_indicator,
+    complex_port,
     number_control,
     number_indicator,
     number_port,
@@ -21,7 +24,13 @@ from .widgets_array import array_control, array_indicator, array_port
 from .widgets_choice import choice_control, choice_indicator, choice_port
 from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_error import error_control, error_indicator, error_port
-from .widgets_path import path_control, path_indicator, path_port
+from .widgets_opaque import (
+    hidden_port,
+    variant_control,
+    variant_indicator,
+    variant_port,
+)
+from .widgets_path import path_control, path_indicator, path_port, path_text
 
 __all__ = [
     "Abort",
@@ -36,6 +45,9 @@ __all__ = [
     "bool_indicator",
     "bool_port",
     "caption",
+    "complex_control",
+    "complex_indicator",
+    "complex_port",
     "choice_control",
     "choice_indicator",
     "choice_port",
@@ -45,13 +57,18 @@ __all__ = [
     "error_control",
     "error_indicator",
     "error_port",
+    "hidden_port",
     "number_control",
     "number_indicator",
     "number_port",
     "path_control",
     "path_indicator",
     "path_port",
+    "path_text",
     "string_control",
     "string_indicator",
     "string_port",
+    "variant_control",
+    "variant_indicator",
+    "variant_port",
 ]

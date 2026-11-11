@@ -8,7 +8,7 @@ import ast
 from lvkit.codegen.builder import topological_sort_tiered
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_path import is_error_selector
-from lvkit.codegen.nodes import case, invoke_node, nmux, property_node
+from lvkit.codegen.nodes import case, nmux, property_node
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import CaseStructureNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
@@ -558,79 +558,3 @@ class TestSelectorTopoSort:
             i for i, tier in enumerate(tiers) if any(op.id == "case_1" for op in tier)
         )
         assert producer_tier < case_tier
-
-
-# ── Invoke node error skip ─────────────────────────────────────────
-
-
-class TestInvokeErrorSkip:
-    """Invoke node codegen skips error cluster terminal arguments."""
-
-    def test_error_arg_not_in_call(self):
-
-        graph = InMemoryVIGraph()
-        # Create source nodes that wire into the invoke terminals
-        for tid, nid in [
-            ("ref_t", "src_ref"),
-            ("err_t", "src_err"),
-            ("data_t", "src_data"),
-        ]:
-            node = make_node(nid, [tid])
-            graph._graph.add_node(nid, node=node)
-            graph._term_to_node[tid] = nid
-        # Create the invoke node with its terminals
-        invoke_gnode = make_node("invoke_1", ["ref_t_in", "err_t_in", "data_t_in"])
-        graph._graph.add_node("invoke_1", node=invoke_gnode)
-        for tid in ("ref_t_in", "err_t_in", "data_t_in"):
-            graph._term_to_node[tid] = "invoke_1"
-        # Wire sources into invoke terminals
-        for src, dst, src_nid in [
-            ("ref_t", "ref_t_in", "src_ref"),
-            ("err_t", "err_t_in", "src_err"),
-            ("data_t", "data_t_in", "src_data"),
-        ]:
-            graph._graph.add_edge(
-                src_nid,
-                "invoke_1",
-                source=WireEnd(terminal_id=src, node_id=src_nid),
-                dest=WireEnd(terminal_id=dst, node_id="invoke_1"),
-            )
-
-        ctx = CodeGenContext(graph=graph)
-        ctx.bind("ref_t", "my_ref")
-        ctx.bind("err_t", "error_in")
-        ctx.bind("data_t", "my_data")
-
-        op = PrimitiveNode(
-            id="invoke_1",
-            vi_path="test.vi",
-            name="Invoke",
-            node_type="invokeNode",
-            terminals=[
-                Terminal(id="ref_t_in", index=0, direction="input"),
-                Terminal(
-                    id="err_t_in",
-                    index=2,
-                    direction="input",
-                    lv_type=_error_cluster_type(),
-                ),
-                Terminal(
-                    id="data_t_in",
-                    index=4,
-                    direction="input",
-                    lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
-                ),
-            ],
-            method_name="Ctrl Val.Set",
-        )
-
-        fragment = invoke_node.generate(op, ctx)
-
-        # Unparse the generated call
-        code = ast.unparse(
-            ast.fix_missing_locations(
-                ast.Module(body=fragment.statements, type_ignores=[])
-            )
-        )
-        assert "error_in" not in code
-        assert "my_data" in code

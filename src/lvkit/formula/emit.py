@@ -36,6 +36,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
+from lvkit.lv_type_codes import REAL_FLOAT_TYPE_NAMES
 from lvkit.python_numeric import CTYPES_INTEGER, float_divide
 
 from . import FormulaTranspileError
@@ -66,7 +67,6 @@ from .nodes import (
 # LabVIEW numeric type-name (parser's ParsedType.type_name) -> the ``ctypes``
 # integer type a store into it wraps to. Float types have none.
 _LV_INT_HELPER = {name: ctype for name, (ctype, _) in CTYPES_INTEGER.items()}
-_LV_FLOAT = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 
 # Formula-node declaration keyword -> ``ctypes`` integer type. ``float`` is a
 # LabVIEW alias for float64.
@@ -188,14 +188,21 @@ def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
     """Return ("int"|"float", int-coercion-helper-or-None) for an LV type."""
     if lv_type in _LV_INT_HELPER:
         return "int", _LV_INT_HELPER[lv_type]
-    if lv_type in _LV_FLOAT:
+    if lv_type in REAL_FLOAT_TYPE_NAMES:
         return "float", None
     raise FormulaTranspileError(f"unsupported variable type {lv_type!r}")
 
 
 class _Emitter:
-    def __init__(self, variables: list[VarSpec], func_name: str):
+    def __init__(
+        self,
+        variables: list[VarSpec],
+        func_name: str,
+        names: dict[str, str] | None = None,
+    ):
         self._serial = 0
+        # Python name a variable is written under, where it is not its own.
+        self.names = names or {}
         self.vars = {v.name: v for v in variables}
         self.var_list = variables
         self.func_name = func_name
@@ -247,7 +254,9 @@ class _Emitter:
         if isinstance(e, Num):
             return e.text
         if isinstance(e, Var):
-            return "math.pi" if e.name == "pi" else e.name
+            if e.name == "pi":
+                return "math.pi"
+            return self.names.get(e.name, e.name)
         if isinstance(e, Index):
             return f"{self._emit_expr(e.base)}[{self._emit_expr(e.index)}]"
         if isinstance(e, Call):
@@ -539,22 +548,23 @@ class _Emitter:
         func_def = ast.parse(source).body[0]
         assert isinstance(func_def, ast.FunctionDef)
 
-        imports: set[str] = set()
-        if "math." in source:
-            imports.add("import math")
-        if "ctypes." in source:
-            imports.add("import ctypes")
-        if "random." in source:
-            imports.add("import random")
-
         return TranspileResult(
             func_def=func_def,
             func_name=self.func_name,
             input_names=params,
             output_names=outputs,
-            imports=imports,
+            imports=_imports_of(source),
             source=source,
         )
+
+
+def _imports_of(source: str) -> set[str]:
+    """The import statements the emitted ``source`` needs."""
+    return {
+        f"import {module}"
+        for module in ("math", "ctypes", "random")
+        if f"{module}." in source
+    }
 
 
 def _index_root(e: Expr) -> str:
@@ -616,3 +626,40 @@ def transpile(
     """
     tree = parse(script)
     return _Emitter(variables, func_name).emit(tree)
+
+
+# The expression's value while it is parsed as a script. Not a name an
+# expression can use as its variable.
+EXPRESSION_RESULT = "_result"
+
+
+@dataclass
+class ExpressionResult:
+    """The Python expression of an Expression Node and the imports it needs."""
+
+    source: str
+    imports: set[str] = field(default_factory=set)
+
+
+def emit_expression(
+    text: str, variable: str, lv_type: str, python_name: str
+) -> ExpressionResult:
+    """The Python expression for the Expression Node formula ``text`` over the
+    one variable ``variable`` of numeric type ``lv_type``, with the variable
+    written as ``python_name``. The value has the variable's type: an integer
+    type rounds to nearest (ties to even) and wraps, a float type is direct.
+    Raises FormulaTranspileError on any unsupported construct."""
+    tree = parse(f"{EXPRESSION_RESULT} = {text};")
+    statement = tree.stmts[0] if len(tree.stmts) == 1 else None
+    if not isinstance(statement, Assign) or not isinstance(statement.target, Var):
+        raise FormulaTranspileError(f"{text!r} is not a single expression")
+    emitter = _Emitter(
+        [
+            VarSpec(variable, lv_type, "in", False),
+            VarSpec(EXPRESSION_RESULT, lv_type, "out", False),
+        ],
+        "expression",
+        names={variable: python_name},
+    )
+    source = emitter._emit_store(EXPRESSION_RESULT, statement.value)
+    return ExpressionResult(source=source, imports=_imports_of(source))

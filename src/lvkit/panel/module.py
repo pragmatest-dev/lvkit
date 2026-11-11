@@ -7,8 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .kinds import PanelControl
-from .layout import Box
-from .widget_call import builders_used, widget_call
+from .layout import PanelRows, drawn
+from .widget_call import builders_used, modules_used, widget_call
 
 
 @dataclass(frozen=True)
@@ -19,9 +19,7 @@ class PanelSource:
 
     vi_label: str
     controls: list[PanelControl]
-    boxes: list[Box]
-    width: int
-    height: int
+    rows: PanelRows  # the drawn controls, grouped
     module: str
     function: str
     enum_name: str | None
@@ -55,41 +53,55 @@ def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) ->
     return widget_call(control, control.kind, _key(control, enum_name))
 
 
+def _argument(control: PanelControl, enum_name: str | None) -> str | None:
+    """How the function takes the control: the value on the panel. A control the
+    panel does not draw gets the type's default (``None``), written only when its
+    parameter has no default of its own."""
+    if control.hidden:
+        return f"{control.parameter}=None" if control.required else None
+    return f"{control.parameter}=values.value({_key(control, enum_name)})"
+
+
 def panel_source(spec: PanelSource) -> str:
     """The panel module."""
     enum = spec.enum_name
     used = sorted(
         {
             name
-            for c in spec.controls
+            for c in drawn(spec.controls)
             if c.kind is not None
             for name in builders_used(c, c.kind)
         }
     )
     imports = ", ".join(["LiveValues", "RunController", "caption", *used])
+    stdlib = sorted(
+        {"sys"}.union(
+            *(modules_used(c) for c in drawn(spec.controls) if c.kind is not None)
+        )
+    )
     logic_names = ", ".join(
         [f"{spec.function} as vi_function", *filter(None, [enum, spec.event_enum_name])]
     )
     arguments = [
-        f"{c.parameter}=values.value({_key(c, enum)})"
+        argument
         for c in spec.controls
         if c.parameter is not None and not c.is_indicator and c.kind is not None
+        if (argument := _argument(c, enum)) is not None
     ]
     if enum is not None:
-        arguments += ["on_update=values.update", "on_read=values.read"]
-    if spec.event_enum_name is not None:
-        arguments.append("events=values.events.queue")
+        arguments.append("live_io=values")
     painted = [
         f"values.show({_key(c, enum)}, result.{c.field})"
         for c in spec.controls
-        if c.field is not None and c.is_indicator and c.kind is not None
+        if c.field is not None and c.is_indicator and not c.hidden
+        if c.kind is not None
     ]
     lines = [
         f'"""Front panel of {spec.vi_label}. Run it with ``python <this file>``."""',
         "",
         "from __future__ import annotations",
         "",
-        "import sys",
+        *(f"import {name}" for name in stdlib),
         "from pathlib import Path",
         "from typing import Any",
         "",
@@ -118,22 +130,18 @@ def panel_source(spec: PanelSource) -> str:
         "    )",
         "    controller.toolbar()",
         "    ui.timer(0.1, values.paint)",
-        (
-            "    with ui.element('div').style("
-            f"'position:relative;width:{spec.width}px;height:{spec.height}px;'):"
-        ),
+        "    with ui.column().classes('gap-6'):",
     ]
-    for control, box in zip(spec.controls, spec.boxes, strict=True):
-        style = (
-            f"position:absolute;left:{box.left}px;top:{box.top}px;"
-            f"width:{box.width}px;"
-        )
-        lines += [
-            f"        with ui.element('div').style({style!r}):",
-            f"            caption({control.label!r})",
-            f"            {_widget_call(control, enum, spec.vi_label)}",
-        ]
-    if not spec.controls:
+    for row in spec.rows:
+        lines.append("        with ui.row().classes('items-start gap-6'):")
+        for column in row:
+            lines.append("            with ui.column():")
+            for control in column:
+                lines += [
+                    f"                caption({control.label!r})",
+                    f"                {_widget_call(control, enum, spec.vi_label)}",
+                ]
+    if not spec.rows:
         lines.append("        pass")
     lines += [
         "",

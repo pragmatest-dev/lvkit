@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
 import sys
 import textwrap
 from collections.abc import Callable, Iterator
@@ -25,6 +24,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
+from lvkit.codegen.ast_utils import to_module_name
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
@@ -1068,7 +1068,7 @@ class Project:
 
 
 def _module_stem(name: str) -> str:
-    return re.sub(r"[^\w]+", "_", name.removesuffix(".vi")).strip("_").lower()
+    return to_module_name(name)
 
 
 @pytest.fixture

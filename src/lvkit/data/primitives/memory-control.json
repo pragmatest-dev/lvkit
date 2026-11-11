@@ -111,6 +111,7 @@
     },
     "2409": {
       "name": "Delete Data Value Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-data-value-reference.html",
       "runs_on_error": true,
       "terminals": [
         {
@@ -123,7 +124,7 @@
           "index": 3,
           "direction": "output",
           "name": "data value",
-          "type": "NumFloat64"
+          "type": "polymorphic"
         },
         {
           "index": 4,
@@ -139,7 +140,13 @@
           "refnum_type": "data_value"
         }
       ],
+      "python_code": {
+        "data_value": "in_7[0]",
+        "error_out": "in_4"
+      },
+      "inline": true,
       "verified": false,
+      "note": "Delete Data Value Reference -- returns the value the reference held. python_code models the DVR as a 1-element list, matching New Data Value Reference, and is PROVISIONAL.",
       "source": "vi-scripting-nodes-lv2025"
     }
   }

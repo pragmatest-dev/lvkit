@@ -41,11 +41,9 @@ OPTIONAL = ParsedWiringRule.OPTIONAL
 
 
 def hooks(enum: str) -> str:
-    """The hook parameters of a function or method whose names are ``enum``."""
-    return (
-        f"on_update: Callable[[{enum}, Any], None] | None=None, "
-        f"on_read: Callable[[{enum}, Any], Any] | None=None"
-    )
+    """The live values parameter of a function or method whose names are
+    ``enum``."""
+    return "live_io: LiveIO=NO_LIVE_IO"
 
 
 def off_pane(
@@ -310,7 +308,6 @@ def test_a_vi_has_required_positional_and_the_rest_keyword_only(
         parameters = inspect.signature(function).parameters
         assert [p.kind.name for p in parameters.values()] == [
             "POSITIONAL_OR_KEYWORD",
-            "KEYWORD_ONLY",
             "KEYWORD_ONLY",
             "KEYWORD_ONLY",
             "KEYWORD_ONLY",

@@ -5,6 +5,7 @@ their kind, built the same way."""
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Callable
 
 from .kinds import PanelControl, PanelKind
@@ -19,6 +20,12 @@ def _number(control: PanelControl) -> str:
 
 def _default_only(control: PanelControl) -> str:
     return repr(control.default)
+
+
+def _path(control: PanelControl) -> str:
+    """A path starts from the text of its ``Path`` expression, which the panel
+    module evaluates where it runs."""
+    return f"path_text({control.default})"
 
 
 def _choice(control: PanelControl) -> str:
@@ -44,9 +51,12 @@ def _no_arguments(_control: PanelControl) -> str:
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.ERROR: _no_arguments,
     PanelKind.NUMBER: _number,
+    PanelKind.COMPLEX: _default_only,
+    PanelKind.VARIANT: _no_arguments,
+    PanelKind.HIDDEN: _no_arguments,
     PanelKind.BOOLEAN: _default_only,
     PanelKind.STRING: _default_only,
-    PanelKind.PATH: _default_only,
+    PanelKind.PATH: _path,
     PanelKind.ENUM: _choice,
     PanelKind.RING: _choice,
     PanelKind.CLUSTER: _cluster,
@@ -83,8 +93,26 @@ def _parts(control: PanelControl) -> tuple[PanelControl, ...]:
 def builders_used(control: PanelControl, kind: PanelKind) -> set[str]:
     """The names of the ``controls`` package the call of ``control`` needs."""
     names = {builder_of(control, kind)}
+    if kind is PanelKind.PATH:
+        names.add("path_text")
     for part in _parts(control):
         assert part.kind is not None
         names |= {"Member", part.kind.port_builder}
         names |= builders_used(part, part.kind) - {builder_of(part, part.kind)}
+    return names
+
+
+def modules_used(control: PanelControl) -> set[str]:
+    """The standard-library modules the starting value of ``control`` and its
+    parts name (``os`` in a path spelled for the system it runs on)."""
+    names: set[str] = set()
+    if control.kind is PanelKind.PATH:
+        tree = ast.parse(str(control.default), mode="eval")
+        names |= {
+            node.value.id
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+        }
+    for part in _parts(control):
+        names |= modules_used(part)
     return names

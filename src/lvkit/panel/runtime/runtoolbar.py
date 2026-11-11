@@ -128,7 +128,7 @@ class RunController:
 
     async def _call_once(self) -> str:
         """One call of the function: how it ended."""
-        events = self._live.events
+        events = self._live.panel_events
         if events is not None:
             events.start()
         try:
@@ -191,7 +191,7 @@ class RunController:
         browser tab closed by the browser's own control is not intercepted: the
         server cannot hold a tab open while the VI answers, so the VI keeps
         running until it ends or is aborted."""
-        events = self._live.events
+        events = self._live.panel_events
         reply = events.ask_close() if events is not None else None
         if events is not None and reply is not None:
             answer = await run.io_bound(events.wait_for_reply, reply)
@@ -234,7 +234,7 @@ class RunController:
             )
             self._add("Abort", _SVG_ABORT, self.abort, "red-6")
             self._add("Pause", _SVG_PAUSE, self.pause, "grey-8")
-            if self._live.events is not None:
+            if self._live.panel_events is not None:
                 self._add("Close", _SVG_CLOSE, self.close, "grey-8")
             self._status = ui.label("idle").classes("text-xs text-gray-500")
         with ui.row().classes(_BANNER_CLS) as banner:

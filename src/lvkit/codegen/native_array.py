@@ -22,6 +22,14 @@ def guarded_index(array: str, index: str, default: str) -> str:
     return f"({array}[{index}] if 0 <= {index} < len({array}) else {default})"
 
 
+def replaced_element(array: str, index: str, new: str) -> str:
+    """A new array equal to ``array`` with the element at ``index`` replaced by
+    ``new``; ``array`` itself is not changed. An index outside the array (negative
+    or past the end) gives the array as it is."""
+    a, i = operand(array), operand(index)
+    return f"({a}[:{i}] + [{new}] + {a}[{i} + 1:] if 0 <= {i} < len({a}) else {a})"
+
+
 def dimension_sizes(array: str, rank: int) -> list[str]:
     """One expression per dimension of a ``rank``-dimensional array: the length
     along that axis, read down the first element of each outer axis (an empty
@@ -53,7 +61,11 @@ def _place(cell: str, new: str, offsets: list[str], depth: int) -> list[str]:
         return [f"{cell}[{first}:{first} + len({new})] = {new}[:len({cell}) - {first}]"]
     index, row = f"_i{depth}", f"_row{depth}"
     lines = [f"for {index}, {row} in enumerate({new}[:len({cell}) - {first}]):"]
-    inner = _place(f"{cell}[{first} + {index}]", row, offsets[1:], depth + 1)
+    inner_cell = f"{cell}[{first} + {index}]"
+    inner = [
+        f"{inner_cell} = copy.copy({inner_cell})",
+        *_place(inner_cell, row, offsets[1:], depth + 1),
+    ]
     return lines + [f"    {line}" for line in inner]
 
 
@@ -65,7 +77,8 @@ def replace_subarray_statements(
     ``new_rank`` dimensions and lands along the array's last dimensions; the
     leading offsets pick the cell it goes into. The array is unchanged; when an
     offset is negative or past the end of its dimension the copy is returned as it
-    is."""
+    is. The copy is one level: the elements of the array stay the objects they
+    are, and a row the write goes into is copied before it is written."""
     offsets = [operand(offset) for offset in offsets]
     rank = len(offsets)
     lead = rank - new_rank
@@ -74,12 +87,22 @@ def replace_subarray_statements(
         for dimension, offset in enumerate(offsets)
     ]
     cell = target + "".join(f"[{offset}]" for offset in offsets[:lead])
+    # The copy of the array shares its rows with the array, so each row the write
+    # goes into is copied first.
+    rows = lead if new_rank else lead - 1
+    copies = [
+        f"{row} = copy.copy({row})"
+        for row in (
+            target + "".join(f"[{offset}]" for offset in offsets[:depth])
+            for depth in range(1, rows + 1)
+        )
+    ]
     if new_rank == 0:
         write = [f"{cell} = {new}"]
     else:
         write = _place(cell, new, offsets[lead:], 0)
-    lines = [f"{target} = copy.deepcopy({array})", f"if {' and '.join(guards)}:"]
-    lines += [f"    {line}" for line in write]
+    lines = [f"{target} = copy.copy({array})", f"if {' and '.join(guards)}:"]
+    lines += [f"    {line}" for line in copies + write]
     return ast.parse("\n".join(lines)).body
 
 
