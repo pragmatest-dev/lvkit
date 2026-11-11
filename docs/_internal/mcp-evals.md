@@ -276,9 +276,9 @@ undiscoverable.
       bytes and a type string: Ctrl Val.Set (Deprecated) and Ctrl Val.Get All
       (Deprecated), and six Property Node rows with no Python equivalent:
       Value, Indicator and Label.Text of a Ctl reference, Panel and Description
-      of a VI reference, Controls[] of a Pnl reference) **+ 8 VIs that were not found** on the search path. The
-      notifier functions and the user events of `TestSuite.lvclass:run.vi`
-      generate code. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
+      of a VI reference, Controls[] of a Pnl reference) **+ 8 VIs that were not
+      found** on the search path. The notifier functions and the user events of
+      `TestSuite.lvclass:run.vi` generate code. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
       -- if a future change resolves one of these, that test fails: update the
       pin AND this line.
       Distinct from Q26's 149 unresolved-*type* terminals.

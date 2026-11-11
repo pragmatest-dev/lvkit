@@ -195,10 +195,10 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     (Deprecated), and six Property Node rows with no Python equivalent: Value,
     Indicator and Label.Text of a Ctl reference, Panel and Description of a VI
     reference, Controls[] of a Pnl reference) + 8 VIs that were not found. Ctrl
-    Val.Set, Get and Get All and
-    Run VI on a reference only known when the code runs generate code
-    (``codegen/nodes/ctrl_val.py``). The four notifier functions and the user
-    events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register For
+    Val.Set, Get and Get All and Run VI on a reference only known when the code
+    runs generate code (``codegen/nodes/ctrl_val.py``). The four notifier
+    functions and the user events of ``TestSuite.lvclass:run.vi`` (its Event
+    Structure, Register For
     Events, Generate and Unregister) generate code. (Four OpenG VIs the catalog
     implements are found by the ``<userlib>`` path their callers record.)"""
     from collections import Counter
