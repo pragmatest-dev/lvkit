@@ -51,6 +51,9 @@ def _no_arguments(_control: PanelControl) -> str:
 ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.ERROR: _no_arguments,
     PanelKind.NUMBER: _number,
+    PanelKind.COMPLEX: _default_only,
+    PanelKind.VARIANT: _no_arguments,
+    PanelKind.HIDDEN: _no_arguments,
     PanelKind.BOOLEAN: _default_only,
     PanelKind.STRING: _default_only,
     PanelKind.PATH: _path,

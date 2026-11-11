@@ -12,6 +12,11 @@ MARGIN = 12
 MIN_WIDTH = 80
 
 
+def drawn(controls: list[PanelControl]) -> list[PanelControl]:
+    """The controls the panel draws, in order: all but the hidden ones."""
+    return [c for c in controls if not c.hidden]
+
+
 @dataclass(frozen=True)
 class Box:
     """A control's wrapper in pixels: the label and the widget, from ``top``."""
@@ -24,9 +29,10 @@ class Box:
 def place(
     controls: list[PanelControl], panel_bounds: tuple[int, int, int, int]
 ) -> tuple[list[Box], int, int]:
-    """The wrapper of each control, in order, and the width and height of the
-    container. Bounds are (top, left, bottom, right). Positions are the stored
-    ones, moved only as far as keeps the first label inside the container."""
+    """The wrapper of each of ``controls`` (the drawn ones), in order, and the width
+    and height of the container. Bounds are (top, left, bottom, right). Positions
+    are the stored ones, moved only as far as keeps the first label inside the
+    container."""
     if not controls:
         return [], 400, 200
     shift_left = min(0, min(c.bounds[1] for c in controls))

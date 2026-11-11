@@ -24,7 +24,7 @@ def _value_type(_named: LVType) -> None:
 
 def _scalar_default(
     kind: PanelKind, saved: ScalarValue, lv_type: LVType | None
-) -> str | int | float | bool:
+) -> str | int | float | bool | complex:
     """The value a control starts from: its saved default read the way the
     generated function reads it (``saved_default_expr``), else its type's empty
     value. A path's is the ``Path`` expression itself, so the panel spells its
@@ -33,6 +33,8 @@ def _scalar_default(
     if kind is PanelKind.PATH:
         return ast.unparse(expression) if expression is not None else "Path('')"
     value = expression.value if isinstance(expression, ast.Constant) else None
+    if kind is PanelKind.COMPLEX:
+        return value if isinstance(value, complex) else 0j
     if kind is PanelKind.BOOLEAN:
         return value if isinstance(value, bool) else False
     if kind is PanelKind.STRING:
@@ -44,6 +46,7 @@ def _scalar_default(
 
 _ROW_TYPES: dict[PanelKind, tuple[type, ...]] = {
     PanelKind.NUMBER: (int, float),
+    PanelKind.COMPLEX: (complex,),
     PanelKind.BOOLEAN: (bool,),
     PanelKind.STRING: (str,),
     PanelKind.PATH: (str,),
@@ -125,8 +128,14 @@ def _cluster(
     return replace(base, named=named, members=members)
 
 
+_CELL_NOUNS = {
+    PanelKind.VARIANT: "variant",
+    PanelKind.HIDDEN: "reference or LabVIEW class object",
+}
+
 _CELL_KINDS = (
     PanelKind.NUMBER,
+    PanelKind.COMPLEX,
     PanelKind.BOOLEAN,
     PanelKind.STRING,
     PanelKind.PATH,
@@ -138,8 +147,8 @@ _CELL_KINDS = (
 def _array(
     base: PanelControl, control: ParsedFPControl, lv_type: LVType | None, saved: object
 ) -> PanelControl:
-    """A one-dimensional array of a number, Boolean, string, path, enum, ring or
-    of a cluster of those: a grid with a row for each element."""
+    """A one-dimensional array of a number, complex number, Boolean, string, path,
+    enum, ring or of a cluster of those: a grid with a row for each element."""
     element_type = lv_type.element_type if lv_type is not None else None
     if lv_type is None or element_type is None:
         return replace(
@@ -170,16 +179,15 @@ def _array(
         cell = replace(
             control, control_type=part.part_class, name="", children=[], parts=[]
         )
-    element = describe(
-        cell, element_type, None, "value", indicator=base.is_indicator
-    )
+    element = describe(cell, element_type, None, "value", indicator=base.is_indicator)
     cells = element.members if element.kind is PanelKind.CLUSTER else (element,)
     blocker = element if element.gap is not None else None
     if blocker is None:
         blocker = next((c for c in cells if c.kind not in _CELL_KINDS), None)
     if blocker is not None:
         reason = blocker.gap or (
-            f"the panel has no widget for an array of {blocker.kind.name.lower()}"
+            "the panel has no widget for an array of "
+            f"{_CELL_NOUNS.get(blocker.kind, blocker.kind.name.lower())}"
             if blocker.kind is not None
             else "the panel has no widget for this array"
         )

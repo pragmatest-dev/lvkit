@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **The generated front panel draws complex numbers and variants, and leaves references and class objects out** — a complex number is two number boxes (real, imaginary), also as an array cell; a variant is read-only text of its value; a reference or LabVIEW class object is not drawn and the function gets `None`; none is an `unsupported_control` gap any more.
 - **An Expression Node generates Python and shows its formula** — `2*x+3`, `sin(x)` or `(x/pi)*180.0` becomes an inline expression with the result in the input's number type (an array input is computed element by element); `describe` and `render` show the formula, including one a VI keeps in a text record; a cluster input is a reported gap.
 - **`describe --format lvnet` and the netlist JSON show a Formula Node's and an Expression Node's formula** — the node's header is `formula-node <handle> : "<script>"` or `expression-node <handle> : "2*x+3"` (one quoted literal, read back losslessly), and the JSON has a `script` field.
 - **Fix: an Invoke Node method lvkit can't convert is a gap, not a call that fails when it runs** — every method other than Run VI wrote `ref.<method>()`, a Python method that doesn't exist, with no warning (606 of the samples' 635 Invoke Nodes); it now warns at generation and raises `NotImplementedError` naming the method and class where it runs.
