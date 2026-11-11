@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: an Invoke Node method lvkit can't convert is a gap, not a call that fails when it runs** — every method other than Run VI wrote `ref.<method>()`, a Python method that doesn't exist, with no warning (606 of the samples' 635 Invoke Nodes); it now warns at generation and raises `NotImplementedError` naming the method and class where it runs.
 - **Fix: an In Place Element array edit no longer changes the array another wire still reads** — the element is written into a new array, as the rest of the generated array code does; an index outside the array reads the element's default and changes nothing, and an index for each of two dimensions is a gap instead of a silent row read.
 - **Fix: a copied LabVIEW object shares its references, as in LabVIEW** — a value that must be copied is copied one level (`copy.copy`), so a queue, data value reference or VI reference in a field stays the same object (a deep copy duplicated the data a reference points to); a nested write copies each container on its path first.
 - **A reference Type Cast to an integer and back is the same Python object** — code that keeps a reference in a U32 (a class's private data) gets it back; `0` cast to a reference is Not a Reference (`None`).

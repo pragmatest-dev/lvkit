@@ -186,14 +186,16 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    13 distinct gaps = 5 unsupported nodes (OpenG Get TDEnum from Data reading a
+    18 distinct gaps = 10 unsupported nodes (OpenG Get TDEnum from Data reading a
     variant, whose type is only known when the code runs; two kinds of Run VI
     whose VI reference comes from a Ctrl Val.Set or Set Front Panel Object
     Control Value.vi, so the VI it runs, and the control values set on it, are
     only known when the code runs; the type string of a Flatten To String of a
-    refnum, which has no type descriptor; and the Flattened String To Variant
-    that reads those LabVIEW bytes with a type known only when the code runs)
-    + 8 VIs that were not found. The four notifier functions and the user
+    refnum, which has no type descriptor; the Flattened String To Variant that
+    reads those LabVIEW bytes with a type known only when the code runs; and
+    five Invoke Node methods with no Python equivalent: Ctrl Val.Set, Ctrl
+    Val.Set (Deprecated), Ctrl Val.Get, Ctrl Val.Get All and Ctrl Val.Get All
+    (Deprecated)) + 8 VIs that were not found. The four notifier functions and the user
     events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register For
     Events, Generate and Unregister) generate code. (Four OpenG VIs the catalog
     implements are found by the ``<userlib>`` path their callers record.)"""
@@ -205,7 +207,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 13, f"expected 13 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 0
@@ -213,8 +215,9 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     # reference only known when the code runs (codegen/nodes/run_vi.py), two
     # reasons; the type string of a Flatten To String of a refnum
     # (ops/flatten_to_string.py); the Flattened String To Variant reading those
-    # bytes with a run-time type (ops/flattened_string_to_variant.py).
-    assert counts["unsupported_node"] == 5
+    # bytes with a run-time type (ops/flattened_string_to_variant.py); five
+    # Invoke Node methods with no Python equivalent (codegen/nodes/invoke_node.py).
+    assert counts["unsupported_node"] == 10
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 
