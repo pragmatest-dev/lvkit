@@ -186,7 +186,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    20 distinct gaps = 10 unsupported nodes (OpenG Get TDEnum from Data reading a
+    18 distinct gaps = 10 unsupported nodes (OpenG Get TDEnum from Data reading a
     variant, whose type is only known when the code runs; two kinds of Run VI
     whose VI reference comes from a Ctrl Val.Set or Set Front Panel Object
     Control Value.vi, so the VI it runs, and the control values set on it, are
@@ -195,9 +195,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     reads those LabVIEW bytes with a type known only when the code runs; and
     five Invoke Node methods with no Python equivalent: Ctrl Val.Set, Ctrl
     Val.Set (Deprecated), Ctrl Val.Get, Ctrl Val.Get All and Ctrl Val.Get All
-    (Deprecated)) + 2 VIs with a timestamp constant, which has no Python value
-    yet (``TestResult.lvclass:startTest.vi`` and ``TestSuite.lvclass:run.vi``)
-    + 8 VIs that were not found. The four notifier functions and the user
+    (Deprecated)) + 8 VIs that were not found. The four notifier functions and the user
     events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register For
     Events, Generate and Unregister) generate code. (Four OpenG VIs the catalog
     implements are found by the ``<userlib>`` path their callers record.)"""
@@ -209,7 +207,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 20, f"expected 20 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 0
@@ -220,8 +218,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     # bytes with a run-time type (ops/flattened_string_to_variant.py); five
     # Invoke Node methods with no Python equivalent (codegen/nodes/invoke_node.py).
     assert counts["unsupported_node"] == 10
-    # A timestamp constant has no Python value yet (codegen/constant_value.py).
-    assert counts["unsupported_vi"] == 2
+    assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 
 

@@ -3,7 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **Fix: a cluster or array constant is written field by field, not as a string** — a cluster holding a class object, a Variant or an enum is a tuple or `SimpleNamespace` of those values (`('', None)`, `SimpleNamespace(test=object(), resultstatus=ResultStatusEnum.testPass)`) instead of its display text, so `cluster.test = test` no longer fails; a timestamp constant, scalar or in a cluster, and a Variant with attributes are gaps.
+- **A timestamp is a UTC `hightime.datetime`, exact to LabVIEW's 2^-64 s** — constants, defaults, annotations, Get Date/Time In Seconds, a file's last-modified time and Shared Variable times are `hightime.datetime`; Subtract of two timestamps is seconds, a timestamp plus or minus a number is a timestamp; the package's `requirements.txt` lists `hightime`.
+- **Fix: a cluster or array constant is written field by field, not as a string** — a cluster holding a class object, a Variant or an enum is a tuple or `SimpleNamespace` of those values (`('', None)`, `SimpleNamespace(test=object(), resultstatus=ResultStatusEnum.testPass)`) instead of its display text, so `cluster.test = test` no longer fails; a Variant with attributes is a gap.
 - **Generated code no longer sets a variable it overwrites at once** — `x = None` straight before `x = ...`, and a default that every branch of an `if`/`else` or `match` ending in `else`/`case _` assigns first, are gone; a default the next line reads once is written in place of that read.
 - **Generated variable names are numbered `name_2`, `name_3` on a collision, never with a node id** — `error_out_549` is `error_out_2`, `expr_263` is `expr`, and a Formula Node's result variable is `formula_result`.
 - **Fix: In Place Element on a Data Value Reference no longer writes back an element it did not change** — `ref[0] = ref[0]` is gone.
