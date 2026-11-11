@@ -27,6 +27,7 @@ from lvkit.graph.models import (
     SharedVariableNode,
     VINode,
 )
+from lvkit.parser.constants import NODE_CLASS_EXPRESSION
 
 from .. import error_flow
 from ..context import CodeGenContext
@@ -42,6 +43,8 @@ from . import (
     constant,
     disable,
     event,
+    event_register,
+    expression,
     ext_func,
     feedback,
     first_call,
@@ -61,6 +64,7 @@ from . import (
     sequence,
     shared_variable,
     subvi,
+    user_events,
     vi_reference,
     xnode,
 )
@@ -106,6 +110,8 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
             return vi_reference.generate_call(node, ctx)
         return subvi.generate(node, ctx)
     if isinstance(node, FormulaNode):
+        if node.node_type == NODE_CLASS_EXPRESSION:
+            return expression.generate(node, ctx)
         return formula.generate(node, ctx)
     if isinstance(node, GlobalVariableNode):
         return global_variable.generate(node, ctx)
@@ -160,6 +166,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "printf": printf.generate,
     "extFunc": ext_func.generate,
     "xNode": xnode.generate,
+    "eventRegNode": event_register.generate_register,
 }
 
 
@@ -182,6 +189,10 @@ def _generate_primitive(
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
         return first_call.generate(node, ctx)
+    # The user event functions are generic `class="prim"` nodes too -- see
+    # nodes/user_events.py.
+    if node.node_type == "prim" and node.prim_id in user_events.USER_EVENT_PRIM_IDS:
+        return user_events.generate(node, ctx)
     # Open VI Reference and Close Reference are generic `class="prim"` nodes
     # too -- see nodes/vi_reference.py.
     if node.node_type == "prim":

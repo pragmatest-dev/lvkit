@@ -30,7 +30,7 @@ from .widgets_opaque import (
     variant_indicator,
     variant_port,
 )
-from .widgets_path import path_control, path_indicator, path_port
+from .widgets_path import path_control, path_indicator, path_port, path_text
 
 __all__ = [
     "Abort",
@@ -64,6 +64,7 @@ __all__ = [
     "path_control",
     "path_indicator",
     "path_port",
+    "path_text",
     "string_control",
     "string_indicator",
     "string_port",

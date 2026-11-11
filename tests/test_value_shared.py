@@ -98,7 +98,7 @@ def test_a_value_an_indicator_also_shows_is_copied_before_it_is_changed(
 ) -> None:
     _diagram(project, also_shown=True, peek_first=False)
     package = project.generate(NAME, {"change": CHANGER})
-    assert "copy.deepcopy(values)" in package.source
+    assert "copy.copy(values)" in package.source
     values = [5, 6]
     out = package.function(values=values)
     assert (out.seen, values) == ([5, 6], [5, 6])
@@ -109,7 +109,7 @@ def test_a_value_nothing_else_reads_is_changed_where_it_is(
 ) -> None:
     _diagram(project, also_shown=False, peek_first=False)
     package = project.generate(NAME, {"change": CHANGER})
-    assert "deepcopy" not in package.source
+    assert "copy.copy" not in package.source
 
 
 def test_a_reader_the_changer_waits_for_needs_no_copy(

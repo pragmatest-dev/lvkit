@@ -142,8 +142,11 @@ def _draw_formula_node(
         w = backend.measure_text(name, size) if name else 0.0
         return max(_FORMULA_TUNNEL_MIN, w + 2 * _FORMULA_TUNNEL_PAD_X)
 
-    inputs = [rt for rt in node.terminals if rt.terminal.direction != "output"]
-    outputs = [rt for rt in node.terminals if rt.terminal.direction == "output"]
+    # A variable is a named tunnel; a terminal with no name (an Expression
+    # Node's) has none and its wire ends on the box.
+    named = [rt for rt in node.terminals if rt.terminal.name]
+    inputs = [rt for rt in named if rt.terminal.direction != "output"]
+    outputs = [rt for rt in named if rt.terminal.direction == "output"]
     left_w = max((width(rt.terminal.name or "") for rt in inputs), default=0.0)
     right_w = max((width(rt.terminal.name or "") for rt in outputs), default=0.0)
 

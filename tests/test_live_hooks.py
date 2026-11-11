@@ -1,7 +1,7 @@
 """A VI that reads or writes its own front panel while it runs takes the
-``on_update`` and ``on_read`` keyword parameters and calls ``on_update`` after
-every write of an indicator (``codegen/panel_hooks.py``). Each case is a tiny
-diagram, generated and called with a recording ``on_update``."""
+``live_io`` keyword parameter and calls ``live_io.write`` after every write of
+an indicator (``codegen/panel_hooks.py``). Each case is a tiny diagram,
+generated and called with a recording ``LiveIO``."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from lvkit.graph.models import LoopNode
+from lvkit.panel.live_io import LiveIO
 from tests.case_structure_fixture import FrameSpec
 from tests.class_graphs import INT, add, pane, wire
 from tests.class_graphs import Project as ClassProject
@@ -30,20 +31,11 @@ from tests.error_diagrams import (
     increment,
     project,  # noqa: F401
 )
+from tests.live_io_recorder import Recorder
 from tests.structure_diagrams import EVENT_TIMEOUT, event_structure  # noqa: E402
 
 NAME = "Live.vi"
 GREATER_OR_EQUAL = 1103
-
-
-class Recorder:
-    """An ``on_update`` that records its calls."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, Any]] = []
-
-    def __call__(self, name: str, value: Any) -> None:
-        self.calls.append((name, value))
 
 
 def _body(package: Package) -> str:
@@ -87,12 +79,10 @@ def test_a_while_loop_indicator_is_updated_on_every_iteration(
     _counting_loop(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["on_update", "on_read"]
-    assert (
-        "def live(*, on_update: Callable[[LiveValue, Any], None] | None=None, "
-        "on_read: Callable[[LiveValue, Any], Any] | None=None) -> LiveResult:"
-    ) in package.source
-    assert "from collections.abc import Callable" in package.source
+    assert _signature(package) == ["live_io"]
+    assert "def live(*, live_io: LiveIO=NO_LIVE_IO) -> LiveResult:" in package.source
+    assert "from .live_io import LiveIO, NO_LIVE_IO" in package.source
+    assert "Callable" not in package.source
     assert _body(package) == textwrap.dedent(
         """\
         count = 0
@@ -100,8 +90,7 @@ def test_a_while_loop_indicator_is_updated_on_every_iteration(
         while True:
             x1 = state + 1
             count = x1
-            if on_update is not None:
-                on_update(LiveValue.COUNT, count)
+            live_io.write(LiveValue.COUNT, count)
             state_updated = x1
             state = state_updated
             if x1 >= 3:
@@ -109,10 +98,10 @@ def test_a_while_loop_indicator_is_updated_on_every_iteration(
         return LiveResult(count=count)"""
     )
     recorder = Recorder()
-    assert package.function(on_update=recorder).count == 3
+    assert package.function(live_io=recorder).count == 3
     assert recorder.calls == [("count", 1), ("count", 2), ("count", 3)]
     assert package.function().count == 3
-    assert package.function(on_update=None, on_read=None).count == 3
+    assert package.function(live_io=LiveIO()).count == 3
 
 
 def _for_loop_with_outer_indicator(vi: Vi) -> None:
@@ -139,7 +128,7 @@ def test_an_indicator_outside_the_loop_is_updated_too_after_the_loop(
     _for_loop_with_outer_indicator(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["n", "on_update", "on_read"]
+    assert _signature(package) == ["n", "live_io"]
     # The wire into the loop's output tunnel is named from its uid.
     body = re.sub(r"outer_\d+", "step", _body(package))
     assert body == textwrap.dedent(
@@ -150,21 +139,19 @@ def test_an_indicator_outside_the_loop_is_updated_too_after_the_loop(
         for i in range(n):
             step = state + 1
             inner = step
-            if on_update is not None:
-                on_update(LiveValue.INNER, inner)
+            live_io.write(LiveValue.INNER, inner)
             state_updated = step
             state = state_updated
         outer = state
-        if on_update is not None:
-            on_update(LiveValue.OUTER, outer)
+        live_io.write(LiveValue.OUTER, outer)
         return LiveResult(inner=inner, outer=outer)"""
     )
     recorder = Recorder()
-    result = package.function(n=3, on_update=recorder)
+    result = package.function(n=3, live_io=recorder)
     assert (result.inner, result.outer) == (3, 3)
     assert recorder.calls == [("inner", 1), ("inner", 2), ("inner", 3), ("outer", 3)]
     recorder = Recorder()
-    package.function(n=0, on_update=recorder)
+    package.function(n=0, live_io=recorder)
     assert recorder.calls == [("outer", 0)]
     assert package.function(n=2).outer == 2
 
@@ -183,7 +170,7 @@ def test_a_cluster_indicator_is_passed_whole(project: Project) -> None:  # noqa:
     package = project.generate(NAME)
     recorder = Recorder()
     value = object()
-    package.function(n=2, cluster=value, on_update=recorder)
+    package.function(n=2, cluster=value, live_io=recorder)
     assert [name for name, _ in recorder.calls] == ["shown", "shown"]
     assert all(passed is value for _, passed in recorder.calls)
 
@@ -206,9 +193,9 @@ def test_a_control_and_an_indicator_with_one_label_get_distinct_names(
     package = project.generate(NAME)
     # The control keeps its parameter name; the indicator, whose result field is
     # also ``value``, is told apart from it.
-    assert _signature(package) == ["n", "value", "on_update", "on_read"]
+    assert _signature(package) == ["n", "value", "live_io"]
     recorder = Recorder()
-    result = package.function(n=1, value=5, on_update=recorder)
+    result = package.function(n=1, value=5, live_io=recorder)
     assert (result.value, result.other) == (5, 5)
     names = [name for name, _ in recorder.calls]
     assert sorted(names) == ["other", "value_2"]
@@ -234,7 +221,7 @@ def test_a_loop_without_a_front_panel_terminal_has_no_hook(
     project.add(vi)
     package = project.generate(NAME)
     assert _signature(package) == ["n"]
-    assert "on_update" not in package.source
+    assert "live_io" not in package.source
     assert "Callable" not in package.source
     assert _body(package) == textwrap.dedent(
         """\
@@ -257,7 +244,7 @@ def test_a_vi_without_a_loop_has_no_hook(project: Project) -> None:  # noqa: F81
     project.add(vi)
     package = project.generate(NAME)
     assert _signature(package) == ["x"]
-    assert "on_update" not in package.source
+    assert "live_io" not in package.source
     assert _body(package) == "return LiveResult(out=x + 1)"
     assert package.function(x=4).out == 5
 
@@ -273,9 +260,9 @@ def test_a_local_variable_of_an_indicator_is_a_hook_without_a_loop(
     vi.wire(inc["out"], count)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["on_update", "on_read"]
+    assert _signature(package) == ["live_io"]
     recorder = Recorder()
-    assert package.function(on_update=recorder).count == 1
+    assert package.function(live_io=recorder).count == 1
     assert recorder.calls == [("count", 1)]
 
 
@@ -290,8 +277,7 @@ def test_the_views_of_a_hooked_vi_do_not_show_the_hooks(
     after = project.views(NAME)
     for view in ("lvnet", "terse", "describe", "json"):
         assert getattr(after, view) == getattr(before, view)
-        assert "on_update" not in str(getattr(after, view))
-        assert "on_read" not in str(getattr(after, view))
+        assert "live_io" not in str(getattr(after, view))
 
 
 def test_a_hooked_class_method_takes_the_hooks_after_its_own_keywords(
@@ -333,39 +319,22 @@ def test_a_hooked_class_method_takes_the_hooks_after_its_own_keywords(
     package = classes.generate()
     assert package.gaps == []
     source = package.sources["counter"]
-    assert (
-        "def run(n: int, *, "
-        "on_update: Callable[[CounterRunValue, Any], None] | None=None, "
-        "on_read: Callable[[CounterRunValue, Any], Any] | None=None)"
-    ) in source
+    assert "def run(n: int, *, live_io: LiveIO=NO_LIVE_IO)" in source
     # The enum is the class's and the method's name, at module level next to the
     # class, before it.
     assert "\nclass CounterRunValue(str, Enum):\n    N = 'n'\n    OUT = 'out'\n" in (
         source
     )
     assert source.index("class CounterRunValue") < source.index("class Counter:")
-    assert "on_update(CounterRunValue.OUT, out)" in source
+    assert "live_io.write(CounterRunValue.OUT, out)" in source
     assert "from enum import Enum" in source
     with package.use() as module:
         recorder = Recorder()
-        result = module("counter").Counter.run(n=3, on_update=recorder)
+        result = module("counter").Counter.run(n=3, live_io=recorder)
         assert result.out == 6
         assert recorder.calls[0][0] is module("counter").CounterRunValue.OUT
         # The loop's count is not wired: it runs its default of 10 times.
         assert recorder.calls == [("out", 6)] * 10
-
-
-class Reader:
-    """An ``on_read`` that records its calls and answers from ``answers`` (the
-    value it was given when it has run out)."""
-
-    def __init__(self, *answers: Any) -> None:
-        self.answers = list(answers)
-        self.calls: list[tuple[str, Any]] = []
-
-    def __call__(self, name: str, value: Any) -> Any:
-        self.calls.append((name, value))
-        return self.answers.pop(0) if self.answers else value
 
 
 def _stop_loop(vi: Vi) -> Structure:
@@ -394,32 +363,30 @@ def test_a_control_inside_a_while_loop_is_read_again_every_iteration(
     _stop_loop(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["stop", "on_update", "on_read"]
+    assert _signature(package) == ["stop", "live_io"]
     assert _body(package) == textwrap.dedent(
         """\
         count = 0
         state = 0
         while True:
-            if on_read is not None:
-                stop = on_read(LiveValue.STOP, stop)
+            stop = live_io.read(LiveValue.STOP, stop)
             x1 = state + 1
             count = x1
-            if on_update is not None:
-                on_update(LiveValue.COUNT, count)
+            live_io.write(LiveValue.COUNT, count)
             state_updated = x1
             state = state_updated
             if stop:
                 break
         return LiveResult(count=count)"""
     )
-    reader, recorder = Reader(False, False, True), Recorder()
-    result = package.function(stop=False, on_read=reader, on_update=recorder)
+    recorder = Recorder(False, False, True)
+    result = package.function(stop=False, live_io=recorder)
     assert result.count == 3
-    assert reader.calls == [("stop", False)] * 3
+    assert recorder.reads == [("stop", False)] * 3
     assert recorder.calls == [("count", 1), ("count", 2), ("count", 3)]
-    # Without hooks the loop is the one it is without them: it stops at once.
+    # With no live_io the loop is the one it is without one: it stops at once.
     assert package.function(stop=True).count == 1
-    assert package.function(stop=True, on_read=None).count == 1
+    assert package.function(stop=True, live_io=LiveIO()).count == 1
 
 
 def _loop_with_a_control_wired_to_an_indicator(vi: Vi) -> None:
@@ -443,14 +410,14 @@ def test_a_control_wired_to_an_indicator_in_a_loop_reaches_it_every_pass(
     passes = iter([(1, False), (2, False), (3, True)])
     current: dict[str, Any] = {}
 
-    def on_read(name: str, value: Any) -> Any:
+    def answer(name: str, value: Any) -> Any:
         if name == "stop":
             current["offset"], stop = next(passes)
             return stop
         return current["offset"]
 
-    recorder = Recorder()
-    result = package.function(stop=False, offset=0, on_read=on_read, on_update=recorder)
+    recorder = Recorder(answer=answer)
+    result = package.function(stop=False, offset=0, live_io=recorder)
     assert [c for c in recorder.calls if c[0] == "seen"] == [
         ("seen", 1),
         ("seen", 2),
@@ -496,7 +463,7 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
     _control_in_a_case_in_a_for_loop(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["n", "gain", "flag", "on_update", "on_read"]
+    assert _signature(package) == ["n", "gain", "flag", "live_io"]
     # The read is the first statement of the frame that holds the terminal, so
     # it happens on the passes that run that frame only.
     assert _body(package) == textwrap.dedent(
@@ -505,26 +472,22 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
         for i in range(n):
             seen_128 = 0
             if flag:
-                if on_read is not None:
-                    gain = on_read(LiveValue.GAIN, gain)
+                gain = live_io.read(LiveValue.GAIN, gain)
                 seen_128 = gain
             else:
                 seen_128 = 0
             seen = seen_128
-            if on_update is not None:
-                on_update(LiveValue.SEEN, seen)
+            live_io.write(LiveValue.SEEN, seen)
         return LiveResult(seen=seen)"""
     )
-    reader, recorder = Reader(10, 20, 30), Recorder()
-    result = package.function(
-        n=3, gain=1, flag=True, on_read=reader, on_update=recorder
-    )
+    recorder = Recorder(10, 20, 30)
+    result = package.function(n=3, gain=1, flag=True, live_io=recorder)
     assert result.seen == 30
-    assert reader.calls == [("gain", 1), ("gain", 10), ("gain", 20)]
+    assert recorder.reads == [("gain", 1), ("gain", 10), ("gain", 20)]
     assert recorder.calls == [("seen", 10), ("seen", 20), ("seen", 30)]
-    reader = Reader()
-    assert package.function(n=3, gain=1, flag=False, on_read=reader).seen == 0
-    assert reader.calls == []
+    recorder = Recorder()
+    assert package.function(n=3, gain=1, flag=False, live_io=recorder).seen == 0
+    assert recorder.reads == []
     assert package.function(n=3, gain=7, flag=True).seen == 7
 
 
@@ -543,8 +506,8 @@ def test_a_control_in_an_event_structure_hooks_the_vi_and_takes_events(
     vi._place(Structure(0, [], [scope], [], xml=xml))
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["stop", "on_update", "on_read", "events"]
-    assert "Callable[[LiveValue, Any], Any] | None=None" in package.source
+    assert _signature(package) == ["stop", "live_io"]
+    assert "live_io: LiveIO=NO_LIVE_IO" in package.source
     assert package.gaps == []
 
 
@@ -566,24 +529,22 @@ def test_an_off_pane_control_the_diagram_reads_is_read_once_at_entry(
     _off_pane_control(vi, wired=True)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["x", "on_update", "on_read"]
+    assert _signature(package) == ["x", "live_io"]
     # After the docstring that lists the off-pane control.
     statements = textwrap.dedent(_body(package).rsplit('"""', 1)[1]).strip()
     assert statements == textwrap.dedent(
         """\
         bias = 0
-        if on_read is not None:
-            bias = on_read(LiveValue.BIAS, bias)
+        bias = live_io.read(LiveValue.BIAS, bias)
         out = 0
         out = bias + 1
-        if on_update is not None:
-            on_update(LiveValue.OUT, out)
+        live_io.write(LiveValue.OUT, out)
         return LiveResult(out=out)"""
     )
-    reader, recorder = Reader(41), Recorder()
-    result = package.function(x=0, on_read=reader, on_update=recorder)
+    recorder = Recorder(41)
+    result = package.function(x=0, live_io=recorder)
     assert result.out == 42
-    assert reader.calls == [("bias", 0)]
+    assert recorder.reads == [("bias", 0)]
     assert recorder.calls == [("out", 42)]
     # Without a hook the saved default is used.
     assert package.function(x=0).out == 1
@@ -597,8 +558,8 @@ def test_an_off_pane_control_nothing_reads_leaves_the_vi_unhooked(
     project.add(vi)
     package = project.generate(NAME)
     assert _signature(package) == ["x"]
-    assert "on_read" not in package.source
-    assert "on_update" not in package.source
+    assert "live_io" not in package.source
+    assert "live_io" not in package.source
     assert package.function(x=4).out == 5
 
 
@@ -609,8 +570,8 @@ def test_a_control_read_only_outside_loops_has_no_read_line(
     _for_loop_with_outer_indicator(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["n", "on_update", "on_read"]
-    assert "on_read(" not in package.source
+    assert _signature(package) == ["n", "live_io"]
+    assert "live_io.read(" not in package.source
 
 
 def _wired_off_pane_control(vi: Vi) -> None:
@@ -633,7 +594,7 @@ def test_the_views_of_a_vi_with_reads_do_not_show_the_hooks(
     after = project.views(NAME)
     for view in ("lvnet", "terse", "describe", "json"):
         assert getattr(after, view) == getattr(before, view)
-        assert "on_read" not in str(getattr(after, view))
+        assert "live_io" not in str(getattr(after, view))
 
 
 # -- the names are one generated enum per hooked VI --------------------------
@@ -654,16 +615,16 @@ def test_the_names_are_members_of_an_enum_the_module_defines(
     # The enum comes before the function and the result class before the enum.
     assert source.index("class LiveResult") < source.index("class LiveValue")
     assert source.index("class LiveValue") < source.index("def live(")
-    assert "def live(stop: bool, *, on_update: Callable[[LiveValue, Any]" in source
+    assert "def live(stop: bool, *, live_io: LiveIO=NO_LIVE_IO)" in source
     value = package.module.LiveValue
     assert [(m.name, m.value) for m in value] == [("STOP", "stop"), ("COUNT", "count")]
     assert issubclass(value, str)
-    reader, recorder = Reader(False, True), Recorder()
-    package.function(stop=False, on_read=reader, on_update=recorder)
-    assert reader.calls[0][0] is value.STOP
+    recorder = Recorder(False, True)
+    package.function(stop=False, live_io=recorder)
+    assert recorder.reads[0][0] is value.STOP
     assert recorder.calls[0][0] is value.COUNT
     assert recorder.calls[0][0] == "count"
-    assert reader.calls == [("stop", False), ("stop", False)]
+    assert recorder.reads == [("stop", False), ("stop", False)]
 
 
 def test_a_vi_without_hooks_has_no_enum_and_imports_no_enum(
@@ -717,20 +678,18 @@ def test_a_local_variable_write_of_a_control_assigns_it(
     _write_then_read_a_control(vi)
     project.add(vi)
     package = project.generate(NAME)
-    assert _signature(package) == ["n", "on_update", "on_read"]
+    assert _signature(package) == ["n", "live_io"]
     assert _body(package) == textwrap.dedent(
         """\
         out = 0
         n = 5
-        if on_update is not None:
-            on_update(LiveValue.N, n)
+        live_io.write(LiveValue.N, n)
         out = n
-        if on_update is not None:
-            on_update(LiveValue.OUT, out)
+        live_io.write(LiveValue.OUT, out)
         return LiveResult(out=out)"""
     )
     recorder = Recorder()
-    assert package.function(n=1, on_update=recorder).out == 5
+    assert package.function(n=1, live_io=recorder).out == 5
     assert recorder.calls == [("n", 5), ("out", 5)]
     assert package.function(n=1).out == 5
 
@@ -755,11 +714,9 @@ def test_a_write_and_a_read_no_wire_orders_follow_the_order_the_graph_lists_them
         """\
         out = 0
         out = n
-        if on_update is not None:
-            on_update(LiveValue.OUT, out)
+        live_io.write(LiveValue.OUT, out)
         n = 5
-        if on_update is not None:
-            on_update(LiveValue.N, n)
+        live_io.write(LiveValue.N, n)
         return LiveResult(out=out)"""
     )
     assert package.function(n=1).out == 1
@@ -793,32 +750,21 @@ def test_a_read_in_a_loop_follows_the_write_and_asks_for_the_value(
         """\
         seen = 0
         n = 7
-        if on_update is not None:
-            on_update(LiveValue.N, n)
+        live_io.write(LiveValue.N, n)
         while True:
-            if on_read is not None:
-                n = on_read(LiveValue.N, n)
+            n = live_io.read(LiveValue.N, n)
             seen = n
-            if on_update is not None:
-                on_update(LiveValue.SEEN, seen)
+            live_io.write(LiveValue.SEEN, seen)
             break
         return LiveResult(seen=seen)"""
     )
-    events: list[tuple[str, str, Any]] = []
-
-    def update(name: str, value: Any) -> None:
-        events.append(("update", name, value))
-
-    def read(name: str, value: Any) -> Any:
-        events.append(("read", name, value))
-        return 40
-
-    result = package.function(n=1, on_update=update, on_read=read)
+    recorder = Recorder(40)
+    result = package.function(n=1, live_io=recorder)
     assert result.seen == 40
-    assert events == [
-        ("update", "n", 7),
+    assert recorder.log == [
+        ("write", "n", 7),
         ("read", "n", 7),
-        ("update", "seen", 40),
+        ("write", "seen", 40),
     ]
     assert package.function(n=1).seen == 7
 
@@ -835,7 +781,7 @@ def test_a_read_of_a_control_nothing_writes_outside_a_loop_is_the_parameter(
     vi.wire(inc["out"], out)
     project.add(vi)
     package = project.generate(NAME)
-    assert "on_read(" not in package.source
+    assert "live_io.read(" not in package.source
     assert package.function(n=4).out == 5
 
 
@@ -856,8 +802,7 @@ def test_a_local_variable_read_of_an_indicator_is_the_indicator_variable(
         count = _lv_indicator_live
         x1 = count + 1
         count = x1
-        if on_update is not None:
-            on_update(LiveValue.COUNT, count)
+        live_io.write(LiveValue.COUNT, count)
         _lv_indicator_live = count
         return LiveResult(count=count)"""
     )
@@ -879,5 +824,5 @@ def test_the_views_of_a_vi_with_local_variables_of_controls_are_unchanged(
     assert "LiveValue" in package.source
     for view in ("lvnet", "terse", "describe", "json"):
         assert getattr(after, view) == getattr(before, view)
-        for hook in ("on_read", "on_update", "LiveValue", "Enum"):
+        for hook in ("live_io", "LiveValue", "Enum"):
             assert hook not in str(getattr(after, view))

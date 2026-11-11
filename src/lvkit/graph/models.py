@@ -431,9 +431,9 @@ class EventStructureNode(StructureNode):
 class FormulaNode(GraphNode):
     """A Formula Node (fBox) — an embedded C-like script over typed terminals.
 
-    Terminals carry the script's variables (name, type, direction). The
-    script is compiled to native code and called via FFI at codegen time;
-    its logic is never reinterpreted into Python.
+    Terminals carry the script's variables (name, type, direction); ``script``
+    is the formula text (``None`` when the VI stores none where lvkit reads it).
+    An Expression Node (``node_type`` ``exprNode``) is the same model.
     """
 
     kind: Literal["formula"] = "formula"

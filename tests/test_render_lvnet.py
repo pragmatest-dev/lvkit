@@ -404,11 +404,15 @@ _FEEDBACK_SEARCH_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples/Wave
 
 # Kinds whose declaration line is now `<keyword> <handle> : <component>` and
 # must NEVER be followed by a TODO -- §7 designed them fully.
-_FULLY_DESIGNED_KEYWORDS = ("property-node", "invoke-node", "feedback-node")
-# Kinds whose declaration line is the SAME `<keyword> <handle> : <component>`
-# form, but whose own block still ends with exactly one trailing TODO for
-# the one part §17 item 6 leaves undesigned.
-_STILL_OPEN_KEYWORDS = ("in-place-element", "formula-node")
+_FULLY_DESIGNED_KEYWORDS = (
+    "property-node",
+    "invoke-node",
+    "feedback-node",
+    "formula-node",
+    "expression-node",
+)
+# A formula/expression node whose VI stores no text has no component.
+_SCRIPT_KEYWORDS = ("formula-node", "expression-node")
 # local-variable is fully designed too (§7, revised again), but its shape is
 # neither of the two above: a single line, no component, no terminal block --
 # `local-variable <handle> : read` (a source) or `local-variable <handle> :
@@ -433,11 +437,9 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
       has NO more-specific-type: its header is
       ``feedback-node <handle> (<N> iteration[s]) :`` (the trailing ``:`` opens
       its ``init``/``each`` block), and is never followed by a TODO.
-    - ``in-place-element``/``formula-node`` render that SAME
-      handle+component header, then a full terminal block, then EXACTLY one
-      trailing ``# TODO(lvnet): ...`` line as the last line of their own
-      block (before the next sibling, found by indentation returning to the
-      header's own level) -- never more, never invented.
+    - ``formula-node``/``expression-node`` are fully designed too: their
+      header's component is the formula text as one quoted literal (or absent),
+      never followed by a TODO.
     """
     lines = text.splitlines()
     counts = {
@@ -445,7 +447,6 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
         for k in (
             _LOCAL_VARIABLE_KEYWORD,
             *_FULLY_DESIGNED_KEYWORDS,
-            *_STILL_OPEN_KEYWORDS,
         )
     }
 
@@ -496,39 +497,16 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
                             f"feedback-node must be followed by its init line, "
                             f"got {next_line!r}"
                         )
+                elif kw in _SCRIPT_KEYWORDS:
+                    if " : " in stripped:
+                        _, _, component = stripped.partition(" : ")
+                        assert component.startswith('"') and component.endswith('"'), (
+                            f"{kw!r} component must be a quoted literal: {stripped!r}"
+                        )
                 else:
                     assert " : " in stripped, (
                         f"{kw!r} header missing its more-specific-type: {stripped!r}"
                     )
-
-        for kw in _STILL_OPEN_KEYWORDS:
-            if stripped.startswith(kw + " "):
-                counts[kw] += 1
-                assert " : " in stripped, (
-                    f"{kw!r} header missing its component: {stripped!r}"
-                )
-                header_indent = len(line) - len(line.lstrip(" "))
-                block: list[str] = []
-                j = i + 1
-                while j < len(lines):
-                    candidate = lines[j]
-                    if candidate.strip() == "":
-                        break
-                    candidate_indent = len(candidate) - len(candidate.lstrip(" "))
-                    if candidate_indent <= header_indent:
-                        break
-                    block.append(candidate.strip())
-                    j += 1
-                assert block, (
-                    f"{kw!r} header has no following terminal block: {stripped!r}"
-                )
-                todo_lines = [ln for ln in block if ln.startswith("# TODO(lvnet):")]
-                assert len(todo_lines) == 1, (
-                    f"{kw!r} block must carry exactly one TODO, got {todo_lines!r}"
-                )
-                assert block[-1].startswith("# TODO(lvnet):"), (
-                    f"{kw!r} block's TODO must be its LAST line, got {block[-1]!r}"
-                )
 
     return counts
 
@@ -702,38 +680,37 @@ def test_anonymous_cluster_spells_field_types_inline_and_recovers_named() -> Non
     ), f"`lveventtype` should appear as a `types :` footnote entry:\n{text}"
 
 
-def test_in_place_element_and_formula_node_synthetic_block_invariant() -> None:
-    """No real corpus VI exercising these two kinds was required by this
-    pass -- so this is a SYNTHETIC structural check of
-    ``_assert_no_invented_open_syntax``'s block-scanning logic itself (never
-    a claim about a real render): a fabricated ``in-place-element``/
-    ``formula-node`` block, handle+terminals then exactly one trailing TODO,
-    passes; a block with a SECOND invented line after the TODO is rejected.
-    """
+def test_formula_node_synthetic_block_invariant() -> None:
+    """A SYNTHETIC structural check of ``_assert_no_invented_open_syntax``'s
+    formula/expression handling (never a claim about a real render): a quoted
+    component passes, a bare one and a trailing TODO are rejected."""
     good = (
         "vi Fake.vi :\n"
         "\n"
-        "  in-place-element IPE_1 : In Place Element\n"
-        "    in   0 : DBL = x\n"
-        "    out  1 : DBL\n"
-        "    # TODO(lvnet): in-place-element decompose/recompose pairing was never designed (md §17 item 6)\n"
-        "  formula-node Formula_1 : Formula Node\n"
+        '  formula-node Formula_1 : "y = x;"\n'
         "    in   x : DBL = x\n"
         "    out  y : DBL\n"
-        "    # TODO(lvnet): formula-node script rendering needs the `script` field plumbed\n"
+        '  expression-node Expression_2 : "2*x"\n'
+        "    in   x : DBL = x\n"
+        "    out  y : DBL\n"
+        "  expression-node Expression_3\n"
+        "    in   x : DBL = x\n"
+        "    out  y : DBL\n"
         "\n"
     )
     counts = _assert_no_invented_open_syntax(good)
-    assert counts["in-place-element"] == 1
     assert counts["formula-node"] == 1
+    assert counts["expression-node"] == 2
 
-    bad = good.replace(
-        "    # TODO(lvnet): in-place-element decompose/recompose pairing was never designed (md §17 item 6)\n",
-        "    # TODO(lvnet): in-place-element decompose/recompose pairing was never designed (md §17 item 6)\n"
-        "    invented_extra_line = 1\n",
-    )
     with pytest.raises(AssertionError):
-        _assert_no_invented_open_syntax(bad)
+        _assert_no_invented_open_syntax(good.replace('"y = x;"', "Formula Node"))
+    with pytest.raises(AssertionError):
+        _assert_no_invented_open_syntax(
+            good.replace(
+                '  formula-node Formula_1 : "y = x;"\n',
+                '  formula-node Formula_1 : "y = x;"\n    # TODO(lvnet): x\n',
+            )
+        )
 
 
 # ============================================================

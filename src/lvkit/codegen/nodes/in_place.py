@@ -23,6 +23,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
 from lvkit.models import (
     ClusterField,
@@ -33,12 +34,13 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import parse_expr
+from ..ast_utils import parse_expr, type_default_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..value_copy import owned_input
+from ..native_array import guarded_index, replaced_element
+from ..value_copy import COPY_IMPORT, own_path, owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"
@@ -252,11 +254,27 @@ def _take_element_out(
         element_out = _role_terminal(op, "agg", "output")
         if array_in is None or index_in is None or element_out is None:
             return None
+        # NI: the border node "gains an additional index parameter for each
+        # additional dimension of the array"; only one index is generated.
+        indexes = [
+            t
+            for t in _field_terminals(op, "input")
+            if ctx.wired_input(t.id, op) is not None
+        ]
+        if len(indexes) > 1:
+            raise ConversionGap(
+                "An In Place Element array tile with an index for each of "
+                f"{len(indexes)} dimensions has no code generation yet",
+                op,
+            )
         whole = ctx.wired_input(array_in.id, op)
         index = ctx.wired_input(index_in.id, op)
         if whole is None or index is None:
             return None
-        ctx.bind(element_out.id, f"{whole}[{index}]")
+        # An index outside the array reads the element type's default, as Index
+        # Array does, and its write leaves the array as it is.
+        default = ast.unparse(type_default_expr(element_out.lv_type))
+        ctx.bind(element_out.id, guarded_index(whole, index, default))
         return _Element(whole, index)
     dvr_in = next(
         (t for t in op.terminals if t.direction == "input"),
@@ -292,18 +310,36 @@ def _write_elements_back(
             stmts.extend(_write_fields_back(op, element, ctx))
             continue
         if tile.kind == _ARRAY:
-            source = _role_terminal(op, "agg", "input")
-            target = f"{element.whole}[{element.index}]"
-        else:
-            source = next(
-                (t for t in op.terminals if t.direction == "input"),
-                None,
-            )
-            target = f"{element.whole}[0]"
+            stmts.extend(_write_array_element_back(tile, element, ctx))
+            continue
+        source = next(
+            (t for t in op.terminals if t.direction == "input"),
+            None,
+        )
         value = ctx.wired_input(source.id, op) if source is not None else None
         if value is not None:
-            stmts.append(_assign(parse_expr(target), value))
+            stmts.append(_assign(parse_expr(f"{element.whole}[0]"), value))
     return stmts
+
+
+def _write_array_element_back(
+    tile: _Tile, element: _Element, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """Bind the tile's array output to a new array holding the element the body
+    produced. The array that came in is not changed, so any other reader of its
+    wire keeps its own value."""
+    op = tile.op
+    source = _role_terminal(op, "agg", "input")
+    value = ctx.wired_input(source.id, op) if source is not None else None
+    outputs = _carried_outputs(tile)
+    if value is None or element.index is None:
+        return []
+    out = outputs[0] if outputs else None
+    name = ctx.make_output_var("array", op.id, out.id if out else None)
+    for carried in outputs:
+        ctx.bind(carried.id, name)
+    new_array = replaced_element(element.whole, element.index, value)
+    return [_assign(ast.Name(id=name, ctx=ast.Store()), new_array)]
 
 
 def _write_fields_back(
@@ -320,6 +356,9 @@ def _write_fields_back(
         path = _field_path(t, class_fields, _class_attrs(agg_out, ctx))
         if path is None:
             continue
+        if len(path) > 1:
+            ctx.add_import(COPY_IMPORT)
+            stmts.extend(own_path(element.whole, path))
         stmts.append(_assign(_attribute_target(element.whole, path), val))
     return stmts
 

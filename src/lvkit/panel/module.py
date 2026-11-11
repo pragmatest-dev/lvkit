@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from .kinds import PanelControl
 from .layout import Box, drawn
-from .widget_call import builders_used, widget_call
+from .widget_call import builders_used, modules_used, widget_call
 
 
 @dataclass(frozen=True)
@@ -76,6 +76,11 @@ def panel_source(spec: PanelSource) -> str:
         }
     )
     imports = ", ".join(["LiveValues", "RunController", "caption", *used])
+    stdlib = sorted(
+        {"sys"}.union(
+            *(modules_used(c) for c in drawn(spec.controls) if c.kind is not None)
+        )
+    )
     logic_names = ", ".join(
         [f"{spec.function} as vi_function", *filter(None, [enum, spec.event_enum_name])]
     )
@@ -86,9 +91,7 @@ def panel_source(spec: PanelSource) -> str:
         if (argument := _argument(c, enum)) is not None
     ]
     if enum is not None:
-        arguments += ["on_update=values.update", "on_read=values.read"]
-    if spec.event_enum_name is not None:
-        arguments.append("events=values.events.queue")
+        arguments.append("live_io=values")
     painted = [
         f"values.show({_key(c, enum)}, result.{c.field})"
         for c in spec.controls
@@ -100,7 +103,7 @@ def panel_source(spec: PanelSource) -> str:
         "",
         "from __future__ import annotations",
         "",
-        "import sys",
+        *(f"import {name}" for name in stdlib),
         "from pathlib import Path",
         "from typing import Any",
         "",
