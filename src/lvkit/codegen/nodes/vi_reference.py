@@ -372,7 +372,7 @@ def _made_only_with_a_vi(
     node whose error out is not wired has nowhere to report it, so calling the
     reference stays what fails, as a native failure does
     (``native_failure``)."""
-    _, error_outs = own_error_terminals(node)
+    _, error_outs = own_error_terminals(node, ctx)
     if not any(ctx.is_wired(term.id) for term in error_outs):
         return fragment
     statements = list(fragment.statements)
@@ -392,7 +392,7 @@ def _made_only_with_a_vi(
         fragment.bindings[term.id] = var
     own_error = ctx.make_output_var("own_error", node.id)
     defaults = output_defaults(
-        node, fragment.bindings, assigned_names(statements), None
+        node, ctx, fragment.bindings, assigned_names(statements), None
     )
     ctx.import_labview_error()
     invalid = labview_error(INVALID_VI_REFERENCE_CODE, _label(node))

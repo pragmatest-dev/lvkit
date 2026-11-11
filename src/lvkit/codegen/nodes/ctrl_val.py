@@ -152,7 +152,7 @@ def report_panel_error(
     when they did not fail."""
     own_error = ctx.make_output_var("own_error", node.id)
     exception = ctx.make_output_var("exception", node.id)
-    defaults = output_defaults(node, bindings, assigned_names(statements), None)
+    defaults = output_defaults(node, ctx, bindings, assigned_names(statements), None)
     handler = ast.ExceptHandler(
         type=ast.Name(id=FRONT_PANEL_ERROR_NAME, ctx=ast.Load()),
         name=exception,

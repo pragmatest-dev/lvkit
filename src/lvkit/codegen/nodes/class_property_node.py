@@ -87,7 +87,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(build_assign(obj, parse_expr(receiver)))
         receiver = obj
 
-    error_in, error_outs = own_error_terminals(node)
+    error_in, error_outs = own_error_terminals(node, ctx)
     incoming = (ctx.wired_input(error_in.id, node) if error_in else None) or "None"
     error: str | None = None  # the error so far, once a row can report one
     bindings: dict[str, str] = {}

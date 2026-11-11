@@ -38,6 +38,13 @@ class PrimitiveTerminal(TerminalDefault):
     # the error cluster's status passes to it.
     error_cluster_status: bool = False
 
+    @property
+    def takes_wire_type(self) -> bool:
+        """The terminal's type is the type of what is wired to it (the catalog
+        calls it polymorphic): an error cluster wired here is data, not an
+        error in or error out."""
+        return (self.type or "").lower() == "polymorphic"
+
 
 class NodeIcon(BaseModel):
     """An optional, declarative node glyph for the renderer.
@@ -98,9 +105,7 @@ class PrimitiveEntry(BaseModel):
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     # Other numberings of the same terminals (see TerminalAlias); names, types
     # and code come from ``terminals`` only.
-    alternative_terminal_sets: list[list[TerminalAlias]] = Field(
-        default_factory=list
-    )
+    alternative_terminal_sets: list[list[TerminalAlias]] = Field(default_factory=list)
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     # Standard third-party packages (by their PyPI name) the node's generated
