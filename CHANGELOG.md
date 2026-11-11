@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a generated package always imports and never hides a Python module** — the package is named by the same rule as every module (`1D Tools.vi` is `var_1d_tools`, which imports), and a name Python already has gets `_` after it (`Numbers.vi` is `numbers_`, not a package that hides the standard `numbers`).
 - **Fix: Delete From Array with a negative or out-of-range index no longer duplicates elements** — the run deleted is clipped to the array as NI documents (a negative index with `length` wired deletes `length` minus its size); a Python slice counted a negative index from the end.
 - **Fix: extended-precision (EXT) and complex (CSG/CDB/CXT) numbers are `float` and `complex` in generated code** — signatures said `Any` and an out-of-range read or unwired indicator gave `None`; it is now `0.0` / `0j`. A number with a unit is treated as its plain number in every view.
 - **Fix: a generated front panel starts each control from its saved value** — a string control showed its saved text in quotes (`''` for an empty one) and passed the quotes to the VI; a Boolean or number saved as text, and a path, now start from the value the generated function uses.
