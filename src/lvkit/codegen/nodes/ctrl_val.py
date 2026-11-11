@@ -17,11 +17,13 @@ panel, one per function:
 - Run VI is ``.run(wait)``: it "uses the current values of all front panel
   controls for execution rather than using data passed in through parameters".
 
-A name the VI has no control or indicator of is error 1100 (NI, General LabVIEW
-Error Codes: "No object of that name was found."), and a reference that is Not a
-Refnum is error 1026, both reported on the Invoke Node's own error out
-(``error_flow``). The deprecated forms of these methods take the value as
-flattened data and a type string, which has no Python meaning: they stay a gap.
+A name the VI has no control or indicator of is error 1 with the message
+``"<name>" not found`` (no NI page gives this error; an NI forum thread, "Help
+with Set Control Value, Control Name", reports ERR1 and that message for a wrong
+control name), and a reference that is Not a Refnum is error 1026, both
+reported on the Invoke Node's own error out (``error_flow``). The deprecated
+forms of these methods take the value as flattened data and a type string, which
+has no Python meaning: they stay a gap.
 """
 
 from __future__ import annotations
