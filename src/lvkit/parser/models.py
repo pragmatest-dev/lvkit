@@ -14,6 +14,7 @@ from ..models import (
     ClusterField,
     DisableStructureKind,
     EventFrame,
+    EventRegRow,
     LVType,
     PaneSlot,
     ServerClass,
@@ -59,6 +60,7 @@ class ParsedType:
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
+    event_rows: tuple[EventRegRow, ...] | None = None  # Event Registration rows
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
     pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane

@@ -25,32 +25,18 @@ from lvkit.models import (
 
 from ..ast_utils import (
     build_assign,
-    field_attribute_paths,
     parse_expr,
     to_var_name,
     type_default_expr,
 )
-from ..class_attributes import ClassAttributes, class_field_paths
+from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
+from ..cluster_members import attribute_paths, is_anonymous_cluster, position_path
 from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
 from ..value_copy import owned_input
-
-
-def _is_anonymous_cluster(lv_type: LVType | None) -> bool:
-    """True for an on-diagram anonymous cluster — no typedef and no class, so
-    its fields are positional placeholders (e.g. ``field_1``) with no meaningful
-    names. Such a cluster is represented as a Python tuple accessed by position;
-    a named/typedef cluster keeps attribute access. See
-    docs/_internal/design/codegen-fix-assumptions.md."""
-    return (
-        lv_type is not None
-        and lv_type.kind == LVTypeKind.CLUSTER
-        and not lv_type.typedef_name
-        and not lv_type.classname
-    )
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -107,7 +93,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     class_fields = None
     agg_terminals = agg_in or agg_out
     agg_lv_type = agg_terminals[0].lv_type if agg_terminals else None
-    anon = _is_anonymous_cluster(agg_lv_type)
+    anon = is_anonymous_cluster(agg_lv_type)
     measure_flavor = agg_lv_type.measure_flavor if agg_lv_type else None
     class_attrs: ClassAttributes | None = None
     if agg_terminals and agg_terminals[0].lv_type:
@@ -300,33 +286,8 @@ def _error_read(
 def _position_path(
     term: Terminal, fields: list[ClusterField] | None
 ) -> tuple[int, ...]:
-    """Map a depth-first nMux field index, including parents, to tuple positions.
-
-    Descendants of named types are not positional; keep their indices in the
-    traversal but reject a selected path through that representation boundary.
-    """
-    paths: list[tuple[int, ...] | None] = []
-
-    def visit(
-        current: list[ClusterField], prefix: tuple[int, ...], positional: bool
-    ) -> None:
-        for index, field in enumerate(current):
-            path = prefix + (index,)
-            paths.append(path if positional else None)
-            if field.type and field.type.fields:
-                visit(
-                    field.type.fields,
-                    path,
-                    positional and _is_anonymous_cluster(field.type),
-                )
-
-    visit(fields or [], (), True)
-    index = term.nmux_field_index
-    if index is not None and 0 <= index < len(paths):
-        path = paths[index]
-        if path is not None:
-            return path
-    raise TypeResolutionNeeded(type_name=f"positional field[{index}]", context=term.id)
+    """The tuple positions of the depth-first nMux field index of ``term``."""
+    return position_path(term.nmux_field_index, fields, term.id)
 
 
 def _measure_component(term: Terminal, flavor: str, node: PrimitiveNode) -> str:
@@ -429,16 +390,6 @@ def _generate_error_bundle(
     )
 
 
-def _attribute_paths(
-    class_fields: list[ClusterField], class_attrs: ClassAttributes | None
-) -> list[list[str]]:
-    """The attribute path of every field of the aggregate: the attributes the
-    class names its private data fields, the field names of any other cluster."""
-    if class_attrs is not None:
-        return class_field_paths(class_attrs, class_fields)
-    return field_attribute_paths(class_fields)
-
-
 def _field_path(
     term: Terminal,
     class_fields: list[ClusterField] | None,
@@ -448,7 +399,7 @@ def _field_path(
     nmux_field_index, which counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
-    paths = _attribute_paths(class_fields, class_attrs)
+    paths = attribute_paths(class_fields, class_attrs)
     if 0 <= term.nmux_field_index < len(paths):
         return paths[term.nmux_field_index]
     return None
@@ -470,7 +421,7 @@ def _field_expr(
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""
     if term.nmux_field_index is not None and class_fields:
-        paths = _attribute_paths(class_fields, class_attrs)
+        paths = attribute_paths(class_fields, class_attrs)
         if 0 <= term.nmux_field_index < len(paths):
             return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
 
