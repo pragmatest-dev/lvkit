@@ -629,39 +629,47 @@ Extends §13 (`FrontPanel`) and §10/§11 (rows by class + property code; UI-sta
 
 **Open: the panel's tabbing order.** The parser records no tab order (`parser/` has none). Candidate sources in the front-panel heap: `ddoList` (the panel's object list) and `zPlaneList` (drawing order). Evidence to collect from the corpus: for every cluster control, whether its element list in the heap is in its type's field order (cluster order) while its z-order differs. If so, LabVIEW stores an order of tabbing in the object list, and the panel's `ddoList` is the panel's tabbing order by the same storage. Until that is shown, the panel's `Controls[]` is a gap rather than a guessed order.
 
-## 15. A VI's front panel by reference through `live_io` (PROPOSED 2026-11-11, replaces §13's mechanism; maintainer: "free expansion because all the io concerns can go in one optional parameter that we can expand over time without requiring rewrite")
+## 15. A VI's front panel, owned by the VI and reached through its reference (PROPOSED 2026-11-11, replaces §13's mechanism)
 
-§13's need stays: LabVIEW code sets a control of a VI by reference (Ctrl Val.Set), runs it (Run VI) and reads its indicators back (Ctrl Val.Get / Get All), and JKI VI Tester does each in a different VI. §13 met it with a second holder, `front_panels.py` `FrontPanel`, beside §11's `LiveIO`; this section puts it on `LiveIO` and removes `FrontPanel`, the four label-map function attributes and `panel_defaults`.
+Earlier drafts of this section put the panel on `live_io` and then on a process-wide store; both were designed as plumbing before the LabVIEW model (maintainer: "why would subVIs have access to another VI's front panel automatically? Did you consider what we're representing?"). This version starts from the model.
 
-### 15.1 Recorded design this touches
+### 15.1 What LabVIEW represents
+
+- **Owner.** A front panel belongs to its VI: one panel per VI in memory, holding the current value of each control and indicator. A VI run with nothing passed reads its controls from it ("Required inputs don't stop an individual VI from running in LV, just picks up the values currently in the front panel (initially set by control/type defaults)", maintainer 2026-11-11). Run VI "uses the current values of all front panel controls for execution rather than using data passed in through parameters" (NI, `properties-and-methods/vi-server/vi/run-vi.html`, quoted in `codegen/nodes/ctrl_val.py`).
+- **Access.** Another VI reaches that panel only through a VI reference on a wire: Ctrl Val.Set / Get / Get All, Run VI and Property Nodes take the reference as an input. A subVI can touch the panel only if the reference is wired into it. Nothing is reached by name or globally.
+- **Lifetime.** The panel lives while the VI is in memory; values set on it stay until changed or the VI runs and writes them.
+- **Shown or not.** A panel open on screen is the same panel, displayed; interacting with it changes the same values.
+
+### 15.2 Mapping (one LabVIEW path → one Python path)
+
+| LabVIEW | Python |
+|---|---|
+| the VI | its generated function and module |
+| its front panel (current control and indicator values) | state owned by that VI's module |
+| a VI reference on a wire | the function (already recorded: CLAUDE.md "a VI reference is an import"; VI properties are reflection on it) |
+| Ctrl Val.Set / Get / Get All on a reference | operations on the panel of the VI the reference is |
+| Run VI on a reference | call the function with the panel's control values; store its indicators back on its panel |
+| the VI shown interactively | the NiceGUI panel bound to that same panel state |
+| what the VI does with its own panel while it runs | `live_io` (§11), unchanged |
+
+### 15.3 Recorded design this touches
 
 | Recorded | Where | Here |
 |---|---|---|
-| One optional `live_io` parameter for everything a VI does with a front panel; a new capability is a new method with a no-op default | §11.1 :459, §11.2 :496; ARCH "Panel hooks" | EXTENDED: Ctrl Val / Run VI by reference are new `LiveIO` methods |
-| "the base holds no state, so a shared default is safe" | §11.1 :471 | EXTENDED (needs yes): no per-instance state still; the base keeps one value store per VI at module level in `live_io.py`, because LabVIEW keeps one front panel per VI in memory, so `NO_LIVE_IO` stays safe to share |
-| Which VIs get `live_io`: `touches_panel_while_running` | §11.1 :459, `panel_hooks.py:126` | EXTENDED (needs yes): also a VI with a Ctrl Val method or Run VI on a reference, or a Value Property Node on a VI's control reference |
-| D21: Run VI passes `live_io` | :507 | KEPT: Run VI by reference calls the target with the values and `live_io` |
-| D2: one name table per VI, unique Python names (6.9 % of panels have duplicate labels); a `(str, Enum)` per hooked VI | :227-228, :504 | EXTENDED: the by-reference methods need LabVIEW label → name at run time; the per-VI names Enum carries each member's LabVIEW label and whether it is a control, generated for every VI (replaces §13's `panel_controls` / `panel_indicators` / `panel_passed`, which kept the first of two duplicate labels) |
-| The connector pane is the signature; Required inputs positional with no default | CLAUDE.md "GENERATED PYTHON"; `ast_utils.parameter_default_expr_of_type` | REPLACED (needs yes): a Required input of a plain value gets its control's default in the signature, like an optional one; a class / array keeps `None` + the body init (`class_input_default.py`, maintainer 2026-11-11: defaults in the signature; "Required inputs don't stop an individual VI from running in LV") |
-| Run VI gaps when the target has a Required input | `run_vi.py:217-222` | REPLACED: no gap (same quote) |
-| Run VI's diagram scans | `run_vi.py:233` `_value_set_on`; §13 added `_front_panel_used` / `_holds` (`run_vi.py:129-157`) | One scan: `_value_set_on` only |
-| Start Asynchronous Call's thread pool | ARCH:101 `submit_to_pool` | KEPT: `run(wait=False)` uses it (§13 started a second pool, `front_panels_module.py:39`) |
-| Indicator values kept between calls | ARCH:289, `local_indicators.py:1-25` | KEPT, see 15.3 open point |
-| Approved generated helpers | CLAUDE.md:59 | `front_panels.py` is removed, nothing added |
-| Error code of an unknown control name | §13 As built (code 1); ARCH:103 says "1100 and 1026" | ARCH:103 corrected to 1 and 1026 |
-| Property Node row with no Python meaning → gap | maintainer in chat, 2026-11-11 "Gap now, control refs next"; not recorded | recorded in §10 and ARCH |
+| Indicator values kept between calls in the VI's module | ARCH:289, `local_indicators.py:1-25`, `CodeGenContext.add_state_global` | EXTENDED: that module state is the VI's panel; no second store |
+| `live_io` = a VI's own panel during a run; base is a stateless no-op; not passed to subVIs | §11 PLAN:459-471, D6 PLAN:232 | KEPT unchanged |
+| D21: Run VI of an inserted VI passes the embedded VI's io | PLAN:507 | KEPT |
+| D2 names: one unique-name table per VI | PLAN:227-228, :504 | the label → name lookup the reference operations need; how it is reached for a VI with no hooks is open (15.4) |
+| `FrontPanel`, label-map function attributes, `panel_defaults`, `front_panels.py` | §13, `front_panels_module.py`, `panel_attributes.py` | REPLACED (removed) |
+| Required input positional, no default; pane order kept | `builder.py:648-659`, `codegen-fix-assumptions.md:380-414` | open (15.4): a Required control's default must come from the panel, not a signature change, unless the recorded order rule allows it |
+| Run VI gaps a Required input | `run_vi.py:217-222` | REPLACED: no gap (15.1 quote) |
+| Start Asynchronous Call's pool | ARCH:101 `submit_to_pool` | KEPT for `wait=False` (no second pool) |
+| Property Node row with no Python meaning → gap | chat 2026-11-11, unrecorded | to record in §10 / ARCH |
+| ARCH:103 (FrontPanel, codes 1100/1026), §14 (control refs on FrontPanel) | | rewritten from this section |
 
-### 15.2 Mechanism
+### 15.4 Open questions (to settle before any code)
 
-- `LiveIO` gains, with base behaviour that works with no panel:
-  `set_control(vi, label, value)`, `get_control(vi, label) -> value`, `get_controls(vi, controls) -> [(label, value)]`, `run_vi(vi, wait)`, `execution_state(vi) -> int`. The base keeps the values in a module-level dict keyed by the function (one front panel per VI); `run_vi` calls `vi(**values, live_io=self)` when the target takes `live_io`, else `vi(**values)`, on the caller's thread or `submit_to_pool`, then stores each indicator from the result. An unknown label is error 1, a reference that is not a VI 1026 (§13 As built). A subclass (the NiceGUI panel's `LiveValues`, a TesterKit adapter) can show or record these like any other method.
-- Generated code: `live_io.set_control(ref, label, value)` and so on, in the caller, which gets `live_io` (15.1).
-- Required inputs carry their default in the signature, so `run_vi` passes only values set; nothing like `panel_defaults`.
-- Exec.State reads `live_io.execution_state(ref)`.
-- §14 control references are rewritten on these methods (Value through a control reference = `get_control` / `set_control`); Visible / Disabled through a reference can then use the target's `set_property` through the same object.
-
-### 15.3 Open points (recommendation)
-
-1. **Store location** (15.1 row 2): module-level in `live_io.py`, keyed by function. Recommended: it is LabVIEW's one-panel-per-VI; per-instance state would lose values set in one VI and read in another.
-2. **A direct call and the store.** A VI called directly (not by reference) does not update the store, so a later Ctrl Val.Get sees the last by-reference run, not the direct call. LabVIEW updates the panel on every call. Recommended for now: accept and document; making every function write the store on return costs every call.
-3. **Indicator writes during a by-reference run** are visible only when the run ends unless the target writes through a `live_io` bound to that VI's store. Recommended: pass the caller's `live_io` (D21) and add live updates later as a method, no rewrite.
+1. **How a reference reaches its VI's panel.** The reference is the function; its panel is module state. Options: a module-level panel object generated in every VI's module (always present, one line, readable) vs created on first access through the reference (no clutter, a hidden attribute). Readability of every generated module is the cost of the first.
+2. **Does a direct (subVI) call read and write the panel?** In LabVIEW a subVI call passes values through the connector pane; whether it also updates that VI's front-panel control and indicator values (and so what a later Ctrl Val.Get sees) needs a public source before deciding. If it does, every function reads/writes its panel; if not, only by-reference use does.
+3. **A Required control's default for Run VI** without changing the signature: the panel's initial values are the control defaults (15.1), so the panel holds them; where they come from at run time (generated with the panel state) follows from 1.
+4. **Duplicate labels.** Ctrl Val takes a label; 6.9 % of panels have duplicate labels (PLAN:227). Which control LabVIEW picks needs a source; else a duplicate-label lookup is error 1 / a gap.
