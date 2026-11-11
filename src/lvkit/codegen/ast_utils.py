@@ -41,9 +41,10 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     item, a path the empty path, an array ``[]``; a named cluster is a
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
-    error). A type with no Python value (a refnum, a class, a variant) is
-    ``None``. The module that holds the expression imports what it names
-    (``implicit_imports``)."""
+    error). A type with no Python value (a refnum, a variant) is ``None``, and so
+    is a class: an unwired class input holds the class's default object, which
+    the function makes in its body (``class_input_default``). The module that
+    holds the expression imports what it names (``implicit_imports``)."""
     if lv_type is None:
         return ast.Constant(value=None)
     kind = lv_type.kind
@@ -65,7 +66,8 @@ def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
     """The default a parameter of a LabVIEW type takes in a ``def`` when the
     control saves none: the type's default for a number, Boolean, string, enum
     or ring, and ``None`` for anything else (a ``def`` default is evaluated once,
-    so a list or object there would be shared by every call)."""
+    so a list or object there would be shared by every call; the function makes
+    the array or class object for ``None`` in its body)."""
     if lv_type is None:
         return ast.Constant(value=None)
     if lv_type.kind == LVTypeKind.PRIMITIVE:

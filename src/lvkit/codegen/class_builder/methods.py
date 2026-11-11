@@ -141,6 +141,7 @@ class _MethodBuilderMixin:
                         return_stmt=lambda: self._return_stmt(
                             shape, vi_context, ctx, property_accessor
                         ),
+                        receiver=receiver,
                     ),
                 )
             except CodeGenError as error:

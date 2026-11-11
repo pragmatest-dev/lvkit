@@ -140,7 +140,7 @@ def test_the_parent_class_casts_to_its_child(tmp_path: Path) -> None:
     base = package.sources["base"]
     assert "\nfrom .child import Child\n" not in base
     assert (
-        "    def cast(self, *, target: Child=None) -> CastResult:\n"
+        "    def cast(self, *, target: Child | None=None) -> CastResult:\n"
         "        from .child import Child\n" in base
     )
     with package.use() as module:
