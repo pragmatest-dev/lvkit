@@ -21,7 +21,7 @@ from .widgets_array import array_control, array_indicator, array_port
 from .widgets_choice import choice_control, choice_indicator, choice_port
 from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_error import error_control, error_indicator, error_port
-from .widgets_path import path_control, path_indicator, path_port
+from .widgets_path import path_control, path_indicator, path_port, path_text
 
 __all__ = [
     "Abort",
@@ -51,6 +51,7 @@ __all__ = [
     "path_control",
     "path_indicator",
     "path_port",
+    "path_text",
     "string_control",
     "string_indicator",
     "string_port",

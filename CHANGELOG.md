@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a generated front panel starts each control from its saved value** — a string control showed its saved text in quotes (`''` for an empty one) and passed the quotes to the VI; a Boolean or number saved as text, and a path, now start from the value the generated function uses.
 - **User events generate Python** — Create, Register For Events, Generate, Unregister and Destroy User Event are a list of queues in plain Python, in any VI; an Event Structure frame for a registered user event runs and reads its data fields by name; a row that registers a control reference or a Generate with a priority other than normal is a gap.
 - **An Event Structure frame for a registered user event is named after its row** — `[1] <Start>: User Event`, or `<Field.Label>` when the registration is a cluster of registrations, in describe, lvnet, JSON and the render, where it read `<unknown event 0x000003E8>`; JSON types show an Event Registration's `event_rows`.
 - **Fix: a reference control inside a type definition keeps its label and is drawn as a reference** — the front panel read skipped the reference and took the control inside it (often a Boolean), so it showed as `None`/`input` and was drawn as a Boolean button.
