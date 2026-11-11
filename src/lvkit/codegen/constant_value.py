@@ -1,0 +1,163 @@
+"""A cluster or array constant written as a Python expression, from its type and
+its decoded value (``ConstantNode.structured_value``).
+
+Each part is written from its own type: a cluster as a tuple (anonymous) or a
+``SimpleNamespace`` (named), an array as a list, a class object as a new object of
+its class, a Variant as the value it holds (``None`` when empty), an error cluster
+as the value of an error wire, any other value through the scalar formatting a
+constant of that type goes through. A part with no Python value is a gap."""
+
+from __future__ import annotations
+
+import ast
+from typing import TYPE_CHECKING
+
+from lvkit.conversion_gap import ConversionGap
+from lvkit.lv_type_codes import is_numeric_type_name
+from lvkit.measure_data import TIMESTAMP_FLAVOR
+from lvkit.models import (
+    LVType,
+    LVTypeKind,
+    VariantData,
+    _is_error_cluster,
+    unique_names,
+)
+
+from .ast_utils import field_attribute_names
+
+if TYPE_CHECKING:
+    from .context import CodeGenContext
+
+TIMESTAMP_GAP = (
+    "A timestamp constant has no Python value yet: lvkit has not chosen how "
+    "generated code holds a timestamp"
+)
+
+# Types written as ``None`` whatever the decoded value.
+_NO_VALUE_TYPES = frozenset({"Void", "Picture"})
+# Types whose decoded value is the display text the scalar formatting reads.
+_SCALAR_TYPES = frozenset({"Boolean", "String", "Tag", "Path", "Refnum"})
+_VARIANT_TYPES = frozenset({"LVVariant", "Variant"})
+
+
+def is_timestamp(lv_type: LVType | None) -> bool:
+    """Whether ``lv_type`` is a timestamp."""
+    return (
+        lv_type is not None
+        and lv_type.underlying_type == "MeasureData"
+        and lv_type.measure_flavor == TIMESTAMP_FLAVOR
+    )
+
+
+def constant_value_expression(
+    ctx: CodeGenContext, lv_type: LVType, value: object, where: str = "the constant"
+) -> str:
+    """The Python expression for ``value``, a decoded value of type ``lv_type``.
+    ``where`` names the part of the constant being written, for a gap."""
+    underlying = lv_type.underlying_type or ""
+    if lv_type.ref_type == "UDClassInst":
+        return ctx.class_object_expression(lv_type)
+    if underlying in _NO_VALUE_TYPES:
+        return "None"
+    if underlying in _VARIANT_TYPES:
+        if not isinstance(value, VariantData):
+            raise ConversionGap(_not_read(where, lv_type))
+        if value.attribute_count:
+            raise ConversionGap(
+                f"{where[0].upper()}{where[1:]} is a Variant with attributes, "
+                "which has no Python value yet"
+            )
+        if value.value_type is None:
+            return "None"
+        return constant_value_expression(ctx, value.value_type, value.value, where)
+    if is_timestamp(lv_type):
+        raise ConversionGap(TIMESTAMP_GAP)
+    if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields is not None:
+        if not isinstance(value, dict):
+            raise ConversionGap(_not_read(where, lv_type))
+        if _is_error_cluster(lv_type):
+            return _error_value(ctx, lv_type, value, where)
+        return _cluster(ctx, lv_type, value, where)
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        return _array(ctx, lv_type.element_type, lv_type.dimensions or 1, value, where)
+    if (
+        lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
+        or underlying in _SCALAR_TYPES
+        or is_numeric_type_name(underlying)
+    ):
+        if not isinstance(value, str):
+            raise ConversionGap(_not_read(where, lv_type))
+        return ctx.scalar_constant_expression(lv_type, value)
+    raise ConversionGap(
+        f"{where[0].upper()}{where[1:]} is a {underlying or lv_type.kind.value} "
+        "value, which lvkit cannot write as Python yet"
+    )
+
+
+def _not_read(where: str, lv_type: LVType) -> str:
+    return (
+        f"The value of {where} ({lv_type.underlying_type or lv_type.kind.value}) "
+        "was not read from the VI"
+    )
+
+
+def _fields(
+    ctx: CodeGenContext, lv_type: LVType, value: dict[str, object], where: str
+) -> list[str]:
+    """The expression for each field of a cluster, in field order."""
+    assert lv_type.fields is not None
+    keys = unique_names(f.name for f in lv_type.fields)
+    expressions = []
+    for f, key in zip(lv_type.fields, keys):
+        part = f"the field {f.name!r} of {where}"
+        if f.type is None:
+            raise ConversionGap(f"The type of {part} is not known")
+        expressions.append(constant_value_expression(ctx, f.type, value.get(key), part))
+    return expressions
+
+
+def _cluster(
+    ctx: CodeGenContext, lv_type: LVType, value: dict[str, object], where: str
+) -> str:
+    """A cluster: a named or typedef cluster as an object with an attribute for
+    each field (Bundle and Unbundle By Name read and write ``.field``), an
+    anonymous cluster as a positional tuple."""
+    assert lv_type.fields is not None
+    expressions = _fields(ctx, lv_type, value, where)
+    if not lv_type.typedef_name and not lv_type.classname:
+        trailing = "," if len(expressions) == 1 else ""
+        return f"({', '.join(expressions)}{trailing})"
+    attributes = field_attribute_names(f.name for f in lv_type.fields)
+    arguments = ", ".join(
+        f"{attribute}={expression}"
+        for attribute, expression in zip(attributes, expressions, strict=True)
+    )
+    return f"SimpleNamespace({arguments})"
+
+
+def _error_value(
+    ctx: CodeGenContext, lv_type: LVType, value: dict[str, object], where: str
+) -> str:
+    """An error cluster: the value of an error wire."""
+    parts = tuple(ast.literal_eval(e) for e in _fields(ctx, lv_type, value, where))
+    return ctx.error_value_expression(parts, where)
+
+
+def _array(
+    ctx: CodeGenContext,
+    element_type: LVType,
+    dimensions: int,
+    value: object,
+    where: str,
+) -> str:
+    """An array as a list, one nested list per dimension."""
+    if not isinstance(value, list):
+        raise ConversionGap(f"The value of {where} (an array) was not read from the VI")
+    if dimensions > 1:
+        items = [_array(ctx, element_type, dimensions - 1, v, where) for v in value]
+    else:
+        items = [
+            constant_value_expression(ctx, element_type, v, f"an element of {where}")
+            for v in value
+        ]
+    return "[" + ", ".join(items) + "]"

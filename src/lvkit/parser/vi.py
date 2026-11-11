@@ -41,9 +41,11 @@ from lvkit.models import (
     UnreadPath,
     UnreadPrivateData,
     ValuesNotKept,
+    VariantData,
     contains_class_instance,
     find_unwritable,
     leading_element,
+    plain_structured,
     unique_names,
 )
 from lvkit.path_value import format_path
@@ -2383,7 +2385,9 @@ def _parse_ddo(
                         row_bytes = decode_xml_entities_to_bytes(
                             strip_surrounding_quotes(row_default_elem.text)
                         )
-                        elem_defaults = _decode_element(row_bytes, elem_lv_type)[2]
+                        elem_defaults = plain_structured(
+                            _decode_element(row_bytes, elem_lv_type)[2]
+                        )
                     except (ValueError, UnicodeError):
                         pass
 
@@ -2541,7 +2545,7 @@ def _decode_default_bytes(
     if lv_type is not None:
         decoded, _, structured = _decode_element(raw_bytes, lv_type)
         if decoded is not None:
-            return decoded, structured
+            return decoded, plain_structured(structured)
 
     # Fallback: dispatch by control_type string (no type info)
     if raw_bytes.startswith(b"PTH0"):
@@ -2710,13 +2714,14 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
         return None, 0, None
     value_type, is_void, pos = head
     shown = "Variant()"
-    structured: object = shown
+    held = VariantData(None, None)
     if value_type is not None and not is_void:
         value, consumed, structured = _decode_element(data[pos:], value_type)
         if value is None and consumed == 0:
             return None, 0, None
         pos += consumed
         shown = f"Variant({value})"
+        held = VariantData(value_type, structured)
     if pos + 4 > len(data):
         return None, 0, None
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")
@@ -2732,11 +2737,12 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
         name = bytes(data[pos + 4 : name_end]).decode("latin-1")
         attributes.append(f"{name!r}: {attribute}")
         pos = name_end + consumed
+    held = replace(held, attribute_count=attribute_count)
     if attributes:
         listed = "{" + ", ".join(attributes) + "}"
         inner = shown[len("Variant(") : -1]
         shown = f"Variant({inner + ', ' if inner else ''}attributes={listed})"
-    return shown, pos, structured
+    return shown, pos, held
 
 
 # An array with more elements than this is read to its end but its values are not

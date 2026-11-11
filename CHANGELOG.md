@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a cluster or array constant is written field by field, not as a string** — a cluster holding a class object, a Variant or an enum is a tuple or `SimpleNamespace` of those values (`('', None)`, `SimpleNamespace(test=object(), resultstatus=ResultStatusEnum.testPass)`) instead of its display text, so `cluster.test = test` no longer fails; a timestamp constant, scalar or in a cluster, and a Variant with attributes are gaps.
 - **Generated code no longer sets a variable it overwrites at once** — `x = None` straight before `x = ...`, and a default that every branch of an `if`/`else` or `match` ending in `else`/`case _` assigns first, are gone; a default the next line reads once is written in place of that read.
 - **Generated variable names are numbered `name_2`, `name_3` on a collision, never with a node id** — `error_out_549` is `error_out_2`, `expr_263` is `expr`, and a Formula Node's result variable is `formula_result`.
 - **Fix: In Place Element on a Data Value Reference no longer writes back an element it did not change** — `ref[0] = ref[0]` is gone.

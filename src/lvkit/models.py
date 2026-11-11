@@ -139,6 +139,33 @@ UnwritableValue = (
 )
 
 
+@dataclass(frozen=True)
+class VariantData:
+    """A decoded Variant: ``value_type`` is the type of the value it holds (None
+    for the empty Variant, which holds none) and ``value`` that value's decoded
+    form (see ``parser.vi._decode_element``); ``attribute_count`` is how many
+    attributes it carries."""
+
+    value_type: LVType | None
+    value: object
+    attribute_count: int = 0
+
+
+def plain_structured(value: object) -> object:
+    """``value`` as a front-panel default shows it: a Variant is the display text
+    ``Variant()`` when empty, else the value it holds; arrays and clusters are
+    read the same way inside."""
+    if isinstance(value, VariantData):
+        if value.value_type is None:
+            return "Variant()"
+        return plain_structured(value.value)
+    if isinstance(value, dict):
+        return {key: plain_structured(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [plain_structured(item) for item in value]
+    return value
+
+
 _UNWRITABLE_TYPES = (
     ValuesNotKept,
     UndecodedPicture,
@@ -153,6 +180,8 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     recursively) that holds no value code generation could write, else None."""
     if isinstance(value, _UNWRITABLE_TYPES):
         return value
+    if isinstance(value, VariantData):
+        return find_unwritable(value.value)
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
     elif isinstance(value, list):
