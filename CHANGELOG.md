@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **An Expression Node generates Python and shows its formula** — `2*x+3`, `sin(x)` or `(x/pi)*180.0` becomes an inline expression with the result in the input's number type (an array input is computed element by element); `describe` and `render` show the formula, including one a VI keeps in a text record; a cluster input is a reported gap.
+- **`describe --format lvnet` and the netlist JSON show a Formula Node's and an Expression Node's formula** — the node's header is `formula-node <handle> : "<script>"` or `expression-node <handle> : "2*x+3"` (one quoted literal, read back losslessly), and the JSON has a `script` field.
 - **Fix: an Invoke Node method lvkit can't convert is a gap, not a call that fails when it runs** — every method other than Run VI wrote `ref.<method>()`, a Python method that doesn't exist, with no warning (606 of the samples' 635 Invoke Nodes); it now warns at generation and raises `NotImplementedError` naming the method and class where it runs.
 - **Fix: an In Place Element array edit no longer changes the array another wire still reads** — the element is written into a new array, as the rest of the generated array code does; an index outside the array reads the element's default and changes nothing, and an index for each of two dimensions is a gap instead of a silent row read.
 - **Fix: a copied LabVIEW object shares its references, as in LabVIEW** — a value that must be copied is copied one level (`copy.copy`), so a queue, data value reference or VI reference in a field stays the same object (a deep copy duplicated the data a reference points to); a nested write copies each container on its path first.

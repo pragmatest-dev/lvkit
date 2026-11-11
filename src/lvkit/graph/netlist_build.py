@@ -50,7 +50,11 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
-from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
+from ..parser.constants import (
+    NODE_CLASS_EXPRESSION,
+    TUNNEL_CLASS_EVENT_DYNAMIC,
+    TUNNEL_CLASS_LMAX,
+)
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .dependency_path import dependency_path
@@ -1260,6 +1264,8 @@ def _instance_kind_gn(
         return NetlistInstanceKind.PROPERTY_NODE
     if is_invoke:
         return NetlistInstanceKind.INVOKE_NODE
+    if isinstance(node, FormulaNode) and node.node_type == NODE_CLASS_EXPRESSION:
+        return NetlistInstanceKind.EXPRESSION_NODE
     for node_type, kind in _NETLIST_INSTANCE_KIND_BY_NODE_TYPE.items():
         if isinstance(node, node_type):
             return kind
@@ -1388,6 +1394,7 @@ def _build_instance_gn(
         reference=(
             reference_target(graph, node) if is_reference_constant(node) else None
         ),
+        script=node.script if isinstance(node, FormulaNode) else None,
     )
 
 

@@ -81,11 +81,11 @@ from .lvnet_grammar import (
     _LVNET_REFERENCE_TARGET_WORDS,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
+    _LVNET_SCRIPT_KEYWORDS,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _LVNET_UNINITIALIZED,
-    _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
@@ -677,17 +677,14 @@ class ParsedNode:
     ``write`` shape carries no component and no terminal block, so it parses
     to its own ``ParsedLocalVariable`` instead (see there).
 
-    ``has_todo`` is whether a trailing ``# TODO(lvnet): ...`` line followed
-    the terminal block (expected for ``in-place-element``/``formula-node``;
-    unexpected for anything else -- ``netlist_signature`` comparison catches
-    a mismatch here, this dataclass just records the plain fact).
+    A ``formula-node`` / ``expression-node`` whose VI stores no formula text
+    has no ``component`` (``None``); its header is ``<kind> <handle>``.
     """
 
     kind: str  # the §7 header keyword, e.g. "subVI", "function"
     handle: str | None
     component: str | None
     terminals: tuple[ParsedTerminalLine, ...] = ()
-    has_todo: bool = False
 
 
 @dataclass(frozen=True)
@@ -1060,30 +1057,22 @@ def _expect_kv_line(
     return content[len(prefix) :]
 
 
-def _parse_terminal_block(
-    cursor: _Cursor, indent: int
-) -> tuple[list[ParsedTerminalLine], bool]:
+def _parse_terminal_block(cursor: _Cursor, indent: int) -> list[ParsedTerminalLine]:
     """Read a node's own ``in ``/``out`` terminal block at EXACTLY
     ``indent`` spaces, stopping at the first line that ISN'T one (a dedent,
-    a blank line, or a ``# TODO(lvnet): ...`` block-end for in-place-
-    element/formula-node/local-variable, §7). Any OTHER same-indent line is
-    a genuine grammar violation -- raised, never silently skipped."""
+    or a blank line). Any OTHER same-indent line is a genuine grammar
+    violation -- raised, never silently skipped."""
     terminals: list[ParsedTerminalLine] = []
-    has_todo = False
     while True:
         line = cursor.peek()
         if line is None or line.strip() == "" or _indent_len(line) != indent:
             break
         content = line[indent:]
-        if content.startswith("# TODO(lvnet):"):
-            cursor.take()
-            has_todo = True
-            break
         m = _TERMINAL_CONTENT_RE.match(content)
         if m is None:
             raise LvnetParseError(
                 f"line {cursor.line_no}: expected an 'in '/'out' terminal "
-                f"line or a '# TODO(lvnet): ...' block-end, got {line!r}"
+                f"line, got {line!r}"
             )
         line_no = cursor.line_no
         cursor.take()
@@ -1113,7 +1102,7 @@ def _parse_terminal_block(
                 inverted=inverted,
             )
         )
-    return terminals, has_todo
+    return terminals
 
 
 # ============================================================
@@ -1126,25 +1115,28 @@ def _parse_node(
 ) -> ParsedNode:
     rest = content[len(kw) + 1 :]
     sep_idx = rest.find(_LVNET_TYPE_SEP)
-    if sep_idx == -1:
+    component: str | None
+    if sep_idx != -1:
+        handle = rest[:sep_idx]
+        component = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    elif kw in _LVNET_SCRIPT_KEYWORDS:
+        handle, component = rest, None
+    else:
         raise LvnetParseError(
             f"line {line_no}: node declaration missing ' : <component>' "
             f"(§7): {content!r}"
         )
-    handle = rest[:sep_idx]
-    component = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     if not handle or " " in handle:
         raise LvnetParseError(
             f"line {line_no}: node handle must be a single space-free "
             f"token (§7/§9): {content!r}"
         )
-    terminals, has_todo = _parse_terminal_block(cursor, indent + _LVNET_INDENT_WIDTH)
+    terminals = _parse_terminal_block(cursor, indent + _LVNET_INDENT_WIDTH)
     return ParsedNode(
         kind=kw,
         handle=handle,
         component=component,
         terminals=tuple(terminals),
-        has_todo=has_todo,
     )
 
 
@@ -2862,8 +2854,7 @@ def _module_instance_signature(
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
     terminals = _module_terminal_tuple(instance, handles, ambiguous)
-    has_todo = instance.kind in _OPEN_INSTANCE_TRAILING_TODO
-    return ("node", header_kw, handle, component, terminals, has_todo)
+    return ("node", header_kw, handle, component, terminals)
 
 
 def _module_constant_signature(const: NetlistConstant, handles: _LvnetHandles) -> tuple:
@@ -3234,7 +3225,6 @@ def _parsed_item_signature(
             item.handle,
             item.component,
             terminals,
-            item.has_todo,
         )
     raise TypeError(f"unknown parsed body item: {item!r}")  # pragma: no cover
 

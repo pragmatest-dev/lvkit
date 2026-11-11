@@ -66,6 +66,7 @@ from .constants import (
     TUNNEL_CLASS_CASE_SEL,
 )
 from .data_fill import DefaultDataSpace, read_default_data_space
+from .expression_text import resolve_expression_texts
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
@@ -554,6 +555,7 @@ def _parse_block_diagram(
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
+    resolve_expression_texts(nodes, bd_xml)
     resolve_ext_func_calls(nodes, main_xml, type_map)
     resolve_xnode_libraries(nodes, main_xml)
     constants = extract_constants(root, default_space, type_map)

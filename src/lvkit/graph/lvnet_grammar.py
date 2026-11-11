@@ -260,6 +260,7 @@ _LVNET_INSTANCE_KEYWORDS: dict[NetlistInstanceKind, str] = {
     NetlistInstanceKind.PROPERTY_NODE: "property-node",
     NetlistInstanceKind.INVOKE_NODE: "invoke-node",
     NetlistInstanceKind.FORMULA_NODE: "formula-node",
+    NetlistInstanceKind.EXPRESSION_NODE: "expression-node",
     NetlistInstanceKind.SHARED_VARIABLE: "shared-variable",
 }
 
@@ -268,16 +269,14 @@ _LVNET_INSTANCE_KEYWORDS: dict[NetlistInstanceKind, str] = {
 # instance (see ``_LVNET_INSTANCE_KEYWORDS`` above for why it is not there).
 _LVNET_INPLACE_SCOPE_KEYWORD = "in-place-element"
 
-# A trailing ``# TODO(lvnet): ...`` for the ONE part of an otherwise-fully-
-# rendered declaration that §17 item 6 still leaves undesigned. Absent here
-# (SUBVI/FUNCTION/PROPERTY_NODE/INVOKE_NODE) means nothing is undesigned --
-# the declaration + terminal block is the WHOLE rendering, per §7's table.
-_OPEN_INSTANCE_TRAILING_TODO: dict[NetlistInstanceKind, str] = {
-    NetlistInstanceKind.FORMULA_NODE: (
-        "formula-node script rendering needs the `script` field plumbed "
-        "onto the model first (md §17 item 6)"
-    ),
-}
+# The instance kinds whose header's component is the node's formula text as one
+# quoted literal (§4), or absent when the VI stores no text.
+_LVNET_SCRIPT_KINDS = frozenset(
+    {NetlistInstanceKind.FORMULA_NODE, NetlistInstanceKind.EXPRESSION_NODE}
+)
+_LVNET_SCRIPT_KEYWORDS = frozenset(
+    _LVNET_INSTANCE_KEYWORDS[kind] for kind in _LVNET_SCRIPT_KINDS
+)
 
 # ``EtaMerge.mode`` -> lvnet §8's border-construct WORD ("mode: auto-indexing |
 # last-value | concatenating | pass-through"). Purely a display remap; a mode-less

@@ -20,6 +20,7 @@ from ..parser.constants import (
     TUNNEL_CLASS_LOOP_TUNNEL,
     TUNNEL_CLASS_RIGHT_SR,
 )
+from .lvnet_grammar import _LVNET_SCRIPT_KINDS
 from .models import (
     vi_health_to_dict,
     vi_properties_to_dict,
@@ -419,6 +420,10 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
                 _instance_output_to_dict(o, verbose=verbose) for o in item.outputs
             ],
         }
+        if item.kind in _LVNET_SCRIPT_KINDS:
+            # A Formula Node / Expression Node: its formula text (``null`` when
+            # the VI stores none where lvkit reads it).
+            instance["script"] = item.script
         if item.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
             # A global variable names the Global VI and the control of it that
             # it reads or writes -- it has no ``qualified_name`` of a callee.
