@@ -334,6 +334,8 @@ With `events=None`: only Timeout can fire. A timeout wired as a constant or valu
 
 ### 9.5 Panel side
 
+(Moved, §15.5: the queue is the run's `Panel.events`; the view's `PanelEvents` pushes into it. The text below says "holder" for what is now the `Panel`.)
+
 - The panel's change handlers (on the NiceGUI loop) do `events.put((label, value, "Value Change", old))`; `queue.Queue.put` is thread-safe, so the worker blocked in `events.get` wakes. Same handlers already keep `holder.controls` current for `on_read` (4.1). Mouse and menu events likewise from widget handlers where the kind is supported.
 - Window close: NiceGUI's client disconnect/`app.on_shutdown` puts `("", None, "Panel Close?", None, reply)` and waits.
 - **Filter events need a reply.** A filter event (Panel Close?, and any "?" event) lets the frame veto or modify it before LabVIEW acts. Proposed reply path: a filter event message carries a fifth item, a one-slot `queue.Queue` the sender made. The frame runs, then `reply.put((discard, modified_value))` (discard = the Event Filter Node's Discard? value, modified value = what the filter node returns, else the original). The panel waits on `reply` (from a thread, not the loop: `await run.io_bound(reply.get)`) before closing the window; discard True keeps the window open. Non-filter events have four items; the structure sees `len(event) == 5` as the filter case, known per frame from the graph, not guessed at run time.
@@ -431,6 +433,8 @@ A read of a listed property (other than Value) needs the control's state at the 
 
 ### 10.5 Panel side
 
+(Moved, §15.5: `PanelIO.set_property` tells the views `property_changed(label, prop, value)`; the NiceGUI view draws no property yet. The text below says "holder" for what is now the `Panel`.)
+
 `holder.property(member, prop, value)` stores it like `holder.update` (4.1); the paint timer applies it on the NiceGUI loop. Each widget kind (`panel/runtime/widgets*.py`) maps the properties it can show:
 - Visible → `set_visibility`
 - DisabledEnum 0 / 1 / 2 → enable / disable / disable + greyed class
@@ -513,6 +517,8 @@ The Timer class and example have 27 guarded hook calls today (21 in `timer.py`, 
 - **Naming:** per `code-style.md` "Names in generated Python": `LiveIO` / `live_io` are lvkit's construct, so Python names; the docstring says "the controls and indicators this function reads and writes while it runs (its LabVIEW front panel)". Not `io` (hides the `io` module that Write to Text File imports, `nodes/ops/write_to_text_file.py:112`).
 
 ### 11.4 The panel side and TesterKit
+
+(Moved, §15.5: the subclass the panel passes is `PanelIO` of `panels.py`, made by `Panel.run`; `LiveValues` is gone, its widgets are the view `PanelWidgets`.)
 
 - `LiveValues` subclasses `LiveIO`; the generated panel calls `vi_function(live_io=values)`.
 - `build_panel(forward: LiveIO | None = None)`: writes go to the panel and then to `forward`; reads come from the panel. One run then shows on screen and records elsewhere, with neither the panel nor the generated function knowing where.
@@ -671,7 +677,7 @@ Audits of earlier drafts: `.tmp/design_audit_15.md`, `15b.md`, `15c.md` (lvkit-f
 | `live_io` §11; base no-op; D6 not passed to subVIs | PLAN:459-471, :232 | KEPT; the panel supplies the `live_io` of a run it starts |
 | D4: logic identical with or without `--panel` | PLAN D4 | KEPT: every VI has `panel` regardless of the flag |
 | D21 embedded io | PLAN:507 | KEPT; a Subpanel's embedded VI is a view of that VI's panel |
-| `LiveValues` holds shown values; `RunController` owns run state, events, abort, pause | `panel/runtime/live.py`, `panel/runtime/` | REPLACED: run state, abort, pause, events and values live in `Panel` (headless); NiceGUI keeps widgets and painting only, as a view |
+| `LiveValues` holds shown values; `RunController` owns run state, events, abort, pause | `panel/runtime/live.py`, `panel/runtime/` | REPLACED (built, §15.5): run state, abort, pause, events and values live in `Panel` / `PanelIO` (headless); NiceGUI keeps widgets and painting only, as a view (`PanelWidgets`, `panel/runtime/view.py`) |
 | §13 direct call when a static target has nothing set | §13 | REPLACED: Run VI always goes through the panel (the panel holds values set anywhere) |
 | D2 names | PLAN:227-228 | KEPT; the panel description uses the same unique names |
 | Required input positional, no default | `builder.py:648-659`, `codegen-fix-assumptions.md:380-414` | KEPT; the panel's default factory supplies it |
@@ -685,3 +691,20 @@ Audits of earlier drafts: `.tmp/design_audit_15.md`, `15b.md`, `15c.md` (lvkit-f
 ### 15.4 Open
 
 Tabbing order (duplicate labels, §14 Controls[]); reentrant targets (gap); a remote view's data-service thread is one more view (§11.5).
+
+### 15.5 Built: the NiceGUI panel is a view (2026-11-11)
+
+Recorded design this touches, and what became of each part:
+
+| Recorded | Here |
+|---|---|
+| `LiveIO` §11: a VI's own panel during a run; base no-op; `NO_LIVE_IO` | KEPT. `PanelIO` of the generated `panels.py` (the methods and `events` of `LiveIO`, not a subclass: a subclass would make every package import `live_io.py`, which a VI with no panel access has none of) is passed to a function that takes `live_io`, for every run through the panel (views or none: a headless Abort needs the points `PanelIO` gives, so the run passes it whenever the function can take it) |
+| `LiveValues(LiveIO)` holds the shown values, the abort and pause checkpoint, the events | REPLACED: values, abort, pause and the run's events queue are the `Panel`'s (`Panel._values`, `_abort`, `_go`, `_io`); the NiceGUI class is `PanelWidgets` (widgets and painting only) |
+| `RunController`: Run/Abort/Pause toolbar, running state, banner | EXTENDED: Run is `panel.run(wait=False)`; Abort, Pause and Resume are the panel's; running state and banner follow `run_started` / `run_finished` |
+| Event Structure UI events (§9) | the queue is the run's (`Panel.events`); the view's `PanelEvents` pushes the user's changes into it |
+| Control properties written while running (§10.5) | `PanelIO.set_property` tells the views (`property_changed(label, prop, value)`); the NiceGUI view draws none yet |
+| D21 Subpanel: the embedded VI's io | a Subpanel's embedded VI is a view of ITS panel (no Subpanel generation exists yet; nothing changed) |
+| D4: logic identical with or without `--panel` | KEPT: only `panel/` files changed; the VI modules are byte-identical |
+| `PanelView` protocol (part A) | EXTENDED with `property_changed`; `attach(view, names)` also takes the map from each name a running function passes `live_io` to the label of the control it is; views are told outside the Panel lock |
+
+Mechanism, in plain words. A view records what the panel tells it (any thread) and draws on the event loop from a timer. A change the view itself set (`panel.set` from a widget's change handler) is not drawn back, so typing in a text box is not overwritten. A control starts at the panel's value when the panel holds one, else at its widget's (`Panel.seed`). A by-reference `set` reaches the widget without counting as the user's change (no Value Change event, as a LabVIEW programmatic write gives none). Not decided by the brief: a label two controls share cannot be told apart by the panel (§15.4), so the view keeps those widgets but does not set them on the panel, and a run from the toolbar passes the first one's value as a Run VI by reference does.
