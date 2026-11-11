@@ -609,11 +609,27 @@ def _names_read(node: ast.AST) -> set[str]:
 
 
 def _reads(node: ast.AST, name: str) -> int:
+    """How many times ``node`` reads ``name``; ``name += …`` reads it too."""
     return sum(
         1
         for n in ast.walk(node)
-        if isinstance(n, ast.Name) and n.id == name and not isinstance(n.ctx, ast.Store)
+        if (
+            isinstance(n, ast.Name)
+            and n.id == name
+            and not isinstance(n.ctx, ast.Store)
+        )
+        or (
+            isinstance(n, ast.AugAssign)
+            and isinstance(n.target, ast.Name)
+            and n.target.id == name
+        )
     )
+
+
+def _leaves_block(node: ast.AST) -> bool:
+    """True when ``node`` holds a ``break`` or ``continue``: the branch can end
+    before a later statement of it runs."""
+    return any(isinstance(n, (ast.Break, ast.Continue)) for n in ast.walk(node))
 
 
 def _mentions(node: ast.AST, name: str) -> bool:
@@ -648,13 +664,15 @@ def _read_in_a_deferred_scope(value: ast.expr, name: str) -> bool:
 
 def _assigns_before_reading(branch: list[ast.stmt], name: str) -> bool:
     """True when a top-level statement of ``branch`` assigns ``name`` before
-    anything reads it, or the branch raises before anything reads it."""
+    anything reads it, or the branch raises before anything reads it. A
+    statement before the assignment that can ``break`` or ``continue`` keeps
+    the default: on that path the name is not assigned."""
     for stmt in branch:
         if _single_name_assignment(stmt) == name:
             return _reads(cast(ast.Assign, stmt).value, name) == 0
         if isinstance(stmt, ast.Raise):
             return _reads(stmt, name) == 0
-        if _reads(stmt, name):
+        if _reads(stmt, name) or _leaves_block(stmt):
             return False
     return False
 

@@ -289,6 +289,57 @@ def test_the_default_is_kept_when_a_branch_reads_it_before_assigning():
     )
 
 
+def test_the_default_is_kept_when_a_branch_can_break_before_assigning():
+    code = """
+    def f(items):
+        for item in items:
+            out = 0
+            if item > 0:
+                if item > 5:
+                    break
+                out = item
+            else:
+                out = -1
+        return out
+    """
+    _unchanged(code)
+    # The break path leaves out at its default for this iteration.
+    assert _run(_clean(code), "f", [3, 9]) == 0
+
+
+def test_the_default_is_kept_when_a_branch_can_continue_before_assigning():
+    _unchanged(
+        """
+        def f(items):
+            for item in items:
+                out = 0
+                if item:
+                    if item > 5:
+                        continue
+                    out = item
+                else:
+                    out = -1
+            return out
+        """
+    )
+
+
+def test_the_default_is_kept_when_a_branch_adds_to_it_before_assigning():
+    code = """
+    def f(flag):
+        out = 0
+        if flag:
+            out += 1
+            out = 2
+        else:
+            out = 3
+        return out
+    """
+    _unchanged(code)
+    # Without the default, ``out += 1`` would raise UnboundLocalError.
+    assert _run(_clean(code), "f", True) == 2
+
+
 def test_the_default_is_kept_when_a_branch_assigns_from_itself():
     _unchanged(
         """
