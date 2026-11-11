@@ -3,12 +3,15 @@
 Provides post-generation cleanup of generated Python AST:
 - Dead code elimination (unused variable assignments)
 - Self-assignment removal (``x = x``)
+- Dead default removal (``x = None`` right before ``x`` is given its value)
 - Duplicate import removal
 """
 
 from __future__ import annotations
 
 import ast
+import copy
+from typing import cast
 
 from .gaps import is_gap_raise
 
@@ -521,6 +524,239 @@ def remove_self_assignments(module: ast.Module) -> ast.Module:
     return SelfAssignmentRemover().visit(module)
 
 
+class DeadDefaultRemover(ast.NodeTransformer):
+    """Remove the default a variable is given just before it is given its value.
+
+    Each rule looks only at the statement right after ``x = <default>`` in the
+    same block (a default is a constant, or an empty list or tuple):
+
+    - the next statement assigns ``x`` without reading it: the default goes;
+    - the next statement assigns ``x`` and reads it once: the default goes and
+      takes the place of that read;
+    - the next statement is an ``if``/``elif``/``else`` chain ending in ``else``,
+      or a ``match`` ending in ``case _``, and every branch assigns ``x`` at its
+      top level before anything reads it (a branch that raises first counts):
+      the default goes. A chain with no ``else`` keeps it.
+
+    A name that is global or nonlocal, read in a nested function, or inside a
+    ``try`` is never touched: an exception or a later call could still read the
+    default.
+    """
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
+        self.generic_visit(node)
+        self._clean_function(node)
+        return node
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AST:
+        self.generic_visit(node)
+        self._clean_function(node)
+        return node
+
+    def _clean_function(self, func: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        protected: set[str] = set()
+        for inner in ast.walk(func):
+            if isinstance(inner, (ast.Global, ast.Nonlocal)):
+                protected.update(inner.names)
+            if inner is not func and isinstance(
+                inner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+            ):
+                protected.update(_names_read(inner))
+        self._clean_blocks(func, protected, inside_try=False)
+
+    def _clean_blocks(
+        self, node: ast.AST, protected: set[str], inside_try: bool
+    ) -> None:
+        inside_try = inside_try or isinstance(node, ast.Try)
+        for field in ("body", "orelse", "finalbody", "handlers", "cases"):
+            block = getattr(node, field, None)
+            if not isinstance(block, list):
+                continue
+            for child in block:
+                if isinstance(
+                    child,
+                    (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                ):
+                    continue
+                self._clean_blocks(child, protected, inside_try)
+            if not inside_try and block and isinstance(block[0], ast.stmt):
+                _remove_dead_defaults(block, protected)
+
+
+def _is_default(value: ast.expr) -> bool:
+    return isinstance(value, ast.Constant) or (
+        isinstance(value, (ast.List, ast.Tuple)) and not value.elts
+    )
+
+
+def _single_name_assignment(stmt: ast.stmt) -> str | None:
+    """The name ``stmt`` assigns when it is ``name = value`` with one plain target."""
+    if (
+        isinstance(stmt, ast.Assign)
+        and len(stmt.targets) == 1
+        and isinstance(stmt.targets[0], ast.Name)
+    ):
+        return stmt.targets[0].id
+    return None
+
+
+def _names_read(node: ast.AST) -> set[str]:
+    return {
+        n.id
+        for n in ast.walk(node)
+        if isinstance(n, ast.Name) and not isinstance(n.ctx, ast.Store)
+    }
+
+
+def _reads(node: ast.AST, name: str) -> int:
+    """How many times ``node`` reads ``name``; ``name += …`` reads it too."""
+    return sum(
+        1
+        for n in ast.walk(node)
+        if (
+            isinstance(n, ast.Name)
+            and n.id == name
+            and not isinstance(n.ctx, ast.Store)
+        )
+        or (
+            isinstance(n, ast.AugAssign)
+            and isinstance(n.target, ast.Name)
+            and n.target.id == name
+        )
+    )
+
+
+def _leaves_block(node: ast.AST) -> bool:
+    """True when ``node`` holds a ``break`` or ``continue`` of the loop around
+    the branch: the branch can end before a later statement of it runs. One
+    inside a loop nested in ``node`` ends only that loop (its ``else`` block
+    still belongs to the loop around)."""
+    if isinstance(node, (ast.Break, ast.Continue)):
+        return True
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return False
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        return any(_leaves_block(s) for s in node.orelse)
+    return any(_leaves_block(child) for child in ast.iter_child_nodes(node))
+
+
+def _mentions(node: ast.AST, name: str) -> bool:
+    """True when ``node`` uses ``name`` in any way (read, write, or a match capture)."""
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and n.id == name:
+            return True
+        if isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name == name:
+            return True
+        if isinstance(n, ast.MatchMapping) and n.rest == name:
+            return True
+    return False
+
+
+class _ReadReplacer(ast.NodeTransformer):
+    def __init__(self, name: str, value: ast.expr) -> None:
+        self.name = name
+        self.value = value
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:
+        if node.id == self.name and isinstance(node.ctx, ast.Load):
+            return copy.deepcopy(self.value)
+        return node
+
+
+def _read_in_a_deferred_scope(value: ast.expr, name: str) -> bool:
+    """True when a read of ``name`` sits in a lambda or comprehension, where a
+    default put in its place would be built again on every call or pass."""
+    scopes = (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+    return any(isinstance(n, scopes) and _reads(n, name) for n in ast.walk(value))
+
+
+def _assigns_before_reading(branch: list[ast.stmt], name: str) -> bool:
+    """True when a top-level statement of ``branch`` assigns ``name`` before
+    anything reads it, or the branch raises before anything reads it. A
+    statement before the assignment that can ``break`` or ``continue`` keeps
+    the default: on that path the name is not assigned."""
+    for stmt in branch:
+        if _single_name_assignment(stmt) == name:
+            return _reads(cast(ast.Assign, stmt).value, name) == 0
+        if isinstance(stmt, ast.Raise):
+            return _reads(stmt, name) == 0
+        if _reads(stmt, name) or _leaves_block(stmt):
+            return False
+    return False
+
+
+def _if_chain_assigns(node: ast.If, name: str) -> bool:
+    """True when the chain ends in ``else`` and every branch assigns ``name``
+    first, with none of the tests reading it."""
+    while True:
+        if _reads(node.test, name) or not _assigns_before_reading(node.body, name):
+            return False
+        if not node.orelse:
+            return False
+        if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+            node = node.orelse[0]
+            continue
+        return _assigns_before_reading(node.orelse, name)
+
+
+def _match_assigns(node: ast.Match, name: str) -> bool:
+    last = node.cases[-1]
+    if not (
+        isinstance(last.pattern, ast.MatchAs)
+        and last.pattern.pattern is None
+        and last.pattern.name is None
+        and last.guard is None
+    ):
+        return False
+    if _reads(node.subject, name):
+        return False
+    for case in node.cases:
+        if _mentions(case.pattern, name):
+            return False
+        if case.guard is not None and _reads(case.guard, name):
+            return False
+        if not _assigns_before_reading(case.body, name):
+            return False
+    return True
+
+
+def _remove_dead_defaults(block: list[ast.stmt], protected: set[str]) -> None:
+    i = 0
+    while i < len(block) - 1:
+        first, following = block[i], block[i + 1]
+        name = _single_name_assignment(first)
+        if name is None or name in protected:
+            i += 1
+            continue
+        default = cast(ast.Assign, first).value
+        if not _is_default(default):
+            i += 1
+            continue
+        if _single_name_assignment(following) == name:
+            value = cast(ast.Assign, following).value
+            reads = _reads(value, name)
+            if reads == 0:
+                del block[i]
+                continue
+            if reads == 1 and not _read_in_a_deferred_scope(value, name):
+                cast(ast.Assign, following).value = _ReadReplacer(name, default).visit(
+                    value
+                )
+                del block[i]
+                continue
+        elif (isinstance(following, ast.If) and _if_chain_assigns(following, name)) or (
+            isinstance(following, ast.Match) and _match_assigns(following, name)
+        ):
+            del block[i]
+            continue
+        i += 1
+
+
+def remove_dead_defaults(module: ast.Module) -> ast.Module:
+    """Remove every default that is overwritten at once (``DeadDefaultRemover``)."""
+    return DeadDefaultRemover().visit(module)
+
+
 def fold_constants(module: ast.Module) -> ast.Module:
     """Fold constant expressions in module AST."""
     return ConstantFolder().visit(module)
@@ -544,6 +780,7 @@ def optimize_module(module: ast.Module) -> ast.Module:
     module = fold_constants(module)
     module = eliminate_dead_branches(module)
     module = remove_self_assignments(module)
+    module = remove_dead_defaults(module)
     module = eliminate_dead_code(module)
     module = remove_unused_imports(module)
     return module

@@ -142,7 +142,6 @@ def test_a_value_read_inside_a_case_frame_is_computed_before_the_case(
     assert _body(package) == textwrap.dedent(
         """\
         x1 = x + 1
-        out = 0
         if flag:
             out = x1
         else:

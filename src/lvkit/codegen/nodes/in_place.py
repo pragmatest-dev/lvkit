@@ -317,8 +317,11 @@ def _write_elements_back(
             None,
         )
         value = ctx.wired_input(source.id, op) if source is not None else None
-        if value is not None:
-            stmts.append(_assign(parse_expr(f"{element.whole}[0]"), value))
+        target = f"{element.whole}[0]"
+        # An element that went through the structure unchanged is still the
+        # expression the read bound; writing it back changes nothing.
+        if value is not None and value != target:
+            stmts.append(_assign(parse_expr(target), value))
     return stmts
 
 

@@ -470,13 +470,12 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
         """\
         seen = 0
         for i in range(n):
-            seen_128 = 0
             if flag:
                 gain = live_io.read(LiveValue.GAIN, gain)
-                seen_128 = gain
+                seen_2 = gain
             else:
-                seen_128 = 0
-            seen = seen_128
+                seen_2 = 0
+            seen = seen_2
             live_io.write(LiveValue.SEEN, seen)
         return LiveResult(seen=seen)"""
     )
@@ -534,9 +533,7 @@ def test_an_off_pane_control_the_diagram_reads_is_read_once_at_entry(
     statements = textwrap.dedent(_body(package).rsplit('"""', 1)[1]).strip()
     assert statements == textwrap.dedent(
         """\
-        bias = 0
-        bias = live_io.read(LiveValue.BIAS, bias)
-        out = 0
+        bias = live_io.read(LiveValue.BIAS, 0)
         out = bias + 1
         live_io.write(LiveValue.OUT, out)
         return LiveResult(out=out)"""
@@ -712,7 +709,6 @@ def test_a_write_and_a_read_no_wire_orders_follow_the_order_the_graph_lists_them
     package = project.generate(NAME)
     assert _body(package) == textwrap.dedent(
         """\
-        out = 0
         out = n
         live_io.write(LiveValue.OUT, out)
         n = 5

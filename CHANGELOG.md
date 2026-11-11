@@ -3,6 +3,9 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Generated code no longer sets a variable it overwrites at once** — `x = None` straight before `x = ...`, and a default that every branch of an `if`/`else` or `match` ending in `else`/`case _` assigns first, are gone; a default the next line reads once is written in place of that read.
+- **Generated variable names are numbered `name_2`, `name_3` on a collision, never with a node id** — `error_out_549` is `error_out_2`, `expr_263` is `expr`, and a Formula Node's result variable is `formula_result`.
+- **Fix: In Place Element on a Data Value Reference no longer writes back an element it did not change** — `ref[0] = ref[0]` is gone.
 - **Generated LabVIEW classes compare by value** — a class object is equal to another of the same class whose private data is equal at every level of the hierarchy (a parent and a child class are never equal), so `Equal?` on two class wires no longer means "the same object".
 - **Fix: an unwired class input is the class's default object** — a class input left unwired was `None` in the generated code and flowed into the calls that take it; the function now makes a new default object of the class (`if test_in is None: test_in = TestCase()`), and a class that is not loaded makes that branch a gap.
 - **The generated front panel draws complex numbers and variants, and leaves references and class objects out** — a complex number is two number boxes (real, imaginary), also as an array cell; a variant is read-only text of its value; a reference or LabVIEW class object is not drawn and the function gets `None`; none is an `unsupported_control` gap any more.

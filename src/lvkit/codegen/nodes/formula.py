@@ -9,7 +9,6 @@ No C compiler, no FFI — the generated module is pure Python.
 from __future__ import annotations
 
 import ast
-import re
 from typing import TYPE_CHECKING
 
 from lvkit.conversion_gap import ConversionGap
@@ -64,7 +63,6 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     if not node.script:
         raise ConversionGap(f"Formula Node {node.id} has no script")
 
-    suffix = re.sub(r"\W", "_", node.id.split("::")[-1])
     # The module-level function is named by the VI's function and the node, like a
     # stored-state global: unique in a module that holds several VIs (the
     # variants of a polymorphic VI).
@@ -97,7 +95,7 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
 
     bindings: dict[str, str] = {}
     output_lines: list[str] = []
-    resvar = f"_fr_{suffix}"
+    resvar = ctx.make_output_var("formula_result", node.id)
     for spec in specs:
         if spec.direction in ("out", "inout"):
             term = outputs.get(spec.name)

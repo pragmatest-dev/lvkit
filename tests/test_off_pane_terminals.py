@@ -213,7 +213,7 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
     assert "task" not in code.split("):", 1)[0]
-    assert "task = ''" in code
+    assert "live_io.read(FailunlesserrorValue.TASK, '')" in code
     namespace = exec_module(code, "<failUnlessError>").__dict__
     function = namespace["failunlesserror"]
     assert callable(function)

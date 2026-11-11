@@ -421,11 +421,16 @@ class CodeGenContext:
             if tunnel_name:
                 return tunnel_name
 
-        var_name = to_var_name(base_name)
+        return self._allocate_var(to_var_name(base_name))
+
+    def _allocate_var(self, name: str) -> str:
+        """Claim ``name``, or the first free ``name_2``, ``name_3``, ... when it
+        is taken."""
+        var_name = name
         count = 1
         while var_name in self._allocated_vars:
             count += 1
-            var_name = f"{to_var_name(base_name)}_{count}"
+            var_name = f"{name}_{count}"
         self._allocated_vars.add(var_name)
         return var_name
 
@@ -477,10 +482,7 @@ class CodeGenContext:
         name = self._derived_tunnel_name(outer_id, structure_node_id)
         if name is None:
             return None
-        if name in self._allocated_vars:
-            suffix = outer_id.split("::")[-1]
-            name = f"{name}_{suffix}"
-        self._allocated_vars.add(name)
+        name = self._allocate_var(name)
         self._tunnel_var_names[outer_id] = name
         return name
 
@@ -784,6 +786,7 @@ class CodeGenContext:
     def claim_name(self, wanted: str) -> str:
         """``wanted``, or a numbered form of it when the function or one of its
         parameters or variables already has that name; taken from here on."""
+
         def taken(n: str) -> bool:
             return n == self.function_name or self._holds(n)
 

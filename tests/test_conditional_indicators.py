@@ -221,7 +221,6 @@ def test_an_indicator_a_sequence_frame_wires_from_its_tunnel_is_written_there(
     assert _body(package) == textwrap.dedent(
         """\
         out = 0
-        first = 0
         first = x + 1
         out = x
         return CondResult(out=out, first=first)"""
@@ -273,7 +272,6 @@ def test_an_indicator_every_frame_writes_through_a_tunnel_is_unchanged(
     package = project.generate(NAME)
     assert _body(package) == textwrap.dedent(
         """\
-        out = 0
         if flag:
             out = x + 1
         else:
