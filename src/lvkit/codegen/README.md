@@ -65,7 +65,7 @@ VI file
 | `native_failure.py` | A node's Python failure becomes its error out, with the code its catalog entry names |
 | `output_binding.py` | Whether a node's output goes straight into its reader or into a variable |
 | `local_indicators.py` | Indicators held in variables: read by a Local Variable, kept between calls, written inside a frame |
-| `panel_hooks.py` | Live values: which VIs take the `on_update` / `on_read` hook parameters, the name table and the `(str, Enum)` that holds the names, and the hook lines (`update_stmt`, `read_stmt`, `reads_in_frame`, `entry_reads`); see ARCHITECTURE.md "Live values (front-panel hooks)" |
+| `panel_hooks.py` | Live values: which VIs take the `live_io` parameter, the name table and the `(str, Enum)` that holds the names, and the hook lines (`write_stmt`, `read_stmt`, `reads_in_frame`, `entry_reads`); see ARCHITECTURE.md "Live values (front-panel hooks)" |
 | `error_path.py` | Which nodes handle an error wire: the vi.lib error VIs a call site generates itself, Merge Errors, the error case selector |
 | `gaps.py` | `Gap`, `catch_gap`: a node that cannot be converted raises `NotImplementedError(<reason>)` where it would run, and is recorded as a gap |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
@@ -90,7 +90,7 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | `property_node.py` | Property read/write (`propNode`) | `obj.attr` / `obj.attr = val`; an unwired reference reads the default object's documented value written in |
 | `queue_ops.py` | Queue Operations | `queue.Queue` calls: `put`/`get(timeout=...)`, `shutdown()`, named queues from `queues.py` |
 | `shared_variable.py` | Shared Variable nodes | attribute read/write on the `shared_variables` module |
-| `invoke_node.py` | Invoke nodes (`invokeNode`) | `obj.method(args)` |
+| `invoke_node.py` | Invoke nodes (`invokeNode`) other than Run VI | a gap: warning, and `NotImplementedError` where it runs |
 | `ext_func.py` | Call Library Function Node (`extFunc`) | module-level `ctypes` library, prototype and structures; a call that packs each parameter and reads it back (library loading: `ext_func_library.py`, below) |
 | `printf.py` | Format Into String | f-string or `%` formatting |
 | `nmux.py` | Node multiplexer | Passthrough / conditional select |

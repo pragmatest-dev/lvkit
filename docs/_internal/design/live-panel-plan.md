@@ -451,3 +451,141 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-A:** the property table plus the code-based Value test, and generated `on_property` writes with the property Enum. Tests: a handmade VI with one node writing DisabledEnum, Visible and Value. Every view is checked, `generate` executes with a recording `on_property`, and the expected calls are asserted. Neighbouring cases: a node with an unlisted row stays a gap, and a Value-only node is unchanged.
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
+
+## 11. One `live_io` object instead of hook parameters (DECIDED: maintainer, 2026-11-10, "Nice, approved")
+
+### 11.1 What changes
+
+A VI that touches its front panel while it runs takes ONE keyword-only parameter, `live_io: LiveIO = NO_LIVE_IO`, in place of `on_update`, `on_read`, `on_property`, `events` and the planned `on_prompt`. Which VIs get it is unchanged (`touches_panel_while_running`, 2.3, plus D8 and 9.3), as are D4 (with or without `--panel`) and D6 (not passed to subVIs, except D21 below).
+
+`LiveIO` is a base class generated once into the package (as `errors.py` is), so generated code still imports nothing from lvkit. Its methods are the five things a VI does with its own front panel, each a no-op that needs no state:
+
+| Method | Replaces | Base behaviour |
+|---|---|---|
+| `write(name, value)` | `on_update` | nothing |
+| `read(name, value) -> value` | `on_read` | returns `value` (the function's own variable) |
+| `set_property(name, prop, value) -> Any` | `on_property` | nothing; returns `None` (D21's Inserted VI returns the embedded VI's `LiveIO`) |
+| `prompt(...)` | `on_prompt` (D5) | `input()`, D5's decided fallback |
+| `events` attribute | `events=` | `None`: the function waits on its own empty `Queue`, as today (9.4) |
+
+`get_property(name, prop, value) -> value` is added by PR-C, with the same base behaviour as `read`. `NO_LIVE_IO` is one shared instance; the base holds no state, so a shared default is safe.
+
+Before and after, the Timer example's loop (`Example - Simple.vi`):
+
+```python
+# today
+if on_read is not None:
+    quit_program = on_read(ExampleSimpleValue.QUIT_PROGRAM, quit_program)
+...
+timer_time_min = get_time_result.timer_time_min
+if on_update is not None:
+    on_update(ExampleSimpleValue.TIMER_TIME_MIN, timer_time_min)
+
+# with live_io
+quit_program = live_io.read(ExampleSimpleValue.QUIT_PROGRAM, quit_program)
+...
+timer_time_min = get_time_result.timer_time_min
+live_io.write(ExampleSimpleValue.TIMER_TIME_MIN, timer_time_min)
+```
+
+The Timer class and example have 27 guarded hook calls today (21 in `timer.py`, 6 in the example); each becomes one line.
+
+### 11.2 Why
+
+- **It is the standard pattern** (null object plus dependency injection), and the shape `LiveValues` already has.
+- **New capabilities stop changing signatures.** `on_property` (D16), `events` (9.3) and `on_prompt` (D5) were each a new parameter on every affected VI; with `LiveIO` a new capability is a new method with a no-op default, and generated signatures and existing adapters keep working.
+- **New destinations are new subclasses**, with no change to the generator or to a generated VI: the panel's `LiveValues`, a TesterKit adapter (11.4), a test recorder, a remote UI over a data service (11.5).
+- **Cost:** about 9 ns per call with no `live_io` passed (`.tmp/time_noop_panel.py`, 1,000,000 iterations, best of 5: guarded `None` 0.007 s, no-op method 0.016 s, bare loop 0.006 s); a caller that wants one callback writes a three-line subclass instead of passing a function; one more generated module.
+
+### 11.3 Recorded decisions this touches
+
+- **Decision 1 (2026-11-07), section 0:** REPLACED in part. It replaced a `front_panel=None` parameter with `<VI>Panel` class and `fp.x` attribute access by callbacks. `LiveIO` keeps the callbacks' semantics (name + value, the function's variables stay the values) and keeps out `fp.x` access; it packages the callbacks as methods of one object.
+- **2.3 "Why a plain `if ... is not None:` and no helper":** REPLACED. That reasoning called a do-nothing helper runtime emulation. It is not: the base re-implements nothing of LabVIEW; it is the null-object pattern. The uniform rule of 2.3 (which access becomes which call, and where) is KEPT; only the call's form changes.
+- **D2 names (generated `(str, Enum)` per VI):** KEPT; `write`/`read` take the member as today.
+- **D5 dialogs:** EXTENDED: `on_prompt` becomes `live_io.prompt`, the `input()` fallback is the base method.
+- **D16 (separate `on_property`, so `on_update` stays two arguments for scripts and TesterKit):** EXTENDED: `set_property` stays separate from `write`, so `write(name, value)` keeps D16's two arguments; a single-function caller uses a subclass.
+- **D21 (Subpanel live, `on_property` returns the embedded hooks dict, Run VI does `fn(**(inserted_hooks or {}))`):** EXTENDED: `set_property(..., INSERTED_VI, ...)` returns the embedded VI's `LiveIO`, and Run VI passes `live_io=inserted_io` (or `NO_LIVE_IO`).
+- **Reserved names (`ast_utils.py:481-491`):** `on_update`, `on_read`, `on_property`, `events` are replaced by `live_io`. A control labeled `events` gets its own parameter name back.
+- **Naming:** per `code-style.md` "Names in generated Python": `LiveIO` / `live_io` are lvkit's construct, so Python names; the docstring says "the controls and indicators this function reads and writes while it runs (its LabVIEW front panel)". Not `io` (hides the `io` module that Write to Text File imports, `nodes/ops/write_to_text_file.py:112`).
+
+### 11.4 The panel side and TesterKit
+
+- `LiveValues` subclasses `LiveIO`; the generated panel calls `vi_function(live_io=values)`.
+- `build_panel(forward: LiveIO | None = None)`: writes go to the panel and then to `forward`; reads come from the panel. One run then shows on screen and records elsewhere, with neither the panel nor the generated function knowing where.
+- TesterKit maps onto the methods with no change on either side (read from `testerkit/src/testerkit/` 2026-11-10): `write` → `channels.write(name.value, value, namespace=<VI>)` (`channels.py:81`, every write a sample) or `Context.observe` (`execution/harness.py:270`, the last value as the test's output); `read` → `Context.get_param(name.value, value)` (`harness.py:894`, the same shape: the default is the VI's own value); `prompt` → `prompts.ask` (`prompts/core.py:57`). TesterKit's namespace is output-only by design (`harness.py:314-320`); the adapter chooses whether controls share one parameter per name.
+
+### 11.5 Remote UIs over a data service
+
+A remote `LiveIO` publishes on `write` and returns; `read` returns a local copy the remote UI keeps current (a round trip per `read` in a loop would slow the VI to network speed); Pause and Abort arrive as messages checked at each call, as `LiveValues._checkpoint` does. TesterKit channels carry both directions (`latest` for control values, `live` for every event); Panel Close? needs a reply channel they do not have. Values that are live Python objects (queue, Data Value Reference, VI reference, class object) cannot cross a process boundary; a remote UI shows a stand-in for them.
+
+### 11.6 Steps
+
+One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
+
+## 12. User events across VIs (added 2026-11-09)
+
+Replaces D15's "same-VI user events" scope (maintainer, 2026-11-09: "List of queues, any VI"). Everything else in §9 is kept: the message shape (D12), `events` for the panel, and the Event Structure's dispatch (`codegen/nodes/event.py`).
+
+### 12.1 Evidence
+
+- **NI:**
+  - Create User Event: "Wire the user event out output to a Generate User Event function to send the event and associated data to all Event structures registered for the event."
+  - Generate User Event: "Broadcasts the user event … to each Event structure registered to handle the event."
+  - Register For Events: "References must be to local objects."
+  - A user event is a refnum like any other, so it passes between VIs.
+- **Corpus:** in the extracted diagrams, 20 VIs Create, 37 Generate, 12 Destroy and 29 Unregister. 23 VIs generate an event they did not create. Example: JKI `Graphical Test Runner - Main UI` creates, and the `TestResult` methods (`addSuccess` …) and `TestSuite:run` generate.
+- **Priority:** all 39 Generate User Event nodes in the 24 corpus VIs that have one leave priority unwired, so they use normal priority.
+- **How a frame names its user event:** the frame's `EventSpec` has `type` 1000 (User Event), `source` 1 (dynamic) and `dynIndex` k ≥ 1. That k is the k-th user event row of the Register For Events wired to the structure's dynamic terminal.
+  - Checked on JKI `Results Status Update Process__core.vi`: 4 rows; the frame with `dynIndex` 4 reads `testStarted`, the 4th row's data.
+  - The parser does not keep `dynIndex` today (`parser/nodes/event.py:273` reads only `type`). So 3 of those 4 frames are labelled `<unknown event 0x000003E8>` in describe and lvnet.
+
+### 12.2 Generated shape (plain Python, no helper)
+
+```python
+ev = []                                   # Create User Event: the list of registration queues
+reg = (Queue(), (ev_a, ev_b))             # Register For Events: one queue, the user events by row
+for registered in reg[1]:
+    registered.append(reg[0])
+for q in ev:                              # Generate User Event
+    q.put((ev, data, Kind.USER_EVENT, None))
+for registered in reg[1]:                 # Unregister For Events
+    registered.remove(reg[0])
+ev.clear()                                # Destroy User Event
+```
+
+- **The message keeps D12's shape.** The name position holds the user event itself, the list object, and its value is the event data.
+- **The Event Structure** wired to a registration reads `reg[0]`, not `events`. A frame with `dynIndex` k is chosen by `event[0] is reg[1][k - 1]`, by identity, never by label.
+- **A structure with both front-panel and user events:** the panel's messages and the registration's must reach one queue. Register For Events then uses the VI's `events` queue when the VI has one (`reg = (events, …)`), so one `get` serves both.
+- **Event Data Node fields of a user event** are the event data's fields by name (maintainer, 2026-11-08: "By name"); `UsrEvtRef` is `event[0]`.
+- **Register For Events with its input wired** (an existing registration): same queue, rows replaced (NI: "re-register").
+
+### 12.3 Gaps
+
+- Generate User Event with a priority other than an unwired or constant normal one (the switch to `PriorityQueue` is described in the 2026-11-09 decision: one place, but it changes the message shape for outside callers).
+- Register For Events rows of a control, VI or application reference (dynamic front-panel events).
+- A `dynIndex` that has no row.
+
+### 12.4 Decisions
+
+- **D24. DECIDED (maintainer, 2026-11-09):** a user event is a list of registration queues, in any VI.
+- **D25. DECIDED (maintainer, 2026-11-09):** plain `Queue`; high priority is a gap until a VI needs it.
+
+### 12.5 Steps
+
+1. **Parser:** `FrameEvent.dyn_index` from `dynIndex`. A dynamic event's frame label names the registered row's user event (`<testStarted>: User Event`), in describe, lvnet, JSON and the render. Tests on a handmade structure with 2 rows.
+2. **Codegen:** Create / Register / Generate / Unregister / Destroy, and the Event Structure's user-event frames. Tests execute a handmade VI that creates, registers and generates, with a frame reading the data. Also a two-VI case where one VI generates, the other creates and registers, and the user event passes as a parameter.
+
+### 12.6 Revised after step 1's research (maintainer, 2026-11-09)
+
+- **D26. DECIDED: frame names come from the registration's type.** Register For Events copies the label of each user event wired into a row into the type of the registration it outputs (the Event Registration refnum type lists one entry per row, each a User Event refnum type whose `Label` is the row name: JKI `Results Status Update Process__core.xml` type at line 5084). That type travels with the wire through subVI outputs, shift registers and clusters, so the names are the ones the Register For Events node stored wherever it is. WaveGen's three registrations come from WaveGen's own node and from two `Read Event.vi` subVIs.
+  - The frame for `dynIndex` k is the k-th row, counted across the registrations of a cluster in field order.
+  - A cluster field gives LabVIEW's own `Field.Label` form; LabVIEW's stored label for WaveGen's frame 2 is `[2] <Action.Event Data>: User Event`.
+  - A dynamic terminal whose type carries no rows (a bare `EventReg refnum`, DCAF's subVI output) keeps today's label.
+- **D27. DECIDED: one structure, several registrations.** When the Event Structure first runs, it makes its own queue. For each registration it listens to, it moves the waiting messages over and re-points each of the registration's user-event lists from the old queue to its own (`ev.remove(old); ev.append(mine)`). This replaces §12.2's "the Event Structure … reads `reg[0]`" for a cluster of registrations.
+
+### 12.7 Decided for code generation (maintainer, 2026-11-09)
+
+- **P1. A registration has three items.** `reg = [Queue(), rows, registered]`, a list (not a tuple) because a structure that reads the VI's `events` replaces `reg[0]` (P3). `rows` is in dynIndex order for frame tests: a user event, a tuple of the events of an array row, or `None` at a cluster row's own index. `registered` is the flat tuple of every user-event list that holds the queue (arrays expanded at registration). Register, Unregister and re-register loop over `reg[2]`, so they need no row layout. This replaces §12.2's pair.
+- **P2. Kind.** Generate User Event puts the literal `'User Event'` as the kind, so a VI with no Event Structure needs no enum. The `<Vi>Event` enum of a VI with an Event Structure gains `USER_EVENT = 'User Event'`; the kind has an explicit name, and 1000 is not added to the confirmed event types (they name frame labels).
+- **P3. The structure's queue is the VI's `events`.** A structure with a cluster of registrations (D27) or a registration from another VI reads `events` and re-points each registration's lists to it, guarded (`if reg[0] is not events`), moving waiting messages first. No new function-entry seam. A structure wired to one registration made in this VI reads `reg[0]`, which is `events` when the VI has static panel events.
+- **P4.** (a) Unregister removes tolerantly (`if q in registered`), since Destroy clears the list. (b) Event data is copied per queue only for by-value objects (`value_copy`). (c) Priority: NI's Generate User Event page gives "0 high priority, 1 normal priority (default)"; unwired or a constant 1 generates, anything else is a gap.

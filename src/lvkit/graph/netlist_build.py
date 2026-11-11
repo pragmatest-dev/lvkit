@@ -28,7 +28,13 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import (
+    COMPLEX_TYPE_NAMES,
+    INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
 from lvkit.vi_files import is_vi_file
 
 from ..models import (
@@ -148,24 +154,6 @@ if TYPE_CHECKING:
     from .core import InMemoryVIGraph
 
 
-_INT_UNDERLYING_TYPES = frozenset(
-    {
-        "NumInt8",
-        "NumInt16",
-        "NumInt32",
-        "NumInt64",
-        "NumUInt8",
-        "NumUInt16",
-        "NumUInt32",
-        "NumUInt64",
-    }
-)
-_FLOAT_UNDERLYING_TYPES = frozenset({"NumFloat32", "NumFloat64", "NumFloatExt"})
-_COMPLEX_UNDERLYING_TYPES = frozenset(
-    {"NumComplex64", "NumComplex128", "NumComplexExt"}
-)
-
-
 def _default_literal(lv_type: LVType | None) -> str:
     """The faithful LabVIEW VALUE text an unwired case-output tunnel carries
     under "use default if unwired" -- LabVIEW's own runtime substitution,
@@ -179,11 +167,11 @@ def _default_literal(lv_type: LVType | None) -> str:
         return "?"
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         underlying = lv_type.underlying_type or ""
-        if underlying in _INT_UNDERLYING_TYPES:
+        if underlying in INTEGER_TYPE_NAMES:
             return "0"
-        if underlying in _FLOAT_UNDERLYING_TYPES:
+        if underlying in REAL_FLOAT_TYPE_NAMES:
             return "0.0"
-        if underlying in _COMPLEX_UNDERLYING_TYPES:
+        if underlying in COMPLEX_TYPE_NAMES:
             return "0+0i"
         if is_boolean_type_name(underlying):
             return "False"

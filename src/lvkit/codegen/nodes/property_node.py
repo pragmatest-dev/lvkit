@@ -100,7 +100,8 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     each ``Value`` or a write of a listed control property
     (``control_properties.json``). A ``Value`` row of a control reads the
     control's variable or assigns it, the same as a Local Variable of the control
-    (``local_variable``); a listed write calls ``on_property`` (``panel_hooks``).
+    (``local_variable``); a listed write calls ``live_io.set_property``
+    (``panel_hooks``).
     A node with any other row, or a ``Value`` row of an indicator, is a gap."""
     graph = ctx.graph
     bound = graph.bound_terminal(node) if graph is not None else None

@@ -5,6 +5,7 @@ package is imported and run."""
 
 from __future__ import annotations
 
+import re
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -62,9 +63,7 @@ def invoke(vi: str, tag: str, method: str, code: int) -> PrimitiveNode:
     )
 
 
-def runner(
-    target_key: str, wait: str | None, set_value: bool = False
-) -> Recipe:
+def runner(target_key: str, wait: str | None, set_value: bool = False) -> Recipe:
     """A VI with a Static VI Reference to ``target_key`` wired into Run VI.
     ``wait`` is the Wait Until Done constant ("True"/"False"), None for unwired,
     or "input" for the VI's own Boolean input ``go``; ``set_value`` adds a Set
@@ -186,9 +185,9 @@ def test_run_vi_that_a_call_cannot_be_is_a_gap(
 ) -> None:
     gaps: list[Gap] = []
     package = project_with(tmp_path, wait, required, set_value).generate(gaps)
-    assert [g.reason for g in gaps if g.node_name == "Invoke Node"] == [reason]
+    assert [g.reason for g in gaps if g.reason.startswith("Run VI")] == [reason]
     with package.use() as module:
-        with pytest.raises(NotImplementedError, match="Run VI"):
+        with pytest.raises(NotImplementedError, match="Run VI|Set Control Value"):
             module("runner").runner(**({"go": True} if wait == "input" else {}))
 
 
@@ -280,3 +279,57 @@ def test_run_vi_on_an_error_chain_runs_when_no_error_came_in(tmp_path: Path) -> 
         warning = SimpleNamespace(status=False, code=1, source="x")
         assert runner_module.runner(error_in=warning).error_out is warning
         assert calls == ["run", "run"]
+
+
+def abort_runner(target_key: str, method: str, code: int) -> Recipe:
+    """A VI with a Static VI Reference to ``target_key`` wired into an Invoke
+    Node of ``method`` whose output ``out`` is the VI's own output."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        reference = ConstantNode(
+            id=f"{vi}:ref",
+            vi_path=vi,
+            name="Target.vi",
+            value="Target.vi",
+            lv_type=VI_REF,
+            referenced_vi_key=target_key,
+            terminals=[
+                Terminal(id=f"{vi}:ref", index=0, direction="output", lv_type=VI_REF)
+            ],
+        )
+        node = invoke(vi, "call", method, code)
+        return (
+            VIContext(
+                name=vi,
+                outputs=[pane(vi, "output", "out", VI_REF, "out", 0)],
+                data_flow=[
+                    wire(vi, "ref", "call.ref"),
+                    wire(vi, "call.ref_out", "out"),
+                ],
+            ),
+            [reference, node],
+        )
+
+    return build
+
+
+@pytest.mark.parametrize(("method", "code"), [("Abort VI", 1002), ("FP.Open", 1010)])
+def test_an_invoke_node_method_with_no_python_equivalent_is_a_gap(
+    tmp_path: Path, method: str, code: int
+) -> None:
+    """Any Invoke Node method other than Run VI warns at generation and raises
+    where the node runs; its output is bound to None."""
+    project = Project(tmp_path)
+    target_key = project.add_vi("Target", target(False))
+    runner_key = project.add_vi("Runner", abort_runner(target_key, method, code))
+    project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    reason = f"Invoke Node method '{method}' on a VI reference has no Python equivalent"
+    assert [(g.node_name, g.kind, g.reason) for g in gaps] == [
+        ("Invoke Node", "unsupported_node", reason)
+    ]
+    assert "raise NotImplementedError(" in package.sources["runner"]
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match=re.escape(reason)):
+            module("runner").runner()

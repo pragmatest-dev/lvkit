@@ -305,6 +305,12 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
         "measure_flavor": lv_type.measure_flavor,
         "user_event_name": lv_type.user_event_name,
     }
+    if lv_type.event_rows is not None:
+        # Only an Event Registration refnum has rows: the event each registers.
+        result["event_rows"] = [
+            {"name": row.name, "event_type": row.event_type}
+            for row in lv_type.event_rows
+        ]
     if lv_type.dotnet_type is not None:
         # Only a .NET node's terminal has one: the assembly-qualified name.
         result["dotnet_type"] = lv_type.dotnet_type.qualified

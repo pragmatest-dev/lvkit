@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.nodes import in_place
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import InPlaceNode, PrimitiveNode
 from lvkit.models import (
     ClusterField,
@@ -704,14 +707,21 @@ class TestIPESBorderDataFlowIds:
         assert frag.bindings["out_a"] == "obj_a"
         assert frag.bindings["out_b"] == "obj_b"
 
-    def test_array_element_is_indexed_and_written_back_in_place(self):
+    def _array_structure(self, *, second_index: bool = False):
         ctx = make_ctx(
-            "arr", "idx", "arr_out", "t_arr", "elem", "t_idx", "new", "w_arr"
+            "arr", "idx", "idx2", "arr_out", "t_arr", "elem", "t_idx", "t_idx2",
+            "new", "w_arr",
         )
         ctx.bind("arr", "items")
         ctx.bind("idx", "i")
         ctx.bind("new", "replacement")
-        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=2 if second_index else 1)
+        indexes = [_term("t_idx", "input", 2, dco="IDX", role="list", field=0)]
+        if second_index:
+            ctx.bind("idx2", "j")
+            indexes.append(
+                _term("t_idx2", "input", 3, dco="IDX2", role="list", field=1)
+            )
         tiles = [
             _tile(
                 "index",
@@ -720,7 +730,7 @@ class TestIPESBorderDataFlowIds:
                 [
                     _term("t_arr", "input", dco="ARR", lv_type=array),
                     _term("elem", "output", 1, role="agg"),
-                    _term("t_idx", "input", 2, dco="IDX", role="list", field=0),
+                    *indexes,
                 ],
             ),
             _tile(
@@ -738,16 +748,58 @@ class TestIPESBorderDataFlowIds:
             _term("idx", "input", 1, dco="IDX"),
             _term("arr_out", "output", 2, dco="ARR2"),
         ]
-        node = _ipes_with_tiles(ctx, ports, tiles)
+        if second_index:
+            ports.append(_term("idx2", "input", 3, dco="IDX2"))
+        return ctx, _ipes_with_tiles(ctx, ports, tiles)
 
+    def _run_array_structure(self, items, index, replacement):
+        ctx, node = self._array_structure()
         frag = in_place.generate(node, ctx)
+        namespace = {"items": items, "i": index, "replacement": replacement}
+        for stmt in frag.statements:
+            module = ast.Module(body=[ast.fix_missing_locations(stmt)], type_ignores=[])
+            exec(compile(module, "<generated>", "exec"), namespace)
+        return ctx, frag, namespace
 
-        code = "\n".join(
-            ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
-        )
-        assert ctx.resolve("elem") == "items[i]"
-        assert "items[i] = replacement" in code
-        assert frag.bindings["arr_out"] == "items"
+    def test_array_element_is_indexed_and_written_into_a_new_array(self):
+        items = [10, 20, 30]
+        ctx, frag, namespace = self._run_array_structure(items, 1, 99)
+        assert eval(ctx.resolve("elem"), namespace) == 20
+        assert namespace[frag.bindings["arr_out"]] == [10, 99, 30]
+
+    def test_an_index_outside_the_array_reads_the_element_default(self):
+        # As Index Array: no IndexError past the end, no wrap for a negative index.
+        for index in (3, -1):
+            ctx, _frag, namespace = self._run_array_structure([10, 20, 30], index, 99)
+            assert eval(ctx.resolve("elem"), namespace) is None
+
+    def test_an_index_for_each_of_two_dimensions_is_a_gap(self):
+        # NI: the border node gains an index for each dimension of the array;
+        # only one index is generated, so two are a gap rather than a row read.
+        ctx, node = self._array_structure(second_index=True)
+        with pytest.raises(ConversionGap, match="each of 2 dimensions"):
+            in_place.generate(node, ctx)
+
+    def test_array_write_leaves_the_array_another_reader_holds_unchanged(self):
+        items = [10, 20, 30]
+        _ctx, frag, namespace = self._run_array_structure(items, 1, 99)
+        assert frag.bindings["arr_out"] != "items"
+        assert namespace["items"] is items
+        assert items == [10, 20, 30]
+        assert namespace[frag.bindings["arr_out"]] == [10, 99, 30]
+
+    def test_array_write_with_an_index_outside_the_array_changes_nothing(self):
+        for index in (3, 7, -1):
+            items = [10, 20, 30]
+            _ctx, frag, namespace = self._run_array_structure(items, index, 99)
+            assert namespace[frag.bindings["arr_out"]] == [10, 20, 30]
+            assert items == [10, 20, 30]
+
+    def test_array_write_of_a_row_in_a_two_dimensional_array(self):
+        rows = [[1, 2], [3, 4]]
+        _ctx, frag, namespace = self._run_array_structure(rows, 0, [8, 9])
+        assert namespace[frag.bindings["arr_out"]] == [[8, 9], [3, 4]]
+        assert rows == [[1, 2], [3, 4]]
 
     def test_data_value_reference_is_read_and_written_through_its_cell(self):
         ctx = make_ctx("dvr", "dvr_out", "r_in", "r_data", "w_data", "w_out")

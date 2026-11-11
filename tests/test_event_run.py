@@ -12,28 +12,23 @@ import pytest
 
 from tests.error_diagrams import Package, Project, project  # noqa: F401
 from tests.event_diagrams import event_loop_vi, mouse_down_frame
+from tests.live_io_recorder import Recorder
 from tests.panel_diagrams import NAME, counting_vi, value_property
 
 
 def _function(package: Package) -> Any:
-    return package.module.events_
+    return package.function
 
 
 def _run(package: Package, *messages: tuple[Any, ...], **keywords: Any) -> Any:
-    """Call the function with the messages in a queue, and the writes of its
-    indicators in ``updates``."""
+    """Call the function with the messages in the queue of a ``LiveIO``, and the
+    writes of its indicators in ``updates``."""
     events: queue.Queue = queue.Queue()
     for message in messages:
         events.put(message)
-    updates: list[tuple[str, Any]] = []
-    result = _function(package)(
-        0,
-        0,
-        on_update=lambda name, value: updates.append((name.name, value)),
-        events=events,
-        **keywords,
-    )
-    return result, updates
+    recorder = Recorder(events=events, **keywords)
+    result = _function(package)(0, 0, live_io=recorder)
+    return result, [(name.name, value) for name, value in recorder.calls]
 
 
 def _kinds(package: Package) -> Any:
@@ -137,7 +132,7 @@ def test_no_events_and_no_timeout_waits_for_ever_as_labview_does(
     events.put((_names(package).GAIN, 2, _kinds(package).VALUE_CHANGE, 1))
     reply: queue.Queue = queue.Queue(maxsize=1)
     events.put(("", None, _kinds(package).PANEL_CLOSE, None, reply))
-    result = _function(package)(0, 0, events=events)
+    result = _function(package)(0, 0, live_io=Recorder(events=events))
     assert (result.last_new, result.closed) == (2, True)
 
 
@@ -151,14 +146,14 @@ def test_the_frame_sees_the_new_value_of_the_control_its_event_changed(
     result, _ = _run(
         package,
         (names.GAIN, 7, kinds.VALUE_CHANGE, 3),
-        on_read=lambda name, value: stale.get(name, value),
+        answer=lambda name, value: stale.get(name, value),
     )
     assert result.seen_gain == 7
     # a change of the other control leaves the Gain terminal as the panel holds it
     result, _ = _run(
         package,
         (names.OFFSET, 31, kinds.VALUE_CHANGE, 30),
-        on_read=lambda name, value: stale.get(name, value),
+        answer=lambda name, value: stale.get(name, value),
     )
     assert result.seen_gain == 3
 
@@ -171,7 +166,7 @@ def test_an_event_lvkit_does_not_handle_is_a_gap_that_names_it(
     assert len(package.gaps) == 1
     assert "Mouse Down" in package.gaps[0].reason
     with pytest.raises(NotImplementedError, match="Mouse Down"):
-        _function(package)(0, 0, events=queue.Queue())
+        _function(package)(0, 0, live_io=Recorder(events=queue.Queue()))
 
 
 def test_a_vi_without_an_event_structure_takes_no_events(
@@ -179,7 +174,7 @@ def test_a_vi_without_an_event_structure_takes_no_events(
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME)
-    assert "events" not in inspect.signature(package.function).parameters
+    assert "live_io.events" not in package.source
     assert "Queue" not in package.source
 
 
@@ -199,8 +194,8 @@ def test_the_fields_of_a_value_change_are_found_by_name_wherever_the_cluster_put
 def test_a_vi_with_an_event_structure_and_a_property_write_takes_both_hooks(
     project: Project,  # noqa: F811
 ) -> None:
-    """``on_property`` comes before ``events``; a Visible write on ``Gain`` calls
-    the one and the Event Structure reads the other."""
+    """A Visible write on ``Gain`` calls ``live_io.set_property`` and the Event
+    Structure reads ``live_io.events``."""
     vi = event_loop_vi(timeout=10)
     gain = next(vi.fp_terms[p.uid] for p in vi.panes if p.label == "Gain")
     (visible,) = value_property(vi, gain, ["Visible"])
@@ -209,10 +204,10 @@ def test_a_vi_with_an_event_structure_and_a_property_write_takes_both_hooks(
     package = project.generate("Events.vi")
     assert package.gaps == []
     keywords = list(inspect.signature(_function(package)).parameters)
-    assert keywords[-4:] == ["on_update", "on_read", "on_property", "events"]
-    calls: list[tuple[Any, ...]] = []
-    result = _function(package)(0, 0, on_property=lambda *call: calls.append(call))
+    assert keywords[-1:] == ["live_io"]
+    recorder = Recorder()
+    result = _function(package)(0, 0, live_io=recorder)
     assert result.timed_out is True
-    assert calls == [
+    assert recorder.properties == [
         (_names(package).GAIN, package.module.EventsProperty.VISIBLE, False)
     ]
