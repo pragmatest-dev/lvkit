@@ -61,6 +61,7 @@ A new instruction from the maintainer is fitted INTO the design already recorded
 
 - **Before editing this file, `ARCHITECTURE.md` or a design doc, or sending a brief that changes existing behaviour:** grep those docs and `git log` for the area, quote each existing decision it touches, and state for each: kept / extended / replaced. Diff the edited doc against `git show HEAD:<file>` and read every removed line.
 - **Replacing a recorded design needs the maintainer's explicit yes for that design by name.** A new instruction that seems to conflict with one is first reconciled; if they truly conflict, ask once, quoting both.
+- **Every design note and every agent brief carries a "Recorded design this touches" section**, written before it is sent: from a grep of this file, `ARCHITECTURE.md` and `docs/_internal/design/*` for the area's terms, every recorded decision and existing mechanism in the area, each marked kept / extended / replaced with `file:line`. Anything that parallels an existing mechanism (a second holder beside `LiveIO`, an attribute beside the label maps, a scan beside the catalog's `"requires"`) is named as such and justified, or dropped. The diff review checks the list against the diff. (2026-11-11: `FrontPanel` was built beside `live_io` without reading §11 — "Remember how we got free expansion from the io class? … what other designs did you fail to check before implementing??")
 - Persisted in memory: `feedback_cite_design_decisions_dont_ask`.
 
 ## ⛔ GENERATED PYTHON IS NATIVE PYTHON — NO LABVIEW IN IT (READ THIS FIRST)
