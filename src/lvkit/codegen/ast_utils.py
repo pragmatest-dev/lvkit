@@ -12,7 +12,9 @@ from dataclasses import dataclass
 
 from lvkit.graph.core import uid_of
 from lvkit.lv_type_codes import (
+    COMPLEX_TYPE_NAMES,
     INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
     is_boolean_type_name,
     is_string_type_name,
 )
@@ -83,8 +85,10 @@ def _scalar_default(underlying: str | None) -> ast.Constant:
         return ast.Constant(value=False)
     if underlying in INTEGER_TYPE_NAMES:
         return ast.Constant(value=0)
-    if underlying in ("NumFloat32", "NumFloat64"):
+    if underlying in REAL_FLOAT_TYPE_NAMES:
         return ast.Constant(value=0.0)
+    if underlying in COMPLEX_TYPE_NAMES:
+        return ast.Constant(value=0j)
     return ast.Constant(value=None)
 
 
@@ -621,7 +625,7 @@ def to_module_name(vi_name: str) -> str:
 def parameter_default_expr(inp: Terminal) -> ast.expr:
     """The default of a control as a ``def`` parameter: its saved default when
     that maps cleanly to its scalar type, else ``parameter_default_expr_of_type``."""
-    saved = _saved_scalar_default(inp)
+    saved = saved_default_expr(inp.default_value, inp.lv_type)
     return saved if saved is not None else parameter_default_expr_of_type(inp.lv_type)
 
 
@@ -629,23 +633,23 @@ def control_default_expr(inp: Terminal) -> ast.expr:
     """The value a control or indicator holds as a variable of the function (an
     off-pane control, an indicator a Local Variable reads): its saved default
     when that maps cleanly to its scalar type, else ``type_default_expr``."""
-    saved = _saved_scalar_default(inp)
+    saved = saved_default_expr(inp.default_value, inp.lv_type)
     return saved if saved is not None else type_default_expr(inp.lv_type)
 
 
-def _saved_scalar_default(inp: Terminal) -> ast.expr | None:
-    """A control's saved default as its scalar type reads it; None when it saves
-    none or one that is not a scalar of its type."""
-    dv = inp.default_value
+def saved_default_expr(dv: ScalarValue, lv_type: LVType | None) -> ast.expr | None:
+    """A control's saved default ``dv`` as its scalar type ``lv_type`` reads it (the
+    generated function and the generated front panel both start a control from
+    it); None when it saves none or one that is not a scalar of its type."""
     if dv is None:
         return None
-    underlying = inp.lv_type.underlying_type if inp.lv_type else None
+    underlying = lv_type.underlying_type if lv_type else None
     try:
-        if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        if lv_type and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             return ast.Constant(value=int(dv))
         if underlying and underlying.startswith(("NumInt", "NumUInt")):
             return ast.Constant(value=int(dv))
-        if underlying in ("NumFloat32", "NumFloat64"):
+        if underlying in REAL_FLOAT_TYPE_NAMES:
             return ast.Constant(value=float(dv))
         if underlying == "Boolean":
             return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))

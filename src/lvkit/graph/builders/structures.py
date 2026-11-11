@@ -22,6 +22,11 @@ from lvkit.models import (
 )
 from lvkit.parser.models import ParsedFlatSequenceStructure, ParsedNode
 
+from ..event_registration import (
+    dynamic_terminal_type,
+    registration_rows,
+    with_dynamic_names,
+)
 from ..models import (
     CaseStructureNode,
     DisableStructureNode,
@@ -214,6 +219,11 @@ class EventBuildHandler(StructureBuildHandler):
             parser_tunnels,
             q_node_uid,
         )
+        rows = registration_rows(dynamic_terminal_type(structure_terminals))
+        event_frames = [
+            with_dynamic_names(frame, frame.events, rows, displayed_frame)
+            for frame in event_frames
+        ]
 
         filter_node_uids = frozenset(
             ctx.qid(u) for u in (event_struct.filter_node_uids if event_struct else ())
@@ -335,9 +345,7 @@ class SequenceBuildHandler(StructureBuildHandler):
             terminals=structure_terminals,
             frames=seq_frames,
             sequence_locals=(
-                _join_sequence_locals(flat_seq, q_node_uid, ctx)
-                if flat_seq
-                else []
+                _join_sequence_locals(flat_seq, q_node_uid, ctx) if flat_seq else []
             ),
             displayed_frame=(flat_seq.displayed_frame if flat_seq else None),
             is_flat=(flat_seq.is_flat if flat_seq else True),
