@@ -186,16 +186,17 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    18 distinct gaps = 4 placeholder primitives (the notifier functions) + 3
-    unknown primitives + 3 unsupported nodes (OpenG Get TDEnum from Data
-    reading a variant, whose type is only known when the code runs; and two
-    kinds of Run VI whose VI reference comes from a Ctrl Val.Set or Set Front
-    Panel Object Control Value.vi, so the VI it runs, and the control values set
-    on it, are only known when the code runs) + 8 VIs that were not found. The
-    user events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register
-    For Events, Generate and Unregister) generate code. (Four OpenG VIs
-    the catalog implements are found by the ``<userlib>`` path their callers
-    record.)"""
+    13 distinct gaps = 5 unsupported nodes (OpenG Get TDEnum from Data reading a
+    variant, whose type is only known when the code runs; two kinds of Run VI
+    whose VI reference comes from a Ctrl Val.Set or Set Front Panel Object
+    Control Value.vi, so the VI it runs, and the control values set on it, are
+    only known when the code runs; the type string of a Flatten To String of a
+    refnum, which has no type descriptor; and the Flattened String To Variant
+    that reads those LabVIEW bytes with a type known only when the code runs)
+    + 8 VIs that were not found. The four notifier functions and the user
+    events of ``TestSuite.lvclass:run.vi`` (its Event Structure, Register For
+    Events, Generate and Unregister) generate code. (Four OpenG VIs the catalog
+    implements are found by the ``<userlib>`` path their callers record.)"""
     from collections import Counter
 
     if not _TESTCASE_CLASS.exists():
@@ -204,14 +205,16 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
-    assert counts["placeholder_primitive"] == 4
+    assert len(items) == 13, f"expected 13 distinct gaps, got {len(items)}: {counts}"
+    assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
-    assert counts["unknown_primitive"] == 3
-    # Get TDEnum from Data of a variant (codegen/nodes/vilib_op.py); Run VI on
-    # a reference only known when the code runs (codegen/nodes/run_vi.py), two
-    # reasons.
-    assert counts["unsupported_node"] == 3
+    assert counts["unknown_primitive"] == 0
+    # Get TDEnum from Data of a variant (codegen/nodes/vilib_op.py); Run VI on a
+    # reference only known when the code runs (codegen/nodes/run_vi.py), two
+    # reasons; the type string of a Flatten To String of a refnum
+    # (ops/flatten_to_string.py); the Flattened String To Variant reading those
+    # bytes with a run-time type (ops/flattened_string_to_variant.py).
+    assert counts["unsupported_node"] == 5
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 
@@ -222,12 +225,12 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     node = PrimitiveNode(
         id="p",
         vi_path="test.vi",
-        name="Wait on Notification",
+        name="Insert Menu Items",
         terminals=[
-            Terminal(id="t0", index=0, direction="input", name="notifier"),
-            Terminal(id="t1", index=1, direction="output", name="message"),
+            Terminal(id="t0", index=9, direction="input", name="menu reference"),
+            Terminal(id="t1", index=3, direction="output", name="menu reference out"),
         ],
-        prim_id=9105,
+        prim_id=9003,
     )
     ctx = CodeGenContext(vi_name="Caller.vi")
     fragment = generate_node(node, ctx)
@@ -237,8 +240,8 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     )
     raised = ast.unparse(module).splitlines()[-1]
     assert raised.startswith(
-        "raise NotImplementedError('Wait on Notification is not converted yet\\n"
+        "raise NotImplementedError('Insert Menu Items is not converted yet\\n"
         "gap kind: placeholder_primitive\\nVI: Caller.vi\\n"
-        "node: Wait on Notification\\n"
+        "node: Insert Menu Items\\n"
     )
-    assert "index=0 direction=input" in raised
+    assert "index=9 direction=input" in raised

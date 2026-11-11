@@ -84,12 +84,13 @@ def ring_sparse_values(ctrl: ET.Element) -> list[int]:
 def _wrapped_control(typedef: ET.Element) -> ET.Element | None:
     """The single control a ``typeDef`` DDO wraps — the first known-class control
     in document order (the wrapped type precedes its own children). A nested
-    ``typeDef`` counts too: ``reconstruct_control_lvtype`` unwraps it in turn."""
+    typedef or reference control also counts; a reference's payload is not
+    the wrapped control, and its type comes from the saved descriptor."""
     for e in typedef.iter():
         if e is typedef:
             continue
         cls = e.get("class")
-        if cls in _KNOWN_CLASSES or cls == "typeDef":
+        if cls in _KNOWN_CLASSES or cls in {"typeDef", "stdRefNum"}:
             return e
     return None
 

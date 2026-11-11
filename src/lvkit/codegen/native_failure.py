@@ -97,13 +97,15 @@ def catch_failures(
     # A class of the operation's own is raised whether or not it is caught; it
     # is registered with the module's other helpers, one definition per name,
     # and written under the name the module gives it (``add_module_function``).
+    # Several nodes share a class (Delete, Create Folder and Write to Text File
+    # all raise EmptyOrRelativePathError), so its definition names the error, not
+    # the node.
     written: dict[str, str] = {}
     for failure in catalog.failures:
         if failure.base is not None:
             [definition] = ast.parse(
                 f"class {failure.exception}({failure.base}):\n"
-                f'    """A failure of {catalog.source} (LabVIEW error '
-                f'{failure.code})."""'
+                f'    """LabVIEW error {failure.code}."""'
             ).body
             assert isinstance(definition, ast.ClassDef)
             written[failure.exception] = ctx.add_module_function(definition)

@@ -9,19 +9,19 @@
         {
           "index": 0,
           "direction": "input",
-          "name": "event_reg_refnum",
+          "name": "event registration refnum",
           "type": "Refnum"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "error_in",
+          "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
           "direction": "output",
-          "name": "error_out",
+          "name": "error out",
           "type": "Cluster"
         }
       ],

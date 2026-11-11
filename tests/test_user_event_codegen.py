@@ -574,18 +574,18 @@ vi Stopper.vi :
     out  Timed Out : TF @1
   block-diagram :
     function Create_User_Event_114 : Create User Event
-      in   user_event_data_type : TF                   = False
-      in   error_in             : Error                default
-      out  user_event_out       : UserEvent refnum{TF}
-      out  error_out            : Error
+      in   user event datatype : TF                   = False
+      in   error in (no error) : Error                default
+      out  user event          : UserEvent refnum{TF}
+      out  error out           : Error
     function Reg_Events_128 : Reg Events
       in   0 : EventReg refnum{UserEvent refnum{TF}} default
-      in   2 : Error                                 = Create_User_Event_114::error_out
-      in   4 : UserEvent refnum{TF}                  = Create_User_Event_114::user_event_out
+      in   2 : Error                                 = Create_User_Event_114::error out
+      in   4 : UserEvent refnum{TF}                  = Create_User_Event_114::user event
       out  1 : EventReg refnum{UserEvent refnum{TF}}
       out  3 : Error
     function Generate_User_Event_141 : Generate User Event
-      in   user event     : UserEvent refnum{TF} = Create_User_Event_114::user_event_out
+      in   user event     : UserEvent refnum{TF} = Create_User_Event_114::user event
       in   event data     : TF                   = True
       in   error in       : Error                = Reg_Events_128::3
       out  user event out : UserEvent refnum{TF}

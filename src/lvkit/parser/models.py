@@ -867,7 +867,26 @@ class ParsedFPGrouper:
     objects: list[ParsedFPObject]
 
 
-ParsedFPObject = ParsedFPControl | ParsedFPLabel | ParsedFPDecoration | ParsedFPGrouper
+@dataclass(frozen=True)
+class ParsedFPSubPanel:
+    """A Subpanel control: it shows another VI's front panel and has no
+    terminal. ``bounds`` is in the space of the holder; ``label`` (None when
+    the file stores none) and ``parts`` -- the label, the content area, the
+    edges and the frame -- are relative to the Subpanel's own top-left."""
+
+    uid: str
+    bounds: tuple[int, int, int, int]
+    label: ParsedFPLabel | None
+    parts: list[ParsedFPPart]
+
+
+ParsedFPObject = (
+    ParsedFPControl
+    | ParsedFPLabel
+    | ParsedFPDecoration
+    | ParsedFPGrouper
+    | ParsedFPSubPanel
+)
 
 
 @dataclass

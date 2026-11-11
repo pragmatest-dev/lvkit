@@ -42,23 +42,23 @@ def test_unwired_daqmx_reference_raises_naming_class_and_property():
 def test_a_primitive_without_an_implementation_raises_where_it_runs(
     project: Project,  # noqa: F811
 ) -> None:
-    vi = Vi("Notify.vi")
-    notifier = vi.control("Notifier", QUEUE, REQUIRED)
-    out = vi.indicator("Notifier Out", QUEUE, REQUIRED)
-    send = vi.primitive(
-        9104,
+    vi = Vi("Menu.vi")
+    menu = vi.control("Menu", QUEUE, REQUIRED)
+    out = vi.indicator("Menu Out", QUEUE, REQUIRED)
+    insert = vi.primitive(
+        9003,
         [
-            ("notifier", 0, QUEUE, False),
-            ("error in", 3, ERR, False),
-            ("notifier out", 8, QUEUE, True),
-            ("error out", 11, ERR, True),
+            ("menu reference", 9, QUEUE, False),
+            ("error in", 6, ERR, False),
+            ("menu reference out", 3, QUEUE, True),
+            ("error out", 0, ERR, True),
         ],
     )
-    vi.wire(notifier, send["notifier"])
-    vi.wire(send["notifier out"], out)
+    vi.wire(menu, insert["menu reference"])
+    vi.wire(insert["menu reference out"], out)
     project.add(vi)
-    source = project.generate("Notify.vi").source
+    source = project.generate("Menu.vi").source
     assert (
-        "raise NotImplementedError('Send Notification is not converted yet\\n"
+        "raise NotImplementedError('Insert Menu Items is not converted yet\\n"
         "gap kind: placeholder_primitive\\n"
     ) in source

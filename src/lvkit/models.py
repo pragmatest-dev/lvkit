@@ -1131,6 +1131,11 @@ class Tunnel(BaseModel):
     # face sits in. Set for the structures whose inner faces are per frame
     # (Event, Sequence); None elsewhere.
     frame_position: int | None = None
+    # - feedback_link_uid: the Feedback Node a ``tunnel_type == "initFeedback"``
+    #   tunnel is the initializer of, as the heap links them: the ``<rsrDCO>`` uid
+    #   the Feedback Node's own output terminal (``FeedbackNode.link_uid``) also
+    #   carries. None on every other tunnel_type.
+    feedback_link_uid: str | None = None
 
 
 class PropertySegment(BaseModel):
@@ -1257,6 +1262,10 @@ class FrameEvent(BaseModel):
     # ``Field.Label`` for a cluster of registrations), set when the graph is built;
     # None when the event is not a dynamic User Event or the type has no such row.
     dynamic_name: str | None = None
+    # The event's part of its frame's label (``"<Control>": <EventType>``,
+    # ``Timeout``), set by the parser; empty when the event has no control and no
+    # type code.
+    label: str = ""
 
 
 class EventFrame(Frame):

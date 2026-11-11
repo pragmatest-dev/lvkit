@@ -268,11 +268,14 @@ undiscoverable.
 
 33. **What primitives / vi.lib VIs are unresolved across this repo?**
     - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
-    - *Ground truth (`TestCase.lvclass`, this branch):* **18 distinct gaps = 4
-      placeholder primitives** (the notifier functions, known but unimplemented)
-      **+ 3 unknown primitives** **+ 3 nodes without code generation** (OpenG
-      Get TDEnum from Data reading a variant, and two kinds of Run VI whose VI
-      reference is only known when the code runs) **+ 8 VIs that were not found** on the search path. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
+    - *Ground truth (`TestCase.lvclass`, this branch):* **13 distinct gaps = 5
+      nodes without code generation** (OpenG Get TDEnum from Data reading a
+      variant, two kinds of Run VI whose VI reference is only known when the
+      code runs, the type string of a Flatten To String of a refnum, and the
+      Flattened String To Variant reading those bytes with a type known only at
+      run time) **+ 8 VIs that were not found** on the search path. The
+      notifier functions and the user events of `TestSuite.lvclass:run.vi`
+      generate code. Pinned by `test_q33_unresolved_gap_counts_on_testcase_class`
       -- if a future change resolves one of these, that test fails: update the
       pin AND this line.
       Distinct from Q26's 149 unresolved-*type* terminals.

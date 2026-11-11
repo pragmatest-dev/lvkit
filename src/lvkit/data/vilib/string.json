@@ -2993,6 +2993,29 @@
       ]
     },
     {
+      "name": "Space Constant",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/dlg-ctls-llb/space-constant-vi.html",
+      "category": "String",
+      "description": "Use this constant to supply a one-character space string to the block diagram.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "String",
+          "index": 0,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string",
+          "description": "Space constant string."
+        }
+      ],
+      "python_code": "{string} = ' '",
+      "inline": true
+    },
+    {
       "name": "Delimited String to 1D String Array",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/advancedstring/delimited-string-to-1d-string-array-vi.html",
       "category": "String",

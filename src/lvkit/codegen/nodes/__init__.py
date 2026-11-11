@@ -44,6 +44,7 @@ from . import (
     event,
     event_register,
     ext_func,
+    feedback,
     first_call,
     formula,
     global_variable,
@@ -52,6 +53,7 @@ from . import (
     local_variable,
     loop,
     nmux,
+    notifier_ops,
     primitive,
     printf,
     property_node,
@@ -113,10 +115,9 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return shared_variable.generate(node, ctx)
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
-        # graph. Faithful Python codegen is not implemented: it is a gap
-        # (describe/netlist do model it).
+        # graph: its read side and its write side are separate nodes.
         if ctx.is_feedback_node(node):
-            raise UnknownNodeError("Feedback Node codegen not yet supported", node)
+            return feedback.generate(node, ctx)
         if node.properties:
             return property_node.generate(node, ctx)
         if run_vi.is_run_vi(node):
@@ -127,6 +128,9 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         entry = ctx.primitive_catalog.get_by_id(node.prim_id) if node.prim_id else None
         if entry is None:
             return fragment
+        # The packages the node's code imports, for the package's
+        # requirements.txt.
+        ctx.require_packages(entry.get("requires", ()))
         # The catalog marks a primitive NI runs even when an error came in, and
         # the failures of its operation that are its error out.
         if entry.get("runs_on_error", False):
@@ -173,6 +177,10 @@ def _generate_primitive(
     # tell them apart, so dispatch by prim_id before the node_type registry.
     if node.node_type == "prim" and node.prim_id in queue_ops.QUEUE_PRIM_IDS:
         return queue_ops.generate(node, ctx)
+    # Notifier Operations are generic `class="prim"` nodes too -- see
+    # nodes/notifier_ops.py.
+    if node.node_type == "prim" and node.prim_id in notifier_ops.NOTIFIER_PRIM_IDS:
+        return notifier_ops.generate(node, ctx)
     # First Call? (1083) is likewise a generic `class="prim"` node
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
