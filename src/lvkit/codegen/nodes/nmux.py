@@ -36,7 +36,7 @@ from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
-from ..value_copy import owned_input
+from ..value_copy import COPY_IMPORT, own_path, owned_input
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -208,6 +208,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     else _field_path(t, class_fields, class_attrs)
                 )
                 if path:
+                    if len(path) > 1:
+                        imports.add(COPY_IMPORT)
+                        statements.extend(own_path(agg_var, path))
                     statements.append(
                         ast.Assign(
                             targets=[_attribute_target(agg_var, path)],

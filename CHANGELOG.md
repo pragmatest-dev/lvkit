@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a copied LabVIEW object shares its references, as in LabVIEW** — a value that must be copied is copied one level (`copy.copy`), so a queue, data value reference or VI reference in a field stays the same object (a deep copy duplicated the data a reference points to); a nested write copies each container on its path first.
 - **A reference Type Cast to an integer and back is the same Python object** — code that keeps a reference in a U32 (a class's private data) gets it back; `0` cast to a reference is Not a Reference (`None`).
 - **Delete Data Value Reference generates Python** — it returns the value the reference held (the reference is the one-element list New Data Value Reference makes).
 - **Fix: a generated package always imports and never hides a Python module** — the package is named by the same rule as every module (`1D Tools.vi` is `var_1d_tools`, which imports), and a name Python already has gets `_` after it (`Numbers.vi` is `numbers_`, not a package that hides the standard `numbers`).

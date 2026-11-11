@@ -38,7 +38,7 @@ from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..value_copy import owned_input
+from ..value_copy import COPY_IMPORT, own_path, owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"
@@ -320,6 +320,9 @@ def _write_fields_back(
         path = _field_path(t, class_fields, _class_attrs(agg_out, ctx))
         if path is None:
             continue
+        if len(path) > 1:
+            ctx.add_import(COPY_IMPORT)
+            stmts.extend(own_path(element.whole, path))
         stmts.append(_assign(_attribute_target(element.whole, path), val))
     return stmts
 

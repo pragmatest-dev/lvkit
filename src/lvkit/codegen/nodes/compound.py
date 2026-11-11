@@ -400,7 +400,7 @@ def generate_array_init(
             elem_expr = ast.Call(
                 func=ast.Attribute(
                     value=ast.Name(id="copy", ctx=ast.Load()),
-                    attr="deepcopy",
+                    attr="copy",
                     ctx=ast.Load(),
                 ),
                 args=[elem_expr],
