@@ -470,13 +470,13 @@ def test_a_control_in_a_case_in_a_loop_is_read_at_the_start_of_that_frame(
         """\
         seen = 0
         for i in range(n):
-            seen_128 = 0
+            seen_2 = 0
             if flag:
                 gain = live_io.read(LiveValue.GAIN, gain)
-                seen_128 = gain
+                seen_2 = gain
             else:
-                seen_128 = 0
-            seen = seen_128
+                seen_2 = 0
+            seen = seen_2
             live_io.write(LiveValue.SEEN, seen)
         return LiveResult(seen=seen)"""
     )

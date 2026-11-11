@@ -9,7 +9,6 @@ its expression to each element of an array.
 from __future__ import annotations
 
 import ast
-import re
 from typing import TYPE_CHECKING
 
 from lvkit.conversion_gap import ConversionGap
@@ -67,7 +66,6 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     numeric, dimensions = _numeric_element(node, source.lv_type)
 
     variable = expression_variable(node.script)
-    suffix = re.sub(r"\W", "_", node.id.split("::")[-1])
     wired = ctx.wired_input(source.id, node)
     if wired is None:
         wired = "[]" if dimensions else "0"
@@ -88,13 +86,13 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
         # written in place. Anything else is bound once and the expression
         # reads the name.
         if not _is_plain_read(ast.parse(wired, mode="eval").body):
-            bound = ctx.make_output_var(f"expr_{suffix}_input", node.id)
+            bound = ctx.make_output_var("expr_input", node.id)
             statements += ast.parse(f"{bound} = {wired}").body
             wired = bound
         value = emit_expression(node.script, variable, numeric, wired)
         text = value.source
 
-    out_var = ctx.make_output_var(f"expr_{suffix}", node.id, terminal_id=result.id)
+    out_var = ctx.make_output_var("expr", node.id, terminal_id=result.id)
     statements += ast.parse(f"{out_var} = {text}").body
     return CodeFragment(
         statements=statements,

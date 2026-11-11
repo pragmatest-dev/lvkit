@@ -321,9 +321,7 @@ def test_two_dimensional_array_input() -> None:
 def _body(script: str, lv_type) -> str:
     """The generated lines of the VI function that belong to the node."""
     lines = _run(script, lv_type).source.splitlines()
-    return "\n".join(
-        line.strip() for line in lines if line.strip().startswith("expr_expr")
-    )
+    return "\n".join(line.strip() for line in lines if line.strip().startswith("expr"))
 
 
 def test_expression_is_written_inline() -> None:
@@ -331,21 +329,21 @@ def test_expression_is_written_inline() -> None:
     assert "def _expression" not in source
     assert "_result" not in source
     assert "lvkit" not in source
-    assert _body("2*x+3", scalar("NumFloat64")) == "expr_expr = 2 * in_ + 3"
+    assert _body("2*x+3", scalar("NumFloat64")) == "expr = 2 * in_ + 3"
 
 
 def test_integer_expression_rounds_and_wraps_inline() -> None:
     assert _body("2*x+3", scalar("NumUInt16")) == (
-        "expr_expr = ctypes.c_uint16(round(2 * in_ + 3)).value"
+        "expr = ctypes.c_uint16(round(2 * in_ + 3)).value"
     )
 
 
 def test_array_expression_is_a_comprehension() -> None:
     assert _body("2*x+3", array("NumUInt16")) == (
-        "expr_expr = [ctypes.c_uint16(round(2 * x + 3)).value for x in in_]"
+        "expr = [ctypes.c_uint16(round(2 * x + 3)).value for x in in_]"
     )
     assert _body("x*2", array("NumFloat64", 2)) == (
-        "expr_expr = [[x * 2 for x in x_0] for x_0 in in_]"
+        "expr = [[x * 2 for x in x_0] for x_0 in in_]"
     )
 
 
@@ -374,17 +372,14 @@ def test_computed_input_is_bound_once() -> None:
     body = "\n".join(
         line.strip()
         for line in generated.source.splitlines()
-        if line.strip().startswith("expr_expr")
+        if line.strip().startswith("expr")
     )
-    assert body == (
-        "expr_expr_input = 4.0\n"
-        "expr_expr = expr_expr_input * expr_expr_input + expr_expr_input"
-    )
+    assert body == ("expr_input = 4.0\nexpr = expr_input * expr_input + expr_input")
     assert result_values(generated.function())[0] == 20.0
 
 
 def test_named_input_is_not_rebound() -> None:
-    assert _body("x*x+x", scalar("NumFloat64")) == "expr_expr = in_ * in_ + in_"
+    assert _body("x*x+x", scalar("NumFloat64")) == "expr = in_ * in_ + in_"
 
 
 def test_unbundled_input_is_written_in_place() -> None:
@@ -419,8 +414,8 @@ def test_unbundled_input_is_written_in_place() -> None:
         [("fp:point", "ub:0"), ("ub:1", "expr:0"), ("expr:1", "fp:out")],
     )
     lines = [line.strip() for line in generated.source.splitlines()]
-    assert not any(line.startswith("expr_expr_input") for line in lines)
-    assert "expr_expr = 2 * point[1] + 3" in lines
+    assert not any(line.startswith("expr_input") for line in lines)
+    assert "expr = 2 * point[1] + 3" in lines
     assert result_values(generated.function((1.0, 4.0)))[0] == 11.0
 
 
