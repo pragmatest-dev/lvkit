@@ -16,14 +16,23 @@ from lvkit.graph.models import (
     GlobalVariableNode,
     GlobalVIRef,
     GraphNode,
+    PrimitiveNode,
     VIContext,
     VINode,
     VIProperties,
 )
-from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, VIKind
+from lvkit.models import (
+    FPTerminal,
+    LVType,
+    LVTypeKind,
+    PropertyDef,
+    PropertySegment,
+    Terminal,
+    VIKind,
+)
 from lvkit.parser.models import ParsedFrontPanel
 from tests.class_graphs import INT, Project, Recipe, pane, wire
-from tests.test_run_vi import VI_REF, invoke, runner_on_error_chain
+from tests.test_run_vi import ERROR, VI_REF, invoke, runner_on_error_chain
 
 STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 
@@ -213,6 +222,77 @@ def test_run_vi_on_a_global_vi_is_error_1035_on_the_nodes_error_out(
             "Operation is invalid for this type of VI.",
         )
         assert module("data").count == 5
+
+
+def exec_state_reader(target_key: str) -> Recipe:
+    """A VI that reads Exec.State of a Static VI Reference to ``target_key``,
+    the Property Node's error out wired to the VI's ``error out``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        reference = ConstantNode(
+            id=f"{vi}:ref",
+            vi_path=vi,
+            name="Target.vi",
+            value="Target.vi",
+            lv_type=VI_REF,
+            referenced_vi_key=target_key,
+            terminals=[
+                Terminal(id=f"{vi}:ref", index=0, direction="output", lv_type=VI_REF)
+            ],
+        )
+        node = PrimitiveNode(
+            id=f"{vi}:prop",
+            vi_path=vi,
+            name="Property Node",
+            node_type="propNode",
+            object_name="VI",
+            terminals=[
+                Terminal(
+                    id=f"{vi}:prop.ref", index=0, direction="input", lv_type=VI_REF
+                ),
+                Terminal(
+                    id=f"{vi}:prop.err_out", index=3, direction="output", lv_type=ERROR
+                ),
+                Terminal(
+                    id=f"{vi}:prop.value", index=4, direction="output", lv_type=INT
+                ),
+            ],
+            properties=[
+                PropertyDef(segments=[PropertySegment(name="Exec.State", code=557)])
+            ],
+            property_value_terminal_ids=[f"{vi}:prop.value"],
+        )
+        context = VIContext(
+            name=vi,
+            outputs=[
+                pane(vi, "output", "state", INT, "state", 0),
+                pane(vi, "output", "err_out", ERROR, "error out", 1),
+            ],
+            data_flow=[
+                wire(vi, "ref", "prop.ref"),
+                wire(vi, "prop.value", "state"),
+                wire(vi, "prop.err_out", "err_out"),
+            ],
+        )
+        return context, [reference, node]
+
+    return build
+
+
+def test_exec_state_of_a_global_vi_is_error_1035_on_the_nodes_error_out(
+    tmp_path: Path,
+) -> None:
+    """A Global VI never runs: reading its Exec.State is error 1035, as Run VI on
+    it is, reported on the Property Node's error out (no Python exception)."""
+    project, key = two_controls_project(tmp_path)
+    reader = project.add_vi("Reader", exec_state_reader(key))
+    project.graph._dep_graph.add_edge(reader, key)  # noqa: SLF001
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        result = module("reader").reader()
+        assert result.error_out.code == 1035
+        assert result.state == 0
 
 
 def test_a_reference_to_a_global_vi_is_its_module_for_ctrl_val(tmp_path: Path) -> None:

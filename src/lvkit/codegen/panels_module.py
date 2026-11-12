@@ -283,6 +283,16 @@ class PanelValues:
             message="Operation is invalid for this type of VI.",
         )
 
+    @property
+    def state(self) -> int:
+        """Exec.State of a panel that is not a VI's function: a Global VI never
+        runs, so it is error 1035, as Run VI on it is."""
+        raise PanelError(
+            code=1035,
+            source="Panel.state",
+            message="Operation is invalid for this type of VI.",
+        )
+
     def _tell(self, method: str, *arguments: Any) -> None:
         with self._lock:
             views = list(self._views)

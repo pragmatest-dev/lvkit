@@ -23,6 +23,7 @@ from .base import (
     resolve_ref_input,
     unwired_ref_class,
 )
+from .ctrl_val import report_panel_error
 from .local_variable import read_control, write_control
 
 
@@ -199,6 +200,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     imports: set[str] = set()
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
+    panel_read = False
     for prop, term in correlate_property_terminals(
         properties, node.terminals, value_ids
     ):
@@ -229,6 +231,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
             if reflected is None:
                 raise _no_python_equivalent(node, prop)
+            panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
@@ -269,4 +272,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
+    if panel_read:
+        # A read of the referenced VI's front panel fails with the panel's own
+        # error (1026, 1035): the node's error out, as for Ctrl Val.
+        fragment = report_panel_error(node, ctx, statements, bindings)
+        fragment.imports = imports
+        return fragment
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)

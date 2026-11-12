@@ -742,3 +742,14 @@ def vi_property_read(
         ctx.import_panels(PANEL_CALL_IMPORTS)
         return parse_expr(f"{PANEL_OF_NAME}({reference}).state")
     return None
+
+
+def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:
+    """Whether ``vi_property_read`` reads ``prop`` from the referenced VI's front
+    panel (Exec.State), which fails with the panel's own error (1026 for a
+    reference that holds no VI, 1035 for a Global VI)."""
+    return (
+        node.object_name == VI_CLASS
+        and len(prop.segments) == 1
+        and prop.segments[0].code == VI_EXEC_STATE_PROPERTY_CODE
+    )
