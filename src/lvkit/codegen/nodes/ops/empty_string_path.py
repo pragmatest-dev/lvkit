@@ -7,10 +7,10 @@ Tester equality tests (``failUnlessEqual.vi``, ``passIfEqual.vi``,
 ``failIfEqual.vi``) tell whether their optional Variant ``delta`` was wired.
 A variant holding ``""`` is not empty (NI forum "How to detect an empty
 Variant": "Empty String/Path is false if the empty string/Path is converted to a
-variant first"). An empty variant is ``None`` in generated code.
+variant first"). An empty variant is one whose ``type`` is ``None``.
 
 in_1 = string, path or variant -> out index 0 = empty?
-  - a variant is empty only when it is ``None``;
+  - a variant is empty only when its ``type`` is ``None``;
   - a path is empty when it has no component, and ``None`` (Not a Path) is not an
     empty path;
   - a string is empty when it has no characters.
@@ -26,7 +26,7 @@ from . import register_op
 from ._flat_node import terminal
 
 _INPUT = 1
-_EMPTY_VARIANT = "in_1 is None"
+_EMPTY_VARIANT = "in_1.type is None"
 _EMPTY_STRING_OR_PATH = (
     "(in_1 == Path('')) if isinstance(in_1, Path) "
     "else (in_1 is not None and len(in_1) == 0)"

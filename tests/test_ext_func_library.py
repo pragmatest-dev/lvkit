@@ -367,6 +367,7 @@ def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
         "errors.py",
         "live_io.py",
         "panels.py",
+        "variants.py",
         "vendor_libs/Vendor Lib_64.so",
         "vendor_libs/__init__.py",
         "vendor_libs/clfn_bdhbxml.py",

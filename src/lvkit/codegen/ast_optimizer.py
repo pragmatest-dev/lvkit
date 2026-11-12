@@ -15,6 +15,7 @@ from typing import cast
 
 from .ast_utils import is_default_object
 from .gaps import is_gap_raise
+from .variants_module import VARIANTS_MODULE_NAME
 
 
 class DeadCodeEliminator(ast.NodeTransformer):
@@ -770,6 +771,30 @@ def eliminate_dead_branches(module: ast.Module) -> ast.Module:
     return DeadBranchEliminator().visit(module)
 
 
+def merge_variants_imports(module: ast.Module) -> ast.Module:
+    """One ``from .variants import ...`` for all the module-level imports of the
+    package's ``variants`` module (each import site asks for its own names), the
+    names in order."""
+    first: dict[int, ast.ImportFrom] = {}
+    body: list[ast.stmt] = []
+    for stmt in module.body:
+        if (
+            isinstance(stmt, ast.ImportFrom)
+            and stmt.module == VARIANTS_MODULE_NAME
+            and stmt.level > 0
+        ):
+            kept = first.get(stmt.level)
+            if kept is not None:
+                kept.names.extend(stmt.names)
+                continue
+            first[stmt.level] = stmt
+        body.append(stmt)
+    for stmt in first.values():
+        stmt.names.sort(key=lambda alias: alias.name)
+    module.body = body
+    return module
+
+
 def optimize_module(module: ast.Module) -> ast.Module:
     """Run all optimization passes on module.
 
@@ -786,4 +811,5 @@ def optimize_module(module: ast.Module) -> ast.Module:
     module = remove_dead_defaults(module)
     module = eliminate_dead_code(module)
     module = remove_unused_imports(module)
+    module = merge_variants_imports(module)
     return module

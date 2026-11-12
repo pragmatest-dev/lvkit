@@ -27,6 +27,8 @@ from lvkit.models import (
 from lvkit.timestamp_value import timestamp_expression
 
 from .ast_utils import field_attribute_names
+from .variant_values import type_expression
+from .variants_module import VARIANT_NAME
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -78,24 +80,23 @@ def constant_value_expression(
 
 
 def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
-    """A Variant: ``None`` when empty, the value it holds, or, for an empty
-    Variant with attributes (LabVIEW's lookup table), a ``dict`` of its
-    attributes, each written as the Variant it is. A Variant with a value and
-    attributes is not a lookup table and is a gap."""
-    if value.attributes:
-        if value.value_type is not None:
-            raise ConversionGap(
-                f"{where[0].upper()}{where[1:]} is a Variant with attributes, "
-                "which has no Python value yet"
-            )
-        items = []
-        for name, attribute in value.attributes:
-            part = f"the attribute {name!r} of {where}"
-            items.append(f"{name!r}: {_variant(ctx, attribute, part)}")
-        return "{" + ", ".join(items) + "}"
-    if value.value_type is None:
-        return "None"
-    return constant_value_expression(ctx, value.value_type, value.value, where)
+    """A Variant constant: ``Variant()`` when empty, else the ``Variant`` of the
+    value it holds, its type and its attributes, each written as the Variant it
+    is."""
+    if value.value_type is None and not value.attributes:
+        ctx.import_variant()
+        return f"{VARIANT_NAME}()"
+    held = "None"
+    type_expr = "None"
+    if value.value_type is not None:
+        held = constant_value_expression(ctx, value.value_type, value.value, where)
+        type_expr = type_expression(ctx, value.value_type)
+    items = []
+    for name, attribute in value.attributes:
+        part = f"the attribute {name!r} of {where}"
+        items.append(f"{name!r}: {_variant(ctx, attribute, part)}")
+    ctx.import_variant()
+    return f"{VARIANT_NAME}({held}, {type_expr}, {{{', '.join(items)}}})"
 
 
 def _not_read(where: str, lv_type: LVType) -> str:

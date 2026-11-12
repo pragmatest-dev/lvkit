@@ -117,12 +117,22 @@ def test_a_failed_variant_to_data_gives_the_class_default_object(
     package = project.generate()
     with package.use() as module:
         base_class, convert = module("base").Base, module("convert").convert
-        failed = convert(v="not an object")
+        variants = module("variants")
+        failed = convert(v=variants.Variant("not an object", variants.String))
         assert failed.error_out.code == 91
         assert type(failed.d) is base_class
         assert failed.d._Base__count == 0
+        assert convert(v=variants.Variant()).error_out.code == 91  # an empty variant
         mine = base_class()
-        assert convert(v=mine).d is mine
+        # A Variant of the same class gives the object back.
+        base_type = variants.LVType(112, "Base.lvclass")
+        same = convert(v=variants.Variant(mine, base_type))
+        assert (same.d is mine, same.error_out) == (True, None)
+        # Variants do not recognise inheritance: a Variant of a child class is
+        # not the parent class.
+        child_type = variants.LVType(112, "Child.lvclass")
+        child = convert(v=variants.Variant(mine, child_type))
+        assert child.error_out.code == 91
 
 
 def test_a_cluster_with_a_class_field_defaults_that_field_to_the_object(

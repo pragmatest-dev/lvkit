@@ -17,6 +17,7 @@ from pathlib import Path
 
 from lvkit.codegen import build_module
 from lvkit.codegen.ast_optimizer import (
+    merge_variants_imports,
     remove_duplicate_imports,
     remove_unused_imports,
 )
@@ -51,6 +52,11 @@ from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.type_module import build_type_module
+from lvkit.codegen.variants_module import (
+    VARIANTS_MODULE_NAME,
+    VARIANTS_MODULE_SOURCE,
+    variants_import,
+)
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -372,6 +378,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{NOTIFIERS_MODULE_NAME}.py")
         return f"from {dots}{module} import {NOTIFIER_NAME}"
 
+    def variant_import(names: Sequence[str]) -> str:
+        dots, package, module = relative(output_dir / f"{VARIANTS_MODULE_NAME}.py")
+        return variants_import(dots, names)
+
     def live_io_import() -> str:
         dots, package, module = relative(output_dir / f"{LIVE_IO_MODULE_NAME}.py")
         return f"from {dots}{module} import {LIVE_IO_NAME}, {NO_LIVE_IO_NAME}"
@@ -403,6 +413,7 @@ def create_import_resolver(
         notifier_import,
         live_io_import,
         panels_import,
+        variant_import,
     )
 
 
@@ -474,6 +485,17 @@ def _write_errors_module(package_root: Path) -> None:
         f"import {LABVIEW_ERROR_NAME}",
         ERRORS_MODULE_NAME,
         ERRORS_MODULE_SOURCE,
+    )
+
+
+def _write_variants_module(package_root: Path) -> None:
+    """Write ``variants.py`` at the package root when a generated module imports
+    from it."""
+    _write_support_module(
+        package_root,
+        f".{VARIANTS_MODULE_NAME} import",
+        VARIANTS_MODULE_NAME,
+        VARIANTS_MODULE_SOURCE,
     )
 
 
@@ -721,8 +743,8 @@ def _generate_polymorphic_module(
     variant_imports -= set(annotation_block)
     lines[header_end:header_end] = annotation_block + sorted(variant_imports)
 
-    module = remove_unused_imports(
-        remove_duplicate_imports(ast.parse("\n".join(lines)))
+    module = merge_variants_imports(
+        remove_unused_imports(remove_duplicate_imports(ast.parse("\n".join(lines))))
     )
     return ast.unparse(module) + "\n"
 
@@ -910,6 +932,7 @@ def generate_python(
         shared=frozenset(poly_variants) | frozenset(class_of_member),
         reserved=[
             ERRORS_MODULE_NAME,
+            VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -921,6 +944,7 @@ def generate_python(
         reserved={
             *layout.root_names,
             ERRORS_MODULE_NAME,
+            VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -1204,6 +1228,7 @@ def generate_python(
     _write_notifiers_module(output_dir_resolved)
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
+    _write_variants_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")

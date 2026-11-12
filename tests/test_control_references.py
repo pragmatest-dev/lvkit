@@ -222,11 +222,21 @@ def test_a_control_reference_reads_its_label_indicator_and_value(
         panel = module("target").target.panel
         panel.set("a", 4)
         by_label = {c.label: c for c in panel.controls}
+        variant, i32 = module("variants").Variant, module("variants").I32
         result = module("reader").reader(ctl=by_label["a"])
-        assert (result.label, result.indicator, result.value) == ("a", False, 4)
+        # The Value property is a variant: the control's value and its type.
+        assert (result.label, result.indicator, result.value) == (
+            "a",
+            False,
+            variant(4, i32),
+        )
         assert result.error_out is None
         result = module("reader").reader(ctl=by_label["c"])
-        assert (result.label, result.indicator, result.value) == ("c", True, None)
+        assert (result.label, result.indicator, result.value) == (
+            "c",
+            True,
+            variant(None, i32),
+        )
 
 
 def test_the_value_of_a_control_reference_is_the_panels_value(
@@ -242,13 +252,15 @@ def test_the_value_of_a_control_reference_is_the_panels_value(
     gaps: list[Gap] = []
     package = project.generate(gaps)
     assert gaps == []
-    assert ".value = " in package.sources["writer"]
+    assert ".variant = " in package.sources["writer"]
     with package.use() as module:
         panel = module("target").target.panel
+        variant, i32 = module("variants").Variant, module("variants").I32
         first_indicator = next(c for c in panel.controls if c.indicator)
-        assert module("writer").writer(ctl=first_indicator, v=7).error_out is None
+        written = module("writer").writer(ctl=first_indicator, v=variant(7, i32))
+        assert written.error_out is None
         assert panel.get("c") == 7
-        assert module("runner").runner().out == 7
+        assert module("runner").runner().out == variant(7, i32)
         # and a Ctrl Val.Set is what the reference reads
         panel.set("a", 3)
         assert next(c for c in panel.controls if c.label == "a").value == 3
@@ -262,10 +274,16 @@ def test_a_reference_that_is_not_a_refnum_is_error_1026_on_error_out(
     project.add_vi("Writer", writer)
     package = project.generate()
     with package.use() as module:
+        variant, i32 = module("variants").Variant, module("variants").I32
         result = module("reader").reader(ctl=None)
         assert result.error_out.code == 1026
-        assert (result.label, result.indicator, result.value) == ("", False, None)
-        assert module("writer").writer(ctl=None, v=1).error_out.code == 1026
+        assert (result.label, result.indicator, result.value) == (
+            "",
+            False,
+            variant(),
+        )
+        written = module("writer").writer(ctl=None, v=variant(1, i32))
+        assert written.error_out.code == 1026
 
 
 def test_the_panel_of_a_reference_that_is_not_a_vi_is_error_1026(

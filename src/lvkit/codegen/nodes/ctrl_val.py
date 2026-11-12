@@ -7,16 +7,21 @@ it as ``function.panel``, a ``Panel`` of the package's ``panels`` module
 (``codegen/panels_module.py``), and ``panel_of(reference)`` is the panel of the
 VI a reference holds:
 
-- Ctrl Val.Set is ``panel_of(reference).set(name, value)``: "Sets the value
-  of a named control or indicator of the variant" (NI:
+- Ctrl Val.Set is ``panel_of(reference).set_variant(name, value)``: "Sets the
+  value of a named control or indicator of the variant" (NI:
   properties-and-methods/vi-server/vi/setctrlvalvariant.html);
-- Ctrl Val.Get is ``.get(name)``: "Gets the value of a named control or indicator
-  as variant data";
-- Ctrl Val.Get All is ``.get_all(controls)``: "an array of clusters that contains
-  control and indicator names and their values as variant data", every control
-  when its Controls input is TRUE and, FALSE by default, every indicator;
+- Ctrl Val.Get is ``.get_variant(name)``: "Gets the value of a named control or
+  indicator as variant data";
+- Ctrl Val.Get All is ``.get_all_variants(controls)``: "an array of clusters that
+  contains control and indicator names and their values as variant data", every
+  control when its Controls input is TRUE and, FALSE by default, every indicator;
 - Run VI is ``.run(wait)``: it "uses the current values of all front panel
   controls for execution rather than using data passed in through parameters".
+
+The value and the result are a ``Variant`` (``variants_module``); the panel
+holds a control's value in the control's own type, so a Set stores the data of the
+variant (an empty variant gives error 1) and a Get gives the value with the type
+the panel records for the control (``panels_module``, ``panel_types``).
 
 A name the VI has no control or indicator of is error 1 with the message
 ``"<name>" not found`` (no NI page gives this error; an NI forum thread, "Help
@@ -44,6 +49,7 @@ from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults
 from ..fragment import CodeFragment
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_ERROR_NAME, PANEL_OF_NAME
+from ..variant_values import variant_input
 
 CTRL_VAL_SET_CODE = 1051
 CTRL_VAL_GET_CODE = 1052
@@ -114,14 +120,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     panel = f"{PANEL_OF_NAME}({reference})"
     result = terminal_at(node, "output", _RESULT)
     if node.method_code == CTRL_VAL_SET_CODE:
-        call = (
-            f"{panel}.set({_input_value(node, ctx, _NAME, repr(''))}, "
-            f"{_input_value(node, ctx, _VALUE, 'None')})"
-        )
+        value = variant_input(ctx, node, terminal_at(node, "input", _VALUE))
+        name = _input_value(node, ctx, _NAME, repr(""))
+        call = f"{panel}.set_variant({name}, {value})"
     elif node.method_code == CTRL_VAL_GET_CODE:
-        call = f"{panel}.get({_input_value(node, ctx, _NAME, repr(''))})"
+        call = f"{panel}.get_variant({_input_value(node, ctx, _NAME, repr(''))})"
     else:
-        call = f"{panel}.get_all({_input_value(node, ctx, _CONTROLS, 'False')})"
+        controls = _input_value(node, ctx, _CONTROLS, "False")
+        call = f"{panel}.get_all_variants({controls})"
 
     bindings: dict[str, str] = {}
     reference_out = terminal_at(node, "output", REFERENCE_OUT)

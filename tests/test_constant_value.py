@@ -25,6 +25,7 @@ from lvkit.parser.models import ParsedConstant
 from lvkit.parser.vi import _decode_element
 from lvkit.timestamp_value import EPOCH_1904, TIMESTAMP_FLAVOR
 from tests.class_graphs import Project, class_type, pane, wire
+from tests.helpers import generated_variants
 
 _EMPTY_VARIANT = bytes.fromhex("0900800000000001000400000001000000000000")
 _I32_VARIANT = (
@@ -126,15 +127,20 @@ def _string(text: str) -> bytes:
 
 
 def _evaluate(expression: str) -> object:
-    scope = {"SimpleNamespace": SimpleNamespace, "hightime": hightime, "UTC": UTC}
+    scope = {
+        **vars(generated_variants()),
+        "SimpleNamespace": SimpleNamespace,
+        "hightime": hightime,
+        "UTC": UTC,
+    }
     return eval(expression, scope)  # noqa: S307
 
 
 def test_a_cluster_of_a_string_and_an_empty_variant_is_a_tuple() -> None:
     lv_type = _cluster(("name", _STRING), ("Value", _VARIANT))
     expression = _expression(lv_type, _string("") + _EMPTY_VARIANT)
-    assert expression == "('', None)"
-    assert _evaluate(expression) == ("", None)
+    assert expression == "('', Variant())"
+    assert _evaluate(expression) == ("", generated_variants().Variant())
 
 
 def test_a_typedef_cluster_with_a_class_object_field_is_a_namespace() -> None:
@@ -186,30 +192,47 @@ def test_a_cluster_field_of_a_loaded_class_is_a_new_object_of_it(
         assert made.n == 3
 
 
-def test_a_cluster_holding_a_variant_with_a_value_writes_the_value() -> None:
+def test_a_cluster_holding_a_variant_with_a_value_writes_the_variant() -> None:
     lv_type = _cluster(("v", _VARIANT), ("n", _I32))
-    assert _expression(lv_type, _I32_VARIANT + bytes(4)) == "(5, 0)"
+    expression = _expression(lv_type, _I32_VARIANT + bytes(4))
+    assert expression == "(Variant(5, I32, {}), 0)"
+    variants = generated_variants()
+    assert _evaluate(expression) == (variants.Variant(5, variants.I32), 0)
 
 
-def test_an_empty_variant_with_attributes_in_a_cluster_is_a_dict() -> None:
+def test_an_empty_variant_with_attributes_in_a_cluster_is_a_variant_of_them() -> None:
     lv_type = _cluster(("v", _VARIANT), ("n", _I32))
-    assert _expression(lv_type, _ONE_ATTRIBUTE + bytes(4)) == "({'a': None}, 0)"
+    expression = _expression(lv_type, _ONE_ATTRIBUTE + bytes(4))
+    assert expression == "(Variant(None, None, {'a': Variant()}), 0)"
 
 
-def test_an_empty_variant_constant_with_attributes_is_a_dict() -> None:
+def test_an_empty_variant_constant_with_attributes_is_a_variant_of_them() -> None:
     expression = _expression(_VARIANT, _TWO_ATTRIBUTES)
-    assert expression == "{'a': 1, 'b': 'x'}"
-    assert _evaluate(expression) == {"a": 1, "b": "x"}
+    assert expression == (
+        "Variant(None, None, {'a': Variant(1, I32, {}), "
+        "'b': Variant('x', String, {})})"
+    )
+    variants = generated_variants()
+    assert _evaluate(expression) == variants.Variant(
+        attributes={
+            "a": variants.Variant(1, variants.I32),
+            "b": variants.Variant("x", variants.String),
+        }
+    )
 
 
-def test_an_empty_variant_constant_without_attributes_is_none() -> None:
-    assert _expression(_VARIANT, _EMPTY_VARIANT) == "None"
+def test_an_empty_variant_constant_without_attributes_is_an_empty_variant() -> None:
+    assert _expression(_VARIANT, _EMPTY_VARIANT) == "Variant()"
 
 
-def test_a_variant_with_a_value_and_attributes_is_a_gap() -> None:
+def test_a_variant_with_a_value_and_attributes_is_a_variant_of_both() -> None:
     data = _I32_VARIANT[:-4] + (1).to_bytes(4, "big") + _string("a") + _EMPTY_VARIANT
-    with pytest.raises(ConversionGap, match="Variant with attributes"):
-        _expression(_VARIANT, data)
+    expression = _expression(_VARIANT, data)
+    assert expression == "Variant(5, I32, {'a': Variant()})"
+    variants = generated_variants()
+    assert _evaluate(expression) == variants.Variant(
+        5, variants.I32, {"a": variants.Variant()}
+    )
 
 
 def test_the_display_text_of_a_variant_with_attributes_is_unchanged() -> None:
@@ -275,7 +298,8 @@ def test_an_array_of_clusters_is_a_list_of_tuples() -> None:
         + (2).to_bytes(4, "big")
         + _EMPTY_VARIANT
     )
-    assert _expression(_array(element), data) == "[(1, None), (2, None)]"
+    expression = _expression(_array(element), data)
+    assert expression == "[(1, Variant()), (2, Variant())]"
 
 
 def test_an_error_cluster_constant_is_unchanged() -> None:

@@ -758,3 +758,6 @@ def paren_if_compound(expr: str) -> str:
     ):
         return f"({expr})"
     return expr
+
+# The import of the ``copy`` module, for the code that makes a one-level copy.
+COPY_IMPORT = "import copy"

@@ -1,11 +1,12 @@
 """What Variant To Flattened String and Flattened String To Variant share: the
 type a node's variant or type string has when the code is generated.
 
-A variant is the Python value, so it carries no LabVIEW type at run time. The
-type is known only from the graph: a variant made by To Variant has the type of
-the wire fed to it, and a type string is a literal list of numbers (a diagram
-constant) or the type string output of a Variant To Flattened String whose
-variant has such a type."""
+The flattened bytes are written and read by a type decided when the code is
+generated, from the graph: a variant made by To Variant has the type of the wire
+fed to it, and a type string is a literal list of numbers (a diagram constant) or
+the type string output of a Variant To Flattened String whose variant has such a
+type. A ``Variant`` (``variants_module``) whose type the graph does not give is
+pickled whole instead."""
 
 from __future__ import annotations
 

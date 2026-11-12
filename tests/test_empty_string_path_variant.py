@@ -1,6 +1,6 @@
-"""Empty String/Path? on a Variant is TRUE only for an empty variant (``None``
-in generated code); on a String or Path it keeps its meaning. The function is
-generated, imported and called."""
+"""Empty String/Path? on a Variant is TRUE only for an empty variant (one whose
+``type`` is ``None``): a variant holding ``""`` is not empty; on a String or Path
+it keeps its meaning. The function is generated, imported and called."""
 
 from __future__ import annotations
 
@@ -60,16 +60,26 @@ def generated(tmp_path: Path, lv_type: LVType):
 
 
 @pytest.mark.parametrize(
-    ("value", "is_empty"), [(None, True), (0, False), ("", False), ([], False)]
+    ("type_name", "value", "is_empty"),
+    [
+        (None, None, True),
+        ("I32", 0, False),
+        ("String", "", False),
+        ("String", "x", False),
+    ],
 )
 def test_a_variant_is_empty_only_when_it_holds_no_data(
-    tmp_path: Path, value: object, is_empty: bool
+    tmp_path: Path, type_name: str | None, value: object, is_empty: bool
 ) -> None:
     package = generated(tmp_path, VARIANT)
-    assert "    return IsemptyResult(out=c is None)\n" in package.sources["isempty"]
+    source = package.sources["isempty"]
+    assert "    return IsemptyResult(out=c.type is None)\n" in source
     with package.use() as module:
-        is_empty_vi_function = module("isempty").isempty
-        assert is_empty_vi_function(c=value).out is is_empty
+        variants = module("variants")
+        held = variants.Variant()
+        if type_name is not None:
+            held = variants.Variant(value, getattr(variants, type_name))
+        assert module("isempty").isempty(c=held).out is is_empty
 
 
 def test_an_unwired_variant_is_empty(tmp_path: Path) -> None:

@@ -23,6 +23,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 
 from .ast_utils import (
@@ -34,6 +35,7 @@ from .ast_utils import (
     type_default_expr,
 )
 from .gaps import gap_of, raise_statement
+from .variants_module import VARIANT_NAME
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -49,6 +51,11 @@ class ClassNames(Protocol):
         """The Python name of the class ``lv_type`` names, imported."""
         ...
 
+    def import_variant(self, *names: str) -> None:
+        """Import ``Variant`` and ``names`` from the package's ``variants``
+        module."""
+        ...
+
 
 def is_class_type(lv_type: LVType | None) -> bool:
     """Whether ``lv_type`` is a LabVIEW class (LabVIEW Object included)."""
@@ -56,11 +63,12 @@ def is_class_type(lv_type: LVType | None) -> bool:
 
 
 def holds_class(lv_type: LVType | None) -> bool:
-    """Whether ``lv_type`` is a class or a cluster with a class in one of its
-    fields (at any depth): its default needs a class object."""
+    """Whether ``lv_type`` is a class or a Variant, or a cluster with one in a
+    field (at any depth): its default needs an object made where it is read (the
+    class's default object, an empty ``Variant``)."""
     if lv_type is None:
         return False
-    if is_class_type(lv_type):
+    if is_class_type(lv_type) or is_variant_type_name(lv_type.underlying_type):
         return True
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return any(holds_class(f.type) for f in lv_type.fields or [])
@@ -80,6 +88,9 @@ def type_default(
         return mark_default_object(
             parse_expr(f"{ctx.class_expression(lv_type, what)}()")
         )
+    if is_variant_type_name(lv_type.underlying_type):
+        ctx.import_variant()
+        return mark_default_object(parse_expr(f"{VARIANT_NAME}()"))
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return cluster_default_expr(lv_type, lambda t: type_default(ctx, t, what))
     return type_default_expr(lv_type)

@@ -1,5 +1,4 @@
-"""The empty Variant constant is ``None`` in generated code and ``Variant()`` in
-the views."""
+"""The empty Variant constant is ``Variant()`` in generated code and in the views."""
 
 from __future__ import annotations
 
@@ -26,11 +25,15 @@ def _vi(hex_value: str) -> Vi:
     return vi
 
 
-def test_the_empty_variant_constant_is_none(project: Project) -> None:  # noqa: F811
+def test_the_empty_variant_constant_is_an_empty_variant(
+    project: Project,  # noqa: F811
+) -> None:
     project.add(_vi(EMPTY_VARIANT))
     package = project.generate(NAME)
-    assert "'Variant()'" not in package.source
-    assert package.function().out is None
+    assert "Variant()" in package.source
+    out = package.function().out
+    assert out == package.variants.Variant()
+    assert (out.value, out.type, out.attributes) == (None, None, {})
 
 
 def test_the_views_still_show_variant(project: Project) -> None:  # noqa: F811
@@ -40,7 +43,7 @@ def test_the_views_still_show_variant(project: Project) -> None:  # noqa: F811
     assert "Variant()" in views.lvnet
 
 
-def test_a_variant_with_an_attribute_is_not_none(project: Project) -> None:  # noqa: F811
+def test_a_variant_with_an_attribute_is_not_empty(project: Project) -> None:  # noqa: F811
     project.add(_vi(_ONE_ATTRIBUTE))
     views = project.views(NAME)
     assert "attributes=" in views.lvnet

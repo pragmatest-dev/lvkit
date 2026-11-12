@@ -37,6 +37,7 @@ from .ast_utils import build_assign, node_owned_name
 from .panel_hooks import PanelHooks, write_stmt
 from .references import is_walked_read
 from .type_default import control_default, default_if_unset, holds_class, state_seed
+from .variant_values import wrap_if_coerced
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -124,6 +125,7 @@ class LocalIndicators:
                     continue
                 value = ctx.resolve(source, allow_none=True)
                 if value is not None and value != variable:
+                    value = wrap_if_coerced(ctx, terminal_id, value, source)
                     statements.extend(found._write(terminal_id, _expression(value)))
         return found, statements
 
@@ -217,7 +219,11 @@ class LocalIndicators:
                 continue
             for indicator in ctx.graph.indicators_written_by(terminal_id, tracked):
                 written = (
-                    None if value == self.variables[indicator] else _expression(value)
+                    None
+                    if value == self.variables[indicator]
+                    else _expression(
+                        wrap_if_coerced(ctx, indicator, value, terminal_id)
+                    )
                 )
                 statements.extend(self._write(indicator, written))
         return statements

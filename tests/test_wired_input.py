@@ -7,6 +7,7 @@ import pytest
 
 from lvkit.codegen.gaps import Gap
 from lvkit.models import ValueNotStored
+from tests.helpers import generated_variants
 from tests.native_vi import array, generate, node, scalar
 
 I32 = scalar("NumInt32")
@@ -143,7 +144,8 @@ def test_a_bundle_into_a_waveform_with_no_cluster_wired_in_builds_the_value() ->
         [("fp:dt", "bd:2"), ("bd:0", "fp:wf")],
     )
     result = generated.function(2.5).wf
-    assert (result.dt, result.y, result.attributes) == (2.5, [], None)
+    empty = generated_variants().Variant()
+    assert (result.dt, result.y, result.attributes) == (2.5, [], empty)
     assert not hasattr(result, "error")
 
 

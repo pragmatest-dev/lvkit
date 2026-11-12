@@ -24,6 +24,7 @@ import ast
 from typing import TYPE_CHECKING
 
 from lvkit.graph.interface_order import is_required
+from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import Terminal
 
 from .ast_utils import (
@@ -47,7 +48,7 @@ def is_none_defaulted(term: Terminal) -> bool:
     lv_type = term.lv_type
     if lv_type is None or term.is_error_cluster or is_required(term, "input"):
         return False
-    if is_class_type(lv_type):
+    if is_class_type(lv_type) or is_variant_type_name(lv_type.underlying_type):
         return True
     if lv_type.underlying_type == "Path":
         return False

@@ -73,6 +73,8 @@ from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
 from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
+from .variant_values import wrap_if_coerced
+from .variants_module import VARIANT_NAME, variants_import
 
 # A structure frame: the structure's node id and the frame's key
 # (``graph.operations.frame_key``; ``None`` for a loop's one diagram).
@@ -132,10 +134,6 @@ class CodeGenContext:
     # The raises of what the function evaluates when it is entered and cannot
     # be written (a constant with no value to write); the body starts with them.
     entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
-    # The connector-pane Variant controls the function reads or edits as lookup
-    # tables (``InMemoryVIGraph.variant_lookup_parameters``), by terminal id; the
-    # docstring says each is a dict of attributes.
-    lookup_parameters: set[str] = field(default_factory=set, repr=False)
     # Files the generated module reads at run time (an array too large to write
     # into the module, a library of a Call Library Function Node), by path from
     # the module's folder; the caller writes each there.
@@ -350,7 +348,7 @@ class CodeGenContext:
         from the terminal's own VI."""
         value = self.resolve(terminal_id)
         if value is not None:
-            return value
+            return wrap_if_coerced(self, terminal_id, value)
         if self.graph is None:
             return None
         terminal = next((t for t in node.terminals if t.id == terminal_id), None)
@@ -374,7 +372,7 @@ class CodeGenContext:
                 f"(from {self.graph.terminal_sources_description(terminal_id)})",
                 node,
             )
-        return value
+        return wrap_if_coerced(self, terminal_id, value)
 
     def var_name_in_use(self, name: str) -> bool:
         """Check if a variable name is already bound in this context.
@@ -650,7 +648,6 @@ class CodeGenContext:
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
-            lookup_parameters=self.lookup_parameters,  # Shared — one per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
             function_name=self.function_name,
@@ -701,6 +698,14 @@ class CodeGenContext:
             self.add_import(statement)
         else:
             self.annotation_imports.add(statement)
+
+    def import_variant(self, *names: str) -> None:
+        """Import ``Variant`` and the ``names`` (``LVType``, a type constant) from
+        the package's ``variants`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.variant_import(names)
+        self.add_import(statement or variants_import(".", names))
 
     def import_notifier(self) -> None:
         """Import ``Notifier`` from the package's ``notifiers`` module."""
@@ -906,12 +911,12 @@ class CodeGenContext:
             )
         if lv_type is not None and _is_error_cluster(lv_type):
             return self._error_constant(const)
+        if const.empty_variant:
+            self.import_variant()
+            return f"{VARIANT_NAME}()"
         if lv_type is not None and (
             lv_type.is_timestamp
-            or (
-                isinstance(const.structured_value, VariantData)
-                and bool(const.structured_value.attributes)
-            )
+            or isinstance(const.structured_value, VariantData)
             or (
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
@@ -1489,7 +1494,7 @@ def _format_constant(
         return member_ref
 
     if const.empty_variant:
-        return "None"
+        return f"{VARIANT_NAME}()"
 
     python_hint = getattr(const, "python", None)
     if python_hint:

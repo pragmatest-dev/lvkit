@@ -23,6 +23,7 @@ from lvkit.codegen.gaps import Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.type_module import build_type_module
+from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.held_values import mark_held_outputs
 from lvkit.graph.membership import ListedMethod
@@ -331,6 +332,7 @@ class Project:
         out.mkdir(exist_ok=True)
         (out / "__init__.py").write_text("")
         (out / f"{ERRORS_MODULE_NAME}.py").write_text(ERRORS_MODULE_SOURCE)
+        (out / f"{VARIANTS_MODULE_NAME}.py").write_text(VARIANTS_MODULE_SOURCE)
         for key in self.vis.values():
             for class_key in self.classes.values():
                 graph._dep_graph.add_edge(key, class_key)  # noqa: SLF001

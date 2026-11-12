@@ -21,24 +21,26 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
+from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 
-from .ast_utils import build_assign, parse_expr, to_var_name
+from .ast_utils import COPY_IMPORT, build_assign, parse_expr, to_var_name
+from .variant_values import is_coerced
 
 if TYPE_CHECKING:
     from lvkit.graph.models import AnyGraphNode
 
     from .context import CodeGenContext
 
-COPY_IMPORT = "import copy"
-
 
 def is_by_value_object(lv_type: LVType | None) -> bool:
     """Whether a wire of this type carries an object that generated code changes
-    in place: a class object, or a named cluster."""
+    in place: a class object, a named cluster, or a ``Variant``."""
     if lv_type is None:
         return False
-    if lv_type.ref_type == "UDClassInst":
+    if lv_type.ref_type == "UDClassInst" or is_variant_type_name(
+        lv_type.underlying_type
+    ):
         return True
     return (
         lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
@@ -55,12 +57,14 @@ def owned_input(
 ) -> str | None:
     """The expression feeding the input ``term`` of ``node`` when ``node`` changes
     the object in place: the wire's own value, or, when something else can still
-    read that value, a copy made in ``statements`` first."""
+    read that value, a copy made in ``statements`` first. A ``Variant`` just made
+    for a typed wire is nobody else's, so it is never copied."""
     value = ctx.wired_input(term.id, node)
     if (
         value is None
         or ctx.graph is None
         or not is_by_value_object(term.lv_type)
+        or is_coerced(ctx, term.id)
         or not ctx.graph.value_is_shared(term.id)
     ):
         return value

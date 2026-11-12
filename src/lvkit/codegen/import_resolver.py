@@ -85,7 +85,9 @@ class ImportResolver:
         notifier_import: Callable[[], str] | None = None,
         live_io_import: Callable[[], str] | None = None,
         panels_import: Callable[[str], str] | None = None,
+        variant_import: Callable[[Sequence[str]], str] | None = None,
     ) -> None:
+        self._variant_import = variant_import
         self._notifier_import = notifier_import
         self._panels_import = panels_import
         self._live_io_import = live_io_import
@@ -188,6 +190,11 @@ class ImportResolver:
         """The statement importing ``Notifier`` from the package root's
         ``notifiers`` module; None when this resolver has no package."""
         return self._notifier_import() if self._notifier_import else None
+
+    def variant_import(self, names: Sequence[str]) -> str | None:
+        """The statement importing ``Variant`` and ``names`` from the package
+        root's ``variants`` module; None when this resolver has no package."""
+        return self._variant_import(names) if self._variant_import else None
 
     def live_io_import(self) -> str | None:
         """The statement importing ``LiveIO`` and ``NO_LIVE_IO`` from the package

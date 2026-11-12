@@ -27,6 +27,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
+from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
@@ -697,6 +698,7 @@ def _package(
     package.mkdir()
     (package / "__init__.py").write_text("")
     (package / "errors.py").write_text(ERRORS_MODULE_SOURCE)
+    (package / "variants.py").write_text(VARIANTS_MODULE_SOURCE)
     (package / f"{module}.py").write_text(callee)
     (package / "refs.py").write_text(source)
     sys.path.insert(0, str(tmp_path))

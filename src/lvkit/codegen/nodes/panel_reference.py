@@ -15,7 +15,8 @@ that module, and these rows read them:
   ``as_control(reference).controls``;
 - ``Value`` of a control reference (NI: .../generic/gobject/control/value.html,
   "Data value of the control (LV variant)", read and write) is
-  ``as_control(reference).value``, read or assigned;
+  ``as_control(reference).variant``, read or assigned, where the property's terminal
+  is a Variant, else ``.value``;
 - ``Indicator`` (.../control/indicator.html, "If TRUE, the front panel object is an
   indicator. If FALSE, the object is a control") is ``.indicator``;
 - ``Label.Text`` (.../control/label.html, "Reference to the label object. You can
@@ -99,8 +100,19 @@ def is_writable(row: PanelRow) -> bool:
     return row is PanelRow.VALUE
 
 
-def read(row: PanelRow, reference: str, ctx: CodeGenContext) -> ast.expr:
-    """The Python value the row reads from the reference held by ``reference``."""
+def _value_attribute(row: PanelRow, variant: bool) -> str:
+    """The attribute of a control reference the row reads or writes: the Value row
+    is the ``variant`` of the control when the property's terminal is a Variant."""
+    if row is PanelRow.VALUE and variant:
+        return "variant"
+    return _CONTROL_ATTRIBUTE[row]
+
+
+def read(
+    row: PanelRow, reference: str, ctx: CodeGenContext, variant: bool
+) -> ast.expr:
+    """The Python value the row reads from the reference held by ``reference``;
+    ``variant``: the property's terminal is a Variant."""
     if row is PanelRow.PANEL:
         names = (PANEL_OF_NAME, PANEL_ERROR_NAME)
         expression = f"{PANEL_OF_NAME}({reference})"
@@ -109,19 +121,22 @@ def read(row: PanelRow, reference: str, ctx: CodeGenContext) -> ast.expr:
         expression = f"{AS_PANEL_NAME}({reference}).controls"
     else:
         names = (AS_CONTROL_NAME, PANEL_ERROR_NAME)
-        expression = f"{AS_CONTROL_NAME}({reference}).{_CONTROL_ATTRIBUTE[row]}"
+        expression = f"{AS_CONTROL_NAME}({reference}).{_value_attribute(row, variant)}"
     ctx.import_panels(", ".join(names))
     return parse_expr(expression)
 
 
-def write(reference: str, value: str, ctx: CodeGenContext) -> ast.stmt:
-    """The assignment of ``value`` to the Value of the control ``reference`` holds."""
+def write(
+    reference: str, value: str, ctx: CodeGenContext, variant: bool
+) -> ast.stmt:
+    """The assignment of ``value`` to the Value of the control ``reference`` holds;
+    ``variant``: the property's terminal is a Variant."""
     ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
     return ast.Assign(
         targets=[
             ast.Attribute(
                 value=parse_expr(f"{AS_CONTROL_NAME}({reference})"),
-                attr="value",
+                attr=_value_attribute(PanelRow.VALUE, variant),
                 ctx=ast.Store(),
             )
         ],

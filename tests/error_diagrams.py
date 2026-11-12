@@ -26,6 +26,7 @@ import pytest
 
 from lvkit.codegen.ast_utils import to_module_name
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
+from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -994,6 +995,12 @@ class Package:
         """A ``LabVIEWError`` as the package defines it."""
         return self.errors.LabVIEWError(code=code, source=source, status=status)
 
+    @property
+    def variants(self) -> ModuleType:
+        """The package's ``variants`` module: ``Variant``, ``LVType`` and the
+        type constants (``I32``, ``DBL``, ``String``, ...)."""
+        return importlib.import_module(f"{self.module.__package__}.variants")
+
     def stub(self, module: str) -> ModuleType:
         """A stub subVI module of the package, imported."""
         return importlib.import_module(f"{self.module.__package__}.{module}")
@@ -1063,6 +1070,9 @@ class Project:
         errors = package_dir / "errors.py"
         if not errors.exists():
             errors.write_text(ERRORS_MODULE_SOURCE)
+        variants = package_dir / "variants.py"
+        if not variants.exists():
+            variants.write_text(VARIANTS_MODULE_SOURCE)
         for stem, body in (stubs or {}).items():
             (package_dir / f"{stem}.py").write_text(textwrap.dedent(body))
         stem = _module_stem(name)

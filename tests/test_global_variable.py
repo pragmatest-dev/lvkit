@@ -18,6 +18,7 @@ from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.nodes import global_variable as global_variable_codegen
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
+from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -212,6 +213,7 @@ def test_generated_caller_and_global_module_share_state() -> None:
     sys.modules["gvpkg"] = package
     try:
         _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("variants", VARIANTS_MODULE_SOURCE, package)
         _import_generated("live_io", LIVE_IO_MODULE_SOURCE, package)
         _import_generated("panels", PANELS_MODULE_SOURCE, package)
         data = _import_generated("data", global_src, package)
@@ -424,6 +426,7 @@ def test_global_vi_module_keeps_saved_values_and_holds_no_error() -> None:
     sys.modules["gvsaved"] = package
     try:
         _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("variants", VARIANTS_MODULE_SOURCE, package)
         _import_generated("live_io", LIVE_IO_MODULE_SOURCE, package)
         _import_generated("panels", PANELS_MODULE_SOURCE, package)
         module = _import_generated("counter", source, package)
@@ -458,6 +461,7 @@ def test_one_vi_writes_a_global_and_another_reads_it_back() -> None:
     sys.modules["gvsynth"] = package
     try:
         _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("variants", VARIANTS_MODULE_SOURCE, package)
         _import_generated("live_io", LIVE_IO_MODULE_SOURCE, package)
         _import_generated("panels", PANELS_MODULE_SOURCE, package)
         counter = _import_generated(
@@ -512,17 +516,18 @@ def test_describe_json_shows_the_global_vi_verbose_and_not() -> None:
 
 def test_a_global_vi_module_imports_only_what_it_reads() -> None:
     """Its controls are an ``int``, an error and a ``tuple``: no ``Any`` or
-    ``Path``; the panel is the one import from the package. With no package there
-    is no ``errors`` module to import the error's class from; the annotation is
-    never evaluated."""
+    ``Path``; the panel and the type constant the panel names for the ``int`` are
+    the imports from the package. With no package there is no ``errors`` module to
+    import the error's class from; the annotation is never evaluated."""
     from lvkit.codegen.global_module import build_global_module
 
     source = build_global_module(_synthetic_global_vi())
     assert source == (
         "from __future__ import annotations\n"
         "from .panels import PanelValues\n"
+        "from .variants import I32\n"
         "panel = PanelValues(controls={'count': 'Count', 'error_out': 'error out', "
-        "'settings': 'Settings'}, storage=globals())\n"
+        "'settings': 'Settings'}, types={'count': I32}, storage=globals())\n"
         "count: int = 5\n"
         "error_out: LabVIEWError | None = None\n"
         "settings: tuple = (3, 4)"

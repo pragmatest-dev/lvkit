@@ -1,5 +1,6 @@
 """Get Variant Attribute (primResID 8205) and Delete Variant Attribute (8206) on
-an empty variant given attributes: a lookup table, a ``dict`` (``_variant_lookup``).
+a ``Variant`` (``variants_module``): its attributes are the ``attributes``
+dict of the variant.
 
 NI, "Get Variant Attribute Function": with ``name`` wired it returns the value of
 that attribute, ``found`` is TRUE when the attribute exists, and an attribute
@@ -27,10 +28,11 @@ from lvkit.graph.models import PrimitiveNode
 
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
+from ...variant_values import is_variant_type, variant_input
 from . import register_op_fragment
 from ._flat_node import terminal
 from ._regex_node import input_expression, string_variable
-from ._variant_lookup import attribute_table
+from ._variant_input import owned_variant, read_variant
 
 
 def _output(
@@ -54,7 +56,7 @@ def get_variant_attribute(
     node: PrimitiveNode, ctx: CodeGenContext
 ) -> CodeFragment | None:
     statements: list[ast.stmt] = []
-    table, variant = attribute_table(ctx, node, "Get Variant Attribute", statements)
+    variant = read_variant(ctx, node, statements)
     bindings: dict[str, str] = {}
     name_text = input_expression(ctx, node, 6)
     value = _output(ctx, node, 1, "attribute_value", bindings)
@@ -62,15 +64,18 @@ def get_variant_attribute(
     duplicate = _output(ctx, node, 3, "duplicate_variant", bindings)
     if name_text is None:
         source = (
-            f"{found} = sorted({table})\n"
-            f"{value} = [{table}[key] for key in {found}]\n"
+            f"{found} = sorted({variant}.attributes)\n"
+            f"{value} = [{variant}.attributes[key] for key in {found}]\n"
         )
     else:
         name = string_variable(ctx, node, name_text, statements, "name")
-        default = input_expression(ctx, node, 5) or "None"
-        source = (
-            f"{value} = {table}.get({name}, {default})\n{found} = {name} in {table}\n"
-        )
+        default = variant_input(ctx, node, terminal(node, "input", 5))
+        read = f"{variant}.attributes.get({name}, {default})"
+        out = terminal(node, "output", 1)
+        if out is not None and out.lv_type is not None:
+            if not is_variant_type(out.lv_type):
+                read += ".value"
+        source = f"{value} = {read}\n{found} = {name} in {variant}.attributes\n"
     statements.extend(ast.parse(source + f"{duplicate} = {variant}").body)
     return CodeFragment(statements=statements, bindings=bindings)
 
@@ -80,7 +85,7 @@ def delete_variant_attribute(
     node: PrimitiveNode, ctx: CodeGenContext
 ) -> CodeFragment | None:
     statements: list[ast.stmt] = []
-    table, _ = attribute_table(ctx, node, "Delete Variant Attribute", statements)
+    variant = owned_variant(ctx, node, statements)
     bindings: dict[str, str] = {}
     name = string_variable(
         ctx, node, input_expression(ctx, node, 6) or "''", statements, "name"
@@ -88,9 +93,13 @@ def delete_variant_attribute(
     found = _output(ctx, node, 2, "found", bindings)
     variant_out = _output(ctx, node, 3, "variant_out", bindings)
     source = (
-        f"{found} = {name} in {table} if {name} != '' else len({table}) > 0\n"
-        f"{variant_out} = {{key: item for key, item in {table}.items() "
-        f"if {name} != '' and key != {name}}}"
+        f"if {name} != '':\n"
+        f"    {found} = {name} in {variant}.attributes\n"
+        f"    {variant}.attributes.pop({name}, None)\n"
+        "else:\n"
+        f"    {found} = len({variant}.attributes) > 0\n"
+        f"    {variant}.attributes.clear()\n"
+        f"{variant_out} = {variant}"
     )
     statements.extend(ast.parse(source).body)
     return CodeFragment(statements=statements, bindings=bindings)

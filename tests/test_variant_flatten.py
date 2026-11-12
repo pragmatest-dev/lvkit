@@ -1,6 +1,7 @@
-"""Variant To Flattened String (8203) and Flattened String To Variant (8202): the
-types decided when the code is generated, the round trip, and the pickle used for a
-variant whose type is not known until the program runs."""
+"""Variant To Flattened String (8203) and Flattened String To Variant (8202) on
+``Variant`` values: the types decided when the code is generated (the flattened
+data is the variant's ``value``), the round trip, and the pickle of the whole
+``Variant`` used for a variant whose type is not known until the program runs."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import pytest
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.primitive_resolver import get_resolver
 from lvkit.type_string import encode
+from tests.helpers import generated_variants
 from tests.native_vi import Generated, array, generate, node, result_values, scalar
 
 I16 = scalar("NumInt16")
@@ -26,6 +28,7 @@ TS_CONSTANT = LVType(
 def record() -> LVType:
     return LVType(
         kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
         fields=[ClusterField(name="s", type=STR), ClusterField(name="n", type=I16)],
     )
 
@@ -114,19 +117,26 @@ def test_the_catalog_names_both_nodes_and_their_ops() -> None:
 
 def test_a_constant_type_string_reads_a_number() -> None:
     generated = from_string(I32)
-    assert result_values(generated.function("\x00\x00\x00\x07")) == (7,)
+    variants = generated_variants()
+    assert result_values(generated.function("\x00\x00\x00\x07")) == (
+        variants.Variant(7, variants.I32),
+    )
     assert "lvkit" not in generated.source and "pickle" not in generated.source
 
 
 def test_a_constant_type_string_reads_a_cluster() -> None:
     generated = from_string(record())
-    value = result_values(generated.function("\x00\x00\x00\x03ABC\x00\x04"))[0]
+    held = result_values(generated.function("\x00\x00\x00\x03ABC\x00\x04"))[0]
+    assert held.type.code == 0x50
+    value = held.value
     fields = (value.s, value.n) if hasattr(value, "s") else tuple(value)
     assert fields == ("ABC", 4)
 
 
 def test_a_typed_variant_flattens_with_its_type_and_writes_its_type_string() -> None:
     generated = to_string(I32)
+    # A type known when the code is generated flattens the variant's value.
+    assert ".value" in generated.source and "pickle" not in generated.source
     type_string, data = result_values(generated.function(7))
     assert type_string == [4, 3]
     assert data.encode("latin-1").hex() == "00000007"
@@ -140,10 +150,12 @@ def test_a_typed_cluster_flattens_as_nis_flattened_data_page() -> None:
 
 
 def test_the_round_trip_hands_back_the_value() -> None:
-    assert result_values(round_trip(I32).function(7)) == (7,)
-    assert result_values(round_trip(array("NumInt32")).function([1, 2, 3])) == (
-        [1, 2, 3],
+    variants = generated_variants()
+    assert result_values(round_trip(I32).function(7)) == (
+        variants.Variant(7, variants.I32),
     )
+    (held,) = result_values(round_trip(array("NumInt32")).function([1, 2, 3]))
+    assert (held.value, held.type.code) == ([1, 2, 3], 0x40)
     assert "pickle" not in round_trip(I32).source
 
 
@@ -161,7 +173,11 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         [("fp:v", "vf:0"), ("vf:1", "fp:t"), ("vf:2", "fp:d")],
     )
     assert "pickle.dumps" in flatten.source
-    type_string, _ = result_values(flatten.function({"a": [1, 2.5]}))
+    variants = generated_variants()
+    given = variants.Variant(
+        {"a": [1, 2.5]}, variants.I32, {"note": variants.Variant("x", variants.String)}
+    )
+    type_string, _ = result_values(flatten.function(given))
     assert type_string is None
     # The pickled data string, read back with a type string known only at run
     # time, is unpickled.
@@ -183,7 +199,9 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         [("fp:v", "vf:0"), ("vf:2", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:r")],
     )
     assert "pickle.loads" in both.source
-    assert result_values(both.function({"a": [1, 2.5]}, [4, 3])) == ({"a": [1, 2.5]},)
+    # The whole Variant, with its type and attributes, comes back equal.
+    (back,) = result_values(both.function(given, [4, 3]))
+    assert back == given and back is not given
     ast.parse(both.source)
 
 

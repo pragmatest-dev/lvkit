@@ -25,6 +25,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   that object returns no field for it;
 - ``clusters``: the name of each cluster control or indicator to the fields of
   its cluster, for the controls its Controls[] gives (``panel_clusters``);
+- ``types`` and ``variants``: the type of each control and indicator that has a
+  type-descriptor code, and the names of those that are Variants
+  (``panel_types``);
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -49,8 +52,10 @@ from lvkit.models import FPTerminal, Terminal
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
+from .panel_types import panel_type_keywords
 from .panels_module import PANEL_NAME
 from .type_default import control_default
+from .variants_module import imports_variants
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -113,7 +118,11 @@ def default_functions(
         added, ctx.imports = ctx.imports, module_imports
         if on_def_default and _is_none(value):
             continue
-        needed = {i for i in added if i.startswith("from .")} if lazy else set()
+        needed = (
+            {i for i in added if i.startswith("from .") and not imports_variants(i)}
+            if lazy
+            else set()
+        )
         ctx.imports |= added - needed
         if needed:
             function = f"_{stem}_default_{len(defaults.entries)}"
@@ -173,13 +182,13 @@ def panel_statements(
     passed: Sequence[NamedTerminal] = (),
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., results=...,
-    passed=..., defaults=..., clusters=...)``, ``target`` the expression of the
-    function, preceded by the ``def`` of each default function a lazy module
-    needs. A keyword with no entry is left out. ``names`` is the VI's name table
-    (``panel_names``); ``controls`` pair each control with the parameter that takes
-    it (None off the connector pane), ``indicators`` each indicator with the field
-    of the result that holds it (None off the pane) and ``passed`` each class
-    output with the parameter holding the object it shows."""
+    passed=..., defaults=..., clusters=..., types=..., variants=...)``, ``target``
+    the expression of the function, preceded by the ``def`` of each default
+    function a lazy module needs. A keyword with no entry is left out. ``names``
+    is the VI's name table (``panel_names``); ``controls`` pair each control with
+    the parameter that takes it (None off the connector pane), ``indicators`` each
+    indicator with the field of the result that holds it (None off the pane) and
+    ``passed`` each class output with the parameter holding the object it shows."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
     defaults = default_functions(controls, names, ctx, target, lazy)
     keywords: list[tuple[str, ast.expr]] = []
@@ -209,6 +218,12 @@ def panel_statements(
                 ),
             )
         )
+    typed = panel_type_keywords(
+        [(names[t.id], t.lv_type) for t, _ in [*controls, *indicators, *passed]]
+    )
+    keywords.extend(typed.keywords)
+    if typed.names:
+        ctx.import_variant(*typed.names)
     if defaults.entries:
         keywords.append(
             (

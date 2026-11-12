@@ -52,6 +52,7 @@ from .panel_hooks import (
 )
 from .references import REFERENCE_KINDS, generated_nodes
 from .type_default import control_default
+from .variant_values import wrap_if_coerced
 
 if TYPE_CHECKING:
     from .class_builder.shared_state import ModuleParts
@@ -199,11 +200,8 @@ def function_body(
     body.extend(generate_body(top_nodes, ctx))
     body.extend(ctx.local_indicators.statements_at_end(ctx))
 
-    # The docstring opens the function: the VI's description, then the Variant
-    # parameters the body turned out to read as lookup tables.
-    docstring = function_docstring(
-        vi_context, names, ctx.type_namer(), ctx, sorted(ctx.lookup_parameters)
-    )
+    # The docstring opens the function: the VI's description, then its notes.
+    docstring = function_docstring(vi_context, names, ctx.type_namer(), ctx)
     if docstring is not None:
         body.insert(0, docstring)
 
@@ -406,9 +404,12 @@ def output_value(
     # a bare ast.Name(id=expr) is malformed and hides the variable loads from
     # later passes (dead-code elimination then deletes the assignments the
     # return depends on).
-    value = (
-        ctx.wired_input(out.id, vi_node) if vi_node is not None else ctx.resolve(out.id)
-    )
+    if vi_node is not None:
+        value = ctx.wired_input(out.id, vi_node)
+    else:
+        value = ctx.resolve(out.id)
+        if value:
+            value = wrap_if_coerced(ctx, out.id, value)
     if value:
         return parse_expr(value)
     if ctx.is_wired(out.id):
