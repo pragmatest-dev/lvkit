@@ -44,6 +44,29 @@ _ONE_ATTRIBUTE = (
     + b"a"
     + _EMPTY_VARIANT
 )
+_STRING_VARIANT = (
+    bytes.fromhex("09008000")
+    + (2).to_bytes(4, "big")
+    + bytes.fromhex("00040000")  # type 0: Void
+    + bytes.fromhex("00080030FFFFFFFF")  # type 1: string
+    + bytes.fromhex("0001")  # has a value
+    + bytes.fromhex("0001")  # of type 1
+    + (1).to_bytes(4, "big")
+    + b"x"
+    + (0).to_bytes(4, "big")  # no attributes
+)
+_TWO_ATTRIBUTES = (
+    _EMPTY_VARIANT[:-4]
+    + (2).to_bytes(4, "big")
+    + (1).to_bytes(4, "big")
+    + b"a"
+    + _I32_VARIANT[:-8]
+    + (1).to_bytes(4, "big")
+    + (0).to_bytes(4, "big")
+    + (1).to_bytes(4, "big")
+    + b"b"
+    + _STRING_VARIANT
+)
 
 _VARIANT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="LVVariant")
 _I32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
@@ -168,10 +191,30 @@ def test_a_cluster_holding_a_variant_with_a_value_writes_the_value() -> None:
     assert _expression(lv_type, _I32_VARIANT + bytes(4)) == "(5, 0)"
 
 
-def test_a_variant_with_attributes_in_a_cluster_is_a_gap() -> None:
+def test_an_empty_variant_with_attributes_in_a_cluster_is_a_dict() -> None:
     lv_type = _cluster(("v", _VARIANT), ("n", _I32))
+    assert _expression(lv_type, _ONE_ATTRIBUTE + bytes(4)) == "({'a': None}, 0)"
+
+
+def test_an_empty_variant_constant_with_attributes_is_a_dict() -> None:
+    expression = _expression(_VARIANT, _TWO_ATTRIBUTES)
+    assert expression == "{'a': 1, 'b': 'x'}"
+    assert _evaluate(expression) == {"a": 1, "b": "x"}
+
+
+def test_an_empty_variant_constant_without_attributes_is_none() -> None:
+    assert _expression(_VARIANT, _EMPTY_VARIANT) == "None"
+
+
+def test_a_variant_with_a_value_and_attributes_is_a_gap() -> None:
+    data = _I32_VARIANT[:-4] + (1).to_bytes(4, "big") + _string("a") + _EMPTY_VARIANT
     with pytest.raises(ConversionGap, match="Variant with attributes"):
-        _expression(lv_type, _ONE_ATTRIBUTE + bytes(4))
+        _expression(_VARIANT, data)
+
+
+def test_the_display_text_of_a_variant_with_attributes_is_unchanged() -> None:
+    node = _node(_VARIANT, _TWO_ATTRIBUTES)
+    assert node.value == "Variant(attributes={'a': Variant(1), 'b': Variant('x')})"
 
 
 def test_a_timestamp_constant_is_the_exact_hightime_datetime() -> None:
@@ -276,9 +319,9 @@ def test_a_variants_decoded_value_holds_its_type_and_value() -> None:
     assert held.value_type is not None
     assert held.value_type.underlying_type == "NumInt32"
     assert held.value == "5"
-    assert held.attribute_count == 0
+    assert held.attributes == ()
     _, _, attributed = _decode_element(_ONE_ATTRIBUTE, _VARIANT)
-    assert attributed == VariantData(None, None, 1)
+    assert attributed == VariantData(None, None, (("a", VariantData(None, None)),))
 
 
 def test_a_front_panel_default_reads_a_variant_as_it_always_has() -> None:

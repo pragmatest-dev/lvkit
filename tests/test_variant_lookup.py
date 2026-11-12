@@ -20,6 +20,33 @@ from tests.error_diagrams import (
 NAME = "Table.vi"
 _VARIANT = '<TypeDesc Type="Variant" Format="inline" />'
 EMPTY_VARIANT = "0900800000000001000400000001000000000000"
+# An empty Variant holding the attributes 'a' (a Variant of the 32-bit integer 1)
+# and 'b' (a Variant of the string 'x').
+ATTRIBUTED_VARIANT = (
+    "09008000000000010004000000010000"
+    "00000002"
+    "00000001"
+    "61"
+    "09008000"
+    "00000002"
+    "00040000"
+    "00040003"
+    "0001"
+    "0001"
+    "00000001"
+    "00000000"
+    "00000001"
+    "62"
+    "09008000"
+    "00000002"
+    "00040000"
+    "00080030FFFFFFFF"
+    "0001"
+    "0001"
+    "00000001"
+    "78"
+    "00000000"
+)
 
 
 def _set_pane(variant_type: int) -> list[tuple[str, int, int, bool]]:
@@ -104,6 +131,27 @@ def test_get_finds_an_attribute_set_on_an_empty_variant(
     hit = package.function("colour", "red", "colour")
     assert (hit.value, hit.found, hit.duplicate) == ("red", True, {"colour": "red"})
     miss = package.function("colour", "red", "size")
+    assert (miss.value, miss.found) == (None, False)
+
+
+def test_get_reads_an_attribute_of_a_constant_that_has_attributes(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8205, _get_pane(variant_type))
+    vi.wire(vi.constant(variant_type, ATTRIBUTED_VARIANT), node["variant"])
+    vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
+    vi.wire(node["value"], vi.indicator("value", variant_type))
+    vi.wire(node["found"], vi.indicator("found", variant_type))
+    vi.wire(node["duplicate"], vi.indicator("duplicate", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    assert "lvkit" not in package.source
+    hit = package.function("b")
+    assert (hit.value, hit.found) == ("x", True)
+    assert hit.duplicate == {"a": 1, "b": "x"}
+    miss = package.function("c")
     assert (miss.value, miss.found) == (None, False)
 
 

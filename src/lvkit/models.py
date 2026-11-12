@@ -145,12 +145,13 @@ UnwritableValue = (
 class VariantData:
     """A decoded Variant: ``value_type`` is the type of the value it holds (None
     for the empty Variant, which holds none) and ``value`` that value's decoded
-    form (see ``parser.vi._decode_element``); ``attribute_count`` is how many
-    attributes it carries."""
+    form (see ``parser.vi._decode_element``); ``attributes`` are the attributes it
+    carries, by name in stored order, each another decoded Variant. An empty
+    Variant (no value) with attributes is LabVIEW's lookup table."""
 
     value_type: LVType | None
     value: object
-    attribute_count: int = 0
+    attributes: tuple[tuple[str, VariantData], ...] = ()
 
 
 def plain_structured(value: object) -> object:

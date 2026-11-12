@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..models import FPTerminal, Terminal, TunnelTerminal
+from ..models import FPTerminal, Terminal, TunnelTerminal, VariantData
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -61,7 +61,8 @@ class VariantSourceMixin:
         Following its wire upstream through Set and Delete Variant Attribute,
         structure tunnels, a loop's shift registers (the value wired in and the
         value fed back) and into the loaded subVIs that produce it, every source
-        is an empty Variant constant, an unwired input or a connector-pane
+        is an empty Variant constant (with or without attributes, the table
+        starting with them), an unwired input or a connector-pane
         control of the VI the wire is on (a parameter: the dict its caller
         passes). Anything else (a control that is not on the connector pane, a
         subVI that is not loaded or that the catalog implements, another node's
@@ -121,7 +122,10 @@ class VariantSourceMixin:
     ) -> bool:
         node = self.get_graph_node(src.node_id)
         if isinstance(node, ConstantNode):
-            return node.empty_variant
+            return node.empty_variant or (
+                isinstance(node.structured_value, VariantData)
+                and node.structured_value.value_type is None
+            )
         if isinstance(node, PrimitiveNode):
             term = self.get_terminal(src.terminal_id)
             if (

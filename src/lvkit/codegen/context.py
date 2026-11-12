@@ -41,6 +41,7 @@ from lvkit.models import (
     Tunnel,
     TunnelTerminal,
     TypeNamer,
+    VariantData,
     _is_error_cluster,
     unique_names,
 )
@@ -907,6 +908,10 @@ class CodeGenContext:
             return self._error_constant(const)
         if lv_type is not None and (
             lv_type.is_timestamp
+            or (
+                isinstance(const.structured_value, VariantData)
+                and bool(const.structured_value.attributes)
+            )
             or (
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)

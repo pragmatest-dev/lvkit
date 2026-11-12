@@ -2732,17 +2732,20 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")
     pos += 4
     attributes = []
+    held_attributes = []
     for _ in range(attribute_count):
         name_end = _read_string(data, pos)
         if name_end is None:
             return None, 0, None
-        attribute, consumed, _structured = _decode_variant(data[name_end:])
+        attribute, consumed, structured_attribute = _decode_variant(data[name_end:])
         if attribute is None or consumed == 0:
             return None, 0, None
         name = bytes(data[pos + 4 : name_end]).decode("latin-1")
         attributes.append(f"{name!r}: {attribute}")
+        assert isinstance(structured_attribute, VariantData)
+        held_attributes.append((name, structured_attribute))
         pos = name_end + consumed
-    held = replace(held, attribute_count=attribute_count)
+    held = replace(held, attributes=tuple(held_attributes))
     if attributes:
         listed = "{" + ", ".join(attributes) + "}"
         inner = shown[len("Variant(") : -1]

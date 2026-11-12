@@ -51,14 +51,7 @@ def constant_value_expression(
     if underlying in _VARIANT_TYPES:
         if not isinstance(value, VariantData):
             raise ConversionGap(_not_read(where, lv_type))
-        if value.attribute_count:
-            raise ConversionGap(
-                f"{where[0].upper()}{where[1:]} is a Variant with attributes, "
-                "which has no Python value yet"
-            )
-        if value.value_type is None:
-            return "None"
-        return constant_value_expression(ctx, value.value_type, value.value, where)
+        return _variant(ctx, value, where)
     if lv_type.is_timestamp:
         if not isinstance(value, hightime.datetime):
             raise ConversionGap(_not_read(where, lv_type))
@@ -83,6 +76,27 @@ def constant_value_expression(
         f"{where[0].upper()}{where[1:]} is a {underlying or lv_type.kind.value} "
         "value, which lvkit cannot write as Python yet"
     )
+
+
+def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
+    """A Variant: ``None`` when empty, the value it holds, or, for an empty
+    Variant with attributes (LabVIEW's lookup table), a ``dict`` of its
+    attributes, each written as the Variant it is. A Variant with a value and
+    attributes is not a lookup table and is a gap."""
+    if value.attributes:
+        if value.value_type is not None:
+            raise ConversionGap(
+                f"{where[0].upper()}{where[1:]} is a Variant with attributes, "
+                "which has no Python value yet"
+            )
+        items = []
+        for name, attribute in value.attributes:
+            part = f"the attribute {name!r} of {where}"
+            items.append(f"{name!r}: {_variant(ctx, attribute, part)}")
+        return "{" + ", ".join(items) + "}"
+    if value.value_type is None:
+        return "None"
+    return constant_value_expression(ctx, value.value_type, value.value, where)
 
 
 def _not_read(where: str, lv_type: LVType) -> str:
