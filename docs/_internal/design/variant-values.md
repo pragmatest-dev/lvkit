@@ -6,7 +6,11 @@ taken except r2's "make Variant frozen": the maintainer's rule is that every dat
 through the one copy rule, and a frozen dataclass's dict can still be changed anyway.
 Supersedes `variant-type-at-run-time.md` (trace-only closes 0 of 17 corpus Get TDEnum calls:
 `.tmp/tdenum/summary.md`; a wrapper only at type readers fails for Format Variant Into String:
-`.tmp/design_audit_typedany.md`). Nothing here is built.
+`.tmp/design_audit_typedany.md`).
+APPROVED 2026-11-12: the maintainer answered "Go" to the panel rule (proposed under "Before the brief"
+item 4) and to the six replacements listed by name (a variant is a `Variant`; attributes on every
+`Variant` replace the dict lookup table; Variant To Data judges by the LabVIEW type; Get TDEnum on a
+variant is no gap; the empty variant is `Variant()`; the generated helper `variants.py`).
 
 ## What LabVIEW represents
 
