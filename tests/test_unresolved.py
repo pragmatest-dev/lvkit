@@ -186,20 +186,20 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    18 distinct gaps = 10 unsupported nodes (OpenG Get TDEnum from Data reading a
+    13 distinct gaps = 5 unsupported nodes (OpenG Get TDEnum from Data reading a
     variant, whose type is only known when the code runs; the type string of a
     Flatten To String of a refnum, which has no type descriptor; the Flattened
     String To Variant that reads those LabVIEW bytes with a type known only when
     the code runs; and two Invoke Node methods that move a value as flattened
     bytes and a type string: Ctrl Val.Set (Deprecated) and Ctrl Val.Get All
-    (Deprecated), and five Property Node rows with no Python equivalent: Value,
-    Indicator and Label.Text of a Ctl reference, Panel of a VI reference,
-    Controls[] of a Pnl reference) + 8 VIs that were not found. Ctrl
+    (Deprecated)) + 8 VIs that were not found. Ctrl
     Val.Set, Get and Get All and Run VI on a reference only known when the code
-    runs generate code (``codegen/nodes/ctrl_val.py``). The four notifier
-    functions and the user events of ``TestSuite.lvclass:run.vi`` (its Event
-    Structure, Register For
-    Events, Generate and Unregister) generate code. (Four OpenG VIs the catalog
+    runs generate code (``codegen/nodes/ctrl_val.py``), and so do the Panel of a
+    VI reference, Controls[] of a panel reference and the Value, Indicator and
+    Label.Text of a control reference (``codegen/nodes/panel_reference.py``). The
+    four notifier functions and the user events of ``TestSuite.lvclass:run.vi``
+    (its Event Structure, Register For Events, Generate and Unregister) generate
+    code. (Four OpenG VIs the catalog
     implements are found by the ``<userlib>`` path their callers record.)"""
     from collections import Counter
 
@@ -209,7 +209,7 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 13, f"expected 13 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 0
@@ -217,9 +217,8 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     # string of a Flatten To String of a refnum (ops/flatten_to_string.py); the
     # Flattened String To Variant reading those bytes with a run-time type
     # (ops/flattened_string_to_variant.py); two deprecated Ctrl Val methods
-    # (codegen/nodes/invoke_node.py); five Property Node rows with no Python
-    # equivalent (codegen/nodes/property_node.py).
-    assert counts["unsupported_node"] == 10
+    # (codegen/nodes/invoke_node.py).
+    assert counts["unsupported_node"] == 5
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 

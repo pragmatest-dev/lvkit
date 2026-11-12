@@ -110,9 +110,9 @@ def _panel_import(import_resolver: ImportResolver | None) -> str:
     return statement or f"from .{PANELS_MODULE_NAME} import {PANEL_VALUES_NAME}"
 
 
-def _panel_assignment(labels: dict[str, str], owner: str) -> ast.stmt:
-    """``panel = PanelValues(controls={name: label}, storage=globals(),
-    owner=...)``: the panel is the module's own names."""
+def _panel_assignment(labels: dict[str, str]) -> ast.stmt:
+    """``panel = PanelValues(controls={name: label}, storage=globals())``: the
+    panel is the module's own names."""
     return ast.Assign(
         targets=[ast.Name(id=PANEL_ATTRIBUTE, ctx=ast.Store())],
         value=ast.Call(
@@ -134,7 +134,6 @@ def _panel_assignment(labels: dict[str, str], owner: str) -> ast.stmt:
                         keywords=[],
                     ),
                 ),
-                ast.keyword(arg="owner", value=ast.Constant(value=owner)),
             ],
         ),
     )
@@ -206,7 +205,7 @@ def build_global_module(
     body.extend(build_type_checking_block(annotation_imports))
     module = remove_unused_imports(
         ast.Module(
-            body=[*body, _panel_assignment(labels, vi_node.name or ""), *assignments],
+            body=[*body, _panel_assignment(labels), *assignments],
             type_ignores=[],
         )
     )

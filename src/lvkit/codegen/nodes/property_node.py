@@ -17,7 +17,7 @@ from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..panel_hooks import property_stmt
-from . import class_property_node, vi_reference
+from . import class_property_node, panel_reference, vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -174,12 +174,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     A row on a wired reference is Python only where Python has the value: a VI
     reference's Name, Path, Description and Exec.State
-    (``vi_reference.vi_property_read``);
-    every other read, and every write, is a gap naming the property and the
-    reference's class. Implicit control bindings are rejected unless the node is
-    bound to a control of the VI. Error-cluster terminals are
-    not read here: the node's error out is its error in, and the node is
-    skipped when an error comes in (``error_flow.guard``).
+    (``vi_reference.vi_property_read``) and the rows of the front panel's own
+    references (``panel_reference``: Panel, Controls[], a control's Value,
+    Indicator and Label.Text, and a write of a control's Value); every other read,
+    and every other write, is a gap naming the property and the reference's
+    class. Implicit control bindings are rejected unless the node is bound to a
+    control of the VI. Error-cluster terminals are not read here: the node's error
+    out is its error in, and the node is skipped when an error comes in
+    (``error_flow.guard``).
     """
     properties = node.properties or []
     value_ids = node.property_value_terminal_ids
@@ -229,10 +231,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
-            reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
-            if reflected is None:
-                raise _no_python_equivalent(node, prop)
-            panel_read = panel_read or vi_reference.reads_panel(node, prop)
+            row = panel_reference.panel_row(node, prop)
+            if row is not None:
+                reflected = panel_reference.read(row, ref_var, ctx)
+                panel_read = True
+            else:
+                reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
+                if reflected is None:
+                    raise _no_python_equivalent(node, prop)
+                panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
@@ -245,7 +252,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
-            raise _no_python_equivalent(node, prop)
+            row = panel_reference.panel_row(node, prop)
+            if row is None or not panel_reference.is_writable(row):
+                raise _no_python_equivalent(node, prop)
+            value = ctx.wired_input(term.id, node)
+            if value is None:
+                raise CodeGenError("Property write value is unresolved", node)
+            statements.append(panel_reference.write(ref_var, value, ctx))
+            panel_read = True
         else:
             raise CodeGenError("Property value direction is unresolved", node)
 
@@ -274,7 +288,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
     if panel_read:
-        # A read of the referenced VI's front panel fails with the panel's own
+        # A row on the front panel or one of its controls fails with the panel's own
         # error (1026, 1035): the node's error out, as for Ctrl Val.
         fragment = report_panel_error(node, ctx, statements, bindings)
         fragment.imports = imports

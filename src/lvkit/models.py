@@ -990,6 +990,10 @@ class FPTerminal(Terminal):
     # changed ``name``). See graph/diff.py's terminal correlation. None when the
     # BD terminal has no resolvable FP DCO (rare).
     fp_dco_uid: str | None = None
+    # The control's position in the front panel's tabbing order: its place in the
+    # heap root's ``<ddoList>`` (``ParsedFrontPanel.dco_order``). None when the
+    # panel records no such list.
+    tab_index: int | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
     # Structure containment for a SPECIFIC on-diagram GLYPH of this control —

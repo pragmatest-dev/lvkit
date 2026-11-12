@@ -23,12 +23,10 @@ A name the VI has no control or indicator of is error 1 with the message
 with Set Control Value, Control Name", reports ERR1 and that message for a wrong
 control name), and a reference that is Not a Refnum, or holds an object with no
 panel, is error 1026, both reported on the Invoke Node's own error out
-(``error_flow``). A name that two controls or indicators of the VI share is a gap
-when the name is a constant and the VI is known when the code is written (the
-first object in the front panel tabbing order answers it, an order lvkit does not
-read), and error 1 when the code runs. The deprecated
-forms of these methods take the value as flattened data and a type string, which
-has no Python meaning: they stay a gap.
+(``error_flow``). A name that two controls or indicators of the VI share is the
+first object's in the front panel tabbing order, as NI says ("the first object
+whose label matches"). The deprecated forms of these methods take the value as
+flattened data and a type string, which has no Python meaning: they stay a gap.
 """
 
 from __future__ import annotations
@@ -37,15 +35,14 @@ import ast
 from typing import cast
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import ConstantNode, PrimitiveNode
-from lvkit.graph.vi_reference import VI_CLASS, VIReferenceUnresolved
+from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.vi_reference import VI_CLASS
 from lvkit.models import Terminal
 
 from ..ast_utils import build_assign, parse_expr
-from ..context import CodeGenContext, _format_constant
+from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults
 from ..fragment import CodeFragment
-from ..panel_description import duplicate_labels
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_ERROR_NAME, PANEL_OF_NAME
 
 CTRL_VAL_SET_CODE = 1051
@@ -111,42 +108,11 @@ def _input_value(
     return ctx.wired_input(terminal.id, node) or default
 
 
-def _check_label(node: PrimitiveNode, ctx: CodeGenContext) -> None:
-    """A gap when the name is a constant that more than one control or indicator
-    of the VI the reference holds has (a VI known when the code is written)."""
-    assert ctx.graph is not None
-    name = terminal_at(node, "input", _NAME)
-    reference = terminal_at(node, "input", REFERENCE_IN)
-    if name is None or reference is None or not ctx.is_wired(name.id):
-        return
-    labels: set[object] = set()
-    for origin, _ in ctx.graph.wire_origins(name.id):
-        if not isinstance(origin, ConstantNode):
-            return
-        labels.add(ast.literal_eval(_format_constant(origin)))
-    try:
-        target = ctx.graph.referenced_vi(reference.id)
-    except VIReferenceUnresolved:
-        return
-    if not ctx.graph.is_loaded_vi(target.key):
-        return
-    shared = set(duplicate_labels(*ctx.graph.vi_interface(target.key)))
-    for label in sorted(labels & shared, key=str):
-        raise ConversionGap(
-            f"{node.method_name}: more than one control or indicator of "
-            f"{target.name} is labelled {label!r}, and the front panel tabbing "
-            "order that says which one answers is not read.",
-            node,
-        )
-
-
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """The call on the front panel of the function the reference holds."""
     reference = reference_value(node, ctx)
     panel = f"{PANEL_OF_NAME}({reference})"
     result = terminal_at(node, "output", _RESULT)
-    if node.method_code != CTRL_VAL_GET_ALL_CODE:
-        _check_label(node, ctx)
     if node.method_code == CTRL_VAL_SET_CODE:
         call = (
             f"{panel}.set({_input_value(node, ctx, _NAME, repr(''))}, "

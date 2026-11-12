@@ -20,11 +20,13 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   result that holds it;
 - ``passed``: the name of a class output that is the object the method ran on to
   the parameter (``self``) whose value it shows, as a method whose class output is
-  that object returns no field for it.
+  that object returns no field for it;
+- ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
+  the object's place in the heap's ``ddoList``), left out when that is the controls
+  and then the indicators in the order given above.
 
-A label two objects share is not told apart by a Ctrl Val method, which picks "the
-first object whose label matches" in the front panel tabbing order, which lvkit
-does not read: the ``Panel`` raises for such a label, and still holds the value of
+A label two objects share is told apart by tabbing order: a Ctrl Val method picks
+"the first object whose label matches" in it, and the ``Panel`` holds the value of
 each object by its own name.
 """
 
@@ -38,7 +40,7 @@ from typing import TYPE_CHECKING
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VIContext
-from lvkit.models import Terminal
+from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parse_expr
 from .panel_names import panel_names
@@ -51,21 +53,6 @@ if TYPE_CHECKING:
 # A terminal and the Python name that holds its value: the parameter of a control,
 # the field of an indicator; None for a terminal that is not on the connector pane.
 NamedTerminal = tuple[Terminal, str | None]
-
-
-def duplicate_labels(*terminals: Iterable[Terminal]) -> list[str]:
-    """The labels more than one of ``terminals`` (controls and indicators, on the
-    connector pane or not) has, in first-seen order: the labels a Ctrl Val method
-    cannot tell apart."""
-    seen: set[str] = set()
-    duplicates: dict[str, None] = {}
-    for terminal in (t for group in terminals for t in group):
-        if not terminal.name:
-            continue
-        if terminal.name in seen:
-            duplicates[terminal.name] = None
-        seen.add(terminal.name)
-    return list(duplicates)
 
 
 @dataclass
@@ -131,6 +118,21 @@ def default_functions(
     return defaults
 
 
+def _tabbing_order(
+    names: dict[str, str], objects: Sequence[NamedTerminal]
+) -> list[str]:
+    """The names of ``objects`` in the front panel's tabbing order; an object with
+    no recorded place follows the ones that have one, in the order given."""
+
+    def place(entry: tuple[int, NamedTerminal]) -> tuple[bool, int, int]:
+        position, (terminal, _) = entry
+        tab = terminal.tab_index if isinstance(terminal, FPTerminal) else None
+        return (tab is None, tab or 0, position)
+
+    ordered = sorted(enumerate(objects), key=place)
+    return [names[terminal.id] for _, (terminal, _) in ordered]
+
+
 def _name_map(
     keyword: str, entries: Iterable[tuple[str, str | None]]
 ) -> tuple[str, ast.Dict] | None:
@@ -183,6 +185,18 @@ def panel_statements(
                 ast.Dict(
                     keys=[ast.Constant(value=name) for name in defaults.entries],
                     values=list(defaults.entries.values()),
+                ),
+            )
+        )
+    objects = [*controls, *indicators, *passed]
+    given = [names[t.id] for t, _ in objects]
+    tabbing = _tabbing_order(names, objects)
+    if tabbing != given:
+        keywords.append(
+            (
+                "order",
+                ast.List(
+                    elts=[ast.Constant(value=name) for name in tabbing], ctx=ast.Load()
                 ),
             )
         )

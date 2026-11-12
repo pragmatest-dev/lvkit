@@ -24,6 +24,7 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         results={"y": "y"},
         passed={"thing_out": "self"},
         defaults={"list_": lambda: []},
+        order=["list_", "thing_out", "x", "y"],
     )
 
 ``controls`` maps the name of each control to its label; a control whose name is a
@@ -33,14 +34,21 @@ control's default (a control with none takes the parameter's own); ``indicators`
 the name of each indicator to its label; ``results`` the name of an indicator on
 the connector pane to the field of the result that holds it; ``passed`` the name
 of a class output that is the object the method ran on to the parameter
-(``self``) that holds it.
+(``self``) that holds it; ``order`` is left out when the controls and then the
+indicators are in tabbing order.
+
+``Panel.controls`` is the Controls[] property of the panel: a ``Control`` for each
+control and indicator, the same object each time. A ``Control`` is what LabVIEW's
+reference to the object reads: its ``label``, whether it is an ``indicator``, and
+its ``value`` (read and written through the panel, as Ctrl Val does).
 
 The panel holds every value by name, so two controls with the same label (or a
-control and an indicator) each keep their own. The label is only what a Ctrl Val
-method looks an object up by: NI picks "the first object whose label matches" in
-the front panel tabbing order, which is not read, so a label two objects share is
-error 1 for ``set`` / ``get``, while the view, the run and the VI's own panel reads
-and writes keep using each object's name.
+control and an indicator) each keep their own. ``order`` lists every name in the
+front panel's tabbing order (the order of the heap's ``ddoList``; without it, the
+controls and then the indicators), which is the order of ``Panel.controls`` ("the
+references in tabbing order") and the order a Ctrl Val method looks a label up in:
+NI picks "the first object whose label matches" in the front panel tabbing order,
+so a label two objects share is the first one's.
 
 A view of the panel (the NiceGUI tab, a test recorder, a remote mirror) is a
 ``PanelView`` attached with ``Panel.attach``: the panel tells each attached view,
@@ -63,6 +71,8 @@ PANEL_NAME = "Panel"
 PANEL_VALUES_NAME = "PanelValues"
 PANEL_ERROR_NAME = "PanelError"
 PANEL_OF_NAME = "panel_of"
+AS_PANEL_NAME = "as_panel"
+AS_CONTROL_NAME = "as_control"
 # What a node that calls a method of a panel imports where it runs.
 PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
 
@@ -85,7 +95,7 @@ import copy
 import inspect
 import threading
 import time
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from queue import Empty, Queue
 from typing import Any
 
@@ -110,6 +120,27 @@ def key_of(name: Any) -> str:
     """The string a ``live_io`` name stands for: the value of the enum member the
     function passes, or the string itself."""
     return str(getattr(name, "value", name))
+
+
+class Control:
+    """A control or indicator of a panel, as a reference to it: its ``label``, whether
+    it is an ``indicator`` and its ``value``, which is the panel's value of it."""
+
+    def __init__(
+        self, panel: PanelValues, name: str, label: str, indicator: bool
+    ) -> None:
+        self.panel = panel
+        self.name = name
+        self.label = label
+        self.indicator = indicator
+
+    @property
+    def value(self) -> Any:
+        return self.panel.value(self.name)
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        self.panel.put(self.name, value)
 
 
 class PanelView:
@@ -202,16 +233,16 @@ class PanelValues:
         indicators: Mapping[str, str] | None = None,
         defaults: Mapping[str, Callable[[], Any]] | None = None,
         storage: MutableMapping[str, Any] | None = None,
-        owner: str = "the VI",
+        order: Sequence[str] | None = None,
     ) -> None:
-        self._owner = owner
         self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
         self._defaults = dict(defaults or {})
-        self._labelled: dict[str, list[str]] = {}
-        for name, label in [*self._controls.items(), *self._indicators.items()]:
-            if label:
-                self._labelled.setdefault(label, []).append(name)
+        self._order = list(order or [*self._controls, *self._indicators])
+        self._refs = {
+            name: Control(self, name, label, name in self._indicators)
+            for name, label in {**self._controls, **self._indicators}.items()
+        }
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
@@ -238,12 +269,20 @@ class PanelValues:
 
     def get_all(self, controls: bool = False) -> list[tuple[str, Any]]:
         """``(label, value)`` of every labelled control (``controls`` True) or
-        indicator, a label two share once for each."""
+        indicator in tabbing order, a label two share once for each."""
         with self._lock:
             names = self._controls if controls else self._indicators
             return [
-                (label, self._value(name)) for name, label in names.items() if label
+                (names[name], self._value(name))
+                for name in self._order
+                if names.get(name)
             ]
+
+    @property
+    def controls(self) -> list[Control]:
+        """The Controls[] of the panel: a reference to each control and indicator,
+        in tabbing order."""
+        return [self._refs[name] for name in self._order]
 
     def holds(self, name: str) -> bool:
         """Whether ``name`` is the name of a control or indicator of the panel."""
@@ -300,21 +339,12 @@ class PanelValues:
             getattr(view, method)(*arguments)
 
     def _name_of(self, label: str) -> str:
-        """The name of the one control or indicator labelled ``label``; error 1
-        for a label none has or more than one has."""
-        names = self._labelled.get(label, [])
-        if len(names) > 1:
-            raise PanelError(
-                code=1,
-                source="Panel",
-                message=(
-                    f'"{label}" is the label of more than one control or '
-                    f"indicator of {self._owner}"
-                ),
-            )
-        if not names:
-            raise PanelError(code=1, source="Panel", message=f'"{label}" not found')
-        return names[0]
+        """The name of the first control or indicator labelled ``label`` in
+        tabbing order; error 1 for a label none has."""
+        for name in self._order:
+            if self._refs[name].label == label:
+                return name
+        raise PanelError(code=1, source="Panel", message=f'"{label}" not found')
 
     def _check(self, name: str) -> None:
         if not self.holds(name):
@@ -351,8 +381,9 @@ class Panel(PanelValues):
         results: Mapping[str, str] | None = None,
         passed: Mapping[str, str] | None = None,
         defaults: Mapping[str, Callable[[], Any]] | None = None,
+        order: Sequence[str] | None = None,
     ) -> None:
-        super().__init__(controls, indicators, defaults, owner=function.__name__)
+        super().__init__(controls, indicators, defaults, order=order)
         self.function = function
         self._results = dict(results or {})
         self._passed = dict(passed or {})
@@ -540,4 +571,24 @@ def panel_of(reference: Any) -> PanelValues:
             code=1026, source="panel_of", message="VI Reference is invalid."
         )
     return panel
+
+
+def as_panel(reference: Any) -> PanelValues:
+    """``reference`` as the reference to a front panel (the ``Panel`` property of a
+    VI gives one); error 1026 for a reference that holds none."""
+    if not isinstance(reference, PanelValues):
+        raise PanelError(
+            code=1026, source="as_panel", message="VI Reference is invalid."
+        )
+    return reference
+
+
+def as_control(reference: Any) -> Control:
+    """``reference`` as the reference to a control or indicator (an element of
+    ``Panel.controls``); error 1026 for a reference that holds none."""
+    if not isinstance(reference, Control):
+        raise PanelError(
+            code=1026, source="as_control", message="Control Reference is invalid."
+        )
+    return reference
 '''

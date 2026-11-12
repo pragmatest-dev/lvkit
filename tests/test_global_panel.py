@@ -155,7 +155,7 @@ def test_the_global_module_holds_a_panel_over_its_own_names(
         "from __future__ import annotations\n"
         "from .panels import PanelValues\n"
         "panel = PanelValues(controls={'count': 'Count', 'total': 'Total'}, "
-        "storage=globals(), owner='Data.vi')\n"
+        "storage=globals())\n"
         "count: int = 5\n"
         "total: int = 9"
     )

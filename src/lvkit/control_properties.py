@@ -9,6 +9,10 @@ class can define its own code under a common name (a Combo Box's ``Value``), so
 entry wins over an inherited one. A property is listed only when NI's public
 documentation says what it does.
 
+A Property Node on a wired control reference (no binding) reads a few properties
+that are the reference's own: its ``Value``, its ``Indicator`` flag and its
+``Label.Text`` (``ReferenceRow``).
+
 The graph (which VIs touch their panel while running) and code generation (what a
 row generates) both read this, so it sits outside both.
 """
@@ -19,6 +23,7 @@ import functools
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import Enum
 
 from ._data import data_dir
 
@@ -37,12 +42,23 @@ class ControlProperty:
     doc_url: str
 
 
+class ReferenceRow(Enum):
+    """What a row of a Property Node on a control reference is, when it is one of
+    the control's own: its ``Value``, whether it is an ``Indicator``, the text of
+    its ``Label``."""
+
+    VALUE = "value"
+    INDICATOR = "indicator"
+    LABEL_TEXT = "label_text"
+
+
 @dataclass(frozen=True)
 class _Table:
     inherited: dict[int, ControlProperty]
     classes: dict[str, dict[int, ControlProperty]]
     inherited_values: frozenset[int]
     class_values: dict[str, frozenset[int]]
+    reference_rows: dict[tuple[int, ...], ReferenceRow]
 
 
 def _entries(raw: dict[str, dict[str, str]]) -> dict[int, ControlProperty]:
@@ -66,6 +82,11 @@ def _table() -> _Table:
         class_values={
             name: frozenset(codes) for name, codes in values["classes"].items()
         },
+        reference_rows={
+            tuple(path): ReferenceRow(name)
+            for name, entry in raw["reference_rows"].items()
+            for path in entry["codes"]
+        },
     )
 
 
@@ -86,7 +107,16 @@ def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
     if len(codes) != 1:
         return False
     table = _table()
-    return (
-        codes[0] in table.inherited_values
-        or codes[0] in table.class_values.get(class_name, frozenset())
+    return codes[0] in table.inherited_values or codes[0] in table.class_values.get(
+        class_name, frozenset()
     )
+
+
+def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:
+    """The own property of a control reference that the row with property ``codes``
+    on a reference of class ``class_name`` is: ``Value`` (the generic code, or the
+    class's strict or own one), ``Indicator`` or ``Label.Text``; None for any
+    other row."""
+    if is_value_row(class_name, codes):
+        return ReferenceRow.VALUE
+    return _table().reference_rows.get(tuple(codes))

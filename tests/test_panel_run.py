@@ -431,8 +431,9 @@ def test_two_controls_with_one_label_each_reach_the_run_from_the_page(
         await until(user, "done")
         assert sorted(v for _, v in vi_panel.get_all(True)) == [3, 4]
         assert vi_panel.get("Sum") == 7
-        # a Ctrl Val method cannot tell the two apart (error 1), the run can
-        with pytest.raises(Exception, match="more than one control"):
-            vi_panel.set("Value", 1)
+        # a Ctrl Val method reaches the first in tabbing order, the run passes each
+        vi_panel.set("Value", 1)
+        assert vi_panel.get_all(True)[0] == ("Value", 1)
+        assert vi_panel.get("Value") == 1
 
     simulate(panel.build_panel, scenario)

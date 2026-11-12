@@ -56,9 +56,11 @@ def pane(
     name: str,
     index: int,
     wiring_rule: ParsedWiringRule | None = None,
+    tab_index: int | None = None,
 ) -> FPTerminal:
     """A control (``input``) or indicator (``output``) on the connector pane; a
-    control is Required unless ``wiring_rule`` says otherwise."""
+    control is Required unless ``wiring_rule`` says otherwise. ``tab_index`` is its
+    place in the front panel's tabbing order."""
     return FPTerminal(
         id=f"{vi}:{tag}",
         index=index,
@@ -66,6 +68,7 @@ def pane(
         name=name,
         lv_type=lv_type,
         is_public=True,
+        tab_index=tab_index,
         is_indicator=direction == "output",
         wiring_rule=(
             wiring_rule

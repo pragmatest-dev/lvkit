@@ -824,16 +824,18 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
         assert panel.get_all(False) == [("shown", None)]
 
 
-def test_a_label_two_objects_share_is_an_error_the_panel_names(tmp_path: Path) -> None:
-    """The first object in the tabbing order answers a Ctrl Val method, an order
-    lvkit does not read: the panel records the label as a duplicate."""
+def test_a_label_two_objects_share_is_the_first_in_tabbing_order(
+    tmp_path: Path,
+) -> None:
+    """A Ctrl Val method picks "the first object whose label matches" in the front
+    panel tabbing order; each object keeps its own value by its name."""
 
     def twice(vi: str) -> tuple[VIContext, list[GraphNode]]:
         return (
             VIContext(
                 name=vi,
-                inputs=[pane(vi, "input", "a", INT, "same", 0)],
-                outputs=[pane(vi, "output", "b", INT, "same", 1)],
+                inputs=[pane(vi, "input", "a", INT, "same", 0, tab_index=1)],
+                outputs=[pane(vi, "output", "b", INT, "same", 1, tab_index=0)],
                 data_flow=[wire(vi, "a", "b")],
             ),
             [],
@@ -844,39 +846,50 @@ def test_a_label_two_objects_share_is_an_error_the_panel_names(tmp_path: Path) -
     package = project.generate()
     assert "controls={'same': 'same'}" in package.sources["twice"]
     assert "indicators={'same_2': 'same'}" in package.sources["twice"]
+    assert "order=['same_2', 'same']" in package.sources["twice"]
     with package.use() as module:
         panel = module("twice").twice.panel
-        with pytest.raises(module("panels").PanelError) as raised:
-            panel.get("same")
-        assert raised.value.code == 1
-        assert "more than one control or indicator" in raised.value.message
-        with pytest.raises(module("panels").PanelError) as by_label:
-            panel.set("same", 1)
-        assert by_label.value.code == 1
+        # The indicator is first in tabbing order, so it answers the label.
+        panel.set("same", 1)
+        assert panel.value("same_2") == 1
+        assert panel.value("same") == 0
+        assert panel.get("same") == 1
         panel.put("same", 5)
-        assert panel.value("same") == 5
-        assert panel.value("same_2") is None
+        assert panel.get("same") == 1
         assert panel.get_all(True) == [("same", 5)]
-        assert panel.get_all(False) == [("same", None)]
+        assert panel.get_all(False) == [("same", 1)]
 
 
-def test_ctrl_val_on_a_shared_label_is_a_gap_at_generation(tmp_path: Path) -> None:
+def test_without_a_recorded_order_the_controls_come_first(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Twice", twice_target)
+    package = project.generate()
+    assert "order=" not in package.sources["twice"]
+    with package.use() as module:
+        panel = module("twice").twice.panel
+        panel.put("same_2", 3)
+        panel.set("same", 1)
+        assert panel.value("same") == 1
+        assert panel.value("same_2") == 3
+
+
+def test_ctrl_val_on_a_shared_label_reaches_the_first_in_tabbing_order(
+    tmp_path: Path,
+) -> None:
     project = Project(tmp_path)
     target_key = project.add_vi("Target", twice_target)
     runner_key = project.add_vi(
-        "Runner", chained(target_key, [step("Ctrl Val.Get", GET, name="same")], None)
+        "Runner", chained(target_key, [step("Ctrl Val.Get", GET, name="same")], "value")
     )
     project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
     gaps: list[Gap] = []
     package = project.generate(gaps)
-    assert [g.reason for g in gaps] == [
-        "Ctrl Val.Get: more than one control or indicator of Target.vi is "
-        "labelled 'same', and the front panel tabbing order that says which one "
-        "answers is not read."
-    ]
+    assert gaps == []
     with package.use() as module:
-        with pytest.raises(NotImplementedError, match="labelled 'same'"):
-            module("runner").runner()
+        panel = module("target").target.panel
+        panel.put("same", 4)
+        panel.put("same_2", 9)
+        assert module("runner").runner().out == 4
 
 
 def twice_target(vi: str) -> tuple[VIContext, list[GraphNode]]:

@@ -1,11 +1,25 @@
 {
-  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name. 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written (bool, enum, number), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. A property is listed only when NI's page says what it does.",
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name. 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written (bool, enum, number), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text: each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there).",
   "value_codes": {
     "inherited": [104013842],
     "classes": {
       "CmbBox": [104099840],
       "Path": [104032256],
       "Str": [104093696]
+    }
+  },
+  "reference_rows": {
+    "value": {
+      "codes": [[104013837]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/value.html"
+    },
+    "indicator": {
+      "codes": [[104013831]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/indicator.html"
+    },
+    "label_text": {
+      "codes": [[104013829, 103995392]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/label.html"
     }
   },
   "inherited": {

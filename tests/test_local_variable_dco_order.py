@@ -124,3 +124,31 @@ def test_local_variables_resolve_through_ddolist(tmp_path: Path) -> None:
     assert locals_by_uid["300"].control_name == "Alpha"
     # no <paramIdx> -> 0 -> <ddoList>[0] -> uid 20 -> "Beta"
     assert locals_by_uid["400"].control_name == "Beta"
+
+
+def test_terminals_carry_their_place_in_the_tabbing_order(tmp_path: Path) -> None:
+    """The panel's tabbing order is the order of the heap root's ``<ddoList>``
+    (z-order, which the walk of the panel follows, says Alpha then Beta)."""
+    bd_xml = tmp_path / "Locals_BDHb.xml"
+    bd_xml.write_text(_BD_XML)
+    (tmp_path / "Locals_FPHb.xml").write_text(_FP_XML)
+
+    graph = InMemoryVIGraph()
+    graph.load_vi(bd_xml)
+    vi = graph.get_graph_node(graph.list_vis()[0])
+    assert {t.name: t.tab_index for t in vi.terminals} == {"Alpha": 1, "Beta": 0}
+    assert vi.front_panel is not None
+    assert vi.front_panel.tab_index("20") == 0
+    assert vi.front_panel.tab_index("10") == 1
+    assert vi.front_panel.tab_index("99") is None
+
+
+def test_a_panel_without_a_ddolist_records_no_tabbing_order(tmp_path: Path) -> None:
+    fp_xml = tmp_path / "Old_FPHb.xml"
+    fp_xml.write_text(
+        "<root><paneHierarchy>" + _fpdco("10", "Alpha") + "</paneHierarchy></root>"
+    )
+    fp = _parse_front_panel(
+        fp_xml, ParsedBlockDiagram(nodes=[], constants=[], wires=[])
+    )
+    assert fp.tab_index("10") is None
