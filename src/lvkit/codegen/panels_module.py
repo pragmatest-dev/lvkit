@@ -282,16 +282,13 @@ class Panel:
             labels = self._controls if controls else self._indicator_labels()
             return [(label, self._value(label)) for label in labels]
 
-    def run(
-        self,
-        wait: bool = True,
-        submit: Callable[[Callable[[], Any]], Any] | None = None,
-    ) -> None:
+    def run(self, wait: bool = True) -> None:
         """Run the function with the control values the panel holds, an unset
         control at its default. The panel is Running (``state`` 2) when this
-        returns, whether or not it waits: ``wait`` False hands the work to
-        ``submit`` (the caller's thread pool; a new thread when None) after the
-        run is recorded. A run while the VI is running is an error."""
+        returns, whether or not it waits: ``wait`` False starts the work on a
+        daemon thread after the run is recorded, so it runs to its end on its own
+        and does not keep the program from exiting. A run while the VI is running
+        is an error."""
         with self._lock:
             if self._running:
                 raise PanelError(
@@ -309,7 +306,7 @@ class Panel:
             self._execute()
         else:
             try:
-                (submit or _start_thread)(self._execute)
+                _start_thread(self._execute)
             except BaseException as raised:
                 self._finish(raised)
                 raise

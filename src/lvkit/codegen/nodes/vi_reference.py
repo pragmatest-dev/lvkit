@@ -8,7 +8,8 @@ it holds is found when the code is generated, not when it runs:
 - Open VI Reference imports the function of the VI its path or name input names
   (``InMemoryVIGraph.opened_vi``);
 - Call By Reference calls that function with the called VI's own parameter
-  names; Start Asynchronous Call submits the call to a thread pool;
+  names; Start Asynchronous Call submits the call to a thread pool, or starts a
+  forgotten call on a daemon thread;
 - Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
   ``__name__`` and file (``vi_property_read``).
@@ -355,9 +356,9 @@ def _invocation(
             func=parse_expr(call.function), args=[], keywords=call.keywords
         )
         return build_assign(call.result_var, invoke)
-    submit = submit_to_pool(ctx, call.function, call.keywords)
     if options is not None and options & CALL_AND_FORGET:
-        return ast.Expr(value=submit)
+        return ast.Expr(value=start_forgotten(ctx, call.function, call.keywords))
+    submit = submit_to_pool(ctx, call.function, call.keywords)
     return build_assign(ctx.make_output_var("future", node.id), submit)
 
 
@@ -407,23 +408,48 @@ def _made_only_with_a_vi(
     return fragment
 
 
-def pool_submit(ctx: CodeGenContext) -> str:
-    """The ``submit`` of the module's thread pool, which this adds: what starts a
-    call that goes on while the caller does not wait for it."""
-    ctx.add_import(_EXECUTOR_IMPORT)
-    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
-    return f"{_EXECUTOR}.submit"
-
-
 def submit_to_pool(
     ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
 ) -> ast.Call:
-    """``function(**keywords)`` started on the module's thread pool
-    (``pool_submit``). Its value is the call's ``Future``."""
+    """``function(**keywords)`` started on the module's thread pool, which this
+    adds. Its value is the call's ``Future``, which Wait On Asynchronous Call
+    waits for."""
+    ctx.add_import(_EXECUTOR_IMPORT)
+    ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
     return ast.Call(
-        func=parse_expr(pool_submit(ctx)),
+        func=parse_expr(f"{_EXECUTOR}.submit"),
         args=[parse_expr(function)],
         keywords=keywords,
+    )
+
+
+def start_forgotten(
+    ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
+) -> ast.Call:
+    """``threading.Thread(target=function, kwargs={...}, daemon=True).start()``: a
+    call started and forgotten runs to its end on its own, as the target VI does
+    in LabVIEW after its caller finishes, and does not keep the program from
+    exiting."""
+    ctx.add_import("import threading")
+    thread = ast.Call(
+        func=parse_expr("threading.Thread"),
+        args=[],
+        keywords=[
+            ast.keyword(arg="target", value=parse_expr(function)),
+            ast.keyword(
+                arg="kwargs",
+                value=ast.Dict(
+                    keys=[ast.Constant(value=k.arg) for k in keywords],
+                    values=[k.value for k in keywords],
+                ),
+            ),
+            ast.keyword(arg="daemon", value=ast.Constant(value=True)),
+        ],
+    )
+    return ast.Call(
+        func=ast.Attribute(value=thread, attr="start", ctx=ast.Load()),
+        args=[],
+        keywords=[],
     )
 
 

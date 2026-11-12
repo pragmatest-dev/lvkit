@@ -416,7 +416,7 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
         step("Run VI", RUN, wait="False"),
     ]
     package = project_with(tmp_path, steps, None).generate()
-    assert "run(False, _async_call_pool.submit)" in package.sources["runner"]
+    assert "run(False)" in package.sources["runner"]
     with package.use() as module:
         release, ran = threading.Event(), threading.Event()
 
@@ -440,16 +440,19 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
         assert panel.get("y") == 42
 
 
-def test_the_run_is_recorded_before_the_work_is_submitted(tmp_path: Path) -> None:
-    """Start Asynchronous Call's pool may start the work late: the state the caller
-    reads right after ``run`` is already Running, and a second run is refused with
-    the error NI gives for a VI already reserved for execution."""
+def test_the_run_is_recorded_before_the_work_is_started(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The thread may start the work late: the state the caller reads right after
+    ``run`` is already Running, and a second run is refused with the error NI
+    gives for a VI already reserved for execution."""
     package = project_with(tmp_path, [step("Ctrl Val.Get", GET, name="y")], None)
     with package.generate().use() as module:
         panels = module("panels")
         panel = module("target").target.panel
         pending: list[object] = []
-        panel.run(False, pending.append)
+        monkeypatch.setattr(panels, "_start_thread", pending.append)
+        panel.run(False)
         assert panel.state == 2
         assert len(pending) == 1
         with pytest.raises(panels.PanelError) as refused:
@@ -945,15 +948,18 @@ def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy(
     }
 
 
-def test_a_pool_that_cannot_start_the_work_leaves_the_vi_idle(tmp_path: Path) -> None:
+def test_a_thread_that_cannot_start_the_work_leaves_the_vi_idle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project = Project(tmp_path)
     project.add_vi("Target", callee)
     with project.generate().use() as module:
         panel = module("target").target.panel
 
         def refusing(work: object) -> None:
-            raise RuntimeError("pool is shut down")
+            raise RuntimeError("can't start new thread")
 
-        with pytest.raises(RuntimeError, match="shut down"):
-            panel.run(False, refusing)
+        monkeypatch.setattr(module("panels"), "_start_thread", refusing)
+        with pytest.raises(RuntimeError, match="start new thread"):
+            panel.run(False)
         assert panel.state == 1

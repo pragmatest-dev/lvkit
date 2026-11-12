@@ -12,8 +12,10 @@ import builtins
 import dataclasses
 import importlib
 import keyword
+import subprocess
 import sys
 import threading
+import time
 import types
 from collections.abc import Iterator
 from pathlib import Path
@@ -258,9 +260,18 @@ def test_static_reference_name_open_start_submits_the_call(tmp_path: Path) -> No
     assert "_vi_registry" not in source and "lvkit.runtime" not in source
 
 
-def test_call_and_forget_start_submits_the_call_the_same_way(tmp_path: Path) -> None:
+def test_call_and_forget_start_runs_the_call_on_a_daemon_thread(
+    tmp_path: Path,
+) -> None:
     loaded = d.load(tmp_path, *_STATIC_NAME_OPEN_START, [_X, _FORGET])
-    assert _source(loaded).endswith("    _async_call_pool.submit(callee, x=5)")
+    source = _source(loaded)
+    assert source.endswith(
+        "from .callee import callee\n"
+        "import threading\n\n"
+        "def refs():\n"
+        "    threading.Thread(target=callee, kwargs={'x': 5}, daemon=True).start()"
+    )
+    assert "_async_call_pool" not in source
 
 
 def test_start_whose_open_options_are_computed_keeps_the_call(
@@ -740,6 +751,63 @@ def test_a_started_call_runs_on_another_thread(tmp_path: Path) -> None:
         ((x, thread_name),) = callee.calls
         assert x == 5
         assert thread_name != threading.current_thread().name
+
+
+def test_a_forgotten_call_runs_on_a_daemon_thread(tmp_path: Path) -> None:
+    loaded = d.load(tmp_path, *_STATIC_NAME_OPEN_START, [_X, _FORGET])
+    for refs in _package(tmp_path, _source(loaded), _CALLEE):
+        refs.refs()  # type: ignore[attr-defined]
+        callee = sys.modules["generated_refs.callee"]
+        for _ in range(500):
+            if callee.calls:
+                break
+            time.sleep(0.01)
+        ((x, thread_name),) = callee.calls
+        assert x == 5
+        assert thread_name != threading.current_thread().name
+        assert not hasattr(refs, "_async_call_pool")
+
+
+_FOREVER = (
+    "import time\ndef callee(x=None):\n    while True:\n        time.sleep(0.05)\n"
+)
+
+_EXIT_SCRIPT = (
+    "import sys\n"
+    "sys.path.insert(0, {parent!r})\n"
+    "from generated_refs.refs import refs\n"
+    "refs()\n"
+    "print('returned', flush=True)\n"
+)
+
+
+def test_a_program_that_forgets_a_never_ending_call_exits(tmp_path: Path) -> None:
+    """The forgotten call loops forever; its program still ends, as a LabVIEW
+    caller does while the target VI goes on."""
+    loaded = d.load(tmp_path, *_STATIC_NAME_OPEN_START, [_X, _FORGET])
+    for _ in _package(tmp_path, _source(loaded), _FOREVER):
+        script = tmp_path / "forget.py"
+        script.write_text(_EXIT_SCRIPT.format(parent=str(tmp_path)), encoding="utf-8")
+        finished = subprocess.run(
+            [sys.executable, "-I", str(script)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        assert finished.stdout.strip() == "returned"
+
+
+def test_a_collected_call_stays_on_the_thread_pool(tmp_path: Path) -> None:
+    loaded = d.load(tmp_path, *_STATIC_NAME_OPEN_START, [_X])
+    source = _source(loaded)
+    assert source.endswith(
+        "from concurrent.futures import ThreadPoolExecutor\n"
+        "_async_call_pool = ThreadPoolExecutor()\n\n"
+        "def refs():\n"
+        "    _async_call_pool.submit(callee, x=5)"
+    )
+    assert "threading" not in source
 
 
 def test_name_and_path_run_as_the_function_s_own_properties(tmp_path: Path) -> None:

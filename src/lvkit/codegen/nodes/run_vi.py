@@ -4,14 +4,12 @@ Run VI runs the VI with the current values of its front-panel controls, passing
 no data through parameters (NI: properties-and-methods/vi-server/vi/run.html).
 Every VI has a front panel (``function.panel``, ``codegen/panels_module.py``) that
 holds those values, set anywhere a diagram holds a reference to the VI, so Run VI
-is always ``panel_of(reference).run(wait, submit)``:
+is always ``panel_of(reference).run(wait)``:
 
-- Wait Until Done is the value wired to it, TRUE (its default) when unwired, and
-  with TRUE the run is ``.run(True)``;
-- Wait Until Done FALSE, or computed when the diagram runs, also passes the
-  ``submit`` of the thread pool Start Asynchronous Call uses
-  (``vi_reference.pool_submit``): the run returns once the panel is Running and
-  goes on, the VI started on that pool;
+- Wait Until Done is the value wired to it, TRUE (its default) when unwired;
+- Wait Until Done FALSE starts the VI as its own top-level run, as a call
+  started and forgotten: the run returns once the panel is Running and goes on,
+  the VI on a daemon thread (``Panel.run``);
 - Auto Dispose Ref only says who closes the reference: no Python meaning;
 - a reference that holds no VI, or a VI that is already running, is the Invoke
   Node's own error (``ctrl_val.report_panel_error``): error in and error out are
@@ -34,7 +32,6 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import ctrl_val
-from .vi_reference import pool_submit
 
 RUN_VI_METHOD_CODE = 1003
 
@@ -54,7 +51,7 @@ def is_run_vi(node: PrimitiveNode) -> bool:
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """``panel_of(reference).run(wait, submit)``: the VI runs with the values its
+    """``panel_of(reference).run(wait)``: the VI runs with the values its
     front panel holds."""
     assert ctx.graph is not None
     reference_in = _input(node, _REFERENCE_IN)
@@ -78,8 +75,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     reference_out = ctrl_val.terminal_at(node, "output", _REFERENCE_OUT)
     bindings = {reference_out.id: reference} if reference_out is not None else {}
     ctx.import_panels(PANEL_CALL_IMPORTS)
-    arguments = wait if wait == "True" else f"{wait}, {pool_submit(ctx)}"
-    run = ast.Expr(value=parse_expr(f"{PANEL_OF_NAME}({reference}).run({arguments})"))
+    run = ast.Expr(value=parse_expr(f"{PANEL_OF_NAME}({reference}).run({wait})"))
     return ctrl_val.report_panel_error(node, ctx, [run], bindings)
 
 

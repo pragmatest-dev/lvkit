@@ -154,7 +154,7 @@ def test_run_vi_waiting_runs_the_front_panel(tmp_path: Path, wait: str | None) -
 def test_run_vi_not_waiting_goes_on_while_the_vi_runs(tmp_path: Path) -> None:
     package = project_with(tmp_path, "False").generate()
     assert package.gaps == []
-    assert "run(False, _async_call_pool.submit)" in package.sources["runner"]
+    assert "run(False)" in package.sources["runner"]
     with package.use() as module:
         runner_module = module("runner")
         release, ran = threading.Event(), threading.Event()
@@ -184,7 +184,7 @@ def test_run_vi_with_a_computed_wait_passes_it(tmp_path: Path) -> None:
     gets: TRUE waits, FALSE returns while the VI runs."""
     package = project_with(tmp_path, "input").generate()
     assert package.gaps == []
-    assert "run(go, _async_call_pool.submit)" in package.sources["runner"]
+    assert "run(go)" in package.sources["runner"]
     with package.use() as module:
         runner_module = module("runner")
         panel = module("target").target.panel
