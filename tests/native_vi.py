@@ -12,7 +12,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, ValueNotStored
-from tests.helpers import build_graph, exec_module
+from tests.helpers import build_graph, exec_module, without_panel_attributes
 
 
 def scalar(underlying: str) -> LVType:
@@ -113,4 +113,6 @@ def generate(
     graph = build_graph(context, context.name, nodes)
     source = build_module(context, context.name, graph=graph, gaps=gaps)
     module = exec_module(source, "native_test.py", "native_test")
-    return Generated(source, module, module.__dict__["native_test"])
+    return Generated(
+        without_panel_attributes(source), module, module.__dict__["native_test"]
+    )

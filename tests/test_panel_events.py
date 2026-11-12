@@ -5,16 +5,18 @@ frame (headless, with NiceGUI's user simulation)."""
 from __future__ import annotations
 
 import asyncio
-import queue
+import time
+from queue import Queue
+from types import SimpleNamespace
 
-import pytest
 from nicegui import ui
 from nicegui.testing.user import User
 
 from lvkit.panel.runtime.events import PanelEvents
-from lvkit.panel.runtime.live import Abort, LiveValues
+from lvkit.panel.runtime.view import PanelWidgets
 from tests.error_diagrams import Project, project  # noqa: F401
 from tests.event_diagrams import event_loop_vi
+from tests.helpers import generated_panels
 from tests.panel_harness import found, labels, panel_of, simulate, until
 
 STEM = "events"
@@ -137,33 +139,48 @@ class _Kinds:
     PANEL_CLOSE = "Panel Close?"
 
 
-def test_events_are_queued_only_while_listening() -> None:
-    live = LiveValues(_Kinds)
-    assert live.panel_events is not None
-    live.add_control("gain", 1)
-    live.set_control("gain", 2)
-    assert live.panel_events.queue.empty()
-    live.panel_events.start()
-    live.set_control("gain", 3)
-    assert live.panel_events.queue.get() == ("gain", 3, "Value Change", 2)
-    live.panel_events.stop()
-    assert live.panel_events.ask_close() is None
+def test_events_are_queued_only_while_the_panel_has_a_run_queue() -> None:
+    panel = SimpleNamespace(events=None)
+    events = PanelEvents(panel, _Kinds)
+    events.value_changed("gain", 2, 1)
+    assert events.ask_close() is None
+    panel.events = Queue()
+    events.value_changed("gain", 3, 2)
+    assert panel.events.get() == ("gain", 3, "Value Change", 2)
+    reply = events.ask_close()
+    assert reply is not None
+    assert panel.events.get() == ("", None, "Panel Close?", None, reply)
+    panel.events = None
+    assert events.wait_for_reply(reply) is None
 
 
 def test_a_wait_for_an_event_keeps_its_timeout_and_ends_on_abort() -> None:
-    live = LiveValues(_Kinds)
-    assert live.panel_events is not None
-    inbox = live.panel_events.queue
-    with pytest.raises(queue.Empty):
-        inbox.get(timeout=0.05)
-    live.request_abort()
-    with pytest.raises(Abort):
+    panels = generated_panels()
+    waited: list[str] = []
+
+    def waits(live_io: object = None) -> None:
+        inbox = live_io.events  # type: ignore[attr-defined]
+        try:
+            inbox.get(timeout=0.05)
+        except Exception as raised:  # noqa: BLE001 -- the timeout is the case
+            waited.append(type(raised).__name__)
         inbox.get(timeout=5)
+
+    panel = panels.Panel(waits)
+    panel.run(wait=False)
+    started = time.monotonic()
+    while not waited and time.monotonic() - started < 3:
+        time.sleep(0.01)
+    assert waited == ["Empty"]
+    panel.abort()
+    while panel.state != 1 and time.monotonic() - started < 3:
+        time.sleep(0.01)
+    assert panel.state == 1
+    assert panel.aborted
 
 
 def test_a_vi_without_an_event_structure_has_no_events() -> None:
-    assert LiveValues().panel_events is None
-    assert LiveValues().events is None
-    assert isinstance(LiveValues(_Kinds).panel_events, PanelEvents)
-    inbox = LiveValues(_Kinds)
-    assert inbox.events is inbox.panel_events.queue
+    panel = SimpleNamespace(events=None)
+    assert PanelWidgets().panel_events is None
+    assert PanelWidgets(panel).panel_events is None
+    assert isinstance(PanelWidgets(panel, _Kinds).panel_events, PanelEvents)

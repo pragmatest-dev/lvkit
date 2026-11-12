@@ -27,7 +27,6 @@ from ..ast_utils import (
     build_assign,
     parse_expr,
     to_var_name,
-    type_default_expr,
 )
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
@@ -36,6 +35,7 @@ from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
+from ..type_default import type_default
 from ..value_copy import COPY_IMPORT, own_path, owned_input
 
 
@@ -342,7 +342,7 @@ def _build_measure_data(
         elif f.type is not None and f.type.kind == LVTypeKind.ARRAY:
             value = "[]"
         else:
-            value = ast.unparse(type_default_expr(f.type))
+            value = ast.unparse(type_default(ctx, f.type))
         fields.append(f"{name}={value}")
     var = ctx.make_output_var("cluster", node.id, agg_out.id)
     return CodeFragment(

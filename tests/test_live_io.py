@@ -46,7 +46,7 @@ def test_the_package_holds_the_live_io_module_the_function_imports(
     assert package.function(live_io=_live_io(package).LiveIO()).count == 3
 
 
-def test_a_vi_without_a_panel_access_has_no_live_io_module(
+def test_every_package_holds_the_live_io_module_the_panel_io_extends(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
@@ -55,8 +55,35 @@ def test_a_vi_without_a_panel_access_has_no_live_io_module(
     vi.wire(x, out)
     project.add(vi)
     package = project.generate(NAME)
-    assert not (package.root / "live_io.py").exists()
+    assert (package.root / "live_io.py").read_text(encoding="utf-8") == (
+        LIVE_IO_MODULE_SOURCE
+    )
     assert "live_io" not in package.source
+    assert "from .live_io import LiveIO" in (package.root / "panels.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_panel_io_is_a_live_io_and_keeps_the_methods_it_does_not_override(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    x = vi.control("x", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    vi.wire(x, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    live_io = _live_io(package)
+    panels = importlib.import_module(f"{package.module.__package__}.panels")
+    io = panels.PanelIO(package.function.panel, queue.Queue())
+    assert isinstance(io, live_io.LiveIO)
+    # A method added to ``LiveIO`` is on ``PanelIO`` and behaves as the base does.
+    live_io.LiveIO.prompt = lambda self, name, value: ("prompted", name, value)
+    try:
+        assert panels.PanelIO.prompt is live_io.LiveIO.prompt
+        assert io.prompt("x", 1) == ("prompted", "x", 1)
+    finally:
+        del live_io.LiveIO.prompt
 
 
 def test_a_subclass_of_the_generated_class_sees_each_write_and_ends_the_loop(

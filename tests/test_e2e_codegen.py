@@ -24,7 +24,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
 from lvkit.pipeline import create_import_resolver
 from tests.corpus_graphs import OPENG_USERLIB
-from tests.helpers import exec_module, vi_key
+from tests.helpers import exec_generated, exec_module, vi_key
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -546,8 +546,8 @@ class TestU16ChangedPersistentState:
 
         ns_a: dict = {}
         ns_b: dict = {}
-        exec(compile(code, "<a>", "exec"), ns_a)  # noqa: S102
-        exec(compile(code, "<b>", "exec"), ns_b)  # noqa: S102
+        exec_generated(code, ns_a, "<a>")  # noqa: S102
+        exec_generated(code, ns_b, "<b>")  # noqa: S102
 
         ns_a["u16_changed__ogtk"](99)
 

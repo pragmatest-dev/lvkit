@@ -13,7 +13,7 @@ from lvkit.codegen.nodes import primitive
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire, WireEnd
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph, make_ctx
+from tests.helpers import build_graph, exec_generated, make_ctx
 from tests.native_vi import result_values
 
 DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
@@ -114,7 +114,7 @@ def generated_index(
     graph = build_graph(context, context.name, [node])
     source = build_module(context, context.name, graph=graph)
     namespace = {}
-    exec(compile(source, context.name, "exec"), namespace)
+    exec_generated(source, namespace, context.name)
     function = namespace["index_rows_test"]
     return lambda *args: result_values(function(*args))
 
@@ -227,7 +227,7 @@ def test_array_expression_evaluated_once():
         return [10.0, 20.0, 30.0]
 
     namespace = {"get_values": get_values}
-    exec(compile(module, "<expanded-index>", "exec"), namespace)
+    exec_generated(module, namespace, "<expanded-index>")
     assert [namespace[fragment.bindings[f"out{row}"]] for row in range(3)] == [
         10.0,
         20.0,
@@ -259,7 +259,7 @@ def test_other_ranks_keep_the_single_output_template(rank, values, expected, def
     )
     for start, target in ((0, expected), (99, default)):
         namespace = {"values": values, "start": start}
-        exec(compile(module, "<index-rank-boundary>", "exec"), namespace)
+        exec_generated(module, namespace, "<index-rank-boundary>")
         assert namespace[fragment.bindings["out0"]] == target
 
 

@@ -84,8 +84,10 @@ class ImportResolver:
         module_key: str | None = None,
         notifier_import: Callable[[], str] | None = None,
         live_io_import: Callable[[], str] | None = None,
+        panels_import: Callable[[str], str] | None = None,
     ) -> None:
         self._notifier_import = notifier_import
+        self._panels_import = panels_import
         self._live_io_import = live_io_import
         self._function_import = function_import
         self._module_import = module_import
@@ -191,6 +193,11 @@ class ImportResolver:
         """The statement importing ``LiveIO`` and ``NO_LIVE_IO`` from the package
         root's ``live_io`` module; None when this resolver has no package."""
         return self._live_io_import() if self._live_io_import else None
+
+    def panels_import(self, names: str) -> str | None:
+        """The statement importing ``names`` from the package root's ``panels``
+        module; None when this resolver has no package."""
+        return self._panels_import(names) if self._panels_import else None
 
     @property
     def has_package_modules(self) -> bool:

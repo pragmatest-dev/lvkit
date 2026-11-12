@@ -30,7 +30,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import PropertyDef, Terminal
 
-from ..ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..class_attributes import accessor_pane
 from ..class_model import (
     check_private_access,
@@ -43,6 +43,7 @@ from ..context import CodeGenContext
 from ..error_flow import no_error_occurred, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..type_default import type_default
 from ..value_copy import owned_input
 
 
@@ -87,7 +88,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(build_assign(obj, parse_expr(receiver)))
         receiver = obj
 
-    error_in, error_outs = own_error_terminals(node)
+    error_in, error_outs = own_error_terminals(node, ctx)
     incoming = (ctx.wired_input(error_in.id, node) if error_in else None) or "None"
     error: str | None = None  # the error so far, once a row can report one
     bindings: dict[str, str] = {}
@@ -107,7 +108,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         else:
             # A row after one that can report an error runs only when none did.
             for var in row.bindings.values():
-                statements.append(build_assign(var, type_default_expr(term.lv_type)))
+                statements.append(build_assign(var, type_default(ctx, term.lv_type)))
             if row.receiver is not None:
                 statements.append(build_assign(row.receiver, parse_expr(receiver)))
             statements.append(

@@ -11,7 +11,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.subvi import _build_output_bindings
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph, error_cluster_type, exec_module
+from tests.helpers import build_graph, error_cluster_type, exec_generated, exec_module
 
 
 @pytest.mark.parametrize("label", ["_status", "status", "class", "2nd result"])
@@ -87,7 +87,7 @@ def test_result_field_and_return_agree(label: str, field: str):
     graph = build_graph(context, context.name, [])
     source = build_module(context, context.name, graph=graph)
     namespace = {}
-    exec(compile(source, context.name, "exec"), namespace)
+    exec_generated(source, namespace, context.name)
     result = namespace["result_field"]()
     assert field_names(result) == (field,)
     assert dataclasses.asdict(result) == {field: 42.0}

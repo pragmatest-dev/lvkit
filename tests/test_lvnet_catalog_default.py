@@ -22,6 +22,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.primitive_resolver import get_resolver
 from lvkit.terminal_default import DefaultBehavior
+from tests.helpers import exec_generated
 from tests.structure_diagrams import (
     BOOL,
     I32,
@@ -105,7 +106,7 @@ def test_a_behaviour_the_function_writes_is_executed(tmp_path: Path) -> None:
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     assert namespace["t"]().result == "7"  # type: ignore[operator]
 
 
@@ -292,7 +293,7 @@ def test_string_subset_with_length_unwired_returns_the_rest_of_the_string(
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     assert namespace["t"]().result == "cdef"  # type: ignore[operator]
 
 

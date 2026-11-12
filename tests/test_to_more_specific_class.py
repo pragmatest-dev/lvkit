@@ -103,7 +103,9 @@ def test_a_class_cast_checks_the_target_class(tmp_path: Path) -> None:
         result = cast(obj=child)
         assert (result.specific, result.error_out) == (child, None)
         result = cast(obj=module("base").Base())
-        assert result.specific is None
+        # The failed cast gives the default object of the target class.
+        assert type(result.specific) is module("child").Child
+        assert result.specific is not child
         error = result.error_out
         assert (error.status, error.code, error.source) == (
             True,

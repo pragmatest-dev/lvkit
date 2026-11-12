@@ -14,8 +14,8 @@ from nicegui import ui
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.panel.kinds import PanelKind
 from lvkit.panel.runtime import (
-    LiveValues,
     Member,
+    PanelWidgets,
     bool_port,
     cluster_indicator,
     cluster_port,
@@ -31,7 +31,7 @@ from lvkit.panel.widget_call import (
 )
 from lvkit.parser.models import ParsedFPControl, ParsedFPPart
 from lvkit.path_value import format_path
-from tests.panel_harness import found, simulate
+from tests.panel_harness import found, panel_with, simulate
 
 
 def _primitive(name: str) -> LVType:
@@ -49,9 +49,7 @@ def _fp(name: str, control_type: str, *children: ParsedFPControl) -> ParsedFPCon
 
 
 def _inner_cluster() -> tuple[ParsedFPControl, LVType]:
-    control = _fp(
-        "Inner", "stdClust", _fp("Gain", "stdNum"), _fp("On", "stdBool")
-    )
+    control = _fp("Inner", "stdClust", _fp("Gain", "stdNum"), _fp("On", "stdBool"))
     lv_type = LVType(
         kind=LVTypeKind.CLUSTER,
         underlying_type="Cluster",
@@ -202,7 +200,7 @@ def test_a_named_cluster_port_gives_and_shows_an_object_of_its_fields() -> None:
     ports: list[Any] = []
 
     def build() -> None:
-        holder = LiveValues()
+        holder = PanelWidgets()
         ports.append(
             cluster_port(
                 True,
@@ -229,8 +227,9 @@ def test_a_named_cluster_port_gives_and_shows_an_object_of_its_fields() -> None:
     simulate(build, scenario)
 
 
-def test_a_change_in_a_nested_field_reaches_the_holder_as_the_whole_cluster() -> None:
-    holder = LiveValues()
+def test_a_change_in_a_nested_field_reaches_the_panel_as_the_whole_cluster() -> None:
+    panel = panel_with("outer")
+    holder = PanelWidgets(panel)
 
     def build() -> None:
         from lvkit.panel.runtime import cluster_control
@@ -252,13 +251,10 @@ def test_a_change_in_a_nested_field_reaches_the_holder_as_the_whole_cluster() ->
         )
 
     async def scenario(user: Any) -> None:
-        assert holder.value("outer") == (False, SimpleNamespace(gain=0))
+        assert panel.get("outer") == (False, SimpleNamespace(gain=0))
         (number,) = found(user, ui.number)
         number.set_value(3)
-        assert holder.value("outer") == (False, SimpleNamespace(gain=3))
-        held = holder.value("outer")
-        held[1].gain = 99  # the function may change what it is given
-        assert holder.value("outer") == (False, SimpleNamespace(gain=3))
+        assert panel.get("outer") == (False, SimpleNamespace(gain=3))
 
     simulate(build, scenario)
 
@@ -356,9 +352,7 @@ def test_an_array_saved_with_values_of_another_kind_starts_empty() -> None:
 
 
 def _scalar(control_type: str, type_name: str, saved: object) -> Any:
-    return describe(
-        _fp("Value", control_type), _primitive(type_name), saved, "value"
-    )
+    return describe(_fp("Value", control_type), _primitive(type_name), saved, "value")
 
 
 def test_a_string_control_starts_from_the_text_it_is_saved_with() -> None:
@@ -381,9 +375,7 @@ def test_a_boolean_or_number_saved_as_text_starts_from_its_value() -> None:
     assert _scalar("stdNum", "NumInt32", None).default == 0
 
 
-def test_a_path_control_starts_from_its_saved_path_on_the_system_it_runs_on() -> (
-    None
-):
+def test_a_path_control_starts_from_its_saved_path_on_the_system_it_runs_on() -> None:
     saved = format_path(0, ["D", "data", "run1.tdms"])
     described = _scalar("stdPath", "Path", saved)
     call = widget_call(described, described.kind, "'value'")

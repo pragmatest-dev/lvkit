@@ -37,10 +37,11 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode
 from lvkit.models import Terminal, Tunnel
 
-from ..ast_utils import build_assign, node_owned_name, parse_expr, type_default_expr
+from ..ast_utils import build_assign, node_owned_name, parse_expr
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..type_default import default_if_unset, state_seed
 
 _STATE_PREFIX = "_lv_feedback"
 _STARTED_PREFIX = "_lv_feedback_started"
@@ -161,7 +162,7 @@ def _read(master: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     statements: list[ast.stmt] = []
     if held is None:
         held = _state_name(master, ctx)
-        ctx.add_state_global(held, type_default_expr(out.lv_type), owner=master.id)
+        ctx.add_state_global(held, state_seed(out.lv_type), owner=master.id)
         names = [held]
         init = next((t for t in master.terminals if t.direction == "input"), None)
         start = ctx.wired_input(init.id, master) if init is not None else None
@@ -184,6 +185,9 @@ def _read(master: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
         else:
             statements.append(ast.Global(names=names))
+        statements.extend(
+            default_if_unset(held, out.lv_type, ctx, "the Feedback Node's value")
+        )
     statements.append(build_assign(result, ast.Name(id=held, ctx=ast.Load())))
     return CodeFragment(statements=statements, bindings={out.id: result})
 
@@ -196,6 +200,4 @@ def _write(
     if value is None:
         return CodeFragment.empty()
     held = _loop_variable(master, ctx) or _state_name(master, ctx)
-    return CodeFragment(
-        statements=[build_assign(held, parse_expr(value))]
-    )
+    return CodeFragment(statements=[build_assign(held, parse_expr(value))])

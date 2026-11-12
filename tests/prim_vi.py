@@ -16,7 +16,7 @@ from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 
 def scalar(name: str) -> LVType:
@@ -112,7 +112,7 @@ def generate(
     graph = build_graph(context, context.name, [node])
     source = build_module(context, context.name, graph=graph)
     namespace: dict = {}
-    exec(compile(source, vi_name, "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, vi_name)  # noqa: S102
     return source, namespace[vi_name.removesuffix(".vi").lower().replace(" ", "_")]
 
 

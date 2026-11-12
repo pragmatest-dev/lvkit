@@ -8,10 +8,12 @@ it holds is found when the code is generated, not when it runs:
 - Open VI Reference imports the function of the VI its path or name input names
   (``InMemoryVIGraph.opened_vi``);
 - Call By Reference calls that function with the called VI's own parameter
-  names; Start Asynchronous Call submits the call to a thread pool;
+  names; Start Asynchronous Call submits the call to a thread pool, or starts a
+  forgotten call on a daemon thread;
 - Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
-  ``__name__`` and file (``vi_property_read``).
+  ``__name__`` and file, and its Description is the function's docstring
+  (``vi_property_read``).
 
 A reference to a member VI of a class is ``Class.method`` and the call passes
 the object as its ``self`` keyword; Call By Reference does not support a dynamic
@@ -44,6 +46,8 @@ from lvkit.graph.vi_reference import (
     OPEN_VI_PATH_INDEX,
     OPEN_VI_REFERENCE_INDEX,
     VI_CLASS,
+    VI_DESCRIPTION_PROPERTY_CODE,
+    VI_EXEC_STATE_PROPERTY_CODE,
     VI_NAME_PROPERTY_CODE,
     VI_PATH_PROPERTY_CODE,
     ReferencedVI,
@@ -76,6 +80,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
+from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -353,9 +358,9 @@ def _invocation(
             func=parse_expr(call.function), args=[], keywords=call.keywords
         )
         return build_assign(call.result_var, invoke)
-    submit = submit_to_pool(ctx, call.function, call.keywords)
     if options is not None and options & CALL_AND_FORGET:
-        return ast.Expr(value=submit)
+        return ast.Expr(value=start_forgotten(ctx, call.function, call.keywords))
+    submit = submit_to_pool(ctx, call.function, call.keywords)
     return build_assign(ctx.make_output_var("future", node.id), submit)
 
 
@@ -370,7 +375,7 @@ def _made_only_with_a_vi(
     node whose error out is not wired has nowhere to report it, so calling the
     reference stays what fails, as a native failure does
     (``native_failure``)."""
-    _, error_outs = own_error_terminals(node)
+    _, error_outs = own_error_terminals(node, ctx)
     if not any(ctx.is_wired(term.id) for term in error_outs):
         return fragment
     statements = list(fragment.statements)
@@ -390,7 +395,7 @@ def _made_only_with_a_vi(
         fragment.bindings[term.id] = var
     own_error = ctx.make_output_var("own_error", node.id)
     defaults = output_defaults(
-        node, fragment.bindings, assigned_names(statements), None
+        node, ctx, fragment.bindings, assigned_names(statements), None
     )
     ctx.import_labview_error()
     invalid = labview_error(INVALID_VI_REFERENCE_CODE, _label(node))
@@ -409,14 +414,44 @@ def submit_to_pool(
     ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
 ) -> ast.Call:
     """``function(**keywords)`` started on the module's thread pool, which this
-    adds: the call goes on while the caller does not wait for it. Its value is
-    the call's ``Future``."""
+    adds. Its value is the call's ``Future``, which Wait On Asynchronous Call
+    waits for."""
     ctx.add_import(_EXECUTOR_IMPORT)
     ctx.add_module_global(_EXECUTOR, parse_expr("ThreadPoolExecutor()"))
     return ast.Call(
         func=parse_expr(f"{_EXECUTOR}.submit"),
         args=[parse_expr(function)],
         keywords=keywords,
+    )
+
+
+def start_forgotten(
+    ctx: CodeGenContext, function: str, keywords: list[ast.keyword]
+) -> ast.Call:
+    """``threading.Thread(target=function, kwargs={...}, daemon=True).start()``: a
+    call started and forgotten runs to its end on its own, as the target VI does
+    in LabVIEW after its caller finishes, and does not keep the program from
+    exiting."""
+    ctx.add_import("import threading")
+    thread = ast.Call(
+        func=parse_expr("threading.Thread"),
+        args=[],
+        keywords=[
+            ast.keyword(arg="target", value=parse_expr(function)),
+            ast.keyword(
+                arg="kwargs",
+                value=ast.Dict(
+                    keys=[ast.Constant(value=k.arg) for k in keywords],
+                    values=[k.value for k in keywords],
+                ),
+            ),
+            ast.keyword(arg="daemon", value=ast.Constant(value=True)),
+        ],
+    )
+    return ast.Call(
+        func=ast.Attribute(value=thread, attr="start", ctx=ast.Load()),
+        args=[],
+        keywords=[],
     )
 
 
@@ -690,16 +725,37 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
 
 
 def vi_property_read(
-    node: PrimitiveNode, prop: PropertyDef, reference: str
+    node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
-    function: Name is the function's name, Path its file. None for a property of
-    another class, or one with no such reading."""
+    function: Name is the function's name, Path its file, Description its
+    docstring (the VI's description), Exec.State the state of its front panel
+    (``Panel.state``: 1 Idle, 2 Run top level while it runs).
+    None for a property of another class, or one with no such reading. The
+    imports the read needs are added to ``ctx``."""
     if node.object_name != VI_CLASS or len(prop.segments) != 1:
         return None
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.__name__")
     if code == VI_PATH_PROPERTY_CODE:
+        ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")
+    if code == VI_DESCRIPTION_PROPERTY_CODE:
+        ctx.add_import("import inspect")
+        return parse_expr(f'inspect.getdoc({reference}) or ""')
+    if code == VI_EXEC_STATE_PROPERTY_CODE:
+        ctx.import_panels(PANEL_CALL_IMPORTS)
+        return parse_expr(f"{PANEL_OF_NAME}({reference}).state")
     return None
+
+
+def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:
+    """Whether ``vi_property_read`` reads ``prop`` from the referenced VI's front
+    panel (Exec.State), which fails with the panel's own error (1026 for a
+    reference that holds no VI, 1035 for a Global VI)."""
+    return (
+        node.object_name == VI_CLASS
+        and len(prop.segments) == 1
+        and prop.segments[0].code == VI_EXEC_STATE_PROPERTY_CODE
+    )

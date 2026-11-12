@@ -59,10 +59,8 @@ from .ast_utils import (
     build_assign,
     class_style_name,
     distinct_names,
-    interface_names,
     parse_expr,
     parse_stmt,
-    to_var_name,
     unique_names,
 )
 from .errors import CodeGenError
@@ -73,8 +71,8 @@ from .event_kinds import (
     QUEUE_IMPORT,
     VALUE_CHANGE_CODE,
 )
-from .label_names import python_label
 from .live_io_module import LIVE_IO_NAME, NO_LIVE_IO_NAME
+from .panel_names import panel_names
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -125,19 +123,12 @@ class PanelHooks:
         the parameters, when they are not the connector pane's own."""
         if graph is None or not graph.touches_panel_while_running(vi_name):
             return None
-        interface = interface_names(
-            vi_context.inputs, vi_context.off_pane_inputs, vi_context.outputs
+        names = panel_names(vi_context, parameter_names)
+        named_controls = tuple(
+            c.id
+            for c in [*vi_context.inputs, *vi_context.off_pane_inputs]
+            if c.id in names
         )
-        controls = [*vi_context.inputs, *vi_context.off_pane_inputs]
-        control_names = parameter_names or interface.parameters
-        names = {c.id: control_names[c.id] for c in controls if c.id in control_names}
-        named_controls = tuple(names)
-        indicators = [*vi_context.outputs, *vi_context.off_pane_outputs]
-        wanted = [_indicator_name(t, interface.fields) for t in indicators]
-        for indicator, name in zip(
-            indicators, distinct_names(names.values(), wanted), strict=True
-        ):
-            names[indicator.id] = name
         member_names = unique_names(
             [name.upper().strip("_") or "NAME" for name in names.values()]
         )
@@ -179,7 +170,7 @@ class PanelHooks:
             written,
             names,
             members,
-            tuple(t.id for t in indicators),
+            tuple(t.id for t in [*vi_context.outputs, *vi_context.off_pane_outputs]),
             named_controls,
             property_enum,
             {p.member: p.member.upper() for p in written_properties},
@@ -247,9 +238,7 @@ def method_property_enum_name(class_name: str, method_name: str) -> str:
     return f"{class_name}{class_style_name(method_name)}Property"
 
 
-def _written_properties(
-    graph: InMemoryVIGraph, vi_name: str
-) -> list[ControlProperty]:
+def _written_properties(graph: InMemoryVIGraph, vi_name: str) -> list[ControlProperty]:
     """The control properties the Property Nodes of ``vi_name`` write, each once,
     in diagram order."""
     found: dict[str, ControlProperty] = {}
@@ -279,17 +268,7 @@ def _enum_def(name: str, members: list[tuple[str, str]]) -> ast.ClassDef:
     )
 
 
-def _indicator_name(indicator: Terminal, fields: dict[str, str]) -> str:
-    """The result field name of a connector-pane indicator, the variable name of
-    one that is not."""
-    return fields.get(indicator.id) or to_var_name(
-        python_label(indicator) or "indicator"
-    )
-
-
-def _live_io_call(
-    method: str, args: list[ast.expr], target: str | None
-) -> ast.stmt:
+def _live_io_call(method: str, args: list[ast.expr], target: str | None) -> ast.stmt:
     """``live_io.<method>(<args>)``, the result assigned to ``target`` when one
     is given."""
     call = ast.Call(

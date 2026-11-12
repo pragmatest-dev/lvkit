@@ -30,6 +30,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver, ModuleImport
 from ..shared_variable_module import SharedVariableAttributes
 from ..timestamp_templates import TIMESTAMP_IMPORTS
+from ..type_default import default_if_unset
 
 
 def _terminal(node: SharedVariableNode, which: SharedVariableTerminal) -> Terminal:
@@ -117,6 +118,14 @@ def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
         ast.Assign(
             targets=[ast.Name(id=value_var, ctx=ast.Store())],
             value=_attribute(module, attributes.value, False),
+        )
+    )
+    statements.extend(
+        default_if_unset(
+            value_var,
+            value_term.lv_type,
+            ctx,
+            f"the Shared Variable '{node.variable_name}'",
         )
     )
     bindings[value_term.id] = value_var

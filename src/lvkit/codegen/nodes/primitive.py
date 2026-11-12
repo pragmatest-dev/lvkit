@@ -31,7 +31,7 @@ from ..ast_utils import (
 from ..catalog_names import catalog_python_names
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
-from ..error_flow import merge_errors, status_read
+from ..error_flow import merge_errors, status_read, wire_typed_terminal_ids
 from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
@@ -105,10 +105,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(
             prim_id=prim_id,
-            node_slots={
-                (t.index, t.direction)
-                for t in node.terminals
-            },
+            node_slots={(t.index, t.direction) for t in node.terminals},
         )
         if resolved and resolved.terminal_set_gap:
             raise ConversionGap(resolved.terminal_set_gap, node)
@@ -154,7 +151,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
         op_template = get_op_template(resolved.op)
         if op_template is not None:
-            resolved.python_code = op_template(node, resolved)
+            resolved.python_code = op_template(node, resolved, ctx)
 
     # A primitive known by name but with no implementation raises where it runs.
     if resolved.confidence == "placeholder":
@@ -560,6 +557,7 @@ def _detect_passthroughs(
     """
     bindings: dict[str, str] = {}
     skip_ids: set[str] = set()
+    wire_typed = wire_typed_terminal_ids(node, ctx)
 
     exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
     ordinals = _output_index_ordinals(
@@ -569,7 +567,7 @@ def _detect_passthroughs(
     for term in node.terminals:
         if term.direction != "output":
             continue
-        if term.is_error_cluster:
+        if term.is_error_cluster and term.id not in wire_typed:
             continue
         if not ctx.is_wired(term.id):
             continue
@@ -669,6 +667,7 @@ def _get_wired_outputs(
                 if getattr(rt, "expandable", False):
                     expandable_out_index = rt.index
 
+    wire_typed = wire_typed_terminal_ids(node, ctx)
     outputs = []
     for term in node.terminals:
         if term.direction != "output":
@@ -682,7 +681,7 @@ def _get_wired_outputs(
         # Polymorphic prims reuse IDs with different semantics, so JSON
         # error labels can be wrong (e.g., 8003 is Variant To Data, not
         # Open/Create/Replace File).
-        if term.is_error_cluster:
+        if term.is_error_cluster and term.id not in wire_typed:
             continue
 
         # Skip unwired outputs — no consumer, no assignment needed

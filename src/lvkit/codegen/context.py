@@ -48,7 +48,6 @@ from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
-from lvkit.type_names import ROOT_CLASS
 from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import (
@@ -58,7 +57,7 @@ from .ast_utils import (
     to_function_name,
     to_var_name,
 )
-from .class_model import class_import, member_reference, member_shape
+from .class_model import class_reference, member_reference, member_shape
 from .constant_value import constant_value_expression
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
@@ -71,6 +70,7 @@ from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
+from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
 
 # A structure frame: the structure's node id and the frame's key
@@ -710,6 +710,20 @@ class CodeGenContext:
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
 
+    def import_panels(self, names: str, at_module_level: bool = False) -> None:
+        """Import ``names`` (``Panel``, ``panel_of``, ``PanelError``, comma
+        separated) from the package's ``panels`` module: where the function runs,
+        or at module level (``at_module_level``) for the ``Panel`` a function
+        carries."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.panels_import(names)
+        statement = statement or f"from .{PANELS_MODULE_NAME} import {names}"
+        if at_module_level:
+            self.signature_imports.add(statement)
+        else:
+            self.add_import(statement)
+
     def import_live_io(self) -> None:
         """Import ``LiveIO`` and ``NO_LIVE_IO`` from the package's ``live_io``
         module: the default of the ``live_io`` parameter is a value, so the import
@@ -802,7 +816,17 @@ class CodeGenContext:
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for
         a VI of a class, ``Class.method`` (the class imported; for an accessor VI
-        the getter or setter of its property)."""
+        the getter or setter of its property), or, for a Global VI, its module
+        (``global_module``), whose ``panel`` holds its controls."""
+        if (
+            self.graph is not None
+            and key is not None
+            and isinstance(self.import_resolver, ImportResolver)
+            and self.graph.get_vi_properties(key).is_global_vi
+        ):
+            module = self.import_resolver.module(key)
+            self.add_import(module.statement)
+            return module.alias
         shape = (
             member_shape(self.graph, key)
             if self.graph is not None and key is not None
@@ -839,18 +863,12 @@ class CodeGenContext:
         ``object`` (a generated class with no parent has no base). A class that
         is not loaded, or has no module, is a gap whose reason starts with
         ``what`` (the node it is for)."""
-        if lv_type.classname == ROOT_CLASS:
-            return "object"
-        class_key = (
-            self.graph.class_type_key(lv_type) if self.graph is not None else None
+        resolver = (
+            self.import_resolver
+            if isinstance(self.import_resolver, ImportResolver)
+            else None
         )
-        if class_key is None or not isinstance(self.import_resolver, ImportResolver):
-            raise ConversionGap(
-                f"{what} {lv_type.classname} names a class that is "
-                "not loaded; add it to the project or a --search-path"
-            )
-        assert self.graph is not None
-        imported = class_import(self.graph, class_key, self.import_resolver)
+        imported = class_reference(self.graph, resolver, lv_type, what)
         self.add_import(imported.statement)
         return imported.name
 

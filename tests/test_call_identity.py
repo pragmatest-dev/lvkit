@@ -28,6 +28,7 @@ from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.render import render_vi_with_subvis
 from lvkit.run_report import ProblemKind
+from tests.helpers import without_panel_attributes
 
 _FIRST_CALL_UID = 10
 
@@ -629,7 +630,7 @@ def test_each_generated_caller_imports_its_own_callee_and_runs(
     ran: list[str] = []
     for caller, owner in (("caller_case", "testcase"), ("caller_suite", "testsuite")):
         package = _generate(tree, tmp_path, caller)
-        source = (package / f"{caller}.py").read_text()
+        source = without_panel_attributes((package / f"{caller}.py").read_text())
         assert source.splitlines() == [
             "from __future__ import annotations",
             f"from .{owner}.skip import skip",
@@ -650,7 +651,11 @@ def test_callers_of_two_files_with_one_name_import_two_modules(
     imports = {}
     for caller in ("caller_one", "caller_two"):
         source = next(out.rglob(f"{caller}.py")).read_text()
-        (line,) = [ln for ln in source.splitlines() if ln.startswith("from .")]
+        (line,) = [
+            ln
+            for ln in without_panel_attributes(source).splitlines()
+            if ln.startswith("from .")
+        ]
         imports[caller] = line.split(" import ")[0]
     assert imports["caller_one"] != imports["caller_two"]
 

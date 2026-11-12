@@ -34,7 +34,7 @@ from lvkit.models import (
 )
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.vilib_resolver import ResolutionContext, VILibResolutionNeeded
-from tests.helpers import build_graph, exec_module
+from tests.helpers import build_graph, exec_module, without_panel_attributes
 from tests.test_loop_codegen import _mk_loop, _output_tunnel
 
 # ---------------------------------------------------------------------------
@@ -202,7 +202,8 @@ def _mystery(parent: str | None = None, frame: str | None = None) -> PrimitiveNo
 def _build(context: VIContext, nodes: list) -> tuple[str, list[Gap]]:
     graph = build_graph(context, context.name, nodes)
     gaps: list[Gap] = []
-    return build_module(context, context.name, graph=graph, gaps=gaps), gaps
+    source = build_module(context, context.name, graph=graph, gaps=gaps)
+    return without_panel_attributes(source), gaps
 
 
 def _with_the_raise_shown_as(source: str, marker: str) -> list[str]:

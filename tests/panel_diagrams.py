@@ -162,3 +162,19 @@ def array_element(vi: Vi, ddo_class: str, type_id: int, inner: str = "") -> str:
         "<bounds>(0, 0, 22, 80)</bounds>"
         f"<typeDesc>TypeID({type_id})</typeDesc>{inner}</ddo>"
     )
+
+
+def shared_label_vi(name: str = "Shared Label.vi") -> Vi:
+    """Two numeric controls both labelled ``Value`` and an indicator ``Sum`` that
+    shows their sum."""
+    vi = Vi(name)
+    first = vi.control("Value", I32, REQUIRED, bounds=(40, 20, 62, 160))
+    second = vi.control("Value", I32, REQUIRED, bounds=(110, 20, 132, 160))
+    total = vi.indicator("Sum", I32, bounds=(40, 220, 62, 360))
+    add = vi.primitive(
+        ADD, [("sum", 0, I32, True), ("y", 1, I32, False), ("x", 2, I32, False)]
+    )
+    vi.wire(first, add["x"])
+    vi.wire(second, add["y"])
+    vi.wire(add["sum"], total)
+    return vi

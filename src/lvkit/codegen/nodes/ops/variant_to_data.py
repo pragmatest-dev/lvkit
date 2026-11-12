@@ -2,8 +2,9 @@
 
 The node converts the variant's value to the type wired to ``type``; its
 ``data`` output has that type. A variant is the Python value itself, so the
-generated code checks the value against the Python type of ``data``
-(``Terminal.python_type``):
+generated code checks the value against the annotation the generated code gives
+``data`` (``ast_utils.terminal_annotation``; an error cluster is
+``LabVIEWError | None``):
 
 * a number converts to any numeric type (an integer type, an enum or a ring
   takes it rounded to the nearest integer, ties to even, as LabVIEW coerces a
@@ -23,7 +24,9 @@ entry's, by position, in the node's own numbering (LabVIEW versions number this
 node two ways, ``primitive_resolver.terminal_sets``): the second input is
 ``variant``, the second output ``data``; a call without the ``variant`` input is
 a ``TerminalNotOnCall`` gap. The node runs only when no error came in on its
-``error in`` (``error_flow``).
+``error in`` (``error_flow``). With ``data`` unwired and an error out wired, the
+check still runs and its failure is the error out (a VI asks whether a value is
+of a type that way); with neither wired the node does nothing.
 """
 
 from __future__ import annotations
@@ -40,8 +43,9 @@ from lvkit.lv_type_codes import (
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver.models import PrimitiveTerminal
 
-from ...ast_utils import build_assign, parse_expr
+from ...ast_utils import build_assign, parse_expr, terminal_annotation
 from ...context import CodeGenContext
+from ...error_flow import own_error_terminals
 from ...errors import TerminalNotOnCall
 from ...fragment import CodeFragment
 from ...import_resolver import ImportResolver
@@ -173,7 +177,9 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
             "numbering",
             node,
         )
-    if data is None or not ctx.is_wired(data.id):
+    _, error_outs = own_error_terminals(node, ctx)
+    data_wired = data is not None and ctx.is_wired(data.id)
+    if not data_wired and not any(ctx.is_wired(t.id) for t in error_outs):
         return CodeFragment.empty()
     variant = _node_terminal(node, variant_entry)
     if variant is None:
@@ -185,18 +191,26 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
             node,
         )
     value = ctx.wired_input(variant.id, node) or "None"
+    if data is None:
+        raise ConversionGap(
+            "the catalog entry of Variant To Data has no data terminal for this "
+            "call's numbering",
+            node,
+        )
     lv_type = data.lv_type
     if lv_type is None:
         return CodeFragment(bindings={data.id: value})
     convert = _numeric_conversion(lv_type)
     target: ast.expr | None = None
     if convert is None:
-        annotation = data.python_type(ctx.type_namer())
+        annotation = terminal_annotation(data, ctx.type_namer())
         target = _isinstance_target(parse_expr(annotation))
         if target is None:
             # Every value is of the data type: the data is the value itself.
             return CodeFragment(bindings={data.id: value})
         _type_imports(ctx, data, annotation)
+        if data.is_error_cluster:
+            ctx.import_labview_error()
 
     # The check and the conversion read the value; an expression is read once.
     prelude: list[ast.stmt] = []
@@ -223,10 +237,13 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         )
         result = parse_expr(value)
 
-    variable = ctx.make_output_var("data", node.id, terminal_id=data.id)
     statements: list[ast.stmt] = [
         *prelude,
         ast.If(test=mismatch, body=[_raise_incompatible()], orelse=[]),
-        build_assign(variable, result),
     ]
+    if not data_wired:
+        # Only the check is read, through the error out.
+        return CodeFragment(statements=statements)
+    variable = ctx.make_output_var("data", node.id, terminal_id=data.id)
+    statements.append(build_assign(variable, result))
     return CodeFragment(statements=statements, bindings={data.id: variable})

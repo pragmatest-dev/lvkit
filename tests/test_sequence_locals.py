@@ -25,6 +25,7 @@ from lvkit.graph.netlist_models import SequenceLocalUnreadable
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import SequenceLocal
 from lvkit.parser.nodes.sequence import extract_flat_sequences
+from tests.helpers import exec_generated
 
 # Terminal uids of the one sequence local (uid 5046), one per frame.
 _WRITE_TERM = "5055"
@@ -264,7 +265,7 @@ def test_generated_python_runs_frames_in_order(tmp_path: Path) -> None:
     assert tested
     assert set(tested) <= assigned
     namespace: dict = {}
-    exec(compile(source, "<seqlocal>", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "<seqlocal>")  # noqa: S102
     namespace[func.name]()
 
 

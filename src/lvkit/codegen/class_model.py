@@ -32,7 +32,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.error_behaviour import ErrorBehaviour
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
-from lvkit.type_names import derive_python_name
+from lvkit.type_names import ROOT_CLASS, derive_python_name
 
 from .ast_utils import build_result_class_name, interface_names
 from .class_attributes import (
@@ -45,13 +45,14 @@ from .class_attributes import (
     property_accessors,
     storage_names,
 )
+from .import_resolver import NameImport
 from .receiver_flow import carries_receiver
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
     from lvkit.models import LVType, Terminal
 
-    from .import_resolver import ImportResolver, NameImport
+    from .import_resolver import ImportResolver
 
 
 class MethodKind(StrEnum):
@@ -170,9 +171,7 @@ def type_attributes(
     key = graph.class_type_key(lv_type)
     if key is None:
         return None
-    _require_own_class(
-        graph, key, caller_vi_key, f"{node_label} on the private data"
-    )
+    _require_own_class(graph, key, caller_vi_key, f"{node_label} on the private data")
     return class_model(graph, key).attributes
 
 
@@ -484,9 +483,7 @@ def _shape(
         and not (accessor and t.is_error_cluster)
     }
     required = frozenset(
-        t.index
-        for t in r_in
-        if t.index in parameters and is_required(t, "input")
+        t.index for t in r_in if t.index in parameters and is_required(t, "input")
     )
     results: list[int] = []
     result_fields: dict[int, str] = {}
@@ -535,6 +532,28 @@ def base_import(
             "not found; add it to the project or a --search-path"
         )
     return class_import(graph, parent_key, resolver)
+
+
+def class_reference(
+    graph: InMemoryVIGraph | None,
+    resolver: ImportResolver | None,
+    lv_type: LVType,
+    what: str,
+) -> NameImport:
+    """The import and the Python name of the class ``lv_type`` names. LabVIEW
+    Object, the class every class descends from, is Python's ``object`` (a
+    generated class with no parent has no base; no import). A class that is not
+    loaded, or has no module, is a gap whose reason starts with ``what`` (the
+    node or default it is for)."""
+    if lv_type.classname == ROOT_CLASS:
+        return NameImport(statement="", name="object")
+    class_key = graph.class_type_key(lv_type) if graph is not None else None
+    if graph is None or class_key is None or resolver is None:
+        raise ConversionGap(
+            f"{what} {lv_type.classname} names a class that is "
+            "not loaded; add it to the project or a --search-path"
+        )
+    return class_import(graph, class_key, resolver)
 
 
 def class_import(
@@ -610,7 +629,6 @@ def member_reference(
         return f"{imported.name}.{name}", imported.statement
     side = "fget" if accessor.role is PropertyRole.GETTER else "fset"
     return f"{imported.name}.{name}.{side}", imported.statement
-
 
 
 def result_class_imports(

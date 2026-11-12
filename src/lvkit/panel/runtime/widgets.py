@@ -3,9 +3,9 @@ a ``Port`` (``port.py``) and as a control (the user changes it, the function rea
 it) or an indicator (the function writes it, the panel shows it). A complex number
 is two number boxes, real and imaginary.
 
-A control keeps the ``LiveValues`` holder up to date from its change handler. An
-indicator registers the function that shows a value in it; the holder calls that
-function on the event loop.
+A control tells the ``PanelWidgets`` view of the user's change from its change
+handler. An indicator registers the function that shows a value in it; the view
+calls that function on the event loop.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Port, bind_control, bind_indicator
+from .view import PanelWidgets
 
 CAPTION_CLS = "text-xs font-semibold text-gray-500 truncate leading-none"
 
@@ -127,35 +127,37 @@ def string_port(default: str, *, readonly: bool) -> Port:
     return port
 
 
-def number_control(live: LiveValues, name: Any, default: float, integer: bool) -> Port:
-    return bind_control(live, name, number_port(default, integer, readonly=False))
+def number_control(
+    view: PanelWidgets, name: Any, default: float, integer: bool
+) -> Port:
+    return bind_control(view, name, number_port(default, integer, readonly=False))
 
 
 def number_indicator(
-    live: LiveValues, name: Any, default: float, integer: bool
+    view: PanelWidgets, name: Any, default: float, integer: bool
 ) -> Port:
-    return bind_indicator(live, name, number_port(default, integer, readonly=True))
+    return bind_indicator(view, name, number_port(default, integer, readonly=True))
 
 
-def complex_control(live: LiveValues, name: Any, default: complex) -> Port:
-    return bind_control(live, name, complex_port(default, readonly=False))
+def complex_control(view: PanelWidgets, name: Any, default: complex) -> Port:
+    return bind_control(view, name, complex_port(default, readonly=False))
 
 
-def complex_indicator(live: LiveValues, name: Any, default: complex) -> Port:
-    return bind_indicator(live, name, complex_port(default, readonly=True))
+def complex_indicator(view: PanelWidgets, name: Any, default: complex) -> Port:
+    return bind_indicator(view, name, complex_port(default, readonly=True))
 
 
-def bool_control(live: LiveValues, name: Any, default: bool) -> Port:
-    return bind_control(live, name, bool_port(default, readonly=False))
+def bool_control(view: PanelWidgets, name: Any, default: bool) -> Port:
+    return bind_control(view, name, bool_port(default, readonly=False))
 
 
-def bool_indicator(live: LiveValues, name: Any, default: bool) -> Port:
-    return bind_indicator(live, name, bool_port(default, readonly=True))
+def bool_indicator(view: PanelWidgets, name: Any, default: bool) -> Port:
+    return bind_indicator(view, name, bool_port(default, readonly=True))
 
 
-def string_control(live: LiveValues, name: Any, default: str) -> Port:
-    return bind_control(live, name, string_port(default, readonly=False))
+def string_control(view: PanelWidgets, name: Any, default: str) -> Port:
+    return bind_control(view, name, string_port(default, readonly=False))
 
 
-def string_indicator(live: LiveValues, name: Any, default: str) -> Port:
-    return bind_indicator(live, name, string_port(default, readonly=True))
+def string_indicator(view: PanelWidgets, name: Any, default: str) -> Port:
+    return bind_indicator(view, name, string_port(default, readonly=True))

@@ -17,6 +17,7 @@ from typing import Any
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
+from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.load_mode import LoadMode
@@ -347,6 +348,17 @@ _generated_modules = itertools.count()
 GENERATED_PACKAGE = "generated_package"
 
 
+_PANEL_LINE = re.compile(r"^([\w.]+\.panel = Panel\(|from \.+panels import )")
+
+
+def without_panel_attributes(source: str) -> str:
+    """``source`` without the lines that give a function its ``panel`` and import
+    ``Panel`` (``codegen/panel_description.py``): a test that pins a function's
+    exact source is about the function, and ``tests/test_front_panel_reference.py``
+    pins the panel."""
+    return "\n".join(line for line in source.split("\n") if not _PANEL_LINE.match(line))
+
+
 def install_generated_package() -> None:
     """Register ``GENERATED_PACKAGE`` and its ``errors`` and ``live_io`` modules
     in ``sys.modules`` (once)."""
@@ -358,10 +370,32 @@ def install_generated_package() -> None:
     for name, source in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+        (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
     ):
         module = ModuleType(f"{GENERATED_PACKAGE}.{name}")
         sys.modules[module.__name__] = module
         exec(compile(source, f"{name}.py", "exec"), module.__dict__)  # noqa: S102
+
+
+def generated_panels() -> ModuleType:
+    """The ``panels`` module of ``GENERATED_PACKAGE``: ``Panel`` and the rest, as a
+    generated package holds them."""
+    install_generated_package()
+    return sys.modules[f"{GENERATED_PACKAGE}.{PANELS_MODULE_NAME}"]
+
+
+def write_support_modules(package_dir: Path) -> None:
+    """Write the modules every generated package root has (``errors.py``,
+    ``live_io.py`` and ``panels.py``) into ``package_dir``, for a test that writes
+    a package by hand. A module already there is kept."""
+    for name, source in (
+        (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+        (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+    ):
+        module = package_dir / f"{name}.py"
+        if not module.exists():
+            module.write_text(source, encoding="utf-8")
 
 
 def exec_module(
@@ -378,6 +412,32 @@ def exec_module(
     sys.modules[module.__name__] = module
     exec(compile(source, filename, "exec"), module.__dict__)  # noqa: S102
     return module
+
+
+class _NamespaceModule:
+    """What ``sys.modules`` holds for a namespace ``exec_generated`` runs in."""
+
+
+def exec_generated(
+    source, namespace: dict | None = None, filename: str = "<generated>"
+) -> dict:
+    """Run generated ``source`` (text or an ``ast.Module``) in ``namespace`` (a
+    fresh one when None) as a module of ``GENERATED_PACKAGE``, so its relative
+    imports (``from .panels import Panel``) resolve the way they do in a generated
+    package. Returns the namespace."""
+    install_generated_package()
+    ns = {} if namespace is None else namespace
+    ns.setdefault("__name__", f"{GENERATED_PACKAGE}._bare_{next(_generated_modules)}")
+    ns.setdefault("__package__", GENERATED_PACKAGE)
+    # A result class is a ``dataclass``, which looks its module up in
+    # ``sys.modules`` while it is defined: register one whose dict is ``ns``.
+    holder = _NamespaceModule()
+    holder.__dict__ = ns
+    sys.modules[ns["__name__"]] = holder  # type: ignore[assignment]
+    exec(compile(source, filename, "exec"), ns)  # noqa: S102
+    return ns
+
+
 def vi_key(graph, text: str) -> str:
     """The key of the one VI of ``graph`` that ``text`` names: a key, a
     qualified name, or a file name. A test's way to say which VI it loaded."""
@@ -435,7 +495,16 @@ def with_file_keys(lv_type, keys: dict[str, str]):
 
 def key_graph_types(graph, keys: dict[str, str]) -> None:
     """Give every class and typedef type on the terminals of ``graph``'s nodes
-    its ``file_key`` (``with_file_keys``), and a constant's own type too."""
+    its ``file_key`` (``with_file_keys``), and a constant's own type too, and the
+    class and typedef types of the private data of every class node."""
+    import dataclasses
+
+    for _, data in graph._dep_graph.nodes(data=True):
+        if data.get("fields"):
+            data["fields"] = [
+                dataclasses.replace(f, type=with_file_keys(f.type, keys))
+                for f in data["fields"]
+            ]
     for _, data in graph._graph.nodes(data=True):
         node = data.get("node")
         if getattr(node, "lv_type", None) is not None:

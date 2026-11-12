@@ -334,6 +334,8 @@ With `events=None`: only Timeout can fire. A timeout wired as a constant or valu
 
 ### 9.5 Panel side
 
+(Moved, §15.5: the queue is the run's `Panel.events`; the view's `PanelEvents` pushes into it. The text below says "holder" for what is now the `Panel`.)
+
 - The panel's change handlers (on the NiceGUI loop) do `events.put((label, value, "Value Change", old))`; `queue.Queue.put` is thread-safe, so the worker blocked in `events.get` wakes. Same handlers already keep `holder.controls` current for `on_read` (4.1). Mouse and menu events likewise from widget handlers where the kind is supported.
 - Window close: NiceGUI's client disconnect/`app.on_shutdown` puts `("", None, "Panel Close?", None, reply)` and waits.
 - **Filter events need a reply.** A filter event (Panel Close?, and any "?" event) lets the frame veto or modify it before LabVIEW acts. Proposed reply path: a filter event message carries a fifth item, a one-slot `queue.Queue` the sender made. The frame runs, then `reply.put((discard, modified_value))` (discard = the Event Filter Node's Discard? value, modified value = what the filter node returns, else the original). The panel waits on `reply` (from a thread, not the loop: `await run.io_bound(reply.get)`) before closing the window; discard True keeps the window open. Non-filter events have four items; the structure sees `len(event) == 5` as the filter case, known per frame from the graph, not guessed at run time.
@@ -431,6 +433,8 @@ A read of a listed property (other than Value) needs the control's state at the 
 
 ### 10.5 Panel side
 
+(Moved, §15.5: `PanelIO.set_property` tells the views `property_changed(label, prop, value)`; the NiceGUI view draws no property yet. The text below says "holder" for what is now the `Panel`.)
+
 `holder.property(member, prop, value)` stores it like `holder.update` (4.1); the paint timer applies it on the NiceGUI loop. Each widget kind (`panel/runtime/widgets*.py`) maps the properties it can show:
 - Visible → `set_visibility`
 - DisabledEnum 0 / 1 / 2 → enable / disable / disable + greyed class
@@ -451,6 +455,10 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 - **PR-A:** the property table plus the code-based Value test, and generated `on_property` writes with the property Enum. Tests: a handmade VI with one node writing DisabledEnum, Visible and Value. Every view is checked, `generate` executes with a recording `on_property`, and the expected calls are asserted. Neighbouring cases: a node with an unlisted row stays a gap, and a Value-only node is unchanged.
 - **PR-B:** the panel applies them (holder, paint, the widget kinds), with tests in NiceGUI's user simulation.
 - **PR-C:** the parser records each control's starting Visible / Disabled / range, then reads.
+
+### 10.8 A row with no Python meaning is a gap (decided 2026-11-11, recorded with §15)
+
+A Property Node row (on a control, or on a VI reference) that has no Python meaning is a gap: the generated code warns at generation and raises where the node would run, as every gap does (CLAUDE.md "ONE rule for every gap"). The listed control properties (10.2) and a VI reference's Name, Path and Exec.State (`vi_reference.vi_property_read`) are the rows that have one; no row is silently ignored.
 
 ## 11. One `live_io` object instead of hook parameters (DECIDED: maintainer, 2026-11-10, "Nice, approved")
 
@@ -510,6 +518,8 @@ The Timer class and example have 27 guarded hook calls today (21 in `timer.py`, 
 
 ### 11.4 The panel side and TesterKit
 
+(Moved, §15.5: the subclass the panel passes is `PanelIO` of `panels.py`, made by `Panel.run`; `LiveValues` is gone, its widgets are the view `PanelWidgets`.)
+
 - `LiveValues` subclasses `LiveIO`; the generated panel calls `vi_function(live_io=values)`.
 - `build_panel(forward: LiveIO | None = None)`: writes go to the panel and then to `forward`; reads come from the panel. One run then shows on screen and records elsewhere, with neither the panel nor the generated function knowing where.
 - TesterKit maps onto the methods with no change on either side (read from `testerkit/src/testerkit/` 2026-11-10): `write` → `channels.write(name.value, value, namespace=<VI>)` (`channels.py:81`, every write a sample) or `Context.observe` (`execution/harness.py:270`, the last value as the test's output); `read` → `Context.get_param(name.value, value)` (`harness.py:894`, the same shape: the default is the VI's own value); `prompt` → `prompts.ask` (`prompts/core.py:57`). TesterKit's namespace is output-only by design (`harness.py:314-320`); the adapter chooses whether controls share one parameter per name.
@@ -520,7 +530,7 @@ A remote `LiveIO` publishes on `write` and returns; `read` returns a local copy 
 
 ### 11.6 Steps
 
-One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
+One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Amended (§15.5): `live_io.py` is written with `panels.py` into every package, because `PanelIO` subclasses `LiveIO`. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
 
 ## 12. User events across VIs (added 2026-11-09)
 
@@ -589,3 +599,129 @@ ev.clear()                                # Destroy User Event
 - **P2. Kind.** Generate User Event puts the literal `'User Event'` as the kind, so a VI with no Event Structure needs no enum. The `<Vi>Event` enum of a VI with an Event Structure gains `USER_EVENT = 'User Event'`; the kind has an explicit name, and 1000 is not added to the confirmed event types (they name frame labels).
 - **P3. The structure's queue is the VI's `events`.** A structure with a cluster of registrations (D27) or a registration from another VI reads `events` and re-points each registration's lists to it, guarded (`if reg[0] is not events`), moving waiting messages first. No new function-entry seam. A structure wired to one registration made in this VI reads `reg[0]`, which is `events` when the VI has static panel events.
 - **P4.** (a) Unregister removes tolerantly (`if q in registered`), since Destroy clears the list. (b) Event data is copied per queue only for by-value objects (`value_copy`). (c) Priority: NI's Generate User Event page gives "0 high priority, 1 normal priority (default)"; unwired or a constant 1 generates, anything else is a gap.
+
+## 13. A VI's front panel by reference: Ctrl Val and Run VI (DECIDED: maintainer, 2026-11-11, "Approve"; REPLACED by §15, implemented 2026-11-11: the `Panel` of the generated `panels.py`)
+
+JKI VI Tester runs a test method across three VIs. `openMethodViReference` opens the method's VI by name; `Set Front Panel Object Control Value.vi` reads every control of that VI (Ctrl Val.Get All), finds the one of the TestCase class and sets it (Ctrl Val.Set); `CallTestMethod` runs the VI (Run VI) and reads the TestCase indicator and `error out` back (Ctrl Val.Get, Ctrl Val.Get All). The values live on the VI between those calls, set in one VI and read in another. Earlier decision kept: the by-name pick is the method on the object's class, and the controls are passed by label as keyword arguments (TASKS 0.9.0, maintainer 2026-11-10).
+
+A Python function has no front panel that holds values between calls, so the package gets one generated module, `front_panels.py`, written once like `notifiers.py` (no lvkit import):
+
+- `panel(function) -> FrontPanel`: one `FrontPanel` per function, kept in a module dict keyed by the function, so a value set in one VI is the value another VI runs or reads (LabVIEW keeps one front panel per VI).
+- `FrontPanel.set(label, value)`, `get(label)`, `get_all() -> [(label, value), ...]` (controls then indicators), and `run(wait=True)`: calls the function with the stored control values as keyword arguments, then stores each indicator's value from the result's fields. `wait=False` starts it on a daemon thread, as a call started and forgotten (NI: the target VI runs to completion whether or not the caller is still running).
+- Each generated function carries its label maps as function attributes, set after its `def` (or after its class for a method): LabVIEW label to parameter name, and LabVIEW label to result field. A value never set is the control's default from the signature.
+- Codegen: Ctrl Val.Set is `front_panels.panel(ref).set(name, value)`, Ctrl Val.Get `.get(name)`, Ctrl Val.Get All `.get_all()`; Run VI on a reference that is only known when the code runs, or on which the diagram sets controls, is `.run(wait)`. Run VI on a VI known when the code is generated, with nothing set on it, stays the direct call (`codegen/nodes/run_vi.py`).
+- A label the function does not have raises the error LabVIEW gives for an unknown control name (number from NI's public error list), on the Invoke Node's error out.
+
+As built (the points where the code settles what the list above leaves open):
+
+- The accessor is `FrontPanel.of(function)`, not a module function `panel`: the generated code imports `FrontPanel`, as it imports `Notifier`, so no control named `panel` can hide it.
+- `get_all(controls)` takes NI's Controls input (properties-and-methods/vi-server/vi/getallctrlvalvariant.html: TRUE returns every control, FALSE, the default, every indicator), so it lists one kind, not controls then indicators.
+- A method whose class output is the object it was called on returns no field for it, so a third function attribute, `panel_passed` (indicator label to `self`), names it.
+- An unknown label is error 1 with the message `"<label>" not found` (maintainer, 2026-11-11: no NI page gives an error for it; the one observed case, NI forum thread "Help with Set Control Value, Control Name", reports "ERR1" with `"X" not found` for a wrong control name). A reference that is Not a Refnum is error 1026.
+- `Execution.State` of a VI reference reads `FrontPanel.of(reference).state` (1 Idle, 2 Run top level while a run is in progress; NI's execstate.html lists Bad 0, Idle 1, Run top level 2, Running 3).
+- A Required control has no default in the generated signature (a direct call must pass it, like a subVI call), but a front panel runs a VI with the values its controls hold (maintainer, 2026-11-11: "Required inputs don't stop an individual VI from running in LV, just picks up the values currently in the front panel (initially set by control/type defaults)"). So a fourth function attribute, `panel_defaults` (label to a zero-argument function making the control's saved default, else its type's, a class's default object), gives `FrontPanel.run`, `get` and `get_all` that default for an unset Required control; each run makes a new list or object. The front panel docstring of an off-pane class control prints the same default.
+- The deprecated forms (Ctrl Val.Set (Deprecated), Get All (Deprecated)) take and return the value as an array of flattened bytes and a type string; they stay a gap. Their general form would follow the flatten rule (CLAUDE.md "GENERATED PYTHON": a type known at generation time keeps LabVIEW's flattened format) for every type with a public layout, a class or refnum staying a gap; built only if the corpus uses them in 10+ places (maintainer, 2026-11-11: "a general converter, not a JKI-only converter").
+
+## 14. Control references: Panel, Controls[], Label.Text, Indicator, Value (PROPOSED, 2026-11-11; SUPERSEDED by §15.6, built on `Panel` instead of `FrontPanel`)
+
+Extends §13 (`FrontPanel`) and §10/§11 (rows by class + property code; UI-state writes through `live_io.set_property`). Nothing recorded is replaced. Unmapped rows stay gaps (#294).
+
+**Corpus** (Property Node rows on a wired reference, 11 sample folders, distinct rows, `.tmp/prop_hits` in lvkit-fpref): Ctl Label.Text 23 read + 8 write, VI Panel 20, Pnl Controls[] 16, Clust AllObjs[] 13 + Clust Controls[] 8, Ctl Value 8 read (+ typed classes: Str Value 5 write, Ring Value 4 write), Ctl Indicator 5, Ctl Caption / HasCaption 4 each, Visible / Disabled writes on typed classes 4 each.
+
+**NI's definitions** (docs-be `labview-api-ref`, `properties-and-methods/vi-server/generic/gobject/...`): Controls[] "Array of references to the controls and indicators on the front panel. The array contains the references in tabbing order." (`panel/controls.html`); Indicator "If TRUE, the front panel object is an indicator." (`control/indicator.html`); Value "Data value of the control (LV variant)", read/write while running (`control/value.html`); Label "Reference to the label object. You can use this reference with the Text properties." (`control/label.html`).
+
+**Mechanism** (in the generated `front_panels.py`, no lvkit import):
+- A VI reference's `Panel` is `FrontPanel.of(ref)`.
+- `FrontPanel.controls` is a list of `Control` objects, one per control and indicator of the function, in tabbing order. Each has `label` (the LabVIEW label, read-only), `indicator` (from `panel_indicators` / `panel_passed`), and `value`, a property whose get / set is the panel's `get` / `set` (§13), so Value through a reference and Ctrl Val agree.
+- Rows are matched by class + property code (§10.2): Label.Text read → `ctl.label`; Indicator read → `ctl.indicator`; Value read / write on Ctl and every class that inherits Value's code → `ctl.value`.
+- **A cluster's Controls[]** is "Array of references to the cluster elements in cluster order" (`control/cluster/controls.html`). Cluster order is the order of the cluster's fields in its data (maintainer, 2026-11-11: "clusters have a tabbing order that sets field order in the data struct"), so it is the field order of the cluster's type (`LVType.fields`), which lvkit already has: no new parsing. Each element is a `Control` whose `label` is the field's label and whose `value` reads and writes that field of the cluster's value on the panel (a write replaces the cluster value with a copy whose field changed, as Bundle By Name does).
+- Everything else stays a gap for now: Label.Text write (renaming a control while running), Caption, Visible / Disabled through a reference (the referenced VI's `live_io` is not reachable from a `FrontPanel`), and a cluster's All Objects[], which NI orders differently: "does not use the cluster order … outputs the array of references to the cluster in a Z-order, where the first object is the last object inserted into the cluster", and it includes decorations (`control/cluster/allobjects.html`).
+
+**Open: the panel's tabbing order.** The parser records no tab order (`parser/` has none). Candidate sources in the front-panel heap: `ddoList` (the panel's object list) and `zPlaneList` (drawing order). Evidence to collect from the corpus: for every cluster control, whether its element list in the heap is in its type's field order (cluster order) while its z-order differs. If so, LabVIEW stores an order of tabbing in the object list, and the panel's `ddoList` is the panel's tabbing order by the same storage. Until that is shown, the panel's `Controls[]` is a gap rather than a guessed order.
+
+## 15. A VI's front panel: every VI has one, reached through its reference, run headless or shown (DECIDED 2026-11-11, maintainer: "Please implement (and remember LV allows for headless execution)"; replaces §13's mechanism)
+
+Audits of earlier drafts: `.tmp/design_audit_15.md`, `15b.md`, `15c.md` (lvkit-fpref). This version answers 15c.
+
+### 15.1 What LabVIEW represents (NI, docs-be `labview-api-ref`)
+
+- **Every VI has a front panel**, owned by the VI. Run VI "uses the current values of all front panel controls for execution rather than using data passed in through parameters" (`properties-and-methods/vi-server/vi/run.html`).
+- **Values are tracked on demand**: "LabVIEW does not keep track of data values on controls and indicators until LabVIEW determines you want them, that is, until you call this method or display the front panel. When you display the front panel, LabVIEW begins keeping track of the values. The first time you call this method on a VI whose front panel is not open, this method returns the default values …" (`vi/getctrlvalvariant.html`). A panel starts at its controls' defaults.
+- **Headless.** A VI runs with its panel closed (as a subVI, by reference, in a built application with no window); showing the panel is optional and does not change what the VI does.
+- **Access** to another VI's panel is through a VI reference on a wire (Ctrl Val, Run VI, Property Nodes); a reference may be opened by a path computed at run time, so any VI in the project can be a target.
+- **Labels**: Ctrl Val.Set / Get pick "the first object whose label matches" in "the front panel tabbing order" (`vi/setctrlvalvariant.html`, `vi/getctrlvalvariant.html`).
+- **One run at a time**: Run VI cannot run a VI "already reserved for execution by another VI" (`vi/run.html`).
+- **Reentrant VIs** have parallel data spaces (`vi/run.html`, Auto Dispose text): out of scope, a gap.
+- **Not found**: whether a subVI call updates the callee's panel values; this design does not (tracking on demand suggests not for a closed panel).
+
+### 15.2 Mapping
+
+| LabVIEW | Python |
+|---|---|
+| a VI | its generated function |
+| its front panel | `function.panel`, a `Panel` from the generated `panels.py`, set right after the `def` (after the class for a method) on EVERY generated function VI and class method (a property's getter on `Class.name.fget`, its setter on `Class.name.fset`); a Global VI's `panel` is a `PanelValues` over its module's names (15.4): `my_vi.panel = Panel(my_vi, controls={name: label}, indicators={name: label}, results={name: field}, defaults={name: lambda: <default>}, order=[name, ...])`; `name` is the VI's one name table (D2: `codegen/panel_names.py`), the label only what Ctrl Val looks an object up by (`defaults` only for a Required or off-pane control, left out when empty; `order` the names in tabbing order, left out when that is the controls then the indicators, 15.6). Values are created on first use (tracking on demand). |
+| a VI reference | the function; `ref.panel`; a reference to a Global VI is its module, whose `panel` is a `PanelValues` (15.4) |
+| no VI (Not a Refnum, or an object with no panel) | `panel_of(ref)` raises the LabVIEW error 1026 as an error-out value (no AttributeError) |
+| Ctrl Val.Set / Get / Get All | `panel_of(ref).set(label, value)` / `.get(label)` / `.get_all(controls)`; unknown label: error 1; a duplicate label is the first object's in tabbing order, as NI ("the first object whose label matches", 15.1), with no error and no gap (15.6) |
+| Run VI | `panel_of(ref).run(wait=True)`: refuses a second concurrent run (error, as NI); calls the function with every control value (set, else default) and the attached views' `live_io`; stores indicators from the result. `wait=False`: the running state is set BEFORE the work is started on a daemon thread (`_start_thread`); an error the run raises goes to the views' `run_finished(error)` and, headless, is not returned (LabVIEW's Run VI without waiting does not return the target's error either). Known difference: the call-and-forget start of Start Asynchronous Call (`vi_reference.start_forgotten`) is a daemon thread too but calls the function directly, not through the target's `Panel`, so the target's `state` stays 1 and a Run VI on it during that time is not refused (LabVIEW would report the target running) |
+| Exec.State | `panel_of(ref).state` |
+| a direct subVI call | unchanged; the panel is not touched |
+| the panel shown | a view: NiceGUI tab, test recorder, remote mirror. A `Panel` keeps a set of views; each is notified of control and indicator changes. The NiceGUI toolbar's Run is `panel.run()`, the same path as Run VI by reference (one run path) |
+| running headless | no view attached; everything above works without NiceGUI (base package only) |
+| what a VI does with its own panel while running | `live_io` (§11): a run through the panel passes a `LiveIO` that forwards reads, writes, properties and events to the panel and its views, else `NO_LIVE_IO` |
+
+### 15.3 Recorded design this touches
+
+| Recorded | Where | Here |
+|---|---|---|
+| `live_io` §11; base no-op; D6 not passed to subVIs | PLAN:459-471, :232 | KEPT; the panel supplies the `live_io` of a run it starts |
+| D4: logic identical with or without `--panel` | PLAN D4 | KEPT: every VI has `panel` regardless of the flag |
+| D21 embedded io | PLAN:507 | KEPT; a Subpanel's embedded VI is a view of that VI's panel |
+| `LiveValues` holds shown values; `RunController` owns run state, events, abort, pause | `panel/runtime/live.py`, `panel/runtime/` | REPLACED (built, §15.5): run state, abort, pause, events and values live in `Panel` / `PanelIO` (headless); NiceGUI keeps widgets and painting only, as a view (`PanelWidgets`, `panel/runtime/view.py`) |
+| §13 direct call when a static target has nothing set | §13 | REPLACED: Run VI always goes through the panel (the panel holds values set anywhere) |
+| D2 names | PLAN:227-228 | KEPT; the panel description uses the same unique names |
+| Required input positional, no default | `builder.py:648-659`, `codegen-fix-assumptions.md:380-414` | KEPT; the panel's default factory supplies it |
+| Run VI gaps a Required input | `run_vi.py:217-222` | REPLACED: no gap |
+| Indicators a Local Variable reads | ARCH:289 | KEPT (the function's own data); a run through the panel writes the panel from the result |
+| Off-pane controls / indicators (D7, D8, D10) | PLAN | in the description by label; Set on one is stored; a run cannot pass it (not a parameter): gap until the function reads its panel |
+| Approved helpers | CLAUDE.md:59 | ADDED: `panels.py` (approved 2026-11-11); Python has no front-panel construct |
+| A type's default is its default object for a class | ARCH ("A type's default is its default object for a class", maintainer 2026-11-11), `codegen/type_default.py` | ALSO IN THIS PR: a control's default (a class-typed control the panel description makes a default for) is the class's default object |
+| An error cluster on a primitive terminal whose catalog type is polymorphic is data, not the node's own error | ARCH "Errors are values on the wire" (`error_flow.own_error_terminals`) | ALSO IN THIS PR: Variant To Data and the other polymorphic-typed terminals take the wire's type |
+| Property Node row with no Python meaning → gap | chat 2026-11-11 | recorded in §10 and ARCH with this change; 15.6 lists the rows that now have one |
+| `FrontPanel`, `front_panels.py`, label maps, `panel_defaults` | §13 | REMOVED |
+
+### 15.4 Open
+
+A Global VI's panel (decided 2026-11-11): `Panel` is split into `PanelValues` (names, labels, values, defaults, `set`/`get`/`get_all`, `holds`/`put`/`value`/`seed`, the views, over a pluggable store) and `Panel(PanelValues)` (adds the run, state, abort/pause, events, `PanelIO`). A Global VI's module holds `panel = PanelValues(controls={name: label}, storage=globals())`: the store is the module's own namespace, the names the global variable nodes use (`codegen/global_module.global_attribute_names`, which keeps `panel` free), so one store and no copy. A reference to a Global VI (Static VI Reference constant, Open VI Reference) is its module (`CodeGenContext.vi_reference_expression`), so `panel_of(ref)` is `ref.panel`. A Global VI's controls are all controls, so `get_all(True)` lists them. Run VI on a `PanelValues` that is not a `Panel` is error 1035 "Operation is invalid for this type of VI." (NI's Run VI page: "Available with global VIs: No"; NI's General LabVIEW Error Codes lists 1035; NI does not tie the two, so the match is by the text of the error). Reentrant targets (gap); a remote view's data-service thread is one more view (§11.5).
+
+### 15.5 Built: the NiceGUI panel is a view (2026-11-11)
+
+Recorded design this touches, and what became of each part:
+
+| Recorded | Here |
+|---|---|
+| `LiveIO` §11: a VI's own panel during a run; base no-op; `NO_LIVE_IO` | KEPT. `PanelIO` of the generated `panels.py` (a subclass of `LiveIO`, overriding only what it forwards to the panel: every future `LiveIO` method, such as `prompt` or `get_property`, is then on `PanelIO` with the base behaviour, "free expansion because all the io concerns can go in one optional parameter that we can expand over time without requiring rewrite"; `panels.py` imports `live_io.py`, so `pipeline` writes `live_io.py` into every generated package, whether or not a VI takes `live_io`) is passed to a function that takes `live_io`, for every run through the panel (views or none: a headless Abort needs the points `PanelIO` gives, so the run passes it whenever the function can take it) |
+| `LiveValues(LiveIO)` holds the shown values, the abort and pause checkpoint, the events | REPLACED: values, abort, pause and the run's events queue are the `Panel`'s (`Panel._values`, `_abort`, `_go`, `_io`); the NiceGUI class is `PanelWidgets` (widgets and painting only) |
+| `RunController`: Run/Abort/Pause toolbar, running state, banner | EXTENDED: Run is `panel.run(wait=False)`; Abort, Pause and Resume are the panel's; running state and banner follow `run_started` / `run_finished` |
+| Event Structure UI events (§9) | the queue is the run's (`Panel.events`); the view's `PanelEvents` pushes the user's changes into it |
+| Control properties written while running (§10.5) | `PanelIO.set_property` tells the views (`property_changed(name, prop, value)`); the NiceGUI view draws none yet |
+| D21 Subpanel: the embedded VI's io | a Subpanel's embedded VI is a view of ITS panel (no Subpanel generation exists yet; nothing changed) |
+| D4: logic identical with or without `--panel` | KEPT: only `panel/` files changed; the VI modules are byte-identical |
+| `PanelView` protocol (part A) | EXTENDED with `property_changed`; every notification is by name (D2's one name table, which `live_io`, the Panel and the view share, so `attach(view)` takes no name map); views are told outside the Panel lock |
+
+Mechanism, in plain words. A view records what the panel tells it (any thread) and draws on the event loop from a timer. A change the view itself set (`panel.put` from a widget's change handler) is not drawn back, so typing in a text box is not overwritten. A control starts at the panel's value when the panel holds one, else at its widget's (`Panel.seed`). A by-reference `set` reaches the widget without counting as the user's change (no Value Change event, as a LabVIEW programmatic write gives none). The panel holds every value by its name (D2), so two controls that share a label each keep what the user typed and the run passes each by its own parameter; only a Ctrl Val lookup by that label is refused (error 1, §15.2).
+
+### 15.6 Built: control references, tabbing order (2026-11-12)
+
+Recorded design this touches, and what became of each part:
+
+| Recorded | Here |
+|---|---|
+| `PanelValues` / `Panel`, values by unique name, labels only for the Ctrl Val lookup (15.2) | EXTENDED: `panel.controls` (Controls[]) is one `Control` per control and indicator, in tabbing order, the same object each time: `label`, `indicator`, `value` (a property whose get and set are the panel's `value` / `put` by name, so Value through a reference and Ctrl Val agree), `panel`. |
+| Duplicate label: error 1 at run time, a gap for a constant label on a loaded VI (15.2, `ctrl_val._check_label`, `Panel._name_of`) | REPLACED (maintainer, 2026-11-12: tabbing order is the `ddoList` order): the first object in tabbing order answers, no error, no gap; `_check_label` and `duplicate_labels` are removed. |
+| §14 control references, proposed on `FrontPanel` | Rewritten on `Panel` (15.6); §14 is superseded. |
+| Rows by class + property code (10.2, `control_properties.json`) | EXTENDED: `reference_rows` (`control_properties.reference_row`) names a control reference's own Value (the generic code 104013837 plus the strict and per-class Value codes), Indicator (104013831) and Label.Text (104013829, 103995392); the Panel row of the VI class (573) and the Controls[] row of the Pnl class (104105985) are in `codegen/nodes/panel_reference.py`. Every code is a corpus census (`.tmp/cr/census.py`, 2026-11-12): 573 is named Panel (157) or Front Panel (34) on the VI class (191); 104105985 Controls[] on Pnl (121); 104013829 / 103995392 Label.Text on Ctl (206, 207); 104013831 Indicator on Ctl (52) and Clust (12); 104013837 Value on Ctl (115) and generic Bool, Clust, Slide, Scroll, Tree, Arr (strict) classes; the strict classes' Value is 104013842. |
+| Property Node row with no Python meaning is a gap (10.8) | KEPT for Label.Text write (renaming a control), Indicator write, Caption, Visible / Disabled through a reference; these rows now generate: Panel (`panel_of(ref)`), Controls[] (`as_panel(ref).controls`), Value read and write (`as_control(ref).value`), Indicator (`.indicator`), Label.Text read (`.label`). A reference that holds no panel or control is error 1026 on the node's error out (`report_panel_error`). |
+| The parser records no tab order | The parser already records the panel's `root/ddoList` as `ParsedFrontPanel.dco_order`; each front-panel terminal carries its place as `FPTerminal.tab_index`, and the generated `Panel` is given `order` when it is not the controls then the indicators (`panel_description._tabbing_order`). `docs/_internal/design/labview-binary-format.md` records why `ddoList` is the tabbing order. |
+
+A cluster's Controls[] (`104102914`, 115 Property Node rows in the corpus; "references to the cluster elements in cluster order", `control/cluster/controls.html`) stays a gap: its element controls need each field's label and Python name in the panel description, and a `Control` whose `value` reads and writes one field of the cluster's value, which is more than this change.

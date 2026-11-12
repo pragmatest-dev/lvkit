@@ -1,5 +1,5 @@
 """How the panel module calls the builder of each kind of control: the arguments
-after the holder and the name, and the names the module imports for it. A field
+after the view and the name, and the names the module imports for it. A field
 of a cluster and the element of an array are a ``Member`` of the port builder of
 their kind, built the same way."""
 
@@ -69,7 +69,7 @@ def builder_of(control: PanelControl, kind: PanelKind) -> str:
 
 
 def widget_call(control: PanelControl, kind: PanelKind, key: str) -> str:
-    """The call that draws ``control`` of ``kind`` and ties it to the holder
+    """The call that draws ``control`` of ``kind`` and ties it to the view
     ``values`` under the hook name ``key``."""
     arguments = ARGUMENTS[kind](control)
     tail = f", {arguments}" if arguments else ""

@@ -49,6 +49,7 @@ from lvkit.codegen.notifiers_module import (
 )
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.panel_hooks import PanelHooks
+from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.type_module import build_type_module
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
@@ -375,6 +376,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{LIVE_IO_MODULE_NAME}.py")
         return f"from {dots}{module} import {LIVE_IO_NAME}, {NO_LIVE_IO_NAME}"
 
+    def panels_import(names: str) -> str:
+        dots, package, module = relative(output_dir / f"{PANELS_MODULE_NAME}.py")
+        return f"from {dots}{module} import {names}"
+
     def root_module_import(stem: str, alias: str) -> ModuleImport:
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
@@ -397,6 +402,7 @@ def create_import_resolver(
         module_key if module_key is not None else caller_key,
         notifier_import,
         live_io_import,
+        panels_import,
     )
 
 
@@ -437,9 +443,21 @@ def _write_notifiers_module(package_root: Path) -> None:
     )
 
 
+def _write_panels_module(package_root: Path) -> None:
+    """Write ``panels.py`` at the package root when a generated module imports
+    from it."""
+    _write_support_module(
+        package_root,
+        f".{PANELS_MODULE_NAME} import",
+        PANELS_MODULE_NAME,
+        PANELS_MODULE_SOURCE,
+    )
+
+
 def _write_live_io_module(package_root: Path) -> None:
     """Write ``live_io.py`` at the package root when a generated module imports
-    ``LiveIO`` from it."""
+    ``LiveIO`` from it: ``panels.py`` does (``PanelIO`` is a ``LiveIO``), so every
+    package that has ``panels.py`` has it, written after ``panels.py``."""
     _write_support_module(
         package_root,
         f"{LIVE_IO_MODULE_NAME} import {LIVE_IO_NAME}",
@@ -890,7 +908,12 @@ def generate_python(
         order,
         project_root(input_path),
         shared=frozenset(poly_variants) | frozenset(class_of_member),
-        reserved=[ERRORS_MODULE_NAME, NOTIFIERS_MODULE_NAME, LIVE_IO_MODULE_NAME],
+        reserved=[
+            ERRORS_MODULE_NAME,
+            NOTIFIERS_MODULE_NAME,
+            LIVE_IO_MODULE_NAME,
+            PANELS_MODULE_NAME,
+        ],
     )
     package_modules = PackageModules.from_graph(
         graph,
@@ -900,6 +923,7 @@ def generate_python(
             ERRORS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
+            PANELS_MODULE_NAME,
         },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
@@ -1178,6 +1202,7 @@ def generate_python(
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
+    _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):

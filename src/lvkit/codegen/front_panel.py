@@ -4,47 +4,74 @@ The connector pane is the interface of a VI's function: its parameters and its
 result. A control that is not on the pane is not a parameter; it is a local
 variable of the function, set to the control's saved default when the function
 starts, as the control holds it when the VI runs. An indicator that is not on the
-pane is not returned. The function's docstring lists both."""
+pane is not returned. The function's docstring is the VI's description followed by
+the list of both."""
 
 from __future__ import annotations
 
 import ast
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
 
 from .ast_utils import (
     build_assign,
-    control_default_expr,
     distinct_names,
     terminal_annotation,
     to_var_name,
 )
 from .label_names import python_label
+from .type_default import control_default
+
+if TYPE_CHECKING:
+    from .context import CodeGenContext
 
 _HEADING = "Front panel, not on the connector pane:"
 
 
 def off_pane_locals(
-    controls: Sequence[Terminal], names: dict[str, str]
+    controls: Sequence[Terminal], names: dict[str, str], ctx: CodeGenContext
 ) -> list[ast.stmt]:
     """The assignment of each off-pane control's saved default to its local
     variable (``names``: terminal id to name), in front-panel order."""
     return [
-        build_assign(names[c.id], control_default_expr(c))
+        build_assign(names[c.id], control_default(ctx, c))
         for c in controls
         if c.id in names
     ]
 
 
-def front_panel_docstring(
+def function_docstring(
     vi_context: VIContext,
     names: dict[str, str],
     spell: TypeNamer | None,
+    ctx: CodeGenContext,
     lookup_parameters: Sequence[str] = (),
 ) -> ast.stmt | None:
-    """The docstring that says which Variant parameters are dicts of attributes
+    """The function's docstring: the VI's description, verbatim (LabVIEW's bold
+    markup stays text; a blank one is none), then the front-panel notes; None when
+    the VI has neither."""
+    notes = _front_panel_notes(vi_context, names, spell, ctx, lookup_parameters)
+    description = vi_context.description
+    if not description or not description.strip():
+        text = notes
+    elif notes is None:
+        text = description
+    else:
+        text = f"{description}\n\n{notes}"
+    return None if text is None else ast.Expr(value=ast.Constant(value=text))
+
+
+def _front_panel_notes(
+    vi_context: VIContext,
+    names: dict[str, str],
+    spell: TypeNamer | None,
+    ctx: CodeGenContext,
+    lookup_parameters: Sequence[str],
+) -> str | None:
+    """The text that says which Variant parameters are dicts of attributes
     (``lookup_parameters``: terminal ids) and lists the off-pane controls (the
     local variable, type and saved default of each) and indicators (label and
     type); None when the VI has none of them."""
@@ -59,13 +86,13 @@ def front_panel_docstring(
         for name in sorted(tables)
     ]
     if not controls and not indicators:
-        return ast.Expr(value=ast.Constant(value="\n".join(lines) + "\n"))
+        return "\n".join(lines) + "\n"
     lines.append(_HEADING)
     if controls:
         lines.append("  Controls (local variables, set to their saved default):")
         lines.extend(
             f"    {names[c.id]}: {terminal_annotation(c, spell)} = "
-            f"{ast.unparse(control_default_expr(c))}"
+            f"{ast.unparse(control_default(ctx, c))}"
             for c in controls
         )
     if indicators:
@@ -80,5 +107,4 @@ def front_panel_docstring(
             f"    {label}: {terminal_annotation(c, spell)}"
             for label, c in zip(labels, indicators, strict=True)
         )
-    text = "\n".join(lines)
-    return ast.Expr(value=ast.Constant(value=f"{text}\n"))
+    return "\n".join(lines) + "\n"

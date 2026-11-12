@@ -20,7 +20,6 @@ from .ast_utils import (
     build_assign,
     build_result_class_name,
     build_type_checking_block,
-    control_default_expr,
     implicit_imports,
     interface_names,
     parameter_default_expr,
@@ -35,7 +34,7 @@ from .context import CodeGenContext
 from .elementwise import arrayify_module
 from .error_flow import share_guards
 from .errors import CodeGenError
-from .front_panel import front_panel_docstring, off_pane_locals
+from .front_panel import function_docstring, off_pane_locals
 from .gaps import Gap, vi_body
 from .global_module import build_global_module
 from .import_cycles import imports_inside, in_import_cycle
@@ -43,6 +42,7 @@ from .import_resolver import ImportResolver
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
+from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
     entry_events,
@@ -52,6 +52,7 @@ from .panel_hooks import (
     reads_in_frame,
 )
 from .references import REFERENCE_KINDS, generated_nodes
+from .type_default import control_default
 
 if TYPE_CHECKING:
     from .class_builder.shared_state import ModuleParts
@@ -181,7 +182,7 @@ def function_body(
 
     # A control that is not on the connector pane is a local variable set to its
     # saved default.
-    body.extend(off_pane_locals(vi_context.off_pane_inputs, names))
+    body.extend(off_pane_locals(vi_context.off_pane_inputs, names, ctx))
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
@@ -202,12 +203,12 @@ def function_body(
 
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
-    body.extend(ctx.local_indicators.statements_at_end())
+    body.extend(ctx.local_indicators.statements_at_end(ctx))
 
-    # The docstring opens the function; it names the Variant parameters the body
-    # turned out to read as lookup tables.
-    docstring = front_panel_docstring(
-        vi_context, names, ctx.type_namer(), sorted(ctx.lookup_parameters)
+    # The docstring opens the function: the VI's description, then the Variant
+    # parameters the body turned out to read as lookup tables.
+    docstring = function_docstring(
+        vi_context, names, ctx.type_namer(), ctx, sorted(ctx.lookup_parameters)
     )
     if docstring is not None:
         body.insert(0, docstring)
@@ -418,7 +419,7 @@ def output_value(
         return parse_expr(value)
     if ctx.is_wired(out.id):
         return ast.Constant(value=None)
-    return control_default_expr(out)
+    return control_default(ctx, out)
 
 
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
@@ -485,6 +486,14 @@ def build_module_ast(
         vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
+    module_body.extend(
+        function_panel_statements(
+            vi_context,
+            ctx,
+            func_def.name,
+            ctx.graph is not None and in_import_cycle(ctx.graph, vi_name),
+        )
+    )
 
     for statement in implicit_imports(module_body):
         ctx.add_import(statement)

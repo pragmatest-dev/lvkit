@@ -21,7 +21,7 @@ from lvkit.models import (
     Terminal,
     TypeResolutionNeeded,
 )
-from tests.helpers import build_graph, make_ctx
+from tests.helpers import build_graph, exec_generated, make_ctx
 
 DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 
@@ -101,7 +101,7 @@ def compile_vi(node, inputs, output, pairs):
     graph = build_graph(context, context.name, [node])
     source = build_module(context, context.name, graph=graph)
     namespace = {}
-    exec(compile(source, context.name, "exec"), namespace)
+    exec_generated(source, namespace, context.name)
     return namespace["cluster_test"]
 
 
@@ -274,7 +274,7 @@ def run_fragment(node, incoming):
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     namespace = {"incoming": incoming}
-    exec(compile(module, "<named-cluster>", "exec"), namespace)
+    exec_generated(module, namespace, "<named-cluster>")
     return fragment, namespace
 
 

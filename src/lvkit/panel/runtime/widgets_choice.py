@@ -10,8 +10,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Port, bind_control, bind_indicator
+from .view import PanelWidgets
 
 
 def choice_port(
@@ -38,12 +38,12 @@ def choice_port(
 
 
 def choice_control(
-    live: LiveValues, name: Any, items: tuple[tuple[str, int], ...], default: int
+    view: PanelWidgets, name: Any, items: tuple[tuple[str, int], ...], default: int
 ) -> Port:
-    return bind_control(live, name, choice_port(items, default, readonly=False))
+    return bind_control(view, name, choice_port(items, default, readonly=False))
 
 
 def choice_indicator(
-    live: LiveValues, name: Any, items: tuple[tuple[str, int], ...], default: int
+    view: PanelWidgets, name: Any, items: tuple[tuple[str, int], ...], default: int
 ) -> Port:
-    return bind_indicator(live, name, choice_port(items, default, readonly=True))
+    return bind_indicator(view, name, choice_port(items, default, readonly=True))

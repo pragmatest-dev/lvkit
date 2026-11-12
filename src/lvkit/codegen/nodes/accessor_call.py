@@ -19,13 +19,14 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import Terminal
 
-from ..ast_utils import control_default_expr, parse_expr, to_var_name
+from ..ast_utils import parse_expr, to_var_name
 from ..class_attributes import Accessor, AccessorPane
 from ..class_model import base_import, check_private_access, python_class_name
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..type_default import control_default
 from ..value_copy import owned_input
 
 
@@ -150,7 +151,7 @@ def _accessor_default(
     assert ctx.graph is not None and node.callee_key is not None
     inputs, _, _, _ = ctx.graph.vi_interface(node.callee_key)
     control = next((t for t in inputs if t.index == pane.value_in), None)
-    return control_default_expr(control) if control is not None else ast.Constant(None)
+    return control_default(ctx, control) if control is not None else ast.Constant(None)
 
 
 def _parent_class(ctx: CodeGenContext, node: VINode) -> ast.expr:

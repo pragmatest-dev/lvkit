@@ -13,7 +13,10 @@ from typing import Any
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
+from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
@@ -140,11 +143,17 @@ def run_catalog_call(
     assert "NotImplementedError" not in source
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "caller.py").write_text(source, encoding="utf-8")
+    for module, text in (
+        (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
+        (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+    ):
+        (package / f"{module}.py").write_text(text, encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
     try:
         caller = importlib.import_module("pkg.caller")
         result = caller.caller(**arguments)
     finally:
-        for name in ("pkg.caller", "pkg"):
+        for name in ("pkg.caller", "pkg.panels", "pkg.live_io", "pkg.errors", "pkg"):
             sys.modules.pop(name, None)
     return source, result

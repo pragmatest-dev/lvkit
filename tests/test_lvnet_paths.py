@@ -20,6 +20,7 @@ from lvkit.graph.models import Constant
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.models import LVType, LVTypeKind
 from lvkit.path_value import format_path, python_path
+from tests.helpers import exec_generated, exec_module
 from tests.structure_diagrams import (
     BOOL,
     PATH,
@@ -56,7 +57,8 @@ CASES: list[tuple[str, bytes, str]] = [
 
 def _constant_views(tmp_path: Path, saved: bytes) -> Views:
     xml = root_diagram(
-        [], [srn(800, [path_constant(701, saved)]), increment(10, PATH)],
+        [],
+        [srn(800, [path_constant(701, saved)]), increment(10, PATH)],
         [wire(901, 701, 13)],
     )
     return load(tmp_path, xml, _TYPES)
@@ -110,7 +112,8 @@ def _generated_function(tmp_path: Path, saved: bytes):
         front_panel_xml({}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])})
     )
     xml = root_diagram(
-        [], [srn(800, [path_constant(701, saved), fp_terminal(5030, 30)])],
+        [],
+        [srn(800, [path_constant(701, saved), fp_terminal(5030, 30)])],
         [wire(901, 701, 5030)],
     )
     return _generate(load(tmp_path, xml, _TYPES))
@@ -121,7 +124,7 @@ def _generate(views: Views):
     context = views.graph.get_vi_context(views.vi)
     source = build_module(context, views.vi, graph=views.graph)
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     return namespace["t"], source
 
 
@@ -223,7 +226,7 @@ def test_a_symbolic_folder_path_is_a_plain_path_value(
     source = build_module(context, views.vi, graph=views.graph, gaps=gaps)
     assert gaps == []
     namespace: dict[str, object] = {}
-    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    exec_generated(source, namespace, "T.py")  # noqa: S102
     value = namespace["t"]()
     assert value.result.parts == (symbolic.decode(), "x.vi")
     assert "import os" not in source
@@ -243,7 +246,8 @@ def _constant_views_for_function(tmp_path: Path, saved: bytes) -> Views:
         front_panel_xml({}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])})
     )
     xml = root_diagram(
-        [], [srn(800, [path_constant(701, saved), fp_terminal(5030, 30)])],
+        [],
+        [srn(800, [path_constant(701, saved), fp_terminal(5030, 30)])],
         [wire(901, 701, 5030)],
     )
     return load(tmp_path, xml, _TYPES)
@@ -417,7 +421,6 @@ def test_a_class_method_with_an_absolute_path_default_imports_os(
 
 
 def test_a_global_with_an_absolute_path_default_imports_os() -> None:
-    from types import ModuleType
 
     from lvkit.codegen.global_module import build_global_module
     from lvkit.graph.models import VINode
@@ -446,6 +449,5 @@ def test_a_global_with_an_absolute_path_default_imports_os() -> None:
         )
     )
     assert "import os\n" in source
-    module = ModuleType("paths")
-    exec(compile(source, "paths", "exec"), module.__dict__)  # noqa: S102
+    module = exec_module(source, "paths")
     assert module.folder.parts[-1] == "Data"

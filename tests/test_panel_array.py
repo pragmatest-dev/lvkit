@@ -34,6 +34,7 @@ from tests.panel_harness import (
     fire,
     found,
     panel_of,
+    record_calls,
     run_once,
     simulate,
 )
@@ -49,11 +50,18 @@ def _array_vi(
     kind = array_type(vi, element_type)
     element = array_element(vi, element_class, element_type)
     values = vi.control(
-        name, kind, REQUIRED, ddo_class="indArr", bounds=(40, 20, 200, 200),
+        name,
+        kind,
+        REQUIRED,
+        ddo_class="indArr",
+        bounds=(40, 20, 200, 200),
         inner=element,
     )
     shown = vi.indicator(
-        "Shown", kind, ddo_class="indArr", bounds=(40, 300, 200, 480),
+        "Shown",
+        kind,
+        ddo_class="indArr",
+        bounds=(40, 300, 200, 480),
         inner=element,
     )
     vi.wire(values, shown)
@@ -66,29 +74,22 @@ def _cluster_array_vi(fields: list[tuple[str, str, int]]) -> Vi:
     kind = array_type(vi, row)
     element = array_element(vi, "stdClust", row, cluster_fields(vi, fields))
     rows = vi.control(
-        "Rows", kind, REQUIRED, ddo_class="indArr", bounds=(40, 20, 200, 300),
+        "Rows",
+        kind,
+        REQUIRED,
+        ddo_class="indArr",
+        bounds=(40, 20, 200, 300),
         inner=element,
     )
     shown = vi.indicator(
-        "Shown", kind, ddo_class="indArr", bounds=(40, 340, 200, 620),
+        "Shown",
+        kind,
+        ddo_class="indArr",
+        bounds=(40, 340, 200, 620),
         inner=element,
     )
     vi.wire(rows, shown)
     return vi
-
-
-def _record_calls(
-    monkeypatch: pytest.MonkeyPatch, panel: Any
-) -> list[dict[str, Any]]:
-    calls: list[dict[str, Any]] = []
-    original = panel.vi_function
-
-    def recorded(**arguments: Any) -> Any:
-        calls.append(arguments)
-        return original(**arguments)
-
-    monkeypatch.setattr(panel, "vi_function", recorded)
-    return calls
 
 
 def test_an_array_of_numbers_takes_added_and_edited_rows_and_the_indicator_shows_them(
@@ -100,7 +101,7 @@ def test_an_array_of_numbers_takes_added_and_edited_rows_and_the_indicator_shows
     assert package.gaps == []
     assert "def array_demo(values: list[int] | None)" in package.source
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = found(user, ui.aggrid)
@@ -122,7 +123,7 @@ def test_removing_a_row_takes_it_out_of_the_value(
     project.add(_array_vi())
     package = project.generate(NAME, panel=True)
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = found(user, ui.aggrid)
@@ -174,7 +175,7 @@ def test_an_array_of_clusters_has_a_column_for_each_field_and_rows_are_tuples(
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
     panel = panel_of(package, STEM)
-    calls = _record_calls(monkeypatch, panel)
+    calls = record_calls(monkeypatch, panel)
 
     async def scenario(user: User) -> None:
         control, indicator = found(user, ui.aggrid)
@@ -225,11 +226,13 @@ def test_an_array_of_arrays_is_a_gap(project: Project) -> None:  # noqa: F811
     vi = Vi(NAME)
     inner = array_type(vi, I32)
     outer = array_type(vi, inner)
-    element = array_element(
-        vi, "indArr", inner, array_element(vi, "stdNum", I32)
-    )
+    element = array_element(vi, "indArr", inner, array_element(vi, "stdNum", I32))
     vi.control(
-        "Grid", outer, REQUIRED, ddo_class="indArr", bounds=(40, 20, 200, 200),
+        "Grid",
+        outer,
+        REQUIRED,
+        ddo_class="indArr",
+        bounds=(40, 20, 200, 200),
         inner=element,
     )
     project.add(vi)
@@ -237,9 +240,7 @@ def test_an_array_of_arrays_is_a_gap(project: Project) -> None:  # noqa: F811
     assert [(g.kind, g.node_name) for g in package.gaps] == [
         ("unsupported_control", "Grid")
     ]
-    assert package.gaps[0].reason == (
-        "the panel has no widget for an array of arrays"
-    )
+    assert package.gaps[0].reason == ("the panel has no widget for an array of arrays")
 
 
 def test_an_enum_column_shows_labels_and_gives_the_item_values() -> None:
@@ -248,7 +249,7 @@ def test_an_enum_column_shows_labels_and_gives_the_item_values() -> None:
     ports: list[Any] = []
 
     def build() -> None:
-        holder = controls.LiveValues()
+        holder = controls.PanelWidgets()
         ports.append(controls.array_control(holder, "levels", element, 3, []))
 
     async def scenario(user: User) -> None:
@@ -265,13 +266,12 @@ def test_an_enum_column_shows_labels_and_gives_the_item_values() -> None:
 
 def test_a_path_column_gives_paths() -> None:
 
-
     element = controls.Member("value", "", controls.path_port, "")
     ports: list[Any] = []
 
     def build() -> None:
         ports.append(
-            controls.array_control(controls.LiveValues(), "files", element, 3, [])
+            controls.array_control(controls.PanelWidgets(), "files", element, 3, [])
         )
 
     async def scenario(user: User) -> None:
@@ -290,7 +290,7 @@ def test_an_array_control_starts_with_its_saved_rows() -> None:
     def build() -> None:
         ports.append(
             controls.array_control(
-                controls.LiveValues(), "names", element, 3, ["ant", "bee"]
+                controls.PanelWidgets(), "names", element, 3, ["ant", "bee"]
             )
         )
 

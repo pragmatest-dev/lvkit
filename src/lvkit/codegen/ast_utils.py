@@ -47,9 +47,12 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
     error). A type with no Python value (a refnum, a variant) is ``None``, and so
-    is a class: an unwired class input holds the class's default object, which
-    the function makes in its body (``class_input_default``). The module that
-    holds the expression imports what it names (``implicit_imports``)."""
+    is a class here: the class's default object needs the class imported, which
+    only a function with a ``CodeGenContext`` can do (``type_default`` of
+    ``type_default.py``, used for every default written in a function body).
+    This one gives what a ``def`` parameter and a module-level variable start at
+    (``state_seed``). The module that holds the expression imports what it names
+    (``implicit_imports``)."""
     if lv_type is None:
         return ast.Constant(value=None)
     kind = lv_type.kind
@@ -57,7 +60,7 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     if kind == LVTypeKind.ARRAY:
         return ast.List(elts=[], ctx=ast.Load())
     if kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
-        return _cluster_default(lv_type)
+        return cluster_default_expr(lv_type, type_default_expr)
     if kind == LVTypeKind.PRIMITIVE:
         if underlying == "Path":
             return parse_expr("Path('')")
@@ -67,6 +70,22 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
     if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
     return ast.Constant(value=None)
+
+
+def mark_default_object(call: ast.expr) -> ast.expr:
+    """``call`` (a class's default object, ``Cls()``), marked as a type's default
+    value, which the optimizer drops when it is overwritten at once as it does a
+    constant default (``is_default_object``)."""
+    setattr(call, _DEFAULT_OBJECT_MARK, True)
+    return call
+
+
+def is_default_object(expression: ast.expr) -> bool:
+    """Whether ``expression`` was made by ``mark_default_object``."""
+    return getattr(expression, _DEFAULT_OBJECT_MARK, False) is True
+
+
+_DEFAULT_OBJECT_MARK = "lvkit_default_object"
 
 
 def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
@@ -102,10 +121,14 @@ def _scalar_default(underlying: str | None) -> ast.Constant:
     return ast.Constant(value=None)
 
 
-def _cluster_default(lv_type: LVType) -> ast.expr:
+def cluster_default_expr(
+    lv_type: LVType, field_default: Callable[[LVType | None], ast.expr]
+) -> ast.expr:
+    """The default of a cluster: ``field_default`` of each field's type, in the
+    form a cluster constant takes (``type_default_expr`` for the plain form)."""
     if _is_error_cluster(lv_type) or lv_type.classname or not lv_type.fields:
         return ast.Constant(value=None)
-    values = [type_default_expr(f.type) for f in lv_type.fields]
+    values = [field_default(f.type) for f in lv_type.fields]
     if not lv_type.typedef_name:
         return ast.Tuple(elts=values, ctx=ast.Load())
     names = field_attribute_names(f.name for f in lv_type.fields)
@@ -490,7 +513,7 @@ GENERATED_MODULE_NAMES = frozenset(
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
         "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "time", "uuid",
+        "struct", "sys", "tempfile", "threading", "time", "uuid",
     }
 )  # fmt: skip
 

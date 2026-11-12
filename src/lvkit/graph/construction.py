@@ -540,6 +540,7 @@ class ConstructionMixin:
                 caption=ctrl.caption if ctrl else None,
                 caption_visible=ctrl.caption_visible if ctrl else False,
                 fp_dco_uid=fp_term.fp_dco_uid,
+                tab_index=fp.tab_index(fp_term.fp_dco_uid) if fp else None,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=_default_for(ctrl, lv_type),
                 unwritable=ctrl.unwritable if ctrl else None,
@@ -572,7 +573,9 @@ class ConstructionMixin:
                 if dco_uid in bd_dco_uids or ctrl is None:
                     continue
                 vi_terminals.append(
-                    self._front_panel_only_terminal(vi_key, ctrl, conpane)
+                    self._front_panel_only_terminal(
+                        vi_key, ctrl, conpane, fp.tab_index(dco_uid)
+                    )
                 )
 
         # paramIdx -> FP terminal WireEnd, indexed by the control's dcoIndex
@@ -1277,6 +1280,7 @@ class ConstructionMixin:
         vi_key: str,
         ctrl: ParsedFPControl,
         conpane: ParsedConnectorPane | None,
+        tab_index: int | None,
     ) -> FPTerminal:
         """The off-pane interface terminal of a front-panel control that has no
         block-diagram terminal. Its id is the control's own front-panel uid
@@ -1301,6 +1305,7 @@ class ConstructionMixin:
             caption=ctrl.caption,
             caption_visible=ctrl.caption_visible,
             fp_dco_uid=ctrl.uid,
+            tab_index=tab_index,
             control_type=ctrl.control_type,
             default_value=_default_for(ctrl, lv_type),
             unwritable=ctrl.unwritable,

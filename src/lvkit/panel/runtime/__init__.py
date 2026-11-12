@@ -2,9 +2,9 @@
 as ``controls`` (``lvkit.panel.write``). It imports NiceGUI and the standard
 library only, and the package's own ``errors`` module."""
 
-from .live import Abort, LiveValues
 from .port import Member, Port
 from .runtoolbar import RunController
+from .view import PanelWidgets
 from .widgets import (
     bool_control,
     bool_indicator,
@@ -33,8 +33,7 @@ from .widgets_opaque import (
 from .widgets_path import path_control, path_indicator, path_port, path_text
 
 __all__ = [
-    "Abort",
-    "LiveValues",
+    "PanelWidgets",
     "Member",
     "Port",
     "RunController",

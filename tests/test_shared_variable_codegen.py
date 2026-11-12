@@ -23,7 +23,7 @@ from lvkit.graph.type_records import NamedRecord, TypeRecords
 from lvkit.models import FPTerminal, LVType, LVTypeKind, SharedVariableKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.timestamp_value import EPOCH_1904
-from tests.helpers import build_graph
+from tests.helpers import build_graph, write_support_modules
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 LIBRARY_KEY = "/lib/Shared.lvlib"
@@ -147,6 +147,7 @@ def written_package(tmp_path: Path, vis) -> tuple[Path, dict[str, str]]:
         sources[module] = generate(vi, resolver, graph)
         (root / f"{module}.py").write_text(sources[module])
     assert [p.name for p in modules.write(root)] == ["shared_variables.py"]
+    write_support_modules(root)
     return root, sources
 
 

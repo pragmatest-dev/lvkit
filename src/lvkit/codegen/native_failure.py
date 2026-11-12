@@ -93,7 +93,7 @@ def catch_failures(
 ) -> CodeFragment:
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
-    _, outputs = own_error_terminals(node)
+    _, outputs = own_error_terminals(node, ctx)
     # A class of the operation's own is raised whether or not it is caught; it
     # is registered with the module's other helpers, one definition per name,
     # and written under the name the module gives it (``add_module_function``).
@@ -129,6 +129,7 @@ def catch_failures(
             fragment.bindings[term.id] = error
     defaults = output_defaults(
         node,
+        ctx,
         fragment.bindings,
         assigned_names(fragment.statements),
         None,
@@ -238,7 +239,7 @@ def labview_error(code: int, source: str, message: str | None = None) -> ast.exp
 def _incoming_error(node: AnyGraphNode, ctx: CodeGenContext) -> str:
     """The error that comes in on the node's error in; ``None`` when there is
     none or it is unwired."""
-    error_in, _ = own_error_terminals(node)
+    error_in, _ = own_error_terminals(node, ctx)
     if error_in is None:
         return "None"
     return ctx.wired_input(error_in.id, node) or "None"

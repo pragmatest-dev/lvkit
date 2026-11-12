@@ -969,6 +969,15 @@ class ParsedFrontPanel:
     # The VI's font table (``fontid`` indexes it from 0); empty when it has none.
     fonts: tuple[ParsedFPFont, ...] = ()
 
+    def tab_index(self, uid: str) -> int | None:
+        """The position of the control ``uid`` in the panel's tabbing order (its
+        place in ``dco_order``), None when the panel records no order or does not
+        list it."""
+        try:
+            return self.dco_order.index(uid)
+        except ValueError:
+            return None
+
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None
         when out of range. Falls back to ``controls`` order only for a heap

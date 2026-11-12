@@ -17,29 +17,24 @@ from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..panel_hooks import property_stmt
-from . import class_property_node, vi_reference
+from . import class_property_node, panel_reference, vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
     unwired_ref_class,
 )
+from .ctrl_val import report_panel_error
 from .local_variable import read_control, write_control
 
 
-def _attribute_chain(
-    ref_var: str, segment_names: list[str], ctx: ast.expr_context
-) -> ast.expr:
-    """``ref.seg1.seg2`` -- one ``ast.Attribute`` per path segment; only the
-    outermost attribute carries ``ctx`` (Store for a write)."""
-    expr = parse_expr(ref_var)
-    last = len(segment_names) - 1
-    for i, seg_name in enumerate(segment_names):
-        expr = ast.Attribute(
-            value=expr,
-            attr=to_var_name(seg_name),
-            ctx=ctx if i == last else ast.Load(),
-        )
-    return expr
+def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionGap:
+    """The gap of a property row on a wired reference that has no Python reading
+    or writing: it names the property as the diagram shows it and the class."""
+    class_name = node.object_name or ""
+    on_class = f" on a {class_name} reference" if class_name else ""
+    return ConversionGap(
+        f"Property '{prop.name}'{on_class} has no Python equivalent", node
+    )
 
 
 def _callees(ctx: CodeGenContext) -> str:
@@ -177,12 +172,16 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
-    The caller supplies an object implementing the named Python attributes; a
-    nested property is an attribute chain (``ref.label.text``). Implicit
-    control bindings require a separate runtime model and are rejected
-    instead of fabricating reference values. Error-cluster terminals are
-    not read here: the node's error out is its error in, and the node is
-    skipped when an error comes in (``error_flow.guard``).
+    A row on a wired reference is Python only where Python has the value: a VI
+    reference's Name, Path, Description and Exec.State
+    (``vi_reference.vi_property_read``) and the rows of the front panel's own
+    references (``panel_reference``: Panel, Controls[], a control's Value,
+    Indicator and Label.Text, and a write of a control's Value); every other read,
+    and every other write, is a gap naming the property and the reference's
+    class. Implicit control bindings are rejected unless the node is bound to a
+    control of the VI. Error-cluster terminals are not read here: the node's error
+    out is its error in, and the node is skipped when an error comes in
+    (``error_flow.guard``).
     """
     properties = node.properties or []
     value_ids = node.property_value_terminal_ids
@@ -196,7 +195,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _bound_value(node, ctx)
     if ctx.graph is not None and class_property_node.is_class_property_node(node):
         return class_property_node.generate(node, ctx)
-    fixed =[term for term in node.terminals if term.id not in value_ids]
+    fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
 
@@ -204,6 +203,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     imports: set[str] = set()
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
+    panel_read = False
     for prop, term in correlate_property_terminals(
         properties, node.terminals, value_ids
     ):
@@ -231,14 +231,19 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
-            reflected = vi_reference.vi_property_read(node, prop, ref_var)
-            if reflected is not None:
-                imports.add("import inspect")
+            row = panel_reference.panel_row(node, prop)
+            if row is not None:
+                reflected = panel_reference.read(row, ref_var, ctx)
+                panel_read = True
+            else:
+                reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
+                if reflected is None:
+                    raise _no_python_equivalent(node, prop)
+                panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=reflected
-                    or _attribute_chain(ref_var, segment_names, ast.Load()),
+                    value=reflected,
                 )
             )
             bindings[term.id] = var_name
@@ -247,15 +252,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
+            row = panel_reference.panel_row(node, prop)
+            if row is None or not panel_reference.is_writable(row):
+                raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
-            statements.append(
-                ast.Assign(
-                    targets=[_attribute_chain(ref_var, segment_names, ast.Store())],
-                    value=parse_expr(value),
-                )
-            )
+            statements.append(panel_reference.write(ref_var, value, ctx))
+            panel_read = True
         else:
             raise CodeGenError("Property value direction is unresolved", node)
 
@@ -283,4 +287,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
+    if panel_read:
+        # A row on the front panel or one of its controls fails with the panel's own
+        # error (1026, 1035): the node's error out, as for Ctrl Val.
+        fragment = report_panel_error(node, ctx, statements, bindings)
+        fragment.imports = imports
+        return fragment
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)

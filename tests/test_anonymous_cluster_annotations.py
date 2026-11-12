@@ -11,7 +11,7 @@ import pytest
 from lvkit.codegen.builder import build_args, build_module, build_result_class
 from lvkit.graph.models import VIContext, Wire
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind
-from tests.helpers import build_graph
+from tests.helpers import build_graph, exec_generated
 
 DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
@@ -75,7 +75,7 @@ def test_generated_cluster_annotations_match_explicit_tuple_values(lv_type, valu
     graph = build_graph(context, context.name, [])
     source = build_module(context, context.name, graph=graph)
     namespace = {}
-    exec(compile(source, context.name, "exec"), namespace)
+    exec_generated(source, namespace, context.name)
     function = namespace["cluster_annotation"]
     actual = function(value).result
     assert actual == value and isinstance(actual, tuple)

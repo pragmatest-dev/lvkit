@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import ast
 import getpass
-import types
+import inspect
+import re
 
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.gaps import gap_fragment
 from lvkit.codegen.nodes import generate as generate_node
 from lvkit.codegen.nodes import property_node
 from lvkit.conversion_gap import ConversionGap
@@ -109,77 +111,110 @@ def execute(node, ctx, namespace):
     return {tid: namespace[name] for tid, name in fragment.bindings.items()}
 
 
+VI_CODES = {"Name": 500, "Path": 501}
+
+
+def vi_fixture(rows, **kwargs):
+    """A Property Node on a VI reference whose rows are VI Name / Path reads."""
+    node, ctx, namespace = fixture(rows, class_name="VI", **kwargs)
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name=name, code=VI_CODES[name])])
+        for name, _ in rows
+    ]
+
+    def target():
+        return None
+
+    namespace["ref"] = target
+    namespace["inspect"] = inspect
+    return node, ctx, namespace
+
+
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("ref_out", [False, True])
 @pytest.mark.parametrize(
     "rows",
     [
-        [("Value", "input"), ("Value", "output")],
-        [("Value", "output"), ("Value", "input")],
-        [("Value", "output"), ("Value", "input"), ("Value", "output")],
-        [
-            ("Value", "output"),
-            ("Value", "input"),
-            ("Value", "output"),
-            ("Value", "input"),
-            ("Value", "output"),
-        ],
-        [("Value", "input"), ("Other", "output"), ("Value", "output")],
+        [("Name", "output"), ("Path", "output")],
+        [("Path", "output"), ("Name", "output"), ("Path", "output")],
+        [("Name", "output"), ("Name", "output")],
     ],
 )
-def test_ordered_accesses_are_independent_of_port_storage(rows, reverse, ref_out):
-    node, ctx, namespace = fixture(rows, reverse=reverse, ref_out=ref_out)
-    state = {"value": 100, "other": 200}
-    expected, events = {}, []
-    for i, (name, direction) in enumerate(rows):
-        attr = name.lower()
-        if direction == "input":
-            state[attr] = 1000 + i
-            events.append(("write", attr, state[attr]))
-        else:
-            events.append(("read", attr, state[attr]))
-            expected[f"row_{i}"] = state[attr]
+def test_ordered_reads_are_independent_of_port_storage(rows, reverse, ref_out):
+    node, ctx, namespace = vi_fixture(rows, reverse=reverse, ref_out=ref_out)
+    reads = {"Name": "target", "Path": inspect.getfile(namespace["ref"])}
+    expected = {f"row_{i}": reads[name] for i, (name, _) in enumerate(rows)}
     if ref_out:
         expected["ref_out"] = namespace["ref"]
     assert execute(node, ctx, namespace) == expected
-    assert namespace["ref"].events == events
-    assert namespace["ref"].values == state
 
 
 def test_unwired_reads_still_execute_once_and_keep_distinct_snapshots():
-    rows = [
-        ("Value", "output"),
-        ("Value", "input"),
-        ("Value", "output"),
-        ("Value", "output"),
+    rows = [("Name", "output"), ("Path", "output"), ("Name", "output")]
+    node, ctx, namespace = vi_fixture(rows, unwired=("row_0",))
+    fragment = property_node.generate(node, ctx)
+    source = ast.unparse(
+        ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
+    )
+    assert source.splitlines() == [
+        "ref_name = ref.__name__",
+        "ref_path = inspect.getfile(ref)",
+        "ref_name_2 = ref.__name__",
     ]
-    node, ctx, namespace = fixture(rows, unwired=("row_0", "row_3"))
-    assert execute(node, ctx, namespace) == {"row_0": 100, "row_2": 1001, "row_3": 1001}
-    assert namespace["ref"].events == [
-        ("read", "value", 100),
-        ("write", "value", 1001),
-        ("read", "value", 1001),
-        ("read", "value", 1001),
-    ]
+    assert fragment.bindings["row_0"] == "ref_name"
+    assert fragment.bindings["row_1"] == "ref_path"
+    assert fragment.bindings["row_2"] == "ref_name_2"
 
 
 @pytest.mark.parametrize("value_type", [REF, ERROR])
 def test_value_type_does_not_reclassify_a_property_as_fixed_port(value_type):
-    node, ctx, namespace = fixture([("Value", "output")], ref_out=True)
+    node, ctx, namespace = vi_fixture([("Name", "output")], ref_out=True)
     node.terminals[4].lv_type = value_type
-    sentinel = object()
-    namespace["ref"].values["value"] = sentinel
     result = execute(node, ctx, namespace)
-    assert result["row_0"] is sentinel
+    assert result["row_0"] == "target"
     assert result["ref_out"] is namespace["ref"]
-    assert namespace["ref"].events == [("read", "value", sentinel)]
 
 
-def test_a_write_wired_from_a_gap_constant_writes_none():
-    node, ctx, namespace = fixture([("Value", "input")])
-    ctx.bind("peer_row_0", "None")
-    assert execute(node, ctx, namespace) == {}
-    assert namespace["ref"].events == [("write", "value", None)]
+@pytest.mark.parametrize("class_name", ["VI", "Ctl", "DAQmx Timing", None])
+def test_a_property_read_with_no_python_equivalent_is_a_gap(class_name):
+    node, ctx, _ = fixture([("Panel", "output")], class_name=class_name)
+    on_class = f" on a {class_name} reference" if class_name else ""
+    with pytest.raises(
+        ConversionGap,
+        match=re.escape(f"Property 'Panel'{on_class} has no Python equivalent"),
+    ):
+        property_node.generate(node, ctx)
+
+
+def test_a_property_write_with_no_python_equivalent_is_a_gap():
+    node, ctx, _ = fixture([("Panel", "input")], class_name="VI")
+    with pytest.raises(
+        ConversionGap,
+        match=re.escape("Property 'Panel' on a VI reference has no Python equivalent"),
+    ):
+        property_node.generate(node, ctx)
+
+
+def test_writing_a_mapped_vi_property_is_a_gap():
+    node, ctx, _ = vi_fixture([("Name", "input")])
+    with pytest.raises(
+        ConversionGap,
+        match=re.escape("Property 'Name' on a VI reference has no Python equivalent"),
+    ):
+        property_node.generate(node, ctx)
+
+
+def test_a_gap_property_row_raises_where_it_runs():
+    """A node with a gap property row makes ``generate`` raise at run time."""
+    node, ctx, _ = fixture([("Panel", "output")], class_name="VI")
+    with pytest.raises(ConversionGap) as gap:
+        property_node.generate(node, ctx)
+    fragment = gap_fragment(node, ctx, gap.value.summary())
+    source = ast.unparse(
+        ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
+    )
+    with pytest.raises(NotImplementedError, match="Property 'Panel' on a VI"):
+        exec(compile(source, "gap", "exec"), {})
 
 
 @pytest.mark.parametrize(
@@ -229,7 +264,7 @@ def test_unresolved_or_unsupported_nodes_fail_without_guessing(failure):
 
 def test_wired_error_terminals_are_skipped():
     """Error clusters become Python exceptions: wired error in/out add nothing."""
-    node, ctx, _namespace = fixture([("Value", "input"), ("Value", "output")])
+    node, ctx, _namespace = vi_fixture([("Name", "output"), ("Path", "output")])
     connect(ctx, "error_in", "input")
     ctx.bind("peer_error_in", "error")
     connect(ctx, "error_out", "output")
@@ -238,20 +273,10 @@ def test_wired_error_terminals_are_skipped():
     assert len(fragment.statements) == 2
 
 
-def test_nested_property_writes_then_reads_its_attribute_chain():
-    """A nested property (``Label.Text``) is one row: an attribute chain."""
-    node, ctx, namespace = fixture([("Label.Text", "input"), ("Label.Text", "output")])
-    namespace["ref"] = types.SimpleNamespace(label=types.SimpleNamespace(text="old"))
-    assert execute(node, ctx, namespace) == {"row_1": 1000}
-    assert namespace["ref"].label.text == 1000
-
-
 def _generate_unwired(rows, class_name, ni_name, code):
     node, ctx, namespace = fixture(rows, ref_value=None, class_name=class_name)
     ctx.function_name = "my_function"
-    node.properties = [
-        PropertyDef(segments=[PropertySegment(name=ni_name, code=code)])
-    ]
+    node.properties = [PropertyDef(segments=[PropertySegment(name=ni_name, code=code)])]
     fragment = property_node.generate(node, ctx)
     code = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
@@ -308,7 +333,7 @@ def test_an_undocumented_default_object_property_becomes_a_raise():
     source = ast.unparse(module)
     assert source.splitlines()[-1] == (
         "raise NotImplementedError(\"Property 'App.Kind' of the default App "
-        'object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n'
+        "object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n"
         'node: Property Node")'
     )
     assert fragment.imports == set()

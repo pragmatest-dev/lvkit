@@ -1,9 +1,9 @@
-"""The value port of one widget, and how a port is tied to the holder.
+"""The value port of one widget, and how a port is tied to the view.
 
 Every kind of control is built as a ``Port``: ``get`` reads the value the
 function takes, ``show`` puts a value in the widget, and the listeners are told
 when the user changes it. A control or indicator of the panel ties its port to
-the ``LiveValues`` holder by name; a field of a cluster or a column of an array
+the ``PanelWidgets`` view by name; a field of a cluster or a column of an array
 is built from a ``Member`` and tied to the port of the cluster or array that
 holds it.
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from .live import LiveValues
+from .view import PanelWidgets
 
 
 class Port:
@@ -49,15 +49,14 @@ class Member:
         return self.builder(*self.arguments, readonly=readonly)
 
 
-def bind_control(live: LiveValues, name: Any, port: Port) -> Port:
-    """A control: the holder starts with the port's value and follows its
-    changes."""
-    live.add_control(name, port.get())
-    port.on_change(lambda value: live.set_control(name, value))
+def bind_control(view: PanelWidgets, name: Any, port: Port) -> Port:
+    """A control: the view draws the panel's value of it, and the panel follows
+    the user's changes."""
+    view.add_control(name, port)
     return port
 
 
-def bind_indicator(live: LiveValues, name: Any, port: Port) -> Port:
-    """An indicator: the holder shows its values in the port."""
-    live.add_indicator(name, port.show)
+def bind_indicator(view: PanelWidgets, name: Any, port: Port) -> Port:
+    """An indicator: the view shows its values in the port."""
+    view.add_indicator(name, port.show)
     return port

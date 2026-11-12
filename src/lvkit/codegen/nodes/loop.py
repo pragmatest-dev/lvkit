@@ -23,11 +23,11 @@ from ..ast_utils import (
     node_owned_name,
     parse_expr,
     to_var_name,
-    type_default_expr,
 )
 from ..context import CodeGenContext
 from ..error_flow import error_occurred
 from ..fragment import CodeFragment
+from ..type_default import default_if_unset, state_seed, type_default
 from . import feedback, while_indexing
 
 
@@ -130,11 +130,19 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
                 ctx.add_state_global(
-                    global_name, type_default_expr(sr_lv_type), owner=outer_term
+                    global_name, state_seed(sr_lv_type), owner=outer_term
                 )
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
                 pre_loop_stmts.append(ast.Global(names=[global_name]))
+                pre_loop_stmts.extend(
+                    default_if_unset(
+                        global_name,
+                        sr_lv_type,
+                        ctx,
+                        f"the shift register {global_name}",
+                    )
+                )
                 pre_loop_stmts.append(
                     build_assign(shift_var, ast.Name(id=global_name, ctx=ast.Load()))
                 )
@@ -152,7 +160,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             pre_loop_stmts.extend(
                 feedback.bind_loop_initializer(
                     tunnel,
-                    type_default_expr(outer_t.lv_type if outer_t else None),
+                    type_default(ctx, outer_t.lv_type if outer_t else None),
                     ctx,
                     inner_ctx,
                 )
@@ -229,8 +237,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # it (both would clobber into one variable otherwise).
                 ctx._allocated_vars.add(last_var)
                 outer_sr_term = term_by_id.get(outer_term)
-                seed = type_default_expr(
-                    outer_sr_term.lv_type if outer_sr_term else None
+                seed = type_default(
+                    ctx, outer_sr_term.lv_type if outer_sr_term else None
                 )
                 pre_loop_stmts.append(build_assign(last_var, seed))
                 lastval_tunnels.append((tunnel, last_var))
@@ -551,7 +559,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 pre_loop_stmts.append(
                     build_assign(
                         captured,
-                        type_default_expr(outer_t.lv_type if outer_t else None),
+                        type_default(ctx, outer_t.lv_type if outer_t else None),
                     )
                 )
                 capture = build_assign(captured, parse_expr(inner_val))

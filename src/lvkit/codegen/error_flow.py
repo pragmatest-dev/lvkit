@@ -6,7 +6,7 @@ warning (``False``). A node on an error chain (an error in and an error out)
 skips its work when an error occurred, as LabVIEW's nodes do, and passes the
 incoming error on to its error out; a warning does not skip it. So the node's
 statements run inside ``if err is None or not err.status:``, its outputs take
-their type's default when it skips (``ast_utils.type_default_expr``), and an
+their type's default when it skips (``type_default.type_default``), and an
 error out the node does not set itself is its error in.
 
 A node is not skipped by its caller when its own code reads the error in: a
@@ -27,13 +27,14 @@ from collections.abc import Mapping
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from lvkit.graph.models import AnyGraphNode, StructureNode
+from lvkit.graph.models import AnyGraphNode, PrimitiveNode, StructureNode
 from lvkit.graph.vi_reference import CALL_ERROR_IN, CALL_ERROR_OUT
 from lvkit.models import Terminal
 from lvkit.parser.constants import NODE_CLASS_CALL_BY_REF
 
-from .ast_utils import build_assign, parse_expr, to_var_name, type_default_expr
+from .ast_utils import build_assign, parse_expr, to_var_name
 from .fragment import CodeFragment
+from .type_default import type_default
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -56,9 +57,7 @@ def status_read(value: str, terminal_id: str, ctx: CodeGenContext) -> str:
     cluster wired to it (And, Or, Not, Select's ``s``, Compound Arithmetic, …):
     whether an error occurred when an error cluster is wired there (a warning is
     not one), else ``value`` itself."""
-    if ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(
-        terminal_id
-    ):
+    if ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(terminal_id):
         return error_occurred(value)
     return value
 
@@ -95,7 +94,26 @@ def error_terminals(node: AnyGraphNode, direction: str) -> list[Terminal]:
     ]
 
 
-def own_error_terminals(node: AnyGraphNode) -> tuple[Terminal | None, list[Terminal]]:
+def wire_typed_terminal_ids(node: AnyGraphNode, ctx: CodeGenContext) -> set[str]:
+    """The ids of the terminals of the primitive ``node`` whose catalog type is
+    the type of what is wired to them (``PrimitiveTerminal.takes_wire_type``)."""
+    if not isinstance(node, PrimitiveNode) or node.prim_id is None:
+        return set()
+    resolved = ctx.primitive_catalog.resolve(
+        prim_id=node.prim_id,
+        node_slots={(t.index, t.direction) for t in node.terminals},
+    )
+    if resolved is None:
+        return set()
+    wire_typed = {
+        (t.index, t.direction) for t in resolved.terminals if t.takes_wire_type
+    }
+    return {t.id for t in node.terminals if (t.index, t.direction) in wire_typed}
+
+
+def own_error_terminals(
+    node: AnyGraphNode, ctx: CodeGenContext
+) -> tuple[Terminal | None, list[Terminal]]:
     """The error in and error outs of ``node`` itself: the error that skips its
     work and the outputs that pass that error on.
 
@@ -103,7 +121,10 @@ def own_error_terminals(node: AnyGraphNode) -> tuple[Terminal | None, list[Termi
     error out beside the called VI's connector pane; the called VI's error
     terminals are parameters and results of the call like any other. Any other
     node's error in is its one error cluster input (none when it has several, as
-    Merge Errors does) and its error outs are its error cluster outputs."""
+    Merge Errors does) and its error outs are its error cluster outputs. A
+    primitive terminal whose catalog type is polymorphic takes its wire's type,
+    so an error cluster on it is data (Variant To Data's ``type`` and ``data``),
+    never the node's own error in or out."""
     if node.node_type == NODE_CLASS_CALL_BY_REF:
         error_in = next(
             (
@@ -119,8 +140,10 @@ def own_error_terminals(node: AnyGraphNode) -> tuple[Terminal | None, list[Termi
             if t.direction == "output" and t.index == CALL_ERROR_OUT
         ]
         return error_in, outs
-    inputs = error_terminals(node, "input")
-    return (inputs[0] if len(inputs) == 1 else None), error_terminals(node, "output")
+    data = wire_typed_terminal_ids(node, ctx)
+    inputs = [t for t in error_terminals(node, "input") if t.id not in data]
+    outputs = [t for t in error_terminals(node, "output") if t.id not in data]
+    return (inputs[0] if len(inputs) == 1 else None), outputs
 
 
 def guard(
@@ -135,7 +158,7 @@ def guard(
     if isinstance(node, StructureNode) or ctx.is_feedback_node(node):
         # A Feedback Node stores whatever it is given, an error cluster too.
         return fragment
-    error_in, outputs = own_error_terminals(node)
+    error_in, outputs = own_error_terminals(node, ctx)
     incoming = (
         ctx.wired_input(error_in.id, node) if error_in is not None and outputs else None
     )
@@ -214,7 +237,7 @@ def _skipped_on_error(
     error."""
     body = list(fragment.statements)
     assigned = assigned_names(body)
-    own_outs = {t.id for t in own_error_terminals(node)[1]}
+    own_outs = {t.id for t in own_error_terminals(node, ctx)[1]}
     for term in node.terminals:
         value = fragment.bindings.get(term.id)
         if term.direction != "output" or term.id in own_outs or value is None:
@@ -230,7 +253,7 @@ def _skipped_on_error(
     if not body:
         return fragment
     # A skipped node passes the incoming error on.
-    defaults = output_defaults(node, fragment.bindings, assigned, error)
+    defaults = output_defaults(node, ctx, fragment.bindings, assigned, error)
     test = ast.If(
         test=parse_expr(no_error_occurred(error)),
         body=body,
@@ -243,6 +266,7 @@ def _skipped_on_error(
 
 def output_defaults(
     node: AnyGraphNode,
+    ctx: CodeGenContext,
     bindings: dict[str, str],
     assigned: set[str],
     error: str | None,
@@ -254,7 +278,7 @@ def output_defaults(
     gives for its terminal index, else its type's default, and the node's own
     error out (``own_error_terminals``) takes ``error`` (left alone when
     ``error`` is ``None``)."""
-    own_outs = {t.id for t in own_error_terminals(node)[1]}
+    own_outs = {t.id for t in own_error_terminals(node, ctx)[1]}
     defaults: dict[str, ast.stmt] = {}
     for term in node.terminals:
         value = bindings.get(term.id)
@@ -265,7 +289,7 @@ def output_defaults(
             expr = (
                 parse_expr(given)
                 if given is not None
-                else type_default_expr(term.lv_type)
+                else type_default(ctx, term.lv_type)
             )
             defaults.setdefault(value, build_assign(value, expr))
         elif error is not None:

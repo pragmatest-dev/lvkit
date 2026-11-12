@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.error_flow import own_error_terminals
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.helpers import error_cluster_type
 from tests.native_vi import generate, node, scalar
@@ -120,3 +122,127 @@ def test_a_value_computed_by_another_node_reaches_a_type_with_nothing_to_check()
     )
     assert "variant" not in run.source
     assert run.function(3, 4).d == 7
+
+
+def _error_typed():
+    """A VI whose Variant To Data takes an error cluster on ``type``: the
+    ``data`` output is the error value, the node's error in is ``error_in``."""
+    terminals = [
+        (0, "input", error_cluster_type()),
+        (3, "output", error_cluster_type()),
+        (8, "input", VARIANT),
+        (9, "input", error_cluster_type()),
+        (11, "output", error_cluster_type()),
+    ]
+    vd = node("vd", VARIANT_TO_DATA, terminals)
+    run = generate(
+        {"v": VARIANT, "error_in": error_cluster_type()},
+        {"vi_error_out": error_cluster_type(), "error_out": error_cluster_type()},
+        [vd],
+        [
+            ("fp:v", "vd:8"),
+            ("fp:error_in", "vd:0"),
+            ("fp:error_in", "vd:9"),
+            ("vd:11", "fp:vi_error_out"),
+            ("vd:3", "fp:error_out"),
+        ],
+    )
+    return run, vd
+
+
+def _error_class(run):
+    return run.module.__dict__["LabVIEWError"]
+
+
+def test_an_error_cluster_type_is_data_and_the_error_value_is_returned() -> None:
+    run, _ = _error_typed()
+    error_class = _error_class(run)
+    given = error_class(code=7, status=True, source="x")
+    result = run.function(given, None)
+    assert result.vi_error_out is given
+    assert result.error_out is None
+    result = run.function(None, None)
+    assert (result.vi_error_out, result.error_out) == (None, None)
+
+
+def test_an_incoming_error_skips_the_node_with_an_error_cluster_type() -> None:
+    run, _ = _error_typed()
+    error_class = _error_class(run)
+    incoming = error_class(code=5, status=True, source="y")
+    result = run.function(error_class(code=7, status=True, source="x"), incoming)
+    assert result.error_out is incoming
+    assert result.vi_error_out is None
+
+
+def test_a_non_error_value_into_an_error_cluster_type_is_error_91() -> None:
+    run, _ = _error_typed()
+    result = run.function("text", None)
+    error = result.error_out
+    assert (error.code, error.status, error.source) == (91, True, "Variant To Data")
+    assert result.vi_error_out is None
+
+
+def test_own_error_terminals_leave_out_the_wire_typed_terminals() -> None:
+    _, vd = _error_typed()
+    error_in, error_outs = own_error_terminals(vd, CodeGenContext())
+    assert error_in is not None and error_in.id == "vd:0"
+    assert [t.id for t in error_outs] == ["vd:3"]
+
+
+def test_an_incoming_error_skips_a_node_with_a_numeric_type() -> None:
+    terminals = [
+        (0, "input", error_cluster_type()),
+        (3, "output", error_cluster_type()),
+        (8, "input", VARIANT),
+        (9, "input", I32),
+        (11, "output", I32),
+    ]
+    run = generate(
+        {"v": VARIANT, "error_in": error_cluster_type()},
+        {"d": I32, "error_out": error_cluster_type()},
+        [node("vd", VARIANT_TO_DATA, terminals)],
+        [
+            ("fp:v", "vd:8"),
+            ("fp:error_in", "vd:0"),
+            ("vd:11", "fp:d"),
+            ("vd:3", "fp:error_out"),
+        ],
+    )
+    incoming = run.module.__dict__["LabVIEWError"](code=5, status=True, source="y")
+    result = run.function(7, incoming)
+    assert result.error_out is incoming
+    assert result.d == 0
+
+
+def _check_only(data_type: LVType):
+    """Variant To Data with ``data`` unwired: only its error out is read."""
+    terminals = [
+        (0, "input", error_cluster_type()),
+        (3, "output", error_cluster_type()),
+        (8, "input", VARIANT),
+        (9, "input", data_type),
+        (11, "output", data_type),
+    ]
+    return generate(
+        {"v": VARIANT},
+        {"error_out": error_cluster_type()},
+        [node("vd", VARIANT_TO_DATA, terminals)],
+        [("fp:v", "vd:8"), ("vd:3", "fp:error_out")],
+    )
+
+
+def test_with_data_unwired_the_type_check_still_runs() -> None:
+    run = _check_only(I32)
+    assert run.function(3).error_out is None
+    error = run.function("text").error_out
+    assert (error.code, error.status, error.source) == (91, True, "Variant To Data")
+
+
+def test_with_data_unwired_a_cluster_type_check_still_runs() -> None:
+    cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="a", type=scalar("NumInt32"))],
+    )
+    run = _check_only(cluster)
+    assert run.function((1,)).error_out is None
+    assert run.function("x").error_out.code == 91

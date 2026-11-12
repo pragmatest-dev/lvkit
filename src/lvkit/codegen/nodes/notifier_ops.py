@@ -33,10 +33,11 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
-from ..ast_utils import parse_expr, type_default_expr
+from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..type_default import type_default
 
 
 class NotifierOp(IntEnum):
@@ -103,9 +104,9 @@ def _passthrough(by_index: dict[int, Terminal], notifier: str) -> dict[str, str]
     return {term.id: notifier} if term is not None else {}
 
 
-def _default(term: Terminal | None) -> str:
+def _default(term: Terminal | None, ctx: CodeGenContext) -> str:
     """The zero value of the notification type of ``term``, as an expression."""
-    return ast.unparse(type_default_expr(term.lv_type if term else None))
+    return ast.unparse(type_default(ctx, term.lv_type if term else None))
 
 
 def _call(notifier: str, method: str, arguments: list[str]) -> ast.expr:
@@ -210,7 +211,7 @@ def _generate_wait(
     if timeout is not None:
         arguments.append(f"timeout_ms={timeout}")
     if message_term is not None:
-        arguments.append(f"default={_default(message_term)}")
+        arguments.append(f"default={_default(message_term, ctx)}")
     return CodeFragment(
         statements=[_assign([message, timed_out], _call(notifier, "wait", arguments))],
         bindings=bindings,
@@ -241,14 +242,14 @@ def _generate_release(
     if force is not None:
         arguments.append(f"force={force}")
     if last_term is not None:
-        arguments.append(f"default={_default(last_term)}")
+        arguments.append(f"default={_default(last_term, ctx)}")
     call = f"{notifier}.release({', '.join(arguments)})"
     # NI runs Release Notifier even when an error came in, so the Obtain Notifier
     # before it may have been skipped; there is then no notifier to release.
     if name_term is None and last_term is None:
         source = f"if {notifier} is not None:\n    {call}\n"
     else:
-        none = _default(last_term) if last_term is not None else "None"
+        none = _default(last_term, ctx) if last_term is not None else "None"
         source = (
             f"if {notifier} is not None:\n    {name}, {last} = {call}\n"
             f"else:\n    {name}, {last} = '', {none}\n"

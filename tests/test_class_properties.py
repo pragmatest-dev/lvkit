@@ -29,7 +29,7 @@ from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.pipeline import create_import_resolver
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
 from tests.class_graphs import run_to_gap
-from tests.helpers import build_graph, key_graph_types, with_file_keys
+from tests.helpers import build_graph, exec_generated, key_graph_types, with_file_keys
 
 _CLASS_TYPE = LVType(
     kind=LVTypeKind.PRIMITIVE,
@@ -297,7 +297,7 @@ class Built:
 
     def instance(self) -> Any:
         namespace: dict[str, Any] = {}
-        exec(compile(self.source(), "<class>", "exec"), namespace)  # noqa: S102
+        exec_generated(self.source(), namespace, "<class>")  # noqa: S102
         return namespace["C"]()
 
 
@@ -395,6 +395,12 @@ def test_public_accessors_are_a_public_property_over_the_private_field(
     assert obj._C__count == 7
     # A method of the class reads the field, not the property.
     assert obj.peek().value == 7
+    # Each accessor is a VI with a front panel, on the getter and the setter.
+    assert "C.count.fget.panel = Panel(C.count.fget," in source
+    assert "C.count.fset.panel = Panel(C.count.fset," in source
+    prop = type(obj).count
+    assert prop.fget.panel.function is prop.fget
+    assert prop.fset.panel.function is prop.fset
 
 
 def _call(
@@ -440,7 +446,7 @@ def test_a_call_of_a_read_vi_reads_the_property(tmp_path: Path) -> None:
     assert "obj.count" in code
     assert "read_count" not in code
     namespace: dict[str, Any] = {}
-    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    exec_generated(code, namespace, "<caller>")  # noqa: S102
     obj = built.instance()
     obj.count = 9
     assert namespace["caller"](obj).result == 9
@@ -475,7 +481,7 @@ def test_a_call_of_a_write_vi_writes_the_property(tmp_path: Path) -> None:
     code = build_module(writing, "caller2", graph=built.graph)
     assert "obj.count = v" in code
     namespace: dict[str, Any] = {}
-    exec(compile(code, "<caller2>", "exec"), namespace)  # noqa: S102
+    exec_generated(code, namespace, "<caller2>")  # noqa: S102
     obj = built.instance()
     namespace["caller2"](obj, 5)
     assert obj.count == 5
@@ -486,7 +492,7 @@ def test_a_call_of_a_read_vi_with_logic_runs_its_diagram(tmp_path: Path) -> None
     code = build_module(_reading_caller(built), "caller", graph=built.graph)
     assert "obj.count" in code and "read_count" not in code
     namespace: dict[str, Any] = {}
-    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    exec_generated(code, namespace, "<caller>")  # noqa: S102
     obj = built.instance()
     obj.count = 2
     assert namespace["caller"](obj).result == 8
@@ -542,7 +548,7 @@ def test_a_private_property_read_outside_its_class_is_a_gap(
     message = f"{reason}\ngap kind: unsupported_node\nVI: caller\nnode: Read Count.vi"
     assert f"raise NotImplementedError({message!r})" in code
     namespace: dict[str, Any] = {}
-    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    exec_generated(code, namespace, "<caller>")  # noqa: S102
     ran = run_to_gap(namespace["caller"], obj=built.instance())
     assert ran.message == message
     outputs = ran.outputs("obj")

@@ -364,6 +364,9 @@ def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
 
     assert _tree(out) == [
         "__init__.py",
+        "errors.py",
+        "live_io.py",
+        "panels.py",
         "vendor_libs/Vendor Lib_64.so",
         "vendor_libs/__init__.py",
         "vendor_libs/clfn_bdhbxml.py",

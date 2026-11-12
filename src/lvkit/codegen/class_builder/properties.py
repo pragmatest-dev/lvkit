@@ -33,7 +33,7 @@ class _PropertyBuilderMixin:
             shape: MethodShape,
             name: str | None = None,
             decorators: list[ast.expr] | None = None,
-            property_accessor: bool = False,
+            accessor: PropertyRole | None = None,
         ) -> ast.FunctionDef: ...
 
     def _build_properties(
@@ -75,7 +75,7 @@ class _PropertyBuilderMixin:
                         shape,
                         name=name,
                         decorators=[decorator],
-                        property_accessor=True,
+                        accessor=role,
                     )
                 )
                 source = _name(name)

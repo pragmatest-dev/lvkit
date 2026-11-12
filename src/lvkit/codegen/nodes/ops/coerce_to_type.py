@@ -37,9 +37,10 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVType, LVTypeKind
 
-from ...ast_utils import build_assign, parse_expr, type_default_expr
+from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
+from ...type_default import type_default
 from . import register_op_fragment
 from ._flat_node import terminal
 from ._numeric import format_kind
@@ -102,7 +103,7 @@ def coerce_to_type(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | N
     if x is None or out is None or x.lv_type is None or out.lv_type is None:
         raise ConversionGap("Coerce To Type has no type on x or coerced x", node)
     wired = input_expression(ctx, node, 0)
-    value = wired if wired is not None else ast.unparse(type_default_expr(x.lv_type))
+    value = wired if wired is not None else ast.unparse(type_default(ctx, x.lv_type))
     if _same_form(x.lv_type, out.lv_type):
         return CodeFragment(bindings={out.id: value})
     statements: list[ast.stmt] = []

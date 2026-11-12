@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import importlib
 from collections.abc import Awaitable, Callable
 from types import ModuleType
@@ -13,10 +14,37 @@ from nicegui.testing.user import User
 from nicegui.testing.user_simulation import user_simulation
 
 from tests.error_diagrams import Package
+from tests.helpers import generated_panels
 
 
 def panel_of(package: Package, stem: str) -> ModuleType:
     return importlib.import_module(f"{package.module.__package__}.{stem}_panel")
+
+
+def panel_with(*labels: str) -> Any:
+    """A ``Panel`` (of ``panels.py``) whose function takes one control for each of
+    ``labels``, named by the label."""
+
+    def function(**_: Any) -> None:
+        return None
+
+    return generated_panels().Panel(function, controls={name: name for name in labels})
+
+
+def record_calls(monkeypatch: Any, panel_module: ModuleType) -> list[dict[str, Any]]:
+    """Wrap the function the VI's panel runs so each run's keyword arguments are
+    kept; the wrapper keeps the function's signature."""
+    calls: list[dict[str, Any]] = []
+    panel = panel_module.vi_function.panel
+    original = panel.function
+
+    @functools.wraps(original)
+    def recorded(**arguments: Any) -> Any:
+        calls.append(arguments)
+        return original(**arguments)
+
+    monkeypatch.setattr(panel, "function", recorded)
+    return calls
 
 
 def controls_of(package: Package) -> ModuleType:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
+from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
@@ -25,13 +26,16 @@ from ..builder import (
     function_body,
     output_value,
 )
+from ..class_attributes import run_time_name
 from ..class_model import ClassModel, MethodKind, MethodShape
 from ..context import type_namer
 from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
+from ..panel_description import NamedTerminal, panel_statements
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
+from ..panel_names import panel_names
 from ..type_fields import annotation_imports
 
 if TYPE_CHECKING:
@@ -57,15 +61,16 @@ class _MethodBuilderMixin:
         shape: MethodShape,
         name: str | None = None,
         decorators: list[ast.expr] | None = None,
-        property_accessor: bool = False,
+        accessor: PropertyRole | None = None,
     ) -> ast.FunctionDef:
         """The method of the member VI ``shape.key``: a static method when it
         takes no class wire, else an instance method whose ``self`` is that wire.
-        The getter or setter of a Python property (``property_accessor``) is
+        The getter or setter of a Python property (``accessor`` names which) is
         called as ``obj.name`` and ``obj.name = value``: its value is positional
         and a getter returns the value itself.
         A member that cannot be a method (its name is taken, its class has no
         base) raises where it would run."""
+        property_accessor = accessor is not None
         graph = self._graph
         key = shape.key
         vi_context = graph.get_vi_context(key)
@@ -151,6 +156,9 @@ class _MethodBuilderMixin:
 
         body = vi_body(ctx, key, build)
         self._parts.collect(ctx)
+        self._parts.panels.extend(
+            self._panel(shape, vi_context, names, ctx, name, accessor)
+        )
         imports = ctx.imports
         if self._lazy:
             body, imports = imports_inside(body, imports)
@@ -171,6 +179,54 @@ class _MethodBuilderMixin:
             ),
         )
 
+    def _panel(
+        self,
+        shape: MethodShape,
+        vi_context: VIContext,
+        names: dict[str, str],
+        ctx: CodeGenContext,
+        python_name: str | None,
+        accessor: PropertyRole | None,
+    ) -> list[ast.stmt]:
+        """The ``panel`` of the method, set after its class: its connector-pane
+        controls by the parameter of the method (``self`` for the class wire), its
+        indicators by the field of its result and a class output that is the object
+        the method ran on by ``self``; the controls and indicators off the
+        connector pane have no parameter or field. The panel of a property's getter
+        is on ``Class.name.fget`` and a setter's on ``Class.name.fset``; they return
+        no result object, so their indicators are held only."""
+        outputs = _outputs_by_index(vi_context)
+        receiver = _receiver_of(vi_context, shape)
+        passed: list[NamedTerminal] = (
+            [(outputs[shape.receiver_out], names[receiver.id])]
+            if receiver is not None
+            and shape.receiver_out is not None
+            and shape.receiver_out not in shape.results
+            else []
+        )
+        controls: list[NamedTerminal] = [
+            (t, names[t.id]) for t in vi_context.inputs if t.id in names
+        ]
+        controls += [(t, None) for t in vi_context.off_pane_inputs]
+        indicators: list[NamedTerminal] = [
+            (outputs[index], None if accessor else shape.result_fields[index])
+            for index in shape.results
+        ]
+        indicators += [(t, None) for t in vi_context.off_pane_outputs]
+        member = run_time_name(self._model.name, python_name or shape.name)
+        target = f"{self._model.name}.{member}"
+        if accessor is not None:
+            target += ".fget" if accessor is PropertyRole.GETTER else ".fset"
+        return panel_statements(
+            ctx,
+            target,
+            panel_names(vi_context, names),
+            controls,
+            indicators,
+            self._lazy,
+            passed,
+        )
+
     def _return_stmt(
         self,
         shape: MethodShape,
@@ -184,9 +240,7 @@ class _MethodBuilderMixin:
             return None
         outputs = _outputs_by_index(vi_context)
         vi_node = self._graph.get_graph_node(shape.key)
-        values = [
-            output_value(outputs[index], vi_node, ctx) for index in shape.results
-        ]
+        values = [output_value(outputs[index], vi_node, ctx) for index in shape.results]
         if property_accessor and len(values) == 1:
             return ast.Return(value=values[0])
         assert shape.result_class is not None

@@ -9,6 +9,7 @@ import pytest
 
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.primitive_resolver import get_resolver
+from tests.helpers import without_panel_attributes
 from tests.prim_vi import Pin, array_of, describe_and_lvnet, generate, scalar
 
 
@@ -63,7 +64,7 @@ def test_cluster_of_strings() -> None:
 
 def test_typedef_cluster_is_read_by_field_name() -> None:
     source, fn = _vi(scalar("NumInt32"), 3, typedef="Triple.ctl")
-    assert "SimpleNamespace" not in source
+    assert "SimpleNamespace(" not in without_panel_attributes(source)
     assert fn(SimpleNamespace(item_0=1, item_1=2, item_2=3)).items == [1, 2, 3]
 
 

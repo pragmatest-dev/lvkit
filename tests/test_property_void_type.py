@@ -10,6 +10,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from tests.helpers import without_panel_attributes
 from tests.structure_diagrams import (
     I32,
     TYPES,
@@ -59,7 +60,7 @@ def _views(tmp_path: Path, terminal_type: int, declared: int) -> Views:
 
 def _generated(views: Views) -> str:
     ctx = views.graph.get_vi_context(views.vi)
-    return build_module(ctx, views.vi, graph=views.graph)
+    return without_panel_attributes(build_module(ctx, views.vi, graph=views.graph))
 
 
 # Generation reads the row as a Property of an object nothing opened; the text is
@@ -69,7 +70,7 @@ _GENERATED = (
     "def t():\n"
     "    raise NotImplementedError("
     "\"Property 'NumChans' of the default Task object has no Python equivalent\\n"
-    "gap kind: unsupported_node\\nVI: T_BDHb.xml\\nnode: Property Node\")"
+    'gap kind: unsupported_node\\nVI: T_BDHb.xml\\nnode: Property Node")'
 )
 
 
@@ -88,8 +89,6 @@ def test_a_void_terminal_takes_the_declared_type_in_every_view(
         "## Operations\nProperty Node [Property Node]\nIncrement [prim 1057]"
     )
     assert _generated(views) == _GENERATED
-
-
 
 
 def test_a_terminal_with_a_type_keeps_it(tmp_path: Path) -> None:

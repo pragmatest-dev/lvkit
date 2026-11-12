@@ -13,8 +13,8 @@ from typing import Any
 
 from nicegui import ui
 
-from .live import LiveValues
 from .port import Port, bind_control, bind_indicator
+from .view import PanelWidgets
 
 
 def variant_port(*, readonly: bool) -> Port:
@@ -34,9 +34,9 @@ def hidden_port(*, readonly: bool) -> Port:
     return Port(lambda: None, lambda value: None)
 
 
-def variant_control(live: LiveValues, name: Any) -> Port:
-    return bind_control(live, name, variant_port(readonly=False))
+def variant_control(view: PanelWidgets, name: Any) -> Port:
+    return bind_control(view, name, variant_port(readonly=False))
 
 
-def variant_indicator(live: LiveValues, name: Any) -> Port:
-    return bind_indicator(live, name, variant_port(readonly=True))
+def variant_indicator(view: PanelWidgets, name: Any) -> Port:
+    return bind_indicator(view, name, variant_port(readonly=True))

@@ -22,14 +22,15 @@ from lvkit.models import LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
 from lvkit.terminal_default import DefaultBehavior
 
-from ...ast_utils import type_default_expr
+from ...context import CodeGenContext
 from ...native_array import guarded_index
-from . import register_op, register_op_behaviors
+from ...type_default import type_default
+from . import register_context_op, register_op_behaviors
 
 
-@register_op("DELETE_FROM_ARRAY")
+@register_context_op("DELETE_FROM_ARRAY")
 def delete_from_array(
-    node: PrimitiveNode, resolved: ResolvedPrimitive
+    node: PrimitiveNode, resolved: ResolvedPrimitive, ctx: CodeGenContext
 ) -> dict[str, str]:
     deleted = next(
         (t for t in node.terminals if t.direction == "output" and t.index == 0),
@@ -50,7 +51,7 @@ def delete_from_array(
     if dt is not None and dt.kind == LVTypeKind.ARRAY:
         deleted_expr = f"array[{start}:{stop}]"
     else:
-        default = ast.unparse(type_default_expr(dt))
+        default = ast.unparse(type_default(ctx, dt))
         deleted_expr = guarded_index("array", "index", default)
     return {
         # Dict order mirrors output-index order (0 then 3) — the ordinal the

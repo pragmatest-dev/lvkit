@@ -45,6 +45,7 @@ from tests.class_graphs import (
     pane,
     wire,
 )
+from tests.helpers import write_support_modules
 
 BASE, CHILD = class_type("Base"), class_type("Child")
 COUNT = ClusterField(name="Count", type=INT)
@@ -417,6 +418,8 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         "base",
         "child",
         "errors",
+        "live_io",
+        "panels",
     ]
     with package.use() as module:
         base, child = module("base").Base, module("child").Child
@@ -2053,6 +2056,7 @@ class Service:
     out.mkdir()
     (out / "__init__.py").write_text("")
     (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
+    write_support_modules(out)
     (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
     (out / "typedefs.py").write_text(
         "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n"

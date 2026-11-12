@@ -53,13 +53,11 @@ def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) ->
     return widget_call(control, control.kind, _key(control, enum_name))
 
 
-def _argument(control: PanelControl, enum_name: str | None) -> str | None:
-    """How the function takes the control: the value on the panel. A control the
-    panel does not draw gets the type's default (``None``), written only when its
-    parameter has no default of its own."""
-    if control.hidden:
-        return f"{control.parameter}=None" if control.required else None
-    return f"{control.parameter}=values.value({_key(control, enum_name)})"
+def _error_name(controls: list[PanelControl]) -> str | None:
+    """The name of the indicator that holds the VI's ``error_out``."""
+    return next(
+        (c.key for c in controls if c.is_indicator and c.field == "error_out"), None
+    )
 
 
 def panel_source(spec: PanelSource) -> str:
@@ -73,7 +71,7 @@ def panel_source(spec: PanelSource) -> str:
             for name in builders_used(c, c.kind)
         }
     )
-    imports = ", ".join(["LiveValues", "RunController", "caption", *used])
+    imports = ", ".join(["PanelWidgets", "RunController", "caption", *used])
     stdlib = sorted(
         {"sys"}.union(
             *(modules_used(c) for c in drawn(spec.controls) if c.kind is not None)
@@ -82,20 +80,6 @@ def panel_source(spec: PanelSource) -> str:
     logic_names = ", ".join(
         [f"{spec.function} as vi_function", *filter(None, [enum, spec.event_enum_name])]
     )
-    arguments = [
-        argument
-        for c in spec.controls
-        if c.parameter is not None and not c.is_indicator and c.kind is not None
-        if (argument := _argument(c, enum)) is not None
-    ]
-    if enum is not None:
-        arguments.append("live_io=values")
-    painted = [
-        f"values.show({_key(c, enum)}, result.{c.field})"
-        for c in spec.controls
-        if c.field is not None and c.is_indicator and not c.hidden
-        if c.kind is not None
-    ]
     lines = [
         f'"""Front panel of {spec.vi_label}. Run it with ``python <this file>``."""',
         "",
@@ -103,7 +87,6 @@ def panel_source(spec: PanelSource) -> str:
         "",
         *(f"import {name}" for name in stdlib),
         "from pathlib import Path",
-        "from typing import Any",
         "",
         "from nicegui import ui",
         "",
@@ -115,18 +98,13 @@ def panel_source(spec: PanelSource) -> str:
         "",
         "",
         "def build_panel() -> None:",
-        f"    values = LiveValues({spec.event_enum_name or ''})",
-        "",
-        "    def call() -> Any:",
-        "        return vi_function(",
-        *[f"            {argument}," for argument in arguments],
-        "        )",
-        "",
-        "    def paint(result: Any) -> None:",
-        *[f"        {line}" for line in painted or ["pass"]],
-        "",
+        "    panel = vi_function.panel",
+        f"    values = PanelWidgets(panel, {spec.event_enum_name})",
+        "    panel.attach(values)",
+        "    ui.context.client.on_disconnect(lambda: panel.detach(values))",
         "    controller = RunController(",
-        f"        values, call, paint, abortable={enum is not None}",
+        f"        values, abortable={enum is not None}, "
+        f"error_name={_error_name(spec.controls)!r}",
         "    )",
         "    controller.toolbar()",
         "    ui.timer(0.1, values.paint)",

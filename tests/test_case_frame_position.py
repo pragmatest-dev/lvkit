@@ -39,6 +39,7 @@ from lvkit.run_report import (
 )
 from lvkit.vi_diff import diff_vi_files
 from tests.diff_viewer_cases import WRAPPED_AFTER, WRAPPED_BEFORE, write_versions
+from tests.helpers import without_panel_attributes
 from tests.test_disable_graph import _BD_XML as _DISABLE_BD_XML
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -294,7 +295,9 @@ def samename():
 
 def test_generate_puts_each_node_in_its_own_branch(tmp_path: Path) -> None:
     graph, vi_name = _load(tmp_path, second_value=1)
-    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    source = without_panel_attributes(
+        build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    )
     assert source.rstrip().endswith(_GENERATED_BODY)
     namespace: dict[str, object] = {}
     exec(compile(source, "samename.py", "exec"), namespace)  # noqa: S102
@@ -320,7 +323,9 @@ def test_frames_with_different_names_keep_their_names(tmp_path: Path) -> None:
             'frame "1" :\n        function Tick', 'frame "2" :\n        function Tick'
         )
     )
-    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    source = without_panel_attributes(
+        build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    )
     assert source.rstrip().endswith(
         _GENERATED_BODY.replace(
             "        case 1:\n            milli", "        case 2:\n            milli"
@@ -367,7 +372,9 @@ def test_generate_merges_each_frames_own_value_on_an_output_tunnel(
     tmp_path: Path,
 ) -> None:
     graph, vi_name = _load(tmp_path, second_value=1, tunnel=True)
-    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    source = without_panel_attributes(
+        build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    )
     assert "            case_output = number_2\n" in source
     assert "            case_output = millisecond_timer_value\n" in source
     assert source.rstrip().endswith("    time.sleep(case_output / 1000)")
