@@ -197,6 +197,8 @@ class Field(Control):
     def value(self) -> Any:
         whole = self.parent.value
         if whole is None:
+            # a cluster indicator before its first run, or a cluster whose
+            # default is None (an error cluster, a class not loaded)
             return None
         if isinstance(self.key, int):
             return whole[self.key]

@@ -197,3 +197,56 @@ def test_the_panel_controls_are_unchanged(tmp_path: Path) -> None:
             ("n", False),
         ]
         assert panel.controls == panel.controls
+
+
+def test_an_unset_cluster_control_holds_its_default(tmp_path: Path) -> None:
+    """An optional cluster control's parameter default is None (the function
+    builds the cluster); the panel holds the cluster's default instead, a tuple
+    for an anonymous cluster and a namespace for a named one."""
+    project, gaps = project_with_reader(tmp_path)
+    package = project.generate(gaps)
+    assert "'anon': lambda: (0, (0, ''))" in package.sources["target"]
+    with package.use() as module:
+        panel = module("target").target.panel
+        assert panel.get("anon") == (0, (0, ""))
+        assert panel.get("cfg") == SimpleNamespace(rate_hz=0, name="", name_2="")
+        assert panel.get("n") == 0
+
+
+def test_a_field_of_an_unset_cluster_reads_its_default_and_writes_only_it(
+    tmp_path: Path,
+) -> None:
+    project, gaps = project_with_reader(tmp_path)
+    with project.generate(gaps).use() as module:
+        panel = module("target").target.panel
+        by_label = {c.label: c for c in panel.controls}
+        fields = module("reader").reader(ctl=by_label["anon"]).controls
+        assert [f.value for f in fields] == [0, (0, "")]
+        fields[0].value = 7
+        assert panel.get("anon") == (7, (0, ""))
+        named = module("reader").reader(ctl=by_label["cfg"]).controls
+        assert [f.value for f in named] == [0, "", ""]
+        named[1].value = "x"
+        assert panel.get("cfg") == SimpleNamespace(rate_hz=0, name="x", name_2="")
+
+
+def echo(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    """A VI returning its optional cluster control unchanged."""
+    return (
+        VIContext(
+            name=vi,
+            inputs=[pane(vi, "input", "c", NAMED, "c", 0, OPTIONAL)],
+            outputs=[pane(vi, "output", "d", NAMED, "d", 1)],
+            data_flow=[wire(vi, "c", "d")],
+        ),
+        [],
+    )
+
+
+def test_a_run_passes_the_unset_cluster_control_its_default(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Echo", echo)
+    with project.generate().use() as module:
+        panel = module("echo").echo.panel
+        panel.run()
+        assert panel.get("d") == SimpleNamespace(rate_hz=0, name="", name_2="")

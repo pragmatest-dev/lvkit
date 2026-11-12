@@ -1000,3 +1000,67 @@ def test_a_thread_that_cannot_start_the_work_leaves_the_vi_idle(
         with pytest.raises(RuntimeError, match="start new thread"):
             panel.run(False)
         assert panel.state == 1
+
+
+def test_an_unset_optional_array_control_holds_an_empty_array(tmp_path: Path) -> None:
+    """An optional array control's parameter default is None (the function makes
+    the array); the panel holds ``[]``, made once, and a run passes it."""
+    array = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=INT)
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "a", array, "a", 0, ParsedWiringRule.RECOMMENDED)
+                ],
+                outputs=[pane(vi, "output", "d", array, "d", 1)],
+                data_flow=[wire(vi, "a", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Take", take)
+    package = project.generate()
+    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("a")
+        assert first == []
+        assert panel.get("a") is first
+        panel.run()
+        assert panel.get("d") == module("take").take().d == []
+
+
+def test_an_unset_optional_class_control_holds_a_default_object(
+    tmp_path: Path,
+) -> None:
+    cls = class_type("Cls")
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "c", cls, "c", 0, ParsedWiringRule.RECOMMENDED)
+                ],
+                outputs=[pane(vi, "output", "d", cls, "d", 1)],
+                data_flow=[wire(vi, "c", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    project.add_vi("Take", take)
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert gaps == []
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("c")
+        assert isinstance(first, module("cls").Cls)
+        assert panel.get("c") is first
+        panel.run()
+        assert isinstance(panel.get("d"), module("cls").Cls)

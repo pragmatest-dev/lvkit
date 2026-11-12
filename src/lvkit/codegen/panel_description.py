@@ -10,10 +10,12 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   is held only;
 - ``defaults``: the name of each control that needs one to the function that makes
   its default. A control whose parameter has no default (a Required input) holds
-  its default until a run sets it, and so does a control that is not on the
-  connector pane (no parameter, so a run cannot pass its value): the function is a
-  ``lambda`` making the control's default (its saved default, else its type's, a
-  class's default object), so each run gets a fresh list or object. Every other
+  its default until a run sets it, so does a control that is not on the
+  connector pane (no parameter, so a run cannot pass its value), and so does a
+  control whose parameter default is ``None`` because its default is an array,
+  cluster or class (the function body makes it): the function is a ``lambda``
+  making the control's default (its saved default, else its type's, a class's
+  default object), so each run gets a fresh list or object. Every other
   control's default is its parameter's own;
 - ``indicators``: the name of each indicator to its label;
 - ``results``: the name of each indicator on the connector pane to the field of the
@@ -44,7 +46,7 @@ from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
-from .ast_utils import interface_names, parse_expr
+from .ast_utils import interface_names, parameter_default_expr, parse_expr
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panels_module import PANEL_NAME
@@ -74,6 +76,10 @@ def _no_parameters() -> ast.arguments:
     )
 
 
+def _is_none(expression: ast.expr) -> bool:
+    return isinstance(expression, ast.Constant) and expression.value is None
+
+
 def default_functions(
     controls: Sequence[NamedTerminal],
     names: dict[str, str],
@@ -81,8 +87,12 @@ def default_functions(
     target: str,
     lazy: bool,
 ) -> DefaultFunctions:
-    """The default function of each control that is a Required input or is not on
-    the connector pane, by its name in ``names``: a ``lambda`` making the default.
+    """The default function of each control whose parameter does not hold its
+    default (a Required input, a control off the connector pane, a control whose
+    ``def`` default is ``None`` because its default is an array, cluster or
+    class that a ``def`` default cannot share), by its name in ``names``: a
+    ``lambda`` making the default. A control whose type's default is ``None``
+    has no entry.
     In a module that imports other generated modules inside its functions
     (``lazy``), a default that needs one is a ``def`` of ``target``'s name that
     imports it, as the function bodies do. A control whose default needs a class
@@ -91,7 +101,8 @@ def default_functions(
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
     for terminal, parameter in controls:
-        if parameter is not None and not is_required(terminal, "input"):
+        on_def_default = parameter is not None and not is_required(terminal, "input")
+        if on_def_default and not _is_none(parameter_default_expr(terminal)):
             continue
         module_imports, ctx.imports = ctx.imports, set()
         try:
@@ -100,6 +111,8 @@ def default_functions(
             ctx.imports = module_imports
             continue
         added, ctx.imports = ctx.imports, module_imports
+        if on_def_default and _is_none(value):
+            continue
         needed = {i for i in added if i.startswith("from .")} if lazy else set()
         ctx.imports |= added - needed
         if needed:
