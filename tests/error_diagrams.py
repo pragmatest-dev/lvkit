@@ -411,6 +411,28 @@ class Vi:
         )
         return uids
 
+    def index_array(
+        self, array_type: int, element_type: int, index_type: int = I32
+    ) -> dict[str, int]:
+        """An Index Array node (class ``aIndx``) with one element output and its
+        index input, in the layout a real file records (array, element, index);
+        returns terminal uids ``array``, ``element`` and ``index``."""
+        terms, uids = self.terminals(
+            "aIDCO",
+            [
+                ("array", 0, array_type, False),
+                ("element", 1, element_type, True),
+                ("index", 2, index_type, False),
+            ],
+            "parmIndex",
+        )
+        uid = self.next_uid()
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="aIndx" uid="{uid}">'
+            f'<termList elements="3">{terms}</termList></SL__arrayElement>'
+        )
+        return uids
+
     def feedback_node(
         self,
         type_id: int,

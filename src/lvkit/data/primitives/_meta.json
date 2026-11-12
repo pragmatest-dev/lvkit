@@ -91,6 +91,7 @@
           "direction": "output",
           "name": "element",
           "type": "polymorphic",
+          "part_of": 0,
           "dco_ref": "dcoAgg",
           "expandable": true,
           "group": "indexed element"

@@ -863,6 +863,10 @@ class Terminal(BaseModel):
     # port and its border node's cluster/array/index terminal have no wire
     # between them, only this shared DCO.
     dco_uid: str | None = None
+    # The id of the input terminal of the same node whose value still holds this
+    # output's value (an Unbundle By Name or In Place field, an Index Array
+    # element): a change through this output is a change of that input's value.
+    held_in: str | None = None
 
     def python_type(self, names: TypeNamer | None = None) -> str:
         """Python type string derived from lv_type (see ``LVType.to_python``)."""
