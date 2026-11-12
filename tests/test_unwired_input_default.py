@@ -76,13 +76,18 @@ def test_an_unwired_named_cluster_is_the_cluster_default(tmp_path: Path) -> None
         assert echo_vi(c=passed).out is passed
 
 
-def test_a_path_stays_not_a_path_when_none_is_passed(tmp_path: Path) -> None:
-    """Not a Path is ``None`` in Python, so a path is never replaced."""
+def test_an_unwired_path_is_the_empty_path_and_none_stays_not_a_path(
+    tmp_path: Path,
+) -> None:
+    """An unwired path is the type's default, the empty path, written as the
+    ``def`` default (a ``Path`` cannot change, so the call shares it safely);
+    ``None`` is Not a Path, so a passed ``None`` is never replaced."""
     package = generated(tmp_path, PATH, ParsedWiringRule.RECOMMENDED)
     assert "is None" not in package.sources["echo"]
     with package.use() as module:
         echo_vi = module("echo").echo
-        assert echo_vi().out is None
+        assert echo_vi().out == Path("")
+        assert echo_vi(c=None).out is None
         assert echo_vi(c=Path("a/b")).out == Path("a/b")
 
 

@@ -93,14 +93,16 @@ def parameter_default_expr_of_type(lv_type: LVType | None) -> ast.expr:
     control saves none: the type's default for a number, Boolean, string, enum
     or ring, and ``None`` for anything else (a ``def`` default is evaluated once,
     so a list or object there would be shared by every call; the function makes
-    the array or class object for ``None`` in its body). A timestamp is the type's
-    default: a ``hightime.datetime`` cannot change, so every call shares it
-    safely."""
+    the array or class object for ``None`` in its body). A timestamp and a path
+    are the type's default: a ``hightime.datetime`` and a ``pathlib.Path`` cannot
+    change, so every call shares one safely, and ``None`` stays Not a Path."""
     if lv_type is None:
         return ast.Constant(value=None)
     if lv_type.kind == LVTypeKind.PRIMITIVE:
         if lv_type.is_timestamp:
             return parse_expr(EPOCH_1904_EXPRESSION)
+        if lv_type.underlying_type == "Path":
+            return parse_expr("Path('')")
         return _scalar_default(lv_type.underlying_type)
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
