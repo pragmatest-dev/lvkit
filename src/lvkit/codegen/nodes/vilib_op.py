@@ -18,7 +18,7 @@ from collections.abc import Callable
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.lv_type_codes import type_descriptor_code
+from lvkit.lv_type_codes import is_variant_type_name, type_descriptor_code
 from lvkit.models import TerminalDirection
 from lvkit.vilib_resolver import VIEntry
 
@@ -26,8 +26,6 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-
-_VARIANT_TYPES = ("LVVariant", "Variant")
 
 
 def _type_descriptor_code(
@@ -63,7 +61,7 @@ def _type_descriptor_code(
         sources = ctx.graph.incoming_edges(wired.id)
         source = ctx.graph.get_terminal(sources[0].terminal_id) if sources else None
         lv_type = source.lv_type if source is not None else None
-    if lv_type is not None and lv_type.underlying_type in _VARIANT_TYPES:
+    if lv_type is not None and is_variant_type_name(lv_type.underlying_type):
         raise ConversionGap(
             f"{entry.name} reads the type of a variant, which is only known when "
             "the code runs; the generated code has no LabVIEW type for a value",

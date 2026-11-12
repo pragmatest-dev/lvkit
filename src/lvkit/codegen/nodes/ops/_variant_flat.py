@@ -12,6 +12,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import LVType, Terminal
 from lvkit.type_string import TypeStringError, decode
 
@@ -52,7 +53,7 @@ def variant_static_type(ctx: CodeGenContext, node: PrimitiveNode) -> LVType | No
         return None
     anything = terminal(origin[0], "input", _TO_VARIANT_INPUT)
     lv_type = anything.lv_type if anything else None
-    if lv_type is None or lv_type.underlying_type == "LVVariant":
+    if lv_type is None or is_variant_type_name(lv_type.underlying_type):
         return None
     return lv_type
 

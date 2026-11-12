@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 import hightime
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.lv_type_codes import is_numeric_type_name
+from lvkit.lv_type_codes import is_numeric_type_name, is_variant_type_name
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 _NO_VALUE_TYPES = frozenset({"Void", "Picture"})
 # Types whose decoded value is the display text the scalar formatting reads.
 _SCALAR_TYPES = frozenset({"Boolean", "String", "Tag", "Path", "Refnum"})
-_VARIANT_TYPES = frozenset({"LVVariant", "Variant"})
 
 
 def constant_value_expression(
@@ -48,7 +47,7 @@ def constant_value_expression(
         return ctx.class_object_expression(lv_type)
     if underlying in _NO_VALUE_TYPES:
         return "None"
-    if underlying in _VARIANT_TYPES:
+    if is_variant_type_name(underlying):
         if not isinstance(value, VariantData):
             raise ConversionGap(_not_read(where, lv_type))
         return _variant(ctx, value, where)

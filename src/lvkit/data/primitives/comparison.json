@@ -220,13 +220,11 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "is_empty": "(in_1 == Path('')) if isinstance(in_1, Path) else (in_1 is not None and len(in_1) == 0)"
-      },
+      "op": "EMPTY_STRING_PATH",
       "imports": ["from pathlib import Path"],
       "inline": true,
       "verified": true,
-      "guess_reason": "Was mislabeled 'Not A Number/Path/Refnum?' (which takes NUMBERS). Observed polymorphic over String (Number to Proper Engl Text) AND Path (Get Class Inheritance from Class Path.vi), both -> Boolean. NI docs (labview-api-ref/functions/empty-string-path): Empty String/Path? 'returns TRUE if string/path is an empty string or an empty path'. The String/Path->Bool polymorphism uniquely pins it. A Path is empty when it has no component (absolute or relative, both generated as Path(''));  a Not a Path is None in generated code and is not an empty path."
+      "guess_reason": "Was mislabeled 'Not A Number/Path/Refnum?' (which takes NUMBERS). Observed polymorphic over String (Number to Proper Engl Text) AND Path (Get Class Inheritance from Class Path.vi), both -> Boolean. NI docs (labview-api-ref/functions/empty-string-path): Empty String/Path? 'returns TRUE if string/path is an empty string or an empty path'. The String/Path->Bool polymorphism uniquely pins it. A Path is empty when it has no component (absolute or relative, both generated as Path(''));  a Not a Path is None in generated code and is not an empty path. A Variant (NI: the function also works with variants) is empty only when it holds no data, which is None in generated code; a variant holding an empty string is not empty."
     },
     "1113": {
       "name": "Equal To 0?",
