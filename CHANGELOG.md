@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the front panel's toolbar keeps "close discarded" while the VI runs on** — the panel's late "started" notice of a run the toolbar itself began no longer replaces the state shown since (#297).
+- **lvkit is tested on Python 3.14** — Linux and Windows CI run it, and the package lists it.
 - **A VI's description is its function's docstring, and a VI reference's Description property reads it** — `inspect.getdoc(ref) or ""`; writing Description stays a gap.
 - **A call started and forgotten, and Run VI without waiting, run on a daemon thread** — a forgotten VI that never ends no longer keeps the program from exiting after Abort; Start Asynchronous Call that collects its result stays on the thread pool.
 - **Fix: Variant To Data with an error cluster as its type skips on an incoming error and returns the error value as data; with `data` unwired its type check still sets the error out** — the error cluster on `type` was taken for the node's error in, so the incoming error was dropped and `data` came back as the node's own error; a VI that asks "is this value a TestCase?" through the error out no longer always answers yes.

@@ -137,10 +137,13 @@ class RunController:
     # -- the runs ----------------------------------------------------------
 
     def _on_run(self, kind: str, error: BaseException | None) -> None:
-        """The panel's run began or ended (``PanelWidgets.paint``, on the loop)."""
+        """The panel's run began or ended (``PanelWidgets.paint``, on the loop).
+        The notice comes after the toolbar's own Run click has shown the run, so
+        a run the toolbar already knows of keeps the state shown since."""
         if kind == "started":
-            self.running = True
-            self._show_state("running")
+            if not self.running:  # a run the toolbar did not start
+                self.running = True
+                self._show_state("running")
             return
         self.running = self._panel.state != 1
         if self.running:  # the next run has already begun
