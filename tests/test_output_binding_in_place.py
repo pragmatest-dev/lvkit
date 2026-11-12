@@ -130,7 +130,7 @@ def test_an_element_read_of_a_wire_another_node_reads_keeps_the_old_value(
     _diagram(project, pass_on=False, branch=True)
     package = project.generate(NAME, {"change": CHANGER})
     body = _body(package)
-    assert body.startswith("values = values or []\nelement = values[0]\n"), body
+    assert body.startswith("element = values[0]\n"), body
     out = package.function(values=[5, 6])
     assert (out.first, out.size) == (5, 2)
 
@@ -141,5 +141,5 @@ def test_an_element_read_of_a_wire_nothing_else_reads_is_written_into_its_reader
 ) -> None:
     _diagram(project, pass_on=False, branch=False)
     package = project.generate(NAME)
-    assert _body(package) == "values = values or []\nreturn BindResult(first=values[0])"
+    assert _body(package) == "return BindResult(first=values[0])"
     assert package.function(values=[5, 6]).first == 5

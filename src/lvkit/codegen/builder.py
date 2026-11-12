@@ -12,12 +12,11 @@ import networkx as nx
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
-from lvkit.models import LVTypeKind, Terminal, TypeNamer
+from lvkit.models import Terminal, TypeNamer
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     RESULT_CLASS_IMPORT,
-    build_assign,
     build_result_class_name,
     build_type_checking_block,
     implicit_imports,
@@ -29,7 +28,6 @@ from .ast_utils import (
     to_function_name,
     with_statements_after_docstring,
 )
-from .class_input_default import build_class_input_defaults, has_class_default
 from .context import CodeGenContext
 from .elementwise import arrayify_module
 from .error_flow import share_guards
@@ -39,6 +37,7 @@ from .gaps import Gap, vi_body
 from .global_module import build_global_module
 from .import_cycles import imports_inside, in_import_cycle
 from .import_resolver import ImportResolver
+from .input_default import build_input_defaults, is_none_defaulted
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
@@ -187,15 +186,10 @@ def function_body(
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
 
-    # Normalize unwired array inputs: they default to None (a mutable [] default
-    # would be shared across calls), so map None -> [] up front, matching
-    # LabVIEW's "unwired array input == empty array". `x or []` also folds an
-    # already-empty list to [] harmlessly.
-    parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
-    body.extend(build_array_input_normalization(parameters, names))
-    # An unwired class input is a new default object of its class.
-    class_inputs = [t for t in vi_context.inputs if t is not receiver]
-    body.extend(build_class_input_defaults(class_inputs, names, ctx))
+    # An unwired input holds its control's default: its ``def`` default is None
+    # when the type's default is an object (array, cluster, path, class).
+    inputs = [t for t in vi_context.inputs if t is not receiver]
+    body.extend(build_input_defaults(inputs, names, ctx))
 
     # The indicators held in variables start here (``LocalIndicators``).
     ctx.local_indicators, indicator_starts = LocalIndicators.declare(ctx, vi_name)
@@ -626,14 +620,10 @@ def build_args(
         names = interface_names(inputs, [], []).parameters
 
     def argument(term: Terminal) -> ast.arg:
-        # Arrays, anonymous clusters and class inputs a caller may leave unwired
-        # default to None.
+        # An input a caller may leave unwired whose control default is an object
+        # defaults to None.
         type_hint = terminal_annotation(term, spell)
-        if (
-            _is_array_input(term)
-            or _is_anonymous_cluster(term)
-            or has_class_default(term)
-        ):
+        if is_none_defaulted(term):
             type_hint = f"{type_hint} | None"
         return ast.arg(arg=names[term.id], annotation=parse_expr(type_hint))
 
@@ -648,34 +638,4 @@ def build_args(
         kw_defaults=[*(parameter_default_expr(t) for t in optional), *hook_defaults],
         kwarg=None,
         defaults=[],
-    )
-
-
-def _is_array_input(inp: Terminal) -> bool:
-    """True for an array/list-typed input parameter."""
-    return inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
-
-
-def build_array_input_normalization(
-    inputs: list[Terminal], names: dict[str, str]
-) -> list[ast.stmt]:
-    """`name = name or []` for each array input, so an unwired (None-defaulted)
-    array behaves as LabVIEW's empty array instead of crashing on iteration."""
-    stmts: list[ast.stmt] = []
-    for inp in inputs:
-        if not _is_array_input(inp):
-            continue
-        name = names[inp.id]
-        stmts.append(build_assign(name, parse_expr(f"{name} or []")))
-    return stmts
-
-
-def _is_anonymous_cluster(term: Terminal) -> bool:
-    lv_type = term.lv_type
-    return (
-        lv_type is not None
-        and lv_type.kind == LVTypeKind.CLUSTER
-        and not lv_type.typedef_name
-        and not lv_type.classname
-        and not term.is_error_cluster
     )

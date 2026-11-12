@@ -308,7 +308,7 @@ def test_a_cluster_control_passes_its_fields_as_a_tuple_and_the_indicator_shows_
     project.add(_cluster_vi())
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
-    assert "def kind_demo(point: tuple | None)" in package.source
+    assert "def kind_demo(point: tuple)" in package.source
     panel = panel_of(package, STEM)
     calls = record_calls(monkeypatch, panel)
 

@@ -651,9 +651,7 @@ def test_close_reference_of_an_array_of_references_generates_nothing(
     d.type_terminal(loaded, 71, array)
     d.add_control(loaded, "refs_in", array, 71)
     source = _refs_source_is_only(loaded)
-    assert source.endswith(
-        "def refs(refs_in: list[Any] | None):\n    refs_in = refs_in or []"
-    )
+    assert source.endswith("def refs(refs_in: list[Any]):\n    pass")
     for refs in _package(tmp_path, source, _CALLEE):
         assert refs.refs([object(), object()]) is None  # type: ignore[attr-defined]
 
