@@ -11,6 +11,11 @@ APPROVED 2026-11-12: the maintainer answered "Go" to the panel rule (proposed un
 item 4) and to the six replacements listed by name (a variant is a `Variant`; attributes on every
 `Variant` replace the dict lookup table; Variant To Data judges by the LabVIEW type; Get TDEnum on a
 variant is no gap; the empty variant is `Variant()`; the generated helper `variants.py`).
+BUILT 2026-11-12 on `feat/variant-values` (ARCHITECTURE.md "A variant is a `Variant`"). As built, where
+public sources settle less than the proposal assumed: Ctrl Val.Set / the Value property store the
+variant's value in a typed control with no type check except an empty variant (error 1, LAVA topic
+14464; a search found no source for numeric conversion or a mismatch error there); Variant To Data
+converts a number to any number type, a typedef of a number included (unsettled: today's behaviour).
 
 ## What LabVIEW represents
 
