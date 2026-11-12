@@ -10,7 +10,7 @@ NetlistModule`` (etc.) call sites are unaffected.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 
 from ..models import (
     DisableStructureKind,
@@ -212,7 +212,7 @@ class NetlistOutput:
     read: bool = False
 
 
-class LoopCondition(str, Enum):
+class LoopCondition(StrEnum):
     """How a loop's conditional terminal reads its Boolean: a While Loop (and a
     For Loop that shows a conditional terminal) either stops or continues on
     True. The value is the text lvnet writes in the loop header."""
@@ -221,7 +221,7 @@ class LoopCondition(str, Enum):
     CONTINUE_IF_TRUE = "continue if true"
 
 
-class NetlistInstanceKind(str, Enum):
+class NetlistInstanceKind(StrEnum):
     """Which §7 node-kind keyword an INSTANCE renders as in ``render_lvnet``
     -- an explicit discriminator off the ``GraphNode``
     SUBCLASS (``VINode``/``PrimitiveNode``/property-bearing/invoke-bearing/
@@ -850,7 +850,7 @@ class ConnectorPane:
     terminals: list[ConnectorPaneTerminal] = field(default_factory=list)
 
 
-class DependencyKind(str, Enum):
+class DependencyKind(StrEnum):
     """The lvnet §7 `uses :` dependency-manifest kind -- DERIVED from a
     dependency's qualified identity file extension (``.vi`` -> subVI,
     ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed

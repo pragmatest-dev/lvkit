@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import weakref
 from dataclasses import dataclass, field, replace
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from .import_resolver import ImportResolver, NameImport
 
 
-class MethodKind(str, Enum):
+class MethodKind(StrEnum):
     """How a member VI is called in Python."""
 
     DYNAMIC = "dynamic"  # dynamic dispatch: ``receiver.method(...)``
@@ -96,7 +96,7 @@ class MethodShape:
 GENERATED_NAMES = ("__init__",)
 
 
-class MemberKind(str, Enum):
+class MemberKind(StrEnum):
     """What a name of a class is in Python."""
 
     METHOD = "method"

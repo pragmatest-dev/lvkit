@@ -222,6 +222,7 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
                     value=const.value,
                     lv_type=const.lv_type,
                     terminals=[Terminal(id=const.id, index=0, direction="output")],
+                    structured_value=const.structured_value,
                 ),
             )
             graph._term_to_node[const.id] = const.id

@@ -15,6 +15,7 @@ import shutil
 import sys
 from pathlib import Path
 
+import hightime
 import pytest
 
 from lvkit.cache_paths import LibraryRoots
@@ -50,6 +51,7 @@ from lvkit.parser.link_table import (
 )
 from lvkit.parser.node_types import SharedVariableTerminal
 from lvkit.pipeline import create_import_resolver
+from lvkit.timestamp_value import EPOCH_1904
 
 from .test_link_table import build_hpvl_record
 from .test_lvnet_identity import _assert_graph_identity
@@ -265,13 +267,13 @@ def test_generated_python_writes_then_reads_the_shared_value(
     graph, vi = _load()
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
         assert shared.sv_samplelvlib_value == 0.0
-        assert shared.sv_samplelvlib_value_timestamp == 0.0
+        assert shared.sv_samplelvlib_value_timestamp == EPOCH_1904
         # The indicators are not on the connector pane: only the error out is
         # returned, and the shared variable holds what was written.
         assert sv_sample.sv_sample().error_out is None
         assert shared.sv_samplelvlib_value == 1.5
         stamp = shared.sv_samplelvlib_value_timestamp
-        assert isinstance(stamp, float) and stamp > 0
+        assert isinstance(stamp, hightime.datetime) and stamp > EPOCH_1904
 
 
 @pytest.mark.parametrize(
@@ -375,7 +377,7 @@ def test_generated_python_for_a_network_published_variable_runs(
         assert sv_sample.sv_sample().error_out is None
         assert shared.sv_samplelvlib_value == 1.5
         stamp = shared.sv_samplelvlib_value_timestamp
-        assert isinstance(stamp, float) and stamp > 0
+        assert isinstance(stamp, hightime.datetime) and stamp > EPOCH_1904
 
 
 def _fail_shared_variable_records(
@@ -502,7 +504,7 @@ def test_an_hpvr_record_reads_back_strictly_and_runs(
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):
         assert sv_sample.sv_sample().error_out is None
         assert shared.sv_samplelvlib_value == 1.5
-        assert shared.sv_samplelvlib_value_timestamp > 0
+        assert shared.sv_samplelvlib_value_timestamp > EPOCH_1904
 
 
 def test_an_hpvr_mismatch_leaves_the_vi_loading_with_the_reason(

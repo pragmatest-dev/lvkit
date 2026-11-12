@@ -28,6 +28,7 @@ from lvkit.models import (
     UndecodedPicture,
     UnreadPrivateData,
     ValuesNotKept,
+    VariantData,
     find_unwritable,
     unique_names,
 )
@@ -91,7 +92,7 @@ def test_an_empty_variant_is_twenty_bytes():
     assert _decode_element(_EMPTY_VARIANT, _prim("LVVariant")) == (
         "Variant()",
         20,
-        "Variant()",
+        VariantData(None, None),
     )
 
 
@@ -126,7 +127,7 @@ def test_variants_in_a_cluster_do_not_swallow_the_next_field():
     data = _EMPTY_VARIANT + bytes([9])
     _, consumed, structured = _decode_element(data, lv_type)
     assert consumed == len(data)
-    assert structured == {"v": "Variant()", "after": "9"}
+    assert structured == {"v": VariantData(None, None), "after": "9"}
 
 
 # === Extended-precision numbers ===

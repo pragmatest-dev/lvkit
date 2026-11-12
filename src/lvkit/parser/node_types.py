@@ -12,7 +12,7 @@ import re
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
@@ -171,7 +171,7 @@ class GRefNode(ParsedNode):
         return self.connector_tm_type_id is not None
 
 
-class SharedVariableAccess(str, Enum):
+class SharedVariableAccess(StrEnum):
     """Whether a Shared Variable node reads or writes the variable."""
 
     READ = "read"

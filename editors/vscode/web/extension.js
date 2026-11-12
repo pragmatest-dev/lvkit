@@ -66,10 +66,16 @@ function toBase64(bytes) {
 // ship a new ext-vX.Y.Z WITHOUT re-publishing lvkit to PyPI, because the web
 // target keeps installing this fixed wheel. Bump LVKIT_WHEEL *only* when src/lvkit
 // changes (and publish that lvkit to PyPI); it MUST name a version that exists on
-// PyPI. networkx/pylabview are likewise pinned to match the render (uv.lock).
+// PyPI. networkx/pylabview/hightime are likewise pinned to match the render
+// (uv.lock); hightime holds a LabVIEW timestamp exactly (lvkit/timestamp_value.py).
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
 const LVKIT_WHEEL = "lvkit==0.8.12";
-const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2", LVKIT_WHEEL];
+const CDN_WHEELS = [
+  "networkx==3.4.2",
+  "pylabview==0.1.2",
+  "hightime==1.0.0",
+  LVKIT_WHEEL,
+];
 
 // The file kinds that hold a VI (matches package.json's selectors).
 const VI_FILE_RE = /\.vi[mt]?$/i;

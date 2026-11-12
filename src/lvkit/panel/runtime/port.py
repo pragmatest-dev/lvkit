@@ -17,7 +17,7 @@ from .live import LiveValues
 
 
 class Port:
-    def __init__(self, get: Callable[[], Any], show: Callable[[Any], None]) -> None:
+    def __init__(self, get: Callable[[], Any], show: Callable[[Any], object]) -> None:
         self.get = get
         self.show = show
         self._listeners: list[Callable[[Any], None]] = []

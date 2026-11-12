@@ -11,7 +11,11 @@ from .ast_utils import parse_expr
 from .import_resolver import ImportResolver
 
 # What the Python spelling of a field type or an alias can name.
-TYPING_IMPORTS = {"from pathlib import Path", "from typing import Any"}
+TYPING_IMPORTS = {
+    "from pathlib import Path",
+    "from typing import Any",
+    "import hightime",
+}
 
 
 def annotation_imports(

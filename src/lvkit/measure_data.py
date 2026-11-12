@@ -34,9 +34,6 @@ _VALID_FLAVORS: frozenset[str] = frozenset(
     m.name for m in _lv_datatype.MEASURE_DATA_FLAVOR
 )
 
-# The flavor of a timestamp, which is read directly (not as a cluster of parts).
-TIMESTAMP_FLAVOR: str = _lv_datatype.MEASURE_DATA_FLAVOR.TimeStamp.name
-
 # The primitive type names a value layout may use (pylabview's type codes).
 _VALID_PRIMITIVES: frozenset[str] = frozenset(m.name for m in _lv_datatype.TD_FULL_TYPE)
 

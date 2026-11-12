@@ -13,6 +13,8 @@
 #                   package declares matplotlib+numpy as deps (~25 MB) that lvkit
 #                   never imports; installing the pure-Python wheel deps=False
 #                   drops the whole chain.
+#     * hightime  — the pinned release (URL read from uv.lock): lvkit holds a
+#                   LabVIEW timestamp as a hightime.datetime.
 #
 #   media/pyodide/ — the Pyodide CORE + only the packages the browser actually
 #     loadPackage()s (micropip, pydantic, Pillow + their closure), pruned from
@@ -46,6 +48,7 @@ fetch_pinned_wheel() {  # $1 = package name (matches <name>-<ver>-py3-none-any.w
 }
 fetch_pinned_wheel pylabview
 fetch_pinned_wheel networkx
+fetch_pinned_wheel hightime
 
 # Manifest of wheel filenames — the web extension reads THIS known file, because a
 # browser extension host cannot list a directory (readDirectory of the extension's

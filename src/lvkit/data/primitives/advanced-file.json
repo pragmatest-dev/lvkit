@@ -1229,13 +1229,17 @@
       ],
       "python_code": {
         "size": "__import__('os').path.getsize(in_11)",
-        "last_mod": "__import__('os').path.getmtime(in_11)",
+        "last_mod": "hightime.datetime.fromtimestamp(__import__('os').path.getmtime(in_11), UTC)",
         "is_directory": "__import__('os').path.isdir(in_11)",
         "is_shortcut": "False",
         "path_out": "in_11",
         "resolved_path": "in_11",
         "error_out": "in_8"
       },
+      "imports": [
+        "import hightime",
+        "from datetime import UTC"
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/file-directory-info.html",
       "verified": false
     },

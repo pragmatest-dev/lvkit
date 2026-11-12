@@ -21,9 +21,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from lvkit.graph.package_queries import SharedVariableUse
+from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 
 from .ast_utils import (
     implicit_imports,
+    parse_expr,
     to_var_name,
     type_default_expr,
     unique_names,
@@ -117,8 +119,8 @@ class PackageSharedVariables:
             body.append(
                 ast.AnnAssign(
                     target=ast.Name(id=attributes.timestamp, ctx=ast.Store()),
-                    annotation=ast.Name(id="float", ctx=ast.Load()),
-                    value=ast.Constant(value=0.0),
+                    annotation=parse_expr("hightime.datetime"),
+                    value=parse_expr(EPOCH_1904_EXPRESSION),
                     simple=1,
                 )
             )

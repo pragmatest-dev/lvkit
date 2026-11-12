@@ -18,7 +18,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -39,7 +39,7 @@ ISSUES_URL = "https://github.com/pragmatest-dev/lvkit/issues"
 LVKIT_ERROR_HINT = f"This is a bug in lvkit; please report it at {ISSUES_URL}"
 
 
-class ProblemStage(str, Enum):
+class ProblemStage(StrEnum):
     """Where in a run the problem happened."""
 
     EXTRACT = "extract"
@@ -55,7 +55,7 @@ class ProblemStage(str, Enum):
     CACHE = "cache"
 
 
-class ProblemKind(str, Enum):
+class ProblemKind(StrEnum):
     """What kind of problem it is."""
 
     # The VI file could not be read: it is shown as unreadable wherever it is
@@ -93,7 +93,7 @@ class ProblemKind(str, Enum):
     MEMBERSHIP = "membership"
 
 
-class Outcome(str, Enum):
+class Outcome(StrEnum):
     """How a run ended."""
 
     COMPLETE = "Complete"

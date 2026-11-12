@@ -57,11 +57,11 @@
         }
       ],
       "python_code": {
-        "_import": "import time",
-        "current_time": "time.time()"
+        "current_time": "hightime.datetime.now(UTC)"
       },
       "imports": [
-        "import time"
+        "import hightime",
+        "from datetime import UTC"
       ],
       "inline": true,
       "verified": true,
@@ -193,7 +193,16 @@
           "type": "NumFloat64"
         }
       ],
-      "verified": false,
+      "python_code": {
+        "time_stamp": "hightime.datetime(1904, 1, 1, tzinfo=UTC) + hightime.timedelta(seconds=in_1)"
+      },
+      "imports": [
+        "import hightime",
+        "from datetime import UTC"
+      ],
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-time-stamp.html",
       "source": "vi-scripting-nodes-lv2025"
     }
   }

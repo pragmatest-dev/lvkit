@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 
 from .type_mapping import TypeMap, flat_type_descs
 
 
-class ParamKind(str, Enum):
+class ParamKind(StrEnum):
     """How a parameter is passed to the function."""
 
     VALUE = "value"  # a number by value
@@ -62,7 +62,7 @@ class ExtFuncParam:
 UNPASSABLE_KINDS = frozenset({ParamKind.UNSUPPORTED})
 
 
-class LibraryPathKind(str, Enum):
+class LibraryPathKind(StrEnum):
     """How the path recorded for a node's library locates it."""
 
     BY_NAME = "by_name"  # a bare file name: the operating system's search finds it

@@ -32,7 +32,7 @@ from lvkit.lv_type_codes import (
     is_integer_type_name,
     plain_number_name,
 )
-from lvkit.measure_data import TIMESTAMP_FLAVOR, measure_data_value_type
+from lvkit.measure_data import measure_data_value_type
 from lvkit.models import (
     ClusterField,
     LVType,
@@ -41,13 +41,20 @@ from lvkit.models import (
     UnreadPath,
     UnreadPrivateData,
     ValuesNotKept,
+    VariantData,
     contains_class_instance,
     find_unwritable,
     leading_element,
+    plain_structured,
     unique_names,
 )
 from lvkit.path_value import format_path
 from lvkit.text_encoding import xml_text_encoding
+from lvkit.timestamp_value import (
+    TIMESTAMP_FLAVOR,
+    timestamp_from_parts,
+    timestamp_text,
+)
 from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -2383,7 +2390,9 @@ def _parse_ddo(
                         row_bytes = decode_xml_entities_to_bytes(
                             strip_surrounding_quotes(row_default_elem.text)
                         )
-                        elem_defaults = _decode_element(row_bytes, elem_lv_type)[2]
+                        elem_defaults = plain_structured(
+                            _decode_element(row_bytes, elem_lv_type)[2]
+                        )
                     except (ValueError, UnicodeError):
                         pass
 
@@ -2541,7 +2550,7 @@ def _decode_default_bytes(
     if lv_type is not None:
         decoded, _, structured = _decode_element(raw_bytes, lv_type)
         if decoded is not None:
-            return decoded, structured
+            return decoded, plain_structured(structured)
 
     # Fallback: dispatch by control_type string (no type info)
     if raw_bytes.startswith(b"PTH0"):
@@ -2710,13 +2719,14 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
         return None, 0, None
     value_type, is_void, pos = head
     shown = "Variant()"
-    structured: object = shown
+    held = VariantData(None, None)
     if value_type is not None and not is_void:
         value, consumed, structured = _decode_element(data[pos:], value_type)
         if value is None and consumed == 0:
             return None, 0, None
         pos += consumed
         shown = f"Variant({value})"
+        held = VariantData(value_type, structured)
     if pos + 4 > len(data):
         return None, 0, None
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")
@@ -2732,11 +2742,12 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
         name = bytes(data[pos + 4 : name_end]).decode("latin-1")
         attributes.append(f"{name!r}: {attribute}")
         pos = name_end + consumed
+    held = replace(held, attribute_count=attribute_count)
     if attributes:
         listed = "{" + ", ".join(attributes) + "}"
         inner = shown[len("Variant(") : -1]
         shown = f"Variant({inner + ', ' if inner else ''}attributes={listed})"
-    return shown, pos, structured
+    return shown, pos, held
 
 
 # An array with more elements than this is read to its end but its values are not
@@ -3234,27 +3245,22 @@ def _decode_element(
     if underlying in ("LVVariant", "Variant"):
         return _decode_variant(data)
 
-    # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
-    # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
-    # (data[8:16], fraction = u64/2**64 sec) -- both halves threaded through
-    # so a real (non-epoch) timestamp shows its actual sub-second value
-    # (task #66 follow-up) instead of always truncating to ".000". Emitted
-    # as decimal microseconds (matching datetime.timedelta's own resolution
-    # ceiling -- finer precision would be silently rounded away by the
-    # renderer's timedelta(seconds=...) reconstruction anyway), carrying
-    # into the whole-second count on the (rare) round-up-to-1.0 edge.
+    # MeasureData (timestamp): 16 bytes -- an i64 whole-second count
+    # (data[:8]) plus a u64 fraction of a second in units of 2**-64 s
+    # (data[8:16]). The structured value is the exact UTC ``hightime.datetime``
+    # (see ``timestamp_value``); the display text shows the fraction rounded to
+    # microseconds.
     if underlying == "MeasureData":
         if elem_type.measure_flavor == TIMESTAMP_FLAVOR:
             if len(data) < 16:
                 return None, 0, None
             secs = int.from_bytes(data[:8], "big", signed=True)
             frac_u64 = int.from_bytes(data[8:16], "big", signed=False)
-            frac_micros = round(frac_u64 * 1_000_000 / 2**64)
-            if frac_micros >= 1_000_000:
-                secs += 1
-                frac_micros = 0
-            value = f"Timestamp({secs}.{frac_micros:06d})"
-            return value, 16, value
+            return (
+                timestamp_text(secs, frac_u64),
+                16,
+                timestamp_from_parts(secs, frac_u64),
+            )
         parts = measure_data_value_type(elem_type.measure_flavor)
         if parts is None:
             return None, 0, None
