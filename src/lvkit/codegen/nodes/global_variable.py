@@ -12,10 +12,11 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import GlobalVariableNode, VINode
 
-from ..ast_utils import parameter_names, parse_expr, to_module_name
+from ..ast_utils import parse_expr, to_module_name
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..global_module import global_attribute_names
 from ..import_resolver import ImportResolver, ModuleImport
 from ..type_default import default_if_unset
 
@@ -47,7 +48,7 @@ def generate(node: GlobalVariableNode, ctx: CodeGenContext) -> CodeFragment:
     global_vi_key, control = located
     global_vi = ctx.graph.get_graph_node(global_vi_key)
     assert isinstance(global_vi, VINode)
-    attr = parameter_names(global_vi.terminals).get(control.id)
+    attr = global_attribute_names(global_vi.terminals).get(control.id)
     if attr is None:
         raise CodeGenError(
             f"Global variable '{node.control_name}' names no control of its Global VI",

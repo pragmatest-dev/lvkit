@@ -8,6 +8,11 @@ no value between calls, so each generated function carries a ``Panel`` as
 The class is written once into the package root as ``panels.py`` and imported from
 there, so a generated package imports nothing from lvkit.
 
+A ``Panel`` is a ``PanelValues`` (the names, labels and values of the controls and
+indicators, and the views told of every change) that also runs the function. A
+Global VI has no function: its ``panel`` is a ``PanelValues`` whose values are the
+module's own names (``codegen/global_module.py``), and Run VI on it is error 1035.
+
 A ``Panel`` is described by the one name table of the VI
 (``codegen/panel_names.py``: a name unique among every control and indicator) and
 the label LabVIEW shows for each (``codegen/panel_description.py``)::
@@ -55,10 +60,16 @@ from __future__ import annotations
 
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
+PANEL_VALUES_NAME = "PanelValues"
 PANEL_ERROR_NAME = "PanelError"
 PANEL_OF_NAME = "panel_of"
 # What a node that calls a method of a panel imports where it runs.
 PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
+
+# Run VI on a Global VI raises error 1035 in ``PanelValues.run``: NI, General
+# LabVIEW Error Codes (errors/general-labview-error-codes.html), 1035 "Operation is
+# invalid for this type of VI."; the Run VI page (properties-and-methods/vi-server/
+# vi/run.html) lists "Available with global VIs: No".
 
 # A second Run VI on a VI that is running raises error 1000 in ``Panel.run``: NI,
 # General LabVIEW Error Codes (errors/general-labview-error-codes.html), 1000 "The
@@ -74,7 +85,7 @@ import copy
 import inspect
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, MutableMapping
 from queue import Empty, Queue
 from typing import Any
 
@@ -177,61 +188,33 @@ class PanelIO(LiveIO):
         self._panel._live_property(key_of(name), key_of(prop), value)
 
 
-class Panel:
-    """The front panel of one VI's function: the value of each control and
-    indicator between calls, and whether the VI is running. Values are created on
-    first use, at the controls' defaults."""
+class PanelValues:
+    """The values of a front panel: each control and indicator by name, with the
+    label LabVIEW shows for it, and the views told of every change. A Global VI's
+    panel is this class over the module's own names (``storage``): its controls
+    are the module-level names every global variable node reads and writes, so
+    there is one store. ``Panel`` adds the run of a VI's function. Values are
+    created on first use, at the controls' defaults."""
 
     def __init__(
         self,
-        function: Callable[..., Any],
         controls: Mapping[str, str] | None = None,
         indicators: Mapping[str, str] | None = None,
-        results: Mapping[str, str] | None = None,
-        passed: Mapping[str, str] | None = None,
         defaults: Mapping[str, Callable[[], Any]] | None = None,
+        storage: MutableMapping[str, Any] | None = None,
+        owner: str = "the VI",
     ) -> None:
-        self.function = function
+        self._owner = owner
         self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
-        self._results = dict(results or {})
-        self._passed = dict(passed or {})
         self._defaults = dict(defaults or {})
         self._labelled: dict[str, list[str]] = {}
         for name, label in [*self._controls.items(), *self._indicators.items()]:
             if label:
                 self._labelled.setdefault(label, []).append(name)
-        self._values: dict[str, Any] = {}
+        self._values: MutableMapping[str, Any] = {} if storage is None else storage
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
-        self._running = False
-        self._abort = False
-        self._go = threading.Event()
-        self._go.set()
-        self._io: PanelIO | None = None
-
-    @property
-    def state(self) -> int:
-        """Execution state: 1 (Idle) while nothing runs, 2 (Run top level) while
-        a run is in progress."""
-        with self._lock:
-            return 2 if self._running else 1
-
-    @property
-    def paused(self) -> bool:
-        return not self._go.is_set()
-
-    @property
-    def aborted(self) -> bool:
-        """Whether the last run was aborted (cleared when the next run starts)."""
-        return self._abort
-
-    @property
-    def events(self) -> Queue[Any] | None:
-        """The events queue of the run in progress, None when nothing runs or the
-        function takes no ``live_io``."""
-        with self._lock:
-            return self._io.events if self._io is not None else None
 
     def attach(self, view: PanelView) -> None:
         """Tell ``view`` of every change from now on."""
@@ -284,7 +267,113 @@ class Panel:
         starts a control at the value its widget has). No view is told."""
         self._check(name)
         with self._lock:
-            return self._values.setdefault(name, value)
+            if name not in self._values:
+                self._values[name] = value
+            return self._values[name]
+
+    def run(self, wait: bool = True) -> None:
+        """Run VI on a panel that is not a VI's function: a Global VI has no
+        diagram to run. Error 1035: NI, General LabVIEW Error Codes
+        (errors/general-labview-error-codes.html), "Operation is invalid for this
+        type of VI."; NI's Run VI page lists "Available with global VIs: No"
+        (properties-and-methods/vi-server/vi/run.html)."""
+        raise PanelError(
+            code=1035,
+            source="Panel.run",
+            message="Operation is invalid for this type of VI.",
+        )
+
+    def _tell(self, method: str, *arguments: Any) -> None:
+        with self._lock:
+            views = list(self._views)
+        for view in views:
+            getattr(view, method)(*arguments)
+
+    def _name_of(self, label: str) -> str:
+        """The name of the one control or indicator labelled ``label``; error 1
+        for a label none has or more than one has."""
+        names = self._labelled.get(label, [])
+        if len(names) > 1:
+            raise PanelError(
+                code=1,
+                source="Panel",
+                message=(
+                    f'"{label}" is the label of more than one control or '
+                    f"indicator of {self._owner}"
+                ),
+            )
+        if not names:
+            raise PanelError(code=1, source="Panel", message=f'"{label}" not found')
+        return names[0]
+
+    def _check(self, name: str) -> None:
+        if not self.holds(name):
+            raise PanelError(code=1, source="Panel", message=f'"{name}" not found')
+
+    def _value(self, name: str) -> Any:
+        """The panel's value of ``name``. A control with a default made for it
+        holds that from the first read on, as a front panel holds one value; else
+        the control's own default (``_own_default``), else None."""
+        if name in self._values:
+            return self._values[name]
+        if name in self._controls:
+            factory = self._defaults.get(name)
+            if factory is not None:
+                self._values[name] = factory()
+                return self._values[name]
+            return self._own_default(name)
+        return None
+
+    def _own_default(self, name: str) -> Any:
+        """The default of the control ``name`` when no function makes one: None."""
+        return None
+
+
+class Panel(PanelValues):
+    """The front panel of one VI's function: the values (``PanelValues``) and
+    whether the VI is running."""
+
+    def __init__(
+        self,
+        function: Callable[..., Any],
+        controls: Mapping[str, str] | None = None,
+        indicators: Mapping[str, str] | None = None,
+        results: Mapping[str, str] | None = None,
+        passed: Mapping[str, str] | None = None,
+        defaults: Mapping[str, Callable[[], Any]] | None = None,
+    ) -> None:
+        super().__init__(controls, indicators, defaults, owner=function.__name__)
+        self.function = function
+        self._results = dict(results or {})
+        self._passed = dict(passed or {})
+        self._running = False
+        self._abort = False
+        self._go = threading.Event()
+        self._go.set()
+        self._io: PanelIO | None = None
+
+    @property
+    def state(self) -> int:
+        """Execution state: 1 (Idle) while nothing runs, 2 (Run top level) while
+        a run is in progress."""
+        with self._lock:
+            return 2 if self._running else 1
+
+    @property
+    def paused(self) -> bool:
+        return not self._go.is_set()
+
+    @property
+    def aborted(self) -> bool:
+        """Whether the last run was aborted (cleared when the next run starts)."""
+        return self._abort
+
+    @property
+    def events(self) -> Queue[Any] | None:
+        """The events queue of the run in progress, None when nothing runs or the
+        function takes no ``live_io``."""
+        with self._lock:
+            return self._io.events if self._io is not None else None
 
     def run(self, wait: bool = True) -> None:
         """Run the function with the control values the panel holds, an unset
@@ -383,6 +472,14 @@ class Panel:
         changed = "control_changed" if name in self._controls else "indicator_changed"
         self._tell(changed, name, value)
 
+    def _own_default(self, name: str) -> Any:
+        """The default of the control ``name`` when no function makes one: its
+        parameter's own default, else None."""
+        parameter = inspect.signature(self.function).parameters.get(name)
+        if parameter is not None and parameter.default is not parameter.empty:
+            return parameter.default
+        return None
+
     def _live_property(self, name: str, prop: str, value: Any) -> None:
         if self.holds(name):
             self._tell("property_changed", name, prop, value)
@@ -421,56 +518,14 @@ class Panel:
         for name, value in stored:
             self._tell("indicator_changed", name, value)
 
-    def _tell(self, method: str, *arguments: Any) -> None:
-        with self._lock:
-            views = list(self._views)
-        for view in views:
-            getattr(view, method)(*arguments)
 
-    def _name_of(self, label: str) -> str:
-        """The name of the one control or indicator labelled ``label``; error 1
-        for a label none has or more than one has."""
-        names = self._labelled.get(label, [])
-        if len(names) > 1:
-            raise PanelError(
-                code=1,
-                source="Panel",
-                message=(
-                    f'"{label}" is the label of more than one control or '
-                    f"indicator of {self.function.__name__}"
-                ),
-            )
-        if not names:
-            raise PanelError(code=1, source="Panel", message=f'"{label}" not found')
-        return names[0]
-
-    def _check(self, name: str) -> None:
-        if not self.holds(name):
-            raise PanelError(code=1, source="Panel", message=f'"{name}" not found')
-
-    def _value(self, name: str) -> Any:
-        """The panel's value of ``name``. A control with a default made for it
-        holds that from the first read on, as a front panel holds one value; else
-        the parameter's own default, else None."""
-        if name in self._values:
-            return self._values[name]
-        if name in self._controls:
-            factory = self._defaults.get(name)
-            if factory is not None:
-                self._values[name] = factory()
-                return self._values[name]
-            parameter = inspect.signature(self.function).parameters.get(name)
-            if parameter is not None and parameter.default is not parameter.empty:
-                return parameter.default
-        return None
-
-
-def panel_of(reference: Any) -> Panel:
-    """The panel of the VI ``reference`` holds: its function's ``panel``; error
-    1026 for a reference that holds no VI (not a refnum, or an object with no
+def panel_of(reference: Any) -> PanelValues:
+    """The panel of the VI ``reference`` holds: its function's ``panel`` (a Global
+    VI's reference is its module, whose ``panel`` holds its controls); error 1026
+    for a reference that holds no VI (not a refnum, or an object with no
     panel)."""
     panel = getattr(reference, "panel", None)
-    if not isinstance(panel, Panel):
+    if not isinstance(panel, PanelValues):
         raise PanelError(
             code=1026, source="panel_of", message="VI Reference is invalid."
         )

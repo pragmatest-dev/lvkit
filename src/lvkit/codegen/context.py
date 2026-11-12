@@ -815,7 +815,17 @@ class CodeGenContext:
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for
         a VI of a class, ``Class.method`` (the class imported; for an accessor VI
-        the getter or setter of its property)."""
+        the getter or setter of its property), or, for a Global VI, its module
+        (``global_module``), whose ``panel`` holds its controls."""
+        if (
+            self.graph is not None
+            and key is not None
+            and isinstance(self.import_resolver, ImportResolver)
+            and self.graph.get_vi_properties(key).is_global_vi
+        ):
+            module = self.import_resolver.module(key)
+            self.add_import(module.statement)
+            return module.alias
         shape = (
             member_shape(self.graph, key)
             if self.graph is not None and key is not None
