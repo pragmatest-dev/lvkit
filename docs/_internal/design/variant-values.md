@@ -219,4 +219,27 @@ Fixed as part of this work because the Variant design relies on it.
 3. The copy rule's holes: a tiny test per row of that table, the Index Array one first; fix them in
    `value_is_shared`.
 4. Measure the size: generated lines changed in TestCase and OpenG lvdata (before/after), from a
-   prototype on a scratch branch.
+   prototype on a scratch branch. DONE 2026-11-12, scratch branch `proto/variant-values` (not
+   merged; worktree `lvkit-variant`, scripts `.tmp/compare_proto.py`, `.tmp/split_causes.py`):
+   - Source: 27 files +485/-112, `_variant_lookup.py` and `graph/variant_source.py` removed.
+   - Generated, 7 class samples: 95 of 875 modules change (10.9%); JKI VI Tester 65/413, the others
+     0-9% (Event-Source-Actor 0). No sample gains a gap; 15 gap raises go (Get TDEnum, the DQMH clone
+     registration and OpenG attribute gaps).
+   - Added lines by cause: empty variant as `Variant()` (defaults, signatures, panel default helpers)
+     264; new code where gaps were 215; type readers 142; imports 139; attribute nodes 97; wraps 82;
+     copies 24; panel writes 17. "Wrap only where a reader needs the type" would touch only the last
+     three (~120 lines).
+   - Suites: 85 failed / 9015 passed. About 60 failures are test helpers not writing `variants.py`;
+     the other tests expect the old behaviour (dict lookup tables, `None` empty variant, plain values
+     into Variant inputs, Get TDEnum a gap).
+   - Breakages found, both needing a fix before the brief:
+     1. Ctrl Val.Set / a control's Value write hands the `Variant` to a typed control
+        (`TypeError: ... 'int' and 'Variant'`); JKI TestCase sets `self` this way. LabVIEW converts the
+        variant to the control's type there. PROPOSED (needs yes): Set converts with Variant To Data's
+        check, Get wraps with the control's type, each panel records its controls' types at generation.
+     2. Variant To Data accepted only the exact type or integer to integer, so JKI failUnlessEqual
+        (reads EXT) gives error 91 for MyFirstTest's DBL values. The Readers table already says
+        unsettled numeric cases keep today's rule (any number converts); the brief must say so.
+   - Also for the brief: type constants in `variants.py` (the prototype wrote every `LVType` inline,
+     with lvkit's internal names `NumInt32`/`NumFloatExt` instead of LabVIEW's `I32`/`EXT`); no copy
+     of a Variant just made; no helper function per panel default; `variants.py` in the test helpers.
