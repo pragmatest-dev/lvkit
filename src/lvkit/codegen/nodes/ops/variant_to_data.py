@@ -5,16 +5,16 @@ The node converts the variant's value to the type wired to ``type``; its
 value, its LabVIEW type and its attributes. The generated code judges the type
 the variant records against the data type, in this order:
 
-* a class or a typedef (the data type has a name): the variant's type must have
-  the same code and the same name; variants do not recognise inheritance, so a
-  child class in the variant is not the parent class (NI, Variant To Data: "variants
-  do not recognize inheritance hierarchies");
 * a number type (an integer type, an enum or a ring, a floating-point type, a
-  complex type): the variant's type must be a number of any representation, and
-  the value converts to the data type (an integer type, an enum or a ring takes
-  it rounded to the nearest integer, ties to even, as LabVIEW coerces a
-  floating-point number to an integer; a floating-point type takes ``float``, a
-  complex type ``complex``). A Boolean is not a number;
+  complex type, a typedef of one): the variant's type must be a number of any
+  representation, and the value converts to the data type (an integer type, an
+  enum or a ring takes it rounded to the nearest integer, ties to even, as LabVIEW
+  coerces a floating-point number to an integer; a floating-point type takes
+  ``float``, a complex type ``complex``). A Boolean is not a number;
+* a class or another typedef (the data type has a name): the variant's type must
+  have the same code and the same name; variants do not recognise inheritance, so
+  a child class in the variant is not the parent class (NI, Variant To Data:
+  "variants do not recognize inheritance hierarchies");
 * any other type with a type-descriptor code: the variant's type must have the
   same code;
 * a type with no code: the variant's value must be of the data type's Python class
@@ -152,15 +152,15 @@ def _type_check(
     expression of the data; None for a type with no code, which is judged on the
     Python class of the value."""
     described = _descriptor(lv_type)
-    if lv_type.type_ref() is not None and described is not None:
-        code, name = described
-        accepted = f"{value}.type.code == {code} and {value}.type.name == {name!r}"
-        result = f"{value}.value"
-    elif convert is not None:
+    if convert is not None:
         own = [described[0]] if described is not None else []
         codes = tuple(sorted({*_NUMBER_CODES, *own}))
         accepted = f"{value}.type.code in {codes}"
         result = f"{convert}({value}.value)"
+    elif lv_type.type_ref() is not None and described is not None:
+        code, name = described
+        accepted = f"{value}.type.code == {code} and {value}.type.name == {name!r}"
+        result = f"{value}.value"
     elif described is not None:
         accepted = f"{value}.type.code == {described[0]}"
         result = f"{value}.value"

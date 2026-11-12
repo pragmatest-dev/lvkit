@@ -27,6 +27,11 @@ NAME = "Var.vi"
 _VARIANT = '<TypeDesc Type="Variant" Format="inline" />'
 _DBL = '<TypeDesc Type="NumFloat64" Prop1="0" Format="inline" />'
 _EXT = '<TypeDesc Type="NumFloatExt" Prop1="0" Format="inline" />'
+_COUNT_TYPEDEF = (
+    '<TypeDesc Type="TypeDef">'
+    '<TypeDesc Type="NumInt32" Nested="True" Format="inline" />'
+    '<Label Text="Count.ctl" /></TypeDesc>'
+)
 EMPTY_VARIANT = "0900800000000001000400000001000000000000"
 
 TAKE = """
@@ -117,6 +122,8 @@ def _to_data(project: Project, source: int | str, data: int | str) -> Package:  
         # A floating-point number converts to an integer type, rounded.
         (_DBL, I32, 1.5, 2),
         (I32, _DBL, 3, 3.0),
+        # A typedef of a number is a number type: a plain I32 converts to it.
+        (I32, _COUNT_TYPEDEF, 7, 7),
     ],
 )
 def test_a_number_variant_converts_to_any_number_type(
