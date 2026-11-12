@@ -124,8 +124,8 @@ In Place outputs, `nmux_role == "list"` only) or when it enters a loop through a
 
 | Value | Why it is shared | Affects today |
 |---|---|---|
-| An element taken out by Index Array (or an auto-indexed tunnel) | still held in the array | class objects, named clusters |
-| A shift register's value | not checked (`lSR`/`rSR` not named, `models.py:1123`) | class objects, named clusters |
+| An element taken out by Index Array | still held in the array | FIXED 2026-11-12 (`b33215bb`: `Terminal.held_in` from the catalog's `part_of`); an auto-indexed loop tunnel was already covered by the input-tunnel case (test pins it) |
+| A shift register's value | — | NOT A HOLE: already copied when something else reads it (`29a40634`, `tests/test_value_shared_shift_register.py`) |
 | Get Variant Attribute's value | still held in the parent's `attributes` | new with this design |
 | Variant To Data's data | still held in the Variant | class objects, named clusters (via today's plain variant) |
 
