@@ -251,6 +251,7 @@ def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_three(
     assert _modules(out) == [
         "clfn_bdhbxml.py",
         "errors.py",
+        "live_io.py",
         "panels.py",
         "second_bdhbxml.py",
     ]

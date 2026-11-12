@@ -4,10 +4,13 @@ error banner, driven headless with NiceGUI's user simulation."""
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import sys
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -119,6 +122,47 @@ def test_abort_ends_run_continuously(project: Project) -> None:  # noqa: F811
         await until(user, "aborted")
 
     simulate(panel.build_panel, scenario)
+
+
+_EXIT_SCRIPT = """
+import importlib
+import sys
+import time
+
+sys.path.insert(0, {parent!r})
+module = importlib.import_module({module!r})
+panel = getattr(module, {function!r}).panel
+panel.run(wait=False)
+time.sleep(0.5)
+panel.abort()
+time.sleep(0.5)
+print("aborted", panel.aborted, flush=True)
+"""
+
+
+def test_a_program_that_aborts_a_panel_run_exits(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    project.add(counting_vi())
+    package = project.generate(NAME, panel=True)
+    script = tmp_path / "run_panel.py"
+    script.write_text(
+        _EXIT_SCRIPT.format(
+            parent=str(package.root.parent),
+            module=package.module.__name__,
+            function=package.function.__name__,
+        ),
+        encoding="utf-8",
+    )
+    finished = subprocess.run(
+        [sys.executable, "-I", str(script)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    assert finished.stdout.strip() == "aborted True"
 
 
 @dataclass

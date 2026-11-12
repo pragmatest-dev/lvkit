@@ -418,6 +418,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         "base",
         "child",
         "errors",
+        "live_io",
         "panels",
     ]
     with package.use() as module:

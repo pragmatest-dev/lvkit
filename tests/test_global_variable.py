@@ -15,6 +15,7 @@ from lvkit.codegen.ast_utils import parameter_names
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
+from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.nodes import global_variable as global_variable_codegen
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
 from lvkit.extractor import extract_vi_xml
@@ -235,6 +236,7 @@ def test_generated_caller_and_global_module_share_state() -> None:
             sys.modules[m.__name__] = m
             setattr(package, sub, m)
         _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("live_io", LIVE_IO_MODULE_SOURCE, package)
         _import_generated("panels", PANELS_MODULE_SOURCE, package)
         caller = _import_generated("loadtemplates", caller_src, package)
         data.all_templates = "Changed by another VI"

@@ -4,7 +4,8 @@ A function converted from a VI that touches its front panel while it runs takes
 ``live_io: LiveIO = NO_LIVE_IO`` (``codegen/panel_hooks.py``). The class is
 written once into the package root as ``live_io.py``, the text of
 ``lvkit/panel/live_io.py``, and imported from there, so a generated package
-imports nothing from lvkit.
+imports nothing from lvkit. Every package has it, because ``PanelIO`` of
+``panels.py`` subclasses ``LiveIO``.
 """
 
 from __future__ import annotations

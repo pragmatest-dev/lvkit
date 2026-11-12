@@ -70,6 +70,7 @@ from queue import Empty, Queue
 from typing import Any
 
 from .errors import LabVIEWError
+from .live_io import LiveIO
 
 ABORT_POLL = 0.1
 
@@ -149,11 +150,11 @@ class _Inbox(Queue):
                     raise
 
 
-class PanelIO:
+class PanelIO(LiveIO):
     """The ``live_io`` of one run: what the VI does with its own panel while it
-    runs goes to the ``Panel`` and its views. ``events`` is the run's queue. It has
-    the methods of ``LiveIO`` without importing it, so a package whose VIs take no
-    ``live_io`` has no ``live_io.py``."""
+    runs goes to the ``Panel`` and its views. ``events`` is the run's queue. It
+    overrides the methods of ``LiveIO`` it forwards to the panel; every other
+    method is the base class's."""
 
     def __init__(self, panel: Panel, events: Queue[Any]) -> None:
         self._panel = panel

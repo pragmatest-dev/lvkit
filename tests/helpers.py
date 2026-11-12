@@ -384,11 +384,12 @@ def generated_panels() -> ModuleType:
 
 
 def write_support_modules(package_dir: Path) -> None:
-    """Write the modules every generated package root has (``errors.py`` and
-    ``panels.py``) into ``package_dir``, for a test that writes a package by hand.
-    A module already there is kept."""
+    """Write the modules every generated package root has (``errors.py``,
+    ``live_io.py`` and ``panels.py``) into ``package_dir``, for a test that writes
+    a package by hand. A module already there is kept."""
     for name, source in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
     ):
         module = package_dir / f"{name}.py"

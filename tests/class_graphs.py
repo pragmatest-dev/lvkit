@@ -362,10 +362,9 @@ class Project:
             )
         for module, source in sources.items():
             (out / f"{module}.py").write_text(source, encoding="utf-8")
-        if any(f"{LIVE_IO_MODULE_NAME} import" in s for s in sources.values()):
-            (out / f"{LIVE_IO_MODULE_NAME}.py").write_text(LIVE_IO_MODULE_SOURCE)
         if any(f".{PANELS_MODULE_NAME} import" in s for s in sources.values()):
             (out / f"{PANELS_MODULE_NAME}.py").write_text(PANELS_MODULE_SOURCE)
+            (out / f"{LIVE_IO_MODULE_NAME}.py").write_text(LIVE_IO_MODULE_SOURCE)
         return Package(out, sources, gaps)
 
 

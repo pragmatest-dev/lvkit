@@ -530,7 +530,7 @@ A remote `LiveIO` publishes on `write` and returns; `read` returns a local copy 
 
 ### 11.6 Steps
 
-One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
+One PR: `LiveIO` module generated into the package; `panel_hooks.py` emits `live_io.<method>(...)` with no guard; `PanelHooks.arguments` emits the one parameter; reserved names updated; `LiveValues` subclasses `LiveIO`; Run VI and Subpanel pass `live_io`; `ARCHITECTURE.md` 299-309 rewritten. Amended (§15.5): `live_io.py` is written with `panels.py` into every package, because `PanelIO` subclasses `LiveIO`. Tests: the existing hook tests re-pointed (recording subclass in place of recording callables), a VI called with no `live_io` gives the same result as today, the Timer panel run live. `on_prompt` and `get_property` land with D5's and PR-C's own work, as methods.
 
 ## 12. User events across VIs (added 2026-11-09)
 
@@ -698,7 +698,7 @@ Recorded design this touches, and what became of each part:
 
 | Recorded | Here |
 |---|---|
-| `LiveIO` §11: a VI's own panel during a run; base no-op; `NO_LIVE_IO` | KEPT. `PanelIO` of the generated `panels.py` (the methods and `events` of `LiveIO`, not a subclass: a subclass would make every package import `live_io.py`, which a VI with no panel access has none of) is passed to a function that takes `live_io`, for every run through the panel (views or none: a headless Abort needs the points `PanelIO` gives, so the run passes it whenever the function can take it) |
+| `LiveIO` §11: a VI's own panel during a run; base no-op; `NO_LIVE_IO` | KEPT. `PanelIO` of the generated `panels.py` (a subclass of `LiveIO`, overriding only what it forwards to the panel: every future `LiveIO` method, such as `prompt` or `get_property`, is then on `PanelIO` with the base behaviour, "free expansion because all the io concerns can go in one optional parameter that we can expand over time without requiring rewrite"; `panels.py` imports `live_io.py`, so `pipeline` writes `live_io.py` into every generated package, whether or not a VI takes `live_io`) is passed to a function that takes `live_io`, for every run through the panel (views or none: a headless Abort needs the points `PanelIO` gives, so the run passes it whenever the function can take it) |
 | `LiveValues(LiveIO)` holds the shown values, the abort and pause checkpoint, the events | REPLACED: values, abort, pause and the run's events queue are the `Panel`'s (`Panel._values`, `_abort`, `_go`, `_io`); the NiceGUI class is `PanelWidgets` (widgets and painting only) |
 | `RunController`: Run/Abort/Pause toolbar, running state, banner | EXTENDED: Run is `panel.run(wait=False)`; Abort, Pause and Resume are the panel's; running state and banner follow `run_started` / `run_finished` |
 | Event Structure UI events (§9) | the queue is the run's (`Panel.events`); the view's `PanelEvents` pushes the user's changes into it |

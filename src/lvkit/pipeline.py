@@ -456,7 +456,8 @@ def _write_panels_module(package_root: Path) -> None:
 
 def _write_live_io_module(package_root: Path) -> None:
     """Write ``live_io.py`` at the package root when a generated module imports
-    ``LiveIO`` from it."""
+    ``LiveIO`` from it: ``panels.py`` does (``PanelIO`` is a ``LiveIO``), so every
+    package that has ``panels.py`` has it, written after ``panels.py``."""
     _write_support_module(
         package_root,
         f"{LIVE_IO_MODULE_NAME} import {LIVE_IO_NAME}",
