@@ -8,6 +8,7 @@ from dataclasses import replace
 
 from lvkit.codegen.ast_utils import interface_names, to_var_name
 from lvkit.codegen.panel_hooks import PanelHooks
+from lvkit.codegen.panel_names import panel_names
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VIContext
@@ -31,6 +32,7 @@ def panel_controls(
     interface = interface_names(
         vi_context.inputs, vi_context.off_pane_inputs, vi_context.outputs
     )
+    names = panel_names(vi_context)
     terminals: dict[str, Terminal] = {
         t.fp_dco_uid: t
         for t in [
@@ -63,13 +65,7 @@ def panel_controls(
                 )
             )
             continue
-        key = (
-            hooks.names[terminal.id]
-            if hooks is not None and terminal.id in hooks.names
-            else interface.parameters.get(terminal.id)
-            or interface.fields.get(terminal.id)
-            or to_var_name(control.name)
-        )
+        key = names.get(terminal.id) or to_var_name(control.name)
         controls.append(
             replace(
                 describe(control, terminal.lv_type, terminal.default_value, key),

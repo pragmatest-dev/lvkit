@@ -183,4 +183,4 @@ def test_a_vi_without_an_event_structure_has_no_events() -> None:
     panel = SimpleNamespace(events=None)
     assert PanelWidgets().panel_events is None
     assert PanelWidgets(panel).panel_events is None
-    assert isinstance(PanelWidgets(panel, None, _Kinds).panel_events, PanelEvents)
+    assert isinstance(PanelWidgets(panel, _Kinds).panel_events, PanelEvents)

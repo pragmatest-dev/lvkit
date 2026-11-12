@@ -395,6 +395,12 @@ def test_public_accessors_are_a_public_property_over_the_private_field(
     assert obj._C__count == 7
     # A method of the class reads the field, not the property.
     assert obj.peek().value == 7
+    # Each accessor is a VI with a front panel, on the getter and the setter.
+    assert "C.count.fget.panel = Panel(C.count.fget," in source
+    assert "C.count.fset.panel = Panel(C.count.fset," in source
+    prop = type(obj).count
+    assert prop.fget.panel.function is prop.fget
+    assert prop.fset.panel.function is prop.fset
 
 
 def _call(

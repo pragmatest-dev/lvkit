@@ -2,25 +2,30 @@
 
 Each generated function gets ``function.panel = Panel(function, ...)`` right after
 its ``def`` (after its class, for a method), naming its controls and indicators by
-the label LabVIEW shows (``codegen/panels_module.py`` holds ``Panel``):
+the one name table of the VI (``codegen/panel_names.py``) and giving the label
+LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 
-- ``controls``: the label of each control to the parameter that takes it (None for
-  a control off the connector pane);
-- ``defaults``: the label of each control that needs one to the function that makes
+- ``controls``: the name of each control to its label. A control whose name is a
+  parameter of the function is passed to it by a run; one off the connector pane
+  is held only;
+- ``defaults``: the name of each control that needs one to the function that makes
   its default. A control whose parameter has no default (a Required input) holds
   its default until a run sets it, and so does a control that is not on the
   connector pane (no parameter, so a run cannot pass its value): the function is a
   ``lambda`` making the control's default (its saved default, else its type's, a
   class's default object), so each run gets a fresh list or object. Every other
   control's default is its parameter's own;
-- ``indicators``: the label of each indicator to the field of the result that holds
-  it (None for one off the connector pane);
-- ``passed``: the label of a class output that is the object the method ran on to
+- ``indicators``: the name of each indicator to its label;
+- ``results``: the name of each indicator on the connector pane to the field of the
+  result that holds it;
+- ``passed``: the name of a class output that is the object the method ran on to
   the parameter (``self``) whose value it shows, as a method whose class output is
-  that object returns no field for it;
-- ``duplicates``: the labels more than one control or indicator has. A Ctrl Val
-  method picks "the first object whose label matches" in the front panel tabbing
-  order, which lvkit does not read, so the panel raises for such a label.
+  that object returns no field for it.
+
+A label two objects share is not told apart by a Ctrl Val method, which picks "the
+first object whose label matches" in the front panel tabbing order, which lvkit
+does not read: the ``Panel`` raises for such a label, and still holds the value of
+each object by its own name.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from lvkit.graph.models import VIContext
 from lvkit.models import Terminal
 
 from .ast_utils import interface_names, parse_expr
+from .panel_names import panel_names
 from .panels_module import PANEL_NAME
 from .type_default import control_default
 
@@ -49,7 +55,8 @@ NamedTerminal = tuple[Terminal, str | None]
 
 def duplicate_labels(*terminals: Iterable[Terminal]) -> list[str]:
     """The labels more than one of ``terminals`` (controls and indicators, on the
-    connector pane or not) has, in first-seen order."""
+    connector pane or not) has, in first-seen order: the labels a Ctrl Val method
+    cannot tell apart."""
     seen: set[str] = set()
     duplicates: dict[str, None] = {}
     for terminal in (t for group in terminals for t in group):
@@ -59,16 +66,6 @@ def duplicate_labels(*terminals: Iterable[Terminal]) -> list[str]:
             duplicates[terminal.name] = None
         seen.add(terminal.name)
     return list(duplicates)
-
-
-def panel_terminals(vi_context: VIContext) -> list[Terminal]:
-    """Every control and indicator of a VI, on the connector pane or not."""
-    return [
-        *vi_context.inputs,
-        *vi_context.off_pane_inputs,
-        *vi_context.outputs,
-        *vi_context.off_pane_outputs,
-    ]
 
 
 @dataclass
@@ -88,23 +85,23 @@ def _no_parameters() -> ast.arguments:
 
 
 def default_functions(
-    controls: Sequence[NamedTerminal], ctx: CodeGenContext, target: str, lazy: bool
+    controls: Sequence[NamedTerminal],
+    names: dict[str, str],
+    ctx: CodeGenContext,
+    target: str,
+    lazy: bool,
 ) -> DefaultFunctions:
-    """The default function of each label whose control (the first terminal of the
-    label) is a Required input or is not on the connector pane: a ``lambda``
-    making the default. In a module that imports other generated modules inside its
-    functions (``lazy``), a default that needs one is a ``def`` of ``target``'s
-    name that imports it, as the function bodies do. A control whose default needs
-    a class that is not loaded has no entry: the panel holds ``None`` for it (the
-    class is reported where the VI uses it)."""
-    first: dict[str, NamedTerminal] = {}
-    for terminal, name in controls:
-        if terminal.name:
-            first.setdefault(terminal.name, (terminal, name))
+    """The default function of each control that is a Required input or is not on
+    the connector pane, by its name in ``names``: a ``lambda`` making the default.
+    In a module that imports other generated modules inside its functions
+    (``lazy``), a default that needs one is a ``def`` of ``target``'s name that
+    imports it, as the function bodies do. A control whose default needs a class
+    that is not loaded has no entry: the panel holds ``None`` for it (the class is
+    reported where the VI uses it)."""
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
-    for label, (terminal, name) in first.items():
-        if name is not None and not is_required(terminal, "input"):
+    for terminal, parameter in controls:
+        if parameter is not None and not is_required(terminal, "input"):
             continue
         module_imports, ctx.imports = ctx.imports, set()
         try:
@@ -126,75 +123,65 @@ def default_functions(
                     decorator_list=[],
                 )
             )
-            defaults.entries[label] = ast.Name(id=function, ctx=ast.Load())
+            defaults.entries[names[terminal.id]] = ast.Name(id=function, ctx=ast.Load())
         else:
-            defaults.entries[label] = ast.Lambda(args=_no_parameters(), body=value)
+            defaults.entries[names[terminal.id]] = ast.Lambda(
+                args=_no_parameters(), body=value
+            )
     return defaults
 
 
-def _first_by_label(pairs: Iterable[NamedTerminal]) -> dict[str, str | None]:
-    """Label to Python name of each terminal that has a label, the first terminal
-    of a label keeping it."""
-    labels: dict[str, str | None] = {}
-    for terminal, name in pairs:
-        if terminal.name:
-            labels.setdefault(terminal.name, name)
-    return labels
-
-
 def _name_map(
-    keyword: str, pairs: Iterable[NamedTerminal]
+    keyword: str, entries: Iterable[tuple[str, str | None]]
 ) -> tuple[str, ast.Dict] | None:
-    names = _first_by_label(pairs)
-    if not names:
+    """``keyword={name: value}`` of the entries with a value (a label is "" for an
+    object with none), None when there are none."""
+    found = [(name, value) for name, value in entries if value is not None]
+    if not found:
         return None
     return keyword, ast.Dict(
-        keys=[ast.Constant(value=label) for label in names],
-        values=[ast.Constant(value=name) for name in names.values()],
+        keys=[ast.Constant(value=name) for name, _ in found],
+        values=[ast.Constant(value=value) for _, value in found],
     )
 
 
 def panel_statements(
     ctx: CodeGenContext,
     target: str,
+    names: dict[str, str],
     controls: Sequence[NamedTerminal],
     indicators: Sequence[NamedTerminal],
-    all_terminals: Iterable[Terminal],
     lazy: bool,
     passed: Sequence[NamedTerminal] = (),
 ) -> list[ast.stmt]:
-    """``target.panel = Panel(target, controls=..., indicators=..., passed=...,
-    duplicates=..., defaults=...)``, ``target`` the expression of the function,
+    """``target.panel = Panel(target, controls=..., indicators=..., results=...,
+    passed=..., defaults=...)``, ``target`` the expression of the function,
     preceded by the ``def`` of each default function a lazy module needs. A keyword
-    with no entry is left out. ``all_terminals`` are every control and indicator the
-    VI has, which the duplicate labels are found among."""
+    with no entry is left out. ``names`` is the VI's name table
+    (``panel_names``); ``controls`` pair each control with the parameter that takes
+    it (None off the connector pane), ``indicators`` each indicator with the field
+    of the result that holds it (None off the pane) and ``passed`` each class
+    output with the parameter holding the object it shows."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
-    defaults = default_functions(controls, ctx, target, lazy)
+    defaults = default_functions(controls, names, ctx, target, lazy)
     keywords: list[tuple[str, ast.expr]] = []
     for entry in (
-        _name_map("controls", controls),
-        _name_map("indicators", indicators),
-        _name_map("passed", passed),
+        _name_map("controls", [(names[t.id], t.name or "") for t, _ in controls]),
+        _name_map(
+            "indicators",
+            [(names[t.id], t.name or "") for t, _ in [*indicators, *passed]],
+        ),
+        _name_map("results", [(names[t.id], found) for t, found in indicators]),
+        _name_map("passed", [(names[t.id], name) for t, name in passed]),
     ):
         if entry is not None:
             keywords.append(entry)
-    duplicates = duplicate_labels(all_terminals)
-    if duplicates:
-        keywords.append(
-            (
-                "duplicates",
-                ast.List(
-                    elts=[ast.Constant(value=label) for label in duplicates],
-                    ctx=ast.Load(),
-                ),
-            )
-        )
     if defaults.entries:
         keywords.append(
             (
                 "defaults",
                 ast.Dict(
-                    keys=[ast.Constant(value=label) for label in defaults.entries],
+                    keys=[ast.Constant(value=name) for name in defaults.entries],
                     values=list(defaults.entries.values()),
                 ),
             )
@@ -217,23 +204,18 @@ def function_panel_statements(
 ) -> list[ast.stmt]:
     """The ``panel`` of a VI's function: its controls by the parameters and its
     indicators by the fields of its result (``interface_names``), the controls
-    and indicators off the connector pane without a name."""
-    names = interface_names(
+    and indicators off the connector pane without a field."""
+    interface = interface_names(
         vi_context.inputs, vi_context.off_pane_inputs, vi_context.outputs
     )
     controls: list[NamedTerminal] = [
-        (t, names.parameters[t.id]) for t in vi_context.inputs
+        (t, interface.parameters[t.id]) for t in vi_context.inputs
     ]
     controls += [(t, None) for t in vi_context.off_pane_inputs]
     indicators: list[NamedTerminal] = [
-        (t, names.fields[t.id]) for t in vi_context.outputs
+        (t, interface.fields[t.id]) for t in vi_context.outputs
     ]
     indicators += [(t, None) for t in vi_context.off_pane_outputs]
     return panel_statements(
-        ctx,
-        target,
-        controls,
-        indicators,
-        panel_terminals(vi_context),
-        lazy,
+        ctx, target, panel_names(vi_context), controls, indicators, lazy
     )

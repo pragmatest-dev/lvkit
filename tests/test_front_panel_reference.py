@@ -426,7 +426,10 @@ def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
             return type("Result", (), {"y": x + 1})()
 
         panel = module("panels").Panel(
-            blocking, controls={"x": "x"}, indicators={"y": "y"}
+            blocking,
+            controls={"x": "x"},
+            indicators={"y": "y"},
+            results={"y": "y"},
         )
         assert panel.state == 1
         panel.set("x", 41)
@@ -808,7 +811,7 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     project.add_vi("Take", take)
     package = project.generate()
     assert (
-        "controls={'hidden': None}, indicators={'shown': None}, "
+        "controls={'hidden': 'hidden'}, indicators={'shown': 'shown'}, "
         "defaults={'hidden': lambda: 0}" in package.sources["take"]
     )
     with package.use() as module:
@@ -839,13 +842,22 @@ def test_a_label_two_objects_share_is_an_error_the_panel_names(tmp_path: Path) -
     project = Project(tmp_path)
     project.add_vi("Twice", twice)
     package = project.generate()
-    assert "duplicates=['same']" in package.sources["twice"]
+    assert "controls={'same': 'same'}" in package.sources["twice"]
+    assert "indicators={'same_2': 'same'}" in package.sources["twice"]
     with package.use() as module:
         panel = module("twice").twice.panel
         with pytest.raises(module("panels").PanelError) as raised:
             panel.get("same")
         assert raised.value.code == 1
         assert "more than one control or indicator" in raised.value.message
+        with pytest.raises(module("panels").PanelError) as by_label:
+            panel.set("same", 1)
+        assert by_label.value.code == 1
+        panel.put("same", 5)
+        assert panel.value("same") == 5
+        assert panel.value("same_2") is None
+        assert panel.get_all(True) == [("same", 5)]
+        assert panel.get_all(False) == [("same", None)]
 
 
 def test_ctrl_val_on_a_shared_label_is_a_gap_at_generation(tmp_path: Path) -> None:
@@ -931,7 +943,13 @@ def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy(
     functions, so a default naming a class of one imports it where it is made."""
     control = pane("v", "input", "c", class_type("Other"), "c", 0)
     lazy_context = ImportingContext()
-    lazy = default_functions([(control, "c")], lazy_context, "f", True)  # type: ignore[arg-type]
+    lazy = default_functions(
+        [(control, "c")],
+        {control.id: "c"},
+        lazy_context,
+        "f",
+        True,  # type: ignore[arg-type]
+    )  # type: ignore[arg-type]
     module = ast.fix_missing_locations(ast.Module(lazy.statements, []))
     assert ast.unparse(module) == (
         "def _f_default_0():\n    from .other import Other\n    return Other()"
@@ -939,7 +957,13 @@ def test_a_default_that_imports_a_module_does_it_inside_when_the_module_is_lazy(
     assert ast.unparse(lazy.entries["c"]) == "_f_default_0"
     assert lazy_context.imports == {"from .kept import kept"}
     eager_context = ImportingContext()
-    eager = default_functions([(control, "c")], eager_context, "f", False)  # type: ignore[arg-type]
+    eager = default_functions(
+        [(control, "c")],
+        {control.id: "c"},
+        eager_context,
+        "f",
+        False,  # type: ignore[arg-type]
+    )  # type: ignore[arg-type]
     assert eager.statements == []
     assert ast.unparse(eager.entries["c"]) == "lambda: Other()"
     assert eager_context.imports == {

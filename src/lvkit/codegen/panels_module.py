@@ -8,31 +8,40 @@ no value between calls, so each generated function carries a ``Panel`` as
 The class is written once into the package root as ``panels.py`` and imported from
 there, so a generated package imports nothing from lvkit.
 
-A ``Panel`` is described by the labels LabVIEW shows
-(``codegen/panel_description.py``)::
+A ``Panel`` is described by the one name table of the VI
+(``codegen/panel_names.py``: a name unique among every control and indicator) and
+the label LabVIEW shows for each (``codegen/panel_description.py``)::
 
     my_vi.panel = Panel(
         my_vi,
-        controls={"x": "x", "list": "list_"},
-        indicators={"y": "y"},
-        passed={"Thing out": "self"},
-        duplicates=["x"],
-        defaults={"list": lambda: []},
+        controls={"x": "x", "list_": "list"},
+        indicators={"y": "y", "thing_out": "Thing out"},
+        results={"y": "y"},
+        passed={"thing_out": "self"},
+        defaults={"list_": lambda: []},
     )
 
-``controls`` maps a label to the parameter that takes it (None for a control
-that is not on the connector pane); ``defaults`` a label to the function that
-makes the control's default (a control with none takes the parameter's own);
-``indicators`` a label to the field of
-the result that holds it (None for an indicator not on the connector pane);
-``passed`` the label of a class output that is the object the method ran on to the
-parameter (``self``) that holds it; ``duplicates`` the labels two objects share,
-which a Ctrl Val method cannot tell apart.
+``controls`` maps the name of each control to its label; a control whose name is a
+parameter of the function is passed to it by a run, any other (a control off the
+connector pane) is held only; ``defaults`` a name to the function that makes the
+control's default (a control with none takes the parameter's own); ``indicators``
+the name of each indicator to its label; ``results`` the name of an indicator on
+the connector pane to the field of the result that holds it; ``passed`` the name
+of a class output that is the object the method ran on to the parameter
+(``self``) that holds it.
+
+The panel holds every value by name, so two controls with the same label (or a
+control and an indicator) each keep their own. The label is only what a Ctrl Val
+method looks an object up by: NI picks "the first object whose label matches" in
+the front panel tabbing order, which is not read, so a label two objects share is
+error 1 for ``set`` / ``get``, while the view, the run and the VI's own panel reads
+and writes keep using each object's name.
 
 A view of the panel (the NiceGUI tab, a test recorder, a remote mirror) is a
-``PanelView`` attached with ``Panel.attach``: the panel tells each attached view
-when a control or an indicator changes, when a control property is written and when
-a run starts and ends. With no view attached the panel runs headless.
+``PanelView`` attached with ``Panel.attach``: the panel tells each attached view,
+by name, when a control or an indicator changes, when a control property is
+written and when a run starts and ends. With no view attached the panel runs
+headless.
 
 A run passes a function that takes ``live_io`` (the VI reads or writes its own
 panel while it runs) a ``PanelIO``: its reads give the panel's control values, its
@@ -65,7 +74,7 @@ import copy
 import inspect
 import threading
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from queue import Empty, Queue
 from typing import Any
 
@@ -97,27 +106,21 @@ class PanelView:
     panel tells from the thread that made the change, outside its own lock; a
     view that draws records the change and draws on its own thread."""
 
-    def control_changed(self, label: str, value: Any) -> None:
-        """A control (or indicator) of the panel was set."""
+    def control_changed(self, name: str, value: Any) -> None:
+        """The control (or indicator) ``name`` of the panel was set."""
 
-    def indicator_changed(self, label: str, value: Any) -> None:
-        """A run stored the value of an indicator."""
+    def indicator_changed(self, name: str, value: Any) -> None:
+        """A run stored the value of the indicator ``name``."""
 
-    def property_changed(self, label: str, prop: str, value: Any) -> None:
+    def property_changed(self, name: str, prop: str, value: Any) -> None:
         """The running VI set the property ``prop`` (the name of the property) of
-        the control or indicator labelled ``label``."""
+        the control or indicator ``name``."""
 
     def run_started(self) -> None:
         """A run of the VI began."""
 
     def run_finished(self, error: BaseException | None) -> None:
         """A run of the VI ended, with the error it raised, else None."""
-
-
-# A control as the panel holds it: the parameter that takes it (None off the
-# connector pane) and the function that makes its default (None for the
-# parameter's own).
-ControlEntry = tuple[str | None, Callable[[], Any] | None]
 
 
 def _start_thread(work: Callable[[], Any]) -> None:
@@ -182,20 +185,22 @@ class Panel:
     def __init__(
         self,
         function: Callable[..., Any],
-        controls: Mapping[str, str | None] | None = None,
-        indicators: Mapping[str, str | None] | None = None,
+        controls: Mapping[str, str] | None = None,
+        indicators: Mapping[str, str] | None = None,
+        results: Mapping[str, str] | None = None,
         passed: Mapping[str, str] | None = None,
-        duplicates: Iterable[str] = (),
         defaults: Mapping[str, Callable[[], Any]] | None = None,
     ) -> None:
         self.function = function
-        made = defaults or {}
-        self._controls: dict[str, ControlEntry] = {
-            label: (name, made.get(label)) for label, name in (controls or {}).items()
-        }
+        self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
+        self._results = dict(results or {})
         self._passed = dict(passed or {})
-        self._duplicates = frozenset(duplicates)
+        self._defaults = dict(defaults or {})
+        self._labelled: dict[str, list[str]] = {}
+        for name, label in [*self._controls.items(), *self._indicators.items()]:
+            if label:
+                self._labelled.setdefault(label, []).append(name)
         self._values: dict[str, Any] = {}
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
@@ -204,13 +209,6 @@ class Panel:
         self._go = threading.Event()
         self._go.set()
         self._io: PanelIO | None = None
-        # The label of each name a running function passes ``live_io``: the
-        # parameter of a control, the field of an indicator (a view adds the
-        # names it knows).
-        self._names: dict[str, str] = {
-            **{f: label for label, f in self._indicators.items() if f is not None},
-            **{n: label for label, (n, _) in self._controls.items() if n is not None},
-        }
 
     @property
     def state(self) -> int:
@@ -235,14 +233,11 @@ class Panel:
         with self._lock:
             return self._io.events if self._io is not None else None
 
-    def attach(self, view: PanelView, names: Mapping[str, str] | None = None) -> None:
-        """Tell ``view`` of every change from now on. ``names`` maps the names a
-        running function passes ``live_io`` to the labels of the controls and
-        indicators the view draws."""
+    def attach(self, view: PanelView) -> None:
+        """Tell ``view`` of every change from now on."""
         with self._lock:
             if view not in self._views:
                 self._views.append(view)
-            self._names.update(names or {})
 
     def detach(self, view: PanelView) -> None:
         with self._lock:
@@ -251,36 +246,45 @@ class Panel:
 
     def set(self, label: str, value: Any) -> None:
         """Set the control or indicator labelled ``label``."""
-        self._check(label)
-        with self._lock:
-            self._values[label] = value
-        self._tell("control_changed", label, value)
-
-    def has(self, label: str) -> bool:
-        """Whether ``label`` names exactly one control or indicator."""
-        return label not in self._duplicates and (
-            label in self._controls or label in self._indicator_labels()
-        )
-
-    def seed(self, label: str, value: Any) -> Any:
-        """The value of ``label``, which is ``value`` when none was set yet (a
-        view starts a control at the value its widget has). No view is told."""
-        self._check(label)
-        with self._lock:
-            return self._values.setdefault(label, value)
+        self.put(self._name_of(label), value)
 
     def get(self, label: str) -> Any:
         """The value of the control or indicator labelled ``label``: the last set
         or run's, else the control's default."""
-        self._check(label)
-        with self._lock:
-            return self._value(label)
+        return self.value(self._name_of(label))
 
     def get_all(self, controls: bool = False) -> list[tuple[str, Any]]:
-        """``(label, value)`` of every control (``controls`` True) or indicator."""
+        """``(label, value)`` of every labelled control (``controls`` True) or
+        indicator, a label two share once for each."""
         with self._lock:
-            labels = self._controls if controls else self._indicator_labels()
-            return [(label, self._value(label)) for label in labels]
+            names = self._controls if controls else self._indicators
+            return [
+                (label, self._value(name)) for name, label in names.items() if label
+            ]
+
+    def holds(self, name: str) -> bool:
+        """Whether ``name`` is the name of a control or indicator of the panel."""
+        return name in self._controls or name in self._indicators
+
+    def put(self, name: str, value: Any) -> None:
+        """Set the control or indicator ``name`` and tell the views."""
+        self._check(name)
+        with self._lock:
+            self._values[name] = value
+        self._tell("control_changed", name, value)
+
+    def value(self, name: str) -> Any:
+        """The value of the control or indicator ``name``."""
+        self._check(name)
+        with self._lock:
+            return self._value(name)
+
+    def seed(self, name: str, value: Any) -> Any:
+        """The value of ``name``, which is ``value`` when none was set yet (a view
+        starts a control at the value its widget has). No view is told."""
+        self._check(name)
+        with self._lock:
+            return self._values.setdefault(name, value)
 
     def run(self, wait: bool = True) -> None:
         """Run the function with the control values the panel holds, an unset
@@ -361,43 +365,41 @@ class Panel:
         if self._abort:
             raise Abort
 
-    def _live_read(self, key: str, held: Any) -> Any:
-        """The panel's value of the control ``key`` names, a copy the function may
+    def _live_read(self, name: str, held: Any) -> Any:
+        """The panel's value of the control ``name``, a copy the function may
         change; ``held`` (the function's own) when the panel has none."""
-        label = self._names.get(key)
         with self._lock:
-            if label is None or label not in self._values:
+            if name not in self._values:
                 return copy.deepcopy(held)
-            return copy.deepcopy(self._values[label])
+            return copy.deepcopy(self._values[name])
 
-    def _live_write(self, key: str, value: Any) -> None:
+    def _live_write(self, name: str, value: Any) -> None:
         """The function wrote the indicator, or the control through a Local
-        Variable, ``key`` names."""
-        label = self._names.get(key)
-        if label is None:
+        Variable, ``name`` stands for."""
+        if not self.holds(name):
             return
         with self._lock:
-            self._values[label] = value
-            is_control = label in self._controls
-        changed = "control_changed" if is_control else "indicator_changed"
-        self._tell(changed, label, value)
+            self._values[name] = value
+        changed = "control_changed" if name in self._controls else "indicator_changed"
+        self._tell(changed, name, value)
 
-    def _live_property(self, key: str, prop: str, value: Any) -> None:
-        label = self._names.get(key)
-        if label is not None:
-            self._tell("property_changed", label, prop, value)
+    def _live_property(self, name: str, prop: str, value: Any) -> None:
+        if self.holds(name):
+            self._tell("property_changed", name, prop, value)
 
     def _arguments(self) -> dict[str, Any]:
-        """The keyword arguments of a run: each control of the connector pane that
-        was set or has a default made for it, and a parameter that has no default
-        at None."""
+        """The keyword arguments of a run: each control that is a parameter of the
+        function and was set or has a default made for it, and a parameter that
+        has no default at None."""
+        parameters = inspect.signature(self.function).parameters
         with self._lock:
             arguments = {
-                name: self._value(label)
-                for label, (name, factory) in self._controls.items()
-                if name is not None and (label in self._values or factory is not None)
+                name: self._value(name)
+                for name in self._controls
+                if name in parameters
+                and (name in self._values or name in self._defaults)
             }
-        for name, found in inspect.signature(self.function).parameters.items():
+        for name, found in parameters.items():
             if (
                 name not in arguments
                 and found.default is inspect.Parameter.empty
@@ -410,15 +412,14 @@ class Panel:
         stored: list[tuple[str, Any]] = []
         with self._lock:
             if result is not None:
-                for label, field in self._indicators.items():
-                    if field is not None:
-                        self._values[label] = getattr(result, field, None)
-                        stored.append((label, self._values[label]))
-            for label, name in self._passed.items():
-                self._values[label] = arguments[name]
-                stored.append((label, self._values[label]))
-        for label, value in stored:
-            self._tell("indicator_changed", label, value)
+                for name, field in self._results.items():
+                    self._values[name] = getattr(result, field, None)
+                    stored.append((name, self._values[name]))
+            for name, parameter in self._passed.items():
+                self._values[name] = arguments[parameter]
+                stored.append((name, self._values[name]))
+        for name, value in stored:
+            self._tell("indicator_changed", name, value)
 
     def _tell(self, method: str, *arguments: Any) -> None:
         with self._lock:
@@ -426,8 +427,11 @@ class Panel:
         for view in views:
             getattr(view, method)(*arguments)
 
-    def _check(self, label: str) -> None:
-        if label in self._duplicates:
+    def _name_of(self, label: str) -> str:
+        """The name of the one control or indicator labelled ``label``; error 1
+        for a label none has or more than one has."""
+        names = self._labelled.get(label, [])
+        if len(names) > 1:
             raise PanelError(
                 code=1,
                 source="Panel",
@@ -436,28 +440,26 @@ class Panel:
                     f"indicator of {self.function.__name__}"
                 ),
             )
-        if label not in self._controls and label not in self._indicator_labels():
+        if not names:
             raise PanelError(code=1, source="Panel", message=f'"{label}" not found')
+        return names[0]
 
-    def _indicator_labels(self) -> list[str]:
-        return [*self._indicators, *self._passed]
+    def _check(self, name: str) -> None:
+        if not self.holds(name):
+            raise PanelError(code=1, source="Panel", message=f'"{name}" not found')
 
-    def _value(self, label: str) -> Any:
-        """The panel's value of ``label``. A control with a default made for it
+    def _value(self, name: str) -> Any:
+        """The panel's value of ``name``. A control with a default made for it
         holds that from the first read on, as a front panel holds one value; else
         the parameter's own default, else None."""
-        if label in self._values:
-            return self._values[label]
-        if label in self._controls:
-            name, factory = self._controls[label]
+        if name in self._values:
+            return self._values[name]
+        if name in self._controls:
+            factory = self._defaults.get(name)
             if factory is not None:
-                self._values[label] = factory()
-                return self._values[label]
-            parameter = (
-                inspect.signature(self.function).parameters.get(name)
-                if name is not None
-                else None
-            )
+                self._values[name] = factory()
+                return self._values[name]
+            parameter = inspect.signature(self.function).parameters.get(name)
             if parameter is not None and parameter.default is not parameter.empty:
                 return parameter.default
         return None

@@ -9,15 +9,19 @@ writing one) is drawn in its widget.
 The panel tells its views from the thread that made the change, which is a worker
 thread when a VI runs. Only NiceGUI's loop touches a widget: each notification is
 recorded under the view's own lock, and one timer on the loop calls ``paint``,
-which draws the latest value of each changed label and then hands the run's
+which draws the latest value of each changed name and then hands the run's
 start and end to the toolbar.
+
+Everything is by name: the name a widget is built with is the name of its control
+or indicator on the panel (``codegen/panel_names.py``), which also tells the view
+of a change by name.
 """
 
 from __future__ import annotations
 
 import copy
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from .events import PanelEvents
@@ -38,19 +42,16 @@ def key_of(name: Any) -> str:
 
 class PanelWidgets:
     """The widgets of one panel page. ``panel`` is the ``Panel`` of the VI's
-    function (None draws the widgets with nothing behind them), ``names`` maps
-    each name a widget is built with to the label of its control or indicator, and
+    function (None draws the widgets with nothing behind them) and
     ``kinds`` is the event enum of the VI's module when the VI holds an Event
     Structure (the view then pushes the user's changes into the run's events)."""
 
     def __init__(
         self,
         panel: Any = None,
-        names: Mapping[str, str] | None = None,
         kinds: Any = None,
     ) -> None:
         self.panel = panel
-        self.names = dict(names or {})
         self.panel_events = (
             PanelEvents(panel, kinds)
             if panel is not None and kinds is not None
@@ -66,32 +67,28 @@ class PanelWidgets:
         self._own = threading.local()
         self._run_listener: RunListener | None = None
 
-    def _label(self, name: Any) -> str:
-        key = key_of(name)
-        return self.names.get(key, key)
-
     # -- the widgets (on the event loop) -----------------------------------
 
     def add_control(self, name: Any, port: Port) -> None:
         """A control: it starts at the panel's value (the widget's own when the
         panel holds none yet) and the user's changes are set on the panel."""
-        label = self._label(name)
+        key = key_of(name)
         starting = port.get()
-        if self.panel is not None and self.panel.has(label):
-            held = self.panel.seed(label, copy.deepcopy(starting))
+        if self.panel is not None and self.panel.holds(key):
+            held = self.panel.seed(key, copy.deepcopy(starting))
             if held != starting:
                 self._show(port.show, held)
-        self._shown[label] = port.get()
-        self._painters[label] = port.show
+        self._shown[key] = port.get()
+        self._painters[key] = port.show
         port.on_change(lambda value: self.set_control(name, value))
 
     def add_indicator(self, name: Any, painter: Callable[[Any], None]) -> None:
         """An indicator, with the function that shows a value in its widget. It
         shows the panel's value when the panel holds one."""
-        label = self._label(name)
-        self._painters[label] = painter
-        if self.panel is not None and self.panel.has(label):
-            held = self.panel.get(label)
+        key = key_of(name)
+        self._painters[key] = painter
+        if self.panel is not None and self.panel.holds(key):
+            held = self.panel.value(key)
             if held is not None:
                 self._show(painter, held)
 
@@ -101,13 +98,12 @@ class PanelWidgets:
         if self._painting:
             return
         key = key_of(name)
-        label = self._label(name)
-        old = self._shown.get(label)
-        self._shown[label] = value
-        if self.panel is not None and self.panel.has(label):
+        old = self._shown.get(key)
+        self._shown[key] = value
+        if self.panel is not None and self.panel.holds(key):
             self._own.setting = True
             try:
-                self.panel.set(label, copy.deepcopy(value))
+                self.panel.put(key, copy.deepcopy(value))
             finally:
                 self._own.setting = False
         if self.panel_events is not None:
@@ -122,7 +118,7 @@ class PanelWidgets:
             self._painting = False
 
     def paint(self) -> None:
-        """Draw the latest value of every label that changed since the last call,
+        """Draw the latest value of every name that changed since the last call,
         then tell the toolbar of the runs that started or ended. Called by the
         timer, on the event loop."""
         with self._lock:
@@ -130,10 +126,10 @@ class PanelWidgets:
             self._dirty.clear()
             steps = self._steps
             self._steps = []
-        for label, value in changed:
-            painter = self._painters.get(label)
+        for name, value in changed:
+            painter = self._painters.get(name)
             if painter is not None:
-                self._shown[label] = value
+                self._shown[name] = value
                 self._show(painter, value)
         if self._run_listener is not None:
             for kind, error in steps:
@@ -146,13 +142,13 @@ class PanelWidgets:
 
     # -- what the panel tells (on any thread) ------------------------------
 
-    def control_changed(self, label: str, value: Any) -> None:
-        self._record(label, value)
+    def control_changed(self, name: str, value: Any) -> None:
+        self._record(name, value)
 
-    def indicator_changed(self, label: str, value: Any) -> None:
-        self._record(label, value)
+    def indicator_changed(self, name: str, value: Any) -> None:
+        self._record(name, value)
 
-    def property_changed(self, label: str, prop: str, value: Any) -> None:
+    def property_changed(self, name: str, prop: str, value: Any) -> None:
         """The page draws no control property (Visible, Disabled, ...) yet."""
 
     def run_started(self) -> None:
@@ -163,11 +159,11 @@ class PanelWidgets:
         with self._lock:
             self._steps.append(("finished", error))
 
-    def _record(self, label: str, value: Any) -> None:
+    def _record(self, name: str, value: Any) -> None:
         """A change on the panel. A change this view set itself is already in its
         widget."""
         if getattr(self._own, "setting", False):
             return
         with self._lock:
-            self._latest[label] = value
-            self._dirty[label] = None
+            self._latest[name] = value
+            self._dirty[name] = None

@@ -67,7 +67,7 @@ def error_text(error: Any) -> tuple[str, str]:
 
 
 class RunController:
-    """The toolbar of ``view.panel``. ``error_label`` is the label of the
+    """The toolbar of ``view.panel``. ``error_name`` is the name of the
     indicator that holds the VI's ``error_out`` (None when it has none)."""
 
     def __init__(
@@ -75,11 +75,11 @@ class RunController:
         view: PanelWidgets,
         *,
         abortable: bool,
-        error_label: str | None = None,
+        error_name: str | None = None,
     ) -> None:
         self._view = view
         self._panel = view.panel
-        self._error_label = error_label
+        self._error_name = error_name
         self._abortable = abortable
         self._closed = False
         self.running = self._panel.state != 1
@@ -130,9 +130,9 @@ class RunController:
 
     def _error_out(self) -> Any:
         """The error the VI left in its ``error_out`` indicator."""
-        if self._error_label is None or not self._panel.has(self._error_label):
+        if self._error_name is None or not self._panel.holds(self._error_name):
             return None
-        return self._panel.get(self._error_label)
+        return self._panel.value(self._error_name)
 
     # -- the runs ----------------------------------------------------------
 

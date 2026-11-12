@@ -19,7 +19,7 @@ from nicegui import ui
 from nicegui.testing.user import User
 
 from tests.error_diagrams import Package, Project, project  # noqa: F401
-from tests.panel_diagrams import NAME, counting_vi
+from tests.panel_diagrams import NAME, counting_vi, shared_label_vi
 from tests.panel_harness import (
     controls_of,
     labels,
@@ -188,10 +188,10 @@ class _EndedPanel:
     def attach(self, view: Any) -> None:
         self.views.append(view)
 
-    def has(self, label: str) -> bool:
-        return label == "error out"
+    def holds(self, name: str) -> bool:
+        return name == "error_out"
 
-    def get(self, label: str) -> Any:
+    def value(self, name: str) -> Any:
         return self.error_out
 
     def run(self, wait: bool = True) -> None:
@@ -206,7 +206,7 @@ def _banner_panel(controls: ModuleType, error_out: _Error | None) -> Callable[[]
         values = controls.PanelWidgets(panel)
         panel.attach(values)
         controller = controls.RunController(
-            values, abortable=False, error_label="error out"
+            values, abortable=False, error_name="error_out"
         )
         controller.toolbar()
         ui.timer(0.1, values.paint)
@@ -341,15 +341,14 @@ def test_two_views_of_one_panel_both_see_a_set_from_another_thread_and_detach_st
     panel = _panel(package)
     vi_panel = panel.vi_function.panel
     controls = controls_of(package)
-    names = {"offset": "Offset"}
 
-    first = controls.PanelWidgets(vi_panel, names)
-    second = controls.PanelWidgets(vi_panel, names)
+    first = controls.PanelWidgets(vi_panel)
+    second = controls.PanelWidgets(vi_panel)
     shown: dict[str, list[Any]] = {"first": [], "second": []}
     first.add_indicator("offset", shown["first"].append)
     second.add_indicator("offset", shown["second"].append)
-    vi_panel.attach(first, names)
-    vi_panel.attach(second, names)
+    vi_panel.attach(first)
+    vi_panel.attach(second)
     worker = threading.Thread(target=lambda: vi_panel.set("Offset", 3))
     worker.start()
     worker.join()
@@ -372,12 +371,11 @@ def test_an_indicator_written_while_the_vi_runs_reaches_every_view(
     panel = _panel(package)
     vi_panel = panel.vi_function.panel
     controls = controls_of(package)
-    names = {"count": "Count"}
-    views = [controls.PanelWidgets(vi_panel, names) for _ in range(2)]
+    views = [controls.PanelWidgets(vi_panel) for _ in range(2)]
     shown: list[list[Any]] = [[], []]
     for view, into in zip(views, shown, strict=True):
         view.add_indicator("count", into.append)
-        vi_panel.attach(view, names)
+        vi_panel.attach(view)
     vi_panel.set("Stop", True)
     vi_panel.run()
     for view in views:
@@ -413,3 +411,28 @@ def test_abort_and_pause_through_the_panel_stop_and_hold_a_headless_run(
     assert vi_panel.state == 1
     assert vi_panel.aborted
     assert not vi_panel.paused
+
+
+def test_two_controls_with_one_label_each_reach_the_run_from_the_page(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(shared_label_vi())
+    package = project.generate("Shared Label.vi", panel=True)
+    panel = panel_of(package, "shared_label")
+    vi_panel = panel.vi_function.panel
+
+    async def scenario(user: User) -> None:
+        first, second = sorted(
+            user.find(kind=ui.number).elements, key=lambda element: element.id
+        )
+        first.set_value(3)
+        second.set_value(4)
+        user.find(marker="Run").click()
+        await until(user, "done")
+        assert sorted(v for _, v in vi_panel.get_all(True)) == [3, 4]
+        assert vi_panel.get("Sum") == 7
+        # a Ctrl Val method cannot tell the two apart (error 1), the run can
+        with pytest.raises(Exception, match="more than one control"):
+            vi_panel.set("Value", 1)
+
+    simulate(panel.build_panel, scenario)

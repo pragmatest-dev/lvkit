@@ -53,17 +53,10 @@ def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) ->
     return widget_call(control, control.kind, _key(control, enum_name))
 
 
-def _names(controls: list[PanelControl]) -> str:
-    """The dict that maps each name the function passes ``live_io`` to the label
-    of its control or indicator."""
-    entries = [f"{c.key!r}: {c.label!r}" for c in controls if c.label]
-    return "{" + ", ".join(entries) + "}"
-
-
-def _error_label(controls: list[PanelControl]) -> str | None:
-    """The label of the indicator that holds the VI's ``error_out``."""
+def _error_name(controls: list[PanelControl]) -> str | None:
+    """The name of the indicator that holds the VI's ``error_out``."""
     return next(
-        (c.label for c in controls if c.is_indicator and c.field == "error_out"), None
+        (c.key for c in controls if c.is_indicator and c.field == "error_out"), None
     )
 
 
@@ -106,13 +99,12 @@ def panel_source(spec: PanelSource) -> str:
         "",
         "def build_panel() -> None:",
         "    panel = vi_function.panel",
-        f"    names = {_names(spec.controls)}",
-        f"    values = PanelWidgets(panel, names, {spec.event_enum_name})",
-        "    panel.attach(values, names)",
+        f"    values = PanelWidgets(panel, {spec.event_enum_name})",
+        "    panel.attach(values)",
         "    ui.context.client.on_disconnect(lambda: panel.detach(values))",
         "    controller = RunController(",
         f"        values, abortable={enum is not None}, "
-        f"error_label={_error_label(spec.controls)!r}",
+        f"error_name={_error_name(spec.controls)!r}",
         "    )",
         "    controller.toolbar()",
         "    ui.timer(0.1, values.paint)",
