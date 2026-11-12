@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A cluster control's Controls[] generates Python** — `as_control(ref).controls` is a reference to each field in field order, with the field's label and the cluster's indicator flag; its Value reads that field and a write replaces the cluster's value with a copy holding the new field; a nested cluster has its own Controls[].
 - **A VI's description is its function's docstring, and a VI reference's Description property reads it** — `inspect.getdoc(ref) or ""`; writing Description stays a gap.
 - **A call started and forgotten, and Run VI without waiting, run on a daemon thread** — a forgotten VI that never ends no longer keeps the program from exiting after Abort; Start Asynchronous Call that collects its result stays on the thread pool.
 - **Fix: Variant To Data with an error cluster as its type skips on an incoming error and returns the error value as data; with `data` unwired its type check still sets the error out** — the error cluster on `type` was taken for the node's error in, so the incoming error was dropped and `data` came back as the node's own error; a VI that asks "is this value a TestCase?" through the error out no longer always answers yes.

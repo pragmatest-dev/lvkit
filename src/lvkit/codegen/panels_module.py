@@ -24,6 +24,7 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         results={"y": "y"},
         passed={"thing_out": "self"},
         defaults={"list_": lambda: []},
+        clusters={"cfg": (("a", "a"), ("b", 1), ("inner", "inner", (("x", 0),)))},
         order=["list_", "thing_out", "x", "y"],
     )
 
@@ -34,13 +35,20 @@ control's default (a control with none takes the parameter's own); ``indicators`
 the name of each indicator to its label; ``results`` the name of an indicator on
 the connector pane to the field of the result that holds it; ``passed`` the name
 of a class output that is the object the method ran on to the parameter
-(``self``) that holds it; ``order`` is left out when the controls and then the
+(``self``) that holds it; ``clusters`` the name of a cluster control or indicator
+to the specs of its fields in field order, each ``(label, key)`` (``key`` the
+position in a cluster that is a tuple, else the attribute name) and, for a field
+that is a cluster, ``(label, key, specs)`` (``codegen/panel_clusters.py``);
+``order`` is left out when the controls and then the
 indicators are in tabbing order.
 
 ``Panel.controls`` is the Controls[] property of the panel: a ``Control`` for each
 control and indicator, the same object each time. A ``Control`` is what LabVIEW's
 reference to the object reads: its ``label``, whether it is an ``indicator``, and
-its ``value`` (read and written through the panel, as Ctrl Val does).
+its ``value`` (read and written through the panel, as Ctrl Val does). The
+``controls`` of a cluster's ``Control`` are a ``Field`` for each field of the
+cluster, in field order: the field's label, the cluster's indicator flag, and the
+field of the cluster's value as ``value``.
 
 The panel holds every value by name, so two controls with the same label (or a
 control and an indicator) each keep their own. ``order`` lists every name in the
@@ -124,15 +132,26 @@ def key_of(name: Any) -> str:
 
 class Control:
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
-    it is an ``indicator`` and its ``value``, which is the panel's value of it."""
+    it is an ``indicator`` and its ``value``, which is the panel's value of it. A
+    cluster's ``controls`` are a reference to each of its fields, in field order."""
 
     def __init__(
-        self, panel: PanelValues, name: str, label: str, indicator: bool
+        self,
+        panel: PanelValues,
+        name: str,
+        label: str,
+        indicator: bool,
+        fields: Sequence[Any] | None = None,
     ) -> None:
         self.panel = panel
         self.name = name
         self.label = label
         self.indicator = indicator
+        self._fields = (
+            None
+            if fields is None
+            else [Field(self, label, key, *rest) for label, key, *rest in fields]
+        )
 
     @property
     def value(self) -> Any:
@@ -141,6 +160,63 @@ class Control:
     @value.setter
     def value(self, value: Any) -> None:
         self.panel.put(self.name, value)
+
+    @property
+    def controls(self) -> list[Control]:
+        """The Controls[] of a cluster: a reference to each of its fields, in
+        cluster order, the same object each time; error 1026 for a control that is
+        not a cluster."""
+        if self._fields is None:
+            raise PanelError(
+                code=1026,
+                source="Control.controls",
+                message="Control Reference is invalid.",
+            )
+        return list(self._fields)
+
+
+class Field(Control):
+    """A field of the cluster control ``parent``: the control with the label of the
+    field and the indicator flag of the cluster, whose ``value`` is that field of
+    the cluster's value. ``key`` is the position of the field in a cluster that is
+    a tuple, else the name of its attribute. A write replaces the cluster's value
+    with a copy that holds the new field, so a value read earlier is not changed."""
+
+    def __init__(
+        self,
+        parent: Control,
+        label: str,
+        key: int | str,
+        fields: Sequence[Any] | None = None,
+    ) -> None:
+        super().__init__(parent.panel, parent.name, label, parent.indicator, fields)
+        self.parent = parent
+        self.key = key
+
+    @property
+    def value(self) -> Any:
+        whole = self.parent.value
+        if whole is None:
+            return None
+        if isinstance(self.key, int):
+            return whole[self.key]
+        return getattr(whole, self.key)
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        whole = self.parent.value
+        if whole is None:
+            raise PanelError(
+                code=1,
+                source="Control.value",
+                message=f'"{self.parent.label}" has no value to change a field of',
+            )
+        if isinstance(self.key, int):
+            changed = (*whole[: self.key], value, *whole[self.key + 1 :])
+        else:
+            changed = copy.copy(whole)
+            setattr(changed, self.key, value)
+        self.parent.value = changed
 
 
 class PanelView:
@@ -234,13 +310,17 @@ class PanelValues:
         defaults: Mapping[str, Callable[[], Any]] | None = None,
         storage: MutableMapping[str, Any] | None = None,
         order: Sequence[str] | None = None,
+        clusters: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
+        clusters = clusters or {}
         self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
         self._defaults = dict(defaults or {})
         self._order = list(order or [*self._controls, *self._indicators])
         self._refs = {
-            name: Control(self, name, label, name in self._indicators)
+            name: Control(
+                self, name, label, name in self._indicators, clusters.get(name)
+            )
             for name, label in {**self._controls, **self._indicators}.items()
         }
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
@@ -382,8 +462,11 @@ class Panel(PanelValues):
         passed: Mapping[str, str] | None = None,
         defaults: Mapping[str, Callable[[], Any]] | None = None,
         order: Sequence[str] | None = None,
+        clusters: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
-        super().__init__(controls, indicators, defaults, order=order)
+        super().__init__(
+            controls, indicators, defaults, order=order, clusters=clusters
+        )
         self.function = function
         self._results = dict(results or {})
         self._passed = dict(passed or {})

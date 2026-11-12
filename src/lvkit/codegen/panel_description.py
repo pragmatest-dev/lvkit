@@ -21,6 +21,8 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``passed``: the name of a class output that is the object the method ran on to
   the parameter (``self``) whose value it shows, as a method whose class output is
   that object returns no field for it;
+- ``clusters``: the name of each cluster control or indicator to the fields of
+  its cluster, for the controls its Controls[] gives (``panel_clusters``);
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -43,6 +45,7 @@ from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parse_expr
+from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panels_module import PANEL_NAME
 from .type_default import control_default
@@ -157,9 +160,9 @@ def panel_statements(
     passed: Sequence[NamedTerminal] = (),
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., results=...,
-    passed=..., defaults=...)``, ``target`` the expression of the function,
-    preceded by the ``def`` of each default function a lazy module needs. A keyword
-    with no entry is left out. ``names`` is the VI's name table
+    passed=..., defaults=..., clusters=...)``, ``target`` the expression of the
+    function, preceded by the ``def`` of each default function a lazy module
+    needs. A keyword with no entry is left out. ``names`` is the VI's name table
     (``panel_names``); ``controls`` pair each control with the parameter that takes
     it (None off the connector pane), ``indicators`` each indicator with the field
     of the result that holds it (None off the pane) and ``passed`` each class
@@ -178,6 +181,21 @@ def panel_statements(
     ):
         if entry is not None:
             keywords.append(entry)
+    clusters = {
+        names[t.id]: specs
+        for t, _ in [*controls, *indicators, *passed]
+        if (specs := cluster_specs(ctx, t)) is not None
+    }
+    if clusters:
+        keywords.append(
+            (
+                "clusters",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in clusters],
+                    values=list(clusters.values()),
+                ),
+            )
+        )
     if defaults.entries:
         keywords.append(
             (

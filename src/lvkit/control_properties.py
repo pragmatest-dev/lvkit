@@ -10,8 +10,8 @@ entry wins over an inherited one. A property is listed only when NI's public
 documentation says what it does.
 
 A Property Node on a wired control reference (no binding) reads a few properties
-that are the reference's own: its ``Value``, its ``Indicator`` flag and its
-``Label.Text`` (``ReferenceRow``).
+that are the reference's own: its ``Value``, its ``Indicator`` flag, its
+``Label.Text`` and, of a cluster, its ``Controls[]`` (``ReferenceRow``).
 
 The graph (which VIs touch their panel while running) and code generation (what a
 row generates) both read this, so it sits outside both.
@@ -45,11 +45,12 @@ class ControlProperty:
 class ReferenceRow(Enum):
     """What a row of a Property Node on a control reference is, when it is one of
     the control's own: its ``Value``, whether it is an ``Indicator``, the text of
-    its ``Label``."""
+    its ``Label``, and, of a cluster, the references to its ``Controls[]``."""
 
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
+    CLUSTER_CONTROLS = "cluster_controls"
 
 
 @dataclass(frozen=True)
@@ -115,8 +116,8 @@ def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
 def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:
     """The own property of a control reference that the row with property ``codes``
     on a reference of class ``class_name`` is: ``Value`` (the generic code, or the
-    class's strict or own one), ``Indicator`` or ``Label.Text``; None for any
-    other row."""
+    class's strict or own one), ``Indicator``, ``Label.Text`` or a cluster's
+    ``Controls[]``; None for any other row."""
     if is_value_row(class_name, codes):
         return ReferenceRow.VALUE
     return _table().reference_rows.get(tuple(codes))

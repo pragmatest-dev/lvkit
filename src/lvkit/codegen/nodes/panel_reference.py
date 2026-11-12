@@ -10,6 +10,9 @@ that module, and these rows read them:
 - ``Controls[]`` of a panel reference (NI: .../generic/gobject/panel/controls.html,
   "Array of references to the controls and indicators on the front panel. The array
   contains the references in tabbing order") is ``as_panel(reference).controls``;
+- ``Controls[]`` of a cluster reference (NI: .../generic/gobject/control/cluster/
+  controls.html, "Array of references to the cluster elements in cluster order") is
+  ``as_control(reference).controls``;
 - ``Value`` of a control reference (NI: .../generic/gobject/control/value.html,
   "Data value of the control (LV variant)", read and write) is
   ``as_control(reference).value``, read or assigned;
@@ -60,18 +63,21 @@ class PanelRow(Enum):
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
+    CLUSTER_CONTROLS = "cluster_controls"
 
 
 _REFERENCE_ROWS = {
     ReferenceRow.VALUE: PanelRow.VALUE,
     ReferenceRow.INDICATOR: PanelRow.INDICATOR,
     ReferenceRow.LABEL_TEXT: PanelRow.LABEL_TEXT,
+    ReferenceRow.CLUSTER_CONTROLS: PanelRow.CLUSTER_CONTROLS,
 }
 
 _CONTROL_ATTRIBUTE = {
     PanelRow.VALUE: "value",
     PanelRow.INDICATOR: "indicator",
     PanelRow.LABEL_TEXT: "label",
+    PanelRow.CLUSTER_CONTROLS: "controls",
 }
 
 
