@@ -173,7 +173,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
     A row on a wired reference is Python only where Python has the value: a VI
-    reference's Name, Path and Exec.State (``vi_reference.vi_property_read``);
+    reference's Name, Path, Description and Exec.State
+    (``vi_reference.vi_property_read``);
     every other read, and every write, is a gap naming the property and the
     reference's class. Implicit control bindings are rejected unless the node is
     bound to a control of the VI. Error-cluster terminals are

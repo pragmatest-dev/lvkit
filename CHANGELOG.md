@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A VI's description is its function's docstring, and a VI reference's Description property reads it** — `inspect.getdoc(ref) or ""`; writing Description stays a gap.
 - **A call started and forgotten, and Run VI without waiting, run on a daemon thread** — a forgotten VI that never ends no longer keeps the program from exiting after Abort; Start Asynchronous Call that collects its result stays on the thread pool.
 - **Fix: Variant To Data with an error cluster as its type skips on an incoming error and returns the error value as data; with `data` unwired its type check still sets the error out** — the error cluster on `type` was taken for the node's error in, so the incoming error was dropped and `data` came back as the node's own error; a VI that asks "is this value a TestCase?" through the error out no longer always answers yes.
 - **Every VI has a front panel; Ctrl Val.Set, Get and Get All and Run VI generate Python on a VI reference** — each generated function carries `function.panel`, a `Panel` from a generated `panels.py`, that holds the VI's control and indicator values between calls (a value set in one VI is the value another runs and reads, and an unset control holds its default as on LabVIEW's front panel); Run VI is always a run of that panel, refuses a second run of a VI that is running, and is already Running (Exec.State) when it returns without waiting; a label two controls or indicators share is a gap, since the tabbing order that picks one is not read.

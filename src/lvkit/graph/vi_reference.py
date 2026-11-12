@@ -49,6 +49,10 @@ VI_PATH_PROPERTY_CODE = 501
 # The Execution:State property (NI: properties-and-methods/vi-server/vi/execstate.html):
 # the code a Property Node of the VI class records beside the name Exec.State.
 VI_EXEC_STATE_PROPERTY_CODE = 557
+# The Description property (NI: properties-and-methods/vi-server/vi/description.html):
+# the code a Property Node of the VI class records beside the name Description
+# (TestCase shortDescription.vi and TestSuite GetDescription.vi both record 502).
+VI_DESCRIPTION_PROPERTY_CODE = 502
 
 # The Property Node's VI reference input.
 _PROPERTY_REFERENCE_INDEX = 0

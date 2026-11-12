@@ -248,6 +248,7 @@ class Project:
                 id=key,
                 vi_path=key,
                 name=Path(key).name,
+                description=context.description,
                 terminals=[
                     *context.inputs,
                     *context.off_pane_inputs,

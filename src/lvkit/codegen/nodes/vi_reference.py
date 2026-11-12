@@ -12,7 +12,8 @@ it holds is found when the code is generated, not when it runs:
   forgotten call on a daemon thread;
 - Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
-  ``__name__`` and file (``vi_property_read``).
+  ``__name__`` and file, and its Description is the function's docstring
+  (``vi_property_read``).
 
 A reference to a member VI of a class is ``Class.method`` and the call passes
 the object as its ``self`` keyword; Call By Reference does not support a dynamic
@@ -45,6 +46,7 @@ from lvkit.graph.vi_reference import (
     OPEN_VI_PATH_INDEX,
     OPEN_VI_REFERENCE_INDEX,
     VI_CLASS,
+    VI_DESCRIPTION_PROPERTY_CODE,
     VI_EXEC_STATE_PROPERTY_CODE,
     VI_NAME_PROPERTY_CODE,
     VI_PATH_PROPERTY_CODE,
@@ -726,8 +728,9 @@ def vi_property_read(
     node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
-    function: Name is the function's name, Path its file, Exec.State the state of
-    its front panel (``Panel.state``: 1 Idle, 2 Run top level while it runs).
+    function: Name is the function's name, Path its file, Description its
+    docstring (the VI's description), Exec.State the state of its front panel
+    (``Panel.state``: 1 Idle, 2 Run top level while it runs).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if node.object_name != VI_CLASS or len(prop.segments) != 1:
@@ -738,6 +741,9 @@ def vi_property_read(
     if code == VI_PATH_PROPERTY_CODE:
         ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")
+    if code == VI_DESCRIPTION_PROPERTY_CODE:
+        ctx.add_import("import inspect")
+        return parse_expr(f'inspect.getdoc({reference}) or ""')
     if code == VI_EXEC_STATE_PROPERTY_CODE:
         ctx.import_panels(PANEL_CALL_IMPORTS)
         return parse_expr(f"{PANEL_OF_NAME}({reference}).state")

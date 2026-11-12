@@ -34,7 +34,7 @@ from .context import CodeGenContext
 from .elementwise import arrayify_module
 from .error_flow import share_guards
 from .errors import CodeGenError
-from .front_panel import front_panel_docstring, off_pane_locals
+from .front_panel import function_docstring, off_pane_locals
 from .gaps import Gap, vi_body
 from .global_module import build_global_module
 from .import_cycles import imports_inside, in_import_cycle
@@ -205,9 +205,9 @@ def function_body(
     body.extend(generate_body(top_nodes, ctx))
     body.extend(ctx.local_indicators.statements_at_end(ctx))
 
-    # The docstring opens the function; it names the Variant parameters the body
-    # turned out to read as lookup tables.
-    docstring = front_panel_docstring(
+    # The docstring opens the function: the VI's description, then the Variant
+    # parameters the body turned out to read as lookup tables.
+    docstring = function_docstring(
         vi_context, names, ctx.type_namer(), ctx, sorted(ctx.lookup_parameters)
     )
     if docstring is not None:
