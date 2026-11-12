@@ -110,6 +110,14 @@ There is no single choke point today (audit finding 3). The smallest set:
 4. Tunnels and shift registers: a coercion at a structure border is checked (both sides' types) in the
    brief's first step; if the graph shows one, it goes through the same helper.
 
+A polymorphic "anything" input is NOT a Variant terminal and makes no variant: the VI records it with
+the wired type (measured 2026-11-12, `.tmp/tdenum/variant_inputs.py`: in 15 OpenG VIs and the 31
+TestCase VIs, Flatten To String's input is I32 / DBL / complex, Equal?'s an enum / I32 / refnum), so
+the plain Python value passes through as today. Only a terminal whose own type is Variant wraps: in
+TestCase that is 6 of 79 Variant inputs (a refnum into `Get LVClass Name from TD.vi`'s Variant
+control, a cluster or refnum into an Invoke Node's Variant value); the other 73 are already wired
+from a Variant.
+
 A Variant-typed source passes through unchanged. The value put into a new Variant is copied one level
 by `as_variant` when it is a list or a cluster (`copy.copy`): To Variant copies its data in LabVIEW,
 and nothing in the copy rule copies an array or an anonymous cluster today (`value_copy.py:36-47`).
