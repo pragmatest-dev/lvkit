@@ -82,7 +82,8 @@
           "index": 11,
           "direction": "output",
           "name": "data",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "part_of": 8
         }
       ],
       "alternative_terminal_sets": [

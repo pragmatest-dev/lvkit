@@ -1,17 +1,22 @@
 """The graph build marks an output whose value its node's input still holds
 (``Terminal.held_in``): an Unbundle By Name or In Place Element field, an Index
-Array element (the catalog's ``part_of``). Each case is a tiny diagram read back
-from the graph."""
+Array element, the value of Get Variant Attribute and the data of Variant To Data
+(the catalog's ``part_of``, in either terminal numbering of Variant To Data). Each
+case is a tiny diagram read back from the graph."""
 
 from __future__ import annotations
+
+import pytest
 
 from lvkit.graph.held_values import mark_held_outputs
 from lvkit.graph.models import AnyGraphNode
 from lvkit.primitive_resolver import PrimitiveResolver
 from tests.error_diagrams import (
     BOOL,
+    ERR,
     I32,
     REQUIRED,
+    STR,
     Project,
     Vi,
     bundle,
@@ -113,3 +118,69 @@ def test_a_primitive_whose_catalog_has_no_part_of_holds_nothing(
     project.add(vi)
     (node,) = [n for n in _nodes(project) if n.name == "Add"]
     assert [t.held_in for t in node.terminals] == [None, None, None]
+
+
+_VARIANT = '<TypeDesc Type="Variant" Format="inline" />'
+
+
+def test_the_value_of_get_variant_attribute_is_held_by_its_variant(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(
+        8205,
+        [
+            ("error out", 0, ERR, True),
+            ("value", 1, variant_type, True),
+            ("found", 2, BOOL, True),
+            ("duplicate", 3, variant_type, True),
+            ("error in", 4, ERR, False),
+            ("default", 5, variant_type, False),
+            ("name", 6, STR, False),
+            ("variant", 7, variant_type, False),
+        ],
+    )
+    vi.wire(vi.control("v", variant_type, REQUIRED), node["variant"])
+    vi.wire(node["value"], vi.indicator("value", variant_type))
+    project.add(vi)
+    (get,) = [n for n in _nodes(project) if n.name == "Get Variant Attribute"]
+    variant = next(t for t in get.terminals if t.index == 7)
+    held = _held(get)
+    assert held[1] == variant.id
+    assert [i for i, held_in in held.items() if held_in is not None] == [1]
+
+
+@pytest.mark.parametrize(
+    "indices",
+    [
+        # (error in, error out, variant, type, data) in the two numberings
+        (0, 3, 8, 9, 11),
+        (0, 1, 2, 3, 4),
+    ],
+)
+def test_the_data_of_variant_to_data_is_held_by_its_variant_in_either_numbering(
+    project: Project,  # noqa: F811
+    indices: tuple[int, int, int, int, int],
+) -> None:
+    error_in, error_out, variant_in, type_in, data_out = indices
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(
+        8003,
+        [
+            ("error in", error_in, ERR, False),
+            ("error out", error_out, ERR, True),
+            ("variant", variant_in, variant_type, False),
+            ("type", type_in, I32, False),
+            ("data", data_out, I32, True),
+        ],
+    )
+    vi.wire(vi.control("v", variant_type, REQUIRED), node["variant"])
+    vi.wire(node["data"], vi.indicator("d", I32))
+    project.add(vi)
+    (convert,) = [n for n in _nodes(project) if n.name == "Variant To Data"]
+    variant = next(t for t in convert.terminals if t.index == variant_in)
+    held = _held(convert)
+    assert held[data_out] == variant.id
+    assert [i for i, held_in in held.items() if held_in is not None] == [data_out]

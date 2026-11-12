@@ -144,7 +144,8 @@
           "direction": "output",
           "name": "value",
           "python_name": "attribute_value",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "part_of": 7
         },
         {
           "index": 2,
