@@ -14,8 +14,8 @@ import math
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from lvkit.measure_data import TIMESTAMP_FLAVOR
 from lvkit.models import LVType, LVTypeKind, UndecodedPicture
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 
 from . import vi as _vi
 from .type_mapping import parse_type_map_rich

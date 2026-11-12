@@ -61,7 +61,7 @@ class PanelWidgets:
         self._latest: dict[str, Any] = {}
         self._dirty: dict[str, None] = {}
         self._steps: list[tuple[str, BaseException | None]] = []
-        self._painters: dict[str, Callable[[Any], None]] = {}
+        self._painters: dict[str, Callable[[Any], object]] = {}
         self._shown: dict[str, Any] = {}
         self._painting = False
         self._own = threading.local()
@@ -82,7 +82,7 @@ class PanelWidgets:
         self._painters[key] = port.show
         port.on_change(lambda value: self.set_control(name, value))
 
-    def add_indicator(self, name: Any, painter: Callable[[Any], None]) -> None:
+    def add_indicator(self, name: Any, painter: Callable[[Any], object]) -> None:
         """An indicator, with the function that shows a value in its widget. It
         shows the panel's value when the panel holds one."""
         key = key_of(name)
@@ -109,7 +109,7 @@ class PanelWidgets:
         if self.panel_events is not None:
             self.panel_events.value_changed(key, value, old)
 
-    def _show(self, painter: Callable[[Any], None], value: Any) -> None:
+    def _show(self, painter: Callable[[Any], object], value: Any) -> None:
         """Draw ``value`` in a widget without that counting as the user's change."""
         self._painting = True
         try:

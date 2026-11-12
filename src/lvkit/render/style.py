@@ -21,7 +21,6 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
 )
 
-from ..measure_data import TIMESTAMP_FLAVOR
 from ..models import (
     _NUMERIC_TYPE_DESCRIPTOR,
     LVType,
@@ -30,6 +29,7 @@ from ..models import (
     WireStyle,
     _is_error_cluster,
 )
+from ..timestamp_value import TIMESTAMP_FLAVOR
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
 _HELP_TAG_RE = re.compile(r"<[^>]+>")

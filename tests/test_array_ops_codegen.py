@@ -28,14 +28,35 @@ def _compile_and_run(statements: list, local_vars: dict) -> dict:
     """Compile statements and execute, returning resulting locals.
 
     Provides ``copy`` in globals since real generated modules hoist
-    ``fragment.imports`` ("import copy") to the module header -- here we
-    exec just the fragment's statements in isolation.
+    ``fragment.imports`` ("import copy") to the module header. The statements
+    run as the body of a function whose parameters are ``local_vars``, the way
+    a generated VI runs them: a comprehension in them reads those names as
+    enclosing-function variables on every supported Python.
     """
-    module = ast.Module(body=statements, type_ignores=[])
+    function = ast.FunctionDef(
+        name="fragment",
+        args=ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg=name) for name in local_vars],
+            kwonlyargs=[],
+            kw_defaults=[],
+            defaults=[],
+        ),
+        body=[
+            *statements,
+            ast.Return(
+                value=ast.Call(
+                    func=ast.Name(id="locals", ctx=ast.Load()), args=[], keywords=[]
+                )
+            ),
+        ],
+        decorator_list=[],
+    )
+    module = ast.Module(body=[function], type_ignores=[])
     ast.fix_missing_locations(module)
-    code = compile(module, "<test>", "exec")
-    exec(code, {"copy": copy}, local_vars)
-    return local_vars
+    namespace: dict = {"copy": copy}
+    exec(compile(module, "<test>", "exec"), namespace)
+    return namespace["fragment"](**local_vars)
 
 
 # ── Initialize Array (aInit) ────────────────────────────────────────
@@ -342,7 +363,6 @@ class TestArrayReplaceSubset:
             {"data": [1, 2, 3], "sub": [], "i": 1},
         )
         assert result[fragment.bindings["out"]] == [1, 2, 3]
-
 
     def test_each_slot_of_named_cluster_elements_is_its_own_object(self):
         ctx = make_ctx("elem", "dim0", "out")

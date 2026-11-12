@@ -208,6 +208,7 @@ class DecodedConstant(NamedTuple):
     display_value: str | None
     unwritable: UnwritableValue | None
     empty_variant: bool = False
+    structured: object = None
 
 
 def decode_constant(
@@ -247,6 +248,7 @@ def decode_constant(
                 display,
                 find_unwritable(structured),
                 underlying in ("LVVariant", "Variant") and variant_is_empty(raw_bytes),
+                structured,
             )
         return DecodedConstant(py_type, get_default_for_type(lv_type), display, None)
 
@@ -619,9 +621,7 @@ class ConstructionMixin:
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
             lv_type = self.with_class_levels(lv_type)
 
-            _, decoded_value, display_value, unwritable, empty_variant = (
-                decode_constant(const, lv_type=lv_type)
-            )
+            decoded = decode_constant(const, lv_type=lv_type)
 
             q_const_uid = self._qid(vi_key, const.uid)
             # Single output terminal
@@ -635,12 +635,13 @@ class ConstructionMixin:
             const_node = ConstantNode(
                 id=q_const_uid,
                 vi_path=vi_key,
-                value=decoded_value,
+                value=decoded.value,
                 lv_type=lv_type,
                 raw_value=const.value,
-                display_value=display_value,
-                unwritable=unwritable,
-                empty_variant=empty_variant,
+                display_value=decoded.display_value,
+                unwritable=decoded.unwritable,
+                empty_variant=decoded.empty_variant,
+                structured_value=decoded.structured,
                 label=const.label,
                 display_format=const.display_format,
                 collapsed=const.collapsed,

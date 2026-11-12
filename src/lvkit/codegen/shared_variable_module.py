@@ -5,7 +5,8 @@ global variable does, and belongs to a project library, so it is named by the
 library's file and the variable. The package gets a module, ``shared_variables``,
 that holds each as a module-level name set to the variable's type default (``None``
 for a class, which the VI that reads it makes the object for, ``type_default``), and a
-``<name>_timestamp`` set to ``0.0``; a VI that reads or writes the variable
+``<name>_timestamp`` set to LabVIEW's zero timestamp (1904-01-01 UTC); a VI that
+reads or writes the variable
 imports the module and uses the attribute, so every VI that names the same
 library and variable reaches the same value. A write also sets the timestamp to
 ``time.time()``.
@@ -22,9 +23,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from lvkit.graph.package_queries import SharedVariableUse
+from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 
 from .ast_utils import (
     implicit_imports,
+    parse_expr,
     to_var_name,
     unique_names,
 )
@@ -118,8 +121,8 @@ class PackageSharedVariables:
             body.append(
                 ast.AnnAssign(
                     target=ast.Name(id=attributes.timestamp, ctx=ast.Store()),
-                    annotation=ast.Name(id="float", ctx=ast.Load()),
-                    value=ast.Constant(value=0.0),
+                    annotation=parse_expr("hightime.datetime"),
+                    value=parse_expr(EPOCH_1904_EXPRESSION),
                     simple=1,
                 )
             )

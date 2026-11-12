@@ -19,9 +19,10 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
-from enum import Enum, IntEnum
+from enum import IntEnum, StrEnum
 from typing import Literal
 
+import hightime
 from pydantic import BaseModel
 
 from .conversion_gap import ConversionGap
@@ -36,6 +37,7 @@ from .lv_type_codes import (
     is_string_type_name,
 )
 from .string_literal import quote_string
+from .timestamp_value import TIMESTAMP_FLAVOR, timestamp_value_text
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -139,6 +141,35 @@ UnwritableValue = (
 )
 
 
+@dataclass(frozen=True)
+class VariantData:
+    """A decoded Variant: ``value_type`` is the type of the value it holds (None
+    for the empty Variant, which holds none) and ``value`` that value's decoded
+    form (see ``parser.vi._decode_element``); ``attribute_count`` is how many
+    attributes it carries."""
+
+    value_type: LVType | None
+    value: object
+    attribute_count: int = 0
+
+
+def plain_structured(value: object) -> object:
+    """``value`` as a front-panel default shows it: a Variant is the display text
+    ``Variant()`` when empty, else the value it holds; arrays and clusters are
+    read the same way inside; a timestamp is its display text."""
+    if isinstance(value, hightime.datetime):
+        return timestamp_value_text(value)
+    if isinstance(value, VariantData):
+        if value.value_type is None:
+            return "Variant()"
+        return plain_structured(value.value)
+    if isinstance(value, dict):
+        return {key: plain_structured(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [plain_structured(item) for item in value]
+    return value
+
+
 _UNWRITABLE_TYPES = (
     ValuesNotKept,
     UndecodedPicture,
@@ -153,6 +184,8 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     recursively) that holds no value code generation could write, else None."""
     if isinstance(value, _UNWRITABLE_TYPES):
         return value
+    if isinstance(value, VariantData):
+        return find_unwritable(value.value)
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
     elif isinstance(value, list):
@@ -166,12 +199,12 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     return None
 
 
-class LVTypeKind(str, Enum):
+class LVTypeKind(StrEnum):
     """The family of a resolved ``LVType`` — its top-level discriminator.
 
     A CLOSED set: every ``LVType`` is built with one of these (an unrecognized
     LabVIEW type name collapses to ``PRIMITIVE`` in ``parser.type_mapping``); there
-    is no "unknown" kind. ``(str, Enum)`` (not ``StrEnum`` — 3.11+) so a member IS
+    is no "unknown" kind. A ``StrEnum``, so a member IS
     its string and compares equal to a raw ``"primitive"`` literal drop-in — the
     ~40 construction sites and the comparisons all keep working.
     """
@@ -231,10 +264,10 @@ def vi_kind_label(code: int) -> str:
         return f"unknown (code {code})"
 
 
-class SharedVariableKind(str, Enum):
+class SharedVariableKind(StrEnum):
     """How a Shared Variable is published, as the variable type string the VI's
     block-diagram link table records for it (``Global`` is LabVIEW's recorded name
-    for a single-process variable). ``(str, Enum)`` so a member equals the recorded
+    for a single-process variable). A ``StrEnum``, so a member equals the recorded
     string it was read from."""
 
     SINGLE_PROCESS = "Global"
@@ -272,7 +305,7 @@ class PaneSlot:
     dynamic_dispatch: bool = False
 
 
-class ServerClass(str, Enum):
+class ServerClass(StrEnum):
     """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
     says (``CtlFlags``, ``labview-binary-format.md``)."""
 
@@ -373,6 +406,14 @@ class LVType:
             return self.element_type._refnum_leaf()
         return self.kind == LVTypeKind.PRIMITIVE and self.underlying_type == "Refnum"
 
+    @property
+    def is_timestamp(self) -> bool:
+        """Whether this is a timestamp."""
+        return (
+            self.underlying_type == "MeasureData"
+            and self.measure_flavor == TIMESTAMP_FLAVOR
+        )
+
     def is_named_scalar(self) -> bool:
         """Whether this is a typedef of a single value (a numeric, string,
         Boolean, Path, ...): a named type with no members, so its name stands
@@ -442,6 +483,8 @@ class LVType:
                 return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
             return "Any"
         if self.kind == LVTypeKind.PRIMITIVE:
+            if self.is_timestamp:
+                return "hightime.datetime"
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
             inner = self.element_type.to_python(names) if self.element_type else "Any"
@@ -768,17 +811,14 @@ class TypeResolutionNeeded(ConversionGap):
         super().__init__(msg)
 
 
-class TerminalDirection(str, Enum):
+class TerminalDirection(StrEnum):
     """Which way data flows through a terminal: into its node or out of it.
     One value set for a graph terminal and a catalog (primitive, vi.lib)
-    terminal; a ``str`` mix-in because the raw value is compared at many
+    terminal; a ``StrEnum`` because the raw value is compared at many
     sites, and it prints as that value."""
 
     INPUT = "input"
     OUTPUT = "output"
-
-    def __str__(self) -> str:
-        return self.value
 
     @classmethod
     def of(cls, is_output: bool) -> TerminalDirection:
@@ -888,7 +928,7 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
-class InPlaceBorderSide(str, Enum):
+class InPlaceBorderSide(StrEnum):
     """Which half of an In Place Element Structure's border a tile is: the READ
     tile takes the element out of the data, the WRITE tile puts it back."""
 
@@ -1010,7 +1050,7 @@ class FPTerminal(Terminal):
     frame: str | int | None = None
 
 
-class DisableStructureKind(str, Enum):
+class DisableStructureKind(StrEnum):
     """Which disable-family structure a ``class="commentNode"`` is. All three
     share the heap element class and frame shape but LabVIEW draws them
     differently, so the render styles per kind (dotted border for the two
@@ -1042,7 +1082,7 @@ class DisableStructureKind(str, Enum):
         return "Diagram Disable structure"
 
 
-class TunnelMode(str, Enum):
+class TunnelMode(StrEnum):
     """A loop tunnel's BASE aggregation mode -- ``dco class="lpTun"`` ONLY (a
     ``None`` ``Tunnel.mode`` means "not a loop tunnel", not "unknown"; every
     other tunnel kind -- lSR/rSR/lMax/csTun/seqTun/... -- never carries a

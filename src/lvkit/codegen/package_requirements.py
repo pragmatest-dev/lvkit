@@ -6,6 +6,10 @@ such an entry records the package here, once for the whole package whichever
 module the node is in, and the pipeline writes ``requirements.txt`` at the
 package root, so ``pip install -r requirements.txt`` installs what the
 generated code imports.
+
+A package the code generator itself writes into modules (``import hightime`` for
+a timestamp) is found by the import line in the written module
+(``add_imported``).
 """
 
 from __future__ import annotations
@@ -16,6 +20,10 @@ from pathlib import Path
 
 REQUIREMENTS_FILE = "requirements.txt"
 
+# The import line of each package the code generator writes into modules by
+# itself, and the package it needs.
+_GENERATED_IMPORTS = {"import hightime": "hightime"}
+
 
 @dataclass
 class PackageRequirements:
@@ -25,6 +33,17 @@ class PackageRequirements:
 
     def add(self, packages: Iterable[str]) -> None:
         self.packages.update(packages)
+
+    def add_imported(self, folder: Path) -> None:
+        """Add the package of each import line the code generator writes that a
+        module under ``folder`` holds."""
+        for module in sorted(folder.rglob("*.py")):
+            text = module.read_text(encoding="utf-8")
+            self.add(
+                package
+                for statement, package in _GENERATED_IMPORTS.items()
+                if statement in text
+            )
 
     def build(self) -> str | None:
         """The text of ``requirements.txt``: each package once, sorted, one per

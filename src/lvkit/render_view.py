@@ -8,11 +8,11 @@ its front panel.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class RenderView(str, Enum):
+class RenderView(StrEnum):
     """One picture of a file."""
 
     BLOCK_DIAGRAM = "block-diagram"

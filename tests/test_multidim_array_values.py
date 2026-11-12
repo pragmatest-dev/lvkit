@@ -155,7 +155,7 @@ def test_a_picture_is_read_past_so_the_next_field_stays_aligned():
 def test_a_two_dimensional_constant_generates_a_list_of_lists():
     lv_type = _array(_prim("NumUInt32"), 2)
     const = ParsedConstant(uid="c", type_desc="", value=(_u32(2, 2, 1, 2, 3, 4)).hex())
-    _, value, _, _, _ = decode_constant(const, lv_type=lv_type)
+    _, value, _, _, _, _ = decode_constant(const, lv_type=lv_type)
     assert value == "[[1, 2], [3, 4]]"
     expr = _format_constant(Constant(id="c", value=value, lv_type=lv_type))
     assert eval(expr) == [[1, 2], [3, 4]]
@@ -165,7 +165,7 @@ def test_a_two_dimensional_constant_in_a_cluster_keeps_its_neighbours():
     lv_type = _cluster(grid=_array(_prim("NumUInt8"), 2), n=_prim("NumUInt8"))
     data = _u32(1, 2) + bytes([7, 8, 9])
     const = ParsedConstant(uid="c", type_desc="", value=data.hex())
-    _, value, _, _, _ = decode_constant(const, lv_type=lv_type)
+    _, value, _, _, _, _ = decode_constant(const, lv_type=lv_type)
     assert "'n': 9" in value
     assert "[[7, 8]]" in value
 

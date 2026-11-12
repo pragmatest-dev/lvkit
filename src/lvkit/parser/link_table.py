@@ -131,7 +131,7 @@ import struct
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from lvkit.dotnet_types import DotNetAssembly
@@ -260,11 +260,11 @@ class IUseLink:
     path_type: int | None = None
 
 
-class SharedVariableRecordKind(str, Enum):
+class SharedVariableRecordKind(StrEnum):
     """The ident of the link-table record a Shared Variable link was read from,
     which is how the node refers to the variable: ``HpVL``, or ``HpVr`` (seen for
     nodes placed while the variable was already network-published).
-    ``(str, Enum)`` so a member equals the ident text."""
+    A ``StrEnum``, so a member equals the ident text."""
 
     HPVL = "HpVL"
     HPVR = "HpVr"
@@ -334,10 +334,10 @@ class SharedVariableTable:
     failures: list[SharedVariableRecordFailure]
 
 
-class DotNetAssemblyRecordKind(str, Enum):
+class DotNetAssemblyRecordKind(StrEnum):
     """The ident of a .NET assembly link record: ``DNDA`` in the block-diagram
     table (with the nodes that use the assembly), ``DNVA`` in the VI table.
-    ``(str, Enum)`` so a member equals the ident text."""
+    A ``StrEnum``, so a member equals the ident text."""
 
     DNDA = "DNDA"
     DNVA = "DNVA"

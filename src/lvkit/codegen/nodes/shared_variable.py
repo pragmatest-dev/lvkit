@@ -29,6 +29,7 @@ from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver, ModuleImport
 from ..shared_variable_module import SharedVariableAttributes
+from ..timestamp_templates import TIMESTAMP_IMPORTS
 from ..type_default import default_if_unset
 
 
@@ -78,9 +79,10 @@ def _declare(
 
 
 def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
-    """``module.x = value`` and ``module.x_timestamp = time.time()`` for a write
-    node; ``x = module.x`` for a read node, plus ``t = module.x_timestamp`` when
-    its timestamp terminal is wired."""
+    """``module.x = value`` and ``module.x_timestamp = <now>`` (a UTC
+    ``hightime.datetime``) for a write node;
+    ``x = module.x`` for a read node, plus ``t = module.x_timestamp`` when its
+    timestamp terminal is wired."""
     value_term = _terminal(node, SharedVariableTerminal.VARIABLE)
     module, attributes = _declare(node, ctx)
     if node.is_write:
@@ -103,10 +105,10 @@ def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
                 ),
                 ast.Assign(
                     targets=[_attribute(module, attributes.timestamp, True)],
-                    value=parse_expr("time.time()"),
+                    value=parse_expr("hightime.datetime.now(UTC)"),
                 ),
             ],
-            imports={module.statement, "import time"},
+            imports={module.statement, *TIMESTAMP_IMPORTS},
         )
 
     statements: list[ast.stmt] = []

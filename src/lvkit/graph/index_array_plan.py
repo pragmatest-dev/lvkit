@@ -13,12 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models import LVTypeKind, Terminal
 
 
-class IndexUse(str, Enum):
+class IndexUse(StrEnum):
     """How one index terminal selects along its dimension."""
 
     WIRED = "wired"

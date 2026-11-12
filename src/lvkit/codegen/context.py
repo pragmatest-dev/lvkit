@@ -58,6 +58,7 @@ from .ast_utils import (
     to_var_name,
 )
 from .class_model import class_reference, member_reference, member_shape
+from .constant_value import constant_value_expression
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -851,7 +852,7 @@ class CodeGenContext:
             return self.function_name
         return self.vi_reference_expression(self.function_name, self.vi_name)
 
-    def _class_object(self, lv_type: LVType) -> str:
+    def class_object_expression(self, lv_type: LVType) -> str:
         """A new object of the class a class constant holds, the class imported:
         a class constant is the class's default object."""
         return f"{self.class_expression(lv_type, 'The class constant of')}()"
@@ -888,7 +889,7 @@ class CodeGenContext:
         ):
             return self.vi_reference_expression(const.value, const.referenced_vi_key)
         if lv_type is not None and lv_type.ref_type == "UDClassInst":
-            return self._class_object(lv_type)
+            return self.class_object_expression(lv_type)
         if const.unwritable is not None:
             for statement in DATA_FILE_IMPORTS.splitlines():
                 self.add_import(statement)
@@ -904,10 +905,33 @@ class CodeGenContext:
             )
         if lv_type is not None and _is_error_cluster(lv_type):
             return self._error_constant(const)
+        if lv_type is not None and (
+            lv_type.is_timestamp
+            or (
+                const.structured_value is not None
+                and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
+            )
+        ):
+            return constant_value_expression(
+                self,
+                lv_type,
+                const.structured_value,
+                f"the constant {const.label or ''!r}",
+            )
+        return self._format(const)
+
+    def _format(self, const: Constant | ConstantNode) -> str:
+        """A constant as ``_format_constant`` writes it, the class of an enum
+        member it names imported."""
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
         return _format_constant(const, names)
+
+    def scalar_constant_expression(self, lv_type: LVType, text: str) -> str:
+        """A value of the scalar type ``lv_type``, given as the text the VI's
+        decoded value shows, written as a constant of that type is."""
+        return self._format(Constant(id="", value=text, lv_type=lv_type))
 
     def _error_constant(self, const: Constant | ConstantNode) -> str:
         """An error cluster constant as the value of an error wire: ``None`` when
@@ -925,9 +949,18 @@ class CodeGenContext:
         if isinstance(value, dict):
             keys = unique_names(f.name for f in const.lv_type.fields)
             value = tuple(value.get(key) for key in keys)
+        return self.error_value_expression(
+            value, f"the error constant {const.label or ''!r}"
+        )
+
+    def error_value_expression(self, value: object, what: str) -> str:
+        """An error cluster's value (a status, a code and a source) as the value
+        of an error wire: ``None`` when its status is False and its code 0, else a
+        ``LabVIEWError`` (a warning when its status is False). ``what`` names the
+        constant for a gap."""
         if not isinstance(value, tuple | list) or len(value) != 3:
             raise ConversionGap(
-                f"The error constant {const.label or ''!r} holds {value!r}, which "
+                f"{what[0].upper()}{what[1:]} holds {value!r}, which "
                 "is not a status, a code and a source"
             )
         status, code, source = value
@@ -1346,8 +1379,9 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
     """Format a CLUSTER constant as a Python object: a named/typedef cluster as
     ``SimpleNamespace(field=value, ...)`` (attribute access, and mutable so
     Bundle By Name can assign fields), an anonymous cluster as a positional
-    tuple. Returns None if the value or fields can't be resolved, so the caller
-    falls back to generic formatting."""
+    tuple, from the value's display text (a cluster with no decoded value, such as
+    a global variable's saved default). Returns None if that text is not a
+    literal dict or the fields can't be resolved."""
     lv_type = const.lv_type
     if lv_type is None or not lv_type.fields:
         return None
@@ -1466,6 +1500,11 @@ def _format_constant(
         cluster_expr = _format_cluster_constant(const)
         if cluster_expr is not None:
             return cluster_expr
+        if const.lv_type.fields:
+            raise ConversionGap(
+                f"The cluster constant {const.label or ''!r} shows a value that "
+                "is not a Python literal, so its fields cannot be written"
+            )
 
     value = const.value
     underlying = const.lv_type.underlying_type if const.lv_type else None

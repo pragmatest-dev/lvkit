@@ -462,6 +462,11 @@ class ConstantNode(GraphNode):
     # True for the empty Variant (no value, no attributes): ``value`` is its
     # display text ``Variant()``, and the Python value is ``None``.
     empty_variant: bool = False
+    # The decoded value, by field name for a cluster, by element for an array, a
+    # ``VariantData`` for a Variant (see ``parser.vi._decode_element``); None when
+    # the type-aware decode did not run. Codegen writes a cluster or array
+    # constant from it and the constant's type.
+    structured_value: object = None
     # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
     # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser
@@ -725,6 +730,7 @@ class Constant(BaseModel):
     referenced_vi_key: str | None = None
     unwritable: UnwritableValue | None = None
     empty_variant: bool = False
+    structured_value: object = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = that frame's frame_key.

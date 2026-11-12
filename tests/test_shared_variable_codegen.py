@@ -22,6 +22,7 @@ from lvkit.graph.models import (
 from lvkit.graph.type_records import NamedRecord, TypeRecords
 from lvkit.models import FPTerminal, LVType, LVTypeKind, SharedVariableKind, Terminal
 from lvkit.pipeline import create_import_resolver
+from lvkit.timestamp_value import EPOCH_1904
 from tests.helpers import build_graph, write_support_modules
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
@@ -105,9 +106,7 @@ def package_graph(vis) -> InMemoryVIGraph:
             name,
             type_records=TypeRecords(
                 owners=(),
-                records=(
-                    NamedRecord(LIBRARY.qualified_name, None, LIBRARY_KEY, True),
-                ),
+                records=(NamedRecord(LIBRARY.qualified_name, None, LIBRARY_KEY, True),),
                 nested=(),
             ),
         )
@@ -167,8 +166,11 @@ def test_a_write_in_one_vi_is_read_in_another(tmp_path: Path, imported) -> None:
     assert (root / "shared_variables.py").read_text() == (
         "from __future__ import annotations\n"
         "from typing import Any\n"
+        "from datetime import UTC\n"
+        "import hightime\n"
         "sharedlvlib_counter: Any = 0\n"
-        "sharedlvlib_counter_timestamp: float = 0.0"
+        "sharedlvlib_counter_timestamp: hightime.datetime = "
+        "hightime.datetime(1904, 1, 1, tzinfo=UTC)"
     )
     assert (
         "from . import shared_variables as shared_variables_module\n"
@@ -176,20 +178,20 @@ def test_a_write_in_one_vi_is_read_in_another(tmp_path: Path, imported) -> None:
     )
     assert "shared_variables_module.sharedlvlib_counter = value\n" in sources["writer"]
     assert (
-        "shared_variables_module.sharedlvlib_counter_timestamp = time.time()"
-        in sources["writer"]
-    )
+        "shared_variables_module.sharedlvlib_counter_timestamp = "
+        "hightime.datetime.now(UTC)"
+    ) in sources["writer"]
     assert (
         "counter = shared_variables_module.sharedlvlib_counter\n" in sources["reader"]
     )
     assert "lvkit" not in sources["writer"] + sources["reader"]
 
     before = imported("pkg.reader").reader()
-    assert (before.value, before.stamp) == (0, 0.0)
+    assert (before.value, before.stamp) == (0, EPOCH_1904)
     imported("pkg.writer").writer(5)
     after = imported("pkg.reader").reader()
     assert after.value == 5
-    assert after.stamp > 0.0
+    assert after.stamp > EPOCH_1904
 
 
 def test_a_variable_with_no_library_raises_where_it_would_run() -> None:

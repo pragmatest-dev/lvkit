@@ -8,7 +8,7 @@ cluster are not the value."""
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from enum import Enum
+from enum import StrEnum
 
 from lvkit.models import Terminal
 
@@ -16,7 +16,7 @@ ClassTerminalTest = Callable[[Terminal], bool]
 """Whether a terminal carries the class wire of the class being looked at."""
 
 
-class PropertyRole(str, Enum):
+class PropertyRole(StrEnum):
     """What a property accessor VI does with the property's value."""
 
     GETTER = "getter"

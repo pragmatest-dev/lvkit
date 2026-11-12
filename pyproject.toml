@@ -7,7 +7,7 @@ name = "lvkit"
 version = "0.8.12"
 description = "Understand and convert LabVIEW VIs to Python without a LabVIEW license"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [
     { name = "Pragmatest" }
@@ -29,7 +29,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -43,6 +42,7 @@ dependencies = [
     "networkx",
     "mcp>=1.2",
     "pydantic>=2.0.0",
+    "hightime>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -108,7 +108,7 @@ exclude = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

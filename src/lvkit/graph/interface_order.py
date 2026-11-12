@@ -76,7 +76,7 @@ class WiringRequirement(Enum):
     actually wired (a terminal can be REQUIRED and unwired -- a broken
     wire -- or OPTIONAL and wired).
 
-    Bare ``Enum``, not ``(str, Enum)``: this value space is fully owned --
+    Bare ``Enum``, not ``StrEnum``: this value space is fully owned --
     built once here from ``requirement_rank``/``ParsedWiringRule`` and never
     compared against a raw wiring-rule int/string anywhere else. ``.value``
     is read only for lvnet-text/JSON display.

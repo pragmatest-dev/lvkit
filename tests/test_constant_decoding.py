@@ -438,7 +438,7 @@ class TestTimestamp:
 
 class TestNoType:
     def test_no_type_returns_raw(self):
-        t, v, _, _, _ = decode_constant(_make_const("01"))
+        t, v, _, _, _, _ = decode_constant(_make_const("01"))
         assert t == "raw"
         assert v == "01"
 

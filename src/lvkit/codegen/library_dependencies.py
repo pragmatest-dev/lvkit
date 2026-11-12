@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 
-class LibraryFormat(str, Enum):
+class LibraryFormat(StrEnum):
     PE = "pe"
     ELF = "elf"
     MACH_O = "mach-o"
