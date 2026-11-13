@@ -151,7 +151,7 @@ def test_node_class_without_a_generator_is_a_gap_when_a_wire_leaves_it() -> None
         "sc",
         None,
         [(1, "input", STRING), (8, "output", I32)],
-        node_type="scanf",
+        node_type="unhandledClass",
     )
     gaps: list[Gap] = []
     generated = generate(

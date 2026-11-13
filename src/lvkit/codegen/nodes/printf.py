@@ -55,7 +55,7 @@ _DEFAULT_CODES = {
 }
 
 
-def _literal_text(source: str) -> str | None:
+def literal_text(source: str) -> str | None:
     """The text of the string literal ``source`` (its escapes decoded), or None
     when it is not a string literal: a value known only at run time."""
     try:
@@ -330,7 +330,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if value is not None:
             arguments.append((parse_expr(value), format_kind(terminal.lv_type)))
 
-    text = None if format_value is None else _literal_text(format_value)
+    text = None if format_value is None else literal_text(format_value)
     negative_gaps: list[tuple[ast.expr, str]] = []
     expr: ast.expr
     if format_value is not None and text is None:

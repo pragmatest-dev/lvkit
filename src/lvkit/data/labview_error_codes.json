@@ -1192,6 +1192,7 @@
   "8": "File permission error.",
   "10": "Duplicate path.",
   "42": "Generic error.",
+  "85": "Scan failed. The input string does not contain data in the expected format.",
   "91": "The data type of the variant is not compatible with the data type wired to the type input.",
   "110": "Restart marker reply.",
   "116": "Unflatten or byte stream read operation failed due to corrupt, unexpected, or truncated data.",
