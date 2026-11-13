@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
-from lvkit.graph.models import PrimitiveNode, VIContext, Wire
+from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
@@ -31,14 +32,16 @@ def array_of(element: LVType) -> LVType:
 @dataclass
 class Pin:
     """One terminal of the primitive. ``source`` names the VI control that feeds
-    an input (None leaves it unwired); ``sink`` names the VI indicator an output
-    feeds (None leaves it unwired)."""
+    an input (None leaves it unwired); ``constant`` is the value of a constant
+    wired to it instead; ``sink`` names the VI indicator an output feeds (None
+    leaves it unwired)."""
 
     index: int
     direction: str
     lv_type: LVType | None
     source: str | None = None
     sink: str | None = None
+    constant: Any = None
 
 
 def generate(
@@ -48,9 +51,11 @@ def generate(
     controls: dict[str, LVType],
     indicators: dict[str, LVType],
     vi_name: str = "Prim Test.vi",
+    gaps: list[Gap] | None = None,
 ) -> tuple[str, Callable[..., Any]]:
     """The module generated for a VI whose controls (in the order given) feed the
-    primitive ``prim_id`` and whose indicators read it, and the function in it."""
+    primitive ``prim_id`` and whose indicators read it, and the function in it.
+    ``gaps`` collects the gaps the generation records."""
     inputs: list[Terminal] = []
     for index, (label, lv_type) in enumerate(controls.items()):
         inputs.append(
@@ -94,8 +99,18 @@ def generate(
         ],
     )
     wires: list[Wire] = []
+    constants: list[Constant] = []
     for pin in pins:
         terminal_id = f"prim:{pin.direction}{pin.index}"
+        if pin.constant is not None:
+            constants.append(
+                Constant(id=f"c:{pin.index}", value=pin.constant, lv_type=pin.lv_type)
+            )
+            wires.append(
+                Wire.from_terminals(
+                    from_terminal_id=f"c:{pin.index}", to_terminal_id=terminal_id
+                )
+            )
         if pin.source is not None:
             wires.append(
                 Wire.from_terminals(
@@ -108,9 +123,15 @@ def generate(
                     from_terminal_id=terminal_id, to_terminal_id=f"fp:{pin.sink}"
                 )
             )
-    context = VIContext(name=vi_name, inputs=inputs, outputs=outputs, data_flow=wires)
+    context = VIContext(
+        name=vi_name,
+        inputs=inputs,
+        outputs=outputs,
+        constants=constants,
+        data_flow=wires,
+    )
     graph = build_graph(context, context.name, [node])
-    source = build_module(context, context.name, graph=graph)
+    source = build_module(context, context.name, graph=graph, gaps=gaps)
     namespace: dict = {}
     exec_generated(source, namespace, vi_name)  # noqa: S102
     return source, namespace[vi_name.removesuffix(".vi").lower().replace(" ", "_")]
