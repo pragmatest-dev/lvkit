@@ -510,15 +510,19 @@ def test_compare_two_paths_common_and_relative() -> None:
     difference and returns the shared prefix. Exercises Array Subset with a wired
     length (common prefix, `arr[0:state]`) and an UNWIRED length (the remainder
     `arr[index:]` -- LabVIEW's "rest of array", not an empty run), plus the
-    expandable index/length name substitution."""
+    expandable index/length name substitution. The paths are absolute on the
+    running system (its root: ``/`` or a drive such as ``C:\\``): a path rooted
+    without a drive is relative on Windows, so ``/a/b/c`` would test a relative
+    path there (issue #293)."""
     from pathlib import Path
 
+    root = Path(Path.cwd().anchor)
     r = _run_leaf(
         "file/file.llb/Compare Two Paths - Scalar__ogtk.vi",
-        Path("/a/b/c"),
-        Path("/a/b/d"),
+        root / "a" / "b" / "c",
+        root / "a" / "b" / "d",
     )
-    assert _posix(r.common_path) == "/a/b"
+    assert Path(r.common_path) == root / "a" / "b"
     assert _posix(r.relative_path_from_1_to_2) == "../d"
     assert r.different_types is False
 
