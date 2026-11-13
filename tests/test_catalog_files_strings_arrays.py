@@ -263,19 +263,27 @@ def test_compare_two_paths_reproduces_ni_example_with_posix_paths(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths")
-def test_compare_two_paths_in_the_same_folder_or_below_is_relative(
+def test_compare_two_paths_is_relative_only_at_or_below_path_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    beside = _compare(
-        tmp_path, monkeypatch, Path("/folder/sub/a.txt"), Path("/folder/sub/b.txt")
+    # NI's example is FALSE ("you have to go up two levels"); the corpus caller
+    # Calculate Relative Path from Directory.vi passes a folder as Path 1 and
+    # treats FALSE as "not inside that folder", so any ".." step is FALSE.
+    inside = _compare(
+        tmp_path, monkeypatch, Path("/folder/sub"), Path("/folder/sub/b.txt")
     )
-    assert beside.relative == Path("../b.txt")
-    assert beside.same_level is True
+    assert inside.relative == Path("b.txt")
+    assert inside.same_level is True
     below = _compare(
-        tmp_path, monkeypatch, Path("/folder/sub/a.txt"), Path("/folder/sub/x/y.txt")
+        tmp_path, monkeypatch, Path("/folder/sub"), Path("/folder/sub/x/y.txt")
     )
-    assert below.relative == Path("../x/y.txt")
+    assert below.relative == Path("x/y.txt")
     assert below.same_level is True
+    beside = _compare(
+        tmp_path, monkeypatch, Path("/folder/sub"), Path("/folder/other/c.txt")
+    )
+    assert beside.relative == Path("../other/c.txt")
+    assert beside.same_level is False
 
 
 def test_compare_two_paths_on_different_drives_is_an_error_out(

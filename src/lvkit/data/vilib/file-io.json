@@ -6533,7 +6533,7 @@
           "exception": "ValueError"
         }
       ],
-      "python_code": "_relative = Path(os.path.relpath({path_2}, {path_1}))\n{relative_path_from_1_to_2} = _relative\n{common_path} = Path(os.path.commonpath([{path_1}, {path_2}]))\n{path_2_relative_to_path_1} = _relative.parts.count('..') <= 1",
+      "python_code": "_relative = Path(os.path.relpath({path_2}, {path_1}))\n{relative_path_from_1_to_2} = _relative\n{common_path} = Path(os.path.commonpath([{path_1}, {path_2}]))\n{path_2_relative_to_path_1} = '..' not in _relative.parts",
       "inline": true
     },
     {
