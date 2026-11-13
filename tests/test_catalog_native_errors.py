@@ -126,6 +126,7 @@ PRIMITIVES = {
     ],
     "connectivity:System Exec": FILE_PATH_OPS,
     "8016:To More Specific Class": [("TypeError", 1448)],
+    "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
     "2010:TDMS Write": FILE_REFNUM_OPS,
     "24110:TDMS Write": FILE_REFNUM_OPS,

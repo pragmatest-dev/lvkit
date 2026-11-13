@@ -460,6 +460,8 @@
     },
     "1126": {
       "name": "Lexical Class",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/lexical-class.html",
+      "op": "LEXICAL_CLASS",
       "terminals": [
         {
           "index": 0,
@@ -471,11 +473,10 @@
           "index": 1,
           "direction": "input",
           "name": "char",
-          "type": "String"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1127": {
       "name": "In Range and Coerce",

@@ -138,6 +138,8 @@
     },
     "1533": {
       "name": "Match True/False String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-true-false-string.html",
+      "op": "MATCH_TRUE_FALSE_STRING",
       "terminals": [
         {
           "index": 0,
@@ -167,11 +169,11 @@
           "index": 4,
           "direction": "input",
           "name": "string",
-          "type": "String"
+          "type": "String",
+          "default": ""
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1536": {
       "name": "Rotate String",
