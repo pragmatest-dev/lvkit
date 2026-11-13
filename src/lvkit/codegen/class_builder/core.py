@@ -145,6 +145,9 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         properties: list[tuple[MethodShape, Accessor]] = []
         methods: list[MethodShape] = []
         for key, shape in model.shapes.items():
+            if graph.catalog_gives_python(key):
+                # Its calls use the catalog's Python: the class has no method.
+                continue
             accessor = model.attributes.accessors.get(key)
             if accessor is not None:
                 properties.append((shape, accessor))
@@ -166,6 +169,8 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         results, defined once."""
         defined: dict[str, ast.stmt] = {}
         for shape in self._model.shapes.values():
+            if self._graph.catalog_gives_python(shape.key):
+                continue
             if not declares_result_class(self._model, shape):
                 continue
             assert shape.result_class is not None

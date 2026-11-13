@@ -627,7 +627,8 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     """The module-level dictionary of the project's class members, by the name
     (``Owner:VI.vi``) and by the path from the folder of the VI holding the node
     that a diagram can compute, each with its class's module spec, its class's
-    name and its method's name."""
+    name and its method's name. A member the catalog gives Python for is no
+    method of its class and is not listed."""
     assert ctx.graph is not None and ctx.vi_name is not None
     resolver = ctx.import_resolver
     # A path computed when the code runs is read from the folder of the module
@@ -645,6 +646,7 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
             shape is None
             or not_a_method(ctx.graph, key) is not None
             or accessor_of(ctx.graph, key) is not None
+            or ctx.graph.catalog_gives_python(key)
         ):
             continue
         spec = (

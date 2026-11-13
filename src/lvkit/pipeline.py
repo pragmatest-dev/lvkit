@@ -855,9 +855,7 @@ def generate_python(
     warm_all_loaded(graph)
 
     vilib_resolver = graph.vilib_catalog
-
-    def catalog_gives_python(key: str) -> bool:
-        return vilib_resolver.has_python(graph.recorded_path(key))
+    catalog_gives_python = graph.catalog_gives_python
 
     # A library only scopes its members: it has no module, and nothing imports it.
     # Where the catalog gives Python for a VI, what only it calls is no part of

@@ -142,11 +142,16 @@ def _runs_loaded_variant(node: VINode, ctx: CodeGenContext) -> bool:
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
     """The key of the VI a call names when it is a member of a loaded class: the
-    callee, or the variant of a polymorphic VI the call selects."""
+    callee, or the variant of a polymorphic VI the call selects. A member the
+    catalog gives Python for is no method: the call uses that Python."""
     if ctx.graph is None:
         return None
     key = node.variant_key or node.callee_key
-    if key is not None and ctx.graph.owning_class_key(key) is not None:
+    if (
+        key is not None
+        and ctx.graph.owning_class_key(key) is not None
+        and not ctx.graph.catalog_gives_python(key)
+    ):
         return key
     return None
 

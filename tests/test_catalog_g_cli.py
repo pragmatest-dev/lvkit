@@ -156,14 +156,9 @@ def test_exit_with_a_warning_uses_no_error_code(
     assert capsys.readouterr().err == ""
 
 
-@pytest.mark.functional
-@pytest.mark.needs_samples
-def test_corpus_caller_runs_with_the_python_arguments(tmp_path: Path) -> None:
-    """The Actor Framework's Run all tests CLI calls both VIs, G CLI's own VIs not
-    being on the VI search path: neither is a gap in its generated source, which
-    asks the program for its own arguments. (With G CLI's source on the search
-    path its VIs are the methods of a loaded class and are generated from their
-    diagrams, TCP calls included.)"""
+def _generate_run_all_tests_cli(tmp_path: Path, *extra: str) -> tuple[Path, str]:
+    """The package generated for the Actor Framework's Run all tests CLI (with the
+    search paths ``extra``) and the source of its module."""
     vi = SAMPLES / "actor-framework/Tooling/Run all tests CLI.vi"
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi}")
@@ -183,6 +178,7 @@ def test_corpus_caller_runs_with_the_python_arguments(tmp_path: Path) -> None:
             "<topvi>",
             "--search-path",
             "<foundvi>",
+            *extra,
         ],
         capture_output=True,
         text=True,
@@ -193,9 +189,41 @@ def test_corpus_caller_runs_with_the_python_arguments(tmp_path: Path) -> None:
     package = next(p for p in tmp_path.iterdir() if p.is_dir())
     source = next(package.rglob("run_all_tests_cli.py")).read_text(encoding="utf-8")
     compile(source, "run_all_tests_cli", "exec")
+    return package, source
+
+
+def _assert_runs_with_the_python_arguments(source: str) -> None:
     assert "sys.argv[1:]" in source
     assert "sys.exit(" in source
     for line in source.splitlines():
         if "NotImplementedError" in line:
             assert "Start CLI Interface" not in line
             assert "Exit With Error Cluster Code" not in line
+
+
+@pytest.mark.functional
+@pytest.mark.needs_samples
+def test_corpus_caller_runs_with_the_python_arguments(tmp_path: Path) -> None:
+    """The Actor Framework's Run all tests CLI calls both VIs, G CLI's own VIs not
+    being on the VI search path: neither is a gap in its generated source, which
+    asks the program for its own arguments."""
+    _, source = _generate_run_all_tests_cli(tmp_path)
+    _assert_runs_with_the_python_arguments(source)
+
+
+@pytest.mark.functional
+@pytest.mark.needs_samples
+def test_corpus_caller_with_g_cli_loaded_still_uses_the_catalog(
+    tmp_path: Path,
+) -> None:
+    """With G CLI's source on the search path the two VIs are members of the loaded
+    CLI class, and the catalog still gives their Python: the calls use it and the
+    class module has no method for either."""
+    package, source = _generate_run_all_tests_cli(
+        tmp_path, "--search-path", str(SAMPLES / "G-CLI")
+    )
+    _assert_runs_with_the_python_arguments(source)
+    cli = next(package.rglob("cli.py")).read_text(encoding="utf-8")
+    assert "def start_cli_interface" not in cli
+    assert "def exit_with_error_cluster_code" not in cli
+    assert "StartCliInterfaceResult" not in cli
