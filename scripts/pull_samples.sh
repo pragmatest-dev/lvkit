@@ -31,6 +31,8 @@ mkdir -p "$DEST"
 GIT_SETS=(
   "JKI-EasyXML|https://github.com/JKISoftware/JKI-EasyXML.git|BSD-3-Clause|https://github.com/JKISoftware/JKI-EasyXML"
   "JKI-VI-Tester|https://github.com/JKISoftware/JKI-VI-Tester.git|BSD-3-Clause|https://github.com/JKISoftware/JKI-VI-Tester"
+  "JKI-State-Machine|https://github.com/JKISoftware/JKI-State-Machine.git|BSD-3-Clause|https://github.com/JKISoftware/JKI-State-Machine"
+  "JSONtext|https://bitbucket.org/drjdpowell/jsontext.git|BSD-2-Clause|https://bitbucket.org/drjdpowell/jsontext"
   "LabVIEW-DAQ|https://github.com/KL-Turner/LabVIEW-DAQ.git|MIT|https://github.com/KL-Turner/LabVIEW-DAQ"
   "pylabview-full|https://github.com/mefistotelis/pylabview.git|MIT|https://github.com/mefistotelis/pylabview"
   "DCAF-DAQModule|https://github.com/LabVIEW-DCAF/DAQModule.git|Apache-2.0|https://github.com/LabVIEW-DCAF/DAQModule"

@@ -1,6 +1,6 @@
 {
   "category": "Addons",
-  "count": 2,
+  "count": 4,
   "entries": [
     {
       "name": "LabVIEW Add-ons from National Instruments",
@@ -21,6 +21,100 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "Add State(s) to Queue__jki_lib_state_machine",
+      "vi_path": "addons/_JKI Toolkits/State Machine/_JKI_lib_State_Machine.llb/Add State(s) to Queue__jki_lib_state_machine.vi",
+      "category": "Addons",
+      "description": "JKI State Machine: joins State(s) in Front, State(s) in and State(s) at Back into States Out, each trimmed of leading and trailing tabs, line feeds, carriage returns and spaces, with a line feed between the parts that are not empty.",
+      "terminals": [
+        {
+          "name": "State(s) in Front (\"\")",
+          "index": 0,
+          "direction": "input",
+          "type": "String",
+          "python_param": "states_in_front",
+          "default": ""
+        },
+        {
+          "name": "State(s) in (\"\")",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "python_param": "states_in",
+          "default": ""
+        },
+        {
+          "name": "States Out",
+          "index": 6,
+          "direction": "output",
+          "type": "String",
+          "python_param": "states_out"
+        },
+        {
+          "name": "State(s) at Back (\"\")",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "python_param": "states_at_back",
+          "default": ""
+        }
+      ],
+      "status": "complete",
+      "python_code": "{states_out} = '\\n'.join(_part for _part in ({states_in_front}.strip(' \\t\\r\\n'), {states_in}.strip(' \\t\\r\\n'), {states_at_back}.strip(' \\t\\r\\n')) if _part)",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Parse State Queue__jki_lib_state_machine",
+      "vi_path": "addons/_JKI Toolkits/State Machine/_JKI_lib_State_Machine.llb/Parse State Queue__jki_lib_state_machine.vi",
+      "category": "Addons",
+      "description": "JKI State Machine: takes the first state off State Queue. Blank lines and text after //, # or /* on a line are skipped, and the state is split at >> into Current State and Arguments. An error in gives the state Error Handler.",
+      "terminals": [
+        {
+          "name": "State Queue",
+          "index": 0,
+          "direction": "input",
+          "type": "String",
+          "python_param": "state_queue",
+          "default": ""
+        },
+        {
+          "name": "Remaining States",
+          "index": 4,
+          "direction": "output",
+          "type": "String",
+          "python_param": "remaining_states"
+        },
+        {
+          "name": "Current State",
+          "index": 6,
+          "direction": "output",
+          "type": "String",
+          "python_param": "current_state"
+        },
+        {
+          "name": "Error In (no error)",
+          "index": 7,
+          "direction": "input",
+          "type": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Arguments",
+          "index": 8,
+          "direction": "output",
+          "type": "String",
+          "python_param": "arguments"
+        }
+      ],
+      "status": "complete",
+      "runs_on_error": true,
+      "python_code": "{remaining_states} = {state_queue}\n{current_state} = ''\n{arguments} = ''\nif {error_in} is not None and {error_in}.status:\n    {current_state} = 'Error Handler'\nelif {state_queue} != '':\n    _queue = {state_queue}\n    while True:\n        _end = re.search('[\\r\\n]+', _queue)\n        _line = _queue if _end is None else _queue[:_end.start()]\n        _rest = '' if _end is None else _queue[_end.end():]\n        _comment = min([len(_line)] + [_at for _at in (_line.find('//'), _line.find('#'), _line.find('/*')) if _at >= 0])\n        _text = _line[:_comment].lstrip(' \\t').rstrip(' \\t')\n        _queue = _rest.lstrip(' \\t').rstrip(' \\t\\r\\n')\n        _split = re.search('[ \\t]*>>[ \\t]*', _text)\n        _state = _text if _split is None else _text[:_split.start()]\n        _arguments = '' if _split is None else _text[_split.end():]\n        if _queue == '' or _state != '':\n            break\n    {remaining_states} = _queue\n    {current_state} = _state\n    {arguments} = _arguments",
+      "inline": true,
+      "imports": [
+        "import re"
+      ]
     }
   ]
 }

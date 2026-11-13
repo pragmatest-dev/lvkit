@@ -99,6 +99,8 @@ has a provable, permissive license (verified from the repo's own LICENSE file):
 | --- | --- | --- |
 | JKI-EasyXML | BSD-3-Clause | <https://github.com/JKISoftware/JKI-EasyXML> |
 | JKI-VI-Tester | BSD-3-Clause | <https://github.com/JKISoftware/JKI-VI-Tester> |
+| JKI-State-Machine | BSD-3-Clause | <https://github.com/JKISoftware/JKI-State-Machine> |
+| JSONtext | BSD-2-Clause | <https://bitbucket.org/drjdpowell/jsontext> |
 | LabVIEW-DAQ | MIT | <https://github.com/KL-Turner/LabVIEW-DAQ> |
 | pylabview (test VIs) | MIT | <https://github.com/mefistotelis/pylabview> |
 | DCAF-DAQModule | Apache-2.0 | <https://github.com/LabVIEW-DCAF/DAQModule> |
