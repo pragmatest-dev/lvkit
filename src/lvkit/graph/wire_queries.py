@@ -202,6 +202,30 @@ class WireQueriesMixin:
                     found[control.id] = control
         return found
 
+    def indicators_of_value_rows(
+        self, vi_name: str
+    ) -> tuple[dict[str, FPTerminal], dict[str, FPTerminal]]:
+        """The indicators of a VI that a bound Property Node's ``Value`` row
+        reads and those it writes, by terminal id, in that order. Only ``Value``
+        rows are listed (a ``Value (Signaling)`` row of an indicator is a gap)."""
+        read: dict[str, FPTerminal] = {}
+        written: dict[str, FPTerminal] = {}
+        for node in self.iter_nodes(vi_name):
+            if not isinstance(node, PrimitiveNode) or not node.bound_control_uid:
+                continue
+            bound = self.bound_terminal(node)
+            if bound is None or not bound.is_indicator:
+                continue
+            for row, term in correlate_property_terminals(
+                node.properties, node.terminals, node.property_value_terminal_ids
+            ):
+                if term is None or not is_value_row(
+                    node.object_name or "", [s.code for s in row.segments]
+                ):
+                    continue
+                (written if term.direction == "input" else read)[bound.id] = bound
+        return read, written
+
     def front_panel_loop(self, terminal_id: str) -> str | None:
         """The id of the While Loop, For Loop or Event Structure around the
         control or indicator terminal ``terminal_id`` on the diagram (the
