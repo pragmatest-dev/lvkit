@@ -11,6 +11,7 @@ Python cannot import a module over the limit while long paths are off, so
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -21,9 +22,13 @@ _EXTENDED_PREFIX = "\\\\?\\"
 
 
 def extended_length(path: Path) -> Path:
-    """``path`` made absolute and, on Windows, in the extended-length form that
-    has no 260-character limit; unchanged elsewhere."""
-    absolute = path.absolute()
+    """``path`` made absolute, with ``.`` and ``..`` removed, and, on Windows, in
+    the extended-length form that has no 260-character limit.
+
+    Windows takes an extended-length path as written, so a ``..`` left in it is a
+    folder name and the path is rejected; ``os.path.abspath`` removes it by text,
+    as Windows does for an ordinary path, and leaves symbolic links alone."""
+    absolute = Path(os.path.abspath(path))
     text = str(absolute)
     if sys.platform != "win32" or text.startswith(_EXTENDED_PREFIX):
         return absolute

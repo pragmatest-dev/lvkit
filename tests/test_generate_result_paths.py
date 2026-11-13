@@ -3,6 +3,7 @@ folder, even where the files are written through Windows' extended-length form."
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -65,3 +66,30 @@ def test_result_paths_match_a_relative_output_folder(
 
     for path in result["vi_paths"].values():
         assert path.relative_to(Path("out")).parts
+
+
+def test_an_output_folder_given_with_dots_is_written_where_it_points(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows takes an extended-length path as written, so a ".." left in it is
+    # a folder name and the write fails (#308).
+    work = project.base / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    vi = project.write_vi("c.*", ["", "..", "libs", "c.dll"], "swap")
+
+    for given, where in [
+        (Path("../out_b"), project.base / "out_b"),
+        (Path("sub/../out_c"), work / "out_c"),
+    ]:
+        result = pipeline.generate_python(vi, given)
+
+        folder = given / result["vi_folder_name"]
+        assert result["output_dir"] == folder
+        assert (where / result["vi_folder_name"]).is_dir()
+        assert not (work / "sub").exists()
+        for path in result["vi_paths"].values():
+            assert path.relative_to(folder).parts
+            # POSIX follows ".." only out of a folder that exists, so check the
+            # file the path names, normalised as Windows reads it.
+            assert Path(os.path.abspath(path)).is_file()
