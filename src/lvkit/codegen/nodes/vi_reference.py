@@ -485,10 +485,12 @@ def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 MODULE_PART_SOURCE = """\
 def _module_part(name):
     name = "".join(
-        c for c in name.lower().replace(" ", "_").replace("-", "_")
-        if c.isalnum() or c == "_"
+        c for c in unicodedata.normalize(
+            "NFKC", name.lower().replace(" ", "_").replace("-", "_")
+        )
+        if ("_" + c).isidentifier()
     )
-    if name and not (name[0].isalpha() or name[0] == "_"):
+    if name and not name[0].isidentifier():
         name = "var_" + name
     if keyword.iskeyword(name):
         name += "_"
@@ -599,6 +601,7 @@ def _generate_lookup(
         ctx.add_import("import importlib")
         ctx.add_import("import os")
     ctx.add_import("import keyword")
+    ctx.add_import("import unicodedata")
     ctx.add_import("import builtins")
     for helper in (MODULE_PART_SOURCE, FUNCTION_NAME_SOURCE):
         (func_def,) = ast.parse(helper).body

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import keyword
 
+from lvkit.python_names import name_characters, starts_a_name
+
 _TYPE_EXTENSIONS = (".ctl", ".lvclass")
 
 # LabVIEW's own root class: every class descends from it and it has no file.
@@ -33,8 +35,8 @@ def derive_python_name(type_name: str) -> str:
         name = name.removesuffix(extension)
     words = name.replace("-", " ").replace("_", " ").split()
     result = "".join(word[:1].upper() + word[1:] for word in words)
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result[:1].isdigit():
+    result = name_characters(result)
+    if result and not starts_a_name(result):
         result = f"_{result}"
     return result or "UnknownType"
 

@@ -28,6 +28,7 @@ from lvkit.models import (
     _is_error_cluster,
 )
 from lvkit.path_value import python_path
+from lvkit.python_names import name_characters, starts_a_name
 from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 from lvkit.vi_files import strip_vi_extension
 
@@ -376,8 +377,8 @@ def to_var_name(name: str) -> str:
         return "var"
 
     result = name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha() and result[0] != "_":
+    result = name_characters(result)
+    if result and not starts_a_name(result):
         result = "var_" + result
     if not result:
         result = "var"
@@ -515,7 +516,7 @@ GENERATED_MODULE_NAMES = frozenset(
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
         "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "threading", "time", "uuid",
+        "struct", "sys", "tempfile", "threading", "time", "unicodedata", "uuid",
     }
 )  # fmt: skip
 
@@ -614,18 +615,19 @@ def result_class_def(
 
 def module_part(name: str) -> str:
     """One path part (a folder or a file stem) as the Python module or package
-    name it is generated as: lower case, spaces and hyphens to ``_``, every other
-    character that is not a letter, digit or ``_`` dropped, and ``var_`` in front
-    of a part that does not start with a letter or ``_`` (a name that starts with
-    a digit is a SyntaxError in ``from <name> import ...``), and ``_`` after a
-    Python keyword (a folder named ``Class`` is the package ``class_``).
+    name it is generated as: lower case, spaces and hyphens to ``_``, normalised
+    the way Python reads names (NFKC), every other character that is not a
+    letter, digit or ``_`` dropped, and ``var_`` in front of a part that does not
+    start with a letter or ``_`` (a name that starts with a digit is a
+    SyntaxError in ``from <name> import ...``), and ``_`` after a Python keyword
+    (a folder named ``Class`` is the package ``class_``).
 
     Generated code that opens a VI by a path computed when it runs applies this
     same transform to each part, so the two always agree
     (``codegen/nodes/vi_reference.py`` ``MODULE_PART_SOURCE``)."""
     result = name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha() and result[0] != "_":
+    result = name_characters(result)
+    if result and not starts_a_name(result):
         result = "var_" + result
     if keyword.iskeyword(result):
         result += "_"

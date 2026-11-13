@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import types
+import unicodedata
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -50,6 +51,11 @@ AWKWARD_NAMES = (
     "a b-c",
     "__x",
     "Ünï.cödé",
+    "µx",
+    "ﬁle",
+    "Ａbc",
+    "x²",
+    "ｉｆ",
     "Foo.llb",
     "-",
     "9",
@@ -487,7 +493,7 @@ def test_a_reference_opened_by_a_computed_path_is_called_with_the_panes_names(
 
 
 def test_the_inline_name_transform_is_the_generators() -> None:
-    namespace: dict[str, object] = {"keyword": keyword}
+    namespace: dict[str, object] = {"keyword": keyword, "unicodedata": unicodedata}
     exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
     for name in AWKWARD_NAMES:
         assert namespace["_module_part"](name) == module_part(name)  # type: ignore[operator]
@@ -512,6 +518,7 @@ def test_the_inline_module_of_a_name_is_the_generators(
         "keyword": keyword,
         "builtins": builtins,
         "importlib": Importlib,
+        "unicodedata": unicodedata,
         "__package__": "pkg",
     }
     exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
@@ -528,7 +535,11 @@ def test_the_inline_module_of_a_name_is_the_generators(
 
 
 def test_the_inline_function_name_is_the_generators() -> None:
-    namespace: dict[str, object] = {"keyword": keyword, "builtins": builtins}
+    namespace: dict[str, object] = {
+        "keyword": keyword,
+        "builtins": builtins,
+        "unicodedata": unicodedata,
+    }
     exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
     exec(vi_reference.FUNCTION_NAME_SOURCE, namespace)  # noqa: S102
     for stem in ("id", "str", "Run Test", "1D Test", "class", "List", "a-b", "Foo.llb"):

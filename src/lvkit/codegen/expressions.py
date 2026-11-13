@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from lvkit.python_names import name_characters, starts_a_name
+
 from .dataflow import DataFlowTracer
 
 
@@ -197,7 +199,7 @@ class ExpressionBuilder:
         if not name:
             return ""
         result = name.lower().replace(" ", "_").replace("-", "_")
-        result = "".join(c for c in result if c.isalnum() or c == "_")
-        if result and not result[0].isalpha():
+        result = name_characters(result)
+        if result and not starts_a_name(result):
             result = "var_" + result
         return result

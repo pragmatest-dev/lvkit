@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from lvkit.python_names import name_characters
 from lvkit.type_names import derive_python_name
 
 
@@ -26,7 +27,7 @@ def derive_python_location(typedef_name: str) -> tuple[str, str]:
     # Container becomes package: "sysdir.llb" -> "sysdir"
     package = container.replace(".llb", "").replace(".lvlib", "")
     package = package.replace(".lvclass", "").lower()
-    package = package.replace(" ", "_").replace("-", "_")
+    package = name_characters(package.replace(" ", "_").replace("-", "_"))
 
     # Filename becomes class name
     class_name = derive_python_name(filename)

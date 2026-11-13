@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a name built from a label or file name is written the way Python reads it** — `µ` (U+00B5), `ﬁ` and full-width letters are normalised (NFKC) as Python does and a character a name cannot hold (`²`) is dropped or normalised, so a variable, module or class name matches the name Python reads back (dead-code removal no longer drops an assignment to `µx`), and a full-width `ｉｆ` gets the keyword `_`; an enum item that is not a Python name is written as its number (#292).
 - **A variant is a `Variant` holding its value, its LabVIEW type and its attributes** — a typed wire into a Variant input makes `Variant(5, LV_I32)`; Variant To Data judges the type the variant records (a number converts to any number type, a class only to its own class), Get TDEnum of a variant gives its type's code, Set/Get/Delete Variant Attribute work on any variant, and Equal? compares type, value and attributes; the generated `variants.py` holds the classes.
 - **Ctrl Val and a control's Value property write a variant's value into a typed control and read it back with the control's type** — an empty variant into a typed control is error 1.
 - **A cluster control's Controls[] generates Python** — `as_control(ref).controls` is a reference to each field in field order, with the field's label and the cluster's indicator flag; its Value reads that field and a write replaces the cluster's value with a copy holding the new field; a nested cluster has its own Controls[].
