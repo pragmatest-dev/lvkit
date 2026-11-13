@@ -206,8 +206,8 @@ class WireQueriesMixin:
         self, vi_name: str
     ) -> tuple[dict[str, FPTerminal], dict[str, FPTerminal]]:
         """The indicators of a VI that a bound Property Node's ``Value`` row
-        reads and those it writes, by terminal id, in that order
-        (``Value (Signaling)`` is a control's event and is not listed)."""
+        reads and those it writes, by terminal id, in that order. Only ``Value``
+        rows are listed (a ``Value (Signaling)`` row of an indicator is a gap)."""
         read: dict[str, FPTerminal] = {}
         written: dict[str, FPTerminal] = {}
         for node in self.iter_nodes(vi_name):
