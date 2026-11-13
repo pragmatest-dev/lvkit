@@ -5,12 +5,13 @@ Python does."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from typing import Any
 
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
-from lvkit.graph.models import PrimitiveNode, VIContext, Wire
+from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, Terminal
 from tests.helpers import build_graph, exec_generated
 from tests.vilib_caller import Slot
@@ -24,13 +25,16 @@ def run_primitive(
     arguments: Mapping[str, Any],
     gaps: list[Gap] | None = None,
     name: str = "Primitive",
+    constants: Mapping[int, tuple[Any, Any]] | None = None,
 ) -> tuple[str, Any]:
     """The generated VI's source and the result of running it.
 
     ``pane`` is every terminal of the primitive node as the caller's diagram
     saves them, ``inputs`` and ``outputs`` the VI's own controls and indicators
     by name with the node terminal index each is wired to, ``arguments`` the
-    controls' values. A pane terminal no control or indicator names is unwired.
+    controls' values. ``constants`` maps an input index to the ``(value, type)``
+    of a constant wired to it. A pane terminal no control, constant or indicator
+    names is unwired.
     """
     node = PrimitiveNode(
         id="prim",
@@ -76,7 +80,17 @@ def run_primitive(
         name="Caller.vi",
         inputs=controls,
         outputs=indicators,
+        constants=[
+            Constant(id=f"c:{index}", value=value, lv_type=lv_type)
+            for index, (value, lv_type) in (constants or {}).items()
+        ],
         data_flow=[
+            *(
+                Wire.from_terminals(
+                    from_terminal_id=f"c:{index}", to_terminal_id=f"p:input{index}"
+                )
+                for index in (constants or {})
+            ),
             *(
                 Wire.from_terminals(
                     from_terminal_id=f"fp:{label}",
@@ -97,6 +111,8 @@ def run_primitive(
     found = gaps if gaps is not None else []
     source = build_module(context, context.name, graph=graph, gaps=found)
     assert gaps is not None or found == [], found
+    if os.environ.get("DUMP"):
+        print(source)
     namespace: dict[str, Any] = {}
     exec_generated(source, namespace, context.name)
     return source, namespace["caller"](**arguments)

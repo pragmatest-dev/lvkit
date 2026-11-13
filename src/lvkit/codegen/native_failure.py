@@ -49,11 +49,14 @@ GENERIC_ERROR_CODE = 42
 class CatalogFailures:
     """What a catalog entry says about its operation's failures: ``failures``,
     caught in order; ``on_failure``, the value NI documents for an output (by
-    terminal index) when the operation fails; ``source``, the node's name."""
+    terminal index) when the operation fails; ``source``, the node's name;
+    ``kept``, the outputs (by terminal index) that keep what the operation had
+    assigned when it failed."""
 
     failures: tuple[NativeError, ...]
     on_failure: dict[int, ScalarValue]
     source: str
+    kept: frozenset[int] = frozenset()
 
     @classmethod
     def of_primitive(cls, entry: Mapping[str, Any]) -> CatalogFailures:
@@ -69,6 +72,7 @@ class CatalogFailures:
                 if t.on_failure is not None
             },
             parsed.name,
+            frozenset(t.index for t in parsed.terminals if t.keeps_on_failure),
         )
 
     @classmethod
@@ -134,6 +138,7 @@ def catch_failures(
         assigned_names(fragment.statements),
         None,
         {index: repr(value) for index, value in catalog.on_failure.items()},
+        catalog.kept,
     )
     exception = ctx.make_output_var("exception", node.id)
     handlers = []

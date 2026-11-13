@@ -47,7 +47,28 @@ WRITE_TO_TEXT_FILE = [
     *FILE_PATH_OPS,
 ]
 
+TCP_OPEN = [
+    ("gaierror", 54),
+    ("TimeoutError", 56),
+    ("ConnectionRefusedError", 63),
+    ("ConnectionAbortedError", 62),
+    ("ConnectionResetError", 66),
+    ("OSError", None),
+]
+
+TCP_READ_WRITE = [
+    ("TimeoutError", 56),
+    ("ConnectionAbortedError", 62),
+    ("ConnectionResetError", 66),
+    ("BrokenPipeError", 66),
+    ("OSError", None),
+]
+
 PRIMITIVES = {
+    "1713:TCP Close Connection": [("OSError", None)],
+    "1714:TCP Write": TCP_READ_WRITE,
+    "1715:TCP Open Connection": TCP_OPEN,
+    "1716:TCP Read": TCP_READ_WRITE,
     "file-io:Create Directory Recursive": [
         ("PermissionError", 8),
         ("FileExistsError", 10),

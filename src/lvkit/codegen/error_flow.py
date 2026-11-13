@@ -271,18 +271,22 @@ def output_defaults(
     assigned: set[str],
     error: str | None,
     values: Mapping[int, str] | None = None,
+    keep: frozenset[int] = frozenset(),
 ) -> list[ast.stmt]:
     """The assignments that give the outputs of ``node`` their value when its
     work did not happen (it was skipped, or it failed), in terminal order: each
     output bound to a variable in ``assigned`` takes the expression ``values``
     gives for its terminal index, else its type's default, and the node's own
     error out (``own_error_terminals``) takes ``error`` (left alone when
-    ``error`` is ``None``)."""
+    ``error`` is ``None``). An output whose terminal index is in ``keep`` is left
+    as the work set it."""
     own_outs = {t.id for t in own_error_terminals(node, ctx)[1]}
     defaults: dict[str, ast.stmt] = {}
     for term in node.terminals:
         value = bindings.get(term.id)
         if term.direction != "output" or value is None or value not in assigned:
+            continue
+        if term.index in keep:
             continue
         if term.id not in own_outs:
             given = (values or {}).get(term.index)

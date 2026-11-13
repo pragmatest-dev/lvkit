@@ -37,6 +37,10 @@ class PrimitiveTerminal(TerminalDefault):
     # The value NI documents for this output when the node's operation fails
     # (``codegen/native_failure.py``); none: the type's default.
     on_failure: ScalarValue = None
+    # On an output: NI says the node still returns what its operation had done
+    # when it failed (TCP Read's bytes so far on a timeout); the operation's code
+    # assigns the output before it can fail, and a failure leaves it as it is.
+    keeps_on_failure: bool = False
     # NI's page says that when an error cluster is wired to this input, only
     # the error cluster's status passes to it.
     error_cluster_status: bool = False
