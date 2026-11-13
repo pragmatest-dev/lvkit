@@ -1769,7 +1769,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1780,7 +1781,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -1809,7 +1810,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1820,7 +1822,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -1849,7 +1851,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1860,7 +1863,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -1889,7 +1892,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1900,7 +1904,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -1929,7 +1933,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1940,7 +1945,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -1969,7 +1974,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -1980,7 +1986,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2009,7 +2015,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2020,7 +2027,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2049,7 +2056,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2060,7 +2068,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2089,7 +2097,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2100,7 +2109,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2129,7 +2138,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2140,7 +2150,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2169,7 +2179,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2180,7 +2191,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2209,7 +2220,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2220,7 +2232,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2249,7 +2261,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2260,7 +2273,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2289,7 +2302,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2300,7 +2314,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2329,7 +2343,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2340,7 +2355,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2369,7 +2384,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2380,7 +2396,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2409,7 +2425,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2420,7 +2437,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2449,7 +2466,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2460,7 +2478,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2489,7 +2507,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2500,7 +2519,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -2529,7 +2548,8 @@
           "index": 3,
           "direction": "input",
           "type": "stdNum",
-          "python_param": "start_index_0"
+          "python_param": "start_index_0",
+          "default": 0
         },
         {
           "name": "Indices of Elements",
@@ -2540,7 +2560,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{index_of_element} = {array}.index({element}) if {element} in {array} else -1; {element_found} = {index_of_element} >= 0",
+      "python_code": "{indices_of_elements} = [_i for _i in range(max({start_index_0}, 0), len({array})) if {array}[_i] == {element_data}]",
       "inline": true,
       "imports": []
     },
@@ -4053,7 +4073,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4086,7 +4106,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4119,7 +4139,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4152,7 +4172,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4185,7 +4205,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4218,7 +4238,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4251,7 +4271,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4284,7 +4304,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4317,7 +4337,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4326,9 +4346,31 @@
       "vi_path": "user.lib/_OpenG.lib/Remove Duplicates from 1D Array__ogtk.vi",
       "category": "openg",
       "description": "Remove duplicate elements",
-      "terminals": [],
+      "terminals": [
+        {
+          "name": "Input Array",
+          "index": 0,
+          "direction": "input",
+          "type": "indArr",
+          "python_param": "input_array"
+        },
+        {
+          "name": "Output Array",
+          "index": 1,
+          "direction": "output",
+          "type": "indArr",
+          "python_param": "output_array"
+        },
+        {
+          "name": "indices of removed elements",
+          "index": 2,
+          "direction": "output",
+          "type": "indArr",
+          "python_param": "indices_of_removed_elements"
+        }
+      ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4361,7 +4403,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4394,7 +4436,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4427,7 +4469,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4460,7 +4502,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4493,7 +4535,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4526,7 +4568,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4559,7 +4601,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4592,7 +4634,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4625,7 +4667,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4658,7 +4700,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4691,7 +4733,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_seen = set(); {unique_array} = [x for x in {array} if not (x in _seen or _seen.add(x))]",
+      "python_code": "{output_array} = []\n{indices_of_removed_elements} = []\nfor _i, _x in enumerate({input_array}):\n    if _x in {output_array}:\n        {indices_of_removed_elements}.append(_i)\n    else:\n        {output_array}.append(_x)",
       "inline": true,
       "imports": []
     },
@@ -4713,7 +4755,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4724,7 +4767,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4746,7 +4789,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4757,7 +4801,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4779,7 +4823,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4790,7 +4835,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4812,7 +4857,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4823,7 +4869,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4845,7 +4891,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4856,7 +4903,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4878,7 +4925,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4889,7 +4937,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4911,7 +4959,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4922,7 +4971,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4944,7 +4993,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4955,7 +5005,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -4977,7 +5027,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -4988,7 +5039,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5010,7 +5061,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5021,7 +5073,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5043,7 +5095,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5054,7 +5107,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5076,7 +5129,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5087,7 +5141,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5109,7 +5163,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5120,7 +5175,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5142,7 +5197,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5153,7 +5209,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5175,7 +5231,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5186,7 +5243,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5208,7 +5265,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5219,7 +5277,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5241,7 +5299,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5252,7 +5311,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5274,7 +5333,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5285,7 +5345,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5307,7 +5367,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5318,7 +5379,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -5340,7 +5401,8 @@
           "index": 2,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "by_rows_or_columns_rows"
+          "python_param": "by_rows_or_columns_rows",
+          "default": 0
         },
         {
           "name": "Reversed Array",
@@ -5351,7 +5413,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{reversed_array} = {array}[::-1] if {reverse_rows_or_columns} == 0 else [row[::-1] for row in {array}]",
+      "python_code": "{reversed_array} = {array}[::-1] if {by_rows_or_columns_rows} == 0 else [row[::-1] for row in {array}]",
       "inline": true,
       "imports": []
     },
@@ -6183,7 +6245,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6223,7 +6285,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6263,7 +6325,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6303,7 +6365,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6343,7 +6405,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6383,7 +6445,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6423,7 +6485,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6463,7 +6525,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6503,7 +6565,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6543,7 +6605,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6583,7 +6645,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6623,7 +6685,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6663,7 +6725,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6703,7 +6765,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6743,7 +6805,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6783,7 +6845,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6823,7 +6885,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6863,7 +6925,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6903,7 +6965,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     },
@@ -6943,7 +7005,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "_indices_set = set({indices}); {array_w_subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in sorted({indices}) if i < len({array})]",
+      "python_code": "_indices_set = set({indices}); {array_w__subset_deleted} = [x for i, x in enumerate({array}) if i not in _indices_set]; {deleted_elements} = [{array}[i] for i in {indices} if 0 <= i < len({array})]",
       "inline": true,
       "imports": []
     }

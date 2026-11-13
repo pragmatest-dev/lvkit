@@ -8,7 +8,7 @@ from lvkit.library_folders import is_symbolic_root
 from lvkit.models import LVType, LVTypeKind
 
 from .models import VIEntry
-from .naming import derive_python_name
+from .naming import derive_python_name, selector_key
 
 
 class _VILibLookupMixin:
@@ -127,7 +127,7 @@ class _VILibLookupMixin:
                 return None
             return self._resolve_poly_by_index(base_name, menu_index)
 
-        return self._by_poly_selector.get((base_name, selector_name))
+        return self._by_poly_selector.get((base_name, selector_key(selector_name)))
 
     def _resolve_poly_by_index(
         self,

@@ -15,6 +15,7 @@ from lvkit.catalog_stamp import iter_category_entries
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 from .models import VIEntry
+from .naming import selector_key
 
 
 class _VILibLoaderMixin:
@@ -142,7 +143,9 @@ class _VILibLoaderMixin:
             # Key: (base_vi_name, poly_selector_name) → entry
             if entry.poly_selector_names and entry.base_vi:
                 for ps_name in entry.poly_selector_names:
-                    self._by_poly_selector[(entry.base_vi, ps_name)] = entry
+                    self._by_poly_selector[(entry.base_vi, selector_key(ps_name))] = (
+                        entry
+                    )
 
     def _load_types(self, types_path: Path) -> None:
         """Load type definitions from _types.json into LVType dataclasses.
