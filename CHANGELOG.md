@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a cluster or array constant inside a structure frame has its own type, not its first field's** — an error cluster constant in a Case frame read as a String, so Bundle By Name's error input showed `"''"` and the generated code wrote `''.status`; it is now `no error` and `LabVIEWError(...)`.
 - **Format Into String with no format string writes each value by its type, with a space between them** — a string, path, enum label or Boolean as `%s`, an integer as `%d`, a floating-point number as `%f` (`1.234000`); it was strings only, joined with no space.
 - **A variant is a `Variant` holding its value, its LabVIEW type and its attributes** — a typed wire into a Variant input makes `Variant(5, LV_I32)`; Variant To Data judges the type the variant records (a number converts to any number type, a class only to its own class), Get TDEnum of a variant gives its type's code, Set/Get/Delete Variant Attribute work on any variant, and Equal? compares type, value and attributes; the generated `variants.py` holds the classes.
 - **Ctrl Val and a control's Value property write a variant's value into a typed control and read it back with the control's type** — an empty variant into a typed control is error 1.

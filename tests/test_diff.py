@@ -1496,9 +1496,10 @@ def test_unchanged_conditional_tunnel_reports_nothing():
 
 
 class TestConstantTypeChange:
-    """A constant that keeps its uid but changes type is one modified constant:
-    in Build VI Tester Project Provider.vi, constant 890 goes from a Boolean to
-    an error cluster."""
+    """A cluster constant keeps its type across saves: in Build VI Tester Project
+    Provider.vi, constant 890 is an error cluster in both versions (the saved
+    cluster constant's display object nests its first field, a Boolean, ahead of
+    the constant's own type), so it is not a change."""
 
     REPO = ".lvkit/cache/samples/JKI-VI-Tester"
     FILE_PATH = "source/LabVIEW Project Plugin/Build VI Tester Project Provider.vi"
@@ -1518,10 +1519,9 @@ class TestConstantTypeChange:
         p.write_bytes(r.stdout)
         return p
 
-    def test_the_constant_is_reported_modified(self, tmp_path: Path):
+    def test_the_cluster_constant_is_not_reported(self, tmp_path: Path):
         ga, na = _load(self._extract(tmp_path, self.BASE_REF, "a.vi"), layout=False)
         gb, nb = _load(self._extract(tmp_path, self.HEAD_REF, "b.vi"), layout=False)
         cmap = diff_uid(ga, gb, na, nb)
-        found = [(c.kind, c.change) for c in cmap.changes if c.uid == "890"]
-        assert found == [("constant", "modified")]
-        assert [c["uid"] for c in cmap.to_dict()["changes"]].count("890") == 1
+        assert [c for c in cmap.changes if c.uid == "890"] == []
+        assert [c["uid"] for c in cmap.to_dict()["changes"]].count("890") == 0
