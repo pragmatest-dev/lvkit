@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A Property Node bound to an indicator generates Python for its Value** — a Value write sets the indicator like a wire or Local Variable does (and `live_io.write` reports it), and a Value read gives the indicator's variable; Value (Signaling) on an indicator stays a gap.
 - **Value (Signaling) on a Property Node bound to a control generates Python** — it writes the control like Value and, when an Event Structure of the VI has a Value Change frame for the control, puts that event (name, new value, kind, old value) on the VI's events queue; the latching-Boolean error is not produced.
 - **A Property Node bound to a control writes many more control properties** — Tip Strip, Caption.Text, Frame Color, Number of Columns and Rows, Index Values, Zoom Factor, a Path's browse options, Tree, list box, combo box, ring, knob and slide scale, waveform graph and chart rows are listed from NI's public docs and call `live_io.set_property` (the panel view draws none of them yet); a row of several path segments (`Scale.Maximum`) is listed by its codes joined with `.`.
 - **Fix: a cluster or array constant inside a structure frame has its own type, not its first field's** — an error cluster constant in a Case frame read as a String, so Bundle By Name's error input showed `"''"` and the generated code wrote `''.status`; it is now `no error` and `LabVIEWError(...)`.

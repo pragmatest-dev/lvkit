@@ -1,5 +1,6 @@
 """An indicator a Local Variable reads, or a connector-pane indicator written
-inside a structure frame, is a variable of the function.
+inside a structure frame, is a variable of the function; so is an indicator a
+bound Property Node's ``Value`` row reads or writes.
 
 LabVIEW's indicator holds a value: every wire that writes the indicator
 (directly or through a Local Variable write) assigns its variable, and a Local
@@ -76,8 +77,13 @@ class LocalIndicators:
         statements: list[ast.stmt] = []
         if ctx.graph is None:
             return found, statements
-        read = ctx.graph.indicator_local_reads(vi_name)
-        held = {**read, **ctx.graph.indicators_written_in_a_frame(vi_name)}
+        value_reads, value_writes = ctx.graph.indicators_of_value_rows(vi_name)
+        read = {**ctx.graph.indicator_local_reads(vi_name), **value_reads}
+        held = {
+            **read,
+            **ctx.graph.indicators_written_in_a_frame(vi_name),
+            **value_writes,
+        }
         if ctx.panel_hooks is not None:
             for terminal_id in ctx.panel_hooks.indicators:
                 control = ctx.graph.get_terminal(terminal_id)
@@ -153,6 +159,13 @@ class LocalIndicators:
         kept = _Kept(variable, module_name, control, flag)
         self.kept[terminal_id] = kept
         return kept
+
+    def write(self, terminal_id: str, value: str) -> list[ast.stmt]:
+        """The statements that write the expression ``value`` to the held
+        indicator ``terminal_id``."""
+        if value == self.variables[terminal_id]:
+            return self._write(terminal_id, None)
+        return self._write(terminal_id, _expression(value))
 
     def _write(self, terminal_id: str, value: ast.expr | None) -> list[ast.stmt]:
         """The statements that write ``value`` to the indicator (``None``: its

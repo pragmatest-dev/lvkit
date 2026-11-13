@@ -108,8 +108,11 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     the user edits the control (``event_user.signal_value_change``); the control's
     value before the write is the event's old value. The error NI documents for a
     latching Boolean is not produced: the file's mechanical action is not read.
-    A node with any other row, a ``Value`` or ``Value (Signaling)`` row of an
-    indicator, or a read of ``Value (Signaling)`` (write only), is a gap."""
+    A ``Value`` row of an indicator held in a variable of the function
+    (``local_indicators``) assigns that variable or reads it. A node with any
+    other row, a ``Value`` row of an indicator that is not held, a
+    ``Value (Signaling)`` row of an indicator, or a read of ``Value (Signaling)``
+    (write only), is a gap."""
     graph = ctx.graph
     bound = graph.bound_terminal(node) if graph is not None else None
     control = graph.bound_control(node) if graph is not None else None
@@ -118,10 +121,16 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         node.properties, node.terminals, node.property_value_terminal_ids
     )
     supported = bound is not None and bool(rows)
+    # An indicator held in a variable (``local_indicators``) has a Value.
+    held = (
+        bound is not None
+        and bound.is_indicator
+        and bound.id in ctx.local_indicators.variables
+    )
     for row, term in rows:
         codes = [seg.code for seg in row.segments]
         if is_value_row(class_name, codes):
-            supported = supported and control is not None
+            supported = supported and (control is not None or held)
         elif is_value_signaling_row(class_name, codes):
             supported = (
                 supported
@@ -141,7 +150,8 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "Implicit property reference requires a binding model: only a Property "
             "Node of a control or indicator of the VI whose rows are Value (of a "
-            "control) and the listed control properties (written) is supported",
+            "control, or of an indicator the function holds) and the listed "
+            "control properties (written) is supported",
             node,
         )
     variable = ctx.resolve(control.id) if control is not None else None
@@ -166,7 +176,14 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         else:
             raise CodeGenError("Property value direction is unresolved", node)
         if is_value_row(class_name, codes):
-            if control is None or variable is None:
+            if control is None:
+                indicator = ctx.local_indicators.variables[bound.id]
+                if term.direction == "output":
+                    bindings[term.id] = indicator
+                else:
+                    statements += ctx.local_indicators.write(bound.id, value)
+                continue
+            if variable is None:
                 raise CodeGenError("Value row of a node without a control", node)
             if term.direction == "output":
                 statements += read_control(node, control, variable, ctx)
