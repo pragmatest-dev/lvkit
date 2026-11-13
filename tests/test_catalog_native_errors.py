@@ -88,6 +88,7 @@ PRIMITIVES = {
     "file-io:New Zip File": FILE_PATH_OPS,
     "file-io:Add File to Zip": FILE_PATH_OPS,
     "file-io:Close Zip File": FILE_PATH_OPS,
+    "synchronization:Release Semaphore_71": [("ValueError", 1111)],
     "file-io:Unzip": [
         ("ZipPasswordProtectedError", None),
         ("BadZipFile", None),

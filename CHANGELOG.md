@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Acquire Semaphore and Release Semaphore_71 generate Python on a `threading.BoundedSemaphore`** — Acquire waits `ms timeout` milliseconds (-1 forever) and gives `timed out`; releasing a semaphore that is not acquired is error 1111.
 - **VISA Configure Serial Port (Instr) generates Python for every input** — timeout, termination character and whether it ends a read, baud rate, data bits, parity, stop bits and flow control set the pyvisa resource's `timeout`, `end_input`, `termchar`, `baud_rate`, `data_bits`, `parity`, `stop_bits` and `flow_control`, with the defaults NI gives; the call that records the `(Instr)` file was a missing-VI gap.
 - **Fix: a call of a polymorphic VI of the project that selects a variant calls the variant** — it was an `unmapped vi.lib` gap (`VILib resolution needed for 'Get Connections.vi'`, qualified path `/////Runtime/…`) because the project VI was looked up in the vi.lib catalog; the variant is a VI of the project, so the call imports its module.
 - **JKI State Machine's Add State(s) to Queue and Parse State Queue generate Python** — Add State(s) to Queue joins its three strings, each trimmed of tabs, line feeds, carriage returns and spaces, with a line feed between the ones that are not empty; Parse State Queue takes the first state off the queue, skips blank lines and `//`, `#` and `/*` comments, splits at `>>` into state and arguments, and gives the state `Error Handler` on an error in. The JKI State Machine and JSONtext sources join the test samples.

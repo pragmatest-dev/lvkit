@@ -44,6 +44,7 @@ VILIB_ENTRIES = frozenset(
         "synchronization:Release Notifier Function",
         "synchronization:Release Queue Function",
         "synchronization:Release Semaphore",
+        "synchronization:Release Semaphore_71",
         "synchronization:Release Semaphore Reference",
         "waveform:Append Digital Samples",
         "waveform:Append Digital Signals",
