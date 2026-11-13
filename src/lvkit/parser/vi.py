@@ -178,7 +178,7 @@ from .nodes import (
     parse_selector_tables,
 )
 from .refnum_value import TAG_FLATTENED_REFNUM_TYPE, TAG_REFNUM_TYPES, handle_text
-from .scanf_dcos import SCANF_FIXED_DCO_LIST, mark_paired_output
+from .scanf_dcos import mark_paired_output
 from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich, type_id_number
@@ -824,8 +824,9 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
 
 
 # Direct children of a node or structure whose items define terminal DCOs (a
-# loop lists its right shift registers in `srDCOList`).
-_DCO_LIST_TAGS = ("tunnelList", "dcoList", "srDCOList")
+# loop lists its right shift registers in `srDCOList`; a node saved in the older
+# form lists its fixed terminals in `permDCOList`).
+_DCO_LIST_TAGS = ("tunnelList", "dcoList", "srDCOList", "permDCOList")
 
 
 def _is_named_dco_definition(child: ET.Element) -> bool:
@@ -857,11 +858,7 @@ def _inline_dco_definitions(root: ET.Element) -> None:
         if term_list is None:
             continue
         definitions: dict[str | None, ET.Element] = {}
-        for list_tag in (
-            (*_DCO_LIST_TAGS, SCANF_FIXED_DCO_LIST)
-            if node.get("class") == NODE_CLASS_SCANF
-            else _DCO_LIST_TAGS
-        ):
+        for list_tag in _DCO_LIST_TAGS:
             listed = node.find(list_tag)
             if listed is not None:
                 for item in listed.findall("SL__arrayElement"):
