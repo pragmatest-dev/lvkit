@@ -52,12 +52,24 @@ def error_occurred(error: str) -> str:
     return f"{error} is not None and {error}.status"
 
 
+def carries_error_cluster(terminal_id: str, ctx: CodeGenContext) -> bool:
+    """Whether the input ``terminal_id`` receives an error cluster: the VI records
+    the input with the error cluster's type, or the wire into it comes from a
+    terminal that carries one."""
+    if ctx.graph is None:
+        return False
+    own = ctx.graph.get_terminal(terminal_id)
+    if own is not None and own.is_error_cluster:
+        return True
+    return ctx.graph.terminal_fed_by_error_cluster(terminal_id)
+
+
 def status_read(value: str, terminal_id: str, ctx: CodeGenContext) -> str:
     """``value``, wired to an input NI says takes only the status of an error
     cluster wired to it (And, Or, Not, Select's ``s``, Compound Arithmetic, …):
     whether an error occurred when an error cluster is wired there (a warning is
     not one), else ``value`` itself."""
-    if ctx.graph is not None and ctx.graph.terminal_fed_by_error_cluster(terminal_id):
+    if carries_error_cluster(terminal_id, ctx):
         return error_occurred(value)
     return value
 
