@@ -484,12 +484,11 @@ def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 # agree.
 MODULE_PART_SOURCE = """\
 def _module_part(name):
-    name = "".join(
-        c for c in unicodedata.normalize(
-            "NFKC", name.lower().replace(" ", "_").replace("-", "_")
-        )
-        if ("_" + c).isidentifier()
+    name = unicodedata.normalize("NFKC", name)
+    name = unicodedata.normalize(
+        "NFKC", name.lower().replace(" ", "_").replace("-", "_")
     )
+    name = "".join(c for c in name if ("_" + c).isidentifier())
     if name and not name[0].isidentifier():
         name = "var_" + name
     if keyword.iskeyword(name):

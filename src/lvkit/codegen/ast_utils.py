@@ -28,7 +28,7 @@ from lvkit.models import (
     _is_error_cluster,
 )
 from lvkit.path_value import python_path
-from lvkit.python_names import name_characters, starts_a_name
+from lvkit.python_names import name_characters, normalised, starts_a_name
 from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 from lvkit.vi_files import strip_vi_extension
 
@@ -376,7 +376,7 @@ def to_var_name(name: str) -> str:
     if not name:
         return "var"
 
-    result = name.lower().replace(" ", "_").replace("-", "_")
+    result = normalised(name).lower().replace(" ", "_").replace("-", "_")
     result = name_characters(result)
     if result and not starts_a_name(result):
         result = "var_" + result
@@ -625,7 +625,7 @@ def module_part(name: str) -> str:
     Generated code that opens a VI by a path computed when it runs applies this
     same transform to each part, so the two always agree
     (``codegen/nodes/vi_reference.py`` ``MODULE_PART_SOURCE``)."""
-    result = name.lower().replace(" ", "_").replace("-", "_")
+    result = normalised(name).lower().replace(" ", "_").replace("-", "_")
     result = name_characters(result)
     if result and not starts_a_name(result):
         result = "var_" + result

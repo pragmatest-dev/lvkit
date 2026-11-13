@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lvkit.python_names import name_characters
+from lvkit.python_names import name_characters, normalised
 from lvkit.type_names import derive_python_name
 
 
@@ -18,6 +18,7 @@ def derive_python_location(typedef_name: str) -> tuple[str, str]:
     Returns:
         Tuple of (package_name, class_name) like ("sysdir", "SystemDirectoryType")
     """
+    typedef_name = normalised(typedef_name)
     if ":" in typedef_name:
         container, filename = typedef_name.split(":", 1)
     else:

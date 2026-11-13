@@ -27,7 +27,7 @@ from tests.error_diagrams import (
     project,  # noqa: F401
 )
 
-AWKWARD = ["µx", "ﬁle", "Ａbc", "x²", "ｉｆ", "Ünï"]
+AWKWARD = ["µx", "ﬁle", "Ａbc", "x²", "ｉｆ", "Ünï", "ａ\u3000ｂ", "ａ＿ｂ"]
 
 BUILDERS: dict[str, Callable[[str], str]] = {
     "to_var_name": to_var_name,
@@ -50,10 +50,14 @@ def test_a_built_name_is_the_name_python_reads(builder: str, text: str) -> None:
     ("text", "var_name", "module", "class_name"),
     [
         ("µx", "μx", "μx", "Μx"),
-        ("ﬁle", "file", "file", "FIle"),
+        ("ﬁle", "file", "file", "File"),
         ("Ａbc", "abc", "abc", "Abc"),
         ("x²", "x2", "x2", "X2"),
         ("ｉｆ", "if_", "if_", "If"),
+        # A full-width space or underscore is a word break like its ASCII form,
+        # so a class name never gets an underscore inside it.
+        ("ａ　ｂ", "a_b", "a_b", "AB"),
+        ("ａ＿ｂ", "a_b", "a_b", "AB"),
     ],
 )
 def test_the_normalised_spelling_of_each_builder(

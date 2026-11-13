@@ -12,12 +12,18 @@ from __future__ import annotations
 import unicodedata
 
 
+def normalised(text: str) -> str:
+    """``text`` normalised the way Python normalises names (NFKC). A builder calls
+    this first, before it turns spaces, hyphens or underscores into word breaks,
+    so a full-width space or underscore is one too."""
+    return unicodedata.normalize("NFKC", text)
+
+
 def name_characters(text: str) -> str:
     """``text`` normalised the way Python normalises names (NFKC), keeping only
     the characters a name may contain: letters, digits and ``_``. The result may
     start with a digit (see ``starts_a_name``) and may be empty."""
-    normalised = unicodedata.normalize("NFKC", text)
-    return "".join(c for c in normalised if ("_" + c).isidentifier())
+    return "".join(c for c in normalised(text) if ("_" + c).isidentifier())
 
 
 def starts_a_name(text: str) -> bool:

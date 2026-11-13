@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import keyword
 
-from lvkit.python_names import name_characters, starts_a_name
+from lvkit.python_names import name_characters, normalised, starts_a_name
 
 _TYPE_EXTENSIONS = (".ctl", ".lvclass")
 
@@ -30,9 +30,11 @@ def derive_python_name(type_name: str) -> str:
         without its extension, each word's first letter upper-cased and the
         rest of the word kept as written.
     """
-    name = type_name.rsplit(":", 1)[-1]
+    name = normalised(type_name).rsplit(":", 1)[-1]
     for extension in _TYPE_EXTENSIONS:
         name = name.removesuffix(extension)
+    # Normalised first, so a full-width underscore is a word break too: a class
+    # name never has an underscore inside it (``variants_module`` relies on it).
     words = name.replace("-", " ").replace("_", " ").split()
     result = "".join(word[:1].upper() + word[1:] for word in words)
     result = name_characters(result)
