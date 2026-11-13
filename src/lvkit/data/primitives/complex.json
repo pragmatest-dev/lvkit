@@ -159,34 +159,38 @@
     },
     "23061": {
       "name": "Polar To Re/Im",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/polar-to-re-im.html",
+      "op": "POLAR_TO_RE_IM",
+      "imports": [
+        "import math"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "y",
-          "type": "NumFloat64"
+          "type": "numeric"
         },
         {
           "index": 1,
           "direction": "output",
           "name": "x",
-          "type": "NumFloat64"
+          "type": "numeric"
         },
         {
           "index": 2,
           "direction": "input",
           "name": "theta",
-          "type": "NumFloat64"
+          "type": "numeric"
         },
         {
           "index": 3,
           "direction": "input",
           "name": "r",
-          "type": "NumFloat64"
+          "type": "numeric"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     }
   }
 }
