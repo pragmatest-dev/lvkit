@@ -2,6 +2,7 @@
   "primitives": {
     "1925": {
       "name": "VISA Read",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-read.html",
       "terminals": [
         {
           "index": 0,
@@ -48,11 +49,28 @@
           "refnum_type": "visa"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "requires": [
+        "pyvisa"
+      ],
+      "python_code": {
+        "_body": "_visa_read = in_11.read_bytes(in_10, break_on_termchar=True)",
+        "return_count": "len(_visa_read)",
+        "read_buffer": "_visa_read.decode('latin-1')",
+        "visa_resource_name_out": "in_11"
+      },
+      "inline": false
     },
     "1926": {
       "name": "VISA Write",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-write.html",
       "terminals": [
         {
           "index": 0,
@@ -93,8 +111,22 @@
           "refnum_type": "visa"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "requires": [
+        "pyvisa"
+      ],
+      "python_code": {
+        "return_count": "in_11.write_raw(in_10.encode('latin-1'))",
+        "visa_resource_name_out": "in_11"
+      },
+      "inline": true
     },
     "1927": {
       "name": "VISA Clear",

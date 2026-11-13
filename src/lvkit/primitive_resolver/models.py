@@ -96,6 +96,10 @@ class NativeError(BaseModel):
     code: int | None = None
     since_python: str | None = None
     base: str | None = None
+    # The attribute of the exception that holds the LabVIEW error code, for a
+    # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the
+    # VISA error code LabVIEW reports unchanged); ``code`` is then None.
+    code_attribute: str | None = None
 
 
 class PrimitiveEntry(BaseModel):

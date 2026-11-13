@@ -64,7 +64,14 @@ TCP_READ_WRITE = [
     ("OSError", None),
 ]
 
+VISA = [("VisaIOError", None)]
+
 PRIMITIVES = {
+    "1922:VISA Close": VISA,
+    "1925:VISA Read": VISA,
+    "1926:VISA Write": VISA,
+    "2302:VISA Flush I/O Buffer": VISA,
+    "2308:VISA Open": VISA,
     "1713:TCP Close Connection": [("OSError", None)],
     "1714:TCP Write": TCP_READ_WRITE,
     "1715:TCP Open Connection": TCP_OPEN,
@@ -153,7 +160,7 @@ def _declared() -> dict[str, list[NativeError]]:
 
 def _exception_class(failure: NativeError) -> type[BaseException] | None:
     """The class ``failure`` names; ``None`` when this Python is older than the
-    version that has it."""
+    version that has it, or its package is not installed."""
     if failure.since_python is not None and sys.version_info < tuple(
         int(part) for part in failure.since_python.split(".")
     ):
@@ -164,7 +171,12 @@ def _exception_class(failure: NativeError) -> type[BaseException] | None:
     elif failure.module is None:
         cls = getattr(builtins, failure.exception)
     else:
-        cls = getattr(importlib.import_module(failure.module), failure.exception)
+        try:
+            module = importlib.import_module(failure.module)
+        except ModuleNotFoundError:
+            # A third-party package the generated code needs, not lvkit.
+            return None
+        cls = getattr(module, failure.exception)
     assert isinstance(cls, type) and issubclass(cls, Exception), failure
     return cls
 

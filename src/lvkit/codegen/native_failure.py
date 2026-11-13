@@ -193,7 +193,7 @@ def exception_name(failure: NativeError) -> str:
     not ``error``)."""
     if failure.module is None:
         return failure.exception
-    return f"{failure.module}_{failure.exception}"
+    return f"{failure.module.replace('.', '_')}_{failure.exception}"
 
 
 def exception_import(failure: NativeError) -> str:
@@ -219,6 +219,11 @@ def exception_import(failure: NativeError) -> str:
 def _labview_error(failure: NativeError, source: str, exception: str) -> ast.expr:
     """``LabVIEWError(code=…, source=…, message=…)`` for ``failure``, caught as
     the variable ``exception``."""
+    if failure.code_attribute is not None:
+        return parse_expr(
+            f"{LABVIEW_ERROR_NAME}(code={exception}.{failure.code_attribute}, "
+            f"source={source!r}, message=str({exception}))"
+        )
     code = GENERIC_ERROR_CODE if failure.code is None else failure.code
     return labview_error(code, source, f"str({exception})")
 
