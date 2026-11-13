@@ -1025,9 +1025,9 @@ class Project:
         slot = self.base / "_xml" / rel.replace("/", "__").replace(".", "_")
         slot.mkdir(parents=True)
         bd, fp, main = vi.files()
-        (slot / "vi_BDHb.xml").write_text(bd)
-        (slot / "vi_FPHb.xml").write_text(fp)
-        (slot / "vi.xml").write_text(main)
+        (slot / "vi_BDHb.xml").write_text(bd, encoding="utf-8")
+        (slot / "vi_FPHb.xml").write_text(fp, encoding="utf-8")
+        (slot / "vi.xml").write_text(main, encoding="utf-8")
         self._xml[path.resolve()] = (
             slot / "vi_BDHb.xml",
             slot / "vi_FPHb.xml",
@@ -1069,14 +1069,18 @@ class Project:
         package_dir = Path(result["output_dir"])
         errors = package_dir / "errors.py"
         if not errors.exists():
-            errors.write_text(ERRORS_MODULE_SOURCE)
+            errors.write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
         variants = package_dir / "variants.py"
         if not variants.exists():
-            variants.write_text(VARIANTS_MODULE_SOURCE)
+            variants.write_text(VARIANTS_MODULE_SOURCE, encoding="utf-8")
         for stem, body in (stubs or {}).items():
-            (package_dir / f"{stem}.py").write_text(textwrap.dedent(body))
+            (package_dir / f"{stem}.py").write_text(
+                textwrap.dedent(body), encoding="utf-8"
+            )
         stem = _module_stem(name)
-        source = without_panel_attributes((package_dir / f"{stem}.py").read_text())
+        source = without_panel_attributes(
+            (package_dir / f"{stem}.py").read_text(encoding="utf-8")
+        )
         sys.path.insert(0, str(package_dir.parent))
         importlib.invalidate_caches()
         pkg = package_dir.name
