@@ -290,12 +290,24 @@ class Vi:
 
     # -- nodes --------------------------------------------------------------
 
-    def constant(self, type_id: int, hex_value: str) -> int:
-        """A diagram constant holding the saved value ``hex_value``."""
+    def constant(
+        self, type_id: int, hex_value: str, *, nested_type: int | None = None
+    ) -> int:
+        """A diagram constant holding the saved value ``hex_value``.
+        ``nested_type`` gives it a display object whose first control has that
+        type, ahead of the constant's own type as in a saved cluster constant."""
         uid = self.next_uid(2)
+        ddo = ""
+        if nested_type is not None:
+            ddo = (
+                '<ddo class="stdClust"><partsList><SL__arrayElement class="stdString">'
+                f"<typeDesc>TypeID({nested_type})</typeDesc></SL__arrayElement>"
+                "</partsList></ddo>"
+            )
         self.scope.terms.append(
             f'<SL__arrayElement class="term" uid="{uid}">'
-            f'<dco class="bDConstDCO" uid="{uid + 1}"><typeDesc>TypeID({type_id})'
+            f'<dco class="bDConstDCO" uid="{uid + 1}">{ddo}'
+            f"<typeDesc>TypeID({type_id})"
             f"</typeDesc><ConstValue>{hex_value}</ConstValue></dco>"
             "</SL__arrayElement>"
         )
@@ -307,8 +319,8 @@ class Vi:
     def bool_constant(self, value: bool) -> int:
         return self.constant(BOOL, "01" if value else "00")
 
-    def error_constant(self, kind: str) -> int:
-        return self.constant(ERR, ERROR_CONSTANT_HEX[kind])
+    def error_constant(self, kind: str, *, nested_type: int | None = None) -> int:
+        return self.constant(ERR, ERROR_CONSTANT_HEX[kind], nested_type=nested_type)
 
     def xnode(
         self,

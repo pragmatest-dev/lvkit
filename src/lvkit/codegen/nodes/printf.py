@@ -39,9 +39,20 @@ from .ops._numeric import FormatKind, format_kind
 _FORMAT_INDEX = 0
 _INITIAL_INDEX = 1
 _FIRST_VALUE_INDEX = 5
-# The inputs a Format Into String with no format string writes as ``%s``: a string,
-# a path, and an enum (its item label, as ``%s`` writes it).
-_DEFAULT_TEXT_KINDS = ("string", "path", "enum")
+# What a Format Into String with no format string writes for each kind of input
+# (see ``_default_format``): a string, a path, an enum (its item label) and a
+# Boolean (TRUE or FALSE) as ``%s``, an integer as ``%d``, a floating-point
+# number and the real part of a complex one as ``%f``.
+_DEFAULT_CODES = {
+    "string": "%s",
+    "path": "%s",
+    "enum": "%s",
+    "bool": "%s",
+    "int": "%d",
+    "float": "%f",
+    "complex": "%f",
+    "timestamp": "%<%.3X %x>T",
+}
 
 
 def _literal_text(source: str) -> str | None:
@@ -52,6 +63,32 @@ def _literal_text(source: str) -> str | None:
     except (ValueError, SyntaxError):
         return None
     return value if isinstance(value, str) else None
+
+
+def _default_format(node: PrimitiveNode, kinds: list[FormatKind]) -> str:
+    """The format string LabVIEW uses when none is wired: one code per value, by
+    the value's own type, joined by one space. NI: "Defaults match the data type
+    of the input arguments" (Format Into String); the code of each type is the one
+    its Format Specifier Syntax page gives (``%d`` signed decimal integer, ``%f``
+    floating point with six digits, ``%s`` for a string, with a Boolean as TRUE or
+    FALSE); complex "converts only the real component"; a timestamp is written as
+    absolute time, with the example format of that page's ``%T`` entry,
+    ``%<%.3X %x>T`` (Format Specifier Syntax: a time stamp formatted as anything
+    other than time is an error; codes ``%X`` locale time, ``%x`` locale date,
+    "Format Codes for the Time Format"). The space between the
+    values is what LabVIEW writes, confirmed by NI on the forum thread "Feature or
+    Bug: Format Into String Adds Spaces". A kind with no code is a gap."""
+    codes: list[str] = []
+    for kind in kinds:
+        code = _DEFAULT_CODES.get(kind.kind)
+        if code is None:
+            raise ConversionGap(
+                "Format Into String has no format string, and its default "
+                f"format has no conversion for a {kind.kind} input",
+                node,
+            )
+        codes.append(code)
+    return " ".join(codes)
 
 
 def _add_helpers(ctx: CodeGenContext, *roots: object) -> None:
@@ -300,17 +337,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         expr = _runtime_format(format_value, arguments, initial, ctx)
     else:
         if format_value is None:
-            odd = next(
-                (k for _, k in arguments if k.kind not in _DEFAULT_TEXT_KINDS), None
-            )
-            if odd is not None:
-                raise ConversionGap(
-                    "Format Into String has no format string, and its default "
-                    "format only writes strings, paths and enums, not a "
-                    f"{odd.kind} input",
-                    node,
-                )
-            text = "%s" * len(arguments)
+            text = _default_format(node, [kind for _, kind in arguments])
         assert text is not None
         expr = _literal_format(text, arguments, initial, node, ctx, negative_gaps)
 
