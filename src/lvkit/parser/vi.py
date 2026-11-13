@@ -1244,8 +1244,16 @@ def _process_element_terminals(
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
 
-        # Resolve TypeID to ParsedType
-        type_desc_elem = term.find(".//typeDesc")
+        # Resolve TypeID to ParsedType. The terminal's own type is the typeDesc
+        # directly under its dco, else directly under the term. A descendant
+        # search would be wrong: a block-diagram constant's dco holds a ddo
+        # whose nested controls carry typeDescs BEFORE the dco's own, so a
+        # cluster constant would take the type of its first field.
+        type_desc_elem = None
+        if dco is not None:
+            type_desc_elem = dco.find("typeDesc")
+        if type_desc_elem is None or not type_desc_elem.text:
+            type_desc_elem = term.find("typeDesc")
         type_desc_str = type_desc_elem.text if type_desc_elem is not None else None
         if not type_desc_str and dco_uid:
             # Some node classes (e.g. aReshape) declare the terminal's real
