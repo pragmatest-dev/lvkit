@@ -154,16 +154,23 @@ class Diagram:
         name: str | None = None,
         value: tuple[str, LVType] | None = None,
         wait: str | None = None,
+        empty: bool = False,
     ) -> None:
         """An Invoke Node of ``method``; ``name`` wires a String constant to its
-        first parameter, ``value`` a constant to its second, ``wait`` a Boolean
-        constant to Run VI's Wait Until Done."""
+        first parameter, ``value`` a constant (``empty``: the empty Variant
+        constant) to its second, ``wait`` a Boolean constant to Run VI's Wait Until
+        Done."""
         self.nodes.append(invoke(self.vi, tag, method, code))
         if name is not None:
             self.nodes.append(constant(self.vi, f"{tag}_name", name, STRING))
             self.wire(f"{tag}_name", f"{tag}.param")
         if value is not None:
             self.nodes.append(constant(self.vi, f"{tag}_value", *value))
+            self.wire(f"{tag}_value", f"{tag}.value")
+        if empty:
+            nothing = constant(self.vi, f"{tag}_value", "", VARIANT)
+            nothing.empty_variant = True
+            self.nodes.append(nothing)
             self.wire(f"{tag}_value", f"{tag}.value")
         if wait is not None:
             self.nodes.append(constant(self.vi, f"{tag}_wait", wait, BOOL))
@@ -232,7 +239,10 @@ def test_set_run_get_through_a_static_reference(tmp_path: Path) -> None:
     assert "target()" not in source
     with package.use() as module:
         result = module("runner").runner()
-        assert result.out == 5
+        # Ctrl Val.Get gives the control's value as a Variant of its type, and the
+        # Set of a Variant of the same type is the value the run sees.
+        variants = module("variants")
+        assert result.out == variants.Variant(5, variants.LV_I32)
         assert result.error_out is None
 
 
@@ -262,9 +272,15 @@ def test_get_all_lists_the_controls_or_the_indicators(tmp_path: Path) -> None:
     ]
     package = project_with(tmp_path, both, "entries").generate()
     with package.use() as module:
-        assert module("runner").runner().out == [("y", 5)]
+        variants = module("variants")
+        assert module("runner").runner().out == [
+            ("y", variants.Variant(5, variants.LV_I32))
+        ]
         panel = module("target").target.panel
         assert panel.get_all(True) == [("x", 4)]
+        assert panel.get_all_variants(True) == [
+            ("x", variants.Variant(4, variants.LV_I32))
+        ]
         assert panel.get_all(False) == [("y", 5)]
 
 
@@ -279,8 +295,9 @@ def test_unknown_control_name_is_error_1_and_nothing_runs(tmp_path: Path) -> Non
         result = module("runner").runner()
         assert result.error_out.code == 1
         assert result.error_out.message == '"nope" not found'
-        # The Set failed, so the error skipped the run and the read.
-        assert result.out is None
+        # The Set failed, so the error skipped the run and the read: ``out`` is the
+        # empty Variant, the default of a Variant.
+        assert result.out == module("variants").Variant()
         panel = module("target").target.panel
         assert panel.get("y") is None
 
@@ -372,7 +389,8 @@ def test_a_set_in_a_subvi_is_the_value_the_run_in_another_uses(
     assert gaps == []
     assert "target()" not in package.sources["runner"]
     with package.use() as module:
-        assert module("runner").runner().out == 5
+        variants = module("variants")
+        assert module("runner").runner().out == variants.Variant(5, variants.LV_I32)
 
 
 def test_a_reference_the_code_receives_is_a_front_panel_too(tmp_path: Path) -> None:
@@ -404,10 +422,14 @@ def test_a_reference_the_code_receives_is_a_front_panel_too(tmp_path: Path) -> N
     package = project.generate(gaps)
     assert gaps == []
     with package.use() as module:
-        assert module("runner").runner(ref=module("target").target).out == 10
+        variants = module("variants")
+        runner = module("runner").runner
+        assert runner(ref=module("target").target).out == variants.Variant(
+            10, variants.LV_I32
+        )
         # A reference that is Not a Refnum is error 1026 on the node's error out.
-        assert module("runner").runner(ref=None).out is None
-        assert module("runner").runner(ref=object()).out is None
+        assert runner(ref=None).out == variants.Variant()
+        assert runner(ref=object()).out == variants.Variant()
 
 
 def test_run_without_waiting_returns_while_the_vi_runs(tmp_path: Path) -> None:
@@ -603,7 +625,7 @@ def test_a_class_member_is_run_with_its_object_as_self(tmp_path: Path) -> None:
         # A method's panel is reached through the object's class.
         assert getattr(type(thing_object), "echo").panel is function.panel
         result = module("runner").runner(obj=thing_object)
-        assert result.out is thing_object
+        assert result.out.value is thing_object
         assert function.panel.get("Thing out") is thing_object
 
 
@@ -812,7 +834,8 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     package = project.generate()
     assert (
         "controls={'hidden': 'hidden'}, indicators={'shown': 'shown'}, "
-        "defaults={'hidden': lambda: 0}" in package.sources["take"]
+        "types={'hidden': LV_I32, 'shown': LV_I32}, defaults={'hidden': lambda: 0}"
+        in package.sources["take"]
     )
     with package.use() as module:
         panel = module("take").take.panel
@@ -889,7 +912,8 @@ def test_ctrl_val_on_a_shared_label_reaches_the_first_in_tabbing_order(
         panel = module("target").target.panel
         panel.put("same", 4)
         panel.put("same_2", 9)
-        assert module("runner").runner().out == 4
+        variants = module("variants")
+        assert module("runner").runner().out == variants.Variant(4, variants.LV_I32)
 
 
 def twice_target(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -1000,3 +1024,67 @@ def test_a_thread_that_cannot_start_the_work_leaves_the_vi_idle(
         with pytest.raises(RuntimeError, match="start new thread"):
             panel.run(False)
         assert panel.state == 1
+
+
+def test_an_unset_optional_array_control_holds_an_empty_array(tmp_path: Path) -> None:
+    """An optional array control's parameter default is None (the function makes
+    the array); the panel holds ``[]``, made once, and a run passes it."""
+    array = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=INT)
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "a", array, "a", 0, ParsedWiringRule.RECOMMENDED)
+                ],
+                outputs=[pane(vi, "output", "d", array, "d", 1)],
+                data_flow=[wire(vi, "a", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_vi("Take", take)
+    package = project.generate()
+    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("a")
+        assert first == []
+        assert panel.get("a") is first
+        panel.run()
+        assert panel.get("d") == module("take").take().d == []
+
+
+def test_an_unset_optional_class_control_holds_a_default_object(
+    tmp_path: Path,
+) -> None:
+    cls = class_type("Cls")
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "c", cls, "c", 0, ParsedWiringRule.RECOMMENDED)
+                ],
+                outputs=[pane(vi, "output", "d", cls, "d", 1)],
+                data_flow=[wire(vi, "c", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    project.add_vi("Take", take)
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert gaps == []
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("c")
+        assert isinstance(first, module("cls").Cls)
+        assert panel.get("c") is first
+        panel.run()
+        assert isinstance(panel.get("d"), module("cls").Cls)

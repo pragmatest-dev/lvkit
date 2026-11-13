@@ -154,8 +154,9 @@ def test_the_global_module_holds_a_panel_over_its_own_names(
     assert package.sources["data"] == (
         "from __future__ import annotations\n"
         "from .panels import PanelValues\n"
+        "from .variants import LV_I32\n"
         "panel = PanelValues(controls={'count': 'Count', 'total': 'Total'}, "
-        "storage=globals())\n"
+        "types={'count': LV_I32, 'total': LV_I32}, storage=globals())\n"
         "count: int = 5\n"
         "total: int = 9"
     )
@@ -323,7 +324,7 @@ def test_a_reference_to_a_global_vi_is_its_module_for_ctrl_val(tmp_path: Path) -
     project.graph._dep_graph.add_edge(caller, key)  # noqa: SLF001
     package = project.generate()
     assert package.gaps == []
-    assert "panel_of(data_global).set(" in package.sources["setter"]
+    assert "panel_of(data_global).set_variant(" in package.sources["setter"]
     with package.use() as module:
         module("setter").setter()
 

@@ -17,6 +17,7 @@ from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
@@ -145,6 +146,7 @@ def run_catalog_call(
     (package / "caller.py").write_text(source, encoding="utf-8")
     for module, text in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
     ):
@@ -154,6 +156,13 @@ def run_catalog_call(
         caller = importlib.import_module("pkg.caller")
         result = caller.caller(**arguments)
     finally:
-        for name in ("pkg.caller", "pkg.panels", "pkg.live_io", "pkg.errors", "pkg"):
+        for name in (
+            "pkg.caller",
+            "pkg.panels",
+            "pkg.live_io",
+            "pkg.variants",
+            "pkg.errors",
+            "pkg",
+        ):
             sys.modules.pop(name, None)
     return source, result

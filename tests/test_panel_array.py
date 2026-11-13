@@ -99,7 +99,7 @@ def test_an_array_of_numbers_takes_added_and_edited_rows_and_the_indicator_shows
     project.add(_array_vi())
     package = project.generate(NAME, panel=True)
     assert package.gaps == []
-    assert "def array_demo(values: list[int] | None)" in package.source
+    assert "def array_demo(values: list[int])" in package.source
     panel = panel_of(package, STEM)
     calls = record_calls(monkeypatch, panel)
 

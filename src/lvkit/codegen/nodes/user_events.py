@@ -38,12 +38,12 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
-from ..ast_utils import build_assign, parse_stmt
+from ..ast_utils import COPY_IMPORT, build_assign, parse_stmt
 from ..context import CodeGenContext
 from ..event_kinds import QUEUE_IMPORT, USER_EVENT_NAME
 from ..fragment import CodeFragment
 from ..type_default import type_default
-from ..value_copy import COPY_IMPORT, is_by_value_object
+from ..value_copy import is_by_value_object
 
 NORMAL_PRIORITY = 1
 

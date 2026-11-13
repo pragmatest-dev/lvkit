@@ -1244,8 +1244,16 @@ def _process_element_terminals(
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
 
-        # Resolve TypeID to ParsedType
-        type_desc_elem = term.find(".//typeDesc")
+        # Resolve TypeID to ParsedType. The terminal's own type is the typeDesc
+        # directly under its dco, else directly under the term. A descendant
+        # search would be wrong: a block-diagram constant's dco holds a ddo
+        # whose nested controls carry typeDescs BEFORE the dco's own, so a
+        # cluster constant would take the type of its first field.
+        type_desc_elem = None
+        if dco is not None:
+            type_desc_elem = dco.find("typeDesc")
+        if type_desc_elem is None or not type_desc_elem.text:
+            type_desc_elem = term.find("typeDesc")
         type_desc_str = type_desc_elem.text if type_desc_elem is not None else None
         if not type_desc_str and dco_uid:
             # Some node classes (e.g. aReshape) declare the terminal's real
@@ -2732,17 +2740,20 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
     attribute_count = int.from_bytes(data[pos : pos + 4], "big")
     pos += 4
     attributes = []
+    held_attributes = []
     for _ in range(attribute_count):
         name_end = _read_string(data, pos)
         if name_end is None:
             return None, 0, None
-        attribute, consumed, _structured = _decode_variant(data[name_end:])
+        attribute, consumed, structured_attribute = _decode_variant(data[name_end:])
         if attribute is None or consumed == 0:
             return None, 0, None
         name = bytes(data[pos + 4 : name_end]).decode("latin-1")
         attributes.append(f"{name!r}: {attribute}")
+        assert isinstance(structured_attribute, VariantData)
+        held_attributes.append((name, structured_attribute))
         pos = name_end + consumed
-    held = replace(held, attribute_count=attribute_count)
+    held = replace(held, attributes=tuple(held_attributes))
     if attributes:
         listed = "{" + ", ".join(attributes) + "}"
         inner = shown[len("Variant(") : -1]

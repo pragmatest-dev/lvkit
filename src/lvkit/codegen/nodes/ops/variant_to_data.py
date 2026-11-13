@@ -1,27 +1,37 @@
 """Variant To Data (primResID 8003).
 
 The node converts the variant's value to the type wired to ``type``; its
-``data`` output has that type. A variant is the Python value itself, so the
-generated code checks the value against the annotation the generated code gives
-``data`` (``ast_utils.terminal_annotation``; an error cluster is
-``LabVIEWError | None``):
+``data`` output has that type. A variant is a ``Variant`` (``variants_module``): its
+value, its LabVIEW type and its attributes. The generated code judges the type
+the variant records against the data type, in this order:
 
-* a number converts to any numeric type (an integer type, an enum or a ring
-  takes it rounded to the nearest integer, ties to even, as LabVIEW coerces a
-  floating-point number to an integer; a floating-point type takes ``float``,
-  a complex type ``complex``);
-* any other value must already be of the data type's Python class;
-* otherwise the node fails with a ``TypeError`` of NI's message for general
-  error 91, "The data type of the variant is not compatible with the data type
-  wired to the type input."
-  (https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/general-labview-error-codes.html);
-  the catalog lists ``TypeError`` as code 91, so it is the node's error out
-  (``native_failure``) and ``data`` its type's default.
+* a number type (an integer type, an enum or a ring, a floating-point type, a
+  complex type, a typedef of one): the variant's type must be a number of any
+  representation, and the value converts to the data type (an integer type, an
+  enum or a ring takes it rounded to the nearest integer, ties to even, as LabVIEW
+  coerces a floating-point number to an integer; a floating-point type takes
+  ``float``, a complex type ``complex``). A Boolean is not a number;
+* a class or another typedef (the data type has a name): the variant's type must
+  have the same code and the same name; variants do not recognise inheritance, so
+  a child class in the variant is not the parent class (NI, Variant To Data:
+  "variants do not recognize inheritance hierarchies");
+* any other type with a type-descriptor code: the variant's type must have the
+  same code;
+* a type with no code: the variant's value must be of the data type's Python class
+  (``ast_utils.terminal_annotation``; an error cluster is ``LabVIEWError | None``).
 
-A data type whose Python type is ``Any`` (a variant, a refnum, a type that did
-not resolve) takes the value as it is. Which terminal is which is the catalog
-entry's, by position, in the node's own numbering (LabVIEW versions number this
-node two ways, ``primitive_resolver.terminal_sets``): the second input is
+An empty variant has no type, so it fails every one of them. A type that fails
+makes the node fail with a ``TypeError`` of NI's message for general error 91,
+"The data type of the variant is not compatible with the data type wired to the
+type input."
+(https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/general-labview-error-codes.html);
+the catalog lists ``TypeError`` as code 91, so it is the node's error out
+(``native_failure``) and ``data`` its type's default.
+
+A data type that is a variant takes the variant as it is; one whose Python type is
+``Any`` and has no code takes the variant's value. Which terminal is which is the
+catalog entry's, by position, in the node's own numbering (LabVIEW versions number
+this node two ways, ``primitive_resolver.terminal_sets``): the second input is
 ``variant``, the second output ``data``; a call without the ``variant`` input is
 a ``TerminalNotOnCall`` gap. The node runs only when no error came in on its
 ``error in`` (``error_flow``). With ``data`` unwired and an error out wired, the
@@ -37,7 +47,9 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import (
     COMPLEX_TYPE_NAMES,
+    FLOAT_TYPE_NAMES,
     INTEGER_TYPE_NAMES,
+    TD_FULL_TYPE,
     is_numeric_type_name,
 )
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
@@ -50,6 +62,8 @@ from ...errors import TerminalNotOnCall
 from ...fragment import CodeFragment
 from ...import_resolver import ImportResolver
 from ...type_fields import annotation_imports
+from ...variant_values import is_variant_type, variant_input
+from ...variants_module import lv_type_code_and_name
 from . import register_op_fragment
 
 INCOMPATIBLE_VARIANT_MESSAGE = (
@@ -112,6 +126,47 @@ def _numeric_conversion(lv_type: LVType) -> str | None:
     if underlying in COMPLEX_TYPE_NAMES:
         return "complex"
     return "float"
+
+
+# The type-descriptor codes of the number types (integers, floating-point and
+# complex numbers): a variant holding any of them converts to a number type.
+_NUMBER_CODES = tuple(
+    sorted({int(TD_FULL_TYPE[n].value) for n in INTEGER_TYPE_NAMES | FLOAT_TYPE_NAMES})
+)
+
+
+def _descriptor(lv_type: LVType) -> tuple[int, str] | None:
+    """The code and name of ``lv_type`` as a variant records them; None for a type
+    with no type-descriptor code."""
+    try:
+        return lv_type_code_and_name(lv_type)
+    except ConversionGap:
+        return None
+
+
+def _type_check(
+    value: str, lv_type: LVType, convert: str | None
+) -> tuple[str, str] | None:
+    """The test that the variant ``value`` is not of the data type ``lv_type``
+    (it is empty, or its type is not the one the data type accepts) and the
+    expression of the data; None for a type with no code, which is judged on the
+    Python class of the value."""
+    described = _descriptor(lv_type)
+    if convert is not None:
+        own = [described[0]] if described is not None else []
+        codes = tuple(sorted({*_NUMBER_CODES, *own}))
+        accepted = f"{value}.type.code in {codes}"
+        result = f"{convert}({value}.value)"
+    elif lv_type.type_ref() is not None and described is not None:
+        code, name = described
+        accepted = f"{value}.type.code == {code} and {value}.type.name == {name!r}"
+        result = f"{value}.value"
+    elif described is not None:
+        accepted = f"{value}.type.code == {described[0]}"
+        result = f"{value}.value"
+    else:
+        return None
+    return f"{value}.type is None or not ({accepted})", result
 
 
 def _isinstance_target(annotation: ast.expr) -> ast.expr | None:
@@ -190,7 +245,7 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
             variant_entry.type,
             node,
         )
-    value = ctx.wired_input(variant.id, node) or "None"
+    value = variant_input(ctx, node, variant)
     if data is None:
         raise ConversionGap(
             "the catalog entry of Variant To Data has no data terminal for this "
@@ -198,16 +253,16 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
             node,
         )
     lv_type = data.lv_type
-    if lv_type is None:
+    if lv_type is None or is_variant_type(lv_type):
         return CodeFragment(bindings={data.id: value})
     convert = _numeric_conversion(lv_type)
     target: ast.expr | None = None
-    if convert is None:
+    if _type_check(value, lv_type, convert) is None:
         annotation = terminal_annotation(data, ctx.type_namer())
         target = _isinstance_target(parse_expr(annotation))
         if target is None:
-            # Every value is of the data type: the data is the value itself.
-            return CodeFragment(bindings={data.id: value})
+            # Every value is of the data type: the data is the variant's value.
+            return CodeFragment(bindings={data.id: f"{value}.value"})
         _type_imports(ctx, data, annotation)
         if data.is_error_cluster:
             ctx.import_labview_error()
@@ -219,23 +274,27 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         prelude.append(build_assign(local, parse_expr(value)))
         value = local
 
-    if convert is not None:
-        accepted = "(int, float, complex)" if convert == "complex" else "(int, float)"
-        mismatch = parse_expr(
-            f"isinstance({value}, bool) or not isinstance({value}, {accepted})"
-        )
-        result = parse_expr(f"{convert}({value})")
+    checked = _type_check(value, lv_type, convert)
+    if checked is not None:
+        mismatch = parse_expr(checked[0])
+        result = parse_expr(checked[1])
     else:
         assert target is not None
-        mismatch = ast.UnaryOp(
-            op=ast.Not(),
-            operand=ast.Call(
-                func=ast.Name(id="isinstance", ctx=ast.Load()),
-                args=[parse_expr(value), target],
-                keywords=[],
-            ),
+        mismatch = ast.BoolOp(
+            op=ast.Or(),
+            values=[
+                parse_expr(f"{value}.type is None"),
+                ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Call(
+                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                        args=[parse_expr(f"{value}.value"), target],
+                        keywords=[],
+                    ),
+                ),
+            ],
         )
-        result = parse_expr(value)
+        result = parse_expr(f"{value}.value")
 
     statements: list[ast.stmt] = [
         *prelude,

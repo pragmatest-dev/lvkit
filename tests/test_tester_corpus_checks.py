@@ -206,15 +206,16 @@ def test_describe_shows_project_paths_and_notes_unlabeled_controls() -> None:
     assert "control(s) record no label and are named control_<uid>" in run.stderr
 
 
-def test_get_tdenum_of_a_variant_is_a_gap(tmp_path: Path) -> None:
+def test_get_tdenum_of_a_variant_reads_the_type_the_variant_records(
+    tmp_path: Path,
+) -> None:
     vi = (
         _SAMPLES
         / "JKI-EasyXML/Source/OpenG Derivative/Format Variant Into String--EasyXML.vi"
     )
     run = _generate(vi, tmp_path)
-    assert (
-        "Get TDEnum from Data__ogtk reads the type of a variant, which is only "
-        "known when the code runs"
-    ) in run.stderr
+    assert "reads the type of a variant" not in run.stderr
     (module,) = tmp_path.rglob("format_variant_into_string__easyxml.py")
-    assert "type(variant).__name__" not in module.read_text(encoding="utf-8")
+    text = module.read_text(encoding="utf-8")
+    assert ".type.code if" in text
+    assert "type(variant).__name__" not in text

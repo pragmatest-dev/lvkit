@@ -10,6 +10,7 @@ from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import UNSUPPORTED_CONTROL, Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panel_hooks import PanelHooks
+from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 
@@ -28,6 +29,7 @@ def _write_controls(package_root: Path) -> None:
     has none yet."""
     for name, source in (
         (ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE),
+        (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
     ):
         module = package_root / f"{name}.py"

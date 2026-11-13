@@ -24,6 +24,9 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         results={"y": "y"},
         passed={"thing_out": "self"},
         defaults={"list_": lambda: []},
+        clusters={"cfg": (("a", "a"), ("b", 1), ("inner", "inner", (("x", 0),)))},
+        types={"x": LV_DBL, "y": LV_DBL},
+        variants=["any"],
         order=["list_", "thing_out", "x", "y"],
     )
 
@@ -34,13 +37,31 @@ control's default (a control with none takes the parameter's own); ``indicators`
 the name of each indicator to its label; ``results`` the name of an indicator on
 the connector pane to the field of the result that holds it; ``passed`` the name
 of a class output that is the object the method ran on to the parameter
-(``self``) that holds it; ``order`` is left out when the controls and then the
-indicators are in tabbing order.
+(``self``) that holds it; ``clusters`` the name of a cluster control or indicator
+to the specs of its fields in field order, each ``(label, key)`` (``key`` the
+position in a cluster that is a tuple, else the attribute name) and, for a field
+that is a cluster, ``(label, key, specs)`` (``codegen/panel_clusters.py``);
+``types`` the name of each control and indicator whose type has a type-descriptor
+code to its ``LVType`` (``variants.py``) and ``variants`` the name of each one that
+is a Variant (``codegen/panel_types.py``); ``order`` is left out when the controls
+and then the indicators are in tabbing order.
+
+A panel holds each control's value in the control's own type, and the Ctrl Val
+methods and the Value property of a control reference carry a ``Variant``:
+``set_variant`` / ``Control.variant = v`` store a ``Variant`` in a control that holds
+a variant and the data of ``v`` in any other (an empty variant has none: error 1),
+and ``get_variant`` / ``get_all_variants`` / ``Control.variant`` give a control's
+value as ``Variant(value, types[name])`` (a control that holds a variant gives its
+own). ``set``, ``get``, ``get_all`` and ``Control.value`` read and write the plain
+value, for a Python caller and a view.
 
 ``Panel.controls`` is the Controls[] property of the panel: a ``Control`` for each
 control and indicator, the same object each time. A ``Control`` is what LabVIEW's
 reference to the object reads: its ``label``, whether it is an ``indicator``, and
-its ``value`` (read and written through the panel, as Ctrl Val does).
+its ``value`` (read and written through the panel, as Ctrl Val does). The
+``controls`` of a cluster's ``Control`` are a ``Field`` for each field of the
+cluster, in field order: the field's label, the cluster's indicator flag, and the
+field of the cluster's value as ``value``.
 
 The panel holds every value by name, so two controls with the same label (or a
 control and an indicator) each keep their own. ``order`` lists every name in the
@@ -97,10 +118,11 @@ import threading
 import time
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from queue import Empty, Queue
-from typing import Any
+from typing import Any, NoReturn
 
 from .errors import LabVIEWError
 from .live_io import LiveIO
+from .variants import LVType, Variant
 
 ABORT_POLL = 0.1
 
@@ -122,17 +144,41 @@ def key_of(name: Any) -> str:
     return str(getattr(name, "value", name))
 
 
+def raise_empty_variant(label: str) -> NoReturn:
+    """Error 1 for an empty variant given to a control that holds a value of a type
+    (NI forum, LAVA topic 14464: Ctrl Val.Set with an empty variant gives error 1,
+    "The invoke node probably wants to treat the incoming data as a variant
+    wrapping the actual data type of the control")."""
+    raise PanelError(
+        code=1,
+        source="Panel.set_variant",
+        message=f'"{label}" was given an empty variant, which holds no value of '
+        "its type",
+    )
+
+
 class Control:
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
-    it is an ``indicator`` and its ``value``, which is the panel's value of it."""
+    it is an ``indicator`` and its ``value``, which is the panel's value of it. A
+    cluster's ``controls`` are a reference to each of its fields, in field order."""
 
     def __init__(
-        self, panel: PanelValues, name: str, label: str, indicator: bool
+        self,
+        panel: PanelValues,
+        name: str,
+        label: str,
+        indicator: bool,
+        fields: Sequence[Any] | None = None,
     ) -> None:
         self.panel = panel
         self.name = name
         self.label = label
         self.indicator = indicator
+        self._fields = (
+            None
+            if fields is None
+            else [Field(self, label, key, *rest) for label, key, *rest in fields]
+        )
 
     @property
     def value(self) -> Any:
@@ -141,6 +187,87 @@ class Control:
     @value.setter
     def value(self, value: Any) -> None:
         self.panel.put(self.name, value)
+
+    @property
+    def variant(self) -> Variant:
+        """The Value property of the reference: the value as a ``Variant`` (see
+        ``PanelValues.get_variant``)."""
+        return self.panel.variant(self.name)
+
+    @variant.setter
+    def variant(self, variant: Variant) -> None:
+        self.panel.put_variant(self.name, variant)
+
+    @property
+    def controls(self) -> list[Control]:
+        """The Controls[] of a cluster: a reference to each of its fields, in
+        cluster order, the same object each time; error 1026 for a control that is
+        not a cluster."""
+        if self._fields is None:
+            raise PanelError(
+                code=1026,
+                source="Control.controls",
+                message="Control Reference is invalid.",
+            )
+        return list(self._fields)
+
+
+class Field(Control):
+    """A field of the cluster control ``parent``: the control with the label of the
+    field and the indicator flag of the cluster, whose ``value`` is that field of
+    the cluster's value. ``key`` is the position of the field in a cluster that is
+    a tuple, else the name of its attribute. A write replaces the cluster's value
+    with a copy that holds the new field, so a value read earlier is not changed."""
+
+    def __init__(
+        self,
+        parent: Control,
+        label: str,
+        key: int | str,
+        fields: Sequence[Any] | None = None,
+    ) -> None:
+        super().__init__(parent.panel, parent.name, label, parent.indicator, fields)
+        self.parent = parent
+        self.key = key
+
+    @property
+    def value(self) -> Any:
+        whole = self.parent.value
+        if whole is None:
+            # a cluster indicator before its first run, or a cluster whose
+            # default is None (an error cluster, a class not loaded)
+            return None
+        if isinstance(self.key, int):
+            return whole[self.key]
+        return getattr(whole, self.key)
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        whole = self.parent.value
+        if whole is None:
+            raise PanelError(
+                code=1,
+                source="Control.value",
+                message=f'"{self.parent.label}" has no value to change a field of',
+            )
+        if isinstance(self.key, int):
+            changed = (*whole[: self.key], value, *whole[self.key + 1 :])
+        else:
+            changed = copy.copy(whole)
+            setattr(changed, self.key, value)
+        self.parent.value = changed
+
+    @property
+    def variant(self) -> Variant:
+        """The field's value as a ``Variant`` with no type: the panel records the
+        type of a control, not of the fields of a cluster."""
+        return Variant(self.value)
+
+    @variant.setter
+    def variant(self, variant: Variant) -> None:
+        if variant.type is None:
+            raise_empty_variant(self.label)
+        self.value = variant.value
 
 
 class PanelView:
@@ -234,13 +361,21 @@ class PanelValues:
         defaults: Mapping[str, Callable[[], Any]] | None = None,
         storage: MutableMapping[str, Any] | None = None,
         order: Sequence[str] | None = None,
+        clusters: Mapping[str, Sequence[Any]] | None = None,
+        types: Mapping[str, LVType] | None = None,
+        variants: Sequence[str] | None = None,
     ) -> None:
+        clusters = clusters or {}
         self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
         self._defaults = dict(defaults or {})
+        self._types = dict(types or {})
+        self._variants = frozenset(variants or ())
         self._order = list(order or [*self._controls, *self._indicators])
         self._refs = {
-            name: Control(self, name, label, name in self._indicators)
+            name: Control(
+                self, name, label, name in self._indicators, clusters.get(name)
+            )
             for name, label in {**self._controls, **self._indicators}.items()
         }
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
@@ -278,6 +413,26 @@ class PanelValues:
                 if names.get(name)
             ]
 
+    def set_variant(self, label: str, variant: Variant) -> None:
+        """Set the control or indicator labelled ``label`` to the data of
+        ``variant``, as Ctrl Val.Set does (see ``put_variant``)."""
+        self.put_variant(self._name_of(label), variant)
+
+    def get_variant(self, label: str) -> Variant:
+        """The value of the control or indicator labelled ``label`` as a
+        ``Variant``, as Ctrl Val.Get does (see ``variant``)."""
+        return self.variant(self._name_of(label))
+
+    def get_all_variants(self, controls: bool = False) -> list[tuple[str, Variant]]:
+        """``get_all`` with each value a ``Variant`` (see ``variant``)."""
+        with self._lock:
+            names = self._controls if controls else self._indicators
+            return [
+                (names[name], self._variant(name))
+                for name in self._order
+                if names.get(name)
+            ]
+
     @property
     def controls(self) -> list[Control]:
         """The Controls[] of the panel: a reference to each control and indicator,
@@ -295,11 +450,32 @@ class PanelValues:
             self._values[name] = value
         self._tell("control_changed", name, value)
 
+    def put_variant(self, name: str, variant: Variant) -> None:
+        """Set the control or indicator ``name`` to ``variant``: a control that
+        holds a variant stores it; any other holds the data of the variant, and an
+        empty variant has none (error 1)."""
+        self._check(name)
+        if name in self._variants:
+            self.put(name, variant)
+        elif variant.type is None:
+            raise_empty_variant(self._refs[name].label)
+        else:
+            self.put(name, variant.value)
+
     def value(self, name: str) -> Any:
         """The value of the control or indicator ``name``."""
         self._check(name)
         with self._lock:
             return self._value(name)
+
+    def variant(self, name: str) -> Variant:
+        """The value of the control or indicator ``name`` as a ``Variant``: a
+        control that holds a variant gives it (``Variant()`` while it holds none);
+        any other gives its value with the type the panel records for it (a
+        ``Variant`` of no type where the panel records none)."""
+        self._check(name)
+        with self._lock:
+            return self._variant(name)
 
     def seed(self, name: str, value: Any) -> Any:
         """The value of ``name``, which is ``value`` when none was set yet (a view
@@ -364,6 +540,14 @@ class PanelValues:
             return self._own_default(name)
         return None
 
+    def _variant(self, name: str) -> Variant:
+        value = self._value(name)
+        if name in self._variants:
+            if isinstance(value, Variant):
+                return value
+            return Variant() if value is None else Variant(value)
+        return Variant(value, self._types.get(name))
+
     def _own_default(self, name: str) -> Any:
         """The default of the control ``name`` when no function makes one: None."""
         return None
@@ -382,8 +566,19 @@ class Panel(PanelValues):
         passed: Mapping[str, str] | None = None,
         defaults: Mapping[str, Callable[[], Any]] | None = None,
         order: Sequence[str] | None = None,
+        clusters: Mapping[str, Sequence[Any]] | None = None,
+        types: Mapping[str, LVType] | None = None,
+        variants: Sequence[str] | None = None,
     ) -> None:
-        super().__init__(controls, indicators, defaults, order=order)
+        super().__init__(
+            controls,
+            indicators,
+            defaults,
+            order=order,
+            clusters=clusters,
+            types=types,
+            variants=variants,
+        )
         self.function = function
         self._results = dict(results or {})
         self._passed = dict(passed or {})

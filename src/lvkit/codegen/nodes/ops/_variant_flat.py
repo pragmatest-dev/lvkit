@@ -1,17 +1,19 @@
 """What Variant To Flattened String and Flattened String To Variant share: the
 type a node's variant or type string has when the code is generated.
 
-A variant is the Python value, so it carries no LabVIEW type at run time. The
-type is known only from the graph: a variant made by To Variant has the type of
-the wire fed to it, and a type string is a literal list of numbers (a diagram
-constant) or the type string output of a Variant To Flattened String whose
-variant has such a type."""
+The flattened bytes are written and read by a type decided when the code is
+generated, from the graph: a variant made by To Variant has the type of the wire
+fed to it, and a type string is a literal list of numbers (a diagram constant) or
+the type string output of a Variant To Flattened String whose variant has such a
+type. A ``Variant`` (``variants_module``) whose type the graph does not give is
+pickled whole instead."""
 
 from __future__ import annotations
 
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import LVType, Terminal
 from lvkit.type_string import TypeStringError, decode
 
@@ -52,7 +54,7 @@ def variant_static_type(ctx: CodeGenContext, node: PrimitiveNode) -> LVType | No
         return None
     anything = terminal(origin[0], "input", _TO_VARIANT_INPUT)
     lv_type = anything.lv_type if anything else None
-    if lv_type is None or lv_type.underlying_type == "LVVariant":
+    if lv_type is None or is_variant_type_name(lv_type.underlying_type):
         return None
     return lv_type
 

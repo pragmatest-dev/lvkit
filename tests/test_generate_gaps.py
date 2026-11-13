@@ -254,6 +254,7 @@ def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_three(
         "live_io.py",
         "panels.py",
         "second_bdhbxml.py",
+        "variants.py",
     ]
     assert "Partial: 2 VIs generated, 2 with gaps (2 gaps)" in captured.out
 

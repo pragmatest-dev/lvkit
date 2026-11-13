@@ -1,11 +1,18 @@
 {
-  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name. 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written (bool, enum, number), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text: each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there).",
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[]: each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there).",
   "value_codes": {
     "inherited": [104013842],
     "classes": {
       "CmbBox": [104099840],
       "Path": [104032256],
       "Str": [104093696]
+    }
+  },
+  "value_signaling_codes": {
+    "inherited": [104013860],
+    "classes": {
+      "Path": [104032270],
+      "Str": [104093708]
     }
   },
   "reference_rows": {
@@ -16,6 +23,10 @@
     "indicator": {
       "codes": [[104013831]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/indicator.html"
+    },
+    "cluster_controls": {
+      "codes": [[104102914]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/controls.html"
     },
     "label_text": {
       "codes": [[104013829, 103995392]],
@@ -52,7 +63,208 @@
       "member": "maximum",
       "value": "number",
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/rangemaximum.html"
+    },
+    "104013844": {
+      "name": "Tip Strip",
+      "member": "tip_strip",
+      "value": "string",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/tipstrip.html"
+    },
+    "104013828.103995392": {
+      "name": "Caption:Text",
+      "member": "caption_text",
+      "value": "string",
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/text.html"
     }
   },
-  "classes": {}
+  "classes": {
+    "Arr (strict)": {
+      "104041473": {
+        "name": "Number of Columns",
+        "member": "number_of_columns",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/numvisiblecolumns.html"
+      },
+      "104041474": {
+        "name": "Number of Rows",
+        "member": "number_of_rows",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/numvisiblerows.html"
+      },
+      "104041476": {
+        "name": "Index Values",
+        "member": "index_values",
+        "value": "number_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/indexvalues.html"
+      }
+    },
+    "IntGraph (strict)": {
+      "104078363": {
+        "name": "Frame Color",
+        "member": "frame_color",
+        "value": "color",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/framecolor.html"
+      }
+    },
+    "Pict": {
+      "104044553": {
+        "name": "Zoom Factor",
+        "member": "zoom_factor",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/zoomfactor.html"
+      }
+    },
+    "Path": {
+      "104032266": {
+        "name": "Browse Options:Start Path",
+        "member": "start_path",
+        "value": "path",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgstartpath.html"
+      },
+      "104032264": {
+        "name": "Browse Options:Match Pattern",
+        "member": "match_pattern",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgmatchpattern.html"
+      },
+      "104032269": {
+        "name": "Browse Options:Pattern Label",
+        "member": "pattern_label",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgpatternlabel.html"
+      },
+      "104032263": {
+        "name": "Browse Options:Prompt",
+        "member": "prompt",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgprompt.html"
+      }
+    },
+    "Tree (strict)": {
+      "1969896461": {
+        "name": "Active Item:Tag",
+        "member": "active_item_tag",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activeitemtag.html"
+      },
+      "1969896467": {
+        "name": "Active Cell:Active Column Number",
+        "member": "active_column_number",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activecolumnnumber.html"
+      },
+      "1969896473": {
+        "name": "Active Cell:String",
+        "member": "cell_string",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/cellstring.html"
+      },
+      "1969896524": {
+        "name": "Edit Position",
+        "member": "edit_position",
+        "value": "cluster",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/editposition.html"
+      }
+    },
+    "LstBox (strict)": {
+      "104035337": {
+        "name": "Item Names",
+        "member": "item_names",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/listbox/itemnames.html"
+      }
+    },
+    "MCListbox (strict)": {
+      "416911380": {
+        "name": "Selection Color",
+        "member": "selection_color",
+        "value": "color",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/selectioncolor.html"
+      },
+      "416911360": {
+        "name": "Item Names",
+        "member": "item_names",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itmnames.html"
+      }
+    },
+    "Knob (strict)": {
+      "104075264.104001542": {
+        "name": "Scale:Range:Maximum",
+        "member": "scale_maximum",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmax.html"
+      },
+      "104075264.104001541": {
+        "name": "Scale:Range:Minimum",
+        "member": "scale_minimum",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
+      }
+    },
+    "Slide (strict)": {
+      "104072195.104001542": {
+        "name": "Scale:Range:Maximum",
+        "member": "scale_maximum",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmax.html"
+      },
+      "104072195.104001541": {
+        "name": "Scale:Range:Minimum",
+        "member": "scale_minimum",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
+      }
+    },
+    "CmbBox": {
+      "104099843": {
+        "name": "Strings []",
+        "member": "strings",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/string/combobox/strings.html"
+      }
+    },
+    "Ring (strict)": {
+      "104056839": {
+        "name": "Strings []",
+        "member": "strings",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/strings.html"
+      },
+      "104062981": {
+        "name": "Strings And Values []",
+        "member": "strings_and_values",
+        "value": "array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/ring/strsandvals.html"
+      }
+    },
+    "WFGraph (strict)": {
+      "104084510": {
+        "name": "Legend:Number of Rows",
+        "member": "legend_number_of_rows",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/waveformgraph/legendnumrows.html"
+      },
+      "104084483": {
+        "name": "Active Plot",
+        "member": "active_plot",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/waveformgraph/activeplot.html"
+      },
+      "104084484.103986176": {
+        "name": "Plot:Plot Name",
+        "member": "plot_name",
+        "value": "string",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/plot/name.html"
+      }
+    },
+    "WFChart (strict)": {
+      "104081416": {
+        "name": "History Data",
+        "member": "history_data",
+        "value": "array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/waveformchart/historydata.html"
+      }
+    }
+  }
 }

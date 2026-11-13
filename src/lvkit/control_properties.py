@@ -10,8 +10,8 @@ entry wins over an inherited one. A property is listed only when NI's public
 documentation says what it does.
 
 A Property Node on a wired control reference (no binding) reads a few properties
-that are the reference's own: its ``Value``, its ``Indicator`` flag and its
-``Label.Text`` (``ReferenceRow``).
+that are the reference's own: its ``Value``, its ``Indicator`` flag, its
+``Label.Text`` and, of a cluster, its ``Controls[]`` (``ReferenceRow``).
 
 The graph (which VIs touch their panel while running) and code generation (what a
 row generates) both read this, so it sits outside both.
@@ -34,7 +34,13 @@ _PATH = data_dir() / "control_properties.json"
 class ControlProperty:
     """One listed property: ``name`` is NI's long name, ``member`` the Python name
     (the generated property enum's member is its upper-case form), ``value`` the
-    kind written (``bool``, ``enum`` or ``number``) and ``doc_url`` NI's page."""
+    kind written and ``doc_url`` NI's page. ``value`` is the Python value the
+    generated code passes: ``bool``; ``enum`` (the property's integer enum value);
+    ``number`` (int or float); ``string`` (str); ``path`` (``pathlib.Path``);
+    ``color`` (int, LabVIEW's ``0x00RRGGBB`` color); ``string_array`` (list of
+    str, of lists of str for a two-dimensional array); ``number_array`` (list of
+    int or float); ``array`` (list of the elements the wire carries, a cluster
+    staying a cluster); ``cluster`` (the cluster the wire carries)."""
 
     name: str
     member: str
@@ -45,25 +51,28 @@ class ControlProperty:
 class ReferenceRow(Enum):
     """What a row of a Property Node on a control reference is, when it is one of
     the control's own: its ``Value``, whether it is an ``Indicator``, the text of
-    its ``Label``."""
+    its ``Label``, and, of a cluster, the references to its ``Controls[]``."""
 
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
+    CLUSTER_CONTROLS = "cluster_controls"
 
 
 @dataclass(frozen=True)
 class _Table:
-    inherited: dict[int, ControlProperty]
-    classes: dict[str, dict[int, ControlProperty]]
+    inherited: dict[str, ControlProperty]
+    classes: dict[str, dict[str, ControlProperty]]
     inherited_values: frozenset[int]
     class_values: dict[str, frozenset[int]]
+    inherited_signaling: frozenset[int]
+    class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
 
 
-def _entries(raw: dict[str, dict[str, str]]) -> dict[int, ControlProperty]:
+def _entries(raw: dict[str, dict[str, str]]) -> dict[str, ControlProperty]:
     return {
-        int(code): ControlProperty(
+        code: ControlProperty(
             entry["name"], entry["member"], entry["value"], entry["doc_url"]
         )
         for code, entry in raw.items()
@@ -75,12 +84,17 @@ def _table() -> _Table:
     with open(_PATH, encoding="utf-8") as handle:
         raw = json.load(handle)
     values = raw["value_codes"]
+    signaling = raw["value_signaling_codes"]
     return _Table(
         inherited=_entries(raw["inherited"]),
         classes={name: _entries(entries) for name, entries in raw["classes"].items()},
         inherited_values=frozenset(values["inherited"]),
         class_values={
             name: frozenset(codes) for name, codes in values["classes"].items()
+        },
+        inherited_signaling=frozenset(signaling["inherited"]),
+        class_signaling={
+            name: frozenset(codes) for name, codes in signaling["classes"].items()
         },
         reference_rows={
             tuple(path): ReferenceRow(name)
@@ -92,14 +106,13 @@ def _table() -> _Table:
 
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:
     """The listed property that the row with property ``codes`` (one per path
-    segment) of a Property Node bound to a control of class ``class_name`` is;
-    None for a nested property or one that is not listed."""
-    if len(codes) != 1:
-        return None
+    segment) of a Property Node bound to a control of class ``class_name`` is; None
+    for one that is not listed. A listed property is found by its codes joined with
+    ``.`` (a one-segment row by its code), the class's own entry before an
+    inherited one."""
     table = _table()
-    return table.classes.get(class_name, {}).get(codes[0]) or table.inherited.get(
-        codes[0]
-    )
+    key = ".".join(str(code) for code in codes)
+    return table.classes.get(class_name, {}).get(key) or table.inherited.get(key)
 
 
 def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
@@ -112,11 +125,22 @@ def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
     )
 
 
+def is_value_signaling_row(class_name: str, codes: Sequence[int]) -> bool:
+    """Whether the row with property ``codes`` is the control's ``Value
+    (Signaling)``: it writes the value the way ``Value`` does and also generates a
+    Value Change event, as if the user had changed the control (NI: write only)."""
+    if len(codes) != 1:
+        return False
+    table = _table()
+    own = table.class_signaling.get(class_name, frozenset())
+    return codes[0] in table.inherited_signaling or codes[0] in own
+
+
 def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:
     """The own property of a control reference that the row with property ``codes``
     on a reference of class ``class_name`` is: ``Value`` (the generic code, or the
-    class's strict or own one), ``Indicator`` or ``Label.Text``; None for any
-    other row."""
+    class's strict or own one), ``Indicator``, ``Label.Text`` or a cluster's
+    ``Controls[]``; None for any other row."""
     if is_value_row(class_name, codes):
         return ReferenceRow.VALUE
     return _table().reference_rows.get(tuple(codes))

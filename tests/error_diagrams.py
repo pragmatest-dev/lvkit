@@ -26,6 +26,7 @@ import pytest
 
 from lvkit.codegen.ast_utils import to_module_name
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
+from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -289,12 +290,24 @@ class Vi:
 
     # -- nodes --------------------------------------------------------------
 
-    def constant(self, type_id: int, hex_value: str) -> int:
-        """A diagram constant holding the saved value ``hex_value``."""
+    def constant(
+        self, type_id: int, hex_value: str, *, nested_type: int | None = None
+    ) -> int:
+        """A diagram constant holding the saved value ``hex_value``.
+        ``nested_type`` gives it a display object whose first control has that
+        type, ahead of the constant's own type as in a saved cluster constant."""
         uid = self.next_uid(2)
+        ddo = ""
+        if nested_type is not None:
+            ddo = (
+                '<ddo class="stdClust"><partsList><SL__arrayElement class="stdString">'
+                f"<typeDesc>TypeID({nested_type})</typeDesc></SL__arrayElement>"
+                "</partsList></ddo>"
+            )
         self.scope.terms.append(
             f'<SL__arrayElement class="term" uid="{uid}">'
-            f'<dco class="bDConstDCO" uid="{uid + 1}"><typeDesc>TypeID({type_id})'
+            f'<dco class="bDConstDCO" uid="{uid + 1}">{ddo}'
+            f"<typeDesc>TypeID({type_id})"
             f"</typeDesc><ConstValue>{hex_value}</ConstValue></dco>"
             "</SL__arrayElement>"
         )
@@ -306,8 +319,8 @@ class Vi:
     def bool_constant(self, value: bool) -> int:
         return self.constant(BOOL, "01" if value else "00")
 
-    def error_constant(self, kind: str) -> int:
-        return self.constant(ERR, ERROR_CONSTANT_HEX[kind])
+    def error_constant(self, kind: str, *, nested_type: int | None = None) -> int:
+        return self.constant(ERR, ERROR_CONSTANT_HEX[kind], nested_type=nested_type)
 
     def xnode(
         self,
@@ -408,6 +421,28 @@ class Vi:
             f'<termList elements="{len(slots)}">{terms}</termList>'
             f"<primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
             "</SL__arrayElement>"
+        )
+        return uids
+
+    def index_array(
+        self, array_type: int, element_type: int, index_type: int = I32
+    ) -> dict[str, int]:
+        """An Index Array node (class ``aIndx``) with one element output and its
+        index input, in the layout a real file records (array, element, index);
+        returns terminal uids ``array``, ``element`` and ``index``."""
+        terms, uids = self.terminals(
+            "aIDCO",
+            [
+                ("array", 0, array_type, False),
+                ("element", 1, element_type, True),
+                ("index", 2, index_type, False),
+            ],
+            "parmIndex",
+        )
+        uid = self.next_uid()
+        self.scope.nodes.append(
+            f'<SL__arrayElement class="aIndx" uid="{uid}">'
+            f'<termList elements="3">{terms}</termList></SL__arrayElement>'
         )
         return uids
 
@@ -972,6 +1007,12 @@ class Package:
         """A ``LabVIEWError`` as the package defines it."""
         return self.errors.LabVIEWError(code=code, source=source, status=status)
 
+    @property
+    def variants(self) -> ModuleType:
+        """The package's ``variants`` module: ``Variant``, ``LVType`` and the
+        type constants (``I32``, ``DBL``, ``String``, ...)."""
+        return importlib.import_module(f"{self.module.__package__}.variants")
+
     def stub(self, module: str) -> ModuleType:
         """A stub subVI module of the package, imported."""
         return importlib.import_module(f"{self.module.__package__}.{module}")
@@ -1041,6 +1082,9 @@ class Project:
         errors = package_dir / "errors.py"
         if not errors.exists():
             errors.write_text(ERRORS_MODULE_SOURCE)
+        variants = package_dir / "variants.py"
+        if not variants.exists():
+            variants.write_text(VARIANTS_MODULE_SOURCE)
         for stem, body in (stubs or {}).items():
             (package_dir / f"{stem}.py").write_text(textwrap.dedent(body))
         stem = _module_stem(name)

@@ -203,13 +203,11 @@ def test_case_default_frame_on_integer_selector() -> None:
     assert r.padded_message[5:] == "\x00" * 59
 
 
-def test_unwired_array_input_defaults_to_empty() -> None:
-    """An array input left unwired defaults to None and is normalized to [] at
-    the top of the function (LabVIEW's unwired array == empty array), so the body
-    iterates it instead of crashing on None. 1D Array to String joins its input
-    with a delimiter -> '' for the empty default, 'a,b,c' for a real array."""
+def test_empty_array_input_joins_to_empty_string() -> None:
+    """1D Array to String joins its input with a delimiter -> '' for an empty
+    array, 'a,b,c' for a real array."""
     empty = _run_leaf(
-        "string/string.llb/1D Array to String__ogtk.vi", array_of_strings=None
+        "string/string.llb/1D Array to String__ogtk.vi", array_of_strings=[]
     )
     assert empty.delimited_string == ""
     joined = _run_leaf(
@@ -279,7 +277,7 @@ def test_2d_array_ops_survive_empty_input() -> None:
         "array/array.llb/Sort 2D Array (I32)__ogtk.vi",
         "array/array.llb/Reverse 2D Array (I32)__ogtk.vi",
     ):
-        _run_leaf(vi, None)  # an unwired (empty) input must not raise
+        _run_leaf(vi, [])  # an empty input must not raise
 
 
 def test_get_header_from_td_builds_cluster() -> None:
@@ -512,15 +510,19 @@ def test_compare_two_paths_common_and_relative() -> None:
     difference and returns the shared prefix. Exercises Array Subset with a wired
     length (common prefix, `arr[0:state]`) and an UNWIRED length (the remainder
     `arr[index:]` -- LabVIEW's "rest of array", not an empty run), plus the
-    expandable index/length name substitution."""
+    expandable index/length name substitution. The paths are absolute on the
+    running system (its root: ``/`` or a drive such as ``C:\\``): a path rooted
+    without a drive is relative on Windows, so ``/a/b/c`` would test a relative
+    path there (issue #293)."""
     from pathlib import Path
 
+    root = Path(Path.cwd().anchor)
     r = _run_leaf(
         "file/file.llb/Compare Two Paths - Scalar__ogtk.vi",
-        Path("/a/b/c"),
-        Path("/a/b/d"),
+        root / "a" / "b" / "c",
+        root / "a" / "b" / "d",
     )
-    assert _posix(r.common_path) == "/a/b"
+    assert Path(r.common_path) == root / "a" / "b"
     assert _posix(r.relative_path_from_1_to_2) == "../d"
     assert r.different_types is False
 

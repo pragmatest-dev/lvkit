@@ -67,6 +67,7 @@ from .builders import (
 )
 from .builders.operations import callee_keys
 from .core import _graph_node_to_op_kind, _node_order_key
+from .held_values import mark_held_outputs
 from .models import (
     AnyGraphNode,
     ConstantNode,
@@ -335,7 +336,9 @@ def _lv_type_category(underlying: str, kind: LVTypeKind) -> str:
 
 if TYPE_CHECKING:
     from ..primitive_resolver import PrimitiveResolver
+    from ..primitive_resolver.models import PrimitiveTerminal
     from ..vilib_resolver import VILibResolver
+    from ..vilib_resolver.models import VITerminal
 
 
 class ConstructionMixin:
@@ -748,10 +751,11 @@ class ConstructionMixin:
 
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.
-            known_terminals = None
             # Primitive and node-type entries define every terminal of the
             # node; vi.lib entries list only the terminals callers were seen
             # using.
+            primitive_terminals: list[PrimitiveTerminal] | None = None
+            known_terminals: list[PrimitiveTerminal] | list[VITerminal] | None
             terminals_are_complete = True
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
                 prim_resolved = self.primitive_catalog.resolve(
@@ -762,13 +766,14 @@ class ConstructionMixin:
                     },
                 )
                 if prim_resolved and prim_resolved.terminals:
-                    known_terminals = prim_resolved.terminals
-            if not known_terminals and node.node_type:
+                    primitive_terminals = prim_resolved.terminals
+            if not primitive_terminals and node.node_type:
                 nt_resolved = self.primitive_catalog.resolve_by_node_type(
                     node.node_type
                 )
                 if nt_resolved and nt_resolved.terminals:
-                    known_terminals = nt_resolved.terminals
+                    primitive_terminals = nt_resolved.terminals
+            known_terminals = primitive_terminals
             if not known_terminals and isinstance(node, SubVINode):
                 # SubVI calls: look up vilib terminal layout
                 vilib_r = self.vilib_catalog
@@ -966,6 +971,9 @@ class ConstructionMixin:
             # Mark nMux terminal roles (agg vs list) and field indices
             if isinstance(node, SelectNode):
                 self._enrich_nmux_terminals(node, graph_node)
+            # Outputs a node's input still holds (a field, an array element).
+            mark_held_outputs(graph_node, primitive_terminals)
+            if isinstance(node, SelectNode):
                 if graph_node.node_type == "decomposeClusterNode":
                     # The IPES cluster border node — Bundle/Unbundle BY NAME,
                     # direction read off the FIELD terminals just enriched

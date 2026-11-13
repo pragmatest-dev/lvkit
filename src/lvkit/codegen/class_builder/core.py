@@ -36,6 +36,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of
 from ..import_cycles import in_import_cycle
 from ..import_resolver import ImportResolver, NameImport
+from ..type_constants import share_type_constants
 from ..type_fields import annotation_imports
 from .config import ClassConfig
 from .equality import value_equality_method
@@ -111,7 +112,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         self._parts.imports.update(implicit_imports(definitions))
         module_body = [*self._build_imports(base), *definitions]
         module = ast.Module(body=module_body, type_ignores=[])
-        return optimize_module(module)
+        return share_type_constants(optimize_module(module))
 
     def _class_body(
         self, class_key: str, base: NameImport | None, parent_gap: str | None

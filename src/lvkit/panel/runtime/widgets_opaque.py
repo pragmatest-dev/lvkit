@@ -25,7 +25,7 @@ def variant_port(*, readonly: bool) -> Port:
     def show_variant(value: Any) -> None:
         nonlocal held
         held = value
-        shown.set_value(repr(value))
+        shown.set_value(repr(getattr(value, "value", value)))
 
     return Port(lambda: held, show_variant)
 

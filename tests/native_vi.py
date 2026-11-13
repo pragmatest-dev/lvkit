@@ -21,7 +21,12 @@ def scalar(underlying: str) -> LVType:
 
 def array(underlying: str | LVType, rank: int = 1) -> LVType:
     element = scalar(underlying) if isinstance(underlying, str) else underlying
-    return LVType(kind=LVTypeKind.ARRAY, element_type=element, dimensions=rank)
+    return LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=element,
+        dimensions=rank,
+    )
 
 
 def node(

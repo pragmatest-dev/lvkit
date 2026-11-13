@@ -1,8 +1,8 @@
 """Flattened String To Variant (primResID 8202).
 
-A variant is the Python value. When ``type string`` is known as the code is
-generated (a diagram constant, or the ``type string`` of a Variant To Flattened
-String whose variant has a known type) the descriptor is decoded then
+A variant is a ``Variant`` (``variants_module``). When ``type string`` is known as
+the code is generated (a diagram constant, or the ``type string`` of a Variant To
+Flattened String whose variant has a known type) the descriptor is decoded then
 (``type_string.py``) and ``data string`` is read with the ``struct`` calls for
 that type (``codegen/flat.py``), in LabVIEW's byte format: the same code Unflatten
 From String writes. A type that cannot be read that way is a gap.
@@ -32,6 +32,8 @@ from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
 from ...flat import UnsupportedLayout, layout_of
 from ...fragment import CodeFragment
+from ...variant_values import type_expression
+from ...variants_module import VARIANT_NAME
 from . import register_op_fragment
 from ._flat_node import (
     add_flat_imports,
@@ -83,5 +85,12 @@ def flattened_string_to_variant(
         ctx, node, layout, text, ">", True, variant_term, True
     )
     assert variable is not None
+    ctx.import_variant()
+    statements.append(
+        build_assign(
+            variable,
+            parse_expr(f"{VARIANT_NAME}({variable}, {type_expression(ctx, lv_type)})"),
+        )
+    )
     add_flat_imports(ctx, statements)
     return CodeFragment(statements=statements, bindings={variant_term.id: variable})

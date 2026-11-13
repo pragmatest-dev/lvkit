@@ -1,12 +1,8 @@
-"""Set Variant Attribute (8204): an empty variant given attributes is a dict of
-them; a variant that does not start empty is a gap.
+"""Set Variant Attribute (8204): the attribute is set on the ``Variant``, which
+may be empty, unwired, a constant or any ``Variant`` the VI is given.
 """
 
 from __future__ import annotations
-
-import re
-
-import pytest
 
 from lvkit.primitive_resolver import get_resolver
 from tests.error_diagrams import (
@@ -89,22 +85,31 @@ def test_describe_and_lvnet_name_the_function(project: Project) -> None:  # noqa
     assert ": Set Variant Attribute\n" in views.lvnet
 
 
-def test_an_empty_variant_constant_given_an_attribute_is_a_dict(
+def _table(package, **attributes):
+    variants = package.variants
+    return variants.Variant(
+        attributes={
+            k: variants.Variant(v, variants.LV_String) for k, v in attributes.items()
+        }
+    )
+
+
+def test_an_empty_variant_constant_given_an_attribute_holds_it(
     project: Project,  # noqa: F811
 ) -> None:
     package = _set(project)
     assert "lvkit" not in package.source
     result = package.function("colour", "red")
-    assert (result.replaced, result.result) == (False, {"colour": "red"})
+    assert (result.replaced, result.result) == (False, _table(package, colour="red"))
     assert result.error_out is None
 
 
-def test_an_unwired_variant_given_an_attribute_is_a_dict(
+def test_an_unwired_variant_given_an_attribute_holds_it(
     project: Project,  # noqa: F811
 ) -> None:
     package = _set(project, source="unwired")
     result = package.function("colour", "red")
-    assert (result.replaced, result.result) == (False, {"colour": "red"})
+    assert (result.replaced, result.result) == (False, _table(package, colour="red"))
 
 
 def test_an_empty_name_is_error_1(project: Project) -> None:  # noqa: F811
@@ -114,18 +119,18 @@ def test_an_empty_name_is_error_1(project: Project) -> None:  # noqa: F811
     assert result.error_out.source == "Set Variant Attribute"
 
 
-def test_a_variant_parameter_given_an_attribute_is_the_dict_passed(
+def test_a_variant_parameter_given_an_attribute_keeps_the_ones_it_has(
     project: Project,  # noqa: F811
 ) -> None:
     package = _set(project, source="control")
-    assert "a dict of the variant's attributes" in package.source
-    result = package.function("colour", "red", {"size": "big"})
-    assert result.result == {"size": "big", "colour": "red"}
+    result = package.function("colour", "red", _table(package, size="big"))
+    assert result.result == _table(package, size="big", colour="red")
 
 
-def test_a_variant_control_off_the_pane_is_a_gap(project: Project) -> None:  # noqa: F811
+def test_a_variant_control_off_the_pane_starts_as_an_empty_variant(
+    project: Project,  # noqa: F811
+) -> None:
     package = _set(project, source="off-pane")
-    reason = "Set Variant Attribute on a variant that is not empty"
-    assert reason in package.source
-    with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function("a", "b")
+    assert package.gaps == []
+    result = package.function("a", "b")
+    assert result.result == _table(package, a="b")

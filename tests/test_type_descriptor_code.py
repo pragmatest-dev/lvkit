@@ -1,8 +1,8 @@
 """OpenG ``Get TDEnum from Data__ogtk`` returns the type-descriptor code of the
 data wired to it. The caller records that wire's type, so the code is written as
-a constant, read from the type descriptor; data whose type is only known when
-the code runs (a variant) is a gap. The codes are the item values of OpenG's own
-``Type Descriptor Enumeration__ogtk.ctl``."""
+a constant, read from the type descriptor; a variant records its type, so its code
+is read from the variant when the code runs (0, Void, for an empty variant). The
+codes are the item values of OpenG's own ``Type Descriptor Enumeration__ogtk.ctl``."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.lv_type_codes import TD_FULL_TYPE, type_descriptor_code
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.vilib_resolver import VIEntry, VILibResolver
-from tests.helpers import build_graph, exec_generated
+from tests.helpers import build_graph, exec_generated, generated_variants
 
 _CATALOG = Path(__file__).parent.parent / "src/lvkit/data/openg/variant.json"
 _ENTRY = VIEntry.model_validate(json.loads(_CATALOG.read_text())["entries"][0])
@@ -98,16 +98,21 @@ def test_the_code_of_the_wired_type_is_a_constant(
     assert namespace["caller"](None).t == code
 
 
-def test_a_variant_is_a_gap(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_variant_gives_the_code_of_the_type_it_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     gaps: list[Gap] = []
     variant = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="LVVariant")
     source = _generate(variant, monkeypatch, gaps)
-    assert [g.reason for g in gaps] == [
-        "Get TDEnum from Data__ogtk reads the type of a variant, which is only "
-        "known when the code runs; the generated code has no LabVIEW type for a "
-        "value"
-    ]
-    assert "raise NotImplementedError" in source
+    assert gaps == []
+    assert "type.code" in source
+    namespace: dict = {}
+    exec_generated(source, namespace, "caller.py")
+    variants = generated_variants()
+    caller = namespace["caller"]
+    assert caller(variants.Variant(5, variants.LV_I32)).t == 0x03
+    assert caller(variants.Variant("x", variants.LV_String)).t == 0x30
+    assert caller(variants.Variant()).t == 0
 
 
 @pytest.mark.needs_samples
