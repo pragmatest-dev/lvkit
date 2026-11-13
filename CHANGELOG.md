@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the front panel's toolbar keeps "close discarded" while the VI runs on** — the panel's late "started" notice of a run the toolbar itself began no longer replaces the state shown since (#297).
+- **lvkit is tested on Python 3.14** — Linux and Windows CI run it, and the package lists it.
 - **Value (Signaling) on a Property Node bound to a control generates Python** — it writes the control like Value and, when an Event Structure of the VI has a Value Change frame for the control, puts that event (name, new value, kind, old value) on the VI's events queue; the latching-Boolean error is not produced.
 - **A Property Node bound to a control writes many more control properties** — Tip Strip, Caption.Text, Frame Color, Number of Columns and Rows, Index Values, Zoom Factor, a Path's browse options, Tree, list box, combo box, ring, knob and slide scale, waveform graph and chart rows are listed from NI's public docs and call `live_io.set_property` (the panel view draws none of them yet); a row of several path segments (`Scale.Maximum`) is listed by its codes joined with `.`.
 - **Fix: a cluster or array constant inside a structure frame has its own type, not its first field's** — an error cluster constant in a Case frame read as a String, so Bundle By Name's error input showed `"''"` and the generated code wrote `''.status`; it is now `no error` and `LabVIEWError(...)`.
