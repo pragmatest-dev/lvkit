@@ -15,6 +15,7 @@ kind is an input they have no conversion for.
 from __future__ import annotations
 
 import inspect
+import locale
 import re
 from dataclasses import dataclass
 
@@ -45,6 +46,12 @@ class _LvSpecifier:
     @property
     def zero(self) -> bool:
         return "0" in self.flags and "-" not in self.flags
+
+    @property
+    def localization(self) -> bool:
+        """A localization code (``%,;``, ``%.;``, ``%;``): it takes no input and
+        writes nothing, and sets the decimal separator of what follows."""
+        return self.code in (",;", ".;", ";")
 
 
 def _lv_decode_escapes(text):
@@ -140,7 +147,8 @@ def _lv_parse(format_text):
                 code=fields[7] or "",
             )
         )
-        position += 1
+        if not local:
+            position += 1
         index = end
     if literal:
         pieces.append(literal)
@@ -153,9 +161,7 @@ def _lv_unsupported(spec, kind):
     if kind is None:
         return f"Format Into String specifier {spec.text!r} has no input to take"
     part = None
-    if spec.code in (",;", ".;", ";"):
-        part = "localization code"
-    elif "#" in spec.flags:
+    if "#" in spec.flags:
         part = "'#' modifier"
     elif "^" in spec.flags:
         part = "'^' modifier"
@@ -234,10 +240,11 @@ def _lv_scientific(value, precision, plus, width, left, zero):
     return _lv_pad(_lv_exponent(value, precision, plus), width, left, zero)
 
 
-def _lv_format_value(spec, value, kind, bits, labels):
+def _lv_format_value(spec, value, kind, bits, labels, point=None):
     """The text of one value written for ``spec`` (one ``_lv_unsupported`` has
     accepted for this kind). ``labels`` maps an enum's values to its items'
-    labels: ``%s`` writes the label."""
+    labels: ``%s`` writes the label. ``point`` is the decimal separator a
+    floating-point value is written with (None: the period)."""
     code = spec.code
     if code == "s":
         if kind == "bool":
@@ -257,11 +264,14 @@ def _lv_format_value(spec, value, kind, bits, labels):
         number = value
     precision = 6 if spec.precision is None else spec.precision
     if code == "e":
-        return _lv_scientific(
+        text = _lv_scientific(
             number, precision, spec.plus, spec.width, spec.left, spec.zero
         )
+        return text if point is None else text.replace(".", point)
     if code == "f":
         text = format(number, f"{'+' if spec.plus else ''}.{precision}f")
+        if point is not None:
+            text = text.replace(".", point)
     else:
         whole = _lv_round_int(number)
         if code == "d":
@@ -280,9 +290,17 @@ def _lv_format_into_string(format_string, initial, args):
     with each specifier replaced by the value it takes from ``args``, a list of
     ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels)."""
     text = initial
+    point = None
     for piece in _lv_parse(format_string):
         if isinstance(piece, str):
             text += _lv_decode_escapes(piece)
+            continue
+        if piece.localization:
+            point = (
+                locale.localeconv()["decimal_point"]
+                if piece.code == ";"
+                else piece.code[0]
+            )
             continue
         if piece.position < len(args):
             value, kind, bits, labels = args[piece.position]
@@ -291,7 +309,7 @@ def _lv_format_into_string(format_string, initial, args):
         reason = _lv_unsupported(piece, kind)
         if reason:
             raise NotImplementedError(reason)
-        text += _lv_format_value(piece, value, kind, bits, labels)
+        text += _lv_format_value(piece, value, kind, bits, labels, point)
     return text
 
 
