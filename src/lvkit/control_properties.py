@@ -65,6 +65,8 @@ class _Table:
     classes: dict[str, dict[str, ControlProperty]]
     inherited_values: frozenset[int]
     class_values: dict[str, frozenset[int]]
+    inherited_signaling: frozenset[int]
+    class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
 
 
@@ -82,12 +84,17 @@ def _table() -> _Table:
     with open(_PATH, encoding="utf-8") as handle:
         raw = json.load(handle)
     values = raw["value_codes"]
+    signaling = raw["value_signaling_codes"]
     return _Table(
         inherited=_entries(raw["inherited"]),
         classes={name: _entries(entries) for name, entries in raw["classes"].items()},
         inherited_values=frozenset(values["inherited"]),
         class_values={
             name: frozenset(codes) for name, codes in values["classes"].items()
+        },
+        inherited_signaling=frozenset(signaling["inherited"]),
+        class_signaling={
+            name: frozenset(codes) for name, codes in signaling["classes"].items()
         },
         reference_rows={
             tuple(path): ReferenceRow(name)
@@ -116,6 +123,17 @@ def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
     return codes[0] in table.inherited_values or codes[0] in table.class_values.get(
         class_name, frozenset()
     )
+
+
+def is_value_signaling_row(class_name: str, codes: Sequence[int]) -> bool:
+    """Whether the row with property ``codes`` is the control's ``Value
+    (Signaling)``: it writes the value the way ``Value`` does and also generates a
+    Value Change event, as if the user had changed the control (NI: write only)."""
+    if len(codes) != 1:
+        return False
+    table = _table()
+    own = table.class_signaling.get(class_name, frozenset())
+    return codes[0] in table.inherited_signaling or codes[0] in own
 
 
 def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:

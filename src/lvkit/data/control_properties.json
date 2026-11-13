@@ -1,11 +1,18 @@
 {
-  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[]: each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there).",
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[]: each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there).",
   "value_codes": {
     "inherited": [104013842],
     "classes": {
       "CmbBox": [104099840],
       "Path": [104032256],
       "Str": [104093696]
+    }
+  },
+  "value_signaling_codes": {
+    "inherited": [104013860],
+    "classes": {
+      "Path": [104032270],
+      "Str": [104093708]
     }
   },
   "reference_rows": {

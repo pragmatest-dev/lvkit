@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
-from ..control_properties import ControlProperty, control_property, is_value_row
+from ..control_properties import (
+    ControlProperty,
+    control_property,
+    is_value_row,
+    is_value_signaling_row,
+)
 from ..models import (
     FPTerminal,
     PropertyDef,
@@ -260,11 +265,13 @@ class WireQueriesMixin:
         return False
 
     def has_value_row(self, node: PrimitiveNode) -> bool:
-        """Whether a Property Node bound to a control has a ``Value`` row, found
-        by the row's property code in the control's class."""
+        """Whether a Property Node bound to a control has a ``Value`` or
+        ``Value (Signaling)`` row, found by the row's property code in the
+        control's class."""
+        class_name = node.object_name or ""
         return any(
-            is_value_row(node.object_name or "", [s.code for s in row.segments])
-            for row in node.properties
+            is_value_row(class_name, codes) or is_value_signaling_row(class_name, codes)
+            for codes in ([s.code for s in row.segments] for row in node.properties)
         )
 
     def listed_property_writes(
