@@ -630,7 +630,19 @@ structures, etc." The VI records such an input with the error cluster's own type
 #243: And 2243 in `PicoScope2000ExampleStreaming.vi` stores FlatTypeID 132, the `error IO` cluster).
 lvkit reads it this way in two places: an error case structure's selector
 (`codegen/error_path.is_error_selector`), and a catalog Boolean input marked `"error_cluster_status":
-true` (And, Or, … in `data/primitives/boolean.json`).
+true` (And, Or, … in `data/primitives/boolean.json`) when the input itself is recorded with an error
+cluster type or the wire into it comes from one (`codegen/error_flow.carries_error_cluster`).
+
+## An Unbundle By Name element stored at -1 with no type carries the input
+
+Issue #243, 10 Pico streaming VIs (LabVIEW 10.0, not saved broken: LVSR `BadNode`, `BadSubVI`,
+`BadCompile` all 0): Merge Errors feeds an Unbundle By Name whose aggregate is a cluster with no
+elements and whose one element stores `<i>-1</i>` with a Void type; the element feeds an And input
+that stores the error cluster type (FlatTypeID 132, the same as Merge Errors' output). LabVIEW's own
+recorded types say the element's wire carries the node's input, so in a VI not saved broken such an
+element is the input value (`codegen/nodes/nmux._carries_input`; maintainer, 2026-11-13). In a VI saved
+broken a -1 element keeps a real type of a field that no longer exists and "selects no field"; a -1
+element with a real type in an unbroken VI is not seen in the corpus and stays a gap.
 
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->

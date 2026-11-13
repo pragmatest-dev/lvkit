@@ -14,7 +14,7 @@ from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
-from ..error_flow import status_read
+from ..error_flow import carries_error_cluster, status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_array import replace_subarray_statements
@@ -125,9 +125,7 @@ def generate_compound_arith(
     status_inputs = {
         t.id
         for t in inputs
-        if reads_status
-        and ctx.graph is not None
-        and ctx.graph.terminal_fed_by_error_cluster(t.id)
+        if reads_status and carries_error_cluster(t.id, ctx)
     }
     boolean = (
         _is_boolean(output_term)
