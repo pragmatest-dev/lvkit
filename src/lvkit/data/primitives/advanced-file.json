@@ -1155,6 +1155,9 @@
     },
     "8082": {
       "name": "File/Directory Info",
+      "requires": [
+        "hightime"
+      ],
       "errors": [
         {
           "exception": "FileNotFoundError",

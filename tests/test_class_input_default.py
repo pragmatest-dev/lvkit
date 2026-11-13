@@ -105,7 +105,7 @@ def test_a_class_not_loaded_is_a_gap_only_when_the_input_is_unwired(
     gaps: list[Gap] = []
     package = project.generate(gaps)
     reason = (
-        "The default object of the unwired input 'obj' of Ghost.lvclass names a "
+        "The default of the unwired input 'obj' of Ghost.lvclass names a "
         "class that is not loaded; add it to the project or a --search-path"
     )
     assert [g.reason for g in gaps] == [reason]

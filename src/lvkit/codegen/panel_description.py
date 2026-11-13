@@ -10,10 +10,12 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   is held only;
 - ``defaults``: the name of each control that needs one to the function that makes
   its default. A control whose parameter has no default (a Required input) holds
-  its default until a run sets it, and so does a control that is not on the
-  connector pane (no parameter, so a run cannot pass its value): the function is a
-  ``lambda`` making the control's default (its saved default, else its type's, a
-  class's default object), so each run gets a fresh list or object. Every other
+  its default until a run sets it, so does a control that is not on the
+  connector pane (no parameter, so a run cannot pass its value), and so does a
+  control whose parameter default is ``None`` because its default is an array,
+  cluster or class (the function body makes it): the function is a ``lambda``
+  making the control's default (its saved default, else its type's, a class's
+  default object), so each run gets a fresh list or object. Every other
   control's default is its parameter's own;
 - ``indicators``: the name of each indicator to its label;
 - ``results``: the name of each indicator on the connector pane to the field of the
@@ -21,6 +23,11 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``passed``: the name of a class output that is the object the method ran on to
   the parameter (``self``) whose value it shows, as a method whose class output is
   that object returns no field for it;
+- ``clusters``: the name of each cluster control or indicator to the fields of
+  its cluster, for the controls its Controls[] gives (``panel_clusters``);
+- ``types`` and ``variants``: the type of each control and indicator that has a
+  type-descriptor code, and the names of those that are Variants
+  (``panel_types``);
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -42,10 +49,13 @@ from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
-from .ast_utils import interface_names, parse_expr
+from .ast_utils import interface_names, parameter_default_expr, parse_expr
+from .panel_clusters import cluster_specs
 from .panel_names import panel_names
+from .panel_types import panel_type_keywords
 from .panels_module import PANEL_NAME
 from .type_default import control_default
+from .variants_module import imports_variants
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -71,6 +81,10 @@ def _no_parameters() -> ast.arguments:
     )
 
 
+def _is_none(expression: ast.expr) -> bool:
+    return isinstance(expression, ast.Constant) and expression.value is None
+
+
 def default_functions(
     controls: Sequence[NamedTerminal],
     names: dict[str, str],
@@ -78,8 +92,12 @@ def default_functions(
     target: str,
     lazy: bool,
 ) -> DefaultFunctions:
-    """The default function of each control that is a Required input or is not on
-    the connector pane, by its name in ``names``: a ``lambda`` making the default.
+    """The default function of each control whose parameter does not hold its
+    default (a Required input, a control off the connector pane, a control whose
+    ``def`` default is ``None`` because its default is an array, cluster or
+    class that a ``def`` default cannot share), by its name in ``names``: a
+    ``lambda`` making the default. A control whose type's default is ``None``
+    has no entry.
     In a module that imports other generated modules inside its functions
     (``lazy``), a default that needs one is a ``def`` of ``target``'s name that
     imports it, as the function bodies do. A control whose default needs a class
@@ -88,7 +106,8 @@ def default_functions(
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
     for terminal, parameter in controls:
-        if parameter is not None and not is_required(terminal, "input"):
+        on_def_default = parameter is not None and not is_required(terminal, "input")
+        if on_def_default and not _is_none(parameter_default_expr(terminal)):
             continue
         module_imports, ctx.imports = ctx.imports, set()
         try:
@@ -97,7 +116,13 @@ def default_functions(
             ctx.imports = module_imports
             continue
         added, ctx.imports = ctx.imports, module_imports
-        needed = {i for i in added if i.startswith("from .")} if lazy else set()
+        if on_def_default and _is_none(value):
+            continue
+        needed = (
+            {i for i in added if i.startswith("from .") and not imports_variants(i)}
+            if lazy
+            else set()
+        )
         ctx.imports |= added - needed
         if needed:
             function = f"_{stem}_default_{len(defaults.entries)}"
@@ -157,13 +182,13 @@ def panel_statements(
     passed: Sequence[NamedTerminal] = (),
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., results=...,
-    passed=..., defaults=...)``, ``target`` the expression of the function,
-    preceded by the ``def`` of each default function a lazy module needs. A keyword
-    with no entry is left out. ``names`` is the VI's name table
-    (``panel_names``); ``controls`` pair each control with the parameter that takes
-    it (None off the connector pane), ``indicators`` each indicator with the field
-    of the result that holds it (None off the pane) and ``passed`` each class
-    output with the parameter holding the object it shows."""
+    passed=..., defaults=..., clusters=..., types=..., variants=...)``, ``target``
+    the expression of the function, preceded by the ``def`` of each default
+    function a lazy module needs. A keyword with no entry is left out. ``names``
+    is the VI's name table (``panel_names``); ``controls`` pair each control with
+    the parameter that takes it (None off the connector pane), ``indicators`` each
+    indicator with the field of the result that holds it (None off the pane) and
+    ``passed`` each class output with the parameter holding the object it shows."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
     defaults = default_functions(controls, names, ctx, target, lazy)
     keywords: list[tuple[str, ast.expr]] = []
@@ -178,6 +203,27 @@ def panel_statements(
     ):
         if entry is not None:
             keywords.append(entry)
+    clusters = {
+        names[t.id]: specs
+        for t, _ in [*controls, *indicators, *passed]
+        if (specs := cluster_specs(ctx, t)) is not None
+    }
+    if clusters:
+        keywords.append(
+            (
+                "clusters",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in clusters],
+                    values=list(clusters.values()),
+                ),
+            )
+        )
+    typed = panel_type_keywords(
+        [(names[t.id], t.lv_type) for t, _ in [*controls, *indicators, *passed]]
+    )
+    keywords.extend(typed.keywords)
+    if typed.names:
+        ctx.import_variant(*typed.names)
     if defaults.entries:
         keywords.append(
             (

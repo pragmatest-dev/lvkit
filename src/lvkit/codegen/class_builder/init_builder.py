@@ -13,6 +13,7 @@ from ..gaps import raise_statement
 from ..import_cycles import imports_inside
 from ..type_default import type_default
 from ..type_fields import field_annotations
+from ..variants_module import variants_import
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
@@ -35,6 +36,10 @@ class _FieldClasses:
         if imported.statement:
             self.statements.add(imported.statement)
         return imported.name
+
+    def import_variant(self, *names: str) -> None:
+        statement = self._resolver.variant_import(names)
+        self.statements.add(statement or variants_import(".", names))
 
 
 class _InitBuilderMixin:

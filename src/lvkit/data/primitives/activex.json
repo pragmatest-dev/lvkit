@@ -82,7 +82,8 @@
           "index": 11,
           "direction": "output",
           "name": "data",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "part_of": 8
         }
       ],
       "alternative_terminal_sets": [
@@ -116,9 +117,7 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "variant": "in_1"
-      },
+      "op": "TO_VARIANT",
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html"

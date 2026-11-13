@@ -21,7 +21,7 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import uid_of
 from lvkit.graph.models import Constant, VINode
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 
 from .ast_optimizer import remove_unused_imports
 from .ast_utils import (
@@ -38,8 +38,11 @@ from .context import _format_constant, type_namer
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
+from .panel_types import panel_type_keywords
 from .panels_module import PANEL_VALUES_NAME, PANELS_MODULE_NAME
+from .type_constants import share_type_constants
 from .type_default import holds_class, state_seed
+from .variants_module import variants_import
 
 # The module-level name of a Global VI's panel, which no control takes.
 PANEL_ATTRIBUTE = "panel"
@@ -110,9 +113,21 @@ def _panel_import(import_resolver: ImportResolver | None) -> str:
     return statement or f"from .{PANELS_MODULE_NAME} import {PANEL_VALUES_NAME}"
 
 
-def _panel_assignment(labels: dict[str, str]) -> ast.stmt:
-    """``panel = PanelValues(controls={name: label}, storage=globals())``: the
-    panel is the module's own names."""
+def _variants_import(import_resolver: ImportResolver | None, names: set[str]) -> str:
+    statement = (
+        import_resolver.variant_import(sorted(names))
+        if isinstance(import_resolver, ImportResolver)
+        else None
+    )
+    return statement or variants_import(".", sorted(names))
+
+
+def _panel_assignment(
+    labels: dict[str, str], typed: list[tuple[str, ast.expr]]
+) -> ast.stmt:
+    """``panel = PanelValues(controls={name: label}, types=..., variants=...,
+    storage=globals())``: the panel is the module's own names, and ``typed`` the
+    keywords that record their types (``panel_types``)."""
     return ast.Assign(
         targets=[ast.Name(id=PANEL_ATTRIBUTE, ctx=ast.Store())],
         value=ast.Call(
@@ -126,6 +141,7 @@ def _panel_assignment(labels: dict[str, str]) -> ast.stmt:
                         values=[ast.Constant(value=label) for label in labels.values()],
                     ),
                 ),
+                *(ast.keyword(arg=name, value=value) for name, value in typed),
                 ast.keyword(
                     arg="storage",
                     value=ast.Call(
@@ -157,6 +173,7 @@ def build_global_module(
     annotation_imports: set[str] = set()
     names = global_attribute_names(controls)
     labels: dict[str, str] = {}
+    control_types: list[tuple[str, LVType | None]] = []
     body: list[ast.stmt] = [
         ast.ImportFrom(
             module="__future__", names=[ast.alias(name="annotations")], level=0
@@ -188,6 +205,7 @@ def build_global_module(
                 if imported is not None:
                     annotation_imports.add(imported.statement)
         labels[names[control.id]] = control.name or ""
+        control_types.append((names[control.id], control.lv_type))
         assignments.append(
             ast.AnnAssign(
                 target=ast.Name(id=names[control.id], ctx=ast.Store()),
@@ -196,7 +214,10 @@ def build_global_module(
                 simple=1,
             )
         )
+    typed = panel_type_keywords(control_types)
     imports.append(_panel_import(import_resolver))
+    if typed.names:
+        imports.append(_variants_import(import_resolver, typed.names))
     if needs_runtime:
         imports.extend(DATA_FILE_IMPORTS.splitlines())
     imports.extend(implicit_imports(assignments))
@@ -205,9 +226,10 @@ def build_global_module(
     body.extend(build_type_checking_block(annotation_imports))
     module = remove_unused_imports(
         ast.Module(
-            body=[*body, _panel_assignment(labels), *assignments],
+            body=[*body, _panel_assignment(labels, typed.keywords), *assignments],
             type_ignores=[],
         )
     )
+    module = share_type_constants(module)
     ast.fix_missing_locations(module)
     return ast.unparse(module)

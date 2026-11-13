@@ -6,8 +6,9 @@ numberings as ``alternative_terminal_sets``, each mapping a node's
 (index, direction) onto a primary terminal. The numbering of a node is the one
 numbering that holds every terminal index the node carries; none, or more than
 one, is a gap. A chosen numbering is applied by renumbering the entry's
-terminals and the ``in_N`` placeholders of its code to the node's numbers, so
-every reader of the resolved primitive sees the node's own numbering.
+terminals (and the input indices they refer to) and the ``in_N`` placeholders of
+its code to the node's numbers, so every reader of the resolved primitive sees the
+node's own numbering.
 """
 
 from __future__ import annotations
@@ -60,14 +61,27 @@ def apply_terminal_set(
     if mapping is numberings[0]:
         return resolved
     node_index = {(primary, slot[1]): slot[0] for slot, primary in mapping.items()}
-    resolved.terminals = [
-        t.model_copy(update={"index": node_index[(t.index, t.direction)]})
-        for t in resolved.terminals
-        if (t.index, t.direction) in node_index
-    ]
     in_index = {
         p: n for (p, d), n in node_index.items() if d == TerminalDirection.INPUT
     }
+
+    def renumbered(terminal: PrimitiveTerminal) -> PrimitiveTerminal:
+        """The terminal at the node's index, and the inputs it refers to
+        (``part_of``, ``per_dimension_of``) at the node's indices too."""
+        update: dict[str, int] = {
+            "index": node_index[(terminal.index, terminal.direction)]
+        }
+        for reference in ("part_of", "per_dimension_of"):
+            target = getattr(terminal, reference)
+            if target in in_index:
+                update[reference] = in_index[target]
+        return terminal.model_copy(update=update)
+
+    resolved.terminals = [
+        renumbered(t)
+        for t in resolved.terminals
+        if (t.index, t.direction) in node_index
+    ]
 
     def renumber(match: re.Match[str]) -> str:
         primary = int(match.group(1))

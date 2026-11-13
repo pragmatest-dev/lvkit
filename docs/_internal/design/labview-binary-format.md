@@ -623,6 +623,15 @@ is 0) over a fixed corpus list (`tests/test_case_frame_labels_corpus.py`):
 - **The No Error frame can also list codes** (`No Error, Error 18`, NI help *handling-errors-using-case-structures*).
 - Rule of thumb: mark a Boolean/error frame default ONLY when the VI stores it.
 
+## An error cluster wired where a Boolean is read means its `status`
+
+Maintainer, 2026-11-12: "an error wired into Boolean uses the status… it's that way for case
+structures, etc." The VI records such an input with the error cluster's own type, not Boolean (issue
+#243: And 2243 in `PicoScope2000ExampleStreaming.vi` stores FlatTypeID 132, the `error IO` cluster).
+lvkit reads it this way in two places: an error case structure's selector
+(`codegen/error_path.is_error_selector`), and a catalog Boolean input marked `"error_cluster_status":
+true` (And, Or, … in `data/primitives/boolean.json`).
+
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->
 

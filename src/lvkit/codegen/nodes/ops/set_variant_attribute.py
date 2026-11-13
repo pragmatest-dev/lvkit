@@ -10,11 +10,12 @@ behavior in the Delete Variant Attribute function." ``replaced`` "is TRUE if an
 attribute and value were replaced"; ``variant out`` is "the variant data with new
 attributes".
 
-An empty variant given attributes is a lookup table: a ``dict`` of the attributes
-(``_variant_lookup``). The variant out is a new ``dict`` with the attribute set
-(a variant is a value, not shared) and ``replaced`` is ``name in variant``. A
-variant that does not start as the empty Variant is a gap. The empty name is
-error 1, raised as the class of the node's own the catalog entry names (``base``).
+The variant is a ``Variant`` (``variants_module``) changed in place: ``attributes[name]
+= value``, the value made a ``Variant`` where a typed wire feeds the input, and
+``replaced`` is ``name in attributes``. The variant is the wire's own object, a
+copy only when the graph says another reader still sees it (``owned_input``).
+The empty name is error 1, raised as the class of the node's own the catalog entry
+names (``base``).
 
 Terminals (from the primitives entry): in 4 = error in, 5 = value, 6 = name, 7 =
 variant; out 0 = error out, 2 = replaced, 3 = variant out.
@@ -28,10 +29,11 @@ from lvkit.graph.models import PrimitiveNode
 
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
+from ...variant_values import variant_input
 from . import register_op_fragment
 from ._flat_node import terminal
 from ._regex_node import input_expression, string_variable
-from ._variant_lookup import attribute_table
+from ._variant_input import owned_variant
 
 # NI, General LabVIEW Error Codes, 1: "An input parameter is invalid."
 EMPTY_NAME = "An input parameter is invalid: the attribute name is empty."
@@ -42,12 +44,16 @@ def set_variant_attribute(
     node: PrimitiveNode, ctx: CodeGenContext
 ) -> CodeFragment | None:
     statements: list[ast.stmt] = []
-    table, _ = attribute_table(ctx, node, "Set Variant Attribute", statements)
+    variant = owned_variant(ctx, node, statements)
     name = string_variable(
         ctx, node, input_expression(ctx, node, 6) or "''", statements, "name"
     )
     value = string_variable(
-        ctx, node, input_expression(ctx, node, 5) or "None", statements, "value"
+        ctx,
+        node,
+        variant_input(ctx, node, terminal(node, "input", 5)),
+        statements,
+        "value",
     )
     out = terminal(node, "output", 3)
     replaced = terminal(node, "output", 2)
@@ -64,8 +70,9 @@ def set_variant_attribute(
     source = (
         f"if {name} == '':\n"
         f"    raise EmptyAttributeNameError({EMPTY_NAME!r})\n"
-        f"{variant_out} = {{**{table}, {name}: {value}}}\n"
-        f"{replaced_var} = {name} in {table}"
+        f"{replaced_var} = {name} in {variant}.attributes\n"
+        f"{variant}.attributes[{name}] = {value}\n"
+        f"{variant_out} = {variant}"
     )
     statements.extend(ast.parse(source).body)
     bindings: dict[str, str] = {}

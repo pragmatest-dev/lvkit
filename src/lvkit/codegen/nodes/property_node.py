@@ -17,6 +17,7 @@ from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..panel_hooks import property_stmt
+from ..variant_values import is_variant_type
 from . import class_property_node, panel_reference, vi_reference
 from .base import (
     DefaultObjectError,
@@ -233,7 +234,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
             row = panel_reference.panel_row(node, prop)
             if row is not None:
-                reflected = panel_reference.read(row, ref_var, ctx)
+                reflected = panel_reference.read(
+                    row, ref_var, ctx, is_variant_type(term.lv_type)
+                )
                 panel_read = True
             else:
                 reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
@@ -258,7 +261,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
-            statements.append(panel_reference.write(ref_var, value, ctx))
+            statements.append(
+                panel_reference.write(
+                    ref_var, value, ctx, is_variant_type(term.lv_type)
+                )
+            )
             panel_read = True
         else:
             raise CodeGenError("Property value direction is unresolved", node)

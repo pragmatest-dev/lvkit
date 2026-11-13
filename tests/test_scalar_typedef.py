@@ -22,7 +22,7 @@ from lvkit.graph.netlist_models import (
     WiringRequirement,
 )
 from lvkit.models import ClusterField, EnumValue, FPTerminal, LVType, LVTypeKind
-from tests.helpers import build_graph, exec_generated
+from tests.helpers import build_graph, exec_generated, without_panel_attributes
 from tests.test_lvnet_identity import _assert_graph_identity
 
 U32 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
@@ -214,7 +214,7 @@ def test_a_typedef_with_no_module_annotates_its_value_type() -> None:
         typedef_path="Shared/grpcId.ctl",
     )
     assert missing.to_python(lambda t: None) == "int"
-    source = _generated(missing)
+    source = without_panel_attributes(_generated(missing))
     assert "color_in: int" in source
     assert "grpcId" not in source
     assert "color_out: int" in source

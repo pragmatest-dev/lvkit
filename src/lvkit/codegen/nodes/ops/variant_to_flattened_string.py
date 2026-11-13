@@ -1,14 +1,16 @@
 """Variant To Flattened String (primResID 8203).
 
-A variant is the Python value, so its LabVIEW type is known only from the graph.
-When the variant comes from To Variant, the type is that of the wire fed to it:
-the value is flattened with that type's ``struct`` calls (``codegen/flat.py``), in
-LabVIEW's byte format (big-endian, sizes prepended), and ``type string`` is
+A variant is a ``Variant`` (``variants_module``). When the variant comes from To
+Variant, the type is that of the wire fed to it, known when the code is generated:
+the variant's value is flattened with that type's ``struct`` calls
+(``codegen/flat.py``), in LabVIEW's byte format (big-endian, sizes prepended),
+and ``type string`` is
 written as the literal list of 16-bit numbers of that type's descriptor
 (``type_string.py``), so a reader of the descriptor works.
 
 A variant whose type is not known when the code is generated has nothing to
-flatten by: its value is pickled, ``type string`` is ``None``, and the string is
+flatten by: the whole ``Variant`` (value, type and attributes) is pickled,
+``type string`` is ``None``, and the string is
 read back only by Flattened String To Variant. A subVI that parses ``type string``
 as a descriptor works only where the type is known. A known type that cannot be
 flattened is a gap.
@@ -66,7 +68,7 @@ def variant_to_flattened_string(
                 f"Variant To Flattened String has no type string for {error}", node
             ) from error
         fns = Functions(ctx, ">")
-        flattened = render_parts(layout.flatten(value, True, 0, fns), ">")
+        flattened = render_parts(layout.flatten(f"{value}.value", True, 0, fns), ">")
     if wants_data:
         assert data_term is not None
         variable = ctx.make_output_var("data_string", node.id, terminal_id=data_term.id)

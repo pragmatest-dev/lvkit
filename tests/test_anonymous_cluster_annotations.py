@@ -80,7 +80,7 @@ def test_generated_cluster_annotations_match_explicit_tuple_values(lv_type, valu
     actual = function(value).result
     assert actual == value and isinstance(actual, tuple)
     annotations = get_type_hints(function, globalns=namespace)
-    assert annotations["value"] == tuple | None
+    assert annotations["value"] is tuple
     assert get_type_hints(annotations["return"], globalns=namespace)["result"] is tuple
     # A Required input has no default.
     parameter = inspect.signature(function).parameters["value"]
@@ -108,12 +108,12 @@ def test_generated_cluster_annotations_match_explicit_tuple_values(lv_type, valu
         (LVType(kind=LVTypeKind.CLASS, classname="Device.lvclass"), "Any", "Any"),
         (
             LVType(kind=LVTypeKind.ARRAY, element_type=DBL, dimensions=2),
-            "list[list[float]] | None",
+            "list[list[float]]",
             "list[list[float]]",
         ),
         (
             LVType(kind=LVTypeKind.ARRAY, element_type=PAIR, dimensions=1),
-            "list[tuple] | None",
+            "list[tuple]",
             "list[tuple]",
         ),
         (None, "Any", "Any"),

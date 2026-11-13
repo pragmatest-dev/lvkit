@@ -34,14 +34,14 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import parse_expr
+from ..ast_utils import COPY_IMPORT, parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import guarded_index, replaced_element
 from ..type_default import type_default
-from ..value_copy import COPY_IMPORT, own_path, owned_input
+from ..value_copy import own_path, owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"

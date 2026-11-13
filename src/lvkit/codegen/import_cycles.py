@@ -17,6 +17,7 @@ import networkx as nx
 from lvkit.graph import InMemoryVIGraph
 
 from .ast_utils import with_statements_after_docstring
+from .variants_module import imports_variants
 
 _CYCLIC: weakref.WeakKeyDictionary[InMemoryVIGraph, frozenset[str]] = (
     weakref.WeakKeyDictionary()
@@ -62,8 +63,12 @@ def imports_inside(
 ) -> tuple[list[ast.stmt], set[str]]:
     """``body`` with the imports of other generated modules (the relative ones)
     among ``imports`` at its start, after the docstring if it has one, and the
-    imports that stay at module level."""
-    generated = {i for i in imports if i.startswith("from .")}
+    imports that stay at module level. The package's ``variants`` module imports
+    nothing from the package, so it can be on no cycle and its imports stay at
+    module level."""
+    generated = {
+        i for i in imports if i.startswith("from .") and not imports_variants(i)
+    }
     local: list[ast.stmt] = []
     for statement in sorted(generated):
         local.extend(ast.parse(statement).body)

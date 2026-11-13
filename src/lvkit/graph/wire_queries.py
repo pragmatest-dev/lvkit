@@ -441,8 +441,10 @@ class WireQueriesMixin:
         that node, if it changes the value in place, must work on a copy.
         Following the wire back through structure tunnels to its producer, a
         source on the way feeds another terminal whose node the node of
-        ``terminal_id`` does not wait for, or the wire enters a loop through an
-        input tunnel (each iteration reads the same value). A value that comes
+        ``terminal_id`` does not wait for, the source is a value a container
+        still holds (a field of a cluster or class, an element of an array), or
+        the wire enters a loop through an input tunnel (each iteration reads the
+        same value). A value that comes
         from the VI's own control is the caller's to copy. A reader off the
         diagram (an indicator of the VI, read when the VI returns) runs after
         every node."""
@@ -450,7 +452,7 @@ class WireQueriesMixin:
         changer = self.terminal_node_id(terminal_id)
         diagram = self._diagram_of(home)
         for current, src in self._wire_back(terminal_id):
-            if self._is_field_of_container(src.terminal_id):
+            if self._is_held(src.terminal_id):
                 return True
             for dest in self.wire_readers(src.terminal_id):
                 if dest.terminal_id == current:
@@ -489,14 +491,12 @@ class WireQueriesMixin:
 
         return nx.subgraph_view(self._graph, filter_node=on_diagram)
 
-    def _is_field_of_container(self, terminal_id: str) -> bool:
-        """Whether the terminal gives a field of a cluster or class (an Unbundle
-        By Name or an In Place Element's field output): the value is the one the
-        container holds, so a change through it is a change of the container."""
+    def _is_held(self, terminal_id: str) -> bool:
+        """Whether the terminal gives a value its node's input still holds (a field
+        of a cluster or class, an element of an array): a change through it is a
+        change of that input's value (``Terminal.held_in``)."""
         term = self.get_terminal(terminal_id)
-        return (
-            term is not None and term.nmux_role == "list" and term.direction == "output"
-        )
+        return term is not None and term.held_in is not None
 
     def _readers(self, dest: WireEnd, changer: str) -> list[str]:
         """The nodes that read the wire at ``dest``. A tunnel of a structure that

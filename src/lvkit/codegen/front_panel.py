@@ -48,12 +48,11 @@ def function_docstring(
     names: dict[str, str],
     spell: TypeNamer | None,
     ctx: CodeGenContext,
-    lookup_parameters: Sequence[str] = (),
 ) -> ast.stmt | None:
     """The function's docstring: the VI's description, verbatim (LabVIEW's bold
     markup stays text; a blank one is none), then the front-panel notes; None when
     the VI has neither."""
-    notes = _front_panel_notes(vi_context, names, spell, ctx, lookup_parameters)
+    notes = _front_panel_notes(vi_context, names, spell, ctx)
     description = vi_context.description
     if not description or not description.strip():
         text = notes
@@ -69,25 +68,15 @@ def _front_panel_notes(
     names: dict[str, str],
     spell: TypeNamer | None,
     ctx: CodeGenContext,
-    lookup_parameters: Sequence[str],
 ) -> str | None:
-    """The text that says which Variant parameters are dicts of attributes
-    (``lookup_parameters``: terminal ids) and lists the off-pane controls (the
-    local variable, type and saved default of each) and indicators (label and
-    type); None when the VI has none of them."""
+    """The text that lists the off-pane controls (the local variable, type and
+    saved default of each) and indicators (label and type); None when the VI has
+    none of them."""
     controls = list(vi_context.off_pane_inputs)
     indicators = list(vi_context.off_pane_outputs)
-    tables = [names[t] for t in lookup_parameters if t in names]
-    if not controls and not indicators and not tables:
-        return None
-    lines = [
-        f"{name}: a dict of the variant's attributes (the caller builds it with "
-        "Set Variant Attribute)."
-        for name in sorted(tables)
-    ]
     if not controls and not indicators:
-        return "\n".join(lines) + "\n"
-    lines.append(_HEADING)
+        return None
+    lines = [_HEADING]
     if controls:
         lines.append("  Controls (local variables, set to their saved default):")
         lines.extend(

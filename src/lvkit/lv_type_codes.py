@@ -133,6 +133,14 @@ def is_string_type_name(type_name: str | None) -> bool:
     return type_name in STRING_TYPE_NAMES
 
 
+VARIANT_TYPE_NAMES: frozenset[str] = frozenset({"LVVariant", "Variant"})
+
+
+def is_variant_type_name(type_name: str | None) -> bool:
+    """Whether ``type_name`` is a Variant."""
+    return type_name in VARIANT_TYPE_NAMES
+
+
 def is_numeric_type_name(type_name: str | None) -> bool:
     """Whether ``type_name`` is a number of any kind (integer, floating-point,
     complex, fixed-point, with or without a unit)."""
@@ -147,6 +155,7 @@ def is_int32_type_name(type_name: str | None) -> bool:
 def is_integer_type_name(type_name: str | None) -> bool:
     """Whether ``type_name`` is a signed or unsigned integer."""
     return type_name in INTEGER_TYPE_NAMES
+
 
 # A physical quantity (a number with a unit) flattens as the plain number it
 # wraps; the unit type's name maps to that number's.

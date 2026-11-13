@@ -1,11 +1,9 @@
-"""Set, Get and Delete Variant Attribute on an empty variant: a ``dict``, decided
-at generation by following the variant wire upstream."""
+"""Set, Get and Delete Variant Attribute on a ``Variant``: its attributes, each a
+``Variant``. The variant is the wire's own object, a copy only where the wire forks
+(``owned_input``); a value fed from a typed wire is a ``Variant`` of that wire's
+type. Each case is a tiny diagram, generated and run."""
 
 from __future__ import annotations
-
-import re
-
-import pytest
 
 from tests.error_diagrams import (
     BOOL,
@@ -20,6 +18,33 @@ from tests.error_diagrams import (
 NAME = "Table.vi"
 _VARIANT = '<TypeDesc Type="Variant" Format="inline" />'
 EMPTY_VARIANT = "0900800000000001000400000001000000000000"
+# An empty Variant holding the attributes 'a' (a Variant of the 32-bit integer 1)
+# and 'b' (a Variant of the string 'x').
+ATTRIBUTED_VARIANT = (
+    "09008000000000010004000000010000"
+    "00000002"
+    "00000001"
+    "61"
+    "09008000"
+    "00000002"
+    "00040000"
+    "00040003"
+    "0001"
+    "0001"
+    "00000001"
+    "00000000"
+    "00000001"
+    "62"
+    "09008000"
+    "00000002"
+    "00040000"
+    "00080030FFFFFFFF"
+    "0001"
+    "0001"
+    "00000001"
+    "78"
+    "00000000"
+)
 
 
 def _set_pane(variant_type: int) -> list[tuple[str, int, int, bool]]:
@@ -95,6 +120,16 @@ def _delete(project: Project):  # noqa: F811
     return project.generate(NAME)
 
 
+def _table(package, **attributes):
+    """The ``Variant`` of no value that holds ``attributes`` (name to the Variant of
+    that string)."""
+    variants = package.variants
+    return variants.Variant(
+        attributes=
+        {k: variants.Variant(v, variants.LV_String) for k, v in attributes.items()}
+    )
+
+
 def test_get_finds_an_attribute_set_on_an_empty_variant(
     project: Project,  # noqa: F811
 ) -> None:
@@ -102,9 +137,38 @@ def test_get_finds_an_attribute_set_on_an_empty_variant(
     assert "getattr" not in package.source
     assert "lvkit" not in package.source
     hit = package.function("colour", "red", "colour")
-    assert (hit.value, hit.found, hit.duplicate) == ("red", True, {"colour": "red"})
+    colour = package.variants.Variant("red", package.variants.LV_String)
+    assert (hit.value, hit.found) == (colour, True)
+    assert hit.duplicate == _table(package, colour="red")
     miss = package.function("colour", "red", "size")
-    assert (miss.value, miss.found) == (None, False)
+    assert (miss.value, miss.found) == (package.variants.Variant(), False)
+
+
+def test_get_reads_an_attribute_of_a_constant_that_has_attributes(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8205, _get_pane(variant_type))
+    vi.wire(vi.constant(variant_type, ATTRIBUTED_VARIANT), node["variant"])
+    vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
+    vi.wire(node["value"], vi.indicator("value", variant_type))
+    vi.wire(node["found"], vi.indicator("found", variant_type))
+    vi.wire(node["duplicate"], vi.indicator("duplicate", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    assert "lvkit" not in package.source
+    variants = package.variants
+    hit = package.function("b")
+    assert (hit.value, hit.found) == (variants.Variant("x", variants.LV_String), True)
+    assert hit.duplicate == variants.Variant(
+        attributes={
+            "a": variants.Variant(1, variants.LV_I32),
+            "b": variants.Variant("x", variants.LV_String),
+        }
+    )
+    miss = package.function("c")
+    assert (miss.value, miss.found) == (variants.Variant(), False)
 
 
 def test_get_without_a_name_returns_all_names_and_values_sorted(
@@ -112,7 +176,34 @@ def test_get_without_a_name_returns_all_names_and_values_sorted(
 ) -> None:
     package = _get(project, name=False)
     result = package.function("colour", "red")
-    assert (result.found, result.value) == (["colour"], ["red"])
+    assert (result.found, result.value) == (
+        ["colour"],
+        [package.variants.Variant("red", package.variants.LV_String)],
+    )
+
+
+def test_get_without_a_name_lists_the_names_in_ascending_order(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8205, _get_pane(variant_type))
+    vi.wire(vi.control("variant", variant_type, REQUIRED), node["variant"])
+    vi.wire(node["value"], vi.indicator("value", variant_type))
+    vi.wire(node["found"], vi.indicator("names", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    variants = package.variants
+    given = variants.Variant(
+        attributes={
+            "b": variants.Variant(2, variants.LV_I32),
+            "a": variants.Variant(1, variants.LV_I32),
+            "c": variants.Variant(3, variants.LV_I32),
+        }
+    )
+    result = package.function(given)
+    assert result.names == ["a", "b", "c"]
+    assert [v.value for v in result.value] == [1, 2, 3]
 
 
 def test_delete_with_a_name_removes_that_attribute(
@@ -120,9 +211,9 @@ def test_delete_with_a_name_removes_that_attribute(
 ) -> None:
     package = _delete(project)
     hit = package.function("colour", "red", "colour")
-    assert (hit.found, hit.result) == (True, {})
+    assert (hit.found, hit.result) == (True, package.variants.Variant())
     miss = package.function("colour", "red", "size")
-    assert (miss.found, miss.result) == (False, {"colour": "red"})
+    assert (miss.found, miss.result) == (False, _table(package, colour="red"))
 
 
 def test_delete_with_an_empty_name_removes_all_attributes(
@@ -130,7 +221,7 @@ def test_delete_with_an_empty_name_removes_all_attributes(
 ) -> None:
     package = _delete(project)
     result = package.function("colour", "red", "")
-    assert (result.found, result.result) == (True, {})
+    assert (result.found, result.result) == (True, package.variants.Variant())
 
 
 def test_replaced_is_true_for_a_second_set_of_the_same_name(
@@ -147,14 +238,14 @@ def test_replaced_is_true_for_a_second_set_of_the_same_name(
     project.add(vi)
     package = project.generate(NAME)
     result = package.function("a", "1", "a", "2")
-    assert (result.replaced, result.result) == (True, {"a": "2"})
+    assert (result.replaced, result.result) == (True, _table(package, a="2"))
 
 
-def test_a_shift_register_started_empty_holds_a_dict(
+def test_a_shift_register_started_empty_holds_the_attributes_set(
     project: Project,  # noqa: F811
 ) -> None:
     """The variant a loop's shift register starts as the empty Variant constant
-    and feeds back from Set Variant Attribute: a lookup table."""
+    and feeds back from Set Variant Attribute."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     loop = vi.loop("forLoop", shift_registers=[variant_type])
@@ -170,7 +261,7 @@ def test_a_shift_register_started_empty_holds_a_dict(
     vi.wire(register.right_outer, vi.indicator("result", variant_type))
     project.add(vi)
     package = project.generate(NAME)
-    assert package.function("a", "1").result == {"a": "1"}
+    assert package.function("a", "1").result == _table(package, a="1")
 
 
 def _get_from_parameter(project: Project, *, rule: int | None):  # noqa: F811
@@ -182,22 +273,28 @@ def _get_from_parameter(project: Project, *, rule: int | None):  # noqa: F811
     vi.wire(vi.control("variant", variant_type, rule), node["variant"])
     vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
     vi.wire(node["value"], vi.indicator("value", variant_type))
+    vi.wire(node["found"], vi.indicator("found", variant_type))
     project.add(vi)
     return project.generate(NAME)
 
 
-def test_get_on_a_variant_parameter_reads_the_dict_passed(
+def test_get_on_a_variant_parameter_reads_the_variant_passed(
     project: Project,  # noqa: F811
 ) -> None:
     """The shape of a VIPM hook VI: a Variant control on the connector pane."""
     package = _get_from_parameter(project, rule=REQUIRED)
     assert "lvkit" not in package.source
-    assert "a dict of the variant's attributes" in package.source
-    assert package.function({"Package Name": "x"}, "Package Name").value == "x"
-    assert package.function({"Package Name": "x"}, "Other").value is None
+    given = _table(package, **{"Package Name": "x"})
+    hit = package.function(given, "Package Name")
+    assert (hit.value, hit.found) == (
+        package.variants.Variant("x", package.variants.LV_String),
+        True,
+    )
+    miss = package.function(given, "Other")
+    assert (miss.value, miss.found) == (package.variants.Variant(), False)
 
 
-def test_delete_on_a_variant_parameter_returns_the_dict_without_the_name(
+def test_delete_on_a_variant_parameter_returns_the_variant_without_the_name(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
@@ -208,31 +305,24 @@ def test_delete_on_a_variant_parameter_returns_the_dict_without_the_name(
     vi.wire(node["variant out"], vi.indicator("result", variant_type))
     project.add(vi)
     package = project.generate(NAME)
-    result = package.function({"a": "1", "b": "2"}, "a")
-    assert result.result == {"b": "2"}
+    result = package.function(_table(package, a="1", b="2"), "a")
+    assert result.result == _table(package, b="2")
 
 
-def test_a_get_on_a_variant_control_off_the_pane_is_a_gap(
+def test_a_get_on_a_variant_control_off_the_pane_reads_its_empty_default(
     project: Project,  # noqa: F811
 ) -> None:
-    vi = Vi(NAME)
-    variant_type = vi.add_type(_VARIANT)
-    node = vi.primitive(8205, _get_pane(variant_type))
-    vi.wire(vi.control("variant", variant_type, None), node["variant"])
-    vi.wire(vi.control("lookup", STR, REQUIRED), node["name"])
-    vi.wire(node["value"], vi.indicator("value", variant_type))
-    project.add(vi)
-    package = project.generate(NAME)
-    reason = "Get Variant Attribute on a variant that is not empty"
-    with pytest.raises(NotImplementedError, match=re.escape(reason)):
-        package.function("a")
+    package = _get_from_parameter(project, rule=None)
+    assert package.gaps == []
+    result = package.function("a")
+    assert (result.value, result.found) == (package.variants.Variant(), False)
 
 
-def test_a_shift_register_fed_back_a_value_is_not_empty(
+def test_a_set_after_a_loop_feeds_a_value_back_is_not_a_gap(
     project: Project,  # noqa: F811
 ) -> None:
-    """The register starts empty, but a control off the pane feeds it back: not a
-    lookup table."""
+    """The register starts empty and a control off the pane feeds it back; the Set
+    edits whatever Variant the register holds."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     loop = vi.loop("forLoop", shift_registers=[variant_type])
@@ -247,15 +337,15 @@ def test_a_shift_register_fed_back_a_value_is_not_empty(
         vi.wire(vi.control("content", STR, REQUIRED), node["value"])
     project.add(vi)
     package = project.generate(NAME)
-    reason = "Set Variant Attribute on a variant that is not empty"
-    assert reason in package.source
+    assert package.gaps == []
+    assert "NotImplementedError" not in package.source
+    package.function("a", "1")
 
 
-def test_a_get_passes_its_variant_on_as_the_same_table(
+def test_a_get_passes_its_variant_on_to_a_set(
     project: Project,  # noqa: F811
 ) -> None:
-    """Get's variant output is its variant input: a Set after it still edits the
-    dict passed in."""
+    """Get's variant output is its variant input: a Set after it adds to it."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
     get = vi.primitive(8205, _get_pane(variant_type))
@@ -268,5 +358,31 @@ def test_a_get_passes_its_variant_on_as_the_same_table(
     vi.wire(node["variant out"], vi.indicator("result", variant_type))
     project.add(vi)
     package = project.generate(NAME)
-    result = package.function({"a": "1"}, "a", "b", "2")
-    assert result.result == {"a": "1", "b": "2"}
+    result = package.function(_table(package, a="1"), "a", "b", "2")
+    assert result.result == _table(package, a="1", b="2")
+
+
+def test_a_set_on_one_branch_leaves_the_other_branch_unchanged(
+    project: Project,  # noqa: F811
+) -> None:
+    """The wire from ``variant`` forks to a Set and to an indicator: the Set works
+    on a copy, so the other branch (and the caller's object) keep their
+    attributes."""
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    node = vi.primitive(8204, _set_pane(variant_type))
+    vi.wire(
+        vi.control("variant", variant_type, REQUIRED),
+        node["variant"],
+        vi.indicator("kept", variant_type),
+    )
+    vi.wire(vi.control("key", STR, REQUIRED), node["name"])
+    vi.wire(vi.control("content", STR, REQUIRED), node["value"])
+    vi.wire(node["variant out"], vi.indicator("changed", variant_type))
+    project.add(vi)
+    package = project.generate(NAME)
+    given = _table(package, a="1")
+    result = package.function(given, "b", "2")
+    assert result.kept == _table(package, a="1")
+    assert result.changed == _table(package, a="1", b="2")
+    assert given == _table(package, a="1")

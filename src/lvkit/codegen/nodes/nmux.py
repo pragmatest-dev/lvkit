@@ -24,6 +24,7 @@ from lvkit.models import (
 )
 
 from ..ast_utils import (
+    COPY_IMPORT,
     build_assign,
     parse_expr,
     to_var_name,
@@ -36,7 +37,7 @@ from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
 from ..type_default import type_default
-from ..value_copy import COPY_IMPORT, own_path, owned_input
+from ..value_copy import own_path, owned_input
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:

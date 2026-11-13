@@ -26,6 +26,7 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..panel_hooks import read_stmt, write_stmt
 from ..references import asks_for_control, referenced_control
+from ..variant_values import wrap_if_coerced
 
 
 def generate(node: LocalVariableNode, ctx: CodeGenContext) -> CodeFragment:
@@ -61,6 +62,7 @@ def _control_access(
                 "has no source lvkit can read",
                 node,
             )
+        value = wrap_if_coerced(ctx, terminal, value)
         return CodeFragment(statements=write_control(control, variable, value, ctx))
     return CodeFragment(
         statements=read_control(node, control, variable, ctx),

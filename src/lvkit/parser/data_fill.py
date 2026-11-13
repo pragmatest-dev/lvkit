@@ -24,6 +24,7 @@ from typing import NamedTuple
 from ..lv_type_codes import (
     FLOAT_BYTE_WIDTHS,
     INTEGER_BYTE_WIDTHS,
+    is_variant_type_name,
 )
 from ..models import LVType, LVTypeKind
 from ..text_encoding import xml_text_encoding
@@ -56,7 +57,6 @@ _SCALAR_FORMATS: dict[str, str] = {
 # The path types (absolute, relative, empty start path) read as bytes.
 _PATH_TYPES = ("0", "1", "2")
 
-_VARIANT_TYPES = ("LVVariant", "Variant")
 _EMPTY_VARIANT = bytes.fromhex("0900800000000001000400000001000000000000")
 
 # A byte written as a character reference inside a DataFill string.
@@ -342,7 +342,7 @@ def type_default_bytes(lv_type: LVType | None) -> bytes | None:
         # Of the Path constants with a TMFBit11 type, 34 of 34 hold exactly these
         # 12 bytes.
         return b"PTH0\x00\x00\x00\x04\x00\x00\x00\x00"
-    if name in _VARIANT_TYPES:
+    if is_variant_type_name(name):
         # An empty Variant: no value and no attributes. Of the Variant constants
         # with a TMFBit11 type, 45 of 45 hold exactly these 20 bytes.
         return _EMPTY_VARIANT

@@ -27,6 +27,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
+from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
@@ -651,9 +652,7 @@ def test_close_reference_of_an_array_of_references_generates_nothing(
     d.type_terminal(loaded, 71, array)
     d.add_control(loaded, "refs_in", array, 71)
     source = _refs_source_is_only(loaded)
-    assert source.endswith(
-        "def refs(refs_in: list[Any] | None):\n    refs_in = refs_in or []"
-    )
+    assert source.endswith("def refs(refs_in: list[Any]):\n    pass")
     for refs in _package(tmp_path, source, _CALLEE):
         assert refs.refs([object(), object()]) is None  # type: ignore[attr-defined]
 
@@ -699,6 +698,7 @@ def _package(
     package.mkdir()
     (package / "__init__.py").write_text("")
     (package / "errors.py").write_text(ERRORS_MODULE_SOURCE)
+    (package / "variants.py").write_text(VARIANTS_MODULE_SOURCE)
     (package / f"{module}.py").write_text(callee)
     (package / "refs.py").write_text(source)
     sys.path.insert(0, str(tmp_path))

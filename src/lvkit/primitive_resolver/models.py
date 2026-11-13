@@ -29,6 +29,9 @@ class PrimitiveTerminal(TerminalDefault):
     # Terminals sharing a group name are one set that repeats on a resized
     # node (see graph/terminal_layout.py).
     group: str | None = None
+    # On an output: the catalog index of the input whose value still holds this
+    # output's value (Index Array's element is part of its array).
+    part_of: int | None = None
     # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
     dco_ref: str | None = None
     # The value NI documents for this output when the node's operation fails
