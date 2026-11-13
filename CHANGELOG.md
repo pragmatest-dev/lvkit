@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a fresh cache no longer deletes an index saved before the first extraction** — the cache layout check now runs once per cache root, before any cache kind uses it, and a new cache (no marker, no cache folders) only gets its marker; on Windows the deleted open index database caused "attempt to write a readonly database".
 - **A Property Node bound to an indicator generates Python for its Value** — a Value write sets the indicator like a wire or Local Variable does (and `live_io.write` reports it), and a Value read gives the indicator's variable; Value (Signaling) on an indicator stays a gap.
 - **Value (Signaling) on a Property Node bound to a control generates Python** — it writes the control like Value and, when an Event Structure of the VI has a Value Change frame for the control, puts that event (name, new value, kind, old value) on the VI's events queue; the latching-Boolean error is not produced.
 - **A Property Node bound to a control writes many more control properties** — Tip Strip, Caption.Text, Frame Color, Number of Columns and Rows, Index Values, Zoom Factor, a Path's browse options, Tree, list box, combo box, ring, knob and slide scale, waveform graph and chart rows are listed from NI's public docs and call `live_io.set_property` (the panel view draws none of them yet); a row of several path segments (`Scale.Maximum`) is listed by its codes joined with `.`.
