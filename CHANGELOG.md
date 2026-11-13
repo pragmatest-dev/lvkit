@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a Flat Sequence inside an In Place Element Structure belongs to it** — LabVIEW lists a nested Flat Sequence only in the diagram's z-plane, so the sequence sat outside the structure and the nodes inside it that read its output failed with `has no variable`; the structure now reads the z-plane like every other structure does.
+- **Fix: a polymorphic VI whose variants are in its own library finds its variants** — the polymorphic VI records each variant by file name alone while its calls record the library too, so no variant matched and the polymorphic VI generated as its own body, one `leaves its required input unwired` gap per variant (120 in the DCAF tag bus); it now writes one module with a function per variant.
 - **Acquire Semaphore and Release Semaphore_71 generate Python on a `threading.BoundedSemaphore`** — Acquire waits `ms timeout` milliseconds (-1 forever) and gives `timed out`; releasing a semaphore that is not acquired is error 1111.
 - **VISA Configure Serial Port (Instr) generates Python for every input** — timeout, termination character and whether it ends a read, baud rate, data bits, parity, stop bits and flow control set the pyvisa resource's `timeout`, `end_input`, `termchar`, `baud_rate`, `data_bits`, `parity`, `stop_bits` and `flow_control`, with the defaults NI gives; the call that records the `(Instr)` file was a missing-VI gap.
 - **Fix: a call of a polymorphic VI of the project that selects a variant calls the variant** — it was an `unmapped vi.lib` gap (`VILib resolution needed for 'Get Connections.vi'`, qualified path `/////Runtime/…`) because the project VI was looked up in the vi.lib catalog; the variant is a VI of the project, so the call imports its module.

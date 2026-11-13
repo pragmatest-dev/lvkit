@@ -55,7 +55,6 @@ from lvkit.timestamp_value import (
     timestamp_from_parts,
     timestamp_text,
 )
-from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -123,8 +122,10 @@ from .link_table import (
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableTable,
+    class_owned_name,
     decode_dotnet_assemblies,
     dotnet_assembly_from_name_parts,
+    leading_library,
     qualified_link_name,
     read_dyn_links,
     read_iuse_links,
@@ -507,9 +508,9 @@ def _parse_metadata(
         iuse_refs=iuse_refs,
         self_call_uids=_extract_self_call_uids(main_root, libd_links),
         dyn_refs=_extract_dyn_refs(
-            main_root, _caller_library(qualified_name), dyn_links
+            main_root, leading_library(qualified_name), dyn_links
         ),
-        poly_refs=_extract_poly_refs(main_root, _caller_library(qualified_name)),
+        poly_refs=_extract_poly_refs(main_root, leading_library(qualified_name)),
         shared_variable_links={
             str(uid): link
             for link in shared_variable_table.links
@@ -1533,7 +1534,7 @@ def _resolve_qualified_name(
     if qname is None:
         return None
     tokens = [s.text or "" for s in elem.findall("LinkSavePathRef/String")]
-    return _class_owned_name(qname, tokens)
+    return class_owned_name(qname, tokens)
 
 
 _DOTNET_ITEM_INFO = "dnetItemInfo"
@@ -1657,27 +1658,6 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
 
 
-def _caller_library(qualified_name: str | None) -> str | None:
-    """The library a VI's qualified name starts with, for same-library refs."""
-    if qualified_name and ":" in qualified_name:
-        return qualified_name.split(":")[0]
-    return None
-
-
-def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
-    """The qualified name of a record that names only a method but whose path is
-    a class file: that class owns the method, so it is the name's owner. Any
-    other name is returned as is."""
-    if (
-        ":" not in qname
-        and is_vi_file(qname)
-        and path_tokens
-        and path_tokens[-1].lower().endswith(".lvclass")
-    ):
-        return f"{path_tokens[-1]}:{qname}"
-    return qname
-
-
 def _link_dependency_ref(
     link: IUseLink | DynamicDispatchLink, caller_library: str | None, encoding: str
 ) -> ParsedDependencyRef | None:
@@ -1688,7 +1668,7 @@ def _link_dependency_ref(
     )
     if not qname:
         return None
-    qname = _class_owned_name(qname, link.path_tokens)
+    qname = class_owned_name(qname, link.path_tokens)
     return ParsedDependencyRef(
         name=qname.rsplit(":", 1)[-1],
         path_tokens=list(link.path_tokens),
@@ -1785,7 +1765,7 @@ def _extract_subvi_info(
     dependency_refs: list[ParsedDependencyRef] = []
 
     # Get caller's library for qualifying same-library references
-    caller_library = _caller_library(caller_qualified_name)
+    caller_library = leading_library(caller_qualified_name)
     encoding = xml_text_encoding(main_root)
 
     # --- Collect dependency path refs from ALL link element types ---
@@ -1819,7 +1799,7 @@ def _extract_subvi_info(
     def _add_dependency(
         qname: str, path_tokens: Sequence[str], path_type: int | None = None
     ) -> None:
-        qname = _class_owned_name(qname, path_tokens)
+        qname = class_owned_name(qname, path_tokens)
         key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
         if key in seen_deps:
             return

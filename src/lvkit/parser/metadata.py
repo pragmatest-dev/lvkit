@@ -21,7 +21,14 @@ from lvkit.text_encoding import (
 )
 from lvkit.vi_files import is_vi_file
 
-from .link_table import LinkTableVersion, decode_record_names, unwrap_link_names
+from .link_table import (
+    LinkTableVersion,
+    class_owned_name,
+    decode_record_names,
+    leading_library,
+    qualified_link_name,
+    unwrap_link_names,
+)
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
 from .utils import clean_labview_string
@@ -453,10 +460,19 @@ def parse_polymorphic_info(root: ET.Element) -> dict[str, Any]:
             if string_elem.text and string_elem.text.strip():
                 result["selectors"].append(string_elem.text.strip())
 
-    # Extract variant VI names from LIvi VIVI elements
-    for vivi in root.findall(".//LIvi//VIVI/LinkSaveQualName/String"):
-        if vivi.text:
-            result["variants"].append(vivi.text)
+    # Extract variant VI names from LIvi VIVI elements, qualified as the calls of
+    # the variants name them (a same-library record holds the file name alone).
+    lvin = root.find(".//LIvi/Section/LVIN")
+    library = leading_library(lvin.get("Unk1") if lvin is not None else None)
+    encoding = xml_text_encoding(root)
+    for vivi in root.findall(".//LIvi//VIVI"):
+        parts = [s.text for s in vivi.findall("LinkSaveQualName/String") if s.text]
+        name = qualified_link_name(
+            parts, int(vivi.get("LinkSaveFlag", "0")), library, encoding
+        )
+        if name:
+            tokens = [s.text or "" for s in vivi.findall("LinkSavePathRef/String")]
+            result["variants"].append(class_owned_name(name, tokens))
 
     # A VI is polymorphic if it has the flag AND variant references
     if result["variants"]:
