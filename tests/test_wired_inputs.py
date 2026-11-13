@@ -258,3 +258,84 @@ def test_this_vi_is_the_generated_function_for_every_consumer() -> None:
     assert gaps == []
     assert "native_test == native_test" in run.source
     assert run.function().same is True
+
+
+def _application_reference():
+    from lvkit.graph.models import LocalVariableNode
+    from lvkit.models import LVType, LVTypeKind, ServerClass, Terminal
+
+    application = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="LVObjCtl",
+        server_class=ServerClass.APPLICATION,
+    )
+    return LocalVariableNode(
+        id="ref",
+        vi_path="Native Test.vi",
+        name="This Application",
+        node_type="ctlRefConst",
+        control_name="This Application",
+        terminals=[
+            Terminal(
+                id="ref:0",
+                index=0,
+                direction="output",
+                name="This Application",
+                lv_type=application,
+            )
+        ],
+    ), application
+
+
+def _application_property(code: int, name: str, value_type):
+    from lvkit.models import PropertyDef, PropertySegment
+
+    prop = node(
+        "pn",
+        None,
+        [(0, "input", None), (1, "output", None), (4, "output", value_type)],
+        node_type="propNode",
+    )
+    prop.object_name = "App"
+    prop.properties = [PropertyDef(segments=[PropertySegment(name=name, code=code)])]
+    prop.property_value_terminal_ids = ["pn:4"]
+    return prop
+
+
+def test_this_application_feeds_a_property_the_default_object_documents() -> None:
+    import getpass
+
+    reference, application = _application_reference()
+    prop = _application_property(1, "App.UserName", STRING)
+    prop.terminals[0].lv_type = application
+    gaps: list[Gap] = []
+    run = generate(
+        {},
+        {"user": STRING},
+        [reference, prop],
+        [("ref:0", "pn:0"), ("pn:4", "fp:user")],
+        gaps=gaps,
+    )
+    assert gaps == []
+    assert "getpass.getuser()" in run.source
+    assert run.function().user == getpass.getuser()
+
+
+def test_this_application_feeds_a_property_with_no_python_value_as_its_own_gap() -> (
+    None
+):
+    reference, application = _application_reference()
+    prop = _application_property(3, "App.Kind", STRING)
+    prop.terminals[0].lv_type = application
+    gaps: list[Gap] = []
+    generate(
+        {},
+        {"kind": STRING},
+        [reference, prop],
+        [("ref:0", "pn:0"), ("pn:4", "fp:kind")],
+        gaps=gaps,
+    )
+    (gap,) = gaps
+    assert gap.node_name == "pn"
+    assert "'App.Kind' of the default App object has no Python equivalent" in gap.reason
