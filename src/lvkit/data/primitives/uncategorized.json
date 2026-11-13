@@ -1916,6 +1916,7 @@
     },
     "2250": {
       "name": "Generate User-Defined Trace Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-user-defined-trace-event.html",
       "terminals": [
         {
           "index": 1,
@@ -1931,7 +1932,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "A user-defined trace event goes to NI's Desktop Execution Trace Toolkit, which has no Python equivalent; `sys.audit` would be the nearest standard-library call but its event name is a decision."
     },
     "2300": {
       "name": "VISA Refnum to Session",
@@ -2694,8 +2696,6 @@
     "9000": {
       "name": "Current VI's Menubar",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-menubar.html",
-      "verified": false,
-      "placeholder": true,
       "terminals": [
         {
           "index": 0,
@@ -2704,8 +2704,11 @@
           "type": "Refnum"
         }
       ],
+      "verified": false,
+      "placeholder": true,
       "python_code": "pass",
-      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime)."
+      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime).",
+      "gap_reason": "A VI's run-time menu has no Python equivalent: a generated function has no menu bar whose reference this could return."
     },
     "9020": {
       "name": "Script Node",

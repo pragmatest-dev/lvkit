@@ -963,7 +963,9 @@ def raise_placeholder(
 ) -> NoReturn:
     """A primitive known by name with no implementation is a gap."""
     name = resolved.name or node.name or "unknown"
-    raise _unresolved(node, node.prim_id, ctx, placeholder_name=name)
+    raise _unresolved(
+        node, node.prim_id, ctx, resolved.gap_reason, placeholder_name=name
+    )
 
 
 def raise_unknown(

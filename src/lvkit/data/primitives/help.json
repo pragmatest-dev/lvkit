@@ -40,6 +40,7 @@
     },
     "1355": {
       "name": "Control Online Help",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/control-online-help.html",
       "terminals": [
         {
           "index": 0,
@@ -73,7 +74,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "The function drives a compiled help file (.chm) viewer, with its table of contents, index keywords and close operation; Python has no help-file viewer, so what it should do (open an HTML file in the browser with `webbrowser`, nothing for a .chm) is a decision."
     }
   }
 }
