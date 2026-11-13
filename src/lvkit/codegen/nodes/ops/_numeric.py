@@ -43,9 +43,9 @@ def is_array(lv_type: LVType | None) -> bool:
 
 class FormatKind(NamedTuple):
     """How Format Into String sees an input: its kind (``string``, ``path``,
-    ``bool``, ``int``, ``float``, ``complex``, ``enum``, or the name of a type it
-    has no conversion for), for an integer its bit width and signedness, and for
-    an enum each item's value and label."""
+    ``bool``, ``int``, ``float``, ``complex``, ``enum``, ``timestamp``, or the name
+    of a type it has no conversion for), for an integer its bit width and
+    signedness, and for an enum each item's value and label."""
 
     kind: str
     bits: int = 0
@@ -70,6 +70,8 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
     # A ring is an integer whose values have labels: it is written as that integer.
     if lv_type.kind not in (LVTypeKind.PRIMITIVE, LVTypeKind.RING):
         return FormatKind(lv_type.kind.value)
+    if lv_type.is_timestamp:
+        return FormatKind("timestamp")
     name = lv_type.underlying_type
     if name in INTEGER_BYTE_WIDTHS:
         return FormatKind(
