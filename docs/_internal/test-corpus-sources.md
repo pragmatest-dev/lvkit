@@ -32,6 +32,10 @@ not a source of the format/codegen knowledge.
 | mefistotelis/pylabview (test VIs) | MIT | the parser's own corpus |
 | KL-Turner/LabVIEW-DAQ | MIT | DAQ app |
 | LabVIEW-DCAF/DAQModule | Apache-2.0 | single-point DAQ |
+| LabVIEW-DCAF/ModuleInterface | Apache-2.0 | the DCAF module interface classes |
+| LabVIEW-DCAF/tagbus | BSD-2-Clause | the DCAF tag bus (`Tag Bus` library); a search path of the DAQ module sample |
+| LabVIEW-DCAF/DCAF-Core | Apache-2.0 | the DCAF core; a search path of the DAQ module sample |
+| G-CLI/G-CLI | BSD-2-Clause | G CLI command-line interface library (`CLI Class`); a search path of the Actor Framework and icon editor samples |
 | ni/measurement-plugin-labview | MIT | **1337 .vi / 34 .lvclass / 55 .lvlib / 423 .ctl** — broadest single source: LVOOP, libraries, typedefs, deep hierarchies |
 | illuminated-g/lv-flex-channel-examples | MIT | `DAQmx AO/DAQ AO.vi` (+ .lvlib/.ctl) — the corpus's real DAQmx caller (poly-variant extraction, LIbd/BDHP vilib qualified-path parsing, frame-attributed constants, diff fixtures) |
 | ismet55555/LabVIEW-OOP-Classes | MIT | 186 .vi / 11 .lvclass / 21 .ctl — compact LVOOP across DAQ/hardware/utility |

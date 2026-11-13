@@ -1,8 +1,9 @@
 """The catalog's ``runs_on_error`` field: the entries whose NI page says the node
 runs even when an error comes in on its error in. Each was checked against NI's
 public page (the polymorphic Digital waveform VIs against their instance pages).
-JKI State Machine's Parse State Queue is not an NI VI: its own diagram reads the
-error in, so it runs on one."""
+JKI State Machine's Parse State Queue and G CLI's Start CLI Interface and Exit With
+Error Cluster Code are not NI VIs: their own diagrams read the error in, so they
+run on one."""
 
 from __future__ import annotations
 
@@ -15,7 +16,9 @@ DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
 
 VILIB_ENTRIES = frozenset(
     {
+        "addons:Exit With Error Cluster Code",
         "addons:Parse State Queue__jki_lib_state_machine",
+        "addons:Start CLI Interface",
         "application-control:Close Reference Function",
         "application-control:Delete Data Value Reference Function",
         "cluster-class-variant:Preserve Run-Time Class Function",

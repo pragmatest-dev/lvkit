@@ -1,6 +1,6 @@
 {
   "category": "Addons",
-  "count": 4,
+  "count": 6,
   "entries": [
     {
       "name": "LabVIEW Add-ons from National Instruments",
@@ -114,6 +114,101 @@
       "inline": true,
       "imports": [
         "import re"
+      ]
+    },
+    {
+      "name": "Start CLI Interface",
+      "vi_path": "Wiresmith Technology/G CLI/CLI Class/Start CLI Interface.vi",
+      "category": "Addons",
+      "description": "G CLI: gives the program's own command-line arguments (those after -- when it is started by G CLI) as Custom Parameters and the directory it was started from as Working Directory. With an error in, Custom Parameters is empty and Working Directory is /C. CLI out is None: a Python program has no connection to a command-line launcher.",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "CLI out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "python_param": "cli_out"
+        },
+        {
+          "name": "Custom Parameters",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "python_param": "custom_parameters"
+        },
+        {
+          "name": "Working Directory",
+          "index": 1,
+          "direction": "output",
+          "type": "Path",
+          "python_param": "working_directory"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "python_param": "error_out"
+        }
+      ],
+      "status": "complete",
+      "runs_on_error": true,
+      "python_code": "{cli_out} = None\nif {error_in} is not None and {error_in}.status:\n    {custom_parameters} = []\n    {working_directory} = Path('C:/')\nelse:\n    {custom_parameters} = sys.argv[1:]\n    {working_directory} = Path.cwd()",
+      "inline": true,
+      "imports": [
+        "import sys",
+        "from pathlib import Path"
+      ]
+    },
+    {
+      "name": "Exit With Error Cluster Code",
+      "vi_path": "Wiresmith Technology/G CLI/CLI Class/Exit With Error Cluster Code.vi",
+      "category": "Addons",
+      "description": "G CLI: ends the program with an exit code. With an error in whose status is True, it writes the error to standard error between lines of = signs and exits with the error's code; otherwise (no error, or a warning) it exits with No Error Code.",
+      "terminals": [
+        {
+          "name": "CLI in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "python_param": "cli_in"
+        },
+        {
+          "name": "No Error Code (0)",
+          "index": 10,
+          "direction": "input",
+          "type": "I32",
+          "python_param": "no_error_code",
+          "default": 0
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "python_param": "error_out"
+        }
+      ],
+      "status": "complete",
+      "runs_on_error": true,
+      "python_code": "if {error_in} is not None and {error_in}.status:\n    sys.stderr.write('==============\\nError At Exit:\\n' + str({error_in}) + '\\n==============\\n')\n    sys.exit({error_in}.code)\nsys.exit({no_error_code})",
+      "inline": true,
+      "imports": [
+        "import sys"
       ]
     }
   ]

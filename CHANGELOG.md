@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **G CLI's Start CLI Interface and Exit With Error Cluster Code generate Python when the G CLI VIs are not loaded as a class** — Start CLI Interface gives the program's own `sys.argv[1:]` as Custom Parameters and the current directory as Working Directory (with an error in: no parameters, `C:/`); Exit With Error Cluster Code exits with `sys.exit`: the error's code after writing the error to standard error, else No Error Code. G CLI's source on the VI search path still generates its VIs as methods of its `CLI` class, TCP calls and all.
 - **Fix: a Flat Sequence inside an In Place Element Structure belongs to it** — LabVIEW lists a nested Flat Sequence only in the diagram's z-plane, so the sequence sat outside the structure and the nodes inside it that read its output failed with `has no variable`; the structure now reads the z-plane like every other structure does.
 - **Fix: a polymorphic VI whose variants are in its own library finds its variants** — the polymorphic VI records each variant by file name alone while its calls record the library too, so no variant matched and the polymorphic VI generated as its own body, one `leaves its required input unwired` gap per variant (120 in the DCAF tag bus); it now writes one module with a function per variant.
 - **Acquire Semaphore and Release Semaphore_71 generate Python on a `threading.BoundedSemaphore`** — Acquire waits `ms timeout` milliseconds (-1 forever) and gives `timed out`; releasing a semaphore that is not acquired is error 1111.
