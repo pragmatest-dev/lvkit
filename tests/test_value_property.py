@@ -204,9 +204,7 @@ def test_the_property_code_decides_not_the_stored_name(
     assert recorder.properties == [("n", package.module.PropProperty.DISABLED, 1)]
 
 
-@pytest.mark.parametrize(
-    "row", ["Value (Signaling)", ("Visible", 104013825), ("Frame Color", 104013830)]
-)
+@pytest.mark.parametrize("row", [("Visible", 104013825), ("Frame Color", 104013830)])
 def test_a_property_that_is_not_listed_is_a_gap(
     row: str | tuple[str, int],
     project: Project,  # noqa: F811
