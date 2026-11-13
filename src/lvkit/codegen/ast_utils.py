@@ -510,7 +510,7 @@ _PY_BUILTINS = frozenset(dir(builtins))
 GENERATED_MODULE_NAMES = frozenset(
     {
         "builtins", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
-        "functools", "getpass", "hightime",
+        "functools", "gc", "getpass", "hightime",
         "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
