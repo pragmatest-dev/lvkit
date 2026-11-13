@@ -34,7 +34,13 @@ _PATH = data_dir() / "control_properties.json"
 class ControlProperty:
     """One listed property: ``name`` is NI's long name, ``member`` the Python name
     (the generated property enum's member is its upper-case form), ``value`` the
-    kind written (``bool``, ``enum`` or ``number``) and ``doc_url`` NI's page."""
+    kind written and ``doc_url`` NI's page. ``value`` is the Python value the
+    generated code passes: ``bool``; ``enum`` (the property's integer enum value);
+    ``number`` (int or float); ``string`` (str); ``path`` (``pathlib.Path``);
+    ``color`` (int, LabVIEW's ``0x00RRGGBB`` color); ``string_array`` (list of
+    str, of lists of str for a two-dimensional array); ``number_array`` (list of
+    int or float); ``array`` (list of the elements the wire carries, a cluster
+    staying a cluster); ``cluster`` (the cluster the wire carries)."""
 
     name: str
     member: str
@@ -55,16 +61,16 @@ class ReferenceRow(Enum):
 
 @dataclass(frozen=True)
 class _Table:
-    inherited: dict[int, ControlProperty]
-    classes: dict[str, dict[int, ControlProperty]]
+    inherited: dict[str, ControlProperty]
+    classes: dict[str, dict[str, ControlProperty]]
     inherited_values: frozenset[int]
     class_values: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
 
 
-def _entries(raw: dict[str, dict[str, str]]) -> dict[int, ControlProperty]:
+def _entries(raw: dict[str, dict[str, str]]) -> dict[str, ControlProperty]:
     return {
-        int(code): ControlProperty(
+        code: ControlProperty(
             entry["name"], entry["member"], entry["value"], entry["doc_url"]
         )
         for code, entry in raw.items()
@@ -93,14 +99,13 @@ def _table() -> _Table:
 
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:
     """The listed property that the row with property ``codes`` (one per path
-    segment) of a Property Node bound to a control of class ``class_name`` is;
-    None for a nested property or one that is not listed."""
-    if len(codes) != 1:
-        return None
+    segment) of a Property Node bound to a control of class ``class_name`` is; None
+    for one that is not listed. A listed property is found by its codes joined with
+    ``.`` (a one-segment row by its code), the class's own entry before an
+    inherited one."""
     table = _table()
-    return table.classes.get(class_name, {}).get(codes[0]) or table.inherited.get(
-        codes[0]
-    )
+    key = ".".join(str(code) for code in codes)
+    return table.classes.get(class_name, {}).get(key) or table.inherited.get(key)
 
 
 def is_value_row(class_name: str, codes: Sequence[int]) -> bool:

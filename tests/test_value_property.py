@@ -322,3 +322,75 @@ def test_a_node_bound_to_a_part_of_a_type_defined_control_is_the_control(
         ("read", "input_", 7),
         ("write", "seen", 40),
     ]
+
+
+def test_a_class_property_and_an_inherited_one_are_both_set(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    visible, frame = value_property(
+        vi,
+        n,
+        ["Visible", ("Frame Color", 104078363)],
+        class_name="IntGraph (strict)",
+    )
+    vi.wire(vi.bool_constant(False), visible)
+    vi.wire(vi.int_constant(0xFF0000), frame)
+    vi.wire(n, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.gaps == []
+    recorder = Recorder()
+    assert package.function(n=3, live_io=recorder).out == 3
+    prop = package.module.PropProperty
+    value = package.module.PropValue
+    assert recorder.properties == [
+        (value.N, prop.VISIBLE, False),
+        (value.N, prop.FRAME_COLOR, 0xFF0000),
+    ]
+    assert [p.value for p in prop] == ["visible", "frame_color"]
+
+
+def test_a_row_of_two_path_segments_is_set(project: Project) -> None:  # noqa: F811
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    (maximum,) = value_property(
+        vi,
+        n,
+        [(("Scale", "Maximum"), (104075264, 104001542))],
+        class_name="Knob (strict)",
+    )
+    vi.wire(vi.int_constant(9), maximum)
+    vi.wire(n, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.gaps == []
+    recorder = Recorder()
+    package.function(n=3, live_io=recorder)
+    assert recorder.properties == [
+        (package.module.PropValue.N, package.module.PropProperty.SCALE_MAXIMUM, 9)
+    ]
+
+
+def test_a_listed_row_and_an_unlisted_row_make_the_node_a_gap(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    frame, other = value_property(
+        vi,
+        n,
+        [("Frame Color", 104078363), ("Glyph", 1969896466)],
+        class_name="Tree (strict)",
+    )
+    vi.wire(vi.int_constant(1), frame)
+    vi.wire(vi.int_constant(1), other)
+    vi.wire(n, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert len(package.gaps) == 1
+    assert "binding model" in str(package.gaps[0])
