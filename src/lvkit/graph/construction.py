@@ -788,6 +788,7 @@ class ConstructionMixin:
                         variant or callee, iuse_to_qpath.get(node.uid), vi_key
                     ),
                     node.poly_variant_name,
+                    vi_name=node.name,
                 )
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals

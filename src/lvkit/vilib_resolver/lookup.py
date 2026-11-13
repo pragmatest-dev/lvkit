@@ -86,18 +86,22 @@ class _VILibLookupMixin:
         poly_variant_name: str | None = None,
         *,
         wrapper_fallback: bool = True,
+        vi_name: str | None = None,
     ) -> VIEntry | None:
         """The catalog entry for one call of the VI it records ``recorded_path`` for.
         A polymorphic call that selected the variant ``poly_variant_name`` gets that
         variant's entry. When the catalog does not list the variant, the call gets
         the entry for the recorded path itself, or None with ``wrapper_fallback``
         off (code generation needs the variant). None when the catalog does not
-        describe the VI."""
+        describe the VI. ``vi_name`` is the name of the VI the call shows, the
+        polymorphic VI when ``recorded_path`` is the file of the variant it runs;
+        the variant is looked up under it, else under the recorded file's name."""
         base_name = self.catalog_file_name(recorded_path)
         if base_name is None:
             return None
         if poly_variant_name:
-            variant = self.resolve_poly_variant(base_name, poly_variant_name)
+            poly_name = vi_name.rsplit(":", 1)[-1] if vi_name else base_name
+            variant = self.resolve_poly_variant(poly_name, poly_variant_name)
             if variant is not None or not wrapper_fallback:
                 return variant
         return self._by_name.get(base_name)

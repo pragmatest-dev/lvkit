@@ -77,12 +77,20 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     vilib_vi = None
     if node.poly_variant_name:
         vilib_vi = _vilib_resolver(ctx).resolve_call(
-            catalog_path, node.poly_variant_name, wrapper_fallback=False
+            catalog_path,
+            node.poly_variant_name,
+            wrapper_fallback=False,
+            vi_name=node.name,
         )
+        if vilib_vi:
+            vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
+        elif _records_instance_file(node, ctx):
+            # The call records the file of the variant it runs, which the
+            # catalog lists under its own name.
+            vilib_vi = _get_vilib_vi(node, ctx)
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
-        vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
 
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
@@ -109,6 +117,14 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         bindings=parts.bindings,
         runs_on_error=True,
     )
+
+
+def _records_instance_file(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether a call of a polymorphic VI records the file of one of its variants
+    (a catalog VI by another name than the call's own) rather than the
+    polymorphic VI's file."""
+    file_name = _vilib_resolver(ctx).catalog_file_name(ctx.catalog_path(node))
+    return file_name is not None and file_name != (node.name or "").rsplit(":", 1)[-1]
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:

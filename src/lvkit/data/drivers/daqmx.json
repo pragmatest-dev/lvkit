@@ -307,6 +307,10 @@
       },
       "match_names": [
         "DAQmx Read (Analog 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -346,6 +350,10 @@
       },
       "match_names": [
         "DAQmx Read (Analog 1D DBL NChan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL NChan 1Samp"
       ]
     },
     {
@@ -385,6 +393,10 @@
       },
       "match_names": [
         "DAQmx Read (Analog 2D DBL NChan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 2D DBL NChan NSamp"
       ]
     },
     {
@@ -424,6 +436,10 @@
       },
       "match_names": [
         "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Digital 1D Bool 1Chan 1Samp"
       ]
     },
     {
@@ -519,6 +535,10 @@
       },
       "match_names": [
         "DAQmx Read (Digital 1D U32 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Digital 1D U32 1Chan NSamp"
       ]
     },
     {
@@ -558,6 +578,10 @@
       },
       "match_names": [
         "DAQmx Read (Counter 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Counter 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -635,6 +659,10 @@
       },
       "match_names": [
         "DAQmx Write (Analog 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -671,6 +699,10 @@
       },
       "match_names": [
         "DAQmx Write (Analog 2D DBL NChan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Analog 2D DBL NChan NSamp"
       ]
     },
     {
@@ -707,6 +739,10 @@
       },
       "match_names": [
         "DAQmx Write (Digital 1D Bool 1Chan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Digital 1D Bool 1Chan 1Samp"
       ]
     },
     {
@@ -814,6 +850,10 @@
       },
       "match_names": [
         "DAQmx Write (Digital 1D U32 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Digital 1D U32 1Chan NSamp"
       ]
     },
     {
@@ -1211,6 +1251,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Force Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Force Bridge Table"
       ]
     },
     {
@@ -1357,6 +1401,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Pressure Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Pressure Bridge Table"
       ]
     },
     {
@@ -1453,6 +1501,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Torque Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Torque Bridge Table"
       ]
     },
     {
@@ -1780,6 +1832,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (DI Channel).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "DI Channel"
       ]
     },
     {
@@ -1877,6 +1933,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (DO Channel).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "DO Channel"
       ]
     },
     {
