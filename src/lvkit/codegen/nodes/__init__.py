@@ -42,6 +42,7 @@ from . import (
     compound,
     constant,
     ctrl_val,
+    decimate,
     disable,
     event,
     event_register,
@@ -172,6 +173,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "extFunc": ext_func.generate,
     "xNode": xnode.generate,
     "eventRegNode": event_register.generate_register,
+    "decimate": decimate.generate,
 }
 
 

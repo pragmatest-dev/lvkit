@@ -318,6 +318,8 @@
     },
     "8012": {
       "name": "Open Application Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-application-reference.html",
+      "op": "OPEN_APPLICATION_REFERENCE",
       "terminals": [
         {
           "index": 0,
@@ -362,9 +364,7 @@
           "default": ""
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-application-reference.html"
+      "verified": true
     },
     "9154": {
       "name": "Get Drag Drop Data",
