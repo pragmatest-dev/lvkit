@@ -1859,17 +1859,20 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "needs_review",
       "terminals": [
         {
           "name": "App:Default Data Directory",
-          "index": null,
+          "index": 0,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
           "python_param": "appdefault_data_directory",
           "description": "App:Default Data Directory is the path to the default data directory."
         }
+      ],
+      "match_names": [
+        "Dflt Data Dir.vi"
       ]
     },
     {
@@ -4073,36 +4076,26 @@
       "status": "resolved",
       "terminals": [
         {
-          "name": "target",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "target",
-          "description": "target specifies the path to the new or existing zip file. The VI deletes and rewrites the file if it already exists. You cannot append data to a zip file."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "confirm overwrite? (F)",
-          "index": 5,
-          "direction": "input",
-          "type": null,
+          "name": "cancelled",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "confirm_overwrite",
-          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file.",
-          "default": false
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "cancelled",
+          "description": "cancelled returns TRUE only if a user cancels an overwrite confirmation dialog box."
         },
         {
           "name": "zip file out",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -4110,24 +4103,54 @@
           "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID."
         },
         {
-          "name": "cancelled",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 4,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "cancelled",
-          "description": "cancelled returns TRUE only if a user cancels an overwrite confirmation dialog box."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "confirm overwrite? (F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "confirm_overwrite",
+          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file.",
+          "default": false
+        },
+        {
+          "name": "target",
+          "index": 7,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "target",
+          "description": "target specifies the path to the new or existing zip file. The VI deletes and rewrites the file if it already exists. You cannot append data to a zip file."
         }
-      ]
+      ],
+      "imports": [
+        "import zipfile",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "if {confirm_overwrite} and Path({target}).exists():\n    raise NotImplementedError('New Zip File: ' + str({target}) + ' exists and confirm overwrite? is TRUE, which asks the user in a dialog; Python has no dialog')\n{zip_file_out} = zipfile.ZipFile({target}, 'w')\n{cancelled} = False",
+      "inline": true
     },
     {
       "name": "Add File to Zip",
@@ -4137,47 +4160,20 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "zip file in",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "zip_file_in",
-          "description": "zip file in specifies the open zip file."
-        },
-        {
-          "name": "source file path",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "source_file_path",
-          "description": "source file path specifies the path to file to add to the zip file."
-        },
-        {
-          "name": "destination path in zip",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "destination_path_in_zip",
-          "description": "destination path in zip specifies the filename and the path to apply to the source file when the VI encodes the file into the zip file."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
           "name": "zip file out",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -4185,48 +4181,82 @@
           "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "destination path in zip",
+          "index": 9,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "destination_path_in_zip",
+          "description": "destination path in zip specifies the filename and the path to apply to the source file when the VI encodes the file into the zip file."
+        },
+        {
+          "name": "source file path",
+          "index": 10,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "source_file_path",
+          "description": "source file path specifies the path to file to add to the zip file."
+        },
+        {
+          "name": "zip file in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "zip_file_in",
+          "description": "zip file in specifies the open zip file."
         }
-      ]
+      ],
+      "imports": [],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "{zip_file_in}.write({source_file_path}, arcname={destination_path_in_zip})\n{zip_file_out} = {zip_file_in}",
+      "inline": true
     },
     {
       "name": "Close Zip File",
-      "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/close-zip-file-vi.html",
       "category": "File I/O",
       "description": "Closes the zip file zip file in specifies. Functions 1724 ni.com",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "zip file in",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "zip_file_in",
-          "description": "zip file in specifies the open zip file."
-        },
-        {
-          "name": "comments",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "comments",
-          "description": "comments includes text to include in the zip file."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -4234,15 +4264,150 @@
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
+          "name": "comments",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "comments",
+          "description": "comments includes text to include in the zip file.",
+          "default": ""
+        },
+        {
+          "name": "zip file in",
+          "index": 7,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "zip_file_in",
+          "description": "zip file in specifies the open zip file."
+        }
+      ],
+      "imports": [
+        "import zipfile"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "runs_on_error": true,
+      "python_code": "if isinstance({zip_file_in}, zipfile.ZipFile):\n    {zip_file_in}.comment = {comments}.encode('utf-8')\n    {zip_file_in}.close()",
+      "inline": true
+    },
+    {
+      "name": "Unzip",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/zip/unzip-vi.html",
+      "category": "File I/O",
+      "description": "Unzips the contents of Zip file to the Target directory. Set Preview only? to TRUE to preview the list of files in Zip file before you unzip the zip file. This VI cannot unzip a zip file that is password protected.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "Preview",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "preview",
+          "description": "Preview lists the paths to the files in Zip file."
+        },
+        {
+          "name": "Unzipped files",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "unzipped_files",
+          "description": "Unzipped files lists the files that the VI unzips."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "Target directory (same as Zip file if empty)",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "target_directory",
+          "description": "Target directory specifies the directory path to which the VI unzips the files in Zip file. The default is the directory path that contains the zip file.",
+          "default": ""
+        },
+        {
+          "name": "Preview only?",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "preview_only",
+          "description": "Preview only? specifies whether to display the files in Zip file without unzipping the zip file. If TRUE, this VI does not unzip Zip file and Preview displays a list of the files in the zip file. The default is FALSE.",
+          "default": false
+        },
+        {
+          "name": "Zip file",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "zip_file",
+          "description": "Zip file specifies the path to the zip file that you want to unzip."
         }
-      ]
+      ],
+      "imports": [
+        "import zipfile",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "ZipPasswordProtectedError",
+          "base": "ValueError"
+        },
+        {
+          "exception": "BadZipFile",
+          "module": "zipfile"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_target = {target_directory} if {target_directory} and str({target_directory}) != '.' else Path({zip_file}).parent\nwith zipfile.ZipFile({zip_file}) as _zip:\n    if {preview_only}:\n        raise NotImplementedError('Unzip: Preview only? is TRUE, and NI does not say how the file paths are written into Preview')\n    _names = _zip.namelist()\n    if any(_info.flag_bits & 0x1 for _info in _zip.infolist()):\n        raise ZipPasswordProtectedError('Unzip: ' + str({zip_file}) + ' is password protected')\n    _zip.extractall(_target)\n{unzipped_files} = [Path(_target) / _name for _name in _names if not _name.endswith('/')]\n{preview} = ''",
+      "inline": true
     },
     {
       "name": "LabVIEW Schema",
@@ -5962,82 +6127,26 @@
       "status": "resolved",
       "terminals": [
         {
-          "name": "Folder Path",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "folder_path",
-          "description": "Folder Path specifies the path to the folder or LLB whose contents you want LabVIEW to return."
-        },
-        {
-          "name": "Treat LLBs as Folders?",
-          "index": 10,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "treat_llbs_as_folders",
-          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE.",
-          "default": false
-        },
-        {
-          "name": "Continue Recursing on Error? (F)",
-          "index": 9,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "continue_recursing_on_error",
-          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs.",
-          "default": false
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "pattern",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "pattern",
-          "description": "pattern specifies the pattern for files for which you want to search in Folder Path ."
-        },
-        {
-          "name": "Folders to Exclude",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "folders_to_exclude",
-          "description": "Folders to Exclude specifies folder names you want to exclude during the recursion. Any folder you exclude does not appear in the All Folders array. This input is case insensitive."
-        },
-        {
-          "name": "All Folders",
-          "index": null,
+          "name": "error out",
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "all_folders",
-          "description": "All Folders returns a list of all subfolders, and shortcuts to folders in Folder Path ."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "dup Folder Path",
-          "index": null,
+          "name": "Number of Files",
+          "index": 1,
           "direction": "output",
-          "type": null,
+          "type": "NumInt32",
           "enum_values": null,
-          "python_param": "dup_folder_path",
-          "description": "dup Folder Path returns Folder Path unchanged."
+          "python_param": "number_of_files",
+          "description": "Number of Files returns the number of files in the All Files in Dir array."
         },
         {
           "name": "All Files in Dir",
-          "index": null,
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6045,24 +6154,103 @@
           "description": "All Files in Dir returns a list of all files in Folder Path . If Treat LLBs as Folders? is set to TRUE, the list of files includes LLBs. The list also includes shortcuts to files."
         },
         {
-          "name": "Number of Files",
-          "index": null,
+          "name": "dup Folder Path",
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Path",
           "enum_values": null,
-          "python_param": "number_of_files",
-          "description": "Number of Files returns the number of files in the All Files in Dir array."
+          "python_param": "dup_folder_path",
+          "description": "dup Folder Path returns Folder Path unchanged."
         },
         {
-          "name": "error out",
-          "index": null,
+          "name": "Folders to Exclude",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "folders_to_exclude",
+          "description": "Folders to Exclude specifies folder names you want to exclude during the recursion. Any folder you exclude does not appear in the All Folders array. This input is case insensitive.",
+          "default": ""
+        },
+        {
+          "name": "All Folders",
+          "index": 5,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "all_folders",
+          "description": "All Folders returns a list of all subfolders, and shortcuts to folders in Folder Path ."
+        },
+        {
+          "name": "pattern",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "pattern",
+          "description": "pattern specifies the pattern for files for which you want to search in Folder Path .",
+          "default": ""
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "Continue Recursing on Error? (F)",
+          "index": 9,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "continue_recursing_on_error",
+          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs.",
+          "default": false
+        },
+        {
+          "name": "Treat LLBs as Folders?",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "treat_llbs_as_folders",
+          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE.",
+          "default": false
+        },
+        {
+          "name": "Folder Path",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "folder_path",
+          "description": "Folder Path specifies the path to the folder or LLB whose contents you want LabVIEW to return."
         }
-      ]
+      ],
+      "imports": [
+        "import fnmatch",
+        "import os",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "{dup_folder_path} = {folder_path}\n{all_folders} = []\n{all_files_in_dir} = []\n_top = Path({folder_path})\nif _top.suffix.lower() == '.llb':\n    raise NotImplementedError('Recursive File List: ' + str(_top) + ' is an LLB, and Python cannot read the contents of an LLB')\n_excluded = [_name.lower() for _name in {folders_to_exclude}]\n_walk_errors = []\nfor _dir, _dirs, _files in os.walk(_top, onerror=_walk_errors.append, followlinks=False):\n    if _walk_errors and not {continue_recursing_on_error}:\n        break\n    _dirs[:] = sorted(_d for _d in _dirs if _d.lower() not in _excluded)\n    {all_folders}.extend(Path(_dir) / _d for _d in _dirs)\n    for _f in sorted(_files):\n        if {treat_llbs_as_folders} and _f.lower().endswith('.llb'):\n            raise NotImplementedError('Recursive File List: ' + str(Path(_dir) / _f) + ' is an LLB, and Python cannot read the contents of an LLB')\n        if fnmatch.fnmatch(_f, {pattern} or '*'):\n            {all_files_in_dir}.append(Path(_dir) / _f)\nif _walk_errors and not {continue_recursing_on_error}:\n    raise _walk_errors[0]\n{number_of_files} = len({all_files_in_dir})",
+      "inline": true
     },
     {
       "name": "Path To String Function",
@@ -6270,29 +6458,47 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "Path 1",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "path_1",
-          "description": "Path 1 specifies the first path."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "Path 2",
-          "index": null,
-          "direction": "input",
-          "type": null,
+          "name": "Path 2 Relative to Path 1?",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "path_2",
-          "description": "Path 2 specifies the second path."
+          "python_param": "path_2_relative_to_path_1",
+          "description": "Path 2 Relative to Path 1? is TRUE if Path 1 is on the same directory level as Path 2 . Otherwise, this output is FALSE."
+        },
+        {
+          "name": "Common Path",
+          "index": 2,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "common_path",
+          "description": "Common Path returns the part of the absolute path that Path 1 shares with Path 2 ."
+        },
+        {
+          "name": "Relative Path from 1 to 2",
+          "index": 3,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "relative_path_from_1_to_2",
+          "description": "Relative Path from 1 to 2 returns the relative path you have to take on disk to get from Path 1 to Path 2 ."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -6300,42 +6506,35 @@
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "Relative Path from 1 to 2",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "Path 2",
+          "index": 10,
+          "direction": "input",
+          "type": "Path",
           "enum_values": null,
-          "python_param": "relative_path_from_1_to_2",
-          "description": "Relative Path from 1 to 2 returns the relative path you have to take on disk to get from Path 1 to Path 2 ."
+          "python_param": "path_2",
+          "description": "Path 2 specifies the second path."
         },
         {
-          "name": "Common Path",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "Path 1",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
           "enum_values": null,
-          "python_param": "common_path",
-          "description": "Common Path returns the part of the absolute path that Path 1 shares with Path 2 ."
-        },
-        {
-          "name": "Path 2 Relative to Path 1?",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "path_2_relative_to_path_1",
-          "description": "Path 2 Relative to Path 1? is TRUE if Path 1 is on the same directory level as Path 2 . Otherwise, this output is FALSE."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "path_1",
+          "description": "Path 1 specifies the first path."
         }
-      ]
+      ],
+      "imports": [
+        "import os",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ],
+      "python_code": "_relative = Path(os.path.relpath({path_2}, {path_1}))\n{relative_path_from_1_to_2} = _relative\n{common_path} = Path(os.path.commonpath([{path_1}, {path_2}]))\n{path_2_relative_to_path_1} = _relative.parts.count('..') <= 1",
+      "inline": true
     },
     {
       "name": "Get File Extension",

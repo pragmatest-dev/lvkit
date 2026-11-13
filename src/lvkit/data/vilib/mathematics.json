@@ -14673,11 +14673,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "X",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -14686,23 +14686,32 @@
         },
         {
           "name": "mean",
-          "index": null,
+          "index": 1,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "mean",
           "description": "mean is the mean, or average, of the values in the input sequence X ."
         },
         {
           "name": "error",
-          "index": null,
+          "index": 2,
           "direction": "output",
-          "type": null,
+          "type": "NumInt32",
           "enum_values": null,
           "python_param": "error",
           "description": "error returns any error or warning from the VI. You can wire error to the Error Cluster From Error Code VI to convert the error code or warning into an error cluster."
         }
-      ]
+      ],
+      "match_names": [
+        "Mean (DBL).vi"
+      ],
+      "imports": [
+        "import math",
+        "import statistics"
+      ],
+      "python_code": "{mean} = statistics.fmean({x}) if len({x}) > 0 else math.nan\n{error} = 0",
+      "inline": true
     },
     {
       "name": "Mean (CDB) VI",

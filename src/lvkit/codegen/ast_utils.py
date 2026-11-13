@@ -509,13 +509,14 @@ _PY_BUILTINS = frozenset(dir(builtins))
 # (``tests/test_reserved_module_names.py`` checks this).
 GENERATED_MODULE_NAMES = frozenset(
     {
-        "builtins", "concurrent", "copy", "ctypes", "filecmp", "functools",
-        "getpass", "hightime",
+        "builtins", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
+        "functools", "getpass", "hightime",
         "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
-        "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "threading", "time", "uuid",
+        "shutil", "socket", "stat", "statistics",
+        "struct", "subprocess", "sys", "tempfile", "threading", "time", "uuid",
+        "zipfile",
     }
 )  # fmt: skip
 

@@ -1336,36 +1336,33 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "verified",
+      "status": "resolved",
       "terminals": [
-        {
-          "name": "array",
-          "description": "array specifies the input array. This input accepts a 1D array of any data type.",
-          "enum_values": null,
-          "python_param": "array",
-          "index": 0,
-          "direction": "input"
-        },
         {
           "name": "array with duplicates removed",
           "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
           "enum_values": null,
           "python_param": "array_with_duplicates_removed",
-          "index": 1,
-          "direction": "output"
+          "index": 3,
+          "direction": "output",
+          "type": null
         },
         {
-          "name": "indices of removed elements",
-          "description": "indices of removed elements returns the indices of the removed duplicate elements from the original array.",
+          "name": "array",
+          "description": "array specifies the input array. This input accepts a 1D array of any data type.",
           "enum_values": null,
-          "python_param": "indices_of_removed_elements",
-          "index": 2,
-          "direction": "output"
+          "python_param": "array",
+          "index": 11,
+          "direction": "input",
+          "type": null
         }
       ],
       "match_names": [
-        "Remove Duplicates from 1D Array__ogtk"
-      ]
+        "Remove Duplicates From 1D Array.vim"
+      ],
+      "imports": [],
+      "python_code": "{array_with_duplicates_removed} = []\nfor _element in {array}:\n    if not any(_element == _kept for _kept in {array_with_duplicates_removed}):\n        {array_with_duplicates_removed}.append(_element)",
+      "inline": true
     },
     {
       "name": "Search Unsorted 1D Array",

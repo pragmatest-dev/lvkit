@@ -50,6 +50,7 @@ def run_catalog_call(
     outputs: Mapping[str, tuple[int, LVType]],
     arguments: Mapping[str, Any],
     gaps: list[Gap] | None = None,
+    runtime_not_implemented: bool = False,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -57,6 +58,9 @@ def run_catalog_call(
     terminal of the call node (as the caller's diagram saves them), ``inputs``
     and ``outputs`` the caller's own controls and indicators by name with the
     call terminal index each is wired to, ``arguments`` the controls' values.
+    ``runtime_not_implemented`` allows the VI's Python to raise
+    ``NotImplementedError`` for a case it finds only when it runs (an LLB, a
+    dialog): the generation itself still has no gap.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -141,7 +145,7 @@ def run_catalog_call(
         context, "caller.vi", import_resolver=resolver, graph=built, gaps=found
     )
     assert found == []
-    assert "NotImplementedError" not in source
+    assert runtime_not_implemented or "NotImplementedError" not in source
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "caller.py").write_text(source, encoding="utf-8")
     for module, text in (

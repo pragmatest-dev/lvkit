@@ -3023,36 +3023,83 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "delimited string",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "delimited_string",
-          "description": "delimited string specifies the string with a delimiting character between substrings."
-        },
-        {
-          "name": "delimiter",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "delimiter",
-          "description": "delimiter specifies the character that separates substrings in a delimited string. The default is \\t , which specifies a single tab character."
-        },
-        {
           "name": "string array",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string_array",
           "description": "string array returns an array of strings constructed from delimited string ."
+        },
+        {
+          "name": "delimiter",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "delimiter",
+          "description": "delimiter specifies the character that separates substrings in a delimited string. The default is \\t , which specifies a single tab character.",
+          "default": "\t"
+        },
+        {
+          "name": "delimited string",
+          "index": 11,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "delimited_string",
+          "description": "delimited string specifies the string with a delimiting character between substrings."
         }
-      ]
+      ],
+      "imports": [],
+      "python_code": "{string_array} = {delimited_string}.split({delimiter})",
+      "inline": true
+    },
+    {
+      "name": "1D String Array to Delimited String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/advancedstring/1d-string-array-to-delimited-string-vi.html",
+      "category": "String",
+      "description": "Converts the elements of a one-dimensional string array to a single string with input array elements separated by a delimiting character.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "delimited string",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "delimited_string",
+          "description": "delimited string returns a string of concatenated array elements separated by the delimiter you specify."
+        },
+        {
+          "name": "delimiter",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "delimiter",
+          "description": "delimiter specifies the character that separates substrings in a delimited string. The default is \\t, which specifies a single tab character.",
+          "default": "\t"
+        },
+        {
+          "name": "string array",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "string_array",
+          "description": "string array specifies the one-dimensional array of strings on which the node operates."
+        }
+      ],
+      "imports": [],
+      "python_code": "{delimited_string} = {delimiter}.join({string_array})",
+      "inline": true
     },
     {
       "name": "Reverse String Function",

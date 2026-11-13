@@ -21,7 +21,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -39,7 +40,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -61,7 +62,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -79,7 +81,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -101,7 +103,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -119,7 +122,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -141,14 +144,16 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "method_magnitude"
+          "python_param": "method_magnitude",
+          "default": 2
         },
         {
           "name": "Sorted Array out",
@@ -166,7 +171,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: ((_array[_i].real, _array[_i].imag, abs(_array[_i]))[{method_magnitude}], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -188,7 +193,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -206,7 +212,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -228,14 +234,16 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "method_magnitude"
+          "python_param": "method_magnitude",
+          "default": 2
         },
         {
           "name": "Sorted Array out",
@@ -253,7 +261,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: ((_array[_i].real, _array[_i].imag, abs(_array[_i]))[{method_magnitude}], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -275,7 +283,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -293,7 +302,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -315,7 +324,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -333,7 +343,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -355,7 +365,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -373,7 +384,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -395,7 +406,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -413,7 +425,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -435,14 +447,16 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "method_magnitude"
+          "python_param": "method_magnitude",
+          "default": 2
         },
         {
           "name": "Sorted Array out",
@@ -460,7 +474,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: ((_array[_i].real, _array[_i].imag, abs(_array[_i]))[{method_magnitude}], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -482,7 +496,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -500,7 +515,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -522,7 +537,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -540,7 +556,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -562,7 +578,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -580,7 +597,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -602,7 +619,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -620,7 +638,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -642,7 +660,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -660,7 +679,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
@@ -682,7 +701,8 @@
           "index": 9,
           "direction": "input",
           "type": "stdRing",
-          "python_param": "order"
+          "python_param": "order",
+          "default": 0
         },
         {
           "name": "Sorted Array out",
@@ -700,7 +720,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{sorted_array_out} = sorted({array_in}, reverse=({order} == 1)); {sorted_pointers} = list(range(len({array_in})))",
+      "python_code": "_array = list({array_in})\n_order = sorted(range(len(_array)), key=lambda _i: (_array[_i], _i))\nif {order} == 1:\n    _order.reverse()\n{sorted_array_out} = [_array[_i] for _i in _order]\n{sorted_pointers} = _order",
       "inline": true,
       "imports": []
     },
