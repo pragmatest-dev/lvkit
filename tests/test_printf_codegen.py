@@ -16,6 +16,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import LVType, LVTypeKind, Terminal, enum_values_from_labels
 from lvkit.string_literal import quote_string
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.helpers import register_nodes
 
 BACKSLASH = chr(92)
@@ -40,7 +41,11 @@ ENUM = LVType(
 UNLABELLED_ENUM = LVType(kind=LVTypeKind.ENUM)
 RING_I16 = LVType(kind=LVTypeKind.RING, underlying_type="NumInt16")
 ARRAY = LVType(kind=LVTypeKind.ARRAY, element_type=DBL)
-TIME = _primitive("TimeStamp")
+TIME = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
 
 
 def _build(
@@ -238,8 +243,45 @@ def test_the_diagram_format_string_is_one_f_string_of_nodes() -> None:
     assert source == "formatted = f'{{\"k\": {arg0}}}'"
 
 
-def test_no_format_string_joins_strings_and_paths() -> None:
-    assert _run(None, [("ab", STRING), ("cd", PATH)]) == "abcd"
+def test_no_format_string_joins_strings_and_paths_with_a_space() -> None:
+    assert _run(None, [("ab", STRING), ("cd", PATH)]) == "ab cd"
+
+
+DEFAULT_CASES: list[tuple[list[tuple[Any, LVType]], str, str | None]] = [
+    ([("a", STRING), ("b", STRING)], "a b", None),
+    ([("a", STRING)], "a", None),
+    ([(42, I32)], "42", None),
+    ([(-7, I32)], "-7", None),
+    ([(200, U8)], "200", None),
+    ([(3, RING_I16)], "3", None),
+    ([(1.234, DBL)], "1.234000", None),
+    ([(2.0, DBL)], "2.000000", None),
+    ([(3 + 4j, COMPLEX)], "3.000000", None),
+    ([(True, BOOL)], "TRUE", None),
+    ([(False, BOOL)], "FALSE", None),
+    (
+        [("x", STRING), (3, I32), (0.5, DBL), (True, BOOL)],
+        "x 3 0.500000 TRUE",
+        None,
+    ),
+    ([(1, I32)], "pre1", "pre"),
+]
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected", "initial"),
+    DEFAULT_CASES,
+    ids=[case[1] for case in DEFAULT_CASES],
+)
+def test_no_format_string_writes_each_value_by_its_type(
+    arguments: list[tuple[Any, LVType]], expected: str, initial: str | None
+) -> None:
+    assert _run(None, arguments, initial=initial) == expected
+
+
+def test_no_format_string_and_a_timestamp_is_a_gap_for_its_time_format() -> None:
+    with pytest.raises(ConversionGap, match=r"%<%\.3X %x>T.*embedded time format"):
+        _build(None, [(1.5, TIME)])
 
 
 def test_no_format_string_writes_an_enum_label() -> None:
@@ -249,11 +291,6 @@ def test_no_format_string_writes_an_enum_label() -> None:
 def test_no_format_string_and_an_enum_with_no_labels_is_a_gap() -> None:
     with pytest.raises(ConversionGap, match="enum with no item labels input"):
         _build(None, [(1, UNLABELLED_ENUM)])
-
-
-def test_no_format_string_and_a_number_is_a_gap() -> None:
-    with pytest.raises(ConversionGap, match="no format string"):
-        _build(None, [(1.5, DBL)])
 
 
 NEGATIVE_FLOAT = "'%x' (a negative floating-point value) has no conversion"
@@ -302,7 +339,7 @@ GAPS: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%s", [(1.5, DBL)], "'%s' ('s' with a numeric (float) input)"),
     ("%s", [(1, UNLABELLED_ENUM)], "'%s' (enum with no item labels input)"),
     ("%d", [([1.0], ARRAY)], "'%d' (array input)"),
-    ("%d", [(0, TIME)], "'%d' (TimeStamp input)"),
+    ("%d", [(0, TIME)], "'%d' (timestamp input)"),
     ("%s %s", [("a", STRING)], "specifier '%s' has no input to take"),
 ]
 
