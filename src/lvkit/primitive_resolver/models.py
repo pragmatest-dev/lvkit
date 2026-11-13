@@ -118,6 +118,9 @@ class PrimitiveEntry(BaseModel):
     # and code come from ``terminals`` only.
     alternative_terminal_sets: list[list[TerminalAlias]] = Field(default_factory=list)
     guess_reason: str | None = None
+    # Why the function has no Python yet: what NI does not document, or the
+    # decision it needs. Written into the gap its node raises.
+    gap_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     # Standard third-party packages (by their PyPI name) the node's generated
     # code imports because Python has no construct of its own for the function;
@@ -153,6 +156,8 @@ class ResolvedPrimitive(BaseModel):
     # none of them, or more than one; ``terminals`` is then empty.
     terminal_set_gap: str | None = None
     description: str = ""
+    # See ``PrimitiveEntry.gap_reason``.
+    gap_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     # LabVIEW numeric primitives operate element-wise on arrays. When True,
     # codegen broadcasts the operation over list operands.
