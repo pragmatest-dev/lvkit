@@ -6,10 +6,11 @@ as the ``LabVIEWError`` of an error wire. They are written once into the package
 root as ``variants.py`` and imported from there, so a value made in one module
 is compared, stored and read in another and a generated package imports nothing
 from lvkit. The module also holds one ``LVType`` constant for each scalar type
-whose ``LVType`` is fixed (``I32``, ``DBL``, ``String``, ...), written from the
-same expression a generated module writes inline for any other type, so the two
-cannot differ. ``variants.py`` imports nothing from the package, so importing it
-at module level can never make an import cycle.
+whose ``LVType`` is fixed (``LV_I32``, ``LV_DBL``, ``LV_String``, ...) and one for
+the error cluster (``LV_Error``), written from the same expression a generated
+module writes inline for any other type, so the two cannot differ.
+``variants.py`` imports nothing from the package, so importing it at module level
+can never make an import cycle.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from typing import NamedTuple
 from lvkit import type_string
 from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import type_descriptor_code
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import ClusterField, LVType, LVTypeKind
 
 VARIANTS_MODULE_NAME = "variants"
 VARIANT_NAME = "Variant"
@@ -81,24 +82,40 @@ _SCALAR_TYPE_NAMES = (
     "String",
     "Path",
 )
-# A constant is named by its LabVIEW type name, except where generated code
-# already uses that name (``Path`` is ``pathlib.Path``).
-_CONSTANT_SPELLING = {"Path": "LVPath"}
+
+
+# LabVIEW's error cluster: the three fields every error wire has, in order.
+def _error_cluster() -> LVType:
+    return LVType(
+        LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField("status", _scalar("Boolean")),
+            ClusterField("code", _scalar("NumInt32")),
+            ClusterField("source", _scalar("String")),
+        ],
+    )
 
 
 def _scalar(name: str) -> LVType:
     return LVType(LVTypeKind.PRIMITIVE, underlying_type=name)
 
 
+# A constant is named ``LV_`` and its LabVIEW type name. A class or typedef is
+# named from its file by ``type_names.derive_python_name``, which never writes an
+# underscore inside a name, so no generated class can take a constant's name.
+_CONSTANT_PREFIX = "LV_"
+
+
 def _constant_name(lv_type: LVType) -> str:
-    descriptor = lv_type.type_descriptor()
-    return _CONSTANT_SPELLING.get(descriptor, descriptor)
+    return f"{_CONSTANT_PREFIX}{lv_type.type_descriptor()}"
 
 
-# Each scalar constant's name by the inline expression it stands for.
+# Each constant's name by the inline expression it stands for: one for each
+# scalar type and one for the error cluster.
 _CONSTANTS: dict[str, str] = {
     _inline_expression(lv_type): _constant_name(lv_type)
-    for lv_type in map(_scalar, _SCALAR_TYPE_NAMES)
+    for lv_type in (*map(_scalar, _SCALAR_TYPE_NAMES), _error_cluster())
 }
 
 

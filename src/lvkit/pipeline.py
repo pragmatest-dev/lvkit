@@ -51,6 +51,7 @@ from lvkit.codegen.notifiers_module import (
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.type_constants import share_type_constants
 from lvkit.codegen.type_module import build_type_module
 from lvkit.codegen.variants_module import (
     VARIANTS_MODULE_NAME,
@@ -688,6 +689,7 @@ def _generate_polymorphic_module(
             data_files=data_files,
             gaps=gaps,
             shared=shared,
+            share_types=False,
         )
         # Take the function and result class; collect imports the body needs
         # into the shared header rather than dropping them.
@@ -746,6 +748,7 @@ def _generate_polymorphic_module(
     module = merge_variants_imports(
         remove_unused_imports(remove_duplicate_imports(ast.parse("\n".join(lines))))
     )
+    module = share_type_constants(module)
     return ast.unparse(module) + "\n"
 
 

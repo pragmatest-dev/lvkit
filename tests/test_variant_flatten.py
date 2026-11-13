@@ -119,7 +119,7 @@ def test_a_constant_type_string_reads_a_number() -> None:
     generated = from_string(I32)
     variants = generated_variants()
     assert result_values(generated.function("\x00\x00\x00\x07")) == (
-        variants.Variant(7, variants.I32),
+        variants.Variant(7, variants.LV_I32),
     )
     assert "lvkit" not in generated.source and "pickle" not in generated.source
 
@@ -152,7 +152,7 @@ def test_a_typed_cluster_flattens_as_nis_flattened_data_page() -> None:
 def test_the_round_trip_hands_back_the_value() -> None:
     variants = generated_variants()
     assert result_values(round_trip(I32).function(7)) == (
-        variants.Variant(7, variants.I32),
+        variants.Variant(7, variants.LV_I32),
     )
     (held,) = result_values(round_trip(array("NumInt32")).function([1, 2, 3]))
     assert (held.value, held.type.code) == ([1, 2, 3], 0x40)
@@ -175,7 +175,9 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
     assert "pickle.dumps" in flatten.source
     variants = generated_variants()
     given = variants.Variant(
-        {"a": [1, 2.5]}, variants.I32, {"note": variants.Variant("x", variants.String)}
+        {"a": [1, 2.5]},
+        variants.LV_I32,
+        {"note": variants.Variant("x", variants.LV_String)},
     )
     type_string, _ = result_values(flatten.function(given))
     assert type_string is None

@@ -75,8 +75,8 @@ def test_a_typed_wire_into_a_subvis_variant_control_is_a_variant_of_its_type(
     package = project.generate(NAME, {"take": TAKE})
 
     variants = package.variants
-    assert package.function().seen == variants.Variant(5, variants.I32)
-    assert "Variant(5, I32)" in package.source
+    assert package.function().seen == variants.Variant(5, variants.LV_I32)
+    assert "Variant(5, LV_I32)" in package.source
     assert "lvkit" not in package.source
 
 
@@ -197,7 +197,7 @@ def test_equal_compares_the_type_the_value_and_the_attributes(
     project.add(vi)
     package = project.generate(NAME)
     variants = package.variants
-    variant, i32, dbl = variants.Variant, variants.I32, variants.DBL
+    variant, i32, dbl = variants.Variant, variants.LV_I32, variants.LV_DBL
     same = package.function
     assert same(variant(1, i32), variant(1.0, dbl)).same is False
     assert same(variant(1, i32), variant(2, i32)).same is False
@@ -221,9 +221,9 @@ def test_a_variant_constant_with_attributes_is_a_variant_of_them(
     project.add(vi)
     package = project.generate(NAME)
     variants = package.variants
-    assert "Variant(7, I32, {'a': Variant(1, I32, {})})" in package.source
+    assert "Variant(7, LV_I32, {'a': Variant(1, LV_I32, {})})" in package.source
     assert package.function().out == variants.Variant(
-        7, variants.I32, {"a": variants.Variant(1, variants.I32)}
+        7, variants.LV_I32, {"a": variants.Variant(1, variants.LV_I32)}
     )
 
 
@@ -241,7 +241,7 @@ def test_an_unwired_variant_input_is_a_new_empty_variant_for_each_call(
     first, second = package.function().out, package.function().out
     assert first == second == package.variants.Variant()
     assert first is not second
-    kept = package.variants.Variant(3, package.variants.I32)
+    kept = package.variants.Variant(3, package.variants.LV_I32)
     assert package.function(v=kept).out is kept
 
 
@@ -280,5 +280,5 @@ def test_a_variant_made_for_a_typed_wire_is_not_copied_before_it_is_changed(
     variants = package.variants
     assert out.shown == 7
     assert out.result == variants.Variant(
-        7, variants.I32, {"a": variants.Variant("b", variants.String)}
+        7, variants.LV_I32, {"a": variants.Variant("b", variants.LV_String)}
     )

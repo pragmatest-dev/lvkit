@@ -51,6 +51,7 @@ from .panel_hooks import (
     reads_in_frame,
 )
 from .references import REFERENCE_KINDS, generated_nodes
+from .type_constants import share_type_constants
 from .type_default import control_default
 from .variant_values import wrap_if_coerced
 
@@ -67,6 +68,7 @@ def build_module(
     gaps: list[Gap] | None = None,
     shared: ModuleParts | None = None,
     hooks_out: list[PanelHooks] | None = None,
+    share_types: bool = True,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -87,6 +89,9 @@ def build_module(
             globals are named against one another, never twice.
         hooks_out: When a list, the hooks of the VI (``panel_hooks``) are added
             to it when it has any: the names its panel passes and reads.
+        share_types: Whether each ``LVType`` the module writes more than once is
+            defined once (``type_constants``); a caller that joins several modules
+            does it on the joined module instead.
 
     Returns:
         Python source code as string
@@ -138,6 +143,8 @@ def build_module(
 
     # Optimize AST (duplicate imports, dead code)
     module = optimize_module(module)
+    if share_types:
+        module = share_type_constants(module)
 
     # Fix locations and unparse
     ast.fix_missing_locations(module)

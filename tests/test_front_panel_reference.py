@@ -242,7 +242,7 @@ def test_set_run_get_through_a_static_reference(tmp_path: Path) -> None:
         # Ctrl Val.Get gives the control's value as a Variant of its type, and the
         # Set of a Variant of the same type is the value the run sees.
         variants = module("variants")
-        assert result.out == variants.Variant(5, variants.I32)
+        assert result.out == variants.Variant(5, variants.LV_I32)
         assert result.error_out is None
 
 
@@ -274,12 +274,12 @@ def test_get_all_lists_the_controls_or_the_indicators(tmp_path: Path) -> None:
     with package.use() as module:
         variants = module("variants")
         assert module("runner").runner().out == [
-            ("y", variants.Variant(5, variants.I32))
+            ("y", variants.Variant(5, variants.LV_I32))
         ]
         panel = module("target").target.panel
         assert panel.get_all(True) == [("x", 4)]
         assert panel.get_all_variants(True) == [
-            ("x", variants.Variant(4, variants.I32))
+            ("x", variants.Variant(4, variants.LV_I32))
         ]
         assert panel.get_all(False) == [("y", 5)]
 
@@ -390,7 +390,7 @@ def test_a_set_in_a_subvi_is_the_value_the_run_in_another_uses(
     assert "target()" not in package.sources["runner"]
     with package.use() as module:
         variants = module("variants")
-        assert module("runner").runner().out == variants.Variant(5, variants.I32)
+        assert module("runner").runner().out == variants.Variant(5, variants.LV_I32)
 
 
 def test_a_reference_the_code_receives_is_a_front_panel_too(tmp_path: Path) -> None:
@@ -425,7 +425,7 @@ def test_a_reference_the_code_receives_is_a_front_panel_too(tmp_path: Path) -> N
         variants = module("variants")
         runner = module("runner").runner
         assert runner(ref=module("target").target).out == variants.Variant(
-            10, variants.I32
+            10, variants.LV_I32
         )
         # A reference that is Not a Refnum is error 1026 on the node's error out.
         assert runner(ref=None).out == variants.Variant()
@@ -834,7 +834,7 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     package = project.generate()
     assert (
         "controls={'hidden': 'hidden'}, indicators={'shown': 'shown'}, "
-        "types={'hidden': I32, 'shown': I32}, defaults={'hidden': lambda: 0}"
+        "types={'hidden': LV_I32, 'shown': LV_I32}, defaults={'hidden': lambda: 0}"
         in package.sources["take"]
     )
     with package.use() as module:
@@ -913,7 +913,7 @@ def test_ctrl_val_on_a_shared_label_reaches_the_first_in_tabbing_order(
         panel.put("same", 4)
         panel.put("same_2", 9)
         variants = module("variants")
-        assert module("runner").runner().out == variants.Variant(4, variants.I32)
+        assert module("runner").runner().out == variants.Variant(4, variants.LV_I32)
 
 
 def twice_target(vi: str) -> tuple[VIContext, list[GraphNode]]:

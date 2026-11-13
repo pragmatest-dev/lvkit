@@ -110,8 +110,8 @@ def test_a_variant_gives_the_code_of_the_type_it_records(
     exec_generated(source, namespace, "caller.py")
     variants = generated_variants()
     caller = namespace["caller"]
-    assert caller(variants.Variant(5, variants.I32)).t == 0x03
-    assert caller(variants.Variant("x", variants.String)).t == 0x30
+    assert caller(variants.Variant(5, variants.LV_I32)).t == 0x03
+    assert caller(variants.Variant("x", variants.LV_String)).t == 0x30
     assert caller(variants.Variant()).t == 0
 
 

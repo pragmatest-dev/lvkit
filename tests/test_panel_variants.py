@@ -24,17 +24,17 @@ def _panel():
         lambda **_: None,
         controls={"x": "x", "v": "v", "u": "u"},
         indicators={"t": "t"},
-        types={"x": variants.I32, "t": variants.String},
+        types={"x": variants.LV_I32, "t": variants.LV_String},
         variants=["v"],
     )
 
 
 def test_set_variant_stores_the_data_of_the_variant_in_a_typed_control() -> None:
     variants, panel = generated_variants(), _panel()
-    panel.set_variant("x", variants.Variant(4, variants.I32))
+    panel.set_variant("x", variants.Variant(4, variants.LV_I32))
     assert panel.get("x") == 4
     # A control takes the data of any non-empty variant: the type is not judged.
-    panel.set_variant("x", variants.Variant(2.5, variants.DBL))
+    panel.set_variant("x", variants.Variant(2.5, variants.LV_DBL))
     assert panel.get("x") == 2.5
 
 
@@ -50,7 +50,7 @@ def test_a_control_that_holds_a_variant_keeps_the_variant_it_is_given() -> None:
     variants, panel = generated_variants(), _panel()
     assert panel.get_variant("v") == variants.Variant()  # nothing set yet
     given = variants.Variant(
-        5, variants.I32, {"a": variants.Variant("x", variants.String)}
+        5, variants.LV_I32, {"a": variants.Variant("x", variants.LV_String)}
     )
     panel.set_variant("v", given)
     assert panel.get_variant("v") is given
@@ -61,8 +61,8 @@ def test_a_control_that_holds_a_variant_keeps_the_variant_it_is_given() -> None:
 def test_get_variant_gives_the_value_with_the_type_the_panel_records() -> None:
     variants, panel = generated_variants(), _panel()
     panel.put("x", 7)
-    assert panel.get_variant("x") == variants.Variant(7, variants.I32)
-    assert panel.get_variant("t") == variants.Variant(None, variants.String)
+    assert panel.get_variant("x") == variants.Variant(7, variants.LV_I32)
+    assert panel.get_variant("t") == variants.Variant(None, variants.LV_String)
     # A control the panel records no type for gives a Variant of no type.
     panel.put("u", 3)
     assert panel.get_variant("u") == variants.Variant(3)
@@ -72,21 +72,21 @@ def test_get_all_variants_gives_each_value_as_get_variant_does() -> None:
     variants, panel = generated_variants(), _panel()
     panel.put("x", 7)
     assert panel.get_all_variants(True) == [
-        ("x", variants.Variant(7, variants.I32)),
+        ("x", variants.Variant(7, variants.LV_I32)),
         ("v", variants.Variant()),
         ("u", variants.Variant(None)),
     ]
     assert panel.get_all_variants(False) == [
-        ("t", variants.Variant(None, variants.String))
+        ("t", variants.Variant(None, variants.LV_String))
     ]
 
 
 def test_the_variant_of_a_control_reference_goes_through_the_same_methods() -> None:
     variants, panel = generated_variants(), _panel()
     reference = {c.name: c for c in panel.controls}
-    reference["x"].variant = variants.Variant(9, variants.I32)
+    reference["x"].variant = variants.Variant(9, variants.LV_I32)
     assert panel.get("x") == 9
-    assert reference["x"].variant == variants.Variant(9, variants.I32)
+    assert reference["x"].variant == variants.Variant(9, variants.LV_I32)
     assert reference["x"].value == 9  # the plain value is unchanged
     with pytest.raises(generated_panels().PanelError):
         reference["x"].variant = variants.Variant()

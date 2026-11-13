@@ -78,7 +78,7 @@ def test_a_variant_is_empty_only_when_it_holds_no_data(
         variants = module("variants")
         held = variants.Variant()
         if type_name is not None:
-            held = variants.Variant(value, getattr(variants, type_name))
+            held = variants.Variant(value, getattr(variants, f"LV_{type_name}"))
         assert module("isempty").isempty(c=held).out is is_empty
 
 

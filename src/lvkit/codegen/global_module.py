@@ -40,6 +40,7 @@ from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
 from .panel_types import panel_type_keywords
 from .panels_module import PANEL_VALUES_NAME, PANELS_MODULE_NAME
+from .type_constants import share_type_constants
 from .type_default import holds_class, state_seed
 from .variants_module import variants_import
 
@@ -229,5 +230,6 @@ def build_global_module(
             type_ignores=[],
         )
     )
+    module = share_type_constants(module)
     ast.fix_missing_locations(module)
     return ast.unparse(module)

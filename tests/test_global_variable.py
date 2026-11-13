@@ -525,9 +525,9 @@ def test_a_global_vi_module_imports_only_what_it_reads() -> None:
     assert source == (
         "from __future__ import annotations\n"
         "from .panels import PanelValues\n"
-        "from .variants import I32\n"
+        "from .variants import LV_I32\n"
         "panel = PanelValues(controls={'count': 'Count', 'error_out': 'error out', "
-        "'settings': 'Settings'}, types={'count': I32}, storage=globals())\n"
+        "'settings': 'Settings'}, types={'count': LV_I32}, storage=globals())\n"
         "count: int = 5\n"
         "error_out: LabVIEWError | None = None\n"
         "settings: tuple = (3, 4)"

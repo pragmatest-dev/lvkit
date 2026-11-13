@@ -195,9 +195,9 @@ def test_a_cluster_field_of_a_loaded_class_is_a_new_object_of_it(
 def test_a_cluster_holding_a_variant_with_a_value_writes_the_variant() -> None:
     lv_type = _cluster(("v", _VARIANT), ("n", _I32))
     expression = _expression(lv_type, _I32_VARIANT + bytes(4))
-    assert expression == "(Variant(5, I32, {}), 0)"
+    assert expression == "(Variant(5, LV_I32, {}), 0)"
     variants = generated_variants()
-    assert _evaluate(expression) == (variants.Variant(5, variants.I32), 0)
+    assert _evaluate(expression) == (variants.Variant(5, variants.LV_I32), 0)
 
 
 def test_an_empty_variant_with_attributes_in_a_cluster_is_a_variant_of_them() -> None:
@@ -209,14 +209,14 @@ def test_an_empty_variant_with_attributes_in_a_cluster_is_a_variant_of_them() ->
 def test_an_empty_variant_constant_with_attributes_is_a_variant_of_them() -> None:
     expression = _expression(_VARIANT, _TWO_ATTRIBUTES)
     assert expression == (
-        "Variant(None, None, {'a': Variant(1, I32, {}), "
-        "'b': Variant('x', String, {})})"
+        "Variant(None, None, {'a': Variant(1, LV_I32, {}), "
+        "'b': Variant('x', LV_String, {})})"
     )
     variants = generated_variants()
     assert _evaluate(expression) == variants.Variant(
         attributes={
-            "a": variants.Variant(1, variants.I32),
-            "b": variants.Variant("x", variants.String),
+            "a": variants.Variant(1, variants.LV_I32),
+            "b": variants.Variant("x", variants.LV_String),
         }
     )
 
@@ -228,10 +228,10 @@ def test_an_empty_variant_constant_without_attributes_is_an_empty_variant() -> N
 def test_a_variant_with_a_value_and_attributes_is_a_variant_of_both() -> None:
     data = _I32_VARIANT[:-4] + (1).to_bytes(4, "big") + _string("a") + _EMPTY_VARIANT
     expression = _expression(_VARIANT, data)
-    assert expression == "Variant(5, I32, {'a': Variant()})"
+    assert expression == "Variant(5, LV_I32, {'a': Variant()})"
     variants = generated_variants()
     assert _evaluate(expression) == variants.Variant(
-        5, variants.I32, {"a": variants.Variant()}
+        5, variants.LV_I32, {"a": variants.Variant()}
     )
 
 

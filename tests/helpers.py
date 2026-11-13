@@ -350,14 +350,15 @@ GENERATED_PACKAGE = "generated_package"
 
 
 _PANEL_LINE = re.compile(
-    r"^([\w.]+\.panel = Panel\(|from \.+panels import |from \.+variants import )"
+    r"^([\w.]+\.panel = Panel\(|from \.+panels import |from \.+variants import "
+    r"|[A-Z0-9_]+_TYPE = LVType\()"
 )
 
 
 def without_panel_attributes(source: str) -> str:
     """``source`` without the lines that give a function its ``panel`` and import
-    ``Panel`` and the type constants its ``types`` name
-    (``codegen/panel_description.py``):
+    ``Panel``, the type constants its ``types`` name and the ``LVType`` constants
+    it shares (``codegen/panel_description.py``, ``codegen/type_constants.py``):
     a test that pins a function's exact source is about the function, and
     ``tests/test_front_panel_reference.py`` pins the panel."""
     return "\n".join(line for line in source.split("\n") if not _PANEL_LINE.match(line))

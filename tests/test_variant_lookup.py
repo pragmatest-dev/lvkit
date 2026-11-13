@@ -126,7 +126,7 @@ def _table(package, **attributes):
     variants = package.variants
     return variants.Variant(
         attributes=
-        {k: variants.Variant(v, variants.String) for k, v in attributes.items()}
+        {k: variants.Variant(v, variants.LV_String) for k, v in attributes.items()}
     )
 
 
@@ -137,7 +137,7 @@ def test_get_finds_an_attribute_set_on_an_empty_variant(
     assert "getattr" not in package.source
     assert "lvkit" not in package.source
     hit = package.function("colour", "red", "colour")
-    colour = package.variants.Variant("red", package.variants.String)
+    colour = package.variants.Variant("red", package.variants.LV_String)
     assert (hit.value, hit.found) == (colour, True)
     assert hit.duplicate == _table(package, colour="red")
     miss = package.function("colour", "red", "size")
@@ -160,11 +160,11 @@ def test_get_reads_an_attribute_of_a_constant_that_has_attributes(
     assert "lvkit" not in package.source
     variants = package.variants
     hit = package.function("b")
-    assert (hit.value, hit.found) == (variants.Variant("x", variants.String), True)
+    assert (hit.value, hit.found) == (variants.Variant("x", variants.LV_String), True)
     assert hit.duplicate == variants.Variant(
         attributes={
-            "a": variants.Variant(1, variants.I32),
-            "b": variants.Variant("x", variants.String),
+            "a": variants.Variant(1, variants.LV_I32),
+            "b": variants.Variant("x", variants.LV_String),
         }
     )
     miss = package.function("c")
@@ -178,7 +178,7 @@ def test_get_without_a_name_returns_all_names_and_values_sorted(
     result = package.function("colour", "red")
     assert (result.found, result.value) == (
         ["colour"],
-        [package.variants.Variant("red", package.variants.String)],
+        [package.variants.Variant("red", package.variants.LV_String)],
     )
 
 
@@ -196,9 +196,9 @@ def test_get_without_a_name_lists_the_names_in_ascending_order(
     variants = package.variants
     given = variants.Variant(
         attributes={
-            "b": variants.Variant(2, variants.I32),
-            "a": variants.Variant(1, variants.I32),
-            "c": variants.Variant(3, variants.I32),
+            "b": variants.Variant(2, variants.LV_I32),
+            "a": variants.Variant(1, variants.LV_I32),
+            "c": variants.Variant(3, variants.LV_I32),
         }
     )
     result = package.function(given)
@@ -287,7 +287,7 @@ def test_get_on_a_variant_parameter_reads_the_variant_passed(
     given = _table(package, **{"Package Name": "x"})
     hit = package.function(given, "Package Name")
     assert (hit.value, hit.found) == (
-        package.variants.Variant("x", package.variants.String),
+        package.variants.Variant("x", package.variants.LV_String),
         True,
     )
     miss = package.function(given, "Other")

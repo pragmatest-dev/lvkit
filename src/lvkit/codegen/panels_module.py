@@ -25,7 +25,7 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         passed={"thing_out": "self"},
         defaults={"list_": lambda: []},
         clusters={"cfg": (("a", "a"), ("b", 1), ("inner", "inner", (("x", 0),)))},
-        types={"x": DBL, "y": DBL},
+        types={"x": LV_DBL, "y": LV_DBL},
         variants=["any"],
         order=["list_", "thing_out", "x", "y"],
     )

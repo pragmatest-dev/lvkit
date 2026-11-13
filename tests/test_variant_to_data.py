@@ -31,7 +31,7 @@ def variant(value: object = None, type_name: str | None = None):
     variants = generated_variants()
     if type_name is None:
         return variants.Variant()
-    return variants.Variant(value, getattr(variants, type_name))
+    return variants.Variant(value, getattr(variants, f"LV_{type_name}"))
 
 
 def _convert(data_type: LVType, *, error_out: bool = True):

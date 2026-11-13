@@ -89,7 +89,7 @@ def _table(package, **attributes):
     variants = package.variants
     return variants.Variant(
         attributes={
-            k: variants.Variant(v, variants.String) for k, v in attributes.items()
+            k: variants.Variant(v, variants.LV_String) for k, v in attributes.items()
         }
     )
 

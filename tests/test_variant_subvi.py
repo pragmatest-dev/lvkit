@@ -94,7 +94,7 @@ def _table(package, **attributes):
     variants = package.variants
     return variants.Variant(
         attributes={
-            k: variants.Variant(v, variants.String) for k, v in attributes.items()
+            k: variants.Variant(v, variants.LV_String) for k, v in attributes.items()
         }
     )
 
@@ -107,7 +107,7 @@ def test_a_subvi_built_table_carries_its_attributes(
     package = project.generate(NAME)
     result = package.function("colour", "red", "colour")
     assert (result.value, result.found) == (
-        package.variants.Variant("red", package.variants.String),
+        package.variants.Variant("red", package.variants.LV_String),
         True,
     )
 
@@ -121,7 +121,7 @@ def test_a_table_built_two_subvis_down_carries_its_attributes(
     package = project.generate(NAME)
     result = package.function("colour", "red", "colour")
     assert (result.value, result.found) == (
-        package.variants.Variant("red", package.variants.String),
+        package.variants.Variant("red", package.variants.LV_String),
         True,
     )
 
@@ -155,7 +155,7 @@ def test_a_passthrough_of_an_empty_built_variant_carries_its_attributes(
     package = project.generate(NAME)
     result = package.function("colour", "red", "colour")
     assert (result.value, result.found) == (
-        package.variants.Variant("red", package.variants.String),
+        package.variants.Variant("red", package.variants.LV_String),
         True,
     )
 
@@ -167,7 +167,7 @@ def test_a_passthrough_of_a_parameter_of_the_top_vi_returns_the_variant_passed(
     project.add(_passes_variant("Pass.vi", wired="control", pane=True))
     package = project.generate(NAME)
     result = package.function(_table(package, colour="red"), "colour")
-    assert result.value == package.variants.Variant("red", package.variants.String)
+    assert result.value == package.variants.Variant("red", package.variants.LV_String)
 
 
 def test_a_passthrough_of_a_control_off_the_pane_passes_its_empty_default(

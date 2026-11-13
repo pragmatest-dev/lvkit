@@ -222,7 +222,7 @@ def test_a_control_reference_reads_its_label_indicator_and_value(
         panel = module("target").target.panel
         panel.set("a", 4)
         by_label = {c.label: c for c in panel.controls}
-        variant, i32 = module("variants").Variant, module("variants").I32
+        variant, i32 = module("variants").Variant, module("variants").LV_I32
         result = module("reader").reader(ctl=by_label["a"])
         # The Value property is a variant: the control's value and its type.
         assert (result.label, result.indicator, result.value) == (
@@ -255,7 +255,7 @@ def test_the_value_of_a_control_reference_is_the_panels_value(
     assert ".variant = " in package.sources["writer"]
     with package.use() as module:
         panel = module("target").target.panel
-        variant, i32 = module("variants").Variant, module("variants").I32
+        variant, i32 = module("variants").Variant, module("variants").LV_I32
         first_indicator = next(c for c in panel.controls if c.indicator)
         written = module("writer").writer(ctl=first_indicator, v=variant(7, i32))
         assert written.error_out is None
@@ -274,7 +274,7 @@ def test_a_reference_that_is_not_a_refnum_is_error_1026_on_error_out(
     project.add_vi("Writer", writer)
     package = project.generate()
     with package.use() as module:
-        variant, i32 = module("variants").Variant, module("variants").I32
+        variant, i32 = module("variants").Variant, module("variants").LV_I32
         result = module("reader").reader(ctl=None)
         assert result.error_out.code == 1026
         assert (result.label, result.indicator, result.value) == (

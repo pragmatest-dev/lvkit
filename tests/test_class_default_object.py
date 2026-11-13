@@ -118,7 +118,7 @@ def test_a_failed_variant_to_data_gives_the_class_default_object(
     with package.use() as module:
         base_class, convert = module("base").Base, module("convert").convert
         variants = module("variants")
-        failed = convert(v=variants.Variant("not an object", variants.String))
+        failed = convert(v=variants.Variant("not an object", variants.LV_String))
         assert failed.error_out.code == 91
         assert type(failed.d) is base_class
         assert failed.d._Base__count == 0
