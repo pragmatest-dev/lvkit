@@ -2,33 +2,50 @@
   "primitives": {
     "1350": {
       "name": "Stop",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/stop.html",
+      "imports": [
+        "import sys"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "input",
           "name": "stop? (T)",
           "type": "Boolean",
-          "default": true
+          "default": true,
+          "error_cluster_status": true
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
+      "verified": true,
       "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/stop.html"
+      "python_code": {
+        "_import": "import sys",
+        "_body": "if in_0:\n    sys.exit()"
+      },
+      "inline": false
     },
     "1352": {
       "name": "Quit LabVIEW",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/quit-labview.html",
+      "imports": [
+        "import sys"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "input",
           "name": "quit? (T)",
           "type": "Boolean",
-          "default": true
+          "default": true,
+          "error_cluster_status": true
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "python_code": {
+        "_import": "import sys",
+        "_body": "if in_0:\n    sys.exit()"
+      },
+      "inline": false
     },
     "1920": {
       "name": "Property Node",

@@ -20,6 +20,7 @@
     },
     "1427": {
       "name": "Default Directory",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/default-directory.html",
       "terminals": [
         {
           "index": 0,
@@ -29,10 +30,16 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "What Python calls LabVIEW's default directory (the Options dialog's Default Directory, where LabVIEW stores files unless a path says otherwise) is a decision: the current directory, or a user data folder."
     },
     "1435": {
       "name": "Temporary Directory",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/temporary-directory.html",
+      "imports": [
+        "import tempfile",
+        "from pathlib import Path"
+      ],
       "terminals": [
         {
           "index": 0,
@@ -41,8 +48,11 @@
           "type": "Path"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "python_code": {
+        "path": "Path(tempfile.gettempdir())"
+      },
+      "inline": true
     }
   }
 }

@@ -91,6 +91,8 @@ PRIMITIVES = {
     "8068:Move": COPY_MOVE,
     "8070:Read from Text File": FILE_PATH_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
+    "8074:Set File Size": FILE_REFNUM_OPS,
+    "8076:Set Permissions": FILE_PATH_OPS,
     "8078:Write to Binary File": FILE_REFNUM_OPS,
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
