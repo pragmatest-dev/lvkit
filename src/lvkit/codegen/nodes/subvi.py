@@ -89,8 +89,9 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             # The call records the file of the variant it runs, which the
             # catalog lists under its own name.
             vilib_vi = _get_vilib_vi(node, ctx)
-        if not vilib_vi:
-            # Variant not in JSON — fail or emit inline raise
+        if not vilib_vi and not _runs_loaded_variant(node, ctx):
+            # Variant neither in the catalog nor a VI of the graph — fail or emit
+            # inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
 
     else:
@@ -126,6 +127,17 @@ def _records_instance_file(node: VINode, ctx: CodeGenContext) -> bool:
     polymorphic VI's file."""
     file_name = _vilib_resolver(ctx).catalog_file_name(ctx.catalog_path(node))
     return file_name is not None and file_name != (node.name or "").rsplit(":", 1)[-1]
+
+
+def _runs_loaded_variant(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether the variant a call of a polymorphic VI runs is a VI loaded in the
+    graph, whose own module the call imports: a VI of the project is no catalog
+    entry, whatever the path its caller records for it."""
+    return (
+        ctx.graph is not None
+        and node.variant_key is not None
+        and ctx.graph.is_loaded_vi(node.variant_key)
+    )
 
 
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
