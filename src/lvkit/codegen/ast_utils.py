@@ -511,7 +511,8 @@ GENERATED_MODULE_NAMES = frozenset(
     {
         "builtins", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
         "functools", "gc", "getpass", "hightime",
-        "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
+        "importlib", "inspect", "io", "ipaddress", "keyword", "locale", "math",
+        "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
         "shutil", "socket", "stat", "statistics",
@@ -759,6 +760,7 @@ def paren_if_compound(expr: str) -> str:
     ):
         return f"({expr})"
     return expr
+
 
 # The import of the ``copy`` module, for the code that makes a one-level copy.
 COPY_IMPORT = "import copy"
