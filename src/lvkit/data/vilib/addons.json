@@ -1,6 +1,6 @@
 {
   "category": "Addons",
-  "count": 6,
+  "count": 8,
   "entries": [
     {
       "name": "LabVIEW Add-ons from National Instruments",
@@ -210,6 +210,162 @@
       "imports": [
         "import sys"
       ]
+    },
+    {
+      "name": "Get LV Enum Value from Proto Value",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Shared/Get LV Enum Value from Proto Value.vi",
+      "category": "Addons",
+      "description": "gRPC library: the LabVIEW enum value (the position of the item in the enum's registered list) of a proto enum number; error -2003 for a number the enum does not hold.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "labview enum value",
+          "index": 1,
+          "direction": "output",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "labview_enum_value"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "proto enum value",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "proto_enum_value"
+        },
+        {
+          "name": "enum name",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "enum_name"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "PROTO_ENUM_TO_LV_ENUM",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "ValueError",
+          "code": -2003
+        },
+        {
+          "exception": "IndexError",
+          "code": -2003
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Get Proto Enum Value from LV Value",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Shared/Get Proto Enum Value from LV Value.vi",
+      "category": "Addons",
+      "description": "gRPC library: the proto enum number of the item at a LabVIEW enum value in the enum's registered list; error -2003 for a value past the list.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "proto enum value",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "proto_enum_value"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "labview enum value",
+          "index": 9,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "labview_enum_value"
+        },
+        {
+          "name": "enum name",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "enum_name"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "LV_ENUM_TO_PROTO_ENUM",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "ValueError",
+          "code": -2003
+        },
+        {
+          "exception": "IndexError",
+          "code": -2003
+        }
+      ],
+      "imports": []
     }
   ]
 }

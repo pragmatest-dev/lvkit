@@ -19,7 +19,7 @@ from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOU
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext, VINode, Wire
+from lvkit.graph.models import Constant, VIContext, VINode, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
@@ -51,6 +51,7 @@ def run_catalog_call(
     arguments: Mapping[str, Any],
     gaps: list[Gap] | None = None,
     runtime_not_implemented: bool = False,
+    constants: Mapping[int, tuple[str, LVType]] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -61,7 +62,9 @@ def run_catalog_call(
     ``runtime_not_implemented`` allows the VI's Python to raise
     ``NotImplementedError`` for a case it finds only when it runs (an LLB, a
     dialog): the generation itself still has no gap. A ``gaps`` list collects
-    the gaps the generation finds, for a test that expects one.
+    the gaps the generation finds, for a test that expects one. ``constants``
+    wires a constant of the diagram, ``(value, type)``, to each call input
+    index it names.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -121,8 +124,19 @@ def run_catalog_call(
     context = VIContext(
         name="caller.vi",
         inputs=controls,
+        constants=[
+            Constant(id=f"const{index}", value=value, lv_type=lv_type)
+            for index, (value, lv_type) in (constants or {}).items()
+        ],
         outputs=indicators,
         data_flow=[
+            *(
+                Wire.from_terminals(
+                    from_terminal_id=f"const{index}",
+                    to_terminal_id=f"k:input{index}",
+                )
+                for index in (constants or {})
+            ),
             *(
                 Wire.from_terminals(
                     from_terminal_id=f"fp:{name}",

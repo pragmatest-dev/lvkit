@@ -66,6 +66,11 @@ TCP_READ_WRITE = [
 
 VISA = [("VisaIOError", None)]
 
+# The gRPC library's own InvalidEnumValueException code (its exceptions.h), not
+# one of NI's listed codes: the message is the exception's text.
+GRPC_LIBRARY_CODES = {-2003}
+GRPC_ENUM_VALUE = [("ValueError", -2003), ("IndexError", -2003)]
+
 PRIMITIVES = {
     "1922:VISA Close": VISA,
     "1925:VISA Read": VISA,
@@ -126,6 +131,8 @@ PRIMITIVES = {
     ],
     "connectivity:System Exec": FILE_PATH_OPS,
     "waveform:DWDT Digital to Boolean Array": [("ValueError", None)],
+    "addons:Get LV Enum Value from Proto Value": GRPC_ENUM_VALUE,
+    "addons:Get Proto Enum Value from LV Value": GRPC_ENUM_VALUE,
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
@@ -205,5 +212,6 @@ def test_every_declared_failure_is_an_exception_caught_in_a_reachable_order() ->
 
 def test_every_declared_code_has_ni_s_description() -> None:
     codes = {f.code for failures in _declared().values() for f in failures}
-    for code in {GENERIC_ERROR_CODE, *(c for c in codes if c is not None)}:
+    listed = {c for c in codes if c is not None} - GRPC_LIBRARY_CODES
+    for code in {GENERIC_ERROR_CODE, *listed}:
         assert describe_error_code(code), code

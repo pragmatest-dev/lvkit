@@ -27,6 +27,7 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
+from . import grpc_enum
 
 
 def _type_descriptor_code(
@@ -82,6 +83,8 @@ def _type_descriptor_code(
 
 _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] = {
     "TYPE_DESCRIPTOR_CODE": _type_descriptor_code,
+    "PROTO_ENUM_TO_LV_ENUM": grpc_enum.proto_to_lv,
+    "LV_ENUM_TO_PROTO_ENUM": grpc_enum.lv_to_proto,
 }
 
 
