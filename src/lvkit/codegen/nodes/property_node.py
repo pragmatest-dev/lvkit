@@ -271,7 +271,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise CodeGenError("Property value terminal is missing", node)
         segment_names = [seg.name for seg in prop.segments]
         if not segment_names or not all(segment_names):
-            raise ConversionGap("Property name is unresolved", node)
+            raise ConversionGap(
+                "Property name is unresolved: the row on the "
+                f"{node.object_name or 'unnamed'} class records no property name and "
+                "no property code, only its data type "
+                f"({term.lv_type.to_python() if term.lv_type else 'unknown'}), as "
+                "Property Nodes saved in LabVIEW 8.2 do, so which property it is "
+                "cannot be told from the file",
+                node,
+            )
         attr_name = to_var_name("_".join(segment_names))
         if attr_name in attr_names and attr_names[attr_name] != prop.name:
             raise ConversionGap("Normalized property names collide", node)

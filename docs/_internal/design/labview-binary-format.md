@@ -1369,6 +1369,18 @@ Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
 the node, the term's `<dco uid=...>` only references it, and its
 `propItemInfo` carries no `PropItemName` (the name is empty).
 
+That older layout is what LabVIEW 8.2 saves, and it records NO property identity
+at all: in the 78 JKI VI Tester files with a Property Node, all 8 saved in 8.2
+(Simulate Button Press, Simulate Control Pressed, List Dynamic Dispatch SubVIs,
+Get Project Members from Path, Read VI Hierarchy on Disk Prototype, Test Load
+Class, Get LabVIEW Class Hierarchy Prototype, Error Cluster From Error Code)
+have a `propItemInfo` of only `omidTDOffset`, `omidTypeDesc` (the class's
+reference type), `dataTypeDesc`, `tdOffset` and `objFlags`: no `PropItemName`, no
+`PropItemCode`, and no unparsed (`Unknown`) field in the extracted heap XML; the
+other 70 (9.0 and later) record a code, or a name for a class property. The
+only recorded trace of the property is its data type (`LVPositionTypeDef.ctl`, `LVBoundsTypeDef.ctl`, a path, a string),
+which several properties of a class share, so the row is a gap, not a guess.
+
 ## A Property Node row's `propItemInfo` carries `dataTypeDesc`, the property's declared type; a row saved with a `Void` terminal type keeps it there (issue #181)
 
 Each `propItemInfo` of a row's `propList` has a `<dataTypeDesc>` (a
