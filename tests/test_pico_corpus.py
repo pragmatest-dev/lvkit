@@ -72,5 +72,7 @@ def test_an_unbundle_element_stored_as_minus_one_is_a_gap_the_and_reads_as_none(
 
 def test_a_bundle_into_a_waveform_builds_the_value(tmp_path: Path) -> None:
     source = _written(WRITE_TDMS, tmp_path).read_text()
-    assert "SimpleNamespace(t0=" in source
+    # A waveform is a nitypes AnalogWaveform.
+    assert "nitypes.waveform.AnalogWaveform.from_array_1d(" in source
+    assert "SimpleNamespace(t0=" not in source
     assert "A Bundle into" not in source
