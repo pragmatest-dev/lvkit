@@ -45,7 +45,6 @@ from lvkit.graph.vi_reference import (
     CALL_REFERENCE_OUT,
     OPEN_VI_PATH_INDEX,
     OPEN_VI_REFERENCE_INDEX,
-    VI_CLASS,
     VI_DESCRIPTION_PROPERTY_CODE,
     VI_EXEC_STATE_PROPERTY_CODE,
     VI_NAME_PROPERTY_CODE,
@@ -53,6 +52,7 @@ from lvkit.graph.vi_reference import (
     ReferencedVI,
     VIReferenceComputed,
     VIReferenceUnresolved,
+    is_on_vi_reference,
 )
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
@@ -735,7 +735,7 @@ def vi_property_read(
     (``Panel.state``: 1 Idle, 2 Run top level while it runs).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
-    if node.object_name != VI_CLASS or len(prop.segments) != 1:
+    if not is_on_vi_reference(node) or len(prop.segments) != 1:
         return None
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
@@ -757,7 +757,7 @@ def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:
     panel (Exec.State), which fails with the panel's own error (1026 for a
     reference that holds no VI, 1035 for a Global VI)."""
     return (
-        node.object_name == VI_CLASS
+        is_on_vi_reference(node)
         and len(prop.segments) == 1
         and prop.segments[0].code == VI_EXEC_STATE_PROPERTY_CODE
     )

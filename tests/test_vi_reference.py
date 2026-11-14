@@ -33,7 +33,7 @@ from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import LVType, LVTypeKind, ServerClass
 from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
@@ -1138,3 +1138,51 @@ def test_the_resolver_names_the_module_it_writes_into(tmp_path: Path) -> None:
     )
     assert variant.module_key == "/p/wrap.vi"
     assert own.module_key == "/p/Main.vi"
+
+
+def _strict_path_property(tmp_path: Path, node_name: str, server_class: object):
+    """A Property Node whose heap class is ``node_name`` reading the Path of the
+    VI reference of a static VI reference; its reference input is typed as a VI
+    Server reference of ``server_class``."""
+    path = d.vi_name_property(80, 501, "Path").replace(
+        '<nodeName>"VI"</nodeName>', f'<nodeName>"{node_name}"</nodeName>'
+    )
+    loaded = d.load(
+        tmp_path,
+        [_STATIC, path, _CALL],
+        [d.wire(101, 11, 81), d.wire(102, 11, 31), d.wire(103, 89, 41)],
+    )
+    d.type_terminal(
+        loaded,
+        81,
+        LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            ref_type="LVObjCtl",
+            server_class=server_class,  # type: ignore[arg-type]
+        ),
+    )
+    return loaded
+
+
+@pytest.mark.parametrize("node_name", ["VI Interface Type 0", "VI (strict)"])
+def test_path_of_a_strict_vi_reference_is_the_file_of_the_function(
+    tmp_path: Path, node_name: str
+) -> None:
+    loaded = _strict_path_property(tmp_path, node_name, ServerClass.VI)
+    source = _refs_source_is_only(loaded)
+    assert "inspect.getfile(callee)" in source
+    for refs in _package(tmp_path, source, _CALLEE):
+        refs.refs()  # type: ignore[attr-defined]
+        callee = importlib.import_module("generated_refs.callee")
+        called_with = callee.calls[0][0]
+        assert called_with == callee.__file__
+
+
+def test_path_on_a_reference_that_is_not_a_vi_server_vi_stays_a_gap(
+    tmp_path: Path,
+) -> None:
+    loaded = _strict_path_property(tmp_path, "Foo Interface Type 0", None)
+    assert _failure(loaded) == (
+        "Property 'Path' on a Foo Interface Type 0 reference has no Python equivalent"
+    )

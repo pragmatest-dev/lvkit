@@ -36,7 +36,7 @@ from enum import Enum
 
 from lvkit.control_properties import ReferenceRow, reference_row
 from lvkit.graph.models import PrimitiveNode
-from lvkit.graph.vi_reference import VI_CLASS
+from lvkit.graph.vi_reference import is_on_vi_reference
 from lvkit.models import PropertyDef
 
 from ..ast_utils import parse_expr
@@ -87,7 +87,7 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
     of ``node`` is; None for any other row."""
     codes = [segment.code for segment in prop.segments]
     class_name = node.object_name or ""
-    if class_name == VI_CLASS:
+    if is_on_vi_reference(node):
         return PanelRow.PANEL if codes == [VI_PANEL_PROPERTY_CODE] else None
     if class_name == PANEL_CLASS:
         return PanelRow.CONTROLS if codes == [PANEL_CONTROLS_PROPERTY_CODE] else None
