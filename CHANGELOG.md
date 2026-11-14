@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Call Library Function Node `LabVIEW:MoveBlock` generates `ctypes.memmove`** — it copies `size` bytes between a numeric array's data and a pointer-sized integer address (either side, overlapping blocks included), the way the Pico examples' WriteBuffer and ReadBuffer call it; the node's array outputs read back the moved bytes.
 - **Fix: a class that failed to load is no longer called "broken in LabVIEW"** — Bundle/Unbundle By Name or In Place Element on a class's private data in a VI of a class with a recorded load problem (the measurement plug-in's "Ambiguous reference") now gaps with "the class could not be loaded" and that problem; the broken-in-LabVIEW text stays for a class that loaded and does not list the VI.
 - **Fix: a variable never takes the name of a control** — a node output or structure output tunnel labelled like a control (`error_in`, `json`, `path`) was assigned over the input in the generated function and the later reads of the control saw the new value; the output is now numbered (`json_2`).
 - **Waveforms are `nitypes` waveforms in generated Python** — Bundle and Unbundle By Name and waveform constants of the integer, Float32/64 and Complex64/128 flavors build and read `AnalogWaveform` / `ComplexWaveform` (`t0` exact to LabVIEW's 2^-64 s, `dt`, `Y` as a list, `attributes` as extended properties) instead of a `SimpleNamespace`, and `requirements.txt` lists `nitypes`; extended-precision waveforms are gaps with their reason.

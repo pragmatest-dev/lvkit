@@ -38,6 +38,7 @@ class ManagerFunction:
     declarations: tuple[ManagerDeclaration, ...]
     statements: tuple[str, ...]
     doc_url: str
+    marshalled: bool = False
 
 
 @functools.cache
@@ -57,6 +58,7 @@ def manager_functions() -> dict[str, ManagerFunction]:
             declarations=tuple(declarations[key] for key in entry["declarations"]),
             statements=tuple(entry["statements"]),
             doc_url=entry["doc_url"],
+            marshalled=entry.get("marshalled", False),
         )
         for name, entry in data["functions"].items()
     }

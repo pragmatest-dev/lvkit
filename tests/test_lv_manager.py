@@ -4,6 +4,7 @@ labview_manager.json``), run on real temporary files."""
 
 from __future__ import annotations
 
+import ctypes
 import os
 import struct
 import sys
@@ -159,7 +160,83 @@ def test_every_function_in_the_table_has_a_template() -> None:
         "FRefNumToFD",
         "FGetInfo",
         "FSetInfo",
+        "MoveBlock",
     }
     for function in manager_functions().values():
         assert function.statements
         assert function.doc_url.startswith("https://docs-be.ni.com/")
+
+
+_NO_VALUE = ExtFuncParam(ParamKind.NO_VALUE)
+
+
+def _move_block(source_param: ExtFuncParam, dest_param: ExtFuncParam):  # noqa: ANN202
+    wire = {ParamKind.ARRAY_DATA: "Array", ParamKind.VALUE: "NumUInt64"}
+    return build_vi(
+        "LabVIEW",
+        "MoveBlock",
+        [_NO_VALUE, source_param, dest_param, ExtFuncParam(ParamKind.VALUE, "uint32")],
+        ["NumInt32", wire[source_param.kind], wire[dest_param.kind], "NumUInt32"],
+        controls={1: "source", 2: "destination", 3: "size"},
+        indicators={1: "source_out", 2: "destination_out"},
+    )
+
+
+def test_move_block_copies_size_bytes_into_a_destination_array() -> None:
+    copy, source = _move_block(
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+    )
+    assert "lvkit" not in source
+    assert "ctypes.memmove" in source
+    result = copy([1, 2, 3, 4], [9, 9, 9, 9], 6)
+    # NI: moves size bytes, so three 16-bit elements
+    assert result.destination_out == [1, 2, 3, 9]
+    assert result.source_out == [1, 2, 3, 4]
+
+
+def test_move_block_moves_bytes_whatever_the_element_types() -> None:
+    copy, _ = _move_block(
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "uint8"),
+    )
+    result = copy([0x0201, 0x0403], [0, 0, 0, 0, 0], 4)
+    assert result.destination_out == [*struct.pack("=hh", 0x0201, 0x0403), 0]
+
+
+def test_move_block_reads_from_the_address_a_pointer_value_holds() -> None:
+    copy, _ = _move_block(
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+    )
+    block = (ctypes.c_int16 * 3)(7, 8, 9)
+    result = copy(ctypes.addressof(block), [0, 0, 0], 4)
+    assert result.destination_out == [7, 8, 0]
+    assert result.source_out == ctypes.addressof(block)
+
+
+def test_move_block_writes_to_the_address_a_pointer_value_holds() -> None:
+    copy, _ = _move_block(
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+    )
+    block = (ctypes.c_int16 * 3)(0, 0, 0)
+    copy([5, 6, 7], ctypes.addressof(block), 4)
+    assert list(block) == [5, 6, 0]
+
+
+def test_move_block_with_overlapping_blocks_is_safe() -> None:
+    # NI: "The source and destination memory blocks can overlap."
+    block = (ctypes.c_uint8 * 6)(1, 2, 3, 4, 5, 6)
+    copy, _ = _move_block(
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+    )
+    address = ctypes.addressof(block)
+    copy(address, address + 2, 4)
+    assert list(block) == [1, 2, 1, 2, 3, 4]
+
+
+def test_a_memory_manager_function_without_a_python_meaning_stays_a_gap() -> None:
+    # DSNewPtr hands back a pointer to memory LabVIEW owns: no standard-library call
+    assert "DSNewPtr" not in manager_functions()

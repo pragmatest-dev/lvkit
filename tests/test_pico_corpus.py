@@ -76,3 +76,32 @@ def test_a_bundle_into_a_waveform_builds_the_value(tmp_path: Path) -> None:
     assert "nitypes.waveform.AnalogWaveform.from_array_1d(" in source
     assert "SimpleNamespace(t0=" not in source
     assert "A Bundle into" not in source
+
+
+WRITE_BUFFER = ROOT / "shared/WriteBuffer.vi"
+READ_BUFFER = ROOT / "shared/ReadBuffer.vi"
+SET_ETS = ROOT / "ps5000a/PicoScope5000aLib/PicoScope5000aSetEtsTimeBuffer.vi"
+
+
+def test_move_block_in_the_buffer_vis_copies_bytes_between_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import ctypes
+    import importlib
+
+    written = _written(WRITE_BUFFER, tmp_path)
+    assert "ctypes.memmove" in written.read_text()
+    monkeypatch.syspath_prepend(str(written.parent.parent))
+    module = importlib.import_module(f"{written.parent.name}.{written.stem}")
+    block = (ctypes.c_int16 * 4)(0, 0, 0, 0)
+    # three 16-bit elements of 5 copied; the size is the smaller of 6 and 8 bytes
+    result = module.writebuffer([ctypes.addressof(block), 8], 3, element=5)
+    assert list(block) == [5, 5, 5, 0]
+    assert result.pointer_and_buffersize_out[1] == 6
+
+
+def test_move_block_callers_no_longer_gap_on_it(tmp_path: Path) -> None:
+    for vi in (WRITE_BUFFER, READ_BUFFER, SET_ETS):
+        source = _written(vi, tmp_path).read_text()
+        assert "LabVIEW:MoveBlock" not in source, vi.name
+        assert "ctypes.memmove" in source, vi.name

@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from lvkit.parser.extfunc_prototype import ExtFuncParam, ParamKind
+from lvkit.graph.models import PrimitiveNode
+from lvkit.models import LVType, Terminal
+from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam, ParamKind
 
 from ..module_declarations import ModuleDeclarations
 from .ext_func_layout import (
@@ -25,6 +27,20 @@ from .ext_func_layout import (
 )
 
 _FLOAT_ELEMENTS = ("float32", "float64")
+_FLOAT_WIRES = ("NumFloat32", "NumFloat64")
+
+
+def terminal_of(node: PrimitiveNode, terminal_id: str | None) -> Terminal | None:
+    return next((t for t in node.terminals if t.id == terminal_id), None)
+
+
+def _is(lv_type: LVType | None, *names: str) -> bool:
+    return lv_type is not None and lv_type.underlying_type in names
+
+
+def _wire_type(node: PrimitiveNode, terminal_id: str | None) -> LVType | None:
+    terminal = terminal_of(node, terminal_id)
+    return terminal.lv_type if terminal else None
 
 
 @dataclass
@@ -151,4 +167,33 @@ def _adapt(
     after, result = read(layout, prefix, prefix, module)
     return Marshalled(
         setup, f"ctypes.POINTER({structure})", f"ctypes.byref({prefix})", result, after
+    )
+
+
+def marshal_row(
+    node: PrimitiveNode,
+    call: ExtFuncCall,
+    index: int,
+    param: ExtFuncParam,
+    layout: Layout | None,
+    value: str | None,
+    prefix: str,
+    module: ModuleDeclarations,
+) -> Marshalled:
+    """Row ``index`` of the node's call, marshalled for the wire types its input
+    and output terminals carry (a text wire into a numeric array, a float wire into
+    an integer parameter)."""
+    input_id, output_id = call.row_terminal_ids[index]
+    wire_in = _wire_type(node, input_id)
+    return marshal(
+        param,
+        layout,
+        value,
+        prefix,
+        module,
+        text_in=_is(wire_in, "String"),
+        text_out=_is(_wire_type(node, output_id), "String"),
+        round_to_int=(
+            _is(wire_in, *_FLOAT_WIRES) and (param.c_type or "") not in _FLOAT_ELEMENTS
+        ),
     )

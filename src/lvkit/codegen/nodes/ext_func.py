@@ -31,7 +31,6 @@ from pathlib import PureWindowsPath
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.manager_functions import LABVIEW_LIBRARY
-from lvkit.models import LVType, Terminal
 from lvkit.parser.extfunc_prototype import (
     UNPASSABLE_KINDS,
     ExtFuncCall,
@@ -45,11 +44,8 @@ from ..fragment import CodeFragment
 from .ext_func_layout import Layout, c_type, parameter_layout
 from .ext_func_library import loader, static_name, wired_name
 from .ext_func_manager import generate_manager_call
-from .ext_func_marshal import Marshalled, default_value, marshal
+from .ext_func_marshal import Marshalled, default_value, marshal_row, terminal_of
 from .primitive import raise_unknown
-
-_FLOAT_TYPES = ("float32", "float64")
-_FLOAT_WIRES = ("NumFloat32", "NumFloat64")
 
 
 @dataclass(frozen=True)
@@ -58,15 +54,6 @@ class _Row:
 
     param: ExtFuncParam
     layout: Layout | None = None
-
-
-def _terminal(node: PrimitiveNode, terminal_id: str | None) -> Terminal | None:
-    return next((t for t in node.terminals if t.id == terminal_id), None)
-
-
-def _wire_type(node: PrimitiveNode, terminal_id: str | None) -> LVType | None:
-    terminal = _terminal(node, terminal_id)
-    return terminal.lv_type if terminal else None
 
 
 def _rows(node: PrimitiveNode, call: ExtFuncCall) -> tuple[list[_Row], str | None]:
@@ -85,7 +72,7 @@ def _rows(node: PrimitiveNode, call: ExtFuncCall) -> tuple[list[_Row], str | Non
         layout = None
         if param.kind == ParamKind.ADAPT_TO_TYPE:
             output_id = call.row_terminal_ids[index][1]
-            terminal = _terminal(node, output_id)
+            terminal = terminal_of(node, output_id)
             layout, why = parameter_layout(
                 terminal.lv_type if terminal else None,
                 (terminal.name if terminal else "") or "cluster",
@@ -94,10 +81,6 @@ def _rows(node: PrimitiveNode, call: ExtFuncCall) -> tuple[list[_Row], str | Non
                 return rows, f"{where} an Adapt to Type parameter {why}"
         rows.append(_Row(param, layout))
     return rows, None
-
-
-def _is(lv_type: LVType | None, *names: str) -> bool:
-    return lv_type is not None and lv_type.underlying_type in names
 
 
 def _library_name(library: str) -> str:
@@ -135,20 +118,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     for index, row in enumerate(rows[1:], start=1):
         input_id, output_id = call.row_terminal_ids[index]
         var = ctx.wired_input(input_id, node) if input_id else None
-        wire_in = _wire_type(node, input_id)
         marshalled.append(
-            marshal(
+            marshal_row(
+                node,
+                call,
+                index,
                 row.param,
                 row.layout,
                 var or default_value(row.param, row.layout),
                 f"_{function}_{index}",
                 module,
-                text_in=_is(wire_in, "String"),
-                text_out=_is(_wire_type(node, output_id), "String"),
-                round_to_int=(
-                    _is(wire_in, *_FLOAT_WIRES)
-                    and (row.param.c_type or "") not in _FLOAT_TYPES
-                ),
             )
         )
 
@@ -215,7 +194,7 @@ def _bind(
     bindings: dict[str, str] = {}
     names: list[str | None] = []
     for row, (_, output_id) in enumerate(call.row_terminal_ids):
-        terminal = _terminal(node, output_id)
+        terminal = terminal_of(node, output_id)
         name = (
             ctx.make_output_var(
                 terminal.name or f"param_{row}", node.id, terminal_id=terminal.id
