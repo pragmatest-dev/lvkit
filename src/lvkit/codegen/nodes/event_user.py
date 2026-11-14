@@ -41,16 +41,20 @@ from lvkit.graph.event_registration import (
 from lvkit.graph.models import AnyGraphNode, EventStructureNode
 from lvkit.models import EventFrame, EventRegRow, FrameEvent, LVType, LVTypeKind
 
-from ..ast_utils import parse_stmt
+from ..ast_utils import COPY_IMPORT, parse_stmt
 from ..cluster_members import member_expression
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..event_kinds import (
+    MESSAGE_KINDS,
     NAME,
     NEW_VALUE,
+    QUEUE_IMPORT,
     TIMEOUT_CODE,
     USER_EVENT_CODE,
+    VALUE_CHANGE_CODE,
 )
+from ..panel_hooks import has_value_change_frame
 
 _EVENT_REG = "EventReg"
 
@@ -274,6 +278,43 @@ def make_events(events: str) -> ast.stmt:
     return parse_stmt(f"if {events} is None:\n    {events} = Queue()")
 
 
+def listens_for_value_change(ctx: CodeGenContext, terminal_id: str) -> bool:
+    """Whether an Event Structure of the VI handles a Value Change of the control
+    ``terminal_id``, so that a Value Change message put on the VI's queue reaches
+    a frame of the VI itself."""
+    hooks = ctx.panel_hooks
+    return (
+        hooks is not None
+        and hooks.event_enum_name is not None
+        and terminal_id in hooks.names
+        and has_value_change_frame(ctx, terminal_id)
+    )
+
+
+def signal_value_change(
+    ctx: CodeGenContext, terminal_id: str, new: str, old: str
+) -> list[ast.stmt]:
+    """The Value Change message ``(name, new value, kind, old value)`` of the
+    control ``terminal_id``, the one the live panel puts when the user edits it
+    (``PanelEvents.value_changed``), put on the VI's ``events`` queue (made when
+    none came in). ``new`` and ``old`` are variables holding the value after and
+    before the change. Only for a control that ``listens_for_value_change``."""
+    hooks = ctx.panel_hooks
+    if hooks is None or not listens_for_value_change(ctx, terminal_id):
+        raise CodeGenError("The control has no Value Change frame to signal", None)
+    kind = next(k for k in MESSAGE_KINDS if k.code == VALUE_CHANGE_CODE)
+    events = events_var(ctx)
+    ctx.imports.update({COPY_IMPORT, QUEUE_IMPORT})
+    name = ast.unparse(hooks.member(terminal_id))
+    return [
+        make_events(events),
+        parse_stmt(
+            f"{events}.put(({name}, copy.deepcopy({new}), "
+            f"{hooks.event_member(kind)}, {old}))"
+        ),
+    ]
+
+
 def _repoint(registration: str, registered: str, events: str) -> ast.stmt:
     """Point ``registration`` at the VI's ``events`` once: each of its user events
     gets ``events`` before it loses the old queue, so a Generate on another thread
@@ -299,6 +340,8 @@ __all__ = [
     "events_var",
     "has_static_events",
     "make_events",
+    "listens_for_value_change",
+    "signal_value_change",
     "receive_queue",
     "require_handled",
     "user_event_test",

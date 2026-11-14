@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -79,14 +79,19 @@ jobs:
 
   # The same unit suite on Windows: path separators, drive letters, text
   # encodings and symlink rights differ there, and none of that is exercised on
-  # Linux. Corpus-backed tests skip (the sample corpus is not pulled in CI).
+  # Linux. Corpus-backed tests skip (the sample corpus is not pulled in CI); the
+  # full suite, corpus included, runs locally on Windows before each PR.
   test-windows:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
       - run: uv sync --all-extras --dev
       - name: Pytest

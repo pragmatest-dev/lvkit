@@ -176,7 +176,7 @@ def _require_handled(
 
 
 def _event_member(hooks: PanelHooks, kind: MessageKind) -> str:
-    return f"{hooks.event_enum_name}.{kind.member}"
+    return hooks.event_member(kind)
 
 
 def _frame_test(

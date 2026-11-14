@@ -77,33 +77,47 @@ PROPERTY_CODES = {
 def value_property(
     vi: Vi,
     pane_term: int,
-    rows: list[str | tuple[str, int]],
+    rows: list[str | tuple[str, int] | tuple[tuple[str, ...], tuple[int, ...]]],
     *,
     inner: bool = False,
+    class_name: str | None = None,
 ) -> list[int]:
     """A Property Node on the front-panel control or indicator whose terminal is
     ``pane_term``, with one row per entry of ``rows``: a property name
-    (``"Value"``, ``"Visible"``) with its code in ``PROPERTY_CODES``, or a
-    ``(stored name, code)`` pair. Returns the terminal of each row (a write when
-    wired as a sink, a read when wired as a source). With ``inner`` the node is
-    bound to an object inside the control (its label part), as for a type-defined
-    control, not to the control's own object."""
+    (``"Value"``, ``"Visible"``) with its code in ``PROPERTY_CODES``, a
+    ``(stored name, code)`` pair, or a row of several path segments as
+    ``(stored names, codes)`` tuples. Returns the terminal of each row (a write
+    when wired as a sink, a read when wired as a source). With ``inner`` the node
+    is bound to an object inside the control (its label part), as for a
+    type-defined control, not to the control's own object. ``class_name`` is the
+    class the node stores (``"IntGraph (strict)"``); the control's label when
+    omitted."""
     pane = next(p for p in vi.panes if vi.fp_terms[p.uid] == pane_term)
-    uid = vi.next_uid(1 + 3 * len(rows))
+    stride = 2 + max(
+        len(r[1]) if isinstance(r, tuple) and isinstance(r[1], tuple) else 1
+        for r in rows
+    )
+    uid = vi.next_uid(1 + stride * len(rows))
     terms = ""
     dcos = ""
     terminals: list[int] = []
     for i, row in enumerate(rows):
         name, code = row if isinstance(row, tuple) else (row, PROPERTY_CODES[row])
-        term = uid + 1 + 3 * i
+        names = name if isinstance(name, tuple) else (name,)
+        codes = code if isinstance(code, tuple) else (code,)
+        term = uid + 1 + stride * i
         terminals.append(term)
+        segments = "".join(
+            f'<SL__arrayElement class="propItemInfo" uid="{term + 2 + s}">'
+            f'<PropItemName>"{n}"</PropItemName><PropItemCode>{c}</PropItemCode>'
+            "</SL__arrayElement>"
+            for s, (n, c) in enumerate(zip(names, codes, strict=True))
+        )
         terms += (
             f'<SL__arrayElement class="term" uid="{term}">'
             f'<dco class="propItem" uid="{term + 1}"><objFlags>1</objFlags>'
-            '<propList elements="1">'
-            f'<SL__arrayElement class="propItemInfo" uid="{term + 2}">'
-            f'<PropItemName>"{name}"</PropItemName><PropItemCode>{code}</PropItemCode>'
-            "</SL__arrayElement></propList></dco></SL__arrayElement>"
+            f'<propList elements="{len(codes)}">{segments}'
+            "</propList></dco></SL__arrayElement>"
         )
         dcos += f'<SL__arrayElement uid="{term + 1}" />'
     vi.scope.nodes.append(
@@ -112,7 +126,7 @@ def value_property(
         f'<termList elements="{len(rows)}">{terms}</termList>'
         f'<dcoList elements="{len(rows)}">{dcos}</dcoList>'
         '<permDCOList elements="0"></permDCOList>'
-        f'<nodeName>"{pane.label}"</nodeName></SL__arrayElement>'
+        f'<nodeName>"{class_name or pane.label}"</nodeName></SL__arrayElement>'
     )
     return terminals
 

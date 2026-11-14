@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.control_properties import control_property, is_value_row
+from lvkit.control_properties import (
+    control_property,
+    is_value_row,
+    is_value_signaling_row,
+)
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import PropertyDef, Terminal
 
-from ..ast_utils import parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
@@ -25,6 +29,7 @@ from .base import (
     unwired_ref_class,
 )
 from .ctrl_val import report_panel_error
+from .event_user import listens_for_value_change, signal_value_change
 from .local_variable import read_control, write_control
 
 
@@ -97,8 +102,18 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     (``control_properties.json``). A ``Value`` row of a control reads the
     control's variable or assigns it, the same as a Local Variable of the control
     (``local_variable``); a listed write calls ``live_io.set_property``
-    (``panel_hooks``).
-    A node with any other row, or a ``Value`` row of an indicator, is a gap."""
+    (``panel_hooks``). A ``Value (Signaling)`` write of a control is the ``Value``
+    write, and when an Event Structure of the VI has a Value Change frame for the
+    control it also puts that event on the VI's queue, as the live panel does when
+    the user edits the control (``event_user.signal_value_change``); the control's
+    value before the write is the event's old value. The error NI documents for a
+    latching Boolean is not produced: the file's mechanical action is not read.
+    A ``Value`` row of an indicator held in a variable of the function
+    (``local_indicators``) assigns that variable or reads it; a ``Value
+    (Signaling)`` write of such an indicator assigns it the same way and fires its
+    Value Change event as for a control. A node with any other row, a ``Value`` or
+    ``Value (Signaling)`` row of an indicator that is not held, or a read of
+    ``Value (Signaling)`` (write only), is a gap."""
     graph = ctx.graph
     bound = graph.bound_terminal(node) if graph is not None else None
     control = graph.bound_control(node) if graph is not None else None
@@ -107,10 +122,23 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         node.properties, node.terminals, node.property_value_terminal_ids
     )
     supported = bound is not None and bool(rows)
+    # An indicator held in a variable (``local_indicators``) has a Value.
+    held = (
+        bound is not None
+        and bound.is_indicator
+        and bound.id in ctx.local_indicators.variables
+    )
     for row, term in rows:
         codes = [seg.code for seg in row.segments]
         if is_value_row(class_name, codes):
-            supported = supported and control is not None
+            supported = supported and (control is not None or held)
+        elif is_value_signaling_row(class_name, codes):
+            supported = (
+                supported
+                and (control is not None or held)
+                and term is not None
+                and term.direction == "input"
+            )
         else:
             listed = control_property(class_name, codes)
             supported = (
@@ -123,7 +151,9 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(
             "Implicit property reference requires a binding model: only a Property "
             "Node of a control or indicator of the VI whose rows are Value (of a "
-            "control) and the listed control properties (written) is supported",
+            "control, or of an indicator the function holds), Value (Signaling) "
+            "(written) and the listed "
+            "control properties (written) is supported",
             node,
         )
     variable = ctx.resolve(control.id) if control is not None else None
@@ -148,11 +178,40 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         else:
             raise CodeGenError("Property value direction is unresolved", node)
         if is_value_row(class_name, codes):
-            if control is None or variable is None:
+            if control is None:
+                indicator = ctx.local_indicators.variables[bound.id]
+                if term.direction == "output":
+                    bindings[term.id] = indicator
+                else:
+                    statements += ctx.local_indicators.write(bound.id, value)
+                continue
+            if variable is None:
                 raise CodeGenError("Value row of a node without a control", node)
             if term.direction == "output":
                 statements += read_control(node, control, variable, ctx)
                 bindings[term.id] = variable
+            else:
+                statements += write_control(control, variable, value, ctx)
+        elif is_value_signaling_row(class_name, codes):
+            if control is None:
+                indicator = ctx.local_indicators.variables[bound.id]
+                if listens_for_value_change(ctx, bound.id):
+                    old = ctx.make_output_var("old_value", node.id, term.id)
+                    statements.append(build_assign(old, parse_expr(indicator)))
+                    statements += ctx.local_indicators.write(bound.id, value)
+                    statements += signal_value_change(
+                        ctx, bound.id, indicator, old
+                    )
+                else:
+                    statements += ctx.local_indicators.write(bound.id, value)
+                continue
+            if variable is None:
+                raise CodeGenError("Value row of a node without a control", node)
+            if listens_for_value_change(ctx, control.id):
+                old = ctx.make_output_var("old_value", node.id, term.id)
+                statements.append(build_assign(old, parse_expr(variable)))
+                statements += write_control(control, variable, value, ctx)
+                statements += signal_value_change(ctx, control.id, variable, old)
             else:
                 statements += write_control(control, variable, value, ctx)
         else:

@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
-from ..control_properties import ControlProperty, control_property, is_value_row
+from ..control_properties import (
+    ControlProperty,
+    control_property,
+    is_value_row,
+    is_value_signaling_row,
+)
 from ..models import (
     FPTerminal,
     PropertyDef,
@@ -197,6 +202,36 @@ class WireQueriesMixin:
                     found[control.id] = control
         return found
 
+    def indicators_of_value_rows(
+        self, vi_name: str
+    ) -> tuple[dict[str, FPTerminal], dict[str, FPTerminal]]:
+        """The indicators of a VI that a bound Property Node's ``Value`` row
+        reads and those it writes, by terminal id, in that order. A ``Value
+        (Signaling)`` row writes (it cannot be read)."""
+        read: dict[str, FPTerminal] = {}
+        written: dict[str, FPTerminal] = {}
+        for node in self.iter_nodes(vi_name):
+            if not isinstance(node, PrimitiveNode) or not node.bound_control_uid:
+                continue
+            bound = self.bound_terminal(node)
+            if bound is None or not bound.is_indicator:
+                continue
+            for row, term in correlate_property_terminals(
+                node.properties, node.terminals, node.property_value_terminal_ids
+            ):
+                codes = [s.code for s in row.segments]
+                name = node.object_name or ""
+                if term is None or not (
+                    is_value_row(name, codes)
+                    or (
+                        is_value_signaling_row(name, codes)
+                        and term.direction == "input"
+                    )
+                ):
+                    continue
+                (written if term.direction == "input" else read)[bound.id] = bound
+        return read, written
+
     def front_panel_loop(self, terminal_id: str) -> str | None:
         """The id of the While Loop, For Loop or Event Structure around the
         control or indicator terminal ``terminal_id`` on the diagram (the
@@ -260,11 +295,13 @@ class WireQueriesMixin:
         return False
 
     def has_value_row(self, node: PrimitiveNode) -> bool:
-        """Whether a Property Node bound to a control has a ``Value`` row, found
-        by the row's property code in the control's class."""
+        """Whether a Property Node bound to a control has a ``Value`` or
+        ``Value (Signaling)`` row, found by the row's property code in the
+        control's class."""
+        class_name = node.object_name or ""
         return any(
-            is_value_row(node.object_name or "", [s.code for s in row.segments])
-            for row in node.properties
+            is_value_row(class_name, codes) or is_value_signaling_row(class_name, codes)
+            for codes in ([s.code for s in row.segments] for row in node.properties)
         )
 
     def listed_property_writes(

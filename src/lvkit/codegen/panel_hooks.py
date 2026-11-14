@@ -70,6 +70,7 @@ from .event_kinds import (
     NEW_VALUE,
     QUEUE_IMPORT,
     VALUE_CHANGE_CODE,
+    MessageKind,
 )
 from .live_io_module import LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .panel_names import panel_names
@@ -184,6 +185,11 @@ class PanelHooks:
             attr=self.members[terminal_id],
             ctx=ast.Load(),
         )
+
+    def event_member(self, kind: MessageKind) -> str:
+        """``<EventEnum>.<MEMBER>``, the kind of event ``kind`` as a message
+        carries it."""
+        return f"{self.event_enum_name}.{kind.member}"
 
     def property_member(self, prop: ControlProperty) -> ast.expr:
         """``<PropertyEnum>.<MEMBER>``, the property passed for ``prop``."""
@@ -364,6 +370,21 @@ def event_value_stmts(
     member = ast.unparse(hooks.member(terminal_id))
     test = parse_expr(f"{message}[{NAME}] == {member}")
     return [ast.If(test=test, body=[assign], orelse=[])]
+
+
+def has_value_change_frame(ctx: CodeGenContext, terminal_id: str) -> bool:
+    """Whether an Event Structure of the VI has a frame that handles a Value Change
+    of the control with terminal ``terminal_id``."""
+    graph = ctx.graph
+    if graph is None or not ctx.vi_name:
+        return False
+    return any(
+        e.source_terminal_id == terminal_id and e.type_code == VALUE_CHANGE_CODE
+        for node in graph.iter_nodes(ctx.vi_name)
+        if isinstance(node, EventStructureNode)
+        for frame in node.frames
+        for e in frame.events
+    )
 
 
 def entry_events(ctx: CodeGenContext) -> list[ast.stmt]:
