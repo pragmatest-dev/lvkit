@@ -8,14 +8,11 @@ out is not written into the entry, so the VI stays a gap or raises when it runs.
 from __future__ import annotations
 
 import math
-import ntpath
-import os
-import pathlib
 import shlex
 import sys
 import time
 import zipfile
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -230,19 +227,21 @@ def _compare(
     )
 
 
+# NI's example uses Windows paths: these run natively on the Windows CI jobs.
+# Patching pathlib or os.path process-wide to fake Windows on POSIX breaks pathlib
+# itself (and pytest with it) on Python 3.11.
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows paths")
 def test_compare_two_paths_reproduces_ni_example_with_windows_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(os, "path", ntpath)
-    monkeypatch.setattr(pathlib, "Path", PureWindowsPath)
     result = _compare(
         tmp_path,
         monkeypatch,
-        PureWindowsPath(r"C:\folder\sub\test.txt"),
-        PureWindowsPath(r"C:\folder\sub2\dir\test2.doc"),
+        Path(r"C:\folder\sub\test.txt"),
+        Path(r"C:\folder\sub2\dir\test2.doc"),
     )
-    assert result.relative == PureWindowsPath(r"..\..\sub2\dir\test2.doc")
-    assert result.common == PureWindowsPath(r"C:\folder")
+    assert result.relative == Path(r"..\..\sub2\dir\test2.doc")
+    assert result.common == Path(r"C:\folder")
     assert result.same_level is False
 
 
@@ -286,16 +285,15 @@ def test_compare_two_paths_is_relative_only_at_or_below_path_1(
     assert beside.same_level is False
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="drives exist only on Windows")
 def test_compare_two_paths_on_different_drives_is_an_error_out(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(os, "path", ntpath)
-    monkeypatch.setattr(pathlib, "Path", PureWindowsPath)
     result = _compare(
         tmp_path,
         monkeypatch,
-        PureWindowsPath(r"C:\folder\a.txt"),
-        PureWindowsPath(r"D:\folder\b.txt"),
+        Path(r"C:\folder\a.txt"),
+        Path(r"D:\folder\b.txt"),
     )
     assert result.error is not None
     assert result.error.code == 42
