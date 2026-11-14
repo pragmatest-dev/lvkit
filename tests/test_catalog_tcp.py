@@ -162,19 +162,31 @@ def test_write_sends_the_bytes_and_counts_them() -> None:
     assert "lvkit" not in source
 
 
+def _write_until_it_fails(near, chunk, timeout):
+    """Write ``chunk`` again and again until a write reports an error: the operating
+    system buffers some number of bytes first, and how many differs by platform."""
+    for _ in range(500):
+        _, result = _write(near, chunk, timeout=timeout)
+        if result.error_out is not None:
+            return result
+        assert result.written == len(chunk)
+    raise AssertionError("no write ever failed")
+
+
 def test_write_that_times_out_returns_the_bytes_written_with_error_56() -> None:
     near, far = _pair()
     near.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
     far.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
-    _, result = _write(near, "x" * 20_000_000, timeout=200)
-    assert 0 < result.written < 20_000_000
+    chunk = "x" * 1_000_000
+    result = _write_until_it_fails(near, chunk, timeout=200)
+    assert result.written < len(chunk)
     assert result.error_out.code == 56
 
 
 def test_write_to_a_connection_the_peer_closed_is_error_66() -> None:
     near, far = _pair()
     far.close()
-    _, result = _write(near, "data")
+    result = _write_until_it_fails(near, "data", timeout=1000)
     assert result.error_out.code == 66
 
 
@@ -237,7 +249,9 @@ def test_open_a_port_nothing_listens_on_is_error_63() -> None:
     free.bind(("127.0.0.1", 0))
     port = free.getsockname()[1]
     free.close()
-    _, result = _open("127.0.0.1", port, timeout=2000)
+    # Windows retries a refused connect for about 2 s before it reports the
+    # refusal, so the timeout must outlast that.
+    _, result = _open("127.0.0.1", port, timeout=15000)
     assert result.error_out.code == 63
 
 

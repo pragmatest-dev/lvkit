@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.long_paths import too_long_to_import
 from tests.corpus_graphs import OPENG_USERLIB
 from tests.test_catalog_corpus_callers import SAMPLES, _generate
 
@@ -18,6 +19,9 @@ pytestmark = [pytest.mark.functional, pytest.mark.needs_samples]
 
 def _module(vi: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str):
     package = _generate(vi, tmp_path)
+    too_long = too_long_to_import(sorted(package.rglob("*.py")))
+    if too_long:
+        pytest.skip(f"Python cannot import {too_long[0]} on this machine (long path)")
     monkeypatch.syspath_prepend(str(package.parent))
     return package, importlib.import_module(f"{package.name}.{name}")
 

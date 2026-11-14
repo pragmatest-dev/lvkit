@@ -219,6 +219,8 @@ def test_corpus_caller_with_g_cli_loaded_still_uses_the_catalog(
     """With G CLI's source on the search path the two VIs are members of the loaded
     CLI class, and the catalog still gives their Python: the calls use it and the
     class module has no method for either."""
+    if not (SAMPLES / "G-CLI").exists():
+        pytest.skip(f"corpus sample missing: {SAMPLES / 'G-CLI'}")
     package, source = _generate_run_all_tests_cli(
         tmp_path, "--search-path", str(SAMPLES / "G-CLI")
     )
