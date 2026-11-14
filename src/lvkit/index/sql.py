@@ -361,7 +361,8 @@ VIEWS: dict[str, _View] = {
             "is_stub": "1 if the control could not be read (kept so it is not "
             "retried until the file changes)",
             "stub_reason": "why an unreadable control could not be read, else NULL",
-            "type_id": "the control's own type — join to type / type_field / type_item",
+            "type_id": "the control's own type — join to type / type_field / "
+            "type_item",
             "kind": "the control's own type family: cluster | enum | ring | "
             "primitive | array | ...",
             "default_text": "a scalar / enum / ring / array control's own recorded "

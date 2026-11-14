@@ -984,7 +984,9 @@ def cmd_structure(args: argparse.Namespace) -> int:
             # A .lvproj uses the project's explicit member list; a directory is
             # scanned. Both produce the same structure dict, rendered the same.
             if input_path.suffix == ".lvproj":
-                structure = discover_structure_from_lvproj(input_path, LibraryRoots())
+                structure = discover_structure_from_lvproj(
+                    input_path, LibraryRoots()
+                )
             else:
                 structure = discover_project_structure(input_path, LibraryRoots())
 

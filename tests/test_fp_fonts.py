@@ -28,7 +28,6 @@ _PCO = (
     / "Turner_PCO_CamExample.vi"
 )
 
-
 def _row(size: int, weight: int, name: str) -> str:
     return (
         f'<Font Prop2="{size}" Prop3="1024" Prop4="{weight}" Prop6="15" '
@@ -131,7 +130,7 @@ def test_a_colour_only_run_keeps_the_default_font() -> None:
 
 def test_a_system_colour_keeps_the_theme() -> None:
     text = _name_text(_label_svg(_run(None, "0100000C")))
-    assert 'fill="#FAFAFA"' not in text
+    assert "fill=\"#FAFAFA\"" not in text
 
 
 def test_a_label_with_two_runs_is_drawn_in_the_first_runs_font() -> None:

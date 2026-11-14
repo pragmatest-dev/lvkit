@@ -51,10 +51,7 @@ class CaseGlyph(SelectableStructureGlyph):
             # the real reference image, the dither alone reads as unbounded.
             x1, y1, x2, y2 = bounds
             backend.rect(
-                x1,
-                y1,
-                x2,
-                y2,
+                x1, y1, x2, y2,
                 fill="none",
                 stroke=theme.struct_border,
                 stroke_width=DEFAULT_BORDER_W,

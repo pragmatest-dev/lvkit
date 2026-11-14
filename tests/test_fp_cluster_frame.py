@@ -48,7 +48,8 @@ def _cluster(
 ) -> str:
     """A cluster ddo; ``nested`` maps a field uid to its own cluster body."""
     zplane = "".join(
-        nested[u] if nested and u in nested else _field(u, n, b) for u, n, b in fields
+        nested[u] if nested and u in nested else _field(u, n, b)
+        for u, n, b in fields
     )
     order = "".join(f'<SL__arrayElement uid="{u}"/>' for u, _, _ in fields)
     return (
@@ -61,7 +62,7 @@ def _cluster(
         f'<paneHierarchy class="pane" uid="{uid + 1}"><bounds>{pane}</bounds>'
         f"<origin>{origin}</origin><zPlaneList>{zplane}</zPlaneList>"
         "</paneHierarchy>"
-        f"</{'ddo' if cls == 'stdClust' else 'SL__arrayElement'}>"
+        f'</{"ddo" if cls == "stdClust" else "SL__arrayElement"}>'
     )
 
 
@@ -70,10 +71,7 @@ def test_fields_land_at_stored_plus_origin_plus_frame() -> None:
     # a field stored at (-200, -100) sits at pane-local (0, 0).
     ddo = ET.fromstring(
         _cluster(
-            1,
-            "(100, 200, 160, 300)",
-            "(4, 4, 56, 96)",
-            "(-4, -4)",
+            1, "(100, 200, 160, 300)", "(4, 4, 56, 96)", "(-4, -4)",
             [(10, "a", "(-100, -200, -80, -140)"), (11, "b", "(-76, -200, -56, -140)")],
         )
     )
@@ -89,10 +87,7 @@ def _pco_like() -> ET.Element:
     # a 41 px tall pane over four 45 px fields; the cluster box is 60 px tall
     return ET.fromstring(
         _cluster(
-            1,
-            "(100, 200, 160, 300)",
-            "(4, 4, 45, 96)",
-            "(-4, -4)",
+            1, "(100, 200, 160, 300)", "(4, 4, 45, 96)", "(-4, -4)",
             [
                 (10, "A", "(-100, -200, -55, -140)"),
                 (11, "B", "(-53, -200, -8, -140)"),
@@ -132,18 +127,10 @@ def test_a_field_outside_the_cluster_box_is_drawn_there() -> None:
 def test_typedef_cluster_sits_at_wrapper_plus_inner_top_left() -> None:
     # wrapper top-left (x 60, y 50) + inner (x 5, y 10) = (65, 60); pane (3, 3),
     # origin (-3, -3): a field stored at (-65, -60) is at pane-local (-3, -3)+...
-    inner = (
-        _cluster(
-            2,
-            "(10, 5, 70, 105)",
-            "(3, 3, 57, 97)",
-            "(-3, -3)",
-            [(10, "a", "(-60, -65, -40, -5)")],
-            cls="stdClust",
-        )
-        .replace("<ddo ", "<SL__arrayElement ")
-        .replace("</ddo>", "</SL__arrayElement>")
-    )
+    inner = _cluster(
+        2, "(10, 5, 70, 105)", "(3, 3, 57, 97)", "(-3, -3)",
+        [(10, "a", "(-60, -65, -40, -5)")], cls="stdClust",
+    ).replace("<ddo ", "<SL__arrayElement ").replace("</ddo>", "</SL__arrayElement>")
     wrapper = ET.fromstring(
         '<ddo class="typeDef" uid="1"><bounds>(50, 60, 130, 170)</bounds>'
         f"<partsList>{inner}</partsList></ddo>"
@@ -155,23 +142,13 @@ def test_typedef_cluster_sits_at_wrapper_plus_inner_top_left() -> None:
 
 
 def test_nested_cluster_uses_its_parents_frame() -> None:
-    inner = (
-        _cluster(
-            20,
-            "(-100, -200, -60, -100)",
-            "(3, 3, 40, 80)",
-            "(-3, -3)",
-            [(30, "x", "(-4, -4, 16, 56)")],
-        )
-        .replace("<ddo ", "<SL__arrayElement ")
-        .replace("</ddo>", "</SL__arrayElement>")
-    )
+    inner = _cluster(
+        20, "(-100, -200, -60, -100)", "(3, 3, 40, 80)", "(-3, -3)",
+        [(30, "x", "(-4, -4, 16, 56)")],
+    ).replace("<ddo ", "<SL__arrayElement ").replace("</ddo>", "</SL__arrayElement>")
     outer = ET.fromstring(
         _cluster(
-            1,
-            "(100, 200, 200, 400)",
-            "(4, 4, 96, 196)",
-            "(-4, -4)",
+            1, "(100, 200, 200, 400)", "(4, 4, 96, 196)", "(-4, -4)",
             [(20, "inner", "(-100, -200, -60, -100)")],
             nested={20: inner},
         )
@@ -192,10 +169,7 @@ def test_nested_cluster_uses_its_parents_frame() -> None:
 def test_without_a_frame_the_fields_are_fitted_into_the_pane() -> None:
     ddo = ET.fromstring(
         _cluster(
-            1,
-            "(0, 0, 60, 100)",
-            "(3, 3, 57, 97)",
-            "(-248, -2)",
+            1, "(0, 0, 60, 100)", "(3, 3, 57, 97)", "(-248, -2)",
             [(10, "a", "(54, -232, 80, -211)"), (11, "b", "(80, -232, 108, -211)")],
         )
     )

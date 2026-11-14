@@ -67,4 +67,6 @@ def resolve_primitive(
     node_slots: Collection[Slot] | None = None,
 ) -> ResolvedPrimitive | None:
     """Convenience function for resolving primitives."""
-    return get_resolver().resolve(prim_id, name, input_types, output_types, node_slots)
+    return get_resolver().resolve(
+        prim_id, name, input_types, output_types, node_slots
+    )

@@ -27,7 +27,9 @@ def _frames(project: Project):  # noqa: F811
     project.add(event_loop_vi())
     views = project.views("Events.vi")
     node = next(
-        n for n in views.graph.iter_nodes(views.vi) if isinstance(n, EventStructureNode)
+        n
+        for n in views.graph.iter_nodes(views.vi)
+        if isinstance(n, EventStructureNode)
     )
     return views, node
 

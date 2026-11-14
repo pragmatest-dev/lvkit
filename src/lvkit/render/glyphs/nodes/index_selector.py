@@ -20,10 +20,7 @@ def draw_index_selector(
     """The legacy one-box selector. Without a ``struct_uid`` it is static."""
     ix1, iy1, ix2, iy2 = box
     backend.rect(
-        ix1,
-        iy1,
-        ix2,
-        iy2,
+        ix1, iy1, ix2, iy2,
         fill=theme.case_bar_fill,
         stroke=theme.struct_border,
         stroke_width=0.75,
@@ -92,10 +89,7 @@ def draw_index_control(
     draw_spinner(backend, spinner, theme, struct_uid)
     rx1, ry1, rx2, ry2 = readout
     backend.rect(
-        rx1,
-        ry1,
-        rx2,
-        ry2,
+        rx1, ry1, rx2, ry2,
         fill=theme.fp_value_fill,
         stroke=theme.struct_border,
         stroke_width=0.75,
@@ -124,10 +118,7 @@ def draw_spinner(
     width = sx2 - sx1
     mid = (sy1 + sy2) / 2
     backend.rect(
-        sx1,
-        sy1,
-        sx2,
-        sy2,
+        sx1, sy1, sx2, sy2,
         fill=theme.fp_index_fill,
         stroke=theme.struct_border,
         stroke_width=0.75,

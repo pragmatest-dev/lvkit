@@ -121,7 +121,11 @@ class TestEnsureTypedefLoaded:
 
 
 DCAF_VI = (
-    SAMPLES / "DCAF-DAQModule" / "source" / "testing" / "Create Test Configuration.vi"
+    SAMPLES
+    / "DCAF-DAQModule"
+    / "source"
+    / "testing"
+    / "Create Test Configuration.vi"
 )
 
 

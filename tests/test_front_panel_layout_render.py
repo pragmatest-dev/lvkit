@@ -253,7 +253,9 @@ def test_decoration_shapes_come_from_the_table(tmp_path: Path) -> None:
     )
     svg = render_front_panel_svg(panel)
     # -412: the filled backdrop, in the decoration's own recorded fill colour
-    assert '<rect x="10.0" y="10.0" width="90.0" height="90.0" fill="#AABBCC"/>' in svg
+    assert (
+        '<rect x="10.0" y="10.0" width="90.0" height="90.0" fill="#AABBCC"/>' in svg
+    )
     # an id the evidence does not settle: its box outline, no fill
     assert (
         '<rect x="120.5" y="10.5" width="79.0" height="89.0" fill="none" '

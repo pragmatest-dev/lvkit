@@ -34,7 +34,9 @@ def _catalog_entry(monkeypatch: pytest.MonkeyPatch, requires: list[str]) -> None
     }
     if requires:
         entry["requires"] = requires
-    monkeypatch.setitem(primitive_catalog_for(None)._by_id, str(LOCAL_PRIMITIVE), entry)
+    monkeypatch.setitem(
+        primitive_catalog_for(None)._by_id, str(LOCAL_PRIMITIVE), entry
+    )
 
 
 def _sum_vi(project: Project, nodes: int) -> None:  # noqa: F811

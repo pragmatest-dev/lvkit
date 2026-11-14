@@ -45,8 +45,8 @@ TAKE = """
 def _variant_hex(value: int, attributes: list[tuple[str, str]] = ()) -> str:
     """The saved value of a Variant constant holding the 32-bit integer ``value``
     and the attributes ``(name, nested saved value)``."""
-    text = "0900800000000002000400000004000300010001"
-    text += f"{value & 0xFFFFFFFF:08X}{len(attributes):08X}"
+    text = "09008000" "00000002" "00040000" "00040003" "0001" "0001"
+    text += f"{value & 0xFFFFFFFF:08X}" f"{len(attributes):08X}"
     for name, nested in attributes:
         text += f"{len(name):08X}" + name.encode().hex() + nested
     return text

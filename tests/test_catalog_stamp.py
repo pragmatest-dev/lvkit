@@ -181,10 +181,9 @@ def test_an_edit_makes_the_cached_render_stale_only_for_a_vi_that_uses_it(
         )
 
     def hit() -> bool:
-        return (
-            lookup_render(a, "svg", options, "test", build.library_roots(), store)
-            is not None
-        )
+        return lookup_render(
+            a, "svg", options, "test", build.library_roots(), store
+        ) is not None
 
     render()
     assert hit()

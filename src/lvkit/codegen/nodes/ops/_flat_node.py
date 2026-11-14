@@ -94,7 +94,8 @@ def read_flattened(
         else:
             statements.append(
                 ast.parse(
-                    f"{variable}, {position} = {fns.reader(layout, prefix)}({data}, 0)"
+                    f"{variable}, {position} = "
+                    f"{fns.reader(layout, prefix)}({data}, 0)"
                 ).body[0]
             )
     return statements, variable, rest

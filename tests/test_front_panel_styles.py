@@ -285,12 +285,8 @@ def test_silver_string_draws_the_stored_bevel_back_to_front() -> None:
             _part(119, "cosm", (31, 8, 62, 341), (-11,), bg_color="#7A7A7A"),
             _part(119, "cosm", (31, 8, 63, 341), (-11,), bg_color="#FFFFFF"),
             _part(
-                9,
-                "cosm",
-                (24, 0, 72, 352),
-                (-766,),
-                fg_color="#646464",
-                bg_color="#CCCCCC",
+                9, "cosm", (24, 0, 72, 352), (-766,),
+                fg_color="#646464", bg_color="#CCCCCC",
             ),
         ],
         bounds=(0, 0, 72, 352),
@@ -348,7 +344,9 @@ def test_slide_switch_thumb_takes_the_state_color() -> None:
 
 
 def test_modern_button_has_its_gradient_edges_and_caption_color() -> None:
-    svg = _svg(_boolean(-535, False, texts=("STOP",), extra=[]))
+    svg = _svg(
+        _boolean(-535, False, texts=("STOP",), extra=[])
+    )
     assert "#6A6A6A" in svg and "#929292" in svg and "#C7C7C7" in svg
     assert ">STOP<" in svg
 
@@ -410,19 +408,12 @@ def test_panel_without_a_recorded_color_uses_the_theme_canvas() -> None:
 def test_a_hidden_cluster_field_is_not_drawn() -> None:
     def field(name: str, hidden: bool) -> ParsedFPControl:
         return ParsedFPControl(
-            uid=name,
-            name=name,
-            control_type="stdNum",
-            bounds=(0, 0, 20, 80),
-            default_value="1",
-            hidden=hidden,
+            uid=name, name=name, control_type="stdNum", bounds=(0, 0, 20, 80),
+            default_value="1", hidden=hidden,
         )
 
     cluster = ParsedFPControl(
-        uid="c",
-        name="Rates",
-        control_type="stdClust",
-        bounds=(0, 0, 90, 216),
+        uid="c", name="Rates", control_type="stdClust", bounds=(0, 0, 90, 216),
         children=[field("Shown", False), field("Hidden", True)],
     )
     svg = _svg(cluster)
@@ -443,12 +434,8 @@ def test_system_listbox_header_columns_and_row_lines() -> None:
         [
             _part(100, "grid", (22, 2, 165, 369)),
             _part(
-                9,
-                "cosm",
-                (20, 0, 167, 371),
-                (-786,),
-                fg_color="#A8ABAE",
-                bg_color="#FFFFFF",
+                9, "cosm", (20, 0, 167, 371), (-786,),
+                fg_color="#A8ABAE", bg_color="#FFFFFF",
             ),
         ],
         bounds=(0, 0, 167, 371),
@@ -597,8 +584,8 @@ def test_modern_cluster_frame_is_the_viewport_filled_inside_a_bevel() -> None:
     assert 'stroke="#B3B3B3"' not in svg
     # four mitred bands per side: dark at the top and left, light at the bottom
     # and right, each growing toward the fill
-    assert svg.count('fill="rgba(0,0,0,') == 8
-    assert svg.count('fill="rgba(255,255,255,') == 8
+    assert svg.count("fill=\"rgba(0,0,0,") == 8
+    assert svg.count("fill=\"rgba(255,255,255,") == 8
     assert 'points="0.0,0.0 74.0,0.0 73.0,1.0 1.0,1.0" fill="rgba(0,0,0,0.14)"' in svg
 
 
@@ -607,7 +594,7 @@ def test_a_cluster_without_a_modern_frame_keeps_its_outlined_box() -> None:
     ctrl.parts[-1] = _part(9, "cosm", (0, 0, 44, 74), (-301,), fg_color="#B3B3B3")
     svg = _svg(ctrl)
     assert 'stroke="#B3B3B3" stroke-width="1.5"' in svg
-    assert 'fill="rgba(' not in svg
+    assert "fill=\"rgba(" not in svg
 
 
 def test_modern_array_frame_stops_at_the_viewport_right_and_bottom() -> None:

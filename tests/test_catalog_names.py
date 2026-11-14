@@ -114,7 +114,9 @@ def test_distinct_labels_derive_distinct_python_names(key: str, entry: dict) -> 
             )
             assert name.isidentifier(), (key, terminal.name)
             # a label with no letter or digit (``?``) has nothing to name it by
-            letters = re.search(r"[A-Za-z0-9]", catalog_python_label(terminal) or "")
+            letters = re.search(
+                r"[A-Za-z0-9]", catalog_python_label(terminal) or ""
+            )
             assert name != "var" or not letters, (key, terminal.name)
             first = by_label.setdefault(terminal.name, name)
             assert first == name, (key, terminal.name)
@@ -172,9 +174,7 @@ def _template_names(template: str) -> set[str]:
         for target in ast.walk(node.target)
         if isinstance(target, ast.Name)
     } | {
-        arg.arg
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Lambda)
+        arg.arg for node in ast.walk(tree) if isinstance(node, ast.Lambda)
         for arg in node.args.args
     }
     return {

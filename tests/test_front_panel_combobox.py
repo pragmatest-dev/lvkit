@@ -44,11 +44,8 @@ def test_a_combo_box_with_a_fixed_list_shows_the_selected_item() -> None:
     exercises the shared ``EnumControlGlyph`` index-lookup path that
     stdEnum/stdRing already use for real."""
     fp = _control(
-        "Mode",
-        "stdComboBox",
-        (0, 0, 40, 100),
-        default_value="1",
-        enum_values=["Auto", "Manual"],
+        "Mode", "stdComboBox", (0, 0, 40, 100),
+        default_value="1", enum_values=["Auto", "Manual"],
     )
     glyph = resolve_glyph(fp, DEFAULT_THEME)
     assert isinstance(glyph, EnumControlGlyph)

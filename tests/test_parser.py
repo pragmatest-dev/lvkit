@@ -222,9 +222,8 @@ _CLUSTER_CONST_FIXTURE = """
 """
 
 
-def _inside(
-    inner: tuple[float, float, float, float], outer: tuple[float, float, float, float]
-) -> bool:
+def _inside(inner: tuple[float, float, float, float],
+            outer: tuple[float, float, float, float]) -> bool:
     tol = 1e-6
     return (
         outer[0] - tol <= inner[0]
@@ -244,10 +243,8 @@ def _fit_into(box, native_w, native_h):
     def mapper(rect):
         x1, y1, x2, y2 = rect
         return (
-            bx1 + x1 * scale,
-            by1 + y1 * scale,
-            bx1 + x2 * scale,
-            by1 + y2 * scale,
+            bx1 + x1 * scale, by1 + y1 * scale,
+            bx1 + x2 * scale, by1 + y2 * scale,
         )
 
     return mapper
@@ -393,20 +390,28 @@ def test_refnum_type_display_expanded_reads_multicosm_index():
         )
         xml = (
             '<ddo class="stdRefNum" uid="10"><bounds>(0,0,48,60)</bounds>'
-            f'<partsList elements="1">{multicosm}</partsList>{inner}</ddo>'
+            f"<partsList elements=\"1\">{multicosm}</partsList>{inner}</ddo>"
         )
         return ET.fromstring(xml)
 
     # EXPANDED: registered payload + multiCosm index=1.
-    assert _refnum_type_display_expanded(_refnum(nested_ddo=True, index="1"))
+    assert _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index="1")
+    )
     # COMPACT: registered payload, but no <index> element (LabVIEW's own
     # default, 0).
-    assert not _refnum_type_display_expanded(_refnum(nested_ddo=True, index=None))
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index=None)
+    )
     # COMPACT: registered payload with an explicit index=0.
-    assert not _refnum_type_display_expanded(_refnum(nested_ddo=True, index="0"))
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=True, index="0")
+    )
     # A plain untyped refnum (no nested <ddo> at all) is already compact —
     # nothing to distinguish, even if a stray index=1 were present.
-    assert not _refnum_type_display_expanded(_refnum(nested_ddo=False, index="1"))
+    assert not _refnum_type_display_expanded(
+        _refnum(nested_ddo=False, index="1")
+    )
     # Not a refnum at all.
     not_refnum = ET.fromstring(
         '<ddo class="stdClust" uid="40"><bounds>(0,0,10,10)</bounds></ddo>'
@@ -515,8 +520,7 @@ def test_refnum_payload_layout_extracts_real_offset_and_geometry():
     assert field.refnum_payload is not None
     assert field.refnum_payload.offset == payload.offset
     assert [f.name for f in field.refnum_payload.geom.fields] == [
-        "test",
-        "execution time",
+        "test", "execution time",
     ]
 
     # A COMPACT refnum (no <index>1</index>) still resolves no payload
@@ -1541,7 +1545,9 @@ class TestParseVI:
         assert node.object_name == "Invoke Method"
         assert node.method_name == "Run"
 
-    def test_property_node_row_is_one_property_with_path_segments(self, tmp_path: Path):
+    def test_property_node_row_is_one_property_with_path_segments(
+        self, tmp_path: Path
+    ):
         """One ``propItem`` is one Property Node row. A nested property
         (``Label.Text``) is ONE row whose ``propList`` holds two
         ``propItemInfo`` segments, so the next row (``Indicator``) pairs with
@@ -2301,7 +2307,9 @@ class TestRealVIParsing:
                 if isinstance(n, ConstantNode)
                 and n.lv_type is not None
                 and n.lv_type.kind == LVTypeKind.CLUSTER
-                and any(f.name == "TestMethods" for f in (n.lv_type.fields or []))
+                and any(
+                    f.name == "TestMethods" for f in (n.lv_type.fields or [])
+                )
             ),
             None,
         )

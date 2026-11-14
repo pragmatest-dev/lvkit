@@ -56,7 +56,9 @@ def _running_sum(
     )
     out, value_in, stop_in = loop.tunnels
     with vi.inside(loop.scopes[0]):
-        fb = vi.feedback_node(I32, initializer=initializer and not on_border, link=link)
+        fb = vi.feedback_node(
+            I32, initializer=initializer and not on_border, link=link
+        )
         add = vi.primitive(
             ADD,
             [("sum", 0, I32, True), ("y", 1, I32, False), ("x", 2, I32, False)],
@@ -83,7 +85,9 @@ def _call(package, values: list[int]) -> int:
     return package.function(values=values, stops=stops).total
 
 
-@pytest.mark.parametrize(("count", "total"), [(1, 1), (2, 3), (3, 6), (4, 10), (5, 15)])
+@pytest.mark.parametrize(
+    ("count", "total"), [(1, 1), (2, 3), (3, 6), (4, 10), (5, 15)]
+)
 def test_a_running_sum_starts_from_the_initializer_on_the_loop_border(
     project: Project,  # noqa: F811
     count: int,

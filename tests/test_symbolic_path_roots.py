@@ -24,10 +24,9 @@ def test_unconfigured_symbolic_root_never_joins_the_caller_path(root: str):
 
 def test_configured_vilib_root_still_resolves(tmp_path: Path):
     ref = ParsedDependencyRef(name="A.vi", path_tokens=["<vilib>", "Utility", "A.vi"])
-    assert (
-        ref.resolve_against(CALLER, vilib_root=tmp_path)
-        == (tmp_path / "Utility" / "A.vi").resolve()
-    )
+    assert ref.resolve_against(CALLER, vilib_root=tmp_path) == (
+        tmp_path / "Utility" / "A.vi"
+    ).resolve()
 
 
 def test_caller_relative_path_is_unchanged():

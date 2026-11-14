@@ -123,10 +123,7 @@ class MembershipMixin:
         def _locate_recorded(self, candidate: Path, leaf: str) -> Path | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
         def record_problem(
-            self,
-            vi_key: str,
-            problem: Problem,
-            node_type: object = ...,
+            self, vi_key: str, problem: Problem, node_type: object = ...,
             may_stop: bool = ...,
         ) -> None: ...
         def vi_label(self, path: Path | str) -> str: ...
@@ -288,7 +285,9 @@ class MembershipMixin:
             parent = self._parent_class_key(parent)
         return chain
 
-    def overridden_method(self, class_key: str, name: str) -> tuple[str, str] | None:
+    def overridden_method(
+        self, class_key: str, name: str
+    ) -> tuple[str, str] | None:
         """``(ancestor key, method key)`` of the nearest ancestor's dynamic
         method named ``name`` (a method file's name, compared as LabVIEW
         compares names, without regard to case), or None."""

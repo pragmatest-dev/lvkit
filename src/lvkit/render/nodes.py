@@ -674,7 +674,9 @@ class ExtractedIconResolver:
         src_path = resolved.path
 
         try:
-            bd_xml, _, _ = extract_vi_xml(src_path, roots=ctx.graph.cache_roots)
+            bd_xml, _, _ = extract_vi_xml(
+                src_path, roots=ctx.graph.cache_roots
+            )
         except Exception:
             logger.debug(
                 "subVI icon extraction failed for %r (%s)",
@@ -1596,17 +1598,15 @@ def _cluster_value_glyph(
         field_fam = type_family(f.type)
         if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
             field_geom = geom_by_name.get(f.name)
-            composed.append(
-                (
-                    f.name,
-                    _cluster_value_glyph(
-                        f.type,
-                        field_value,
-                        field_fam == "error_cluster",
-                        field_geom.nested if field_geom else None,
-                    ),
-                )
-            )
+            composed.append((
+                f.name,
+                _cluster_value_glyph(
+                    f.type,
+                    field_value,
+                    field_fam == "error_cluster",
+                    field_geom.nested if field_geom else None,
+                ),
+            ))
         elif field_fam == "array":
             # An array-typed FIELD used to fall through to the generic leaf
             # glyph (no array case there) and draw a blank box — real
@@ -1617,24 +1617,20 @@ def _cluster_value_glyph(
             # fallback), and its index-control click targets aren't
             # uniquely scoped (no owning node uid available at this level) —
             # a visual completeness fix, not new interactivity.
-            composed.append((f.name, _array_value_glyph(f.type, field_value, "")))
+            composed.append((
+                f.name, _array_value_glyph(f.type, field_value, "")
+            ))
         else:
             field_geom = geom_by_name.get(f.name)
-            composed.append(
-                (
-                    f.name,
-                    _leaf_const_glyph(
-                        f.type,
-                        field_value,
-                        refnum_expanded=field_geom.refnum_expanded
-                        if field_geom
-                        else False,
-                        refnum_payload=field_geom.refnum_payload
-                        if field_geom
-                        else None,
-                    ),
-                )
-            )
+            composed.append((
+                f.name,
+                _leaf_const_glyph(
+                    f.type,
+                    field_value,
+                    refnum_expanded=field_geom.refnum_expanded if field_geom else False,
+                    refnum_payload=field_geom.refnum_payload if field_geom else None,
+                ),
+            ))
     summary = "\n".join(
         f"{f.name}: {_field_summary_value(f.type, values.get(key))}"
         for f, key in zip(fields, keys)

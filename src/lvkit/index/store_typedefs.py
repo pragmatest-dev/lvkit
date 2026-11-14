@@ -110,7 +110,10 @@ def write_typedefs(conn: sqlite3.Connection, typedefs: Iterable[TypedefFacts]) -
         conn.executemany(
             "INSERT INTO typedef_refs(typedef_path, ref_path, ref_name, "
             "ref_kind, rel) VALUES (?,?,?,?,?)",
-            [(t.path, r.ref_path, r.ref_name, r.ref_kind, r.rel.value) for r in t.refs],
+            [
+                (t.path, r.ref_path, r.ref_name, r.ref_kind, r.rel.value)
+                for r in t.refs
+            ],
         )
         record_types(conn, t.types)
         type_ids = sorted(ty.type_id for ty in t.types)

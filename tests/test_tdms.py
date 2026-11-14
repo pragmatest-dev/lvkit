@@ -274,7 +274,9 @@ def test_the_file_format_version_and_the_index_file_are_the_writers(
     project: Project,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    _chain(project, operation=2, properties=False, version=0, index_file=False)
+    _chain(
+        project, operation=2, properties=False, version=0, index_file=False
+    )
     package = project.generate(NAME)
     target = tmp_path / "v1.tdms"
     package.function(target, [], [], "G", ["C"], [1.0])

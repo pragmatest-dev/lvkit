@@ -199,7 +199,9 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     old = ctx.make_output_var("old_value", node.id, term.id)
                     statements.append(build_assign(old, parse_expr(indicator)))
                     statements += ctx.local_indicators.write(bound.id, value)
-                    statements += signal_value_change(ctx, bound.id, indicator, old)
+                    statements += signal_value_change(
+                        ctx, bound.id, indicator, old
+                    )
                 else:
                     statements += ctx.local_indicators.write(bound.id, value)
                 continue

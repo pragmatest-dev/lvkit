@@ -327,7 +327,9 @@ def test_a_feedback_node_marks_an_unwired_initializer(uninitialized: bool) -> No
     feedback = NetlistFeedback(
         uid="12",
         net="fb0",
-        init=(DefaultValue("0.0", "DBL") if uninitialized else _control_ref("seed")),
+        init=(
+            DefaultValue("0.0", "DBL") if uninitialized else _control_ref("seed")
+        ),
         recur=_control_ref("x"),
         delay=1,
     )
@@ -391,7 +393,7 @@ def test_every_unwired_drive_position_says_default_and_its_type() -> None:
 
 
 def test_event_frames_drive_their_tunnels_and_the_dynamic_pair() -> None:
-    labels = ["[0] Timeout", '[1] "stop": Value Change']
+    labels = ['[0] Timeout', '[1] "stop": Value Change']
     frames = _frames(*labels)
     out0 = GammaMerge(
         net="event_70.out0",

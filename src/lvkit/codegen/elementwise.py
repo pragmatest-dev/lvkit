@@ -143,7 +143,9 @@ class _Ranks:
         return 0
 
 
-def _applies_per_element(node: ast.expr, ranks: _Ranks, keep_list_concat: bool) -> bool:
+def _applies_per_element(
+    node: ast.expr, ranks: _Ranks, keep_list_concat: bool
+) -> bool:
     if isinstance(node, ast.BinOp):
         if not isinstance(node.op, _BINARY_OPS):
             return False

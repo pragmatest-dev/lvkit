@@ -62,7 +62,9 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     """Unresolved deps carry path_tokens threaded from the parser's link refs."""
     g = testcase_graph
     stubs_with_tokens = [
-        n for n in g._stubs if g._dep_graph.has_node(n) and g._recorded.resolved(n)
+        n
+        for n in g._stubs
+        if g._dep_graph.has_node(n) and g._recorded.resolved(n)
     ]
     assert stubs_with_tokens, "expected at least one stub with path_tokens"
     # At least one stub should carry a vendor-library root token. Class-member

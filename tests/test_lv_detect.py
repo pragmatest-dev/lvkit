@@ -296,7 +296,9 @@ def test_cli_no_auto_vilib_suppresses_detection(monkeypatch):
         raise AssertionError("detection should not run")
 
     monkeypatch.setattr(lv_detect, "detect_labview", _boom)
-    vilib, userlib, _instrlib, _ = cli._parse_library_roots(_ns(no_auto_vilib=True))
+    vilib, userlib, _instrlib, _ = cli._parse_library_roots(
+        _ns(no_auto_vilib=True)
+    )
     assert vilib == ()
     assert userlib == ()
 
@@ -332,7 +334,9 @@ def test_cli_detected_instrlib_unless_given(tmp_path, monkeypatch):
     )
     _patch_detected(monkeypatch, detected)
     assert cli._parse_library_roots(_ns())[2] == (tmp_path / "instr.lib",)
-    _, _, instrlib, _ = cli._parse_library_roots(_ns(instrlib=["/my/instr.lib"]))
+    _, _, instrlib, _ = cli._parse_library_roots(
+        _ns(instrlib=["/my/instr.lib"])
+    )
     assert instrlib == (Path("/my/instr.lib"),)
 
 

@@ -49,7 +49,11 @@ def opener(vi: str, absolute: str = "") -> tuple[VIContext, list[GraphNode]]:
         VIContext(
             name=vi,
             outputs=[pane(vi, "output", "ref", REF, "ref", 0)],
-            constants=[Constant(id=f"{vi}:path", value=path, lv_type=PATH)],
+            constants=[
+                Constant(
+                    id=f"{vi}:path", value=path, lv_type=PATH
+                )
+            ],
             data_flow=[wire(vi, "path", "open.path"), wire(vi, "open.ref", "ref")],
         ),
         [node],
@@ -87,13 +91,11 @@ def test_vis_that_import_each_other_import_inside_their_functions(
     assert project.graph.opened_vi_edges() == [(opener_key, caller_key)]
     package = project.generate()
     assert package.gaps == []
-    assert (
-        "def opener() -> OpenerResult:\n    from .caller import caller\n"
-        in (package.sources["opener"])
+    assert "def opener() -> OpenerResult:\n    from .caller import caller\n" in (
+        package.sources["opener"]
     )
-    assert (
-        "def caller() -> CallerResult:\n    from .opener import opener\n"
-        in (package.sources["caller"])
+    assert "def caller() -> CallerResult:\n    from .opener import opener\n" in (
+        package.sources["caller"]
     )
     assert package.sources["plain"].startswith(
         "from __future__ import annotations\nfrom dataclasses import dataclass\n"

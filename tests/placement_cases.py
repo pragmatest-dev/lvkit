@@ -58,14 +58,15 @@ def _diagram(structure: str) -> str:
 def case_in(frames: list[str] | None = None) -> str:
     """A Boolean Case (600) with ``frames`` (default: Gain in False, Rate in True)."""
     selector = dco("caseSel", 602, type_id=BOOL, faces=[611, 612, 601])
-    first, second = frames or _frames(
-        700, [face(611, 602), *FIRST], [face(612, 602), *SECOND]
+    first, second = (
+        frames
+        or _frames(700, [face(611, 602), *FIRST], [face(612, 602), *SECOND])
     )
     return (
         '<SL__arrayElement class="caseStruct" uid="600">'
         f'<termList elements="1">{term(601, selector)}</termList>'
         f'<diagramList elements="2">{first}{second}</diagramList>'
-        f"{_selector_xml('boolean', _BOOLEAN_FRAMES, True)}"
+        f'{_selector_xml("boolean", _BOOLEAN_FRAMES, True)}'
         "</SL__arrayElement>"
     )
 
@@ -114,7 +115,9 @@ def nested_xml() -> str:
     inner = frame_diagram(450, 460, SECOND)
     nested = loop("whileLoop", 400, [], inner)
     outer_false = frame_diagram(711, 712, [face(611, 602), *FIRST])
-    outer_true = diag(721, nodes=[srn(722, [face(612, 602)])], structures=[nested])
+    outer_true = diag(
+        721, nodes=[srn(722, [face(612, 602)])], structures=[nested]
+    )
     return _diagram(case_in([outer_false, outer_true]))
 
 

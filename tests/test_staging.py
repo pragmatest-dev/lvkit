@@ -164,7 +164,9 @@ class TestExtractionChurn:
         vi.write_bytes(b"vi")
         extractor.extract_vi_xml(vi, roots=LibraryRoots())
         staging.release_all()
-        before = {p: p.stat().st_mtime_ns for p in _root().rglob("*") if p.is_file()}
+        before = {
+            p: p.stat().st_mtime_ns for p in _root().rglob("*") if p.is_file()
+        }
         counts = self._count(monkeypatch)
         extractor.extract_vi_xml(vi, roots=LibraryRoots())
         after = {p: p.stat().st_mtime_ns for p in _root().rglob("*") if p.is_file()}

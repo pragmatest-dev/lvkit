@@ -437,7 +437,9 @@ def extract_vi_xml(
             ) from exc
 
         if not (tmp_dir / f"{artifact_stem}_BDHb.xml").exists():
-            raise UnreadableVIError("no block diagram could be read", warnings, vi_path)
+            raise UnreadableVIError(
+                "no block diagram could be read", warnings, vi_path
+            )
 
         _write_cache_meta(vi_path, tmp_dir / meta_path.name, roots)
         _publish(tmp_dir, output_dir, meta_path.name)

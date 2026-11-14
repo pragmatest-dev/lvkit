@@ -233,7 +233,9 @@ def test_a_terminal_without_a_label_does_not_break_the_poly_variant_table(
     graph.get_inputs.return_value = [unnamed, named]
     graph.is_typedef.return_value = False
     graph.get_owning_class.return_value = None
-    monkeypatch.setattr(docs_generate, "render_vi_with_subvis", lambda g, n: (None, {}))
+    monkeypatch.setattr(
+        docs_generate, "render_vi_with_subvis", lambda g, n: (None, {})
+    )
     data = docs_generate._prepare_vi_documentation_data(
         "P.vi", graph, {"P.vi": ["V1.vi"]}
     )

@@ -67,7 +67,9 @@ def _cluster_glyph(
     return framed or inner
 
 
-def _shown_fields(ctrl: ParsedFPControl, theme: Theme) -> tuple[tuple[str, Glyph], ...]:
+def _shown_fields(
+    ctrl: ParsedFPControl, theme: Theme
+) -> tuple[tuple[str, Glyph], ...]:
     """The glyphs of ``ctrl``'s fields the panel shows: a field the author hid
     is not drawn."""
     return tuple(

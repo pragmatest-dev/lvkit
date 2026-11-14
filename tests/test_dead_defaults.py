@@ -321,11 +321,9 @@ def test_a_break_of_a_loop_inside_the_branch_does_not_keep_the_default():
         return out
     """
     assert "out = 0" not in _clean(code)
-    assert (
-        _run(_clean(code), "f", True, [9])
-        == _run(textwrap.dedent(code), "f", True, [9])
-        == 1
-    )
+    assert _run(_clean(code), "f", True, [9]) == _run(
+        textwrap.dedent(code), "f", True, [9]
+    ) == 1
 
 
 def test_the_default_is_kept_when_a_branch_can_continue_before_assigning():

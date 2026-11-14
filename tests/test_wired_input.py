@@ -390,14 +390,10 @@ def test_wires_round_a_cycle_make_its_nodes_a_gap_not_a_bystander() -> None:
         gaps=gaps,
     )
     reasons = sorted(g.reason for g in gaps)
-    assert (
-        reasons
-        == [
-            "The wires between 'a', 'b' read as a cycle, which a saved, runnable VI "
-            "cannot have; lvkit is likely misreading a terminal's direction here"
-        ]
-        * 2
-    )
+    assert reasons == [
+        "The wires between 'a', 'b' read as a cycle, which a saved, runnable VI "
+        "cannot have; lvkit is likely misreading a terminal's direction here"
+    ] * 2
     assert {g.node_name for g in gaps} == {"a", "b"}
     with pytest.raises(NotImplementedError, match="read as a cycle"):
         generated.function(1)
@@ -474,7 +470,9 @@ def test_an_in_place_output_port_takes_the_value_of_an_inner_node() -> None:
         name="In Place Element",
         node_type="decomposeRecomposeStructure",
         terminals=[
-            Terminal(id="ipe:o", index=0, direction="output", lv_type=I32, dco_uid="d1")
+            Terminal(
+                id="ipe:o", index=0, direction="output", lv_type=I32, dco_uid="d1"
+            )
         ],
     )
     plus = _add_one("ad")

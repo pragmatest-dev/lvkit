@@ -85,10 +85,7 @@ class ArrayConstantGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
+            x1, y1, x2, y2,
             fill=theme.const_fill,
             stroke=self.element_color,
             stroke_width=1.0,
@@ -127,10 +124,6 @@ class ArrayConstantGlyph:
         scrollbar = scale_local(self.scrollbar_local, self.native_size, bounds)
         if scrollbar is not None:
             draw_array_scrollbar(
-                backend,
-                scrollbar,
-                theme,
-                self.struct_uid,
-                len(self.elements),
-                visible,
+                backend, scrollbar, theme, self.struct_uid,
+                len(self.elements), visible,
             )

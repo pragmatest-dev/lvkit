@@ -271,7 +271,9 @@ def store_root(path: Path | str) -> Path:
     )
 
 
-def classify(vi_path: Path, kind: str, roots: LibraryRoots) -> tuple[Path, str, str]:
+def classify(
+    vi_path: Path, kind: str, roots: LibraryRoots
+) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``). ``roots`` are
     the library folders of the run asking.

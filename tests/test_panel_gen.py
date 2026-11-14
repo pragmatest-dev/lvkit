@@ -38,9 +38,7 @@ def _array_parts() -> list[ParsedFPPart]:
     return [
         ParsedFPPart(8002, "stdNum", (14, 2, 44, 43)),
         ParsedFPPart(
-            None,
-            "stdNum",
-            (21, 47, 47, 112),
+            None, "stdNum", (21, 47, 47, 112),
             {"StdNumMin": "-2147483648", "StdNumMax": "2147483647", "StdNumInc": "0"},
         ),
     ]
@@ -52,18 +50,12 @@ def _scalar_panel() -> ParsedFrontPanel:
     return ParsedFrontPanel(
         controls=[
             ParsedFPControl(
-                uid="1",
-                name="threshold",
-                control_type="stdNum",
-                bounds=(20, 20, 60, 150),
-                is_indicator=False,
+                uid="1", name="threshold", control_type="stdNum",
+                bounds=(20, 20, 60, 150), is_indicator=False,
             ),
             ParsedFPControl(
-                uid="2",
-                name="out path",
-                control_type="stdPath",
-                bounds=(20, 170, 60, 320),
-                is_indicator=True,
+                uid="2", name="out path", control_type="stdPath",
+                bounds=(20, 170, 60, 320), is_indicator=True,
             ),
         ],
         panel_bounds=(0, 0, 90, 340),
@@ -100,34 +92,16 @@ def _cluster_array_panel() -> ParsedFrontPanel:
     return ParsedFrontPanel(
         controls=[
             ParsedFPControl(
-                uid="1",
-                name="errors",
-                control_type="indArr",
-                bounds=(16, 16, 140, 186),
-                is_indicator=False,
-                parts=_array_parts(),
+                uid="1", name="errors", control_type="indArr",
+                bounds=(16, 16, 140, 186), is_indicator=False, parts=_array_parts(),
                 children=[
-                    ParsedFPControl(
-                        uid="1a",
-                        name="source",
-                        control_type="stdString",
-                        bounds=(0, 0, 17, 60),
-                        is_indicator=False,
-                    ),
-                    ParsedFPControl(
-                        uid="1b",
-                        name="code",
-                        control_type="stdNum",
-                        bounds=(0, 0, 17, 60),
-                        is_indicator=False,
-                    ),
-                    ParsedFPControl(
-                        uid="1c",
-                        name="status",
-                        control_type="stdBool",
-                        bounds=(0, 0, 17, 60),
-                        is_indicator=False,
-                    ),
+                    ParsedFPControl(uid="1a", name="source",
+                                    control_type="stdString", bounds=(0, 0, 17, 60),
+                                    is_indicator=False),
+                    ParsedFPControl(uid="1b", name="code", control_type="stdNum",
+                                    bounds=(0, 0, 17, 60), is_indicator=False),
+                    ParsedFPControl(uid="1c", name="status", control_type="stdBool",
+                                    bounds=(0, 0, 17, 60), is_indicator=False),
                 ],
             ),
         ],
@@ -151,7 +125,8 @@ def test_array_of_clusters_emits_typed_columns() -> None:
     # representation (here None/None/True -- the synthetic control has no
     # parsed StdNumMin/StdNumMax part), the same as a scalar array's element.
     assert (
-        "ArrayField('code', 'code', 'stdNum', integer=True, num_min=None, num_max=None)"
+        "ArrayField('code', 'code', 'stdNum', "
+        "integer=True, num_min=None, num_max=None)"
     ) in src
     assert "ArrayField('status', 'status', 'stdBool')" in src
     # ArrayField is imported, and this array is NOT emitted as a scalar column.
@@ -166,42 +141,27 @@ def test_array_of_clusters_enum_field_emits_values() -> None:
     panel = ParsedFrontPanel(
         controls=[
             ParsedFPControl(
-                uid="1",
-                name="items",
-                control_type="indArr",
-                bounds=(16, 16, 140, 186),
-                is_indicator=False,
-                parts=_array_parts(),
+                uid="1", name="items", control_type="indArr",
+                bounds=(16, 16, 140, 186), is_indicator=False, parts=_array_parts(),
                 children=[
-                    ParsedFPControl(
-                        uid="1a",
-                        name="name",
-                        control_type="stdString",
-                        bounds=(0, 0, 17, 60),
-                        is_indicator=False,
-                    ),
-                    ParsedFPControl(
-                        uid="1b",
-                        name="mode",
-                        control_type="stdEnum",
-                        bounds=(0, 0, 17, 60),
-                        is_indicator=False,
-                        enum_values=["No Op", "Increment", "Reset"],
-                    ),
+                    ParsedFPControl(uid="1a", name="name",
+                                    control_type="stdString", bounds=(0, 0, 17, 60),
+                                    is_indicator=False),
+                    ParsedFPControl(uid="1b", name="mode", control_type="stdEnum",
+                                    bounds=(0, 0, 17, 60), is_indicator=False,
+                                    enum_values=["No Op", "Increment", "Reset"]),
                 ],
             ),
         ],
         panel_bounds=(0, 0, 200, 300),
     )
     src = build_panel_module(
-        panel,
-        logic_module_stem="f",
-        logic_func_name="f",
-        param_names=["items"],
-        result_fields=None,
+        panel, logic_module_stem="f", logic_func_name="f",
+        param_names=["items"], result_fields=None,
     )
     assert (
-        "ArrayField('mode', 'mode', 'stdEnum', values=['No Op', 'Increment', 'Reset'])"
+        "ArrayField('mode', 'mode', 'stdEnum', "
+        "values=['No Op', 'Increment', 'Reset'])"
     ) in src
     compile(src, "<panel>", "exec")
 
@@ -211,52 +171,28 @@ def test_array_of_nested_clusters_emits_column_group() -> None:
     emits a NESTED ArrayField(..., 'stdClust', fields=[...]) — a column group —
     by strategy composition, not a flat text cell."""
     addr = ParsedFPControl(
-        uid="a",
-        name="addr",
-        control_type="stdClust",
-        bounds=(0, 0, 40, 80),
+        uid="a", name="addr", control_type="stdClust", bounds=(0, 0, 40, 80),
         is_indicator=False,
         children=[
-            ParsedFPControl(
-                uid="s",
-                name="street",
-                control_type="stdString",
-                bounds=(0, 0, 17, 40),
-                is_indicator=False,
-            ),
-            ParsedFPControl(
-                uid="z",
-                name="zip",
-                control_type="stdNum",
-                bounds=(0, 0, 17, 40),
-                is_indicator=False,
-            ),
+            ParsedFPControl(uid="s", name="street", control_type="stdString",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
+            ParsedFPControl(uid="z", name="zip", control_type="stdNum",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
         ],
     )
     arr = ParsedFPControl(
-        uid="1",
-        name="people",
-        control_type="indArr",
-        bounds=(16, 16, 140, 186),
-        is_indicator=False,
-        parts=_array_parts(),
+        uid="1", name="people", control_type="indArr", bounds=(16, 16, 140, 186),
+        is_indicator=False, parts=_array_parts(),
         children=[
-            ParsedFPControl(
-                uid="n",
-                name="name",
-                control_type="stdString",
-                bounds=(0, 0, 17, 40),
-                is_indicator=False,
-            ),
+            ParsedFPControl(uid="n", name="name", control_type="stdString",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
             addr,
         ],
     )
     src = build_panel_module(
         ParsedFrontPanel(controls=[arr], panel_bounds=(0, 0, 200, 300)),
-        logic_module_stem="f",
-        logic_func_name="f",
-        param_names=["people"],
-        result_fields=None,
+        logic_module_stem="f", logic_func_name="f",
+        param_names=["people"], result_fields=None,
     )
     assert "ArrayField('addr', 'addr', 'stdClust', fields=[" in src
     assert "ArrayField('street', 'street', 'stdString')" in src
@@ -268,28 +204,16 @@ def _array_panel() -> ParsedFrontPanel:
     return ParsedFrontPanel(
         controls=[
             ParsedFPControl(
-                uid="1",
-                name="array",
-                control_type="indArr",
-                bounds=(16, 16, 67, 132),
-                is_indicator=False,
-                parts=_array_parts(),
+                uid="1", name="array", control_type="indArr",
+                bounds=(16, 16, 67, 132), is_indicator=False, parts=_array_parts(),
             ),
             ParsedFPControl(
-                uid="2",
-                name="indices",
-                control_type="indArr",
-                bounds=(87, 16, 140, 132),
-                is_indicator=False,
-                parts=_array_parts(),
+                uid="2", name="indices", control_type="indArr",
+                bounds=(87, 16, 140, 132), is_indicator=False, parts=_array_parts(),
             ),
             ParsedFPControl(
-                uid="3",
-                name="reordered array",
-                control_type="indArr",
-                bounds=(20, 269, 70, 386),
-                is_indicator=True,
-                parts=_array_parts(),
+                uid="3", name="reordered array", control_type="indArr",
+                bounds=(20, 269, 70, 386), is_indicator=True, parts=_array_parts(),
             ),
         ],
         panel_bounds=(0, 0, 200, 400),

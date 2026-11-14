@@ -387,7 +387,8 @@ def _frame_label_texts(svg: str) -> dict[str, str]:
         classes = (g.get("class") or "").split()
         if "lv-label" in classes:
             texts[g.get("data-path", "")] = "".join(
-                t.text or "" for t in g.iter("{http://www.w3.org/2000/svg}text")
+                t.text or ""
+                for t in g.iter("{http://www.w3.org/2000/svg}text")
             )
     return texts
 
@@ -460,7 +461,10 @@ def test_generate_with_a_load_problem_says_partial(
     bd_xml.write_text(_bd_xml(1))
     generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE)
     out = capsys.readouterr().out
-    assert ("Partial: 1 VIs generated, 1 other problem(s) — see warnings") in out
+    assert (
+        "Partial: 1 VIs generated, 1 other problem(s) "
+        "— see warnings"
+    ) in out
     assert "Complete:" not in out
 
 

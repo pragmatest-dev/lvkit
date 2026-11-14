@@ -112,11 +112,8 @@ class NumericControlGlyph(ControlGlyph):
             self._draw_plain(backend, bounds, theme)
         else:
             backend.rect(
-                *frame,
-                fill=theme.fp_panel,
-                stroke=theme.struct_border,
-                stroke_width=1.0,
-                rx=3.0,
+                *frame, fill=theme.fp_panel, stroke=theme.struct_border,
+                stroke_width=1.0, rx=3.0,
             )
             spinner = scale_local(self.spinner_local, self.native_size, bounds)
             if self.show_spinner and spinner is not None:
@@ -127,9 +124,7 @@ class NumericControlGlyph(ControlGlyph):
         self, backend: Backend, frame: Rect | None, readout: Rect, bounds: Rect
     ) -> None:
         modern.draw_field(
-            backend,
-            frame,
-            readout,
+            backend, frame, readout,
             modern.field_fill(self.readout_fill, self.is_indicator, self.greyed),
             (
                 modern.ARRAY_ELEMENT_SHADOW_STOPS
@@ -189,13 +184,8 @@ class NumericControlGlyph(ControlGlyph):
     def _draw_readout(self, backend: Backend, box: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = box
         backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.fp_value_fill,
-            stroke=theme.struct_border,
-            stroke_width=1.0,
+            x1, y1, x2, y2, fill=theme.fp_value_fill,
+            stroke=theme.struct_border, stroke_width=1.0,
         )
         style = text_style(self.value_font, self.value_color, _TEXT_SIZE)
         text = fit_value(
@@ -203,12 +193,8 @@ class NumericControlGlyph(ControlGlyph):
         )
         self._begin_index_text(backend)
         draw_styled_text(
-            backend,
-            x1 + _TEXT_PAD,
-            (y1 + y2) / 2 + style.size * (4 / _TEXT_SIZE),
-            text,
-            style,
-            theme.fp_value_text,
+            backend, x1 + _TEXT_PAD, (y1 + y2) / 2 + style.size * (4 / _TEXT_SIZE),
+            text, style, theme.fp_value_text,
         )
         self._end_group(backend)
 
@@ -219,10 +205,8 @@ def numeric_control(
     """``ctrl``'s numeric glyph, laid out from its heap parts when present.
     ``text`` is the readout text when it is not the control's number (a ring's
     or enum's selected item)."""
-    value = (
-        text
-        if text is not None
-        else format_number(ctrl.default_value or "0", ctrl.number_format)
+    value = text if text is not None else format_number(
+        ctrl.default_value or "0", ctrl.number_format
     )
     return numeric_from_parts(ctrl, value, ctrl.shows_as_indicator)
 
@@ -248,11 +232,8 @@ def numeric_from_parts(
     readout = _readout(owner, origin)
     if frame is None or readout is None:
         return NumericControlGlyph(
-            value=value,
-            disabled=disabled,
-            live_struct=live_struct,
-            is_index=is_index,
-            in_array=in_array,
+            value=value, disabled=disabled, live_struct=live_struct,
+            is_index=is_index, in_array=in_array,
         )
     halves = tuple(
         rect

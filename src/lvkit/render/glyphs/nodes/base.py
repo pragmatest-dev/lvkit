@@ -542,12 +542,8 @@ def draw_drawer_header(
         # ~3.3px, since bar_h = min(5.0, cell_h*0.3)).
         bar_pad = (x2 - x1) * 0.12
         backend.rect(
-            x1 + bar_pad,
-            hy2 - bar_h,
-            x2 - bar_pad,
-            hy2 - 1.0,
-            fill=bar_color,
-            stroke="none",
+            x1 + bar_pad, hy2 - bar_h, x2 - bar_pad, hy2 - 1.0,
+            fill=bar_color, stroke="none",
         )
     backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
     return hy2

@@ -87,7 +87,6 @@ def _gap_reasons(tmp_path: Path, *args: str, **kwargs: str) -> list[str]:
     # their own inputs are terminal-mapping gaps; only the call's gap is checked.
     return [gap.reason for gap in gaps if "Call Library Function Node" in gap.reason]
 
-
 def _call(
     tmp_path: Path, nexf: str = "", dsef: str = "", extra: str = ""
 ) -> ExtFuncCall:

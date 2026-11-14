@@ -190,7 +190,6 @@ def test_a_run_without_gaps_says_complete(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     from lvkit.pipeline import generate_python
-
     # A directory with no VIs is a run with nothing to convert.
     (tmp_path / "empty").mkdir()
     result = generate_python(tmp_path / "empty", tmp_path / "out")
@@ -198,13 +197,17 @@ def test_a_run_without_gaps_says_complete(
     assert "Complete: 0 VIs generated, no gaps" in capsys.readouterr().out
 
 
-def _two_vis_with_a_gap_each(project: Project, monkeypatch: pytest.MonkeyPatch) -> Path:
+def _two_vis_with_a_gap_each(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> Path:
     """A folder of two VIs that each call the missing library (the loader is told
     to take the block-diagram files for VIs)."""
     first = _missing_library_vi(project)
     folder = first.parent
     for suffix in ("_BDHb.xml", ".xml"):
-        (folder / f"Second{suffix}").write_text((folder / f"Clfn{suffix}").read_text())
+        (folder / f"Second{suffix}").write_text(
+            (folder / f"Clfn{suffix}").read_text()
+        )
     monkeypatch.setattr(
         "lvkit.graph.loading.rglob_vi_files",
         lambda _: [folder / "Clfn_BDHb.xml", folder / "Second_BDHb.xml"],

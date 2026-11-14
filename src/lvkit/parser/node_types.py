@@ -1043,7 +1043,8 @@ class PropertyNodeHandler(NodeTypeHandler):
         # ``<dco>`` reference to a row names the same row, not another). Its
         # ``propList`` holds one ``propItemInfo`` per path segment.
         properties = [
-            PropertyDef(segments=property_segments(row)) for row in property_rows(elem)
+            PropertyDef(segments=property_segments(row))
+            for row in property_rows(elem)
         ]
 
         # An IMPLICIT property node's DIRECT <ddo> CHILD (a sibling of its

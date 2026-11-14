@@ -134,7 +134,9 @@ def _annotate_sr_tunnels(
 
 def _term_list_uids(dco: ET.Element) -> list[str]:
     return [
-        uid for e in dco.findall("termList/SL__arrayElement") if (uid := e.get("uid"))
+        uid
+        for e in dco.findall("termList/SL__arrayElement")
+        if (uid := e.get("uid"))
     ]
 
 

@@ -32,7 +32,9 @@ _TD_ENUM_CTL = Path(
 )
 
 
-def _generate(data: LVType, monkeypatch: pytest.MonkeyPatch, gaps: list[Gap]) -> str:
+def _generate(
+    data: LVType, monkeypatch: pytest.MonkeyPatch, gaps: list[Gap]
+) -> str:
     graph = InMemoryVIGraph()
     graph._dep_graph.add_node(_KEY, node_type="vi")  # noqa: SLF001
     call = VINode(
@@ -52,25 +54,14 @@ def _generate(data: LVType, monkeypatch: pytest.MonkeyPatch, gaps: list[Gap]) ->
         name="caller.vi",
         inputs=[
             FPTerminal(
-                id="fp:x",
-                index=0,
-                direction="input",
-                wiring_rule=1,
-                name="x",
-                is_public=True,
-                is_indicator=False,
-                lv_type=data,
+                id="fp:x", index=0, direction="input", wiring_rule=1, name="x",
+                is_public=True, is_indicator=False, lv_type=data,
             )
         ],
         outputs=[
             FPTerminal(
-                id="fp:t",
-                index=0,
-                direction="output",
-                name="t",
-                is_public=True,
-                is_indicator=True,
-                lv_type=_U8,
+                id="fp:t", index=0, direction="output", name="t", is_public=True,
+                is_indicator=True, lv_type=_U8,
             )
         ],
         data_flow=[

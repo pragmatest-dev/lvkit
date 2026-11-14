@@ -22,7 +22,9 @@ _ANTS = _SAMPLES / "ni-labview-icon-editor/resource/plugins/NIIconEditor/Class/A
 _AF = _SAMPLES / "actor-framework/Core/ActorFramework"
 
 
-def test_a_listed_method_is_owned_when_its_class_is_loaded_for_fields_only() -> None:
+def test_a_listed_method_is_owned_when_its_class_is_loaded_for_fields_only() -> (
+    None
+):
     """describe loads ``GET_AntsLine.vi``'s class for its fields only; the class
     still lists the VI, so the VI is its member (``owns``), it claims the
     class back, and the ``## Class`` section shows."""

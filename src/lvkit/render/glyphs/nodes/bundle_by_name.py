@@ -100,12 +100,7 @@ class BundleByNameGlyph:
             ry1 = y1 + i * row_h
             ry2 = ry1 + row_h
             backend.rect(
-                cell_x1,
-                ry1,
-                cell_x2,
-                ry2,
-                fill=cell_fill,
-                stroke=stroke,
+                cell_x1, ry1, cell_x2, ry2, fill=cell_fill, stroke=stroke,
                 stroke_width=1.0,
             )
             label = fit_label(name, (cell_x2 - cell_x1) - 4.0, backend, lsize)

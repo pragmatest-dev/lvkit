@@ -23,8 +23,7 @@ from .conftest import SAMPLES_ROOT
 from .test_front_panel_render import _control, _rects_filled
 
 _NEW_PICTURE_VI = (
-    SAMPLES_ROOT
-    / "ni-labview-icon-editor/resource/plugins/NIIconEditor/Support"
+    SAMPLES_ROOT / "ni-labview-icon-editor/resource/plugins/NIIconEditor/Support"
     / "Create or Substitute NI_Layer layer.vi"
 )
 

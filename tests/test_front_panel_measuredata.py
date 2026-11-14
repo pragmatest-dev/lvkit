@@ -33,9 +33,7 @@ def _measure_data_type(flavor: str | None) -> LVType:
 
 def test_a_measure_data_control_shows_its_real_flavor() -> None:
     ctrl = _control(
-        "Waveform",
-        "stdMeasureData",
-        (0, 0, 40, 100),
+        "Waveform", "stdMeasureData", (0, 0, 40, 100),
         lv_type=_measure_data_type("DigitalWaveform"),
     )
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)
@@ -59,9 +57,7 @@ def test_a_measure_data_control_actually_draws_its_flavor_text() -> None:
     from lvkit.parser.models import ParsedFrontPanel
 
     ctrl = _control(
-        "Waveform",
-        "stdMeasureData",
-        (0, 0, 40, 100),
+        "Waveform", "stdMeasureData", (0, 0, 40, 100),
         lv_type=_measure_data_type("AnalogWaveform"),
     )
     fp = ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 150, 150))

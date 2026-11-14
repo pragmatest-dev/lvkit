@@ -76,7 +76,9 @@ CREATE_PANE = [
 ]
 
 
-def _create(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: Path) -> Any:
+def _create(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, directory: Path
+) -> Any:
     _, result = run_catalog_call(
         tmp_path,
         monkeypatch,
@@ -123,7 +125,9 @@ TEMP_PANE = [
 ]
 
 
-def _temp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **arguments: str) -> Path:
+def _temp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **arguments: str
+) -> Path:
     wired = {"ext": (10, STRING)} if arguments else {}
     _, result = run_catalog_call(
         tmp_path,

@@ -511,7 +511,9 @@ def clear_errors(
     ``Step B.vi`` on the cleared error. ``full_pane`` adds the connector pane's
     four unused inputs before the code input, as the VI's pane has.
     ``code_control`` wires the code from the control ``code`` instead."""
-    unused = [(f"unused {i}", i, I32, False) for i in (1, 2, 5, 6)] if full_pane else []
+    unused = (
+        [(f"unused {i}", i, I32, False) for i in (1, 2, 5, 6)] if full_pane else []
+    )
     vi, x, ein, result, eout = _x_error_result()
     a, b = vi.step("Step A.vi"), vi.step("Step B.vi")
     clear = vi.call(

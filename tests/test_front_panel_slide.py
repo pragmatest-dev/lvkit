@@ -76,12 +76,8 @@ def test_a_horizontal_slide_places_its_thumb_by_real_fraction() -> None:
     """Orientation comes from the control's own box (wider than tall), never
     a heuristic; the thumb sits at (value-min)/(max-min)."""
     ctrl = _control(
-        "Slide",
-        "stdSlide",
-        (0, 0, 30, 300),
-        default_value="30",
-        slide_min=0.0,
-        slide_max=100.0,
+        "Slide", "stdSlide", (0, 0, 30, 300),
+        default_value="30", slide_min=0.0, slide_max=100.0,
     )
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)
     assert isinstance(glyph, SlideControlGlyph)
@@ -90,12 +86,8 @@ def test_a_horizontal_slide_places_its_thumb_by_real_fraction() -> None:
 
 def test_a_vertical_slide_places_its_thumb_by_real_fraction() -> None:
     ctrl = _control(
-        "Slide",
-        "stdSlide",
-        (0, 0, 300, 30),
-        default_value="200",
-        slide_min=0.0,
-        slide_max=255.0,
+        "Slide", "stdSlide", (0, 0, 300, 30),
+        default_value="200", slide_min=0.0, slide_max=255.0,
     )
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)
     assert isinstance(glyph, SlideControlGlyph)
@@ -117,12 +109,8 @@ def test_a_slide_with_no_computable_position_draws_no_thumb() -> None:
     assert _slide_fraction(no_value) is None
 
     unbounded = _control(
-        "S",
-        "stdSlide",
-        (0, 0, 30, 300),
-        default_value="5",
-        slide_min=float("-inf"),
-        slide_max=float("inf"),
+        "S", "stdSlide", (0, 0, 30, 300),
+        default_value="5", slide_min=float("-inf"), slide_max=float("inf"),
     )
     assert _slide_fraction(unbounded) is None
 
@@ -140,12 +128,8 @@ def test_a_slide_with_no_computable_position_draws_no_thumb() -> None:
 
 def test_a_slide_clamps_an_out_of_range_value() -> None:
     ctrl = _control(
-        "S",
-        "stdSlide",
-        (0, 0, 30, 300),
-        default_value="150",
-        slide_min=0.0,
-        slide_max=100.0,
+        "S", "stdSlide", (0, 0, 30, 300),
+        default_value="150", slide_min=0.0, slide_max=100.0,
     )
     assert _slide_fraction(ctrl) == 1.0
 
@@ -167,12 +151,8 @@ def test_a_vertical_slides_thumb_is_anchored_to_its_bottom_not_its_top() -> None
         fp = ParsedFrontPanel(
             controls=[
                 _control(
-                    "S",
-                    "stdSlide",
-                    (0, 0, 300, 30),
-                    default_value=value,
-                    slide_min=0.0,
-                    slide_max=100.0,
+                    "S", "stdSlide", (0, 0, 300, 30),
+                    default_value=value, slide_min=0.0, slide_max=100.0,
                 )
             ],
             panel_bounds=(0, 0, 100, 400),

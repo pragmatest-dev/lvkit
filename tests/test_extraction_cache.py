@@ -105,7 +105,9 @@ class TestClassify:
         xfp = cache_paths.kind_fingerprint("extract")
         rel = Path("Utility") / "u.vi"
         vslot = cache_paths._vi_slot(rel)
-        assert target == _cache() / "shared" / "vilib" / slug / "extract" / xfp / vslot
+        assert (
+            target == _cache() / "shared" / "vilib" / slug / "extract" / xfp / vslot
+        )
         assert source == str(rel)
         assert ns == "shared"
 

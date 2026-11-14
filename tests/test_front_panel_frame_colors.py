@@ -39,12 +39,8 @@ def test_parser_records_a_parts_literal_colors() -> None:
 
 def _cluster_svg(frame: ParsedFPPart | None) -> str:
     ctrl = ParsedFPControl(
-        uid="1",
-        name="c",
-        control_type="stdClust",
-        bounds=(0, 0, 100, 100),
-        label_visible=False,
-        parts=[frame] if frame else [],
+        uid="1", name="c", control_type="stdClust", bounds=(0, 0, 100, 100),
+        label_visible=False, parts=[frame] if frame else [],
     )
     return render_front_panel_svg(
         ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 200, 200))

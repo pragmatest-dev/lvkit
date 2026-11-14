@@ -128,7 +128,8 @@ def test_absent_class_declared_by_its_stored_machine_path() -> None:
         / "measurement-plugin-labview/Source/Generator"
         / "Measurement Plug-In Template/Measurement"
     )
-    graph, key = load_corpus_vi(template / "Build Assets" / "Post-Build Action.vi")
+    graph, key = load_corpus_vi(
+        template / "Build Assets" / "Post-Build Action.vi")
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
     stored = (
@@ -159,12 +160,12 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
         )
     ]
     (call,) = [
-        n for n in graph.iter_nodes(key) if isinstance(n, VINode) and n.id != n.vi_path
+        n
+        for n in graph.iter_nodes(key)
+        if isinstance(n, VINode) and n.id != n.vi_path
     ]
     assert call.callee_key is not None
     assert Path(call.callee_key).exists()
-    assert (
-        Path(call.callee_key)
-        .as_posix()
-        .endswith("/MeasurementService/Server API/Destroy.vi")
+    assert Path(call.callee_key).as_posix().endswith(
+        "/MeasurementService/Server API/Destroy.vi"
     )

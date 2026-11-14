@@ -157,7 +157,9 @@ def test_an_enum_default_may_be_written_value_colon_item() -> None:
     assert python_label(_term("mode (1:read)", MODE, "1")) == "mode (1:read)"
 
 
-def _catalog(label: str, type_: str, default: ScalarValue = None) -> PrimitiveTerminal:
+def _catalog(
+    label: str, type_: str, default: ScalarValue = None
+) -> PrimitiveTerminal:
     return PrimitiveTerminal(
         index=0,
         direction=TerminalDirection.INPUT,

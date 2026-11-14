@@ -170,7 +170,9 @@ class TestTypedFrameFacts:
 
     def test_a_16_bit_boolean_selects_like_a_boolean(self):
         root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0), (1, 1)])
-        cases = extract_case_structures(root, _make_terminal_info("sel1", "BooleanU16"))
+        cases = extract_case_structures(
+            root, _make_terminal_info("sel1", "BooleanU16")
+        )
         assert [f.boolean_value for f in cases[0].frames] == [False, True]
 
     def test_a_substring_selector_is_a_string_selector(self):

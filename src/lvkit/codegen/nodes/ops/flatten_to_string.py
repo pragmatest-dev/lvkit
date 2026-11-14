@@ -68,7 +68,9 @@ def flatten_to_string(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment 
             raise ConversionGap(
                 f"Flatten To String has no type string for {error}", node
             ) from error
-        type_var = ctx.make_output_var("type_string", node.id, terminal_id=type_term.id)
+        type_var = ctx.make_output_var(
+            "type_string", node.id, terminal_id=type_term.id
+        )
         statements.append(build_assign(type_var, parse_expr(numbers)))
         bindings[type_term.id] = type_var
     data_term = terminal(node, "output", 3)

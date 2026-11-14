@@ -878,7 +878,9 @@ class DependencyKind(StrEnum):
         try:
             return _DEPENDENCY_KIND_OF_NODE_TYPE[node_type]
         except KeyError:
-            raise ValueError(f"a {node_type.value} is not a dependency kind") from None
+            raise ValueError(
+                f"a {node_type.value} is not a dependency kind"
+            ) from None
 
 
 _DEPENDENCY_KIND_OF_NODE_TYPE = {

@@ -35,13 +35,8 @@ class PictureControlGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.fp_value_fill,
-            stroke=self.border_color,
-            stroke_width=1.0,
+            x1, y1, x2, y2,
+            fill=theme.fp_value_fill, stroke=self.border_color, stroke_width=1.0,
         )
         w, h = x2 - x1, y2 - y1
         if w < _MIN_ICON_SIZE or h < _MIN_ICON_SIZE:
@@ -51,14 +46,8 @@ class PictureControlGlyph:
         iw, ih = ix2 - ix1, iy2 - iy1
         color = theme.pane_type_text
         r = min(iw, ih) * 0.14
-        backend.circle(
-            ix1 + iw * 0.28,
-            iy1 + ih * 0.28,
-            r,
-            fill="none",
-            stroke=color,
-            stroke_width=1.0,
-        )
+        backend.circle(ix1 + iw * 0.28, iy1 + ih * 0.28, r, fill="none", stroke=color,
+                        stroke_width=1.0)
         backend.polygon(
             [
                 (ix1, iy2),
@@ -67,7 +56,5 @@ class PictureControlGlyph:
                 (ix1 + iw * 0.72, iy1 + ih * 0.42),
                 (ix2, iy2),
             ],
-            fill="none",
-            stroke=color,
-            stroke_width=1.0,
+            fill="none", stroke=color, stroke_width=1.0,
         )

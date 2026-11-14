@@ -80,7 +80,9 @@ def test_class_private_data_kept_inside_the_class_is_its_control():
         if data.get("rel") == EdgeRel.PRIVATE_DATA
     ]
     assert edges == [str(_PQ_CLASS.resolve() / "Message Priority Queue.ctl")]
-    assert [f.name for f in g._dep_graph.nodes[cls_key]["fields"]] == ["priority queue"]
+    assert [f.name for f in g._dep_graph.nodes[cls_key]["fields"]] == [
+        "priority queue"
+    ]
 
 
 def test_absent_control_is_a_stub(tmp_path: Path):

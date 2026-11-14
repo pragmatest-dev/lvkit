@@ -158,9 +158,7 @@ def test_array_of_clusters_exposes_element_fields():
     ctrl = _parse_ddo(arr, "1", set())
     assert ctrl is not None and ctrl.control_type == "indArr"
     assert [c.control_type for c in ctrl.children] == [
-        "stdString",
-        "stdNum",
-        "stdBool",
+        "stdString", "stdNum", "stdBool",
     ]
 
 
@@ -275,9 +273,8 @@ def test_fp_cluster_preserves_nested_cluster():
     )
     ctrl = _parse_ddo(clust, "1", set())
     assert ctrl is not None
-    kinds = [
-        (c.control_type, [g.control_type for g in c.children]) for c in ctrl.children
-    ]
+    kinds = [(c.control_type, [g.control_type for g in c.children])
+             for c in ctrl.children]
     assert kinds == [("stdNum", []), ("stdClust", ["stdBool"])]
 
 
@@ -364,10 +361,7 @@ def test_lv82_ring_and_clusters_resolve_end_to_end():
 
 
 _TEST_SETTINGS_CTL = (
-    _SAMPLES
-    / "ni-labview-icon-editor"
-    / "vi.lib"
-    / "LabVIEW Icon API"
+    _SAMPLES / "ni-labview-icon-editor" / "vi.lib" / "LabVIEW Icon API"
     / "API_Test Settings.ctl"
 )
 
@@ -400,15 +394,8 @@ def test_ctl_typedef_loads_real_front_panel_geometry():
 
 
 _LIST_VI_HIERARCHY = (
-    _SAMPLES
-    / "OpenG"
-    / "extracted"
-    / "File Group 0"
-    / "user.lib"
-    / "_OpenG.lib"
-    / "appcontrol"
-    / "appcontrol.llb"
-    / "List VI Hierarchy__ogtk.vi"
+    _SAMPLES / "OpenG" / "extracted" / "File Group 0" / "user.lib" / "_OpenG.lib"
+    / "appcontrol" / "appcontrol.llb" / "List VI Hierarchy__ogtk.vi"
 )
 
 

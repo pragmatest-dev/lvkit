@@ -88,19 +88,9 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
         pytest.skip(f"corpus VI missing: {vi_rel}")
     outdir = Path(tempfile.mkdtemp(prefix=f"lvkit_pkg_{_slug(vi.name)}_"))
     proc = subprocess.run(
-        [
-            sys.executable,
-            str(_GEN),
-            str(vi),
-            "-o",
-            str(outdir),
-            "--userlib",
-            str(OPENG_USERLIB),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
+        [sys.executable, str(_GEN), str(vi), "-o", str(outdir),
+         "--userlib", str(OPENG_USERLIB)],
+        capture_output=True, text=True, timeout=180, check=False,
     )
     assert proc.returncode in (0, 3), (  # written: complete, or with gaps
         f"generation failed:\n{proc.stdout}\n{proc.stderr}"
@@ -127,11 +117,8 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
             mn = ".".join([pkg.name, *m.relative_to(pkg).with_suffix("").parts])
             mod = importlib.import_module(mn)
             fn = next(
-                (
-                    o
-                    for n, o in inspect.getmembers(mod, inspect.isfunction)
-                    if o.__module__ == mn and tgt in _slug(n)
-                ),
+                (o for n, o in inspect.getmembers(mod, inspect.isfunction)
+                 if o.__module__ == mn and tgt in _slug(n)),
                 None,
             )
             if fn is not None:
@@ -360,7 +347,9 @@ def test_reorder_1d_array_with_pointers() -> None:
 
 def test_build_path_traditional() -> None:
     """base path + a name -> base/name (single-name join)."""
-    r = _run_leaf("file/file.llb/Build Path - Traditional__ogtk.vi", "/home/u", "f.txt")
+    r = _run_leaf(
+        "file/file.llb/Build Path - Traditional__ogtk.vi", "/home/u", "f.txt"
+    )
     assert _posix(r.appended_path) == "/home/u/f.txt"
 
 

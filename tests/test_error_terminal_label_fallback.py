@@ -112,7 +112,9 @@ def test_error_terminal_never_leaks_a_cluster_field_name(
     # test_connector_pane_label_recovery.py) -- when a terminal did fall back
     # to control_<uid>, the VI carries a note saying so, never silence.
     if any(n.startswith("control_") for n in error_names):
-        notes = [p for p in graph.problems() if p.kind is ProblemKind.UNLABELED_CONTROL]
+        notes = [
+            p for p in graph.problems() if p.kind is ProblemKind.UNLABELED_CONTROL
+        ]
         assert notes and all(p.is_note for p in notes), (
             f"{vi_filename}: control_<uid> fallback fired without a note"
         )

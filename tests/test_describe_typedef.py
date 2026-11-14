@@ -44,19 +44,11 @@ def test_a_cluster_lists_its_fields_with_typed_defaults() -> None:
     fields = (
         TypedefField("Name", _STRING, "abc", ()),
         TypedefField("Gain", _DBL, "3600.0", ()),
-        TypedefField(
-            "Steps",
-            LVType(LVTypeKind.ARRAY, element_type=_DBL),
-            None,
-            (),
-            ("1.0", "2.0"),
-        ),
-        TypedefField(
-            "Sub",
-            LVType(LVTypeKind.CLUSTER),
-            None,
-            (TypedefField("Inner", _DBL, "0.5", ()),),
-        ),
+        TypedefField("Steps", LVType(LVTypeKind.ARRAY, element_type=_DBL), None, (),
+                     ("1.0", "2.0")),
+        TypedefField("Sub", LVType(LVTypeKind.CLUSTER), None, (
+            TypedefField("Inner", _DBL, "0.5", ()),
+        )),
     )
     text = describe_typedef(_info(fields=fields))
     lines = text.splitlines()

@@ -52,13 +52,8 @@ class GraphControlGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.fp_value_fill,
-            stroke=self.border_color,
-            stroke_width=1.0,
+            x1, y1, x2, y2,
+            fill=theme.fp_value_fill, stroke=self.border_color, stroke_width=1.0,
         )
         if self.inset is None:
             return
@@ -69,13 +64,8 @@ class GraphControlGlyph:
         # (an outline of the real boundary, not a filled "plot" that would
         # look like real content).
         backend.rect(
-            x1 + w * left,
-            y1 + h * top,
-            x2 - w * right,
-            y2 - h * bottom,
-            fill=theme.canvas,
-            stroke=self.border_color,
-            stroke_width=1.0,
+            x1 + w * left, y1 + h * top, x2 - w * right, y2 - h * bottom,
+            fill=theme.canvas, stroke=self.border_color, stroke_width=1.0,
         )
 
 

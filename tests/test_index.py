@@ -232,7 +232,9 @@ class TestFullCorpusDemo:
         (``loaded_alone == 0``)."""
         vi_paths = rglob_vi_files(JKI_ROOT)
         assert len(jki_index.facts) == len(vi_paths)
-        assert {f.path for f in jki_index.facts} == {str(p.resolve()) for p in vi_paths}
+        assert {f.path for f in jki_index.facts} == {
+            str(p.resolve()) for p in vi_paths
+        }
         assert jki_index.loaded_alone == 0
 
     def test_error_indicator_tally(self, jki_index: BuildResult):

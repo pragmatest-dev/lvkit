@@ -156,7 +156,9 @@ def test_json_carries_caption_and_visibility_on_every_entry() -> None:
 def _load_main_ui():
     if not _MAIN_UI.exists():
         pytest.skip(f"sample corpus VI not present: {_MAIN_UI}")
-    return load_vi_by_path(_MAIN_UI, LoadMode.MINIMAL, layout=False)
+    return load_vi_by_path(
+        _MAIN_UI, LoadMode.MINIMAL, layout=False
+    )
 
 
 @pytest.mark.needs_samples
@@ -174,7 +176,7 @@ def test_main_ui_shows_the_caption_in_describe_json_and_lvnet() -> None:
     assert runs["caption_visible"] is True
 
     verbose = render_lvnet(module, display_name=_MAIN_UI.name, verbose=True)
-    assert "txtRuns:" in verbose
+    assert 'txtRuns:' in verbose
     assert 'caption "Last Run:"' in verbose
     assert "caption" not in render_lvnet(module, display_name=_MAIN_UI.name)
 
@@ -206,8 +208,7 @@ def test_describe_shows_only_a_visible_caption_that_differs_from_the_label() -> 
     "vi",
     [
         pytest.param(
-            _SAMPLES
-            / "measurement-plugin-labview/Source/Generator"
+            _SAMPLES / "measurement-plugin-labview/Source/Generator"
             / "Create Measurement Client.vi",
             id="Create_Measurement_Client",
         ),
@@ -222,7 +223,9 @@ def test_describe_shows_only_a_visible_caption_that_differs_from_the_label() -> 
 def test_multi_line_corpus_captions_round_trip(vi: Path) -> None:
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(vi, LoadMode.MINIMAL, layout=False)
+    graph, key = load_vi_by_path(
+        vi, LoadMode.MINIMAL, layout=False
+    )
     module = build_netlist_from_graph(graph, key)
     captions = [
         t.caption

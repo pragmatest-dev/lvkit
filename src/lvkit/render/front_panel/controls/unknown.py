@@ -21,17 +21,8 @@ class UnknownControlGlyph:
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
-            fill=theme.canvas,
-            stroke=theme.struct_border,
-            stroke_width=1.0,
-            stroke_dasharray="3,2",
-        )
+        backend.rect(x1, y1, x2, y2, fill=theme.canvas, stroke=theme.struct_border,
+                     stroke_width=1.0, stroke_dasharray="3,2")
         fitted = fit_label(self.control_type, x2 - x1 - 6, backend, 10.0)
-        backend.text(
-            (x1 + x2) / 2, (y1 + y2) / 2 + 3, fitted, 10.0, fill=theme.pane_type_text
-        )
+        backend.text((x1 + x2) / 2, (y1 + y2) / 2 + 3, fitted, 10.0,
+                     fill=theme.pane_type_text)

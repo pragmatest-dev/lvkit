@@ -19,7 +19,7 @@ def _round_trip(content: bytes) -> tuple[str, bytes]:
 
 
 def test_small_value_is_plain_entities_and_exact() -> None:
-    content = b'\x00\x00\x00\x04abc\xff"&<>\x7f'
+    content = b"\x00\x00\x00\x04abc\xff\"&<>\x7f"
     text, back = _round_trip(content)
     assert COMPRESSED_PREFIX not in text and "&#x00;" in text
     assert back == content

@@ -108,7 +108,9 @@ class ClusterConstantGlyph:
             return
         self._draw_labeled_rows(backend, bounds, theme, pad, label_size)
 
-    def _draw_real_geometry(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+    def _draw_real_geometry(
+        self, backend: Backend, bounds: Rect, theme: Theme
+    ) -> None:
         """Draw each field at its OWN real heap rect, fit into ``bounds`` by
         a single uniform scale (``cluster_geom``'s fields are relative to its
         own (0, 0) origin at its NATIVE size — see ``ClusterGeom``). Scale is
@@ -185,22 +187,12 @@ class ClusterConstantGlyph:
         for i, col in enumerate(colors):
             bx = ex + i * (s + gap)
             backend.rect(bx, ey, bx + s, ey + s, fill=col, stroke="none")
-        backend.rect(
-            ex,
-            ey + s + gap,
-            ex + s,
-            ey + 2 * s + gap,
-            fill=theme.wire_bool,
-            stroke="none",
-        )
+        backend.rect(ex, ey + s + gap, ex + s, ey + 2 * s + gap,
+                     fill=theme.wire_bool, stroke="none")
 
     def _draw_labeled_rows(
-        self,
-        backend: Backend,
-        bounds: Rect,
-        theme: Theme,
-        pad: float,
-        label_size: float,
+        self, backend: Backend, bounds: Rect, theme: Theme,
+        pad: float, label_size: float,
     ) -> None:
         x1, y1, x2, y2 = bounds
         row_h = (y2 - y1 - 2 * pad) / len(self.fields)

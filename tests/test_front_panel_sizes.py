@@ -21,12 +21,8 @@ def _bool_svg() -> str:
     # (top, left, bottom, right): divot 60x31 around a 50x21 button, as in the
     # issue #101 boolean.
     ctrl = ParsedFPControl(
-        uid="1",
-        name="flag",
-        control_type="stdBool",
-        default_value="True",
-        bounds=(10, 10, 41, 70),
-        label_visible=False,
+        uid="1", name="flag", control_type="stdBool", default_value="True",
+        bounds=(10, 10, 41, 70), label_visible=False,
         parts=[_part(88, (0, 0, 31, 60)), _part(21, (5, 5, 26, 55))],
     )
     return render_front_panel_svg(
@@ -46,16 +42,14 @@ def test_boolean_switch_draws_in_its_button_part() -> None:
 
 def test_label_uses_the_front_panel_label_size() -> None:
     ctrl = ParsedFPControl(
-        uid="1",
-        name="pin_name",
-        control_type="stdNum",
-        bounds=(30, 20, 60, 120),
+        uid="1", name="pin_name", control_type="stdNum", bounds=(30, 20, 60, 120),
     )
     svg = render_front_panel_svg(
         ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 400, 600))
     )
     label_tag = svg.split(">pin_name<")[0].rsplit("<text", 1)[1]
     assert f'font-size="{LABEL_SIZE}"' in label_tag
+
 
 
 def test_glyph_without_its_own_narrowing_gets_the_value_extent() -> None:
@@ -68,10 +62,7 @@ def test_glyph_without_its_own_narrowing_gets_the_value_extent() -> None:
     from lvkit.render.style import DEFAULT_THEME
 
     ctrl = ParsedFPControl(
-        uid="1",
-        name="ring",
-        control_type="stdRing",
-        bounds=(288, 72, 327, 200),
+        uid="1", name="ring", control_type="stdRing", bounds=(288, 72, 327, 200),
         parts=[
             ParsedFPPart(16, "label", (0, 11, 15, 128)),
             _part(9, (14, 11, 39, 61)),

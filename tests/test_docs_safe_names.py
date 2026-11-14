@@ -45,7 +45,9 @@ def test_icons_follow_their_pages(tmp_path: Path) -> None:
         "/p/2.vi": PageName("Project", "a_b-2"),
     }
     gen = _generator(tmp_path, pages)
-    icons = {gen._vi_name_to_filename(k).removesuffix(".html") + ".png" for k in pages}
+    icons = {
+        gen._vi_name_to_filename(k).removesuffix(".html") + ".png" for k in pages
+    }
     assert icons == {"Project/a_b.png", "Project/a_b-2.png"}
 
 

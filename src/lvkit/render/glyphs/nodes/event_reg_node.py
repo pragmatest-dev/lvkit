@@ -43,10 +43,7 @@ class EventRegNodeGlyph:
         stroke = getattr(theme, self.stroke_attr)
         text_fill = getattr(theme, self.text_attr)
         backend.rect(
-            x1,
-            y1,
-            x2,
-            y2,
+            x1, y1, x2, y2,
             fill=getattr(theme, self.fill_attr),
             stroke=stroke,
             stroke_width=1.2,

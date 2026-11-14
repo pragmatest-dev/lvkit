@@ -235,7 +235,10 @@ def test_a_name_that_ends_like_an_identity_is_quoted(tmp_path: Path) -> None:
 
 
 def test_a_read_of_no_control_is_an_error() -> None:
-    text = "vi V.vi :\n  block-diagram :\n    for-loop :\n      read Missing\n"
+    text = (
+        "vi V.vi :\n  block-diagram :\n"
+        "    for-loop :\n      read Missing\n"
+    )
     with pytest.raises(LvnetReconstructError, match="names no control"):
         reconstruct_module(parse_lvnet(text))
 

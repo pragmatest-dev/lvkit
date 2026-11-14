@@ -54,7 +54,8 @@ def test_subfolder_class_fields_resolve_without_methods() -> None:
     class_method_vis = [
         q
         for _key, q in g._dep_graph.nodes(data="qname")
-        if q and q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
+        if q
+        and q.startswith("TextTestRunner.JUnitXML.lvclass:") and q.endswith(".vi")
     ]
     assert class_method_vis == ["TextTestRunner.JUnitXML.lvclass:processResult.vi"]
 

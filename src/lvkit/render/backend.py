@@ -30,7 +30,6 @@ def quoteattr(text: str) -> str:
     """A quoted XML attribute value for ``text``."""
     return saxutils.quoteattr(_XML_INVALID_CHARS.sub("\ufffd", text))
 
-
 # Average glyph width as a fraction of font size, for a generic sans-serif
 # face. A real backend (or a future PIL/PNG backend) can measure exactly;
 # this table is deliberately per-glyph (not a flat px/char constant) so

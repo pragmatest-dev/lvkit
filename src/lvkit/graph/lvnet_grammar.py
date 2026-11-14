@@ -98,7 +98,9 @@ _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 # a literal or reserved form wherever a net name is read -- a Boolean literal,
 # the Not-a-Path literal, the unwired-driver mark, the unwired-default
 # keyword.
-_LVNET_RESERVED_CONTROL_NAMES = frozenset({"True", "False", "NotAPath", "default", "?"})
+_LVNET_RESERVED_CONTROL_NAMES = frozenset(
+    {"True", "False", "NotAPath", "default", "?"}
+)
 # A control whose terminal sits inside a structure is read there: ``read <Control>``.
 _LVNET_READ_KEYWORD = "read"
 _LVNET_REFERENCE_KEYWORD = "vi-server-reference"
@@ -289,7 +291,6 @@ _LVNET_TUNNEL_MODE_WORD: dict[TunnelMode, str] = {
 
 def _lvnet_tunnel_mode_word(mode: TunnelMode | None) -> str:
     return _LVNET_TUNNEL_MODE_WORD[mode] if mode is not None else "?"
-
 
 # ``DisableStructureKind`` -> lvnet §8's disable-family structure KEYWORD.
 # Straight from the §8 table -- no invented word.

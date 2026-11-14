@@ -118,10 +118,9 @@ def test_a_record_names_only_the_file_its_path_ends_in() -> None:
         "A.lvclass"
     )
     assert recorded_file_name("FPPI", ["\x07\x00"], "A.lvclass", []) is None
-    assert (
-        recorded_file_name("IUVI", ["A.lvclass", "m.vi"], "M.vi", [])
-        == "A.lvclass:m.vi"
-    )
+    assert recorded_file_name(
+        "IUVI", ["A.lvclass", "m.vi"], "M.vi", []
+    ) == "A.lvclass:m.vi"
 
 
 def test_a_type_is_a_dependency_only_through_a_record_of_its_name() -> None:
@@ -167,7 +166,9 @@ def test_a_dependency_pane_is_read_by_its_exact_key(tmp_path: Path) -> None:
     assert graph.key_label(stub) == "Owner.lvclass:T.vi"
     lvnet, describe, as_json = _views(graph, vi)
     assert "    subVI Owner.lvclass:T.vi (missing)\n" in lvnet
-    assert {d["qualified"] for d in as_json["dependencies"]} == {"Owner.lvclass:T.vi"}
+    assert {d["qualified"] for d in as_json["dependencies"]} == {
+        "Owner.lvclass:T.vi"
+    }
     assert describe.startswith("#")
 
 
@@ -179,10 +180,7 @@ def test_a_call_shows_the_name_the_graph_gives_its_callee(tmp_path: Path) -> Non
     callee = str(tmp_path / "M.vi")
     graph._add_stub(callee, NodeType.VI, "M.vi", "Daqmx C.lvclass:M.vi", caller=vi)
     call = VINode(
-        id="c",
-        vi_path=vi,
-        name="M.vi",
-        qualified_name="DAQmx C.lvclass:M.vi",
+        id="c", vi_path=vi, name="M.vi", qualified_name="DAQmx C.lvclass:M.vi",
         callee_key=callee,
     )
     assert graph.call_qualified_name(call) == "Daqmx C.lvclass:M.vi"

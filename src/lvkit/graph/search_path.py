@@ -59,7 +59,9 @@ class SearchPath:
                 result.append((Path(entry), True))
         return result
 
-    def find(self, tail: Sequence[str], is_it: Callable[[Path], bool]) -> Path | None:
+    def find(
+        self, tail: Sequence[str], is_it: Callable[[Path], bool]
+    ) -> Path | None:
         """The file a recorded path's ``tail`` (its folders and file name, the
         root dropped) names in the first search folder that has it: among the
         files of its name there that ``is_it`` accepts (the one the caller

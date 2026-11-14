@@ -1327,7 +1327,9 @@ def split_shared_variable_component(component: str) -> SharedVariableComponent:
         else:
             first, after = target[:sep_at], target[sep_at:]
     if not after:
-        return SharedVariableComponent(None, first, access, network_path, unreadable)
+        return SharedVariableComponent(
+            None, first, access, network_path, unreadable
+        )
     if not after.startswith(_LVNET_TERMINAL_SEP):
         raise LvnetParseError(
             f"shared-variable library must be followed by '{_LVNET_TERMINAL_SEP}' "
@@ -1632,7 +1634,7 @@ def _parse_case_frame_header(
     ``", default"``.
     """
     error = LvnetParseError(
-        f'line {frame_line_no}: expected \'frame "<value>"[, "<value>"]'
+        f"line {frame_line_no}: expected 'frame \"<value>\"[, \"<value>\"]"
         f"[, default] :' or 'frame default :' inside a case scope (§8), "
         f"got {frame_line!r}"
     )
@@ -2072,7 +2074,9 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
             )
         unreadable_prefix = f'({_LVNET_ASSEMBLY_UNREADABLE} "'
-        if kind == DependencyKind.ASSEMBLY.value and rest.startswith(unreadable_prefix):
+        if kind == DependencyKind.ASSEMBLY.value and rest.startswith(
+            unreadable_prefix
+        ):
             start = len(unreadable_prefix) - 1
             end = _scan_quoted_literal(rest, start)
             if rest[end:] != ")":
@@ -2610,7 +2614,9 @@ def _parsed_type_ref_shape(
     return ("leaf", text)
 
 
-def _module_default_token(default: ScalarValue, lv_type: LVType | None) -> str | None:
+def _module_default_token(
+    default: ScalarValue, lv_type: LVType | None
+) -> str | None:
     """The comparable ``default`` token for a MODULE-side BOUNDARY terminal
     (``ConnectorPaneTerminal.default``, a raw ``ScalarValue``) -- ``None``
     when the pane genuinely has no default recorded, else the exact literal

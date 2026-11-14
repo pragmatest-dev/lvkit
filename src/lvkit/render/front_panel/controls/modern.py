@@ -153,7 +153,9 @@ def field_fill(stored: str | None, is_indicator: bool, disabled: bool = False) -
 def _toward_white(color: str, step: float) -> str:
     """``#RRGGBB`` ``color`` moved ``step`` (0-1) of the way to white."""
     channels = [int(color[i : i + 2], 16) for i in (1, 3, 5)]
-    return "#" + "".join(f"{round(c + (255 - c) * step):02X}" for c in channels)
+    return "#" + "".join(
+        f"{round(c + (255 - c) * step):02X}" for c in channels
+    )
 
 
 def _color_at(stops: tuple[tuple[float, str], ...], t: float) -> str:
@@ -276,19 +278,13 @@ def draw_spinner(
         return
     stops, band, lip, edge, fill = (
         (
-            _DISABLED_CAPSULE_STOPS,
-            _DISABLED_CAPSULE_BOTTOM_BAND,
-            _DISABLED_CAPSULE_TOP_LIP,
-            _DISABLED_ARROW_EDGE,
-            _DISABLED_ARROW_FILL,
+            _DISABLED_CAPSULE_STOPS, _DISABLED_CAPSULE_BOTTOM_BAND,
+            _DISABLED_CAPSULE_TOP_LIP, _DISABLED_ARROW_EDGE, _DISABLED_ARROW_FILL,
         )
         if disabled
         else (
-            _CAPSULE_STOPS,
-            _CAPSULE_BOTTOM_BAND,
-            _CAPSULE_TOP_LIP,
-            _ARROW_EDGE,
-            _ARROW_FILL,
+            _CAPSULE_STOPS, _CAPSULE_BOTTOM_BAND, _CAPSULE_TOP_LIP,
+            _ARROW_EDGE, _ARROW_FILL,
         )
     )
     cx1 = min(r[0] for r in halves)
@@ -299,14 +295,8 @@ def draw_spinner(
         up = index == 0
         backend.begin_group(clip=(x1, y1, x2, y2))
         backend.gradient_rect(
-            cx1,
-            cy1,
-            cx2,
-            cy2,
-            stops=stops,
-            end=(1.0, 0.0),
-            rx=(cx2 - cx1) / 2,
-            ry=(cy2 - cy1) / 2,
+            cx1, cy1, cx2, cy2, stops=stops, end=(1.0, 0.0),
+            rx=(cx2 - cx1) / 2, ry=(cy2 - cy1) / 2,
         )
         if up:
             backend.rect(x1, y2 - _BAND_HEIGHT, x2, y2, fill=band)
@@ -316,7 +306,9 @@ def draw_spinner(
         _draw_arrow(backend, (x1, y1, x2, y2), up, edge, fill)
 
 
-def _draw_arrow(backend: Backend, half: Rect, up: bool, edge: str, fill: str) -> None:
+def _draw_arrow(
+    backend: Backend, half: Rect, up: bool, edge: str, fill: str
+) -> None:
     """A triangle centered in ``half``: the fill, and the dark edge a bevel
     leaves along its left side (and its top bar when it points down)."""
     x1, y1, x2, y2 = half
@@ -371,54 +363,26 @@ def draw_inset_bevel(backend: Backend, outer: Rect, inner: Rect, fill: str) -> N
         color = dark.format(_band_alpha(_BEVEL_DARK_ALPHA, i, round(top)))
         la, lb = left * a / top, left * b / top
         ra, rb = right * a / top, right * b / top
-        band(
-            [
-                (ox1 + la, oy1 + a),
-                (ox2 - ra, oy1 + a),
-                (ox2 - rb, oy1 + b),
-                (ox1 + lb, oy1 + b),
-            ],
-            color,
-        )
+        band([(ox1 + la, oy1 + a), (ox2 - ra, oy1 + a),
+              (ox2 - rb, oy1 + b), (ox1 + lb, oy1 + b)], color)
     for i in range(max(0, round(left))):
         a, b = left * i / round(left), left * (i + 1) / round(left)
         color = dark.format(_band_alpha(_BEVEL_DARK_ALPHA, i, round(left)))
         ta, tb = top * a / left, top * b / left
         ba, bb = bottom * a / left, bottom * b / left
-        band(
-            [
-                (ox1 + a, oy1 + ta),
-                (ox1 + b, oy1 + tb),
-                (ox1 + b, oy2 - bb),
-                (ox1 + a, oy2 - ba),
-            ],
-            color,
-        )
+        band([(ox1 + a, oy1 + ta), (ox1 + b, oy1 + tb),
+              (ox1 + b, oy2 - bb), (ox1 + a, oy2 - ba)], color)
     for i in range(max(0, round(bottom))):
         a, b = bottom * i / round(bottom), bottom * (i + 1) / round(bottom)
         color = light.format(_band_alpha(_BEVEL_LIGHT_ALPHA, i, round(bottom)))
         la, lb = left * a / bottom, left * b / bottom
         ra, rb = right * a / bottom, right * b / bottom
-        band(
-            [
-                (ox1 + la, oy2 - a),
-                (ox2 - ra, oy2 - a),
-                (ox2 - rb, oy2 - b),
-                (ox1 + lb, oy2 - b),
-            ],
-            color,
-        )
+        band([(ox1 + la, oy2 - a), (ox2 - ra, oy2 - a),
+              (ox2 - rb, oy2 - b), (ox1 + lb, oy2 - b)], color)
     for i in range(max(0, round(right))):
         a, b = right * i / round(right), right * (i + 1) / round(right)
         color = light.format(_band_alpha(_BEVEL_LIGHT_ALPHA, i, round(right)))
         ta, tb = top * a / right, top * b / right
         ba, bb = bottom * a / right, bottom * b / right
-        band(
-            [
-                (ox2 - a, oy1 + ta),
-                (ox2 - b, oy1 + tb),
-                (ox2 - b, oy2 - bb),
-                (ox2 - a, oy2 - ba),
-            ],
-            color,
-        )
+        band([(ox2 - a, oy1 + ta), (ox2 - b, oy1 + tb),
+              (ox2 - b, oy2 - bb), (ox2 - a, oy2 - ba)], color)

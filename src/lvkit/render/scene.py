@@ -1374,7 +1374,9 @@ def _wire_exempt_structures(
     """
     return frozenset(
         _endpoint_containers(w.source, graph, by_id, vi_name, fp_containment)
-    ) | frozenset(_endpoint_containers(w.dest, graph, by_id, vi_name, fp_containment))
+    ) | frozenset(
+        _endpoint_containers(w.dest, graph, by_id, vi_name, fp_containment)
+    )
 
 
 def _innermost_common_container(
@@ -2018,7 +2020,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 if len(cand) > len(fp_frame.get(end.terminal_id, ())):
                     fp_frame[end.terminal_id] = cand
                 containment_cand = _containment_of(other, graph, by_id, vi_name)
-                if len(containment_cand) > len(fp_containment.get(end.terminal_id, [])):
+                if len(containment_cand) > len(
+                    fp_containment.get(end.terminal_id, [])
+                ):
                     fp_containment[end.terminal_id] = containment_cand
 
         for t in vi_node.terminals:

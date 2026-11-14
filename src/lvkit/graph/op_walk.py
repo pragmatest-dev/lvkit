@@ -83,7 +83,9 @@ def _own_class_private_data_fields(
     if vi_path is None:
         return []
     try:
-        _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path, roots=graph.cache_roots)
+        _bd_xml, _fp_xml, main_xml = extract_vi_xml(
+            vi_path, roots=graph.cache_roots
+        )
     except Exception:
         logger.debug(
             "own private-data XML extraction failed for %r (%s)",
@@ -324,7 +326,9 @@ def _quoted(text: str) -> str:
     return f'"{text}"'
 
 
-def _format_error_cluster(value: object, quote: Callable[[str], str] = _quoted) -> str:
+def _format_error_cluster(
+    value: object, quote: Callable[[str], str] = _quoted
+) -> str:
     """Render an error-cluster value as ``code N: "source"``, the source quoted
     by ``quote`` (lvnet passes its string-literal quoting, which escapes)."""
     data = value
