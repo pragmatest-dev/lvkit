@@ -267,22 +267,27 @@
     },
     "1060": {
       "name": "Square Root",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square-root.html",
+      "op": "SQUARE_ROOT",
+      "imports": [
+        "import math"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "sqrt(x)",
-          "type": "NumFloat64"
+          "type": "numeric",
+          "python_name": "sqrt_x"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "x",
-          "type": "NumFloat64"
+          "type": "numeric"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1069": {
       "name": "Negate",
@@ -649,22 +654,24 @@
     },
     "23059": {
       "name": "Square",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/square.html",
+      "op": "SQUARE",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "x^2",
-          "type": "NumFloat64"
+          "type": "numeric",
+          "python_name": "x_squared"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "x",
-          "type": "NumFloat64"
+          "type": "numeric"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     }
   }
 }

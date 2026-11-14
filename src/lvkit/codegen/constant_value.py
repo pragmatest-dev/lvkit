@@ -65,6 +65,8 @@ def constant_value_expression(
         return _cluster(ctx, lv_type, value, where)
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         return _array(ctx, lv_type.element_type, lv_type.dimensions or 1, value, where)
+    if underlying in ("Set", "Map") and isinstance(value, list):
+        return _collection(ctx, lv_type, value, where)
     if (
         lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
         or underlying in _SCALAR_TYPES
@@ -77,6 +79,36 @@ def constant_value_expression(
         f"{where[0].upper()}{where[1:]} is a {underlying or lv_type.kind.value} "
         "value, which lvkit cannot write as Python yet"
     )
+
+
+def _collection(
+    ctx: CodeGenContext, lv_type: LVType, entries: list[object], where: str
+) -> str:
+    """A Set constant as a ``set`` and a Map constant as a ``dict``: each entry is
+    an element (a Set) or a ``[key, value]`` pair (a Map)."""
+    key_type = lv_type.element_type
+    if key_type is None:
+        raise ConversionGap(f"The element type of {where} is not known")
+    if lv_type.underlying_type == "Set":
+        if not entries:
+            return "set()"
+        elements = [
+            constant_value_expression(ctx, key_type, entry, f"an element of {where}")
+            for entry in entries
+        ]
+        return "{" + ", ".join(elements) + "}"
+    value_type = lv_type.value_type
+    if value_type is None:
+        raise ConversionGap(f"The value type of {where} is not known")
+    items = []
+    for entry in entries:
+        assert isinstance(entry, list)
+        key = constant_value_expression(ctx, key_type, entry[0], f"a key of {where}")
+        value = constant_value_expression(
+            ctx, value_type, entry[1], f"a value of {where}"
+        )
+        items.append(f"{key}: {value}")
+    return "{" + ", ".join(items) + "}"
 
 
 def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:

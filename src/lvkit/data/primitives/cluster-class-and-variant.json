@@ -229,14 +229,13 @@
     },
     "8018": {
       "name": "Preserve Run-Time Class",
-      "runs_on_error": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preserve-run-time-class.html",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "object out",
-          "type": "Polymorphic",
-          "note": "data_type was null in the VI-Scripting export"
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -248,15 +247,13 @@
           "index": 2,
           "direction": "input",
           "name": "target object",
-          "type": "Polymorphic",
-          "note": "data_type was null in the VI-Scripting export"
+          "type": "polymorphic"
         },
         {
           "index": 3,
           "direction": "input",
           "name": "object in",
-          "type": "Polymorphic",
-          "note": "data_type was null in the VI-Scripting export"
+          "type": "polymorphic"
         },
         {
           "index": 4,
@@ -265,9 +262,18 @@
           "type": "ErrorCluster"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "runs_on_error": true,
+      "verified": true,
+      "python_code": {
+        "_body": "if not isinstance(in_3, type(in_2)):\n    raise TypeError('object in is not of the class of target object, or a child of it')",
+        "object_out": "in_3"
+      },
+      "errors": [
+        {
+          "exception": "TypeError"
+        }
+      ],
+      "inline": false
     }
   }
 }

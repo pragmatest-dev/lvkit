@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from lvkit.python_names import name_characters, normalised
 from lvkit.type_names import derive_python_name
+
+
+def selector_key(selector_name: str) -> str:
+    """A polymorphic selector name as the catalog compares it: a dropdown name
+    that LabVIEW wraps over two lines (``Digital 1D Bool\\n1Chan 1Samp``) and the
+    same name on one line are one name."""
+    return " ".join(selector_name.split())
 
 
 def derive_python_location(typedef_name: str) -> tuple[str, str]:
@@ -17,6 +25,7 @@ def derive_python_location(typedef_name: str) -> tuple[str, str]:
     Returns:
         Tuple of (package_name, class_name) like ("sysdir", "SystemDirectoryType")
     """
+    typedef_name = normalised(typedef_name)
     if ":" in typedef_name:
         container, filename = typedef_name.split(":", 1)
     else:
@@ -26,7 +35,7 @@ def derive_python_location(typedef_name: str) -> tuple[str, str]:
     # Container becomes package: "sysdir.llb" -> "sysdir"
     package = container.replace(".llb", "").replace(".lvlib", "")
     package = package.replace(".lvclass", "").lower()
-    package = package.replace(" ", "_").replace("-", "_")
+    package = name_characters(package.replace(" ", "_").replace("-", "_"))
 
     # Filename becomes class name
     class_name = derive_python_name(filename)

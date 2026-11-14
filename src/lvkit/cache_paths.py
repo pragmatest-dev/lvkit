@@ -57,11 +57,15 @@ def global_cache_root() -> Path:
     ``$LVKIT_CACHE_DIR`` if set (test hook + power-user/CI override), else
     ``<global-home>/cache`` — i.e. ``~/.lvkit/cache``. The home location comes
     from :func:`lvkit.project_store.global_home` (the single source of truth).
+
+    The first call for a root also checks its layout version (see
+    :func:`_check_layout_once`), so no cache kind ever uses a root that has not
+    been checked.
     """
     env = os.environ.get("LVKIT_CACHE_DIR")
-    if env:
-        return Path(env)
-    return project_store.global_home() / "cache"
+    root = Path(env) if env else project_store.global_home() / "cache"
+    _check_layout_once(root)
+    return root
 
 
 # ── A run's library folders ─────────────────────────────────────────────────
@@ -613,55 +617,52 @@ def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:
 
 # The on-disk cache PATH schema. Bump ONLY when the path layout changes (not on a
 # source/fingerprint change — that is handled by the <fp> path level). A mismatch
-# triggers a one-time drop of the derived namespaces in cleanup_legacy_cache.
+# triggers a one-time drop of the derived namespaces in _check_layout_once.
 #   "2": project-first with a per-kind <fp> level and <tail>-<hash8> slugs.
 #   "3": owned VIs sit in a bounded per-VI ``vi-<hash>`` slot with fixed short
 #        artifact names (was the reproduced ``<rel.parent>`` hierarchy + source
 #        stem), so a deep source tree can't overflow Windows MAX_PATH.
 _LAYOUT_VERSION = "3"
 
-# Serializes ``cleanup_legacy_cache`` across threads (see its docstring).
+# Serializes ``_check_layout_once`` across threads (see its docstring).
 _cleanup_lock = threading.Lock()
 
+# Resolved cache roots whose layout this process has already checked.
+_checked_roots: set[Path] = set()
 
-def cleanup_legacy_cache() -> None:
-    """Delete the abandoned KIND-FIRST cache trees, once, on first use.
+# Top-level folders a cache of ANY layout can contain. A root with none of them
+# and no marker is a new cache.
+_CACHE_TOP_LEVEL = ("projects", "shared", "adhoc", "extract", "render", "diff", "index")
 
-    lvkit's cache was briefly kind-first — ``<cache>/{extract,render,diff,index}/
-    <ns>/<slug>/…`` (shipped v0.5.7–v0.5.8). It is now PROJECT-FIRST
-    (``<cache>/<ns>/<slug>/<kind>/…``), so those four top-level trees are dead
-    weight: never read, and with no cache GC they would linger forever. Drop them
-    — re-extraction/-render repopulates the new project-first locations lazily.
 
-    We DELETE rather than rename because a rebuild is lvkit's model on ANY version
-    change (the index self-invalidates on a code change; render/diff carry the
-    lvkit version in their freshness key), so preserving the old artifacts buys
-    nothing. Safe: ``extract``/``render``/``diff``/``index`` are never top-level
-    dirs under project-first (slugs live below ``projects``/``shared``/``adhoc``),
-    so this can't touch live data. Best-effort — a failure just leaves a tree for
-    a later run to clean.
+def _check_layout_once(root: Path) -> None:
+    """Check ``root``'s layout version the first time this process uses it.
 
-    The whole pass holds ``_cleanup_lock``: it runs on every ``_cache_target``
-    call, so concurrent first callers on a fresh cache would otherwise each see the
-    version marker missing and delete the namespaces while another thread is
-    creating a cache directory under them. A caller past this function can never
-    overlap a deletion. (Separate PROCESSES starting on a fresh cache are not
-    serialized; the migration runs once per layout version.)
+    Runs from :func:`global_cache_root`, so it happens before ANY cache kind
+    (extraction, index, render, diff) creates anything under the root.
+
+    - A new cache (no marker, none of the cache folders): write the marker,
+      delete nothing.
+    - The abandoned kind-first trees ``<root>/{extract,render,diff,index}`` are
+      deleted: the cache is project-first (``<root>/<ns>/<slug>/<kind>/…``), so
+      those four are never top-level folders of a live cache.
+    - A marker of another version, or cache folders with no marker (a cache from
+      before the marker existed): the derived namespaces ``projects``, ``shared``
+      and ``adhoc`` are deleted and the current version is stamped. A rebuild is
+      lvkit's model on any version change, so the old entries are only dead weight.
+
+    Best-effort: a failure leaves a folder for a later run to clean. The whole
+    pass holds ``_cleanup_lock`` so concurrent first callers on a fresh root never
+    delete a folder another thread is creating. (Separate PROCESSES starting on
+    the same fresh root are not serialized; the migration runs once per layout
+    version.)
     """
+    key = root.resolve()
+    if key in _checked_roots:
+        return
     with _cleanup_lock:
-        root = global_cache_root()
-        for kind in ("extract", "render", "diff", "index"):
-            legacy = root / kind
-            if legacy.is_dir():
-                shutil.rmtree(legacy, ignore_errors=True)
-
-        # Layout migration: the project-first tree gained a per-kind <fp> level and
-        # the slug became <tail>-<hash8> (see classify / _slug). BOTH change every
-        # owned path, so pre-existing entries are unreachable dead weight — a lookup
-        # now computes a different path and simply misses (correctness never depends
-        # on this cleanup; it only reclaims the orphaned disk). On a layout-version
-        # mismatch, drop the derived namespaces ONCE and stamp the new version; the
-        # next run repopulates lazily under the new paths.
+        if key in _checked_roots:
+            return
         marker = root / "_layout_version"
         try:
             current = (
@@ -669,11 +670,19 @@ def cleanup_legacy_cache() -> None:
             )
         except OSError:
             current = ""
+        has_content = any((root / name).exists() for name in _CACHE_TOP_LEVEL)
+        if current or has_content:
+            for kind in ("extract", "render", "diff", "index"):
+                legacy = root / kind
+                if legacy.is_dir():
+                    shutil.rmtree(legacy, ignore_errors=True)
+            if current != _LAYOUT_VERSION:
+                for ns in ("projects", "shared", "adhoc"):
+                    shutil.rmtree(root / ns, ignore_errors=True)
         if current != _LAYOUT_VERSION:
-            for ns in ("projects", "shared", "adhoc"):
-                shutil.rmtree(root / ns, ignore_errors=True)
             try:
                 root.mkdir(parents=True, exist_ok=True)
                 marker.write_text(_LAYOUT_VERSION, encoding="utf-8")
             except OSError:
                 pass
+        _checked_roots.add(key)

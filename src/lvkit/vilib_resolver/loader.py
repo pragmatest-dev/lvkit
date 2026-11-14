@@ -11,10 +11,11 @@ import json
 from pathlib import Path
 
 from lvkit._data import data_dir as _bundled_data_dir
-from lvkit.catalog_stamp import iter_category_entries
+from lvkit.catalog_stamp import iter_category_entries, vi_file_name
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 
 from .models import VIEntry
+from .naming import selector_key
 
 
 class _VILibLoaderMixin:
@@ -119,11 +120,7 @@ class _VILibLoaderMixin:
             # Store raw data for context in exceptions
             self._pdf_entries[entry.name] = entry_data
 
-            # Create VI name with .vi extension for lookup
-            if not entry.name.endswith(".vi"):
-                vi_name = f"{entry.name}.vi"
-            else:
-                vi_name = entry.name
+            vi_name = vi_file_name(entry.name)
 
             # Only add if not already present (legacy data takes priority)
             if vi_name not in self._by_name:
@@ -132,9 +129,8 @@ class _VILibLoaderMixin:
                     self._vis[entry.vi_path] = entry
 
             # Register alternate match names
-            for alt_name in entry.match_names:
-                if not alt_name.endswith(".vi"):
-                    alt_name = f"{alt_name}.vi"
+            for match_name in entry.match_names:
+                alt_name = vi_file_name(match_name)
                 if alt_name not in self._by_name:
                     self._by_name[alt_name] = entry
 
@@ -142,7 +138,9 @@ class _VILibLoaderMixin:
             # Key: (base_vi_name, poly_selector_name) → entry
             if entry.poly_selector_names and entry.base_vi:
                 for ps_name in entry.poly_selector_names:
-                    self._by_poly_selector[(entry.base_vi, ps_name)] = entry
+                    self._by_poly_selector[(entry.base_vi, selector_key(ps_name))] = (
+                        entry
+                    )
 
     def _load_types(self, types_path: Path) -> None:
         """Load type definitions from _types.json into LVType dataclasses.

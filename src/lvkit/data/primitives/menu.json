@@ -105,8 +105,6 @@
     "9003": {
       "name": "Insert Menu Items",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-menu-items.html",
-      "verified": false,
-      "placeholder": true,
       "terminals": [
         {
           "index": 4,
@@ -163,8 +161,11 @@
           "type": "Refnum"
         }
       ],
+      "verified": false,
+      "placeholder": true,
       "python_code": "pass",
-      "note": "Insert Menu Items (NI Insert Menu Items doc) -- 9-terminal pane exact match; terminals pinned by type + termBounds from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime)."
+      "note": "Insert Menu Items (NI Insert Menu Items doc) -- 9-terminal pane exact match; terminals pinned by type + termBounds from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime).",
+      "gap_reason": "A VI's run-time menu has no Python equivalent: a generated function has no menu bar to insert items into."
     },
     "9004": {
       "name": "Delete Menu Items",
@@ -285,6 +286,7 @@
     },
     "9006": {
       "name": "Set Menu Item Info",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-menu-item-info.html",
       "terminals": [
         {
           "index": 0,
@@ -349,7 +351,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-menu-item-info.html"
+      "gap_reason": "A VI's run-time menu has no Python equivalent: a generated function has no menu bar, so there is no menu item to set."
     },
     "9007": {
       "name": "Get Menu Short Cut Info",

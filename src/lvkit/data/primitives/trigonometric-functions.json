@@ -139,22 +139,27 @@
     },
     "1207": {
       "name": "Inverse Cosine",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/inverse-cosine.html",
+      "op": "INVERSE_COSINE",
+      "imports": [
+        "import math"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "arccos(x)",
-          "type": "NumFloat64"
+          "type": "numeric",
+          "python_name": "arccos_x"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "x",
-          "type": "NumFloat64"
+          "type": "numeric"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1208": {
       "name": "Inverse Tangent",

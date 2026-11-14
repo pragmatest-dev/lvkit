@@ -732,7 +732,9 @@ class JsonGlyphResolver:
         graph: InMemoryVIGraph, node: VINode, catalog_path: str | None
     ) -> NodeIcon | None:
         resolver = graph.vilib_catalog
-        entry = resolver.resolve_call(catalog_path, node.poly_variant_name)
+        entry = resolver.resolve_call(
+            catalog_path, node.poly_variant_name, vi_name=node.name
+        )
         return entry.icon if entry is not None else None
 
     @staticmethod

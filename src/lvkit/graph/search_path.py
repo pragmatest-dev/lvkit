@@ -16,8 +16,11 @@ A file is found in a search folder by the recorded path's tail, the longest
 first: for ``<userlib>/_OpenG.lib/array/array.llb/x.vi`` the file whose path
 ends in ``_OpenG.lib/array/array.llb/x.vi``, else ``array/array.llb/x.vi``, down
 to the bare ``x.vi``. The first tail exactly one file has wins; two files with
-the same longest tail are ambiguous. Names compare case-insensitively, as
-LabVIEW's do."""
+the same longest tail are ambiguous. A file found in a ``<foundvi>`` folder (which
+folders those are depends on what the load found first) stands only when no other
+search folder has a file ending in the same tail: two files that tie are
+ambiguous, so one recorded path never names two files. Names compare
+case-insensitively, as LabVIEW's do."""
 
 from __future__ import annotations
 
@@ -28,6 +31,11 @@ from pathlib import Path
 
 from ..library_folders import FOUND_VI, TOP_VI
 from .errors import AmbiguousVIReferenceError
+
+_AMBIGUOUS = (
+    "Ambiguous reference -- several files on the VI search path end in "
+    "{tail!r}. Keep the one it names, or put its folder first in --search-path."
+)
 
 
 @dataclass
@@ -59,9 +67,7 @@ class SearchPath:
                 result.append((Path(entry), True))
         return result
 
-    def find(
-        self, tail: Sequence[str], is_it: Callable[[Path], bool]
-    ) -> Path | None:
+    def find(self, tail: Sequence[str], is_it: Callable[[Path], bool]) -> Path | None:
         """The file a recorded path's ``tail`` (its folders and file name, the
         root dropped) names in the first search folder that has it: among the
         files of its name there that ``is_it`` accepts (the one the caller
@@ -70,13 +76,45 @@ class SearchPath:
         if not tail:
             return None
         leaf = tail[-1].lower()
-        for folder, below in self.folders():
+        folders = self.folders()
+        for folder, below in folders:
             candidates = [
                 c for c in self._index(folder, below).get(leaf, []) if is_it(c)
             ]
-            if candidates:
-                return _longest_tail(candidates, tail)
+            if not candidates:
+                continue
+            found, length = _longest_tail(candidates, tail)
+            if not below and folder in self.found_folders:
+                # The folders a load has found files in depend on which files it
+                # loaded first, so a file found there stands only when no other
+                # search folder has a file ending the same way: two callers
+                # recording one path never get two different files.
+                self._reject_tie(found, length, tail, folders, leaf, is_it)
+            return found
         return None
+
+    def _reject_tie(
+        self,
+        found: Path,
+        length: int,
+        tail: Sequence[str],
+        folders: list[tuple[Path, bool]],
+        leaf: str,
+        is_it: Callable[[Path], bool],
+    ) -> None:
+        """Raise when a file other than ``found`` in any search folder ends in the
+        same ``length`` last parts of ``tail``."""
+        piece = [t.lower() for t in tail[-length:]]
+        tied = {found.resolve(): found}
+        for folder, below in folders:
+            for c in self._index(folder, below).get(leaf, []):
+                if is_it(c) and [p.lower() for p in c.parts[-length:]] == piece:
+                    tied.setdefault(c.resolve(), c)
+        if len(tied) > 1:
+            raise AmbiguousVIReferenceError(
+                _AMBIGUOUS.format(tail="/".join(tail[-length:])),
+                sorted(tied.values()),
+            )
 
     def _index(self, folder: Path, below: bool) -> dict[str, list[Path]]:
         key = (folder, below)
@@ -101,8 +139,9 @@ def _files_in(folder: Path, below: bool) -> Iterable[Path]:
     return found
 
 
-def _longest_tail(candidates: list[Path], tail: Sequence[str]) -> Path:
-    """The one candidate whose path ends in the longest piece of ``tail``."""
+def _longest_tail(candidates: list[Path], tail: Sequence[str]) -> tuple[Path, int]:
+    """The one candidate whose path ends in the longest piece of ``tail``, and
+    the length of that piece."""
     wanted = [t.lower() for t in tail]
     for length in range(len(wanted), 0, -1):
         piece = wanted[-length:]
@@ -110,12 +149,9 @@ def _longest_tail(candidates: list[Path], tail: Sequence[str]) -> Path:
             c for c in candidates if [p.lower() for p in c.parts[-length:]] == piece
         ]
         if len(matches) == 1:
-            return matches[0]
+            return matches[0], length
         if len(matches) > 1:
             raise AmbiguousVIReferenceError(
-                "Ambiguous reference -- several files on the VI search path end "
-                f"in {'/'.join(tail[-length:])!r}. Keep the one it names, or put "
-                "its folder first in --search-path.",
-                sorted(matches),
+                _AMBIGUOUS.format(tail="/".join(tail[-length:])), sorted(matches)
             )
     raise AssertionError("a candidate always matches its own file name")

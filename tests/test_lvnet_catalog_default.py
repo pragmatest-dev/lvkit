@@ -356,7 +356,7 @@ VILIB_CALL_DEFAULTS = [
             "in expected output size (4096) : U32 default 4096",
             "in run minimized? (F) : TF default False",
             "in wait until completion? (T) : TF default True",
-            "in 11 : String default",
+            "in command line : String default",
         ],
         id="System Exec",
     ),

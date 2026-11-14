@@ -74,6 +74,17 @@ REVIEWED_DUPLICATES: dict[str, set[str]] = {
     "TDMS Open": {"2012", "24112"},
     "TDMS Close": {"2013", "24113"},
     "TDMS Set Properties": {"2014", "24114"},
+    # Six more functions are one NI function under two numberings the same way:
+    # a corpus VI carries 2011 TDMS Read, 2015 Get Properties, 2016 List
+    # Contents, 2019 Defragment, 2021 Advanced Open and 2032 Advanced Close, and
+    # the export lists each under a 241xx id. Each pair has the same pane (name,
+    # type, direction and order of every terminal, against NI's page).
+    "TDMS Read": {"2011", "24111"},
+    "TDMS Get Properties": {"2015", "24115"},
+    "TDMS List Contents": {"2016", "24116"},
+    "TDMS Defragment": {"2019", "24119"},
+    "TDMS Advanced Open": {"2021", "24121"},
+    "TDMS Advanced Close": {"2032", "24138"},
 }
 # RESOLVED, no longer duplicated (kept as a record of what the gate caught):
 #   Close File / Open/Create/Replace File — 8011/8010 were never file I/O; they are
@@ -143,6 +154,7 @@ IMPORT_UNVERIFIED_DUPLICATES: dict[str, set[str]] = {
 
 def _duplicate_groups() -> dict[str, set[str]]:
     from lvkit._data import load_primitives
+
     entries = load_primitives()["primitives"]
     by_name: dict[str, set[str]] = collections.defaultdict(set)
     for pid, entry in entries.items():

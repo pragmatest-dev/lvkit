@@ -31,19 +31,13 @@ out 0 = number, 1 = offset past number.
 
 from __future__ import annotations
 
-import ast
-
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
-from lvkit.lv_type_codes import is_string_type_name
 
-from ...ast_utils import build_assign, build_multi_assign, parse_expr
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import terminal
-from ._numeric import format_kind
-from ._regex_node import declare_translator, input_expression
+from ._numeric import FormatKind
+from ._string_number import integer_range, string_to_number_fragment
 
 _TRANSLATOR = "_decimal_string_to_number"
 
@@ -68,47 +62,18 @@ def decimal_string_to_number(string, offset, default, low=None, high=None):
 def decimal_string_to_number_node(
     node: PrimitiveNode, ctx: CodeGenContext
 ) -> CodeFragment | None:
-    string_term = terminal(node, "input", 4)
-    number_term = terminal(node, "output", 0)
-    past_term = terminal(node, "output", 1)
-    if (
-        string_term is None
-        or string_term.lv_type is None
-        or not is_string_type_name(string_term.lv_type.underlying_type)
-    ):
-        raise ConversionGap(
-            "Decimal String To Number converts a string; an array or cluster of "
-            "strings has no code generation yet",
-            node,
-        )
-    kind = format_kind(number_term.lv_type if number_term is not None else None)
-    if kind.kind not in ("int", "float"):
-        raise ConversionGap(
-            f"Decimal String To Number into {kind.kind} has no code generation yet",
-            node,
-        )
-    string = input_expression(ctx, node, 4) or "''"
-    offset = input_expression(ctx, node, 3) or "0"
-    default = input_expression(ctx, node, 2) or "0"
-    arguments = f"{string}, {offset}, {default}"
-    if kind.kind == "int":
-        low = -(2 ** (kind.bits - 1)) if kind.signed else 0
-        high = 2 ** (kind.bits - 1) - 1 if kind.signed else 2**kind.bits - 1
-        arguments += f", {low}, {high}"
-    function = declare_translator(ctx, _TRANSLATOR, decimal_string_to_number)
-    number = ctx.make_output_var(
-        "number", node.id, terminal_id=number_term.id if number_term else None
+    def limits(kind: FormatKind) -> str:
+        if kind.kind != "int":
+            return ""
+        low, high = integer_range(kind)
+        return f"{low}, {high}"
+
+    return string_to_number_fragment(
+        node,
+        ctx,
+        "Decimal String To Number",
+        _TRANSLATOR,
+        decimal_string_to_number,
+        (2, 3, 4),
+        limits,
     )
-    past = ctx.make_output_var(
-        "offset_past_number", node.id, terminal_id=past_term.id if past_term else None
-    )
-    call = f"{function}({arguments})"
-    statements: list[ast.stmt] = [build_multi_assign([number, past], parse_expr(call))]
-    if kind.kind == "float":
-        statements.append(build_assign(number, parse_expr(f"float({number})")))
-    bindings: dict[str, str] = {}
-    if number_term is not None:
-        bindings[number_term.id] = number
-    if past_term is not None:
-        bindings[past_term.id] = past
-    return CodeFragment(statements=statements, bindings=bindings)

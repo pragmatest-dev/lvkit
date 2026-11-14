@@ -2,22 +2,23 @@
   "primitives": {
     "2416": {
       "name": "Assert Structural Type Match",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/assert-structural-type-match.html",
+      "op": "ASSERT_STRUCTURAL_TYPE_MATCH",
       "terminals": [
         {
           "index": 0,
           "direction": "input",
-          "name": "reference",
-          "type": "LVVariant"
+          "name": "anything",
+          "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
-          "name": "anything",
-          "type": "LVVariant"
+          "name": "reference",
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2464": {
       "name": "Assert Structural Type Mismatch",

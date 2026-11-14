@@ -22,9 +22,9 @@ from lvkit.graph.loading import _case_insensitive_match, class_owner_ref
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.load_mode import LoadMode
 from lvkit.parser.link_table import _unwrap_name, qualified_link_name
+from lvkit.parser.link_table import class_owned_name as _class_owned_name
 from lvkit.parser.metadata import parse_vipi_from_livi
 from lvkit.parser.models import ParsedDependencyRef
-from lvkit.parser.vi import _class_owned_name
 from lvkit.run_report import EXIT_PARTIAL, ProblemKind, ProblemStage, RunReport
 from lvkit.text_encoding import (
     unwrap_pascal_name,

@@ -255,6 +255,21 @@ def is_this_vi(node: AnyGraphNode) -> bool:
     )
 
 
+def is_this_application(node: AnyGraphNode) -> bool:
+    """Whether ``node`` is the "This Application" constant: a reference to the
+    running application, a VI Server reference of class Application that names no
+    front-panel control."""
+    return (
+        isinstance(node, LocalVariableNode)
+        and not node.is_write
+        and node.control_terminal_id is None
+        and any(
+            t.lv_type and t.lv_type.server_class is ServerClass.APPLICATION
+            for t in node.terminals
+        )
+    )
+
+
 def _same_vi(found: list[ReferencedVI]) -> ReferencedVI:
     """The one VI every entry of ``found`` holds (several come from the frames
     of a case structure)."""

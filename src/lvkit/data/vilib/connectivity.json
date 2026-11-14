@@ -61,6 +61,42 @@
       "status": "resolved",
       "terminals": [
         {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "return code",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "return_code",
+          "description": "return code indicates the system-dependent exit code that the command returns."
+        },
+        {
+          "name": "standard error",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "standard_error",
+          "description": "standard error returns errors from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
+        },
+        {
+          "name": "standard output",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "standard_output",
+          "description": "standard output returns information from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
+        },
+        {
           "name": "expected output size (4096)",
           "index": 5,
           "direction": "input",
@@ -69,52 +105,6 @@
           "python_param": "expected_output_size",
           "description": "Use expected output size to improve memory efficiency. Use a number slightly larger than the output size you expect. The command runs if you exceed this size, but LabVIEW uses its memory less efficiently. The default is 4096.",
           "default": 4096
-        },
-        {
-          "name": "wait until completion? (T)",
-          "index": 7,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "wait_until_completion",
-          "description": "If wait until completion? is TRUE, standard input is available as input to the command and standard output and standard error are available when the command finishes running. If FALSE, the command runs in the background and its input and output are not available.",
-          "default": true
-        },
-        {
-          "name": "command line",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "command_line",
-          "description": "command line indicates the command LabVIEW calls to run a program."
-        },
-        {
-          "name": "standard input",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "standard_input",
-          "description": "standard input is the text to pass to the command line as standard input."
-        },
-        {
-          "name": "working directory",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "working_directory",
-          "description": "working directory is the file system directory from which you want to execute the command. You do not have to set working directory ."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
           "name": "run minimized? (F)",
@@ -127,42 +117,73 @@
           "default": false
         },
         {
-          "name": "standard output",
-          "index": null,
-          "direction": "output",
+          "name": "wait until completion? (T)",
+          "index": 7,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "standard_output",
-          "description": "standard output returns information from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
+          "python_param": "wait_until_completion",
+          "description": "If wait until completion? is TRUE, standard input is available as input to the command and standard output and standard error are available when the command finishes running. If FALSE, the command runs in the background and its input and output are not available.",
+          "default": true
         },
         {
-          "name": "standard error",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "standard_error",
-          "description": "standard error returns errors from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "return code",
-          "index": null,
-          "direction": "output",
+          "name": "working directory",
+          "index": 9,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "return_code",
-          "description": "return code indicates the system-dependent exit code that the command returns."
+          "python_param": "working_directory",
+          "description": "working directory is the file system directory from which you want to execute the command. You do not have to set working directory .",
+          "default": ""
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "standard input",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "standard_input",
+          "description": "standard input is the text to pass to the command line as standard input.",
+          "default": ""
+        },
+        {
+          "name": "command line",
+          "index": 11,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "command_line",
+          "description": "command line indicates the command LabVIEW calls to run a program."
         }
-      ]
+      ],
+      "imports": [
+        "import subprocess"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "if {wait_until_completion}:\n    _run = subprocess.run({command_line}, shell=True, input={standard_input}, capture_output=True, text=True, cwd={working_directory} or None)\n    {standard_output} = _run.stdout\n    {standard_error} = _run.stderr\n    {return_code} = _run.returncode\nelse:\n    subprocess.Popen({command_line}, shell=True, cwd={working_directory} or None, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n    {standard_output} = ''\n    {standard_error} = ''\n    {return_code} = 0",
+      "inline": true
     },
     {
       "name": "Run AppleScript Code",

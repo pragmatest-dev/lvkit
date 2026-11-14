@@ -37,6 +37,10 @@ class PrimitiveTerminal(TerminalDefault):
     # The value NI documents for this output when the node's operation fails
     # (``codegen/native_failure.py``); none: the type's default.
     on_failure: ScalarValue = None
+    # On an output: NI says the node still returns what its operation had done
+    # when it failed (TCP Read's bytes so far on a timeout); the operation's code
+    # assigns the output before it can fail, and a failure leaves it as it is.
+    keeps_on_failure: bool = False
     # NI's page says that when an error cluster is wired to this input, only
     # the error cluster's status passes to it.
     error_cluster_status: bool = False
@@ -92,6 +96,10 @@ class NativeError(BaseModel):
     code: int | None = None
     since_python: str | None = None
     base: str | None = None
+    # The attribute of the exception that holds the LabVIEW error code, for a
+    # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the
+    # VISA error code LabVIEW reports unchanged); ``code`` is then None.
+    code_attribute: str | None = None
 
 
 class PrimitiveEntry(BaseModel):
@@ -110,6 +118,9 @@ class PrimitiveEntry(BaseModel):
     # and code come from ``terminals`` only.
     alternative_terminal_sets: list[list[TerminalAlias]] = Field(default_factory=list)
     guess_reason: str | None = None
+    # Why the function has no Python yet: what NI does not document, or the
+    # decision it needs. Written into the gap its node raises.
+    gap_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     # Standard third-party packages (by their PyPI name) the node's generated
     # code imports because Python has no construct of its own for the function;
@@ -145,6 +156,8 @@ class ResolvedPrimitive(BaseModel):
     # none of them, or more than one; ``terminals`` is then empty.
     terminal_set_gap: str | None = None
     description: str = ""
+    # See ``PrimitiveEntry.gap_reason``.
+    gap_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     # LabVIEW numeric primitives operate element-wise on arrays. When True,
     # codegen broadcasts the operation over list operands.

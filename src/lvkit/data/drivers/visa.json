@@ -389,49 +389,92 @@
       }
     },
     {
-      "name": "VISA Configure Serial Port.vi",
-      "description": "Configures a serial port.",
-      "python_code": "{instr}.baud_rate = {baud_rate}\n{instr}.data_bits = {data_bits}\n{instr}.parity = {parity}\n{instr}.stop_bits = {stop_bits}",
+      "name": "VISA Configure Serial Port (Instr).vi",
+      "description": "Initializes the serial port named by VISA resource name to the settings given.",
+      "python_code": "{instr}.timeout = {timeout}\n{instr}.end_input = pyvisa.constants.SerialTermination.termination_char if {enable_termination_char} else pyvisa.constants.SerialTermination.none\n{instr}.set_visa_attribute(pyvisa.constants.ResourceAttribute.termchar, {termination_char})\n{instr}.baud_rate = {baud_rate}\n{instr}.data_bits = {data_bits}\n{instr}.parity = {parity}\n{instr}.stop_bits = {stop_bits}\n{instr}.flow_control = {flow_control}",
       "inline": true,
       "imports": [
-        "import pyvisa"
+        "import pyvisa",
+        "import pyvisa.constants"
       ],
       "status": "mapped",
       "terminals": [
         {
           "name": "VISA resource name",
+          "index": 0,
           "direction": "input",
           "python_param": "instr"
         },
         {
-          "name": "baud rate",
+          "name": "timeout (10sec)",
+          "index": 1,
           "direction": "input",
-          "python_param": "baud_rate"
+          "python_param": "timeout",
+          "default": 10000
         },
         {
-          "name": "data bits",
+          "name": "termination char",
+          "index": 2,
           "direction": "input",
-          "python_param": "data_bits"
+          "python_param": "termination_char",
+          "default": 10
         },
         {
-          "name": "parity",
+          "name": "Enable Termination Char (T)",
+          "index": 3,
           "direction": "input",
-          "python_param": "parity"
-        },
-        {
-          "name": "stop bits",
-          "direction": "input",
-          "python_param": "stop_bits"
+          "python_param": "enable_termination_char",
+          "default": true
         },
         {
           "name": "VISA resource name out",
+          "index": 4,
           "direction": "output",
           "python_param": "instr_out"
+        },
+        {
+          "name": "baud rate (9600)",
+          "index": 5,
+          "direction": "input",
+          "python_param": "baud_rate",
+          "default": 9600
+        },
+        {
+          "name": "data bits (8)",
+          "index": 7,
+          "direction": "input",
+          "python_param": "data_bits",
+          "default": 8
+        },
+        {
+          "name": "parity (0:none)",
+          "index": 9,
+          "direction": "input",
+          "python_param": "parity",
+          "default": 0
+        },
+        {
+          "name": "stop bits (10: 1 bit)",
+          "index": 12,
+          "direction": "input",
+          "python_param": "stop_bits",
+          "default": 10
+        },
+        {
+          "name": "flow control (0:none)",
+          "index": 13,
+          "direction": "input",
+          "python_param": "flow_control",
+          "default": 0
         }
       ],
       "ref_terminals": {
         "instr_out": "passthrough_from:instr"
-      }
+      },
+      "match_names": [
+        "VISA Configure Serial Port.vi"
+      ],
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/instr/visa-llb/visa-configure-serial-port-instr-vi.html"
     },
     {
       "name": "VISA Set I/O Buffer Size.vi",

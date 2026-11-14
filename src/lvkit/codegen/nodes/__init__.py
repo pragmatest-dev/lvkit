@@ -42,6 +42,7 @@ from . import (
     compound,
     constant,
     ctrl_val,
+    decimate,
     disable,
     event,
     event_register,
@@ -62,6 +63,7 @@ from . import (
     property_node,
     queue_ops,
     run_vi,
+    scanf,
     sequence,
     shared_variable,
     subvi,
@@ -167,9 +169,11 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "mux": nmux.generate,
     "demux": nmux.generate,
     "printf": printf.generate,
+    "scanf": scanf.generate,
     "extFunc": ext_func.generate,
     "xNode": xnode.generate,
     "eventRegNode": event_register.generate_register,
+    "decimate": decimate.generate,
 }
 
 

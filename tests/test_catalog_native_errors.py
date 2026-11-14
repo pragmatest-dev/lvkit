@@ -47,7 +47,35 @@ WRITE_TO_TEXT_FILE = [
     *FILE_PATH_OPS,
 ]
 
+TCP_OPEN = [
+    ("gaierror", 54),
+    ("TimeoutError", 56),
+    ("ConnectionRefusedError", 63),
+    ("ConnectionAbortedError", 62),
+    ("ConnectionResetError", 66),
+    ("OSError", None),
+]
+
+TCP_READ_WRITE = [
+    ("TimeoutError", 56),
+    ("ConnectionAbortedError", 62),
+    ("ConnectionResetError", 66),
+    ("BrokenPipeError", 66),
+    ("OSError", None),
+]
+
+VISA = [("VisaIOError", None)]
+
 PRIMITIVES = {
+    "1922:VISA Close": VISA,
+    "1925:VISA Read": VISA,
+    "1926:VISA Write": VISA,
+    "2302:VISA Flush I/O Buffer": VISA,
+    "2308:VISA Open": VISA,
+    "1713:TCP Close Connection": [("OSError", None)],
+    "1714:TCP Write": TCP_READ_WRITE,
+    "1715:TCP Open Connection": TCP_OPEN,
+    "1716:TCP Read": TCP_READ_WRITE,
     "file-io:Create Directory Recursive": [
         ("PermissionError", 8),
         ("FileExistsError", 10),
@@ -63,6 +91,8 @@ PRIMITIVES = {
     "8068:Move": COPY_MOVE,
     "8070:Read from Text File": FILE_PATH_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
+    "8074:Set File Size": FILE_REFNUM_OPS,
+    "8076:Set Permissions": FILE_PATH_OPS,
     "8078:Write to Binary File": FILE_REFNUM_OPS,
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
@@ -83,7 +113,20 @@ PRIMITIVES = {
     "8055:Create Folder": CREATE_FOLDER,
     "8056:Delete": DELETE,
     "1417:Delete": DELETE,
+    "file-io:Recursive File List": FILE_PATH_OPS,
+    "file-io:Compare Two Paths": [("ValueError", None)],
+    "file-io:New Zip File": FILE_PATH_OPS,
+    "file-io:Add File to Zip": FILE_PATH_OPS,
+    "file-io:Close Zip File": FILE_PATH_OPS,
+    "synchronization:Release Semaphore_71": [("ValueError", 1111)],
+    "file-io:Unzip": [
+        ("ZipPasswordProtectedError", None),
+        ("BadZipFile", None),
+        *FILE_PATH_OPS,
+    ],
+    "connectivity:System Exec": FILE_PATH_OPS,
     "8016:To More Specific Class": [("TypeError", 1448)],
+    "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
     "2010:TDMS Write": FILE_REFNUM_OPS,
     "24110:TDMS Write": FILE_REFNUM_OPS,
@@ -120,7 +163,7 @@ def _declared() -> dict[str, list[NativeError]]:
 
 def _exception_class(failure: NativeError) -> type[BaseException] | None:
     """The class ``failure`` names; ``None`` when this Python is older than the
-    version that has it."""
+    version that has it, or its package is not installed."""
     if failure.since_python is not None and sys.version_info < tuple(
         int(part) for part in failure.since_python.split(".")
     ):
@@ -131,7 +174,12 @@ def _exception_class(failure: NativeError) -> type[BaseException] | None:
     elif failure.module is None:
         cls = getattr(builtins, failure.exception)
     else:
-        cls = getattr(importlib.import_module(failure.module), failure.exception)
+        try:
+            module = importlib.import_module(failure.module)
+        except ModuleNotFoundError:
+            # A third-party package the generated code needs, not lvkit.
+            return None
+        cls = getattr(module, failure.exception)
     assert isinstance(cls, type) and issubclass(cls, Exception), failure
     return cls
 

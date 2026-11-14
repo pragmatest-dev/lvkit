@@ -8,7 +8,7 @@ from lvkit.models import Tunnel
 
 from ..constants import TERMINAL_CLASS, TUNNEL_CLASS_DECOMPOSE_RECOMPOSE
 from ..models import ParsedDecomposeRecomposeStructure
-from .base import extract_tunnel_mapping
+from .base import extract_tunnel_mapping, frame_inner_node_uids
 
 
 def extract_decompose_structures(
@@ -56,12 +56,7 @@ def extract_decompose_structures(
         if diag_list is not None:
             inner_diag = diag_list.find("SL__arrayElement[@class='diag']")
             if inner_diag is not None:
-                node_list = inner_diag.find("nodeList")
-                if node_list is not None:
-                    for node_elem in node_list.findall("SL__arrayElement"):
-                        node_uid = node_elem.get("uid")
-                        if node_uid:
-                            inner_node_uids.append(node_uid)
+                inner_node_uids.extend(frame_inner_node_uids(inner_diag))
 
         structures.append(
             ParsedDecomposeRecomposeStructure(

@@ -1,5 +1,109 @@
 {
   "primitives": {
+    "2021": {
+      "name": "TDMS Advanced Open",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-advanced-open.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "input",
+          "name": "enable asynchronous? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "input",
+          "name": "disable buffering? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 10,
+          "direction": "input",
+          "name": "operation (0:open)",
+          "type": "Enum16"
+        },
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "output",
+          "name": "sector size",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by its connector pane: the same types, directions and order as TDMS Advanced Open, which the VI-Scripting export numbers 24121; the indices are the callers' recorded ones.",
+      "gap_reason": "TDMS Advanced Open returns the disk's sector size, which Python has no standard-library call for, and opens the file for asynchronous, unbuffered I/O that npTDMS does not offer."
+    },
+    "2032": {
+      "name": "TDMS Advanced Close",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-advanced-close.html",
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "input",
+          "name": "timeout (10 s)",
+          "type": "NumFloat64",
+          "default": 10.0
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 10,
+          "direction": "input",
+          "name": "truncate file? (F)",
+          "type": "Boolean",
+          "default": false
+        },
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "file path out",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by NI's TDMS Advanced Close page: its inputs (tdms file, truncate file?, error in, timeout) and outputs (file path out, error out) have the types of this pane; the indices are the caller's.",
+      "gap_reason": "TDMS Advanced Close closes a file opened by TDMS Advanced Open, which has no Python yet."
+    },
     "2159": {
       "name": "TDMS Delete Data",
       "terminals": [

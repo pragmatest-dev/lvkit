@@ -60,9 +60,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     list_in = _by_role("input", "list")
     list_out = _by_role("output", "list")
 
+    broken = ctx.graph is not None and ctx.graph.vi_is_broken(ctx.vi_name or "")
     for t in [*list_in, *list_out]:
         if t.nmux_field_index is not None and t.nmux_field_index < 0:
-            broken = ctx.graph is not None and ctx.graph.vi_is_broken(ctx.vi_name or "")
+            if not broken and not list_in and _carries_input(t):
+                continue
             if broken:
                 reason = (
                     f"An element of {node.name!r} selects no field of its cluster "
@@ -120,7 +122,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     elif list_out and not list_in:
         # LIST out only = unbundle (extract fields from cluster)
         for t in sorted(list_out, key=lambda t: t.index):
-            if agg_lv_type is not None and _is_error_cluster(agg_lv_type):
+            if not broken and _carries_input(t):
+                if agg_var:
+                    bindings[t.id] = agg_var
+            elif agg_lv_type is not None and _is_error_cluster(agg_lv_type):
                 read = _error_read(t, class_fields)
                 if read is not None:
                     bindings[t.id] = read.role.in_error(agg_var)
@@ -251,6 +256,20 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
 
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
+
+
+def _carries_input(element: Terminal) -> bool:
+    """Whether an output element of an Unbundle By Name that names no field (field
+    index -1) and is itself of type Void carries the node's input value: LabVIEW
+    records the wire after it with the input's type (``labview-binary-format.md``,
+    "An Unbundle By Name element stored at -1 with no type carries the input")."""
+    return (
+        element.direction == "output"
+        and element.nmux_field_index is not None
+        and element.nmux_field_index < 0
+        and element.lv_type is not None
+        and element.lv_type.type_descriptor() == "Void"
+    )
 
 
 def error_field_role(field_type: LVType | None) -> ErrorFieldRole:

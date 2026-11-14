@@ -1,6 +1,6 @@
 """SQLite persistence for the facts index.
 
-``~/.lvkit/cache/index/projects/<slug>/index.db`` — one DB per project root,
+``~/.lvkit/cache/projects/<slug>/index/<fp>/index.db`` — one DB per project root,
 ``<slug>`` from ``cache_paths._slug(project_root)`` (the same readable,
 path-derived slug the extraction cache uses for per-project namespaces).
 

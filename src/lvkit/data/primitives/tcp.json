@@ -127,7 +127,8 @@
     },
     "1713": {
       "name": "TCP Close Connection",
-      "runs_on_error": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-close-connection.html",
+      "op": "TCP_CLOSE",
       "terminals": [
         {
           "index": 0,
@@ -163,12 +164,18 @@
           "refnum_type": "tcp_net_connection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-close-connection.html"
+      "runs_on_error": true,
+      "verified": true,
+      "errors": [
+        {
+          "exception": "OSError"
+        }
+      ]
     },
     "1714": {
       "name": "TCP Write",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-write.html",
+      "op": "TCP_WRITE",
       "terminals": [
         {
           "index": 0,
@@ -180,7 +187,8 @@
           "index": 2,
           "direction": "output",
           "name": "bytes written",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "keeps_on_failure": true
         },
         {
           "index": 3,
@@ -216,12 +224,33 @@
           "refnum_type": "tcp_net_connection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-write.html"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "TimeoutError",
+          "code": 56
+        },
+        {
+          "exception": "ConnectionAbortedError",
+          "code": 62
+        },
+        {
+          "exception": "ConnectionResetError",
+          "code": 66
+        },
+        {
+          "exception": "BrokenPipeError",
+          "code": 66
+        },
+        {
+          "exception": "OSError"
+        }
+      ]
     },
     "1715": {
       "name": "TCP Open Connection",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-open-connection.html",
+      "op": "TCP_OPEN",
       "terminals": [
         {
           "index": 0,
@@ -268,12 +297,38 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-open-connection.html"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "gaierror",
+          "module": "socket",
+          "code": 54
+        },
+        {
+          "exception": "TimeoutError",
+          "code": 56
+        },
+        {
+          "exception": "ConnectionRefusedError",
+          "code": 63
+        },
+        {
+          "exception": "ConnectionAbortedError",
+          "code": 62
+        },
+        {
+          "exception": "ConnectionResetError",
+          "code": 66
+        },
+        {
+          "exception": "OSError"
+        }
+      ]
     },
     "1716": {
       "name": "TCP Read",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-read.html",
+      "op": "TCP_READ",
       "terminals": [
         {
           "index": 0,
@@ -285,7 +340,8 @@
           "index": 2,
           "direction": "output",
           "name": "data out",
-          "type": "String"
+          "type": "String",
+          "keeps_on_failure": true
         },
         {
           "index": 3,
@@ -328,9 +384,28 @@
           "refnum_type": "tcp_net_connection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-read.html"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "TimeoutError",
+          "code": 56
+        },
+        {
+          "exception": "ConnectionAbortedError",
+          "code": 62
+        },
+        {
+          "exception": "ConnectionResetError",
+          "code": 66
+        },
+        {
+          "exception": "BrokenPipeError",
+          "code": 66
+        },
+        {
+          "exception": "OSError"
+        }
+      ]
     },
     "1717": {
       "name": "TCP Create Listener",

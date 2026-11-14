@@ -2,6 +2,8 @@
   "primitives": {
     "2450": {
       "name": "Collection Size",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/collection-size.html",
+      "op": "COLLECTION_SIZE",
       "terminals": [
         {
           "index": 0,
@@ -13,14 +15,15 @@
           "index": 1,
           "direction": "input",
           "name": "collection",
-          "type": "SetCollection"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2451": {
       "name": "Empty Collection?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-collection.html",
+      "op": "EMPTY_COLLECTION",
       "terminals": [
         {
           "index": 0,
@@ -32,14 +35,15 @@
           "index": 1,
           "direction": "input",
           "name": "collection",
-          "type": "SetCollection"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2456": {
       "name": "Insert Into Map",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-map.html",
+      "op": "INSERT_INTO_MAP",
       "terminals": [
         {
           "index": 1,
@@ -63,13 +67,13 @@
           "index": 9,
           "direction": "input",
           "name": "value",
-          "type": "NumInt32"
+          "type": "polymorphic"
         },
         {
           "index": 10,
           "direction": "input",
           "name": "key",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
@@ -78,8 +82,7 @@
           "type": "MapCollection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2457": {
       "name": "Remove From Map",
@@ -120,12 +123,14 @@
     },
     "2458": {
       "name": "Look In Map",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/look-in-map.html",
+      "op": "LOOK_IN_MAP",
       "terminals": [
         {
           "index": 1,
           "direction": "output",
           "name": "value",
-          "type": "NumInt32"
+          "type": "polymorphic"
         },
         {
           "index": 2,
@@ -137,13 +142,13 @@
           "index": 9,
           "direction": "input",
           "name": "default value",
-          "type": "NumInt32"
+          "type": "polymorphic"
         },
         {
           "index": 10,
           "direction": "input",
           "name": "key",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
@@ -152,8 +157,7 @@
           "type": "MapCollection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2463": {
       "name": "Build Map",
