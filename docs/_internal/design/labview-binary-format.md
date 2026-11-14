@@ -630,7 +630,19 @@ structures, etc." The VI records such an input with the error cluster's own type
 #243: And 2243 in `PicoScope2000ExampleStreaming.vi` stores FlatTypeID 132, the `error IO` cluster).
 lvkit reads it this way in two places: an error case structure's selector
 (`codegen/error_path.is_error_selector`), and a catalog Boolean input marked `"error_cluster_status":
-true` (And, Or, … in `data/primitives/boolean.json`).
+true` (And, Or, … in `data/primitives/boolean.json`) when the input itself is recorded with an error
+cluster type or the wire into it comes from one (`codegen/error_flow.carries_error_cluster`).
+
+## An Unbundle By Name element stored at -1 with no type carries the input
+
+Issue #243, 10 Pico streaming VIs (LabVIEW 10.0, not saved broken: LVSR `BadNode`, `BadSubVI`,
+`BadCompile` all 0): Merge Errors feeds an Unbundle By Name whose aggregate is a cluster with no
+elements and whose one element stores `<i>-1</i>` with a Void type; the element feeds an And input
+that stores the error cluster type (FlatTypeID 132, the same as Merge Errors' output). LabVIEW's own
+recorded types say the element's wire carries the node's input, so in a VI not saved broken such an
+element is the input value (`codegen/nodes/nmux._carries_input`; maintainer, 2026-11-13). In a VI saved
+broken a -1 element keeps a real type of a field that no longer exists and "selects no field"; a -1
+element with a real type in an unbroken VI is not seen in the corpus and stays a gap.
 
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->
@@ -2099,3 +2111,9 @@ With the `format string` input unwired, LabVIEW builds the format from each wire
 
 - **Sources.** NI Format Into String: "Defaults match the data type of the input arguments" (docs-be.ni.com/api/bundle/labview-api-ref/page/functions/format-into-string.html); with `%s` a Boolean outputs TRUE or FALSE; "For complex numeric data types, this function converts only the real component." NI Format Specifier Syntax: `%d` "Signed decimal integer", `%f` "Floating-point number with fractional format", with no precision "LabVIEW uses a precision of six digits", `s` interprets Booleans as False and True (docs-be.ni.com/api/bundle/labview/page/format-specifier-syntax.html). The space: NI forum "Feature or Bug: Format Into String Adds Spaces" (2011, forums.ni.com/t5/LabVIEW/Feature-or-Bug-Format-Into-String-Adds-Spaces/m-p/1572944), NI's reply: "I looked into this and it is in fact expected behavior".
 - **The code per type** is lvkit's reading of those pages (no NI page lists it), approved by the maintainer 2026-11-13: string, path, enum (its item label) and Boolean `%s`; integer (any width, signed or unsigned, and a ring) `%d`; floating point and complex (its real part) `%f`, six digits (`1.234` is `1.234000`). The values are joined with one space (`"x 3 0.500000 TRUE"`). A timestamp is written as absolute time with NI's own `%T` example, `%<%.3X %x>T` (Format Specifier Syntax: "Formatting a time stamp as anything other than time returns an error"; the example gives "12:00:00.000 AM 01/01/2001"; docs-be.ni.com/api/bundle/labview/page/format-codes-time-format.html: `%X` "Locale-specific time", `%x` "Locale-specific date"); lvkit's format rules do not implement `%T` yet, so it is a gap naming that specifier. Any other type stays a gap naming its kind.
+
+## Value (Signaling) on an indicator fires its Value Change event
+
+Source: the maintainer, 2026-11-13 ("If it says signaling it signals"), and NI's "Value (Signaling)" page: the property writes the value and generates an event "as if the user had interactively changed the value of the object".
+
+An Event Structure can have a Value Change case for an indicator, and writing the indicator's Value (Signaling) fires it exactly as for a control: the event carries the new value and the indicator's value before the write. Value (Signaling) is write only.

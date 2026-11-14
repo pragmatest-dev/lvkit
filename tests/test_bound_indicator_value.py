@@ -1,9 +1,10 @@
 """A Property Node bound to an INDICATOR of the VI whose ``Value`` row writes
 assigns the indicator's variable, the same as a wire or a Local Variable writing
 it (``codegen/nodes/property_node.py``, ``codegen/local_indicators.py``);
-``Value (Signaling)`` on an indicator, and a ``Value`` read of an indicator the
-function does not hold, stay gaps. Each case is a tiny diagram, generated and
-called."""
+``Value (Signaling)`` on an indicator is the same write (and fires its Value
+Change frame, tested in ``test_value_signaling``); a ``Value (Signaling)`` read,
+and a ``Value`` read of an indicator the function does not hold, stay gaps.
+Each case is a tiny diagram, generated and called."""
 
 from __future__ import annotations
 
@@ -94,13 +95,28 @@ def test_a_value_write_of_an_indicator_is_kept_when_a_local_variable_reads_it(
     assert getattr(package.module, kept[0]) == 5
 
 
-def test_value_signaling_on_an_indicator_is_a_gap(
+def test_value_signaling_on_an_indicator_without_a_frame_is_the_plain_write(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
     out = vi.indicator("out", STR, ddo_class="stdString")
     (value,) = value_property(vi, out, ["Value (Signaling)"])
     vi.wire(_text(vi, "b"), value)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.gaps == []
+    assert "events" not in package.source
+    assert package.function().out == "b"
+
+
+def test_value_signaling_read_of_an_indicator_is_a_gap(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    out = vi.indicator("out", STR, ddo_class="stdString")
+    seen = vi.indicator("seen", STR, ddo_class="stdString")
+    (value,) = value_property(vi, out, ["Value (Signaling)"])
+    vi.wire(value, seen)
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
