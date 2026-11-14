@@ -39,7 +39,6 @@ from lvkit.cache_paths import (  # noqa: E402
     LibraryRoots,
     _slug,
     classify,
-    cleanup_legacy_cache,
     global_cache_root,
     meta_fresh,
     touch_if_stale,
@@ -115,10 +114,7 @@ def _windows_long_path_hint(path: Path) -> str:
 def _cache_target(vi_path: Path, roots: LibraryRoots) -> Path:
     """The per-VI EXTRACTION cache directory for ``vi_path`` (not created: the
     publish step creates it, or renames a finished one into place).
-
-    A one-time cleanup drops the abandoned kind-first cache trees on first use.
     """
-    cleanup_legacy_cache()
     target, _, _ = classify(vi_path, "extract", roots)
     return target
 

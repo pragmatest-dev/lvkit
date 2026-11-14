@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a fresh cache no longer deletes an index saved before the first extraction** — the cache layout check now runs once per cache root, before any cache kind uses it, and a new cache (no marker, no cache folders) only gets its marker; on Windows the deleted open index database caused "attempt to write a readonly database".
 - **Fix: a name built from a label or file name is written the way Python reads it** — `µ` (U+00B5), `ﬁ` and full-width letters and spaces are normalised (NFKC) as Python does and a character a name cannot hold (`²`) is dropped or normalised, so a variable, module or class name matches the name Python reads back (dead-code removal no longer drops an assignment to `µx`), and a full-width `ｉｆ` becomes `if_`; an enum item that is not a Python name is written as its number (#292).
 - **An Unbundle By Name element that names no field carries the node's input, and a Boolean input recorded as an error cluster reads its status** — the 10 Pico streaming examples no longer stop at an element stored as field -1; And, Or and the other Boolean functions read `status` from an error whenever the VI records the input as an error cluster, so a warning reads False (#243).
 - **Fix: the front panel's toolbar keeps "close discarded" while the VI runs on** — the panel's late "started" notice of a run the toolbar itself began no longer replaces the state shown since (#297).
