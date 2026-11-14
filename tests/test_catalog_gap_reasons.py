@@ -14,6 +14,8 @@ from tests.prim_vi import Pin, generate, scalar
         (8069, "Read Datalog", "datalog file"),
         (24201, "Flatten To JSON", "mapping of a LabVIEW type to JSON"),
         (1427, "Default Directory", "current directory"),
+        (2011, "TDMS Read", "read side of a TDMS refnum"),
+        (2019, "TDMS Defragment", "no defragment"),
     ],
 )
 def test_the_gap_carries_the_entry_reason(prim_id: int, name: str, reason: str) -> None:
@@ -22,8 +24,11 @@ def test_the_gap_carries_the_entry_reason(prim_id: int, name: str, reason: str) 
         8069: [Pin(0, "output", scalar("Refnum"), sink="out")],
         24201: [Pin(3, "output", scalar("String"), sink="out")],
         1427: [Pin(0, "output", scalar("Path"), sink="out")],
+        2011: [Pin(10, "output", scalar("String"), sink="out")],
+        2019: [Pin(7, "input", scalar("Path"), source=None)],
     }[prim_id]
     out_type = resolved_pins[0].lv_type
-    _, fn = generate(prim_id, name, resolved_pins, {}, {"out": out_type})
+    indicators = {"out": out_type} if resolved_pins[0].sink else {}
+    _, fn = generate(prim_id, name, resolved_pins, {}, indicators)
     with pytest.raises(NotImplementedError, match=reason):
         fn()
