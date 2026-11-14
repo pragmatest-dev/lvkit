@@ -58,15 +58,17 @@ STREAMING = ROOT / "ps2000/PicoScope2000ExampleStreaming.vi"
 WRITE_TDMS = ROOT / "shared/PicoWriteTDMS.vi"
 
 
-def test_an_unbundle_element_stored_as_minus_one_is_a_gap_the_and_reads_as_none(
+def test_an_unbundle_element_stored_as_minus_one_carries_the_error_the_and_reads(
     tmp_path: Path,
 ) -> None:
+    """Issue #243: the element names no field and has no type, so it carries the
+    merged error; the And's input is recorded as an error cluster, so it reads
+    the error's status."""
     source = _written(STREAMING, tmp_path).read_text()
+    assert "stores its field index as -1" not in source
     assert (
-        "An element of 'Bundle/Unbundle By Name' stores its field index as -1, "
-        "which lvkit does not decode yet"
+        " = (merged_error is not None and merged_error.status) and greater_or_equal\n"
     ) in source
-    assert " = out_1 and greater_or_equal\n" in source
     assert "'' and" not in source
 
 
