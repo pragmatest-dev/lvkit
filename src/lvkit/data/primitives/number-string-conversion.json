@@ -166,12 +166,14 @@
     },
     "1185": {
       "name": "Hexadecimal String To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/hexadecimal-string-to-number.html",
+      "op": "HEXADECIMAL_STRING_TO_NUMBER",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "number",
-          "type": "NumUInt32"
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -182,8 +184,8 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "default (0uL)",
-          "type": "NumUInt32",
+          "name": "default (0 U32)",
+          "type": "polymorphic",
           "default": 0
         },
         {
@@ -200,9 +202,7 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/hexadecimal-string-to-number.html"
+      "verified": true
     },
     "1186": {
       "name": "Octal String To Number",
@@ -243,12 +243,17 @@
     },
     "1187": {
       "name": "Fract/Exp String To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fract-exp-string-to-number.html",
+      "op": "FRACT_EXP_STRING_TO_NUMBER",
+      "imports": [
+        "import locale"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "number",
-          "type": "NumFloat64"
+          "type": "polymorphic"
         },
         {
           "index": 1,
@@ -266,8 +271,8 @@
         {
           "index": 3,
           "direction": "input",
-          "name": "default (0 dbl)",
-          "type": "NumFloat64",
+          "name": "default (0 DBL)",
+          "type": "polymorphic",
           "default": 0.0
         },
         {
@@ -284,9 +289,7 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fract-exp-string-to-number.html"
+      "verified": true
     },
     "1505": {
       "name": "Number To Exponential String",

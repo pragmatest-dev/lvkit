@@ -50,7 +50,13 @@ class PrimitiveResolutionNeeded(ConversionGap):
 
     def summary(self) -> str:
         if self.placeholder:
-            return f"{self.prim_name} is not converted yet"
+            because = f": {self.reason}" if self.reason else ""
+            return f"{self.prim_name} is not converted yet{because}"
+        if self.prim_id and self.reason:
+            return (
+                f"primitive {self.prim_id} ({self.prim_name}) has no Python "
+                f"yet: {self.reason}"
+            )
         if self.prim_id:
             return f"primitive {self.prim_id} ({self.prim_name}) is not known"
         because = f": {self.reason}" if self.reason else ""
@@ -61,9 +67,15 @@ class PrimitiveResolutionNeeded(ConversionGap):
 
     def _format_message(self) -> str:
         if self.placeholder:
+            because = f": {self.reason}" if self.reason else "."
             msg = (
                 f"Primitive {self.prim_id} ({self.prim_name}) is known by name and "
-                "has no implementation yet.\n"
+                f"has no implementation yet{because}\n"
+            )
+        elif self.prim_id and self.reason:
+            msg = (
+                f"Primitive {self.prim_id} ({self.prim_name}) has no Python yet: "
+                f"{self.reason}\n"
             )
         elif self.prim_id:
             msg = (
@@ -100,13 +112,13 @@ class PrimitiveResolutionNeeded(ConversionGap):
             msg += f"    - {' '.join(parts)}\n"
         if not self.terminals:
             msg += "    (none)\n"
-        if self.placeholder:
+        if self.placeholder and not self.reason:
             msg += (
                 f"\n  Fix: give primitive {self.prim_id} a python_code in"
                 f" .lvkit/primitives.json (project-local) or"
                 f" data/primitives.json (cleanroom upstream)"
             )
-        elif self.prim_id:
+        elif self.prim_id and not self.reason:
             msg += (
                 f"\n  Fix: add primitive {self.prim_id} to"
                 f" .lvkit/primitives.json (project-local) or"

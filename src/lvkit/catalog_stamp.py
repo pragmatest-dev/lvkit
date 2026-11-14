@@ -88,8 +88,11 @@ def iter_category_entries(vilib_dir: Path) -> Iterator[tuple[str, dict[str, Any]
             yield category, entry_data
 
 
-def _vi_file_name(name: str) -> str:
-    return name if name.endswith(".vi") else f"{name}.vi"
+def vi_file_name(name: str) -> str:
+    """The file name a catalog name stands for: a name that already ends in a VI
+    file extension (``.vi``, or ``.vim`` for a malleable VI) is the file name,
+    any other name is the file's name without its extension."""
+    return name if name.endswith((".vi", ".vim")) else f"{name}.vi"
 
 
 def _digest(value: object) -> str:
@@ -119,7 +122,7 @@ def _collect(store: Path) -> dict[CatalogKey, list[str]]:
                 names.append(entry["base_vi"])
             for name in names:
                 if name:
-                    add(CatalogKey("vilib", _vi_file_name(name)), [category, entry])
+                    add(CatalogKey("vilib", vi_file_name(name)), [category, entry])
     types_path = store / "vilib" / "_types.json"
     if types_path.exists():
         with open(types_path, encoding="utf-8") as f:

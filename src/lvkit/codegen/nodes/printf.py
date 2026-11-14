@@ -55,7 +55,7 @@ _DEFAULT_CODES = {
 }
 
 
-def _literal_text(source: str) -> str | None:
+def literal_text(source: str) -> str | None:
     """The text of the string literal ``source`` (its escapes decoded), or None
     when it is not a string literal: a value known only at run time."""
     try:
@@ -225,6 +225,29 @@ def _number_value(
     return _formatted(whole, _python_spec(spec, char, text=False))
 
 
+def _with_point(value: ast.FormattedValue, point: ast.expr) -> ast.FormattedValue:
+    """``value`` (a floating-point number written as text) with its period
+    replaced by the decimal separator ``point``."""
+    written = ast.JoinedStr(values=[value])
+    replaced = ast.Call(
+        func=ast.Attribute(value=written, attr="replace", ctx=ast.Load()),
+        args=[ast.Constant(value="."), point],
+        keywords=[],
+    )
+    return ast.FormattedValue(value=replaced, conversion=-1)
+
+
+def _decimal_point(code: str, ctx: CodeGenContext) -> ast.expr | None:
+    """The expression of the decimal separator a localization code sets: None for
+    the period (``%.;``), a comma, or the system's (``%;``)."""
+    if code == ".;":
+        return None
+    if code == ",;":
+        return ast.Constant(value=",")
+    ctx.add_import("import locale")
+    return parse_expr("locale.localeconv()['decimal_point']")
+
+
 def _literal_format(
     text: str,
     arguments: list[tuple[ast.expr, FormatKind]],
@@ -238,9 +261,13 @@ def _literal_format(
     parts: list[ast.expr] = []
     if initial is not None:
         parts.append(ast.FormattedValue(value=initial, conversion=-1))
+    point: ast.expr | None = None
     for piece in _lv_parse(text):
         if isinstance(piece, str):
             parts.append(ast.Constant(value=_lv_decode_escapes(piece)))
+            continue
+        if piece.localization:
+            point = _decimal_point(piece.code, ctx)
             continue
         argument = (
             arguments[piece.position] if piece.position < len(arguments) else None
@@ -253,12 +280,13 @@ def _literal_format(
         if piece.code == "s":
             parts.append(_string_value(piece, arg, kind))
         else:
-            parts.append(_number_value(piece, arg, kind, ctx, negative_gaps))
+            number = _number_value(piece, arg, kind, ctx, negative_gaps)
+            if point is not None and piece.code in ("e", "f"):
+                number = _with_point(number, point)
+            parts.append(number)
     if not any(isinstance(p, ast.FormattedValue) for p in parts):
         return ast.Constant(
-            value="".join(
-                str(p.value) for p in parts if isinstance(p, ast.Constant)
-            )
+            value="".join(str(p.value) for p in parts if isinstance(p, ast.Constant))
         )
     return ast.JoinedStr(values=parts)
 
@@ -270,6 +298,7 @@ def _runtime_format(
     ctx: CodeGenContext,
 ) -> ast.expr:
     """A call of the copied rules for a format string known only at run time."""
+    ctx.add_import("import locale")
     ctx.add_import("import re")
     ctx.add_import("from dataclasses import dataclass")
     _add_helpers(ctx, _lv_format_into_string)
@@ -330,7 +359,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if value is not None:
             arguments.append((parse_expr(value), format_kind(terminal.lv_type)))
 
-    text = None if format_value is None else _literal_text(format_value)
+    text = None if format_value is None else literal_text(format_value)
     negative_gaps: list[tuple[ast.expr, str]] = []
     expr: ast.expr
     if format_value is not None and text is None:

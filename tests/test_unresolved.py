@@ -244,7 +244,9 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     )
     raised = ast.unparse(module).splitlines()[-1]
     assert raised.startswith(
-        "raise NotImplementedError('Insert Menu Items is not converted yet\\n"
+        'raise NotImplementedError("Insert Menu Items is not converted yet: '
+        "A VI's run-time menu has no Python equivalent: a generated function has no "
+        "menu bar to insert items into.\\n"
         "gap kind: placeholder_primitive\\nVI: Caller.vi\\n"
         "node: Insert Menu Items\\n"
     )

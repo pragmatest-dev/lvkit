@@ -1,6 +1,6 @@
 {
   "category": "Dialog & User Interface",
-  "count": 46,
+  "count": 48,
   "entries": [
     {
       "name": "One Button Dialog Function",
@@ -2684,6 +2684,112 @@
           "python_param": "url_out"
         }
       ]
+    },
+    {
+      "name": "Open URL in Default Browser (string)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/browser-llb/open-url-in-default-browser-string-vi.html",
+      "category": "Dialog & User Interface",
+      "description": "Displays a URL or HTML file in the default Web browser. A space character in the URL is encoded as %20.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "URL",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "url"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "URL out",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "url_out"
+        }
+      ],
+      "match_names": [
+        "Open URL in Default Browser (string).vi"
+      ],
+      "imports": [
+        "import webbrowser"
+      ],
+      "python_code": "{url_out} = {url}.replace(' ', '%20')\nwebbrowser.open({url_out})",
+      "inline": true
+    },
+    {
+      "name": "Open URL in Default Browser (path)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/platform/browser-llb/open-url-in-default-browser-path-vi.html",
+      "category": "Dialog & User Interface",
+      "description": "Displays an HTML file in the default Web browser. A relative path is relative to the application directory.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "path",
+          "index": 7,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "path"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "URL out",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "url_out"
+        }
+      ],
+      "match_names": [
+        "Open URL in Default Browser (path).vi"
+      ],
+      "imports": [
+        "import sys",
+        "import webbrowser",
+        "from pathlib import Path"
+      ],
+      "python_code": "_path = Path({path})\n{url_out} = (_path if _path.is_absolute() else Path(sys.argv[0]).resolve().parent / _path).as_uri()\nwebbrowser.open({url_out})",
+      "inline": true
     }
   ]
 }

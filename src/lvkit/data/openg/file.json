@@ -161,7 +161,8 @@
           "index": 1,
           "direction": "input",
           "type": "stdPath",
-          "python_param": "relative_path_"
+          "python_param": "relative_path_",
+          "default": ""
         },
         {
           "name": "Temporary Directory (+ Relative)",
@@ -172,7 +173,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{temporary_directory__relative} = Path(tempfile.gettempdir()) / str({relative_path_} or '.')",
+      "python_code": "{temporary_directory___relative} = Path(tempfile.gettempdir()) / str({relative_path_} or '.')",
       "inline": true,
       "imports": [
         "import tempfile",
@@ -190,7 +191,8 @@
           "index": 1,
           "direction": "input",
           "type": "stdPath",
-          "python_param": "relative_path_"
+          "python_param": "relative_path_",
+          "default": ""
         },
         {
           "name": "Application Directory (+ Relative)",
@@ -201,9 +203,10 @@
         }
       ],
       "status": "complete",
-      "python_code": "{application_directory__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "python_code": "{application_directory___relative} = (Path(sys.modules['__main__'].__file__).resolve().parent if hasattr(sys.modules['__main__'], '__file__') else Path.cwd()) / str({relative_path_} or '.')",
       "inline": true,
       "imports": [
+        "import sys",
         "from pathlib import Path"
       ]
     },
@@ -218,7 +221,8 @@
           "index": 1,
           "direction": "input",
           "type": "stdPath",
-          "python_param": "relative_path_"
+          "python_param": "relative_path_",
+          "default": ""
         },
         {
           "name": "Current VI's Path (+ Relative)",
@@ -229,7 +233,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{current_vis_path__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "python_code": "{current_vis_path___relative} = Path(__file__).resolve() / str({relative_path_} or '.')",
       "inline": true,
       "imports": [
         "from pathlib import Path"
@@ -246,7 +250,8 @@
           "index": 4,
           "direction": "input",
           "type": "stdPath",
-          "python_param": "relative_path_"
+          "python_param": "relative_path_",
+          "default": ""
         },
         {
           "name": "Parent Directory (+ Relative)",
@@ -257,7 +262,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{parent_directory__relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
+      "python_code": "{parent_directory___relative} = Path(__file__).resolve().parent / str({relative_path_} or '.')",
       "inline": true,
       "imports": [
         "from pathlib import Path"
@@ -274,7 +279,8 @@
           "index": 1,
           "direction": "input",
           "type": "stdPath",
-          "python_param": "relative_path_"
+          "python_param": "relative_path_",
+          "default": ""
         },
         {
           "name": "Default Directory (+ Relative)",
@@ -285,7 +291,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{default_directory__relative} = Path.cwd() / str({relative_path_} or '.')",
+      "python_code": "{default_directory___relative} = Path.cwd() / str({relative_path_} or '.')",
       "inline": true,
       "imports": [
         "from pathlib import Path"

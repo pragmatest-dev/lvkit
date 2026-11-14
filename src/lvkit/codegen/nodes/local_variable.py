@@ -9,8 +9,12 @@ or Event Structure is preceded by ``live_io.read``.
 that function (``CodeGenContext.this_vi_expression``), so a subVI that is passed
 it receives the function and ``ref.__name__`` / ``inspect.getfile(ref)`` read its
 properties.
-Any other such reference ("This Application") is a LabVIEW server object with no
-Python value to read: a gap, its outputs ``None`` where consumers read them."""
+"This Application" is the running application: Python has no object for it, so its
+wire carries ``None``, and each Property or Invoke Node that reads it is generated
+or is a gap by its own property or method (``nodes/base.unwired_ref_class`` acts on
+the default object of the class, as for an unwired reference input). Any other
+such reference is a LabVIEW server object with no Python value to read: a gap, its
+outputs ``None`` where consumers read them."""
 
 from __future__ import annotations
 
@@ -18,7 +22,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, LocalVariableNode
-from lvkit.graph.vi_reference import is_this_vi
+from lvkit.graph.vi_reference import is_this_application, is_this_vi
 from lvkit.models import FPTerminal
 
 from ..ast_utils import build_assign, parse_expr
@@ -32,6 +36,8 @@ from ..variant_values import wrap_if_coerced
 def generate(node: LocalVariableNode, ctx: CodeGenContext) -> CodeFragment:
     if is_this_vi(node):
         return CodeFragment(bindings={node.terminals[0].id: ctx.this_vi_expression()})
+    if is_this_application(node):
+        return CodeFragment(bindings={node.terminals[0].id: "None"})
     control = referenced_control(node, ctx)
     if control is not None:
         return _control_access(node, control, ctx)

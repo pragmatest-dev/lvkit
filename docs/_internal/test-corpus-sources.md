@@ -27,9 +27,15 @@ not a source of the format/codegen knowledge.
 | OpenG Toolkit | BSD-3-Clause | 17 individual `oglib_*.vip` library packages (each a zip) fetched anonymously from SourceForge's `opengtoolkit` project → unzipped → `scripts/reproduce_openg_corpus.py` runs `lvkit.extractor.extract_llb`/`extract_vi_xml`. **Version note**: SourceForge's public listing tops out at each library's `4.x` branch (e.g. `oglib_string-4.2.0.13.vip`) — newer `5.x`/`6.x` releases exist on vipm.io but are gated behind an account login and aren't anonymously/scriptably reproducible, so they are NOT used here. |
 | JKISoftware/JKI-EasyXML | BSD-3-Clause | cases, nested dataflow, clusters, variants; flat-sequence + stacked-sequence renderer fixtures (`Fast Parser/test TCX read (installed 71).vi`) |
 | JKISoftware/JKI-VI-Tester | BSD-3-Clause | LVOOP / project-plugin |
+| JKISoftware/JKI-State-Machine | BSD-3-Clause | state-machine support API (`Add State(s) to Queue`, `Parse State Queue`) and its unit tests |
+| drjdpowell/jsontext (Bitbucket) | BSD-2-Clause | JSONtext library (JSON text <-> LabVIEW data) |
 | mefistotelis/pylabview (test VIs) | MIT | the parser's own corpus |
 | KL-Turner/LabVIEW-DAQ | MIT | DAQ app |
 | LabVIEW-DCAF/DAQModule | Apache-2.0 | single-point DAQ |
+| LabVIEW-DCAF/ModuleInterface | Apache-2.0 | the DCAF module interface classes |
+| LabVIEW-DCAF/tagbus | BSD-2-Clause | the DCAF tag bus (`Tag Bus` library); a search path of the DAQ module sample |
+| LabVIEW-DCAF/DCAF-Core | Apache-2.0 | the DCAF core; a search path of the DAQ module sample |
+| G-CLI/G-CLI | BSD-2-Clause | G CLI command-line interface library (`CLI Class`); a search path of the Actor Framework and icon editor samples |
 | ni/measurement-plugin-labview | MIT | **1337 .vi / 34 .lvclass / 55 .lvlib / 423 .ctl** — broadest single source: LVOOP, libraries, typedefs, deep hierarchies |
 | illuminated-g/lv-flex-channel-examples | MIT | `DAQmx AO/DAQ AO.vi` (+ .lvlib/.ctl) — the corpus's real DAQmx caller (poly-variant extraction, LIbd/BDHP vilib qualified-path parsing, frame-attributed constants, diff fixtures) |
 | ismet55555/LabVIEW-OOP-Classes | MIT | 186 .vi / 11 .lvclass / 21 .ctl — compact LVOOP across DAQ/hardware/utility |

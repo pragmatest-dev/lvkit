@@ -78,6 +78,10 @@
     },
     "2308": {
       "name": "VISA Open",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-open.html",
+      "imports": [
+        "import pyvisa"
+      ],
       "terminals": [
         {
           "index": 0,
@@ -88,7 +92,7 @@
         {
           "index": 3,
           "direction": "output",
-          "name": "VISA resource name",
+          "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
@@ -127,9 +131,21 @@
           "refnum_type": "visa"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-open.html"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "requires": [
+        "pyvisa"
+      ],
+      "python_code": {
+        "visa_resource_name_out": "pyvisa.ResourceManager().open_resource(in_11, in_9, in_7)"
+      },
+      "inline": true
     },
     "2313": {
       "name": "VISA Read To File",

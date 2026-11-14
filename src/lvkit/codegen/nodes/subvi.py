@@ -16,6 +16,7 @@ from lvkit.vilib_resolver import (
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
+    VITerminal,
     derive_python_location,
 )
 
@@ -77,12 +78,21 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     vilib_vi = None
     if node.poly_variant_name:
         vilib_vi = _vilib_resolver(ctx).resolve_call(
-            catalog_path, node.poly_variant_name, wrapper_fallback=False
+            catalog_path,
+            node.poly_variant_name,
+            wrapper_fallback=False,
+            vi_name=node.name,
         )
-        if not vilib_vi:
-            # Variant not in JSON — fail or emit inline raise
+        if vilib_vi:
+            vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
+        elif _records_instance_file(node, ctx):
+            # The call records the file of the variant it runs, which the
+            # catalog lists under its own name.
+            vilib_vi = _get_vilib_vi(node, ctx)
+        if not vilib_vi and not _runs_loaded_variant(node, ctx):
+            # Variant neither in the catalog nor a VI of the graph — fail or emit
+            # inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
-        vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
 
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
@@ -111,13 +121,37 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     )
 
 
+def _records_instance_file(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether a call of a polymorphic VI records the file of one of its variants
+    (a catalog VI by another name than the call's own) rather than the
+    polymorphic VI's file."""
+    file_name = _vilib_resolver(ctx).catalog_file_name(ctx.catalog_path(node))
+    return file_name is not None and file_name != (node.name or "").rsplit(":", 1)[-1]
+
+
+def _runs_loaded_variant(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether the variant a call of a polymorphic VI runs is a VI loaded in the
+    graph, whose own module the call imports: a VI of the project is no catalog
+    entry, whatever the path its caller records for it."""
+    return (
+        ctx.graph is not None
+        and node.variant_key is not None
+        and ctx.graph.is_loaded_vi(node.variant_key)
+    )
+
+
 def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
     """The key of the VI a call names when it is a member of a loaded class: the
-    callee, or the variant of a polymorphic VI the call selects."""
+    callee, or the variant of a polymorphic VI the call selects. A member the
+    catalog gives Python for is no method: the call uses that Python."""
     if ctx.graph is None:
         return None
     key = node.variant_key or node.callee_key
-    if key is not None and ctx.graph.owning_class_key(key) is not None:
+    if (
+        key is not None
+        and ctx.graph.owning_class_key(key) is not None
+        and not ctx.graph.catalog_gives_python(key)
+    ):
         return key
     return None
 
@@ -173,6 +207,12 @@ def build_call(
     )
 
 
+def terminal_placeholder(terminal: VITerminal) -> str:
+    """The ``{placeholder}`` an inline catalog template writes for a terminal:
+    its ``python_param``, else its label as a Python name."""
+    return terminal.python_param or to_var_name(terminal.name)
+
+
 def _generate_inline(
     node: VINode, ctx: CodeGenContext, vilib_vi: VIEntry
 ) -> CodeFragment:
@@ -196,7 +236,7 @@ def _generate_inline(
     for vt in vilib_vi.terminals:
         if vt.index is None:
             continue
-        param_key = vt.python_param or to_var_name(vt.name)
+        param_key = terminal_placeholder(vt)
         if vt.direction == TerminalDirection.INPUT:
             vilib_inputs[vt.index] = param_key
         elif vt.direction == TerminalDirection.OUTPUT:
@@ -206,7 +246,7 @@ def _generate_inline(
     vilib_defaults: dict[str, str] = {}
     for vt in vilib_vi.terminals:
         if vt.direction == TerminalDirection.INPUT and vt.default is not None:
-            param_key = vt.python_param or to_var_name(vt.name)
+            param_key = terminal_placeholder(vt)
             vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
     # The value of each input placeholder: the wired value, else the default.
@@ -272,7 +312,7 @@ def _generate_inline(
                 output_var_map[param_key] = ref_passthrough[param_key]
             elif "{" + param_key + "}" in template:
                 # Output appears in template — will be assigned
-                var_name = f"{func_name}_{param_key}"
+                var_name = ctx.make_output_var(f"{func_name}_{param_key}", node.id)
                 output_var_map[param_key] = var_name
                 bindings[term_id] = var_name
             elif ctx.is_wired(term_id) and not term.is_error_cluster:
@@ -288,7 +328,9 @@ def _generate_inline(
     # (an older version of the VI) is still a variable: the template may read it.
     for param_key in vilib_outputs.values():
         if param_key not in output_var_map and "{" + param_key + "}" in template:
-            output_var_map[param_key] = f"{func_name}_{param_key}"
+            output_var_map[param_key] = ctx.make_output_var(
+                f"{func_name}_{param_key}", node.id
+            )
 
     # Write every placeholder in one pass over the catalog template.
     names = {**values, **output_var_map}
@@ -329,6 +371,35 @@ def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> 
     return check.entry
 
 
+def _terminals_to_learn(
+    vi: VIEntry, node: VINode, ctx: CodeGenContext
+) -> list[Terminal]:
+    """The call's terminals that give the catalog entry ``vi`` numbers it lacks:
+    every wired terminal when one is wired at a number the entry has no terminal
+    for, and each unwired terminal labelled exactly like an entry terminal with
+    no number (at a number no entry terminal has)."""
+    if not vi.terminals:
+        return []
+    indexed = {t.index for t in vi.terminals if t.index is not None}
+    unnumbered = {t.name for t in vi.terminals if t.index is None and t.name}
+    wired = [
+        term
+        for term in ctx.enriched_terminals(node)
+        if term.id and term.index is not None and ctx.is_wired(term.id)
+    ]
+    labelled = [
+        term
+        for term in ctx.enriched_terminals(node)
+        if term.index is not None
+        and term.index >= 0
+        and term.index not in indexed
+        and term.name in unnumbered
+        and not ctx.is_wired(term.id)
+    ]
+    wired_unknown = any(term.index not in indexed for term in wired)
+    return [*(wired if wired_unknown else []), *labelled]
+
+
 def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
     """The catalog entry of the VI a call records a path for, checked against the
     VI's own connector pane when it is loaded.
@@ -346,45 +417,20 @@ def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
             return None
         vi = _checked_against_pane(vi, node, ctx)
 
-        # Check if caller's WIRED terminals are missing indices
-        # Only require indices for terminals that have actual wires
-        has_terminals = bool(vi.terminals)
-        if has_terminals and node and ctx:
-            # Get indices the caller is actually wiring (not just connector slots)
-            caller_indices = set()
-            for term in ctx.enriched_terminals(node):
-                term_id = term.id
-                term_index = term.index
-                # Only count terminals that have wires connected
-                if term_id and term_index is not None and ctx.is_wired(term_id):
-                    caller_indices.add(term_index)
-            # Get indices we have in vilib
-            vilib_indices = {t.index for t in vi.terminals if t.index is not None}
-            # Missing = caller wires indices we don't have mapped
-            missing_indices = bool(caller_indices - vilib_indices)
-        else:
-            missing_indices = False
-
-        if missing_indices:
-            # Auto-update vilib JSON with observed terminals
-            # Filter to only wired terminals
-            wired_node_terminals = (
-                [term for term in ctx.enriched_terminals(node) if ctx.is_wired(term.id)]
-                if node and ctx
-                else []
+        # The terminals the call teaches the catalog its numbers: every wired one,
+        # and an unwired one the call labels exactly like a catalog terminal that
+        # has no number yet (the call records the label of each slot of the pane).
+        learned = _terminals_to_learn(vi, node, ctx)
+        if learned:
+            # Learn the observed terminals into this run's own copy of the
+            # catalog.
+            if not ctx.learned_vilib:
+                ctx.learned_vilib.append(ctx.vilib_catalog.fork())
+            vi = ctx.learned_vilib[0].auto_update_terminals(
+                vi_name=catalog_name,
+                wired_terminals=learned,
+                caller_vi=ctx.vi_name,
             )
-
-            if wired_node_terminals:
-                # Learn the observed terminals into this run's own copy of the
-                # catalog.
-                if not ctx.learned_vilib:
-                    ctx.learned_vilib.append(ctx.vilib_catalog.fork())
-                vi = ctx.learned_vilib[0].auto_update_terminals(
-                    vi_name=catalog_name,
-                    wired_terminals=wired_node_terminals,
-                    caller_vi=ctx.vi_name,
-                )
-                # Successfully updated - continue with updated VI
 
         return vi
     except ImportError:

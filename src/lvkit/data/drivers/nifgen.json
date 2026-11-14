@@ -37,7 +37,18 @@
         {
           "name": "instrument handle",
           "direction": "input",
-          "python_param": "session"
+          "python_param": "session",
+          "index": 11
+        },
+        {
+          "name": "error in (no error)",
+          "direction": "input",
+          "index": 8
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 0
         }
       ]
     },
@@ -79,17 +90,30 @@
         {
           "name": "instrument handle",
           "direction": "input",
-          "python_param": "session"
+          "python_param": "session",
+          "index": 11
         },
         {
           "name": "instrument handle out",
           "direction": "output",
-          "python_param": "session_out"
+          "python_param": "session_out",
+          "index": 3
         },
         {
           "name": "result",
           "direction": "output",
-          "python_param": "result"
+          "python_param": "result",
+          "index": 1
+        },
+        {
+          "name": "error in (no error)",
+          "direction": "input",
+          "index": 8
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 0
         }
       ],
       "ref_terminals": {
@@ -439,17 +463,30 @@
         {
           "name": "instrument handle",
           "direction": "input",
-          "python_param": "session"
+          "python_param": "session",
+          "index": 11
         },
         {
           "name": "instrument handle out",
           "direction": "output",
-          "python_param": "session_out"
+          "python_param": "session_out",
+          "index": 3
         },
         {
           "name": "done",
           "direction": "output",
-          "python_param": "is_done"
+          "python_param": "is_done",
+          "index": 2
+        },
+        {
+          "name": "error in (no error)",
+          "direction": "input",
+          "index": 8
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 0
         }
       ],
       "ref_terminals": {

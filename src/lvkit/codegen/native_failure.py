@@ -49,11 +49,14 @@ GENERIC_ERROR_CODE = 42
 class CatalogFailures:
     """What a catalog entry says about its operation's failures: ``failures``,
     caught in order; ``on_failure``, the value NI documents for an output (by
-    terminal index) when the operation fails; ``source``, the node's name."""
+    terminal index) when the operation fails; ``source``, the node's name;
+    ``kept``, the outputs (by terminal index) that keep what the operation had
+    assigned when it failed."""
 
     failures: tuple[NativeError, ...]
     on_failure: dict[int, ScalarValue]
     source: str
+    kept: frozenset[int] = frozenset()
 
     @classmethod
     def of_primitive(cls, entry: Mapping[str, Any]) -> CatalogFailures:
@@ -69,6 +72,7 @@ class CatalogFailures:
                 if t.on_failure is not None
             },
             parsed.name,
+            frozenset(t.index for t in parsed.terminals if t.keeps_on_failure),
         )
 
     @classmethod
@@ -134,6 +138,7 @@ def catch_failures(
         assigned_names(fragment.statements),
         None,
         {index: repr(value) for index, value in catalog.on_failure.items()},
+        catalog.kept,
     )
     exception = ctx.make_output_var("exception", node.id)
     handlers = []
@@ -188,7 +193,7 @@ def exception_name(failure: NativeError) -> str:
     not ``error``)."""
     if failure.module is None:
         return failure.exception
-    return f"{failure.module}_{failure.exception}"
+    return f"{failure.module.replace('.', '_')}_{failure.exception}"
 
 
 def exception_import(failure: NativeError) -> str:
@@ -214,6 +219,11 @@ def exception_import(failure: NativeError) -> str:
 def _labview_error(failure: NativeError, source: str, exception: str) -> ast.expr:
     """``LabVIEWError(code=…, source=…, message=…)`` for ``failure``, caught as
     the variable ``exception``."""
+    if failure.code_attribute is not None:
+        return parse_expr(
+            f"{LABVIEW_ERROR_NAME}(code={exception}.{failure.code_attribute}, "
+            f"source={source!r}, message=str({exception}))"
+        )
     code = GENERIC_ERROR_CODE if failure.code is None else failure.code
     return labview_error(code, source, f"str({exception})")
 

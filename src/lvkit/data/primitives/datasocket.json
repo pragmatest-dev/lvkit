@@ -85,6 +85,7 @@
     },
     "1086": {
       "name": "DataSocket Read",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/datasocket-read.html",
       "terminals": [
         {
           "index": 0,
@@ -163,7 +164,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/datasocket-read.html"
+      "gap_reason": "DataSocket is NI's own protocol (dstp, opc, file URLs through the DataSocket Server); Python has no client for it."
     },
     "1087": {
       "name": "DataSocket Write",

@@ -191,6 +191,12 @@ class QueryMixin:
             node.interface_key, node.qualified_path, node.vi_path
         )
 
+    def catalog_gives_python(self, key: str) -> bool:
+        """Whether the vi.lib catalog gives Python for the VI at ``key``, by the
+        path its callers record: every call of it uses that Python, and no module
+        or class method is written from its diagram."""
+        return self.vilib_catalog.has_python(self.recorded_path(key))
+
     def catalog_path_of(
         self, interface_key: str | None, qualified_path: str | None, caller: str
     ) -> str | None:

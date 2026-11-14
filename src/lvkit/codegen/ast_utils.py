@@ -509,13 +509,17 @@ _PY_BUILTINS = frozenset(dir(builtins))
 # (``tests/test_reserved_module_names.py`` checks this).
 GENERATED_MODULE_NAMES = frozenset(
     {
-        "builtins", "concurrent", "copy", "ctypes", "filecmp", "functools",
-        "getpass", "hightime",
-        "importlib", "inspect", "io", "ipaddress", "keyword", "math", "nidaqmx",
+        "builtins", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
+        "functools", "gc", "getpass", "hightime",
+        "importlib", "inspect", "io", "ipaddress", "keyword", "locale", "math",
+        "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
-        "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "re", "serial",
-        "shutil", "socket", "stat",
-        "struct", "sys", "tempfile", "threading", "time", "uuid",
+        "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa", "random", "re",
+        "serial",
+        "shutil", "socket", "stat", "statistics",
+        "struct", "subprocess", "sys", "tempfile", "threading", "time", "uuid",
+        "webbrowser",
+        "zipfile",
     }
 )  # fmt: skip
 
@@ -758,6 +762,7 @@ def paren_if_compound(expr: str) -> str:
     ):
         return f"({expr})"
     return expr
+
 
 # The import of the ``copy`` module, for the code that makes a one-level copy.
 COPY_IMPORT = "import copy"

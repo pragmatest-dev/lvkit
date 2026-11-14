@@ -195,7 +195,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
     if is_unknown:
         # Unknown primitive - emit explicit error
-        raise_unknown(node, prim_id, ctx)
+        raise_unknown(node, prim_id, ctx, resolved.gap_reason if resolved else None)
 
     # Resolve input values from context (use resolved terminals for names)
     input_map = _build_input_map(node, ctx, resolved)
@@ -963,7 +963,9 @@ def raise_placeholder(
 ) -> NoReturn:
     """A primitive known by name with no implementation is a gap."""
     name = resolved.name or node.name or "unknown"
-    raise _unresolved(node, node.prim_id, ctx, placeholder_name=name)
+    raise _unresolved(
+        node, node.prim_id, ctx, resolved.gap_reason, placeholder_name=name
+    )
 
 
 def raise_unknown(

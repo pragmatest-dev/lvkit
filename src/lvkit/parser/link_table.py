@@ -140,6 +140,7 @@ from lvkit.text_encoding import (
     decode_labview_text,
     unwrap_pascal_name,
 )
+from lvkit.vi_files import is_vi_file
 
 from .utils import clean_labview_string
 
@@ -1191,3 +1192,24 @@ def qualified_link_name(
     return joined_link_name(
         [_unwrap_name(p, encoding) for p in parts], link_flag, caller_library
     )
+
+
+def leading_library(qualified_name: str | None) -> str | None:
+    """The library a VI's qualified name starts with, for same-library refs."""
+    if qualified_name and ":" in qualified_name:
+        return qualified_name.split(":")[0]
+    return None
+
+
+def class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
+    """The qualified name of a record that names only a method but whose path is
+    a class file: that class owns the method, so it is the name's owner. Any
+    other name is returned as is."""
+    if (
+        ":" not in qname
+        and is_vi_file(qname)
+        and path_tokens
+        and path_tokens[-1].lower().endswith(".lvclass")
+    ):
+        return f"{path_tokens[-1]}:{qname}"
+    return qname

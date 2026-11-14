@@ -1916,6 +1916,7 @@
     },
     "2250": {
       "name": "Generate User-Defined Trace Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-user-defined-trace-event.html",
       "terminals": [
         {
           "index": 1,
@@ -1931,7 +1932,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "A user-defined trace event goes to NI's Desktop Execution Trace Toolkit, which has no Python equivalent; `sys.audit` would be the nearest standard-library call but its event name is a decision."
     },
     "2300": {
       "name": "VISA Refnum to Session",
@@ -2260,32 +2262,33 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "output",
           "name": "probe string",
           "type": "String"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 6,
           "direction": "input",
           "name": "maximum string length",
           "type": "NumUInt32"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "input",
           "name": "data value",
           "type": "LVVariant"
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "To Probe String has no NI page: what string it makes of a value, and what its maximum string length cuts, are not documented. Its terminals are the callers' (probe string out 3, error in 4, maximum string length 6, data value 7)."
     },
     "2414": {
       "name": "Type Of",
@@ -2693,8 +2696,6 @@
     "9000": {
       "name": "Current VI's Menubar",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-menubar.html",
-      "verified": false,
-      "placeholder": true,
       "terminals": [
         {
           "index": 0,
@@ -2703,8 +2704,11 @@
           "type": "Refnum"
         }
       ],
+      "verified": false,
+      "placeholder": true,
       "python_code": "pass",
-      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime)."
+      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime).",
+      "gap_reason": "A VI's run-time menu has no Python equivalent: a generated function has no menu bar whose reference this could return."
     },
     "9020": {
       "name": "Script Node",
@@ -2892,6 +2896,9 @@
     },
     "23066": {
       "name": "Text to UTF-8",
+      "imports": [
+        "import locale"
+      ],
       "terminals": [
         {
           "index": 0,
@@ -2900,35 +2907,43 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "output",
           "name": "utf-8 text",
           "type": "String"
         },
         {
-          "index": 2,
+          "index": 8,
           "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 10,
           "direction": "input",
           "name": "encoding",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
-          "index": 4,
+          "index": 11,
           "direction": "input",
           "name": "text",
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "guess_reason": "No NI page. Its terminals are the node's names from the VI-Scripting export; the indices are the callers' recorded ones (0/3/8/10/11 in G CLI's Write Message and Read Message and JSONtext). `encoding` is a Windows code page number: G CLI's Write Message selects `Windows-1252: I32 = 1252` or `Use System: I32 = -1` for it. Every caller that leaves it unwired is converting to/from the system text, so unwired is the system code page (-1).",
+      "python_code": {
+        "utf_8_text": "in_11.encode('latin-1').decode(('cp%d' % in_10 if in_10 >= 0 else locale.getpreferredencoding(False))).encode('utf-8').decode('latin-1')"
+      },
+      "inline": true
     },
     "23067": {
       "name": "Text to UTF-8",
+      "imports": [
+        "import locale"
+      ],
       "terminals": [
         {
           "index": 0,
@@ -2952,7 +2967,8 @@
           "index": 10,
           "direction": "input",
           "name": "encoding",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 11,
@@ -2961,8 +2977,12 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "guess_reason": "No NI page. Its terminals are the node's names from the VI-Scripting export; the indices are the callers' recorded ones (0/3/8/10/11 in G CLI's Write Message and Read Message and JSONtext). `encoding` is a Windows code page number: G CLI's Write Message selects `Windows-1252: I32 = 1252` or `Use System: I32 = -1` for it. Every caller that leaves it unwired is converting to/from the system text, so unwired is the system code page (-1).",
+      "python_code": {
+        "text": "in_11.encode('latin-1').decode('utf-8').encode(('cp%d' % in_10 if in_10 >= 0 else locale.getpreferredencoding(False))).decode('latin-1')"
+      },
+      "inline": true
     },
     "23068": {
       "name": "Transpose 1D Array",
