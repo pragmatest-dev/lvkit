@@ -139,7 +139,11 @@ def _super(node: VINode, ctx: CodeGenContext, receiver: str) -> ast.expr:
         return parse_expr("super()")
     class_key = ctx.graph.owning_class_key(ctx.vi_name)
     if class_key is None:
-        raise CodeGenError("Call Parent is made from a method of a class", node)
+        raise ConversionGap(
+            "Call Parent is in a VI that no loaded class lists as its method "
+            "(its class was not found, or the VI is not a class method)",
+            node,
+        )
     return parse_expr(f"super({python_class_name(class_key)}, {receiver})")
 
 
@@ -158,7 +162,14 @@ def _parent_class(ctx: CodeGenContext, node: VINode) -> ast.expr:
     """The class the calling VI's class descends from, imported."""
     assert ctx.graph is not None and ctx.vi_name is not None
     class_key = ctx.graph.owning_class_key(ctx.vi_name)
-    if class_key is None or not isinstance(ctx.import_resolver, ImportResolver):
+    if class_key is None:
+        raise ConversionGap(
+            "Call Parent of a property is in a VI that no loaded class lists as "
+            "its method (its class was not found, or the VI is not a class "
+            "method)",
+            node,
+        )
+    if not isinstance(ctx.import_resolver, ImportResolver):
         raise CodeGenError(
             "Call Parent of a property is made from a method of a class", node
         )
