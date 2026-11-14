@@ -30,6 +30,8 @@ import pytest
 
 from lvkit import cache_paths, extractor
 from lvkit.cache_paths import LibraryRoots
+from lvkit.index import store as index_store
+from lvkit.index.model import VIFacts
 from lvkit.text_encoding import vers_language_of
 
 _SAMPLE_VI = Path(
@@ -242,67 +244,131 @@ class TestFingerprintPathLevel:
 
 
 class TestLegacyCleanup:
-    def test_kind_first_trees_deleted(self) -> None:
+    """The layout check runs once per root, at the first use of the root."""
+
+    @staticmethod
+    def _fresh_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        root = tmp_path / "cache-root"
+        monkeypatch.setenv("LVKIT_CACHE_DIR", str(root))
+        return root
+
+    @staticmethod
+    def _marker(root: Path) -> str:
+        return (root / "_layout_version").read_text(encoding="utf-8").strip()
+
+    def test_kind_first_trees_deleted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """The abandoned kind-first trees (``<root>/{extract,render,diff,index}/
-        …``) are deleted on cleanup (slugs live BELOW ``projects``/``shared``/
+        ...``) are deleted at first use (slugs live BELOW ``projects``/``shared``/
         ``adhoc``, so the kind names are never top-level under project-first)."""
-        root = cache_paths.global_cache_root()
+        root = self._fresh_root(tmp_path, monkeypatch)
         for kind in ("extract", "render", "diff", "index"):
             d = root / kind / "projects" / "myslug"
             d.mkdir(parents=True)
             (d / "stale").write_text("old", encoding="utf-8")
 
-        cache_paths.cleanup_legacy_cache()
+        assert cache_paths.global_cache_root() == root
 
         for kind in ("extract", "render", "diff", "index"):
             assert not (root / kind).exists()
+        assert self._marker(root) == cache_paths._LAYOUT_VERSION
 
-    def test_layout_migration_drops_pre_fp_entries_once(self) -> None:
-        """On a layout-version mismatch the derived namespaces are dropped ONCE —
-        the per-kind ``<fp>`` level + ``<tail>-<hash>`` slug make every pre-existing
-        owned path unreachable, so old entries are dead weight — then the version
-        is stamped so a matching-version entry survives the next cleanup."""
-        root = cache_paths.global_cache_root()
-        # A pre-<fp> project-first entry (no <fp> level): unreachable now.
+    def test_old_marker_drops_derived_namespaces_once(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A marker of another version drops ``projects``/``shared``/``adhoc`` at
+        first use and stamps the current version; a current-version entry then
+        survives."""
+        root = self._fresh_root(tmp_path, monkeypatch)
+        root.mkdir()
+        (root / "_layout_version").write_text("2", encoding="utf-8")
         stale = root / "projects" / "myslug" / "extract" / "keep"
         stale.parent.mkdir(parents=True)
         stale.write_text("old", encoding="utf-8")
 
-        cache_paths.cleanup_legacy_cache()  # no marker -> migration wipes
+        cache_paths.global_cache_root()
 
         assert not stale.exists()
-        marker = (root / "_layout_version").read_text(encoding="utf-8").strip()
-        assert marker == cache_paths._LAYOUT_VERSION
-
-        # Version now stamped -> a fresh (new-layout) entry survives the next pass.
+        assert self._marker(root) == cache_paths._LAYOUT_VERSION
         live = root / "projects" / "p-abcd1234" / "extract" / "ef012345" / "x"
         live.parent.mkdir(parents=True)
         live.write_text("new", encoding="utf-8")
-        cache_paths.cleanup_legacy_cache()  # marker matches -> no wipe
+        cache_paths.global_cache_root()  # already checked -> no wipe
         assert live.read_text(encoding="utf-8") == "new"
+
+    def test_current_marker_deletes_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        root = self._fresh_root(tmp_path, monkeypatch)
+        root.mkdir()
+        (root / "_layout_version").write_text(
+            cache_paths._LAYOUT_VERSION, encoding="utf-8"
+        )
+        keep = root / "projects" / "myslug" / "extract" / "keep"
+        keep.parent.mkdir(parents=True)
+        keep.write_text("live", encoding="utf-8")
+
+        cache_paths.global_cache_root()
+
+        assert keep.read_text(encoding="utf-8") == "live"
+
+    def test_content_without_marker_is_cleaned(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A cache from before the marker existed (folders, no marker) is cleaned
+        and stamped."""
+        root = self._fresh_root(tmp_path, monkeypatch)
+        stale = root / "projects" / "myslug" / "extract" / "keep"
+        stale.parent.mkdir(parents=True)
+        stale.write_text("old", encoding="utf-8")
+
+        cache_paths.global_cache_root()
+
+        assert not stale.exists()
+        assert self._marker(root) == cache_paths._LAYOUT_VERSION
+
+    def test_fresh_cache_keeps_an_index_saved_before_any_extraction(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A new cache deletes nothing: an index saved first survives the first
+        extraction-path call."""
+        root = self._fresh_root(tmp_path, monkeypatch)
+        project = tmp_path / "proj"
+        project.mkdir()
+        index_store.save(
+            project,
+            [VIFacts(path=str(project / "a.vi"), name="a.vi", content_sha="a")],
+        )
+        db = index_store._db_file(project)
+        assert db.exists()
+
+        extractor._cache_target(project / "a.vi", LibraryRoots())
+
+        assert db.exists()
+        assert root in db.parents
+        assert self._marker(root) == cache_paths._LAYOUT_VERSION
 
     def test_concurrent_first_use_never_deletes_a_directory_being_created(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Every caller runs the cleanup before creating its cache directory. On
-        a fresh root, concurrent callers must not delete the namespaces while
-        another is creating a directory under them (a ``mkdir(parents=True)``
-        that raced the deletion raised FileNotFoundError)."""
+        """Every cache kind gets the root from ``global_cache_root`` before
+        creating its directory. On a fresh root, concurrent callers must not
+        delete the namespaces while another is creating a directory under them (a
+        ``mkdir(parents=True)`` that raced the deletion raised
+        FileNotFoundError)."""
         for round_ in range(300):
             root = tmp_path / f"root{round_}"
             monkeypatch.setenv("LVKIT_CACHE_DIR", str(root))
 
             def first_use(i: int, root: Path = root) -> None:
-                cache_paths.cleanup_legacy_cache()
+                cache_paths.global_cache_root()
                 (root / "projects" / f"p{i}" / "extract" / "x").mkdir(
                     parents=True, exist_ok=True
                 )
 
             with ThreadPoolExecutor(max_workers=12) as ex:
                 list(ex.map(first_use, range(12)))  # re-raises any worker error
-
-    def test_cleanup_is_safe_with_nothing_to_delete(self) -> None:
-        cache_paths.cleanup_legacy_cache()  # no legacy trees -> no error
 
 
 # ── cache freshness: mtime fast-path vs content-hash invalidation ───────────
