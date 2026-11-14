@@ -69,6 +69,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "nptdms>=1.13.0",
     "nicegui>=3.12.1",
+    "nitypes>=1.1.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -13,11 +13,9 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import _flatten_fields
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.measure_data import measure_data_field_name, measure_data_value_type
 from lvkit.models import (
     ClusterField,
     LVType,
-    LVTypeKind,
     Terminal,
     TypeResolutionNeeded,
     _is_error_cluster,
@@ -27,7 +25,6 @@ from ..ast_utils import (
     COPY_IMPORT,
     build_assign,
     parse_expr,
-    to_var_name,
 )
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
@@ -36,8 +33,8 @@ from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
-from ..type_default import type_default
 from ..value_copy import own_path, owned_input
+from . import waveform_bundle
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -117,6 +114,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 if val:
                     bindings[t_out.id] = val
 
+    elif list_out and not list_in and measure_flavor and agg_var:
+        return waveform_bundle.unbundle(node, list_out, agg_var, measure_flavor, ctx)
+
     elif list_out and not list_in:
         # LIST out only = unbundle (extract fields from cluster)
         for t in sorted(list_out, key=lambda t: t.index):
@@ -130,10 +130,6 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     bindings[t.id] = f"({agg_var})" + "".join(
                         f"[{index}]" for index in path
                     )
-                elif measure_flavor:
-                    bindings[t.id] = (
-                        f"{agg_var}.{_measure_component(t, measure_flavor, node)}"
-                    )
                 else:
                     bindings[t.id] = _field_expr(t, agg_var, class_fields, class_attrs)
 
@@ -146,6 +142,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         ):
             return _generate_error_bundle(
                 node, list_in, agg_out, agg_var, class_fields, ctx
+            )
+
+        if agg_var and measure_flavor:
+            return waveform_bundle.bundle(
+                node, list_in, agg_out, agg_var, measure_flavor, ctx
             )
 
         if agg_var:
@@ -203,11 +204,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 val = ctx.wired_input(t.id, node)
                 if not val:
                     continue
-                path = (
-                    [_measure_component(t, measure_flavor, node)]
-                    if measure_flavor
-                    else _field_path(t, class_fields, class_attrs)
-                )
+                path = _field_path(t, class_fields, class_attrs)
                 if path:
                     if len(path) > 1:
                         imports.add(COPY_IMPORT)
@@ -238,10 +235,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             for t in agg_out:
                 bindings[t.id] = ast.unparse(tup)
         elif agg_out and measure_flavor:
-            built = _build_measure_data(node, list_in, agg_out[0], measure_flavor, ctx)
-            statements.extend(built.statements)
-            bindings.update(built.bindings)
-            imports = built.imports
+            return waveform_bundle.bundle(
+                node, list_in, agg_out, None, measure_flavor, ctx
+            )
         elif agg_out:
             raise ConversionGap(
                 f"A Bundle into {agg_out[0].type_label()} with no cluster wired in "
@@ -292,67 +288,6 @@ def _position_path(
 ) -> tuple[int, ...]:
     """The tuple positions of the depth-first nMux field index of ``term``."""
     return position_path(term.nmux_field_index, fields, term.id)
-
-
-def _measure_component(term: Terminal, flavor: str, node: PrimitiveNode) -> str:
-    """The Python attribute of the waveform or digital data component a
-    Bundle/Unbundle By Name terminal selects, from the type's built-in layout."""
-    name = measure_data_field_name(flavor, term.nmux_field_index)
-    if name is None:
-        raise ConversionGap(
-            f"The element {term.nmux_field_index} of {node.name!r} is not a "
-            f"component of a {flavor} that lvkit knows the name of",
-            node,
-        )
-    return to_var_name(name)
-
-
-def _build_measure_data(
-    node: PrimitiveNode,
-    list_in: list[Terminal],
-    agg_out: Terminal,
-    flavor: str,
-    ctx: CodeGenContext,
-) -> CodeFragment:
-    """A Bundle with no cluster wired in, into a waveform or digital data type:
-    a new value holding the wired components, as the ``SimpleNamespace`` a
-    cluster constant is. The components and their order are the type's built-in
-    layout. NI's Build Waveform page says only that an unwired waveform input
-    makes a new waveform "based on the components you wire", so an unwired array
-    component (``Y``) is an empty array, the default of an array, and any other
-    unwired one takes the default of its type."""
-    layout = measure_data_value_type(flavor)
-    if layout is None or not layout.fields:
-        raise ConversionGap(
-            f"A Bundle into {agg_out.type_label()} with no cluster wired in has no "
-            "Python equivalent: lvkit does not know the type's components",
-            node,
-        )
-    wired: dict[str, str] = {}
-    for t in list_in:
-        value = ctx.wired_input(t.id, node)
-        if value is not None:
-            wired[_measure_component(t, flavor, node)] = value
-    fields = []
-    for f in layout.fields:
-        if f.type is not None and _is_error_cluster(f.type):
-            continue
-        name = to_var_name(f.name)
-        if name in wired:
-            value = wired[name]
-        elif f.type is not None and f.type.kind == LVTypeKind.ARRAY:
-            value = "[]"
-        else:
-            value = ast.unparse(type_default(ctx, f.type))
-        fields.append(f"{name}={value}")
-    var = ctx.make_output_var("cluster", node.id, agg_out.id)
-    return CodeFragment(
-        statements=[
-            build_assign(var, parse_expr(f"SimpleNamespace({', '.join(fields)})"))
-        ],
-        bindings={agg_out.id: var},
-        imports={"from types import SimpleNamespace"},
-    )
 
 
 def _generate_error_bundle(

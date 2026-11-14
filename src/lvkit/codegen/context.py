@@ -916,6 +916,10 @@ class CodeGenContext:
             return f"{VARIANT_NAME}()"
         if lv_type is not None and (
             lv_type.is_timestamp
+            or (
+                lv_type.underlying_type == "MeasureData"
+                and const.structured_value is not None
+            )
             or isinstance(const.structured_value, VariantData)
             or (
                 const.structured_value is not None
