@@ -56,7 +56,7 @@ def _signaling_vi(
     with vi.inside(loop.scopes[0]):
         frames = [timeout_frame()]
         if handles_change:
-            frames.append(value_change_frame([n], _I32))
+            frames.append(value_change_frame([mirror if indicator else n], _I32))
         events = event_structure(vi, frames, outputs=[BOOL])
         wait = vi.int_constant(300)
     stop = events.outputs[0]
@@ -168,12 +168,27 @@ def test_a_signaled_write_reaches_the_queue_of_a_run_through_a_panel(
     assert panel.get("Timed Out") is False
 
 
-def test_a_signaled_write_of_an_indicator_stays_a_gap(
+def test_a_signaled_write_of_an_indicator_fires_its_value_change_frame(
     project: Project,  # noqa: F811
 ) -> None:
     package = _generate(project, _signaling_vi(indicator=True))
-    assert len(package.gaps) == 1
+    assert package.gaps == []
+    result = package.function(n=3)
+    assert (result.new, result.old) == (5, 0)
+    assert result.mirror == 5
+    assert result.timed_out is False
+    assert "old_value = mirror\n" in package.source
+    assert "events.put((SigValue.MIRROR, copy.deepcopy(mirror)" in package.source
+
+
+def test_a_signaled_write_of_an_indicator_without_a_frame_is_the_plain_write(
+    project: Project,  # noqa: F811
+) -> None:
+    package = _generate(project, _signaling_vi(indicator=True, handles_change=False))
+    assert package.gaps == []
     assert "events.put" not in package.source
+    assert "old_value" not in package.source
+    assert package.function(n=3).mirror == 5
 
 
 def test_a_signaled_read_stays_a_gap(project: Project) -> None:  # noqa: F811
