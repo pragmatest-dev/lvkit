@@ -11,6 +11,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver import TerminalResolutionNeeded
+from lvkit.type_names import is_enum_member_name
 from lvkit.vilib_resolver import (
     CatalogPaneMismatch,
     ResolutionContext,
@@ -563,7 +564,7 @@ def _resolve_enum_value(
 
     # Reverse lookup: find enum member with this value
     for member_name, enum_val in lv_type.values.items():
-        if enum_val.value == int_value:
+        if enum_val.value == int_value and is_enum_member_name(member_name):
             # Found it! Generate enum reference
             # Derive Python location from typedef_name
             if lv_type.typedef_name:
