@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Deny Access terminals are numbered as the file stores them** — `refnum out` 3, `error in` 4, `deny mode` 6, `refnum` 7 (the JSONtext Write Config to File caller), so the node's terminals resolve.
 - **A strict VI reference's Name, Path, Description, Exec.State and Panel generate Python** — a Property Node whose reference input is a VI Server reference of class VI (`VI (strict)`, `VI Interface Type N`) is on a VI reference like the plain `VI` one (3 measurement-plugin test VIs).
 - **A Property Node row with no recorded name says why it is a gap** — rows saved by LabVIEW 8.2 record neither a property name nor a code (all 8 such JKI VI Tester VIs), so the gap names the class and the data type the row does record instead of "Property name is unresolved" alone.
 - **Call Library Function Node `LabVIEW:MoveBlock` generates `ctypes.memmove`** — it copies `size` bytes between a numeric array's data and a pointer-sized integer address (either side, overlapping blocks included), the way the Pico examples' WriteBuffer and ReadBuffer call it; the node's array outputs read back the moved bytes.
