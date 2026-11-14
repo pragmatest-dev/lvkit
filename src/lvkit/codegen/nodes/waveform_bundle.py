@@ -41,18 +41,6 @@ def measure_component(term: Terminal, flavor: str, node: PrimitiveNode) -> str:
     return to_var_name(name)
 
 
-def _output_var(
-    ctx: CodeGenContext, base: str, node: PrimitiveNode, terminal_id: str | None
-) -> str:
-    """The variable a waveform or its attributes are bound to: the name
-    ``make_output_var`` gives, numbered when it is the name of a parameter (a
-    parameter named ``waveform`` is still read after this node)."""
-    name = ctx.make_output_var(base, node.id, terminal_id)
-    if name in ctx.parameter_var_names():
-        name = ctx.claim_name(name)
-    return name
-
-
 def _statements(source: str) -> list[ast.stmt]:
     return ast.parse(source).body
 
@@ -78,7 +66,7 @@ def unbundle(
         if component != ATTRIBUTES:
             bindings[term.id] = read_expression(waveform, component)
             continue
-        name = _output_var(ctx, "waveform_attributes", node, term.id)
+        name = ctx.make_output_var("waveform_attributes", node.id, term.id)
         source, names = attributes_read_source(waveform, name)
         statements.extend(_statements(source))
         ctx.import_variant(*names)
@@ -124,7 +112,7 @@ def bundle(
         )
     elif base is not None:
         attributes = f"dict({base}.extended_properties)"
-    var = _output_var(ctx, "waveform", node, agg_out[0].id if agg_out else None)
+    var = ctx.make_output_var("waveform", node.id, agg_out[0].id if agg_out else None)
     statements.append(
         build_assign(
             var,

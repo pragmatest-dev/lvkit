@@ -287,8 +287,6 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
         keeps_head = start is not None
         if not regex_mode:
             parameter = ctx.make_output_var("match", node.id)
-            if parameter == replace_text:
-                parameter = ctx.make_output_var("matched", node.id)
             replacement = f"lambda {parameter}: {replace_text}"
         replaced = (
             output_variable(4)

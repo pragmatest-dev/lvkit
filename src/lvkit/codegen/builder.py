@@ -186,6 +186,9 @@ def function_body(
         or interface_names(vi_context.inputs, vi_context.off_pane_inputs, []).parameters
     )
     body.extend(ctx.entry_raises)
+    # A parameter, or an off-pane control's local variable, is read wherever the
+    # diagram reads its control: no output variable takes its name.
+    ctx._allocated_vars.update(names.values())
 
     # A control that is not on the connector pane is a local variable set to its
     # saved default.
