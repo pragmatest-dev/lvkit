@@ -1,6 +1,6 @@
 {
   "category": "Mathematics",
-  "count": 506,
+  "count": 507,
   "entries": [
     {
       "name": "Elementary & Special Functions",
@@ -29600,6 +29600,68 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "Std Deviation and Variance",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/analysis/baseanly-llb/std-deviation-and-variance-vi.html",
+      "category": "Mathematics",
+      "description": "Computes the mean, standard deviation and variance of the values in the input sequence X.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "X",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "x"
+        },
+        {
+          "name": "Weighting (Sample)",
+          "index": 1,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "weighting_sample",
+          "default": 0
+        },
+        {
+          "name": "mean",
+          "index": 2,
+          "direction": "output",
+          "type": "NumFloat64",
+          "enum_values": null,
+          "python_param": "mean"
+        },
+        {
+          "name": "standard deviation",
+          "index": 3,
+          "direction": "output",
+          "type": "NumFloat64",
+          "enum_values": null,
+          "python_param": "standard_deviation"
+        },
+        {
+          "name": "variance",
+          "index": 4,
+          "direction": "output",
+          "type": "NumFloat64",
+          "enum_values": null,
+          "python_param": "variance"
+        }
+      ],
+      "match_names": [
+        "Std Deviation and Variance.vi"
+      ],
+      "imports": [
+        "import math",
+        "import statistics"
+      ],
+      "python_code": "{mean} = statistics.fmean({x})\n_variance = statistics.pvariance({x}) if {weighting_sample} == 1 else statistics.variance({x})\n{variance} = _variance\n{standard_deviation} = math.sqrt(_variance)",
+      "inline": true
     }
   ]
 }

@@ -2565,36 +2565,46 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "upper bound (100)",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "upper_bound",
-          "description": "upper bound specifies the upper limit of the range. The default is 100."
+          "description": "upper bound specifies the upper limit of the range. The default is 100.",
+          "default": 100
         },
         {
           "name": "lower bound (-100)",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lower_bound",
-          "description": "lower bound specifies the lower limit of the range. The default is -100."
+          "description": "lower bound specifies the lower limit of the range. The default is -100.",
+          "default": -100
         },
         {
           "name": "number",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "NumInt64",
           "enum_values": null,
           "python_param": "number",
           "description": "number returns a random number greater than or equal to lower bound and less than or equal to upper bound . If upper bound is less than or equal to lower bound , this output returns lower bound ."
         }
-      ]
+      ],
+      "match_names": [
+        "Random Number (Range) I64.vi"
+      ],
+      "imports": [
+        "import random"
+      ],
+      "python_code": "{number} = random.randint({lower_bound}, {upper_bound}) if {upper_bound} > {lower_bound} else {lower_bound}",
+      "inline": true
     },
     {
       "name": "Random Number (Range) U64 VI",
@@ -2643,36 +2653,46 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "upper bound (100)",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "upper_bound",
-          "description": "upper bound specifies the upper limit of the range. The default is 100."
+          "description": "upper bound specifies the upper limit of the range. The default is 100.",
+          "default": 100
         },
         {
           "name": "lower bound (0)",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lower_bound",
-          "description": "lower bound specifies the lower limit of the range. The default is 0."
+          "description": "lower bound specifies the lower limit of the range. The default is 0.",
+          "default": 0
         },
         {
           "name": "number",
-          "index": null,
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "number",
           "description": "number returns a random number greater than or equal to lower bound and less than upper bound . If upper bound is less than or equal to lower bound , this output returns lower bound ."
         }
-      ]
+      ],
+      "match_names": [
+        "Random Number (Range) DBL.vi"
+      ],
+      "imports": [
+        "import random"
+      ],
+      "python_code": "{number} = {lower_bound} + random.random() * ({upper_bound} - {lower_bound}) if {upper_bound} > {lower_bound} else {lower_bound}",
+      "inline": true
     },
     {
       "name": "Fixed-Point to Integer Cast Function",

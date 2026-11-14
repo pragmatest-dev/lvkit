@@ -1,6 +1,6 @@
 {
   "category": "String",
-  "count": 59,
+  "count": 61,
   "entries": [
     {
       "name": "Concatenate Strings",
@@ -3139,18 +3139,26 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "NI GUID",
-          "index": null,
+          "index": 0,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "ni_guid",
           "description": "NI GUID returns a globally unique identifier (GUID) string of the following format: 12345678-1234-1234-1234-1234567890AB ."
         }
-      ]
+      ],
+      "match_names": [
+        "Create NI GUID.vi"
+      ],
+      "imports": [
+        "import uuid"
+      ],
+      "python_code": "{ni_guid} = str(uuid.uuid4()).upper()",
+      "inline": true
     }
   ]
 }

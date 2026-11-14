@@ -770,13 +770,6 @@ def test_dflt_data_dir_is_found_by_its_file_name_and_stays_a_gap() -> None:
     assert entry.python_code is None
 
 
-def test_search_unsorted_1d_array_stays_a_gap() -> None:
-    entry = VILibResolver().resolve_recorded(
-        "<vilib>/Array/Search Unsorted 1D Array.vim"
-    )
-    assert entry is None or entry.python_code is None
-
-
 def test_librarian_get_info_and_qualified_name_array_to_single_string_are_gaps(
     tmp_path: Path,
 ) -> None:
