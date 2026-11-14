@@ -84,9 +84,9 @@ def attributes_read_source(waveform: str, name: str) -> tuple[str, tuple[str, ..
     the one value whose LabVIEW integer type is unknown, so it raises."""
     kinds = [
         lv_type_expression(LVType(LVTypeKind.PRIMITIVE, underlying_type=t))
-        for t in ("Boolean", "NumFloat64", "String")
+        for t in ("Boolean", "NumFloat64", "String", "NumInt64")
     ]
-    boolean, double, string = (kind.text for kind in kinds)
+    boolean, double, string, integer = (kind.text for kind in kinds)
     source = (
         f"{name} = Variant()\n"
         f"for _key, _value in {waveform}.extended_properties.items():\n"
@@ -96,10 +96,12 @@ def attributes_read_source(waveform: str, name: str) -> tuple[str, tuple[str, ..
         f"        _kind = {double}\n"
         f"    elif isinstance(_value, str):\n"
         f"        _kind = {string}\n"
+        f"    elif isinstance(_value, int):\n"
+        f"        _kind = {integer}\n"
         f"    else:\n"
         f"        raise NotImplementedError(\n"
         f"            f'The waveform attribute {{_key!r}} holds {{_value!r}}: '\n"
-        f"            'nitypes does not keep which LabVIEW integer type it is')\n"
+        f"            'nitypes keeps only a Boolean, a number or a string')\n"
         f"    {name}.attributes[_key] = Variant(_value, _kind)\n"
     )
     return source, tuple(n for kind in kinds for n in kind.names)

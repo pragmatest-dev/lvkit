@@ -262,7 +262,11 @@ def test_an_attribute_that_is_not_a_boolean_number_or_string_raises() -> None:
         generated.function(attributes)
 
 
-def test_an_integer_attribute_read_back_raises_because_its_type_is_unknown() -> None:
+def test_an_integer_attribute_reads_back_as_the_int_and_converts_to_any_number() -> (
+    None
+):
+    from tests.test_variant_to_data import _convert
+
     wave = waveform("Float64Waveform")
     generated = generate(
         {"wf": wave},
@@ -273,8 +277,11 @@ def test_an_integer_attribute_read_back_raises_because_its_type_is_unknown() -> 
     holder = AnalogWaveform.from_array_1d(
         [1.0], numpy.float64, extended_properties={"count": 3}
     )
-    with pytest.raises(NotImplementedError, match="'count' holds 3"):
-        generated.function(holder)
+    attribute = generated.function(holder).attributes.attributes["count"]
+    assert attribute.value == 3 and type(attribute.value) is int
+    assert attribute.type == generated_variants().LV_I64
+    assert _convert(scalar("NumInt32")).function(attribute).d == 3
+    assert _convert(DBL).function(attribute).d == 3.0
 
 
 @pytest.mark.parametrize(
