@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import sys
 import threading
 import time
 
@@ -183,11 +184,14 @@ def test_write_that_times_out_returns_the_bytes_written_with_error_56() -> None:
     assert result.error_out.code == 56
 
 
-def test_write_to_a_connection_the_peer_closed_is_error_66() -> None:
+def test_write_to_a_connection_the_peer_closed_is_error_66_or_62_on_windows() -> None:
     near, far = _pair()
     far.close()
     result = _write_until_it_fails(near, "data", timeout=1000)
-    assert result.error_out.code == 66
+    # Windows reports a send on a connection the peer reset as an abort by the
+    # system (WSAECONNABORTED, error 62); POSIX reports a reset or a broken pipe.
+    expected = 62 if sys.platform == "win32" else 66
+    assert result.error_out.code == expected
 
 
 def _open(address, port, wire_address=True, timeout=None, port_type=U16, gaps=None):
