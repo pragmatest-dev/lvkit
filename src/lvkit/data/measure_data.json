@@ -26,8 +26,8 @@
     "ComplexExtWaveform": {"components": "waveform", "nitypes_gap": "nitypes has no extended-precision complex sample type", "value": {"layout": "waveform", "samples": {"array": "NumComplexExt"}}},
     "Int64Waveform": {"components": "waveform", "nitypes": {"class": "AnalogWaveform", "dtype": "int64"}, "value": {"layout": "waveform", "samples": {"array": "NumInt64"}}},
     "UInt64Waveform": {"components": "waveform", "nitypes": {"class": "AnalogWaveform", "dtype": "uint64"}, "value": {"layout": "waveform", "samples": {"array": "NumUInt64"}}},
-    "DigitalWaveform": {"components": "waveform", "nitypes_gap": "nitypes' digital waveform holds the state of each line at every sample and has no transitions, which LabVIEW's digital data has", "value": {"layout": "waveform", "samples": {"layout": "digital_table"}}},
-    "Digitaldata": {"components": "digital_data", "nitypes_gap": "nitypes has no digital data type: its digital waveform holds the state of each line at every sample and has no transitions", "value": {"layout": "digital_table"}},
+    "DigitalWaveform": {"components": "waveform", "nitypes": {"class": "DigitalWaveform", "dtype": "uint8"}, "value": {"layout": "waveform", "samples": {"layout": "digital_table"}}},
+    "Digitaldata": {"components": "digital_data", "nitypes": {"class": "DigitalWaveform", "dtype": "uint8"}, "value": {"layout": "digital_table"}},
     "Dynamicdata": {"value": {"layout": "dynamic_data"}}
   }
 }

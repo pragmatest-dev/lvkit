@@ -4,8 +4,9 @@ An analog or complex waveform in generated Python is an ``AnalogWaveform`` or a
 ``ComplexWaveform`` (the package nidaqmx's own waveforms are): ``t0`` and ``dt``
 are its regular timing, ``Y`` its samples and ``attributes`` its extended
 properties. The class and sample dtype of each flavor come from
-``data/measure_data.json``; a flavor with no ``nitypes`` form (digital data, an
-extended-precision sample) is a gap with the reason the table gives.
+``data/measure_data.json``; a flavor with no ``nitypes`` form (an extended-precision
+sample) is a gap with the reason the table gives. Digital data and digital
+waveforms are in ``digital_values``.
 
 The components read out as the values LabVIEW's own wires carry: ``t0`` a
 ``hightime.datetime`` (UTC, converted from NI's 1904-epoch 64.64 bintime

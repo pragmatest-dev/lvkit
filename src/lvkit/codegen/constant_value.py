@@ -38,6 +38,17 @@ from .ast_utils import (
     REAL_FLOAT_TYPE_NAMES,
     field_attribute_names,
 )
+from .digital_values import (
+    DATA,
+    TRANSITIONS,
+    digital_data_function,
+    digital_waveform_build,
+    is_digital_data,
+    is_digital_flavor,
+)
+from .digital_values import (
+    IMPORTS as DIGITAL_IMPORTS,
+)
 from .variant_values import type_expression
 from .variants_module import VARIANT_NAME
 from .waveform_values import IMPORTS as WAVEFORM_IMPORTS
@@ -50,6 +61,7 @@ _TIMESTAMP = LVType(
     LVTypeKind.PRIMITIVE, underlying_type="MeasureData", measure_flavor=TIMESTAMP_FLAVOR
 )
 _DOUBLE = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+_U32 = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
 
 # Types written as ``None`` whatever the decoded value.
 _NO_VALUE_TYPES = frozenset({"Void", "Picture"})
@@ -108,10 +120,29 @@ def _waveform(ctx: CodeGenContext, flavor: str, value: object, where: str) -> st
     layout = measure_data_value_type(flavor)
     if not isinstance(value, dict) or layout is None or not layout.fields:
         raise ConversionGap(f"The value of {where} (a {flavor}) was not read")
-    samples = next(f.type for f in layout.fields if f.name == "Y")
-    assert samples is not None and samples.element_type is not None
+    if is_digital_data(flavor):
+        return _digital_data(ctx, value, where)
     attributes = value.get("attributes")
     ctx.imports.update(WAVEFORM_IMPORTS)
+    if is_digital_flavor(flavor):
+        ctx.imports.update(DIGITAL_IMPORTS)
+        y = value.get("Y")
+        if not isinstance(y, dict):
+            raise ConversionGap(f"The digital data of {where} was not read")
+        return digital_waveform_build(
+            _digital_data(ctx, y, f"the digital data of {where}"),
+            constant_value_expression(
+                ctx, _TIMESTAMP, value.get("t0"), f"the start time of {where}"
+            ),
+            constant_value_expression(
+                ctx, _DOUBLE, value.get("dt"), f"the interval of {where}"
+            ),
+            _extended_properties(ctx, attributes, where)
+            if isinstance(attributes, VariantData)
+            else None,
+        )
+    samples = next(f.type for f in layout.fields if f.name == "Y")
+    assert samples is not None and samples.element_type is not None
     return build_expression(
         form,
         _array(ctx, samples.element_type, 1, value.get("Y"), where),
@@ -124,6 +155,20 @@ def _waveform(ctx: CodeGenContext, flavor: str, value: object, where: str) -> st
         _extended_properties(ctx, attributes, where)
         if isinstance(attributes, VariantData)
         else None,
+    )
+
+
+def _digital_data(ctx: CodeGenContext, value: dict[str, object], where: str) -> str:
+    """Digital data: its rows and transitions, built uncompressed."""
+    unsigned = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt8")
+    transitions = value.get(TRANSITIONS)
+    data = value.get(DATA)
+    if not isinstance(transitions, list) or not isinstance(data, list):
+        raise ConversionGap(f"The digital data of {where} was not read from the VI")
+    return (
+        f"{digital_data_function(ctx)}("
+        f"{_array(ctx, _U32, 1, transitions, where)}, "
+        f"{_array(ctx, unsigned, 2, data, where)})"
     )
 
 

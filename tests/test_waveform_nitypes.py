@@ -289,7 +289,6 @@ def test_an_integer_attribute_reads_back_as_the_int_and_converts_to_any_number()
     [
         ("FloatExtWaveform", "extended-precision float"),
         ("ComplexExtWaveform", "extended-precision complex"),
-        ("DigitalWaveform", "has no transitions"),
     ],
 )
 def test_a_flavor_with_no_nitypes_form_is_a_gap_with_its_reason(flavor, reason) -> None:
@@ -307,21 +306,6 @@ def test_a_flavor_with_no_nitypes_form_is_a_gap_with_its_reason(flavor, reason) 
     assert reason in gap.reason
     with pytest.raises(NotImplementedError, match=reason):
         generated.function(1.0)
-
-
-def test_digital_data_is_a_gap() -> None:
-    wave = waveform("Digitaldata")
-    gaps: list[Gap] = []
-    generate(
-        {"wf": wave},
-        {"t": array("NumUInt32")},
-        [_unbundle(wave, {0: array("NumUInt32")})],
-        [("fp:wf", "ub:0"), ("ub:10", "fp:t")],
-        gaps=gaps,
-    )
-    (gap,) = gaps
-    assert "A Digitaldata is not converted" in gap.reason
-    assert "no transitions" in gap.reason
 
 
 def _constant(flavor: str, y: list[str], attributes=()):
