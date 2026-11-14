@@ -560,26 +560,26 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 6,
           "direction": "input",
           "name": "deny mode (0:deny read/write)",
           "type": "Enum16"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "input",
           "name": "refnum",
           "type": "Refnum",
@@ -587,7 +587,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "indices from the one corpus caller (JSONtext Write Config to File.vi): parmIndex 0 error out, 3 refnum out, 4 error in, 6 deny mode, 7 refnum, matching the 4x2x2x4 pane geometry (top-left refnum, middle-left deny mode, bottom-left error in; right: refnum out above error out)"
     },
     "8059": {
       "name": "Flush File",
@@ -1024,6 +1025,8 @@
     },
     "8074": {
       "name": "Set File Size",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-size.html",
+      "op": "SET_FILE_SIZE",
       "terminals": [
         {
           "index": 0,
@@ -1054,14 +1057,23 @@
           "index": 7,
           "direction": "input",
           "name": "file",
-          "type": "Path"
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "inline": true
     },
     "8076": {
       "name": "Set Permissions",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-permissions.html",
+      "op": "SET_PERMISSIONS",
       "terminals": [
         {
           "index": 0,
@@ -1106,9 +1118,22 @@
           "type": "Path"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "verified": true,
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ]
     },
     "8077": {
       "name": "Set Type and Creator",

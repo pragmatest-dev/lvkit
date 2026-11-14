@@ -2,6 +2,10 @@
   "primitives": {
     "1610": {
       "name": "Request Deallocation",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/request-deallocation.html",
+      "imports": [
+        "import gc"
+      ],
       "terminals": [
         {
           "index": 0,
@@ -10,48 +14,62 @@
           "type": "Boolean"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "python_code": {
+        "_import": "import gc",
+        "_body": "if in_0:\n    gc.collect()"
+      },
+      "inline": false
     },
     "2400": {
       "name": "Always Copy",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/always-copy.html",
+      "imports": [
+        "import copy"
+      ],
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "Output",
-          "type": "NumInt32"
+          "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "Input",
-          "type": "NumInt32"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true,
+      "python_code": {
+        "output": "copy.copy(in_1)"
+      },
+      "inline": true
     },
     "2401": {
       "name": "Swap Values",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-values.html",
       "terminals": [
         {
           "index": 1,
           "direction": "output",
-          "name": " y'",
-          "type": "NumInt32"
+          "name": "y'",
+          "type": "polymorphic",
+          "python_name": "y_out"
         },
         {
           "index": 3,
           "direction": "output",
-          "name": " x'  ",
-          "type": "NumInt32"
+          "name": "x'",
+          "type": "polymorphic",
+          "python_name": "x_out"
         },
         {
           "index": 12,
           "direction": "input",
           "name": "y",
-          "type": "NumInt32"
+          "type": "polymorphic"
         },
         {
           "index": 13,
@@ -64,13 +82,15 @@
           "index": 14,
           "direction": "input",
           "name": "x",
-          "type": "NumInt32"
+          "type": "polymorphic"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-values.html"
+      "verified": true,
+      "python_code": {
+        "y_out": "in_14 if in_13 else in_12",
+        "x_out": "in_12 if in_13 else in_14"
+      },
+      "inline": true
     },
     "2408": {
       "name": "New Data Value Reference",

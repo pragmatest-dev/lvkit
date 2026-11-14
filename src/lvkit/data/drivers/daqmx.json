@@ -307,6 +307,10 @@
       },
       "match_names": [
         "DAQmx Read (Analog 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -346,6 +350,10 @@
       },
       "match_names": [
         "DAQmx Read (Analog 1D DBL NChan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL NChan 1Samp"
       ]
     },
     {
@@ -385,12 +393,16 @@
       },
       "match_names": [
         "DAQmx Read (Analog 2D DBL NChan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Analog 2D DBL NChan NSamp"
       ]
     },
     {
       "name": "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi",
-      "description": "Reads 1-chan digital bool.",
-      "python_code": "{data} = {task_in}.read(number_of_samples_per_channel={num_samps})",
+      "description": "Reads an array of Boolean values from a task that contains a single digital input channel. NI: timeout \"The default timeout is 10 seconds.\"",
+      "python_code": "{data} = {task_in}.read(timeout={timeout})",
       "inline": true,
       "imports": [
         "import nidaqmx"
@@ -398,25 +410,39 @@
       "status": "mapped",
       "terminals": [
         {
-          "name": "task in",
+          "name": "task/channels in",
           "direction": "input",
           "python_param": "task_in",
           "index": 0
         },
         {
-          "name": "number of samples per channel",
+          "name": "timeout",
           "direction": "input",
-          "python_param": "num_samps"
-        },
-        {
-          "name": "data",
-          "direction": "output",
-          "python_param": "data"
+          "python_param": "timeout",
+          "index": 9,
+          "default": 10.0
         },
         {
           "name": "task out",
           "direction": "output",
-          "python_param": "task_out"
+          "python_param": "task_out",
+          "index": 4
+        },
+        {
+          "name": "data",
+          "direction": "output",
+          "python_param": "data",
+          "index": 6
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15
         }
       ],
       "ref_terminals": {
@@ -424,6 +450,10 @@
       },
       "match_names": [
         "DAQmx Read (Digital 1D Bool 1Chan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Digital 1D Bool 1Chan 1Samp"
       ]
     },
     {
@@ -519,6 +549,10 @@
       },
       "match_names": [
         "DAQmx Read (Digital 1D U32 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Digital 1D U32 1Chan NSamp"
       ]
     },
     {
@@ -558,6 +592,10 @@
       },
       "match_names": [
         "DAQmx Read (Counter 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Read.vi",
+      "poly_selector_names": [
+        "Counter 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -635,6 +673,10 @@
       },
       "match_names": [
         "DAQmx Write (Analog 1D DBL 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Analog 1D DBL 1Chan NSamp"
       ]
     },
     {
@@ -671,6 +713,10 @@
       },
       "match_names": [
         "DAQmx Write (Analog 2D DBL NChan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Analog 2D DBL NChan NSamp"
       ]
     },
     {
@@ -707,6 +753,10 @@
       },
       "match_names": [
         "DAQmx Write (Digital 1D Bool 1Chan 1Samp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Digital 1D Bool 1Chan 1Samp"
       ]
     },
     {
@@ -814,6 +864,10 @@
       },
       "match_names": [
         "DAQmx Write (Digital 1D U32 1Chan NSamp).vi"
+      ],
+      "base_vi": "DAQmx Write.vi",
+      "poly_selector_names": [
+        "Digital 1D U32 1Chan NSamp"
       ]
     },
     {
@@ -1211,6 +1265,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Force Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Force Bridge Table"
       ]
     },
     {
@@ -1357,6 +1415,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Pressure Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Pressure Bridge Table"
       ]
     },
     {
@@ -1453,6 +1515,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (AI Torque Bridge Table).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "AI Torque Bridge Table"
       ]
     },
     {
@@ -1780,6 +1846,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (DI Channel).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "DI Channel"
       ]
     },
     {
@@ -1877,6 +1947,10 @@
       },
       "match_names": [
         "DAQmx Create Channel (DO Channel).vi"
+      ],
+      "base_vi": "DAQmx Create Virtual Channel.vi",
+      "poly_selector_names": [
+        "DO Channel"
       ]
     },
     {
@@ -2354,11 +2428,12 @@
     },
     {
       "name": "DAQmx Trigger (Digital Edge).vi",
-      "description": "Configures digital edge start trigger.",
-      "python_code": "{task_in}.triggers.start_trigger.cfg_dig_edge_start_trig(trigger_source={trigger_source})",
+      "description": "Configures the task to start acquiring or generating samples on a rising or falling edge of a digital signal. NI lists edge as Falling (10171) or Rising (10280) and gives it no default.",
+      "python_code": "{task_in}.triggers.start_trigger.cfg_dig_edge_start_trig(trigger_source={trigger_source}, trigger_edge=Edge({edge}))",
       "inline": true,
       "imports": [
-        "import nidaqmx"
+        "import nidaqmx",
+        "from nidaqmx.constants import Edge"
       ],
       "status": "mapped",
       "terminals": [
@@ -2371,19 +2446,28 @@
         {
           "name": "source",
           "direction": "input",
-          "python_param": "trigger_source"
+          "python_param": "trigger_source",
+          "index": 5
+        },
+        {
+          "name": "edge",
+          "direction": "input",
+          "python_param": "edge",
+          "index": 7
         },
         {
           "name": "task out",
           "direction": "output",
-          "python_param": "task_out"
+          "python_param": "task_out",
+          "index": 4
         }
       ],
       "ref_terminals": {
         "task_out": "passthrough_from:task_in"
       },
       "match_names": [
-        "DAQmx Configure Trigger.vi"
+        "DAQmx Configure Trigger.vi",
+        "DAQmx Start Trigger (Digital Edge).vi"
       ]
     },
     {

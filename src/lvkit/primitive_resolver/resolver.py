@@ -237,6 +237,7 @@ class PrimitiveResolver:
                     ],
                     confidence=confidence,
                     description=prim.get("guess_reason", ""),
+                    gap_reason=prim.get("gap_reason"),
                     imports=_collect_imports(prim),
                     elementwise=prim.get("elementwise", False),
                     icon=_collect_icon(prim),

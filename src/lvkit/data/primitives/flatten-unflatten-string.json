@@ -58,6 +58,7 @@
     },
     "8402": {
       "name": "Flatten To XML",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-xml.html",
       "terminals": [
         {
           "index": 2,
@@ -73,10 +74,12 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "Flatten To XML writes the LabVIEW XML schema (a tag per type and element, with the schema's own escaping and number formats); Python's xml packages have no equivalent, so the schema would be lvkit's own writer."
     },
     "24201": {
       "name": "Flatten To JSON",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-json.html",
       "terminals": [
         {
           "index": 0,
@@ -112,10 +115,11 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-json.html"
+      "gap_reason": "Flatten To JSON needs the mapping of a LabVIEW type to JSON written down: a named cluster as an object, an unnamed one as an object keyed \"0\", \"1\", ..., how a double is printed, NaN and Inf with `enable LabVIEW extensions?`. The decision is the maintainer's."
     },
     "24202": {
       "name": "Unflatten From JSON",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-json.html",
       "terminals": [
         {
           "index": 0,
@@ -177,7 +181,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-json.html"
+      "gap_reason": "Unflatten From JSON needs the same LabVIEW-type-to-JSON mapping as Flatten To JSON, read the other way (cluster names as keys, `path` into the string, `type/defaults` as the target type). The decision is the maintainer's."
     }
   }
 }

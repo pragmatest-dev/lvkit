@@ -371,3 +371,86 @@ def test_an_unwired_vi_name_reads_the_function_name_by_either_name(stored_name):
     (variable,) = fragment.bindings.values()
     exec(compile(code, "property-test", "exec"), namespace)
     assert namespace[variable] == "my_function"
+
+
+def _wire_from_this_application(ctx, class_name="Application"):
+    """Wire the Property Node's reference input from a "This Application"
+    constant, whose wire carries ``None``."""
+    from lvkit.graph.models import LocalVariableNode
+    from lvkit.models import ServerClass
+
+    reference_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="LVObjCtl",
+        server_class=ServerClass.APPLICATION,
+    )
+    app = LocalVariableNode(
+        id="app",
+        vi_path="test.vi",
+        name="This Application",
+        node_type="ctlRefConst",
+        control_name="This Application",
+        terminals=[
+            Terminal(id="app_out", index=0, direction="output", lv_type=reference_type)
+        ],
+    )
+    graph = ctx.graph
+    graph._graph.add_node("app", node=app)
+    graph._term_to_node["app_out"] = "app"
+    graph._graph.add_edge(
+        "app",
+        graph._term_to_node["ref_in"],
+        source=WireEnd(terminal_id="app_out", node_id="app"),
+        dest=WireEnd(terminal_id="ref_in", node_id=graph._term_to_node["ref_in"]),
+    )
+    ctx.bind("app_out", "None")
+    ctx.bind("ref_in", "None")
+    return app
+
+
+def test_this_application_reference_gives_none_and_generates_nothing_else():
+    from lvkit.codegen.nodes import local_variable
+
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
+    app = _wire_from_this_application(ctx)
+    fragment = local_variable.generate(app, ctx)
+    assert fragment.statements == []
+    assert fragment.bindings == {"app_out": "None"}
+
+
+def test_a_property_read_on_this_application_is_the_default_object_property():
+    node, ctx, namespace = fixture(
+        [("Value", "output")], ref_value=None, class_name="App"
+    )
+    _wire_from_this_application(ctx)
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name="App.UserName", code=1)])
+    ]
+    fragment = property_node.generate(node, ctx)
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    assert ast.unparse(code) == "appusername = getpass.getuser()"
+    exec(compile(code, "property-test", "exec"), {"getpass": getpass}, namespace)
+    assert namespace["appusername"] == getpass.getuser()
+
+
+def test_an_undocumented_property_on_this_application_is_its_own_gap():
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
+    _wire_from_this_application(ctx)
+    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
+    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
+        property_node.generate(node, ctx)
+
+
+def test_an_invoke_on_this_application_is_its_own_gap():
+    from lvkit.codegen.nodes import invoke_node
+
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
+    _wire_from_this_application(ctx)
+    node.method_name = "LVClass.Open"
+    with pytest.raises(
+        ConversionGap, match="method 'LVClass.Open' on the default App object"
+    ):
+        invoke_node.generate(node, ctx)

@@ -2,6 +2,8 @@
   "primitives": {
     "2452": {
       "name": "Insert Into Set",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-set.html",
+      "op": "INSERT_INTO_SET",
       "terminals": [
         {
           "index": 2,
@@ -19,7 +21,7 @@
           "index": 10,
           "direction": "input",
           "name": "element",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
@@ -28,11 +30,12 @@
           "type": "SetCollection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2453": {
       "name": "Remove From Set",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/remove-from-set.html",
+      "op": "REMOVE_FROM_SET",
       "terminals": [
         {
           "index": 2,
@@ -50,7 +53,7 @@
           "index": 10,
           "direction": "input",
           "name": "element",
-          "type": "String"
+          "type": "polymorphic"
         },
         {
           "index": 11,
@@ -59,8 +62,7 @@
           "type": "SetCollection"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "2454": {
       "name": "Element of Set?",

@@ -921,6 +921,10 @@ class CodeGenContext:
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
             )
+            or (
+                const.structured_value is not None
+                and lv_type.underlying_type in ("Set", "Map")
+            )
         ):
             return constant_value_expression(
                 self,

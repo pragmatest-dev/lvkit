@@ -2,7 +2,7 @@
   "primitives": {
     "1922": {
       "name": "VISA Close",
-      "runs_on_error": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-close.html",
       "terminals": [
         {
           "index": 0,
@@ -24,8 +24,22 @@
           "refnum_type": "visa"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "runs_on_error": true,
+      "verified": true,
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "requires": [
+        "pyvisa"
+      ],
+      "python_code": {
+        "_body": "in_11.close()"
+      },
+      "inline": false
     },
     "2301": {
       "name": "VISA Set I/O Buffer Size",
@@ -74,6 +88,7 @@
     },
     "2302": {
       "name": "VISA Flush I/O Buffer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-flush-i-o-buffer.html",
       "terminals": [
         {
           "index": 0,
@@ -109,9 +124,22 @@
           "refnum_type": "visa"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-flush-i-o-buffer.html"
+      "verified": true,
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "requires": [
+        "pyvisa"
+      ],
+      "python_code": {
+        "_body": "in_11.flush(in_10)",
+        "visa_resource_name_out": "in_11"
+      },
+      "inline": false
     }
   }
 }

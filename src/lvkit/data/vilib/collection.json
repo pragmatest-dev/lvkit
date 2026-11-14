@@ -888,11 +888,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "set 1",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -901,7 +901,7 @@
         },
         {
           "name": "set 2",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -910,14 +910,19 @@
         },
         {
           "name": "difference",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "difference",
           "description": "difference returns a set of elements from set 1 that are not included in set 2 ."
         }
-      ]
+      ],
+      "match_names": [
+        "Set Difference.vim"
+      ],
+      "python_code": "{difference} = {set_1} - {set_2}",
+      "inline": true
     },
     {
       "name": "Set Symmetric Difference",

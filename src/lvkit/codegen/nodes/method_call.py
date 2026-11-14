@@ -195,7 +195,11 @@ def _super(node: VINode, ctx: CodeGenContext, receiver: str | None) -> ast.expr:
         return parse_expr("super()")
     class_key = ctx.graph.owning_class_key(ctx.vi_name)
     if class_key is None:
-        raise CodeGenError("Call Parent is made from a method of a class", node)
+        raise ConversionGap(
+            "Call Parent is in a VI that no loaded class lists as its method "
+            "(its class was not found, or the VI is not a class method)",
+            node,
+        )
     return parse_expr(f"super({python_class_name(class_key)}, {receiver})")
 
 

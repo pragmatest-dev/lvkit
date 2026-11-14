@@ -166,30 +166,45 @@ class _VILibVariantMixin:
         signature = self._compute_signature(observed_terminals)
 
         # Create variant entry
-        variant = VIEntry(
-            name=vi_name,
-            vi_path=base_entry.vi_path,
-            category=base_entry.category,
-            description=f"Variant observed from {caller_vi or 'unknown'}",
-            terminals=[],
-            python=base_entry.python,
-            inline=base_entry.inline,
-            imports=base_entry.imports.copy(),
-            status="auto_variant",
-            variant_signature=signature,
-            is_variant=True,
+        variant = base_entry.model_copy(
+            deep=True,
+            update={
+                "description": f"Variant observed from {caller_vi or 'unknown'}",
+                "terminals": [],
+                "status": "auto_variant",
+                "variant_signature": signature,
+                "is_variant": True,
+                "match_names": [],
+                "poly_selector_names": [],
+                "base_vi": None,
+            },
         )
 
-        # Copy terminals from observed data
+        # Terminals from observed data; a terminal the base entry has at the same
+        # number and direction keeps what the catalog says of it (the parameter
+        # its Python names, its default), under the observed name and type.
+        base_terminals = {
+            (t.index, t.direction): t
+            for t in base_entry.terminals
+            if t.index is not None
+        }
         for idx, obs in observed_terminals.items():
-            variant.terminals.append(
-                VITerminal(
-                    name=obs.get("name", ""),
-                    index=idx,
-                    direction=obs.get("direction"),
-                    type=obs.get("type"),
-                )
+            observed = VITerminal(
+                name=obs.get("name", ""),
+                index=idx,
+                direction=obs.get("direction"),
+                type=obs.get("type"),
             )
+            base = base_terminals.get((idx, observed.direction))
+            if base is not None:
+                observed = base.model_copy(
+                    deep=True,
+                    update={
+                        "name": observed.name or base.name,
+                        "type": observed.type or base.type,
+                    },
+                )
+            variant.terminals.append(observed)
 
         # Store variant
         if vi_name not in self._variants:

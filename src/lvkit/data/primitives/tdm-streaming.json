@@ -82,6 +82,101 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-write.html",
       "verified": true
     },
+    "2011": {
+      "name": "TDMS Read",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-read.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "input",
+          "name": "offset (0)",
+          "type": "NumInt64",
+          "default": 0
+        },
+        {
+          "index": 2,
+          "direction": "input",
+          "name": "count (-1: all)",
+          "type": "NumInt64",
+          "default": -1
+        },
+        {
+          "index": 0,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum"
+        },
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "channel name(s) in",
+          "type": "polymorphic"
+        },
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 12,
+          "direction": "input",
+          "name": "data type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 13,
+          "direction": "input",
+          "name": "return channels in file order? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum"
+        },
+        {
+          "index": 6,
+          "direction": "output",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "output",
+          "name": "channel name(s) out",
+          "type": "polymorphic"
+        },
+        {
+          "index": 10,
+          "direction": "output",
+          "name": "data",
+          "type": "polymorphic"
+        },
+        {
+          "index": 14,
+          "direction": "output",
+          "name": "end of file?",
+          "type": "Boolean"
+        },
+        {
+          "index": 15,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by its connector pane: the same types, directions and order as TDMS Read, which the VI-Scripting export numbers 24111; the indices are the callers' recorded ones.",
+      "gap_reason": "The read side of a TDMS refnum is not built: TDMS Open makes a (writer, path) pair for npTDMS's writer, and reading needs the file read back with `TdmsFile` (NI's current-group cycling when `group name in` is unwired, and the output type the `data type` input picks)."
+    },
     "2012": {
       "name": "TDMS Open",
       "op": "TDMS_OPEN",
@@ -292,6 +387,165 @@
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-set-properties.html",
       "verified": true
+    },
+    "2015": {
+      "name": "TDMS Get Properties",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-get-properties.html",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "input",
+          "name": "data type",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "property name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "input",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 10,
+          "direction": "input",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "output",
+          "name": "channel name out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "output",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum"
+        },
+        {
+          "index": 4,
+          "direction": "output",
+          "name": "property value",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "output",
+          "name": "found",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by its connector pane: the same types, directions and order as TDMS Get Properties, which the VI-Scripting export numbers 24115; the indices are the callers' recorded ones.",
+      "gap_reason": "The read side of a TDMS refnum is not built: TDMS Open makes a (writer, path) pair for npTDMS's writer, and reading needs the file read back with `TdmsFile` (NI's current-group cycling when `group name in` is unwired, and the output type the `data type` input picks)."
+    },
+    "2016": {
+      "name": "TDMS List Contents",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-list-contents.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "input",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "tdms file",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "output",
+          "name": "group/channel names",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "output",
+          "name": "group names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "output",
+          "name": "tdms file out",
+          "type": "Refnum"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by its connector pane: the same types, directions and order as TDMS List Contents, which the VI-Scripting export numbers 24116; the indices are the callers' recorded ones.",
+      "gap_reason": "The read side of a TDMS refnum is not built: TDMS Open makes a (writer, path) pair for npTDMS's writer, and reading needs the file read back with `TdmsFile` (NI's current-group cycling when `group name in` is unwired, and the output type the `data type` input picks)."
+    },
+    "2019": {
+      "name": "TDMS Defragment",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tdms-defragment.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "input",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "input",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "output",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "guess_reason": "Identified by its connector pane: the same types, directions and order as TDMS Defragment, which the VI-Scripting export numbers 24119; the indices are the callers' recorded ones.",
+      "gap_reason": "npTDMS has no defragment: it would be a routine of lvkit's own that reads the whole file with `TdmsFile` and writes it again with `TdmsWriter`, which is a decision."
     },
     "24110": {
       "name": "TDMS Write",

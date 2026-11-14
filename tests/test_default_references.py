@@ -58,7 +58,7 @@ def test_a_primitive_without_an_implementation_raises_where_it_runs(
     vi.wire(insert["menu reference out"], out)
     project.add(vi)
     source = project.generate("Menu.vi").source
-    assert (
-        "raise NotImplementedError('Insert Menu Items is not converted yet\\n"
-        "gap kind: placeholder_primitive\\n"
-    ) in source
+    assert "raise NotImplementedError(" in source
+    assert "Insert Menu Items is not converted yet: " in source
+    assert "run-time menu has no Python equivalent" in source
+    assert "gap kind: placeholder_primitive" in source

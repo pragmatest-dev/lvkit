@@ -173,6 +173,22 @@ CASES: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("String: %10.6s", [("Hello, World", STRING)], "String:     Hello,"),
     ("%2$s %1$s", [("Smith", STRING), ("John", STRING)], "John Smith"),
     ("%%", [], "%"),
+    # NI, Format Specifier Syntax, Localization Codes: they take no input and write
+    # nothing; they set the decimal separator of all further numbers until the next
+    # ``%;``.
+    ("%,;%f", [(1.5, DBL)], "1,500000"),
+    ("%.;%f", [(1.5, DBL)], "1.500000"),
+    ("%,;%.2f and %.3e", [(1.5, DBL), (12.67, DBL)], "1,50 and 1,267E+1"),
+    (
+        "%f %,;%f %.;%f",
+        [(1.5, DBL), (2.5, DBL), (3.5, DBL)],
+        "1.500000 2,500000 3.500000",
+    ),
+    ("%,;%d %s", [(7, I32), ("a.b", STRING)], "7 a.b"),
+    ("%,;%2$s %1$f", [(1.5, DBL), ("x", STRING)], "x 1,500000"),
+    ("%-8.1f|%,;", [(1.5, DBL)], "1.5     |"),
+    ("%-8.1f|", [(1.5, DBL)], "1.5     |"),
+    ("%,;%-8.1f|", [(1.5, DBL)], "1,5     |"),
     ("%-4s|", [("ab", STRING)], "ab  |"),
     ("%4s|", [("ab", STRING)], "  ab|"),
     ("%s", [("C:" + BACKSLASH + "x", PATH)], "C:" + BACKSLASH + "x"),
@@ -220,6 +236,19 @@ def test_the_text_is_what_labview_writes(
     wired_format: bool,
 ) -> None:
     assert _run(format_text, arguments, wired_format=wired_format) == expected
+
+
+@pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
+def test_the_system_localization_code_uses_the_locale_separator(
+    wired_format: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import locale
+
+    monkeypatch.setattr(locale, "localeconv", lambda: {"decimal_point": ";"})
+    assert _run("%;%f", [(1.5, DBL)], wired_format=wired_format) == "1;500000"
+    assert _run(
+        "%,;%;%f %.;%f", [(1.5, DBL), (2.5, DBL)], wired_format=wired_format
+    ) == ("1;500000 2.500000")
 
 
 @pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
@@ -331,9 +360,6 @@ GAPS: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%^d", [(1, I32)], "'%^d' ('^' modifier)"),
     ("%{m}f", [(1.5, DBL)], "'%{m}f' (unit)"),
     ("%<%H>t", [(1.5, DBL)], "'%<%H>t' (embedded time format)"),
-    ("%,;", [(1.5, DBL)], "'%,;' (localization code)"),
-    ("%.;", [(1.5, DBL)], "'%.;' (localization code)"),
-    ("%;", [(1.5, DBL)], "'%;' (localization code)"),
     ("%+x", [(1, I32)], "'%+x' ('+' flag with code 'x')"),
     ("%d", [("a", STRING)], "'%d' (code 'd' with a string input)"),
     ("%s", [(1.5, DBL)], "'%s' ('s' with a numeric (float) input)"),

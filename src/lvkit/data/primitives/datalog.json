@@ -142,6 +142,7 @@
     },
     "8069": {
       "name": "Read Datalog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-datalog.html",
       "terminals": [
         {
           "index": 0,
@@ -183,7 +184,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "gap_reason": "A datalog file is LabVIEW's own record format (the records' type is the file's); Python has no reader for it."
     },
     "8072": {
       "name": "Set Datalog Position",

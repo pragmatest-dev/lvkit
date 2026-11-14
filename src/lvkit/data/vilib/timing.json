@@ -185,20 +185,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "milliseconds to wait",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "milliseconds_to_wait",
-          "description": "milliseconds to wait specifies the number of milliseconds that this VI waits to continue the data flow."
-        },
-        {
           "name": "value in",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -206,24 +197,41 @@
           "description": "value in specifies the input value before the delay occurs. This input accepts any data type."
         },
         {
-          "name": "millisecond timer value",
-          "index": null,
-          "direction": "output",
+          "name": "milliseconds to wait",
+          "index": 1,
+          "direction": "input",
           "type": null,
+          "enum_values": null,
+          "python_param": "milliseconds_to_wait",
+          "description": "milliseconds to wait specifies the number of milliseconds that this VI waits to continue the data flow."
+        },
+        {
+          "name": "millisecond timer value",
+          "index": 2,
+          "direction": "output",
+          "type": "NumUInt32",
           "enum_values": null,
           "python_param": "millisecond_timer_value",
           "description": "millisecond timer value returns the LabVIEW system time when the delay finishes."
         },
         {
           "name": "value out",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
           "description": "value out returns the value in value in ."
         }
-      ]
+      ],
+      "match_names": [
+        "Stall Data Flow.vim"
+      ],
+      "imports": [
+        "import time"
+      ],
+      "python_code": "time.sleep({milliseconds_to_wait} / 1000)\n{millisecond_timer_value} = int(time.time() * 1000)\n{value_out} = {value_in}",
+      "inline": true
     },
     {
       "name": "Date/Time To Seconds Function",

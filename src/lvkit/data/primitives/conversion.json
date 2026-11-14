@@ -308,22 +308,24 @@
     },
     "1155": {
       "name": "To Quad Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-quad-integer.html",
+      "op": "TO_QUAD_INTEGER",
       "terminals": [
         {
           "index": 0,
           "direction": "output",
           "name": "64bit integer",
-          "type": "NumInt64"
+          "type": "NumInt64",
+          "python_name": "quad_integer"
         },
         {
           "index": 1,
           "direction": "input",
           "name": "number",
-          "type": "NumInt64"
+          "type": "numeric"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "1156": {
       "name": "To Unsigned Quad Integer",

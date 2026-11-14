@@ -1336,36 +1336,33 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "verified",
+      "status": "resolved",
       "terminals": [
-        {
-          "name": "array",
-          "description": "array specifies the input array. This input accepts a 1D array of any data type.",
-          "enum_values": null,
-          "python_param": "array",
-          "index": 0,
-          "direction": "input"
-        },
         {
           "name": "array with duplicates removed",
           "description": "array with duplicates removed returns an array with the duplicate elements removed from array.",
           "enum_values": null,
           "python_param": "array_with_duplicates_removed",
-          "index": 1,
-          "direction": "output"
+          "index": 3,
+          "direction": "output",
+          "type": null
         },
         {
-          "name": "indices of removed elements",
-          "description": "indices of removed elements returns the indices of the removed duplicate elements from the original array.",
+          "name": "array",
+          "description": "array specifies the input array. This input accepts a 1D array of any data type.",
           "enum_values": null,
-          "python_param": "indices_of_removed_elements",
-          "index": 2,
-          "direction": "output"
+          "python_param": "array",
+          "index": 11,
+          "direction": "input",
+          "type": null
         }
       ],
       "match_names": [
-        "Remove Duplicates from 1D Array__ogtk"
-      ]
+        "Remove Duplicates From 1D Array.vim"
+      ],
+      "imports": [],
+      "python_code": "{array_with_duplicates_removed} = []\nfor _element in {array}:\n    if not any(_element == _kept for _kept in {array_with_duplicates_removed}):\n        {array_with_duplicates_removed}.append(_element)",
+      "inline": true
     },
     {
       "name": "Search Unsorted 1D Array",
@@ -1375,11 +1372,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "unsorted 1D array",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -1388,7 +1385,7 @@
         },
         {
           "name": "element",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -1397,32 +1394,29 @@
         },
         {
           "name": "start index (0)",
-          "index": null,
+          "index": 9,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
-          "description": "start index is the index that LabVIEW begins the search from. The default is 0."
-        },
-        {
-          "name": "equals function (built-in =)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "equals_function",
-          "description": "equals function is the comparison used to search the array. By default, this is the same comparison the standard Equal? function uses."
+          "description": "start index is the index that LabVIEW begins the search from. The default is 0.",
+          "default": 0
         },
         {
           "name": "index of element",
-          "index": null,
+          "index": 2,
           "direction": "output",
-          "type": null,
+          "type": "NumInt32",
           "enum_values": null,
           "python_param": "index_of_element",
           "description": "index of element is the index where element is found."
         }
-      ]
+      ],
+      "match_names": [
+        "Search Unsorted 1D Array.vim"
+      ],
+      "python_code": "{index_of_element} = next((_i for _i in range(max({start_index}, 0), len({unsorted_1d_array})) if {unsorted_1d_array}[_i] == {element}), -1)",
+      "inline": true
     },
     {
       "name": "Sort 1D Array",

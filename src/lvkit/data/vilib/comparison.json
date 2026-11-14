@@ -971,11 +971,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "array type",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -984,7 +984,7 @@
         },
         {
           "name": "value in",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -993,14 +993,19 @@
         },
         {
           "name": "value out",
-          "index": null,
+          "index": 1,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
           "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type ."
         }
-      ]
+      ],
+      "match_names": [
+        "Assert Array Dimension Count.vim"
+      ],
+      "python_code": "{value_out} = {value_in}",
+      "inline": true
     },
     {
       "name": "Assert Array Dimension Sizes VI",
@@ -1506,7 +1511,9 @@
       "category": "Comparison",
       "description": "Returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, this VI returns FALSE.",
       "vi_path": null,
-      "match_names": ["Is Path and Not Empty"],
+      "match_names": [
+        "Is Path and Not Empty"
+      ],
       "is_polymorphic": false,
       "python_hint": null,
       "python_code": "{is_path_and_not_empty} = {path} is not None and len(str({path})) > 0",

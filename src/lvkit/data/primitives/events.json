@@ -149,6 +149,7 @@
     },
     "2135": {
       "name": "Flush Event Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-event-queue.html",
       "terminals": [
         {
           "index": 0,
@@ -209,7 +210,8 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "gap_reason": "Flush Event Queue discards events from a registration's queue by event type or object, event time and number to keep, and stops at a filter event; how the generated registration's queue records each event's kind, source and time must be settled first."
     }
   }
 }

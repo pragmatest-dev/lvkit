@@ -6,6 +6,13 @@ from lvkit.python_names import name_characters, normalised
 from lvkit.type_names import derive_python_name
 
 
+def selector_key(selector_name: str) -> str:
+    """A polymorphic selector name as the catalog compares it: a dropdown name
+    that LabVIEW wraps over two lines (``Digital 1D Bool\\n1Chan 1Samp``) and the
+    same name on one line are one name."""
+    return " ".join(selector_name.split())
+
+
 def derive_python_location(typedef_name: str) -> tuple[str, str]:
     """Derive Python package and class name from qualified name.
 

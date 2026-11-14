@@ -234,17 +234,30 @@
         {
           "name": "instrument handle",
           "direction": "input",
-          "python_param": "session"
+          "python_param": "session",
+          "index": 0
         },
         {
           "name": "pin map file path",
           "direction": "input",
-          "python_param": "file_path"
+          "python_param": "file_path",
+          "index": 5
         },
         {
           "name": "instrument handle out",
           "direction": "output",
-          "python_param": "session_out"
+          "python_param": "session_out",
+          "index": 4
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15
         }
       ],
       "ref_terminals": {
@@ -264,17 +277,30 @@
         {
           "name": "instrument handle",
           "direction": "input",
-          "python_param": "session"
+          "python_param": "session",
+          "index": 0
         },
         {
           "name": "pattern file path",
           "direction": "input",
-          "python_param": "file_path"
+          "python_param": "file_path",
+          "index": 5
         },
         {
           "name": "instrument handle out",
           "direction": "output",
-          "python_param": "session_out"
+          "python_param": "session_out",
+          "index": 4
+        },
+        {
+          "name": "error in",
+          "direction": "input",
+          "index": 11
+        },
+        {
+          "name": "error out",
+          "direction": "output",
+          "index": 15
         }
       ],
       "ref_terminals": {

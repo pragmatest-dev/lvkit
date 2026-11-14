@@ -363,6 +363,8 @@
     },
     "3913": {
       "name": "Replace Substring",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-substring.html",
+      "op": "REPLACE_SUBSTRING",
       "terminals": [
         {
           "index": 0,
@@ -379,20 +381,22 @@
         {
           "index": 2,
           "direction": "input",
-          "name": "length",
+          "name": "length (len. of substring)",
           "type": "NumInt32"
         },
         {
           "index": 3,
           "direction": "input",
-          "name": "offset",
-          "type": "NumInt32"
+          "name": "offset (0)",
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 4,
           "direction": "input",
-          "name": "substring",
-          "type": "String"
+          "name": "substring (\"\")",
+          "type": "String",
+          "default": ""
         },
         {
           "index": 5,
@@ -401,8 +405,7 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "verified": true
     },
     "3914": {
       "name": "Search and Replace String",

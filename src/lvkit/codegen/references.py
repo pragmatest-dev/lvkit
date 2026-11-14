@@ -10,9 +10,11 @@ runs); every other read resolves through the wire to the control's parameter,
 generates nothing and is left out of the walk. A Local Variable of an indicator
 is left out of the walk: the
 indicator's variable is assigned where its value is produced
-(``local_indicators``). A reference that names no front-panel control ("This
-Application") has no value to read, so it stays in the walk and is a gap of its
-own node, whose consumers read its outputs as ``None``."""
+(``local_indicators``). A reference that names no front-panel control ("This VI",
+"This Application") stays in the walk: "This VI" is the function, "This
+Application" has no Python object (its wire carries ``None``), and any other such
+reference has no value to read and is a gap of its own node, whose consumers read
+its outputs as ``None``."""
 
 from __future__ import annotations
 
