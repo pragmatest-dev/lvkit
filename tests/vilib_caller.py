@@ -60,7 +60,8 @@ def run_catalog_call(
     call terminal index each is wired to, ``arguments`` the controls' values.
     ``runtime_not_implemented`` allows the VI's Python to raise
     ``NotImplementedError`` for a case it finds only when it runs (an LLB, a
-    dialog): the generation itself still has no gap.
+    dialog): the generation itself still has no gap. A ``gaps`` list collects
+    the gaps the generation finds, for a test that expects one.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -144,7 +145,7 @@ def run_catalog_call(
     source = build_module(
         context, "caller.vi", import_resolver=resolver, graph=built, gaps=found
     )
-    assert found == []
+    assert gaps is not None or found == []
     assert runtime_not_implemented or "NotImplementedError" not in source
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "caller.py").write_text(source, encoding="utf-8")

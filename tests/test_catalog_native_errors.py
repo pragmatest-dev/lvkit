@@ -125,6 +125,7 @@ PRIMITIVES = {
         *FILE_PATH_OPS,
     ],
     "connectivity:System Exec": FILE_PATH_OPS,
+    "waveform:DWDT Digital to Boolean Array": [("ValueError", None)],
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
