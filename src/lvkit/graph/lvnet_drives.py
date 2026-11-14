@@ -70,9 +70,7 @@ def loop_condition_drives(
     if scope.condition_mode is None:
         return []
     source = (
-        render_source(scope.selector)
-        if scope.selector is not None
-        else _LVNET_UNWIRED
+        render_source(scope.selector) if scope.selector is not None else _LVNET_UNWIRED
     )
     return [(lvnet_loop_net(scope, _LVNET_LOOP_CONDITION_TERMINAL), source)]
 
@@ -84,10 +82,7 @@ def structure_input_drives(
     into it that no frame reads (``sequence_<uid>::in0 = <source>``), an Event
     Structure's ``timeout`` and the wire into the left terminal of its
     ``dynamic`` pair."""
-    return [
-        (lvnet_net_separator(i.net), render_source(i.value))
-        for i in scope.inputs
-    ]
+    return [(lvnet_net_separator(i.net), render_source(i.value)) for i in scope.inputs]
 
 
 def frame_drives(

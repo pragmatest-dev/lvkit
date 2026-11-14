@@ -167,9 +167,7 @@ def build_structure_inputs(
     return inputs
 
 
-def _frame_inner(
-    node: AnyGraphNode, outer: Terminal, position: int
-) -> Terminal | None:
+def _frame_inner(node: AnyGraphNode, outer: Terminal, position: int) -> Terminal | None:
     """The inner face of ``outer`` in the frame at ``position``: a Disable
     structure's by the frame's :func:`frame_key`, a Sequence's and an Event
     Structure's by the frame position the file records."""

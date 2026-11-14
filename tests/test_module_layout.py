@@ -239,7 +239,11 @@ def test_a_recorded_installation_path_places_a_file_inside_the_project(
     )
     # A file beside it follows its module, not the folder the copy sits in.
     assert layout.placed_beside(key, ["", "libs", "x.dll"]) == (
-        "userlib", "_openglib", "file", "filellb", "libs"
+        "userlib",
+        "_openglib",
+        "file",
+        "filellb",
+        "libs",
     )
 
 

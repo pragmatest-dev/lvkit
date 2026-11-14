@@ -138,8 +138,11 @@ def leaf_glyph(
         )
     if control_type == "stdString":
         return ConstantGlyph(
-            value=string_text(default_value), color=theme.struct_border,
-            fill_attr="fp_value_fill", text_attr="fp_value_text", multiline=True,
+            value=string_text(default_value),
+            color=theme.struct_border,
+            fill_attr="fp_value_fill",
+            text_attr="fp_value_text",
+            multiline=True,
         )
     if control_type == "stdPath":
         return PathGlyph(value=path_text(default_value), color=theme.struct_border)

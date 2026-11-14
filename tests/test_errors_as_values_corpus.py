@@ -205,9 +205,7 @@ def test_error_code_read_from_a_conditional_is_one_operand(tmp_path: Path) -> No
     assert "else 0) != 0 else" in source
 
 
-DAQMX_MODULE_CONFIGURATION = (
-    "DCAF-DAQModule/source/module/configuration/from string.vi"
-)
+DAQMX_MODULE_CONFIGURATION = "DCAF-DAQModule/source/module/configuration/from string.vi"
 
 
 @pytest.mark.needs_samples
@@ -271,8 +269,7 @@ def test_a_class_module_imports_every_type_its_annotations_name(
 
 
 IS_AN_ERROR_POLY = (
-    "JKI-VI-Tester/source/JKI Reuse/"
-    "Is an Error__jki_lib_error_handling -- VI Tester.vi"
+    "JKI-VI-Tester/source/JKI Reuse/Is an Error__jki_lib_error_handling -- VI Tester.vi"
 )
 
 

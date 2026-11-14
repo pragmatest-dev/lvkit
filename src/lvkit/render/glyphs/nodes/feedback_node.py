@@ -53,7 +53,12 @@ class FeedbackNodeGlyph:
             arrow_y2 = (y1 + y2) / 2
             arrow_y1 = y1
             backend.rect(
-                x1, arrow_y2, x2, y2, fill=theme.loop_term_fill, stroke=col,
+                x1,
+                arrow_y2,
+                x2,
+                y2,
+                fill=theme.loop_term_fill,
+                stroke=col,
                 stroke_width=1.0,
             )
             if self.init_cell == "default":
@@ -61,11 +66,21 @@ class FeedbackNodeGlyph:
             else:
                 self._draw_arrow(backend, x1, arrow_y2, x2, y2, col, "up")
         backend.rect(
-            x1, arrow_y1, x2, arrow_y2, fill=theme.loop_term_fill, stroke=col,
+            x1,
+            arrow_y1,
+            x2,
+            arrow_y2,
+            fill=theme.loop_term_fill,
+            stroke=col,
             stroke_width=1.2,
         )
         self._draw_arrow(
-            backend, x1, arrow_y1, x2, arrow_y2, col,
+            backend,
+            x1,
+            arrow_y1,
+            x2,
+            arrow_y2,
+            col,
             "left" if self.arrow_left else "right",
         )
 

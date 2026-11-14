@@ -129,5 +129,5 @@ def test_properties_with_no_python_meaning_raise_where_they_run() -> None:
         assert (
             f"raise NotImplementedError(\"Property '{name}' of the default "
             f"{class_name} object has no Python equivalent\\ngap kind: "
-            "unsupported_node\\nVI: User.vi\\nnode: Property Node\")"
+            'unsupported_node\\nVI: User.vi\\nnode: Property Node")'
         ) in source

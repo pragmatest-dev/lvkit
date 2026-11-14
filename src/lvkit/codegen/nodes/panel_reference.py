@@ -108,9 +108,7 @@ def _value_attribute(row: PanelRow, variant: bool) -> str:
     return _CONTROL_ATTRIBUTE[row]
 
 
-def read(
-    row: PanelRow, reference: str, ctx: CodeGenContext, variant: bool
-) -> ast.expr:
+def read(row: PanelRow, reference: str, ctx: CodeGenContext, variant: bool) -> ast.expr:
     """The Python value the row reads from the reference held by ``reference``;
     ``variant``: the property's terminal is a Variant."""
     if row is PanelRow.PANEL:
@@ -126,9 +124,7 @@ def read(
     return parse_expr(expression)
 
 
-def write(
-    reference: str, value: str, ctx: CodeGenContext, variant: bool
-) -> ast.stmt:
+def write(reference: str, value: str, ctx: CodeGenContext, variant: bool) -> ast.stmt:
     """The assignment of ``value`` to the Value of the control ``reference`` holds;
     ``variant``: the property's terminal is a Variant."""
     ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")

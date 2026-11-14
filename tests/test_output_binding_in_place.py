@@ -97,9 +97,7 @@ def _diagram(project: Project, *, pass_on: bool, branch: bool) -> Vi:  # noqa: F
     vi.wire(node["element"], first)
     if pass_on or branch:
         size = vi.indicator("size", I32)
-        changer = vi.subvi(
-            "change.vi", x=(0, array_type, False), r=(1, I32, True)
-        )
+        changer = vi.subvi("change.vi", x=(0, array_type, False), r=(1, I32, True))
         vi.wire(node["array out"] if pass_on else values, changer["x"])
         vi.wire(changer["r"], size)
     project.add(vi)

@@ -86,12 +86,18 @@ def test_an_enum_default_is_shown_as_its_item_name() -> None:
         values={"Read": EnumValue(0), "Write": EnumValue(1)},
     )
     root = ParsedFPControl(
-        uid="1", name="Mode", control_type="stdRing", bounds=(0, 0, 20, 80),
+        uid="1",
+        name="Mode",
+        control_type="stdRing",
+        bounds=(0, 0, 20, 80),
         default_value="1",
     )
     g = InMemoryVIGraph()
     g._dep_graph.add_node(
-        "/p/Mode.ctl", node_type=NodeType.TYPEDEF, fields=None, root_type=enum,
+        "/p/Mode.ctl",
+        node_type=NodeType.TYPEDEF,
+        fields=None,
+        root_type=enum,
         front_panel=ParsedFrontPanel(controls=[root], panel_bounds=(0, 0, 100, 100)),
     )
     assert g.get_typedef("/p/Mode.ctl").default == "Write"
@@ -101,17 +107,25 @@ def test_cluster_fields_take_their_defaults_by_label() -> None:
     fields = [ClusterField("Gain", _I32), ClusterField("Name", None)]
     children = [
         ParsedFPControl(
-            uid="2", name="Gain", control_type="stdNum", bounds=(0, 0, 10, 10),
+            uid="2",
+            name="Gain",
+            control_type="stdNum",
+            bounds=(0, 0, 10, 10),
             default_value="5",
         ),
     ]
     root = ParsedFPControl(
-        uid="1", name="Cfg", control_type="stdClust", bounds=(0, 0, 40, 40),
+        uid="1",
+        name="Cfg",
+        control_type="stdClust",
+        bounds=(0, 0, 40, 40),
         children=children,
     )
     g = InMemoryVIGraph()
     g._dep_graph.add_node(
-        "/p/Cfg.ctl", node_type=NodeType.TYPEDEF, fields=fields,
+        "/p/Cfg.ctl",
+        node_type=NodeType.TYPEDEF,
+        fields=fields,
         root_type=LVType(LVTypeKind.CLUSTER, fields=fields),
         front_panel=ParsedFrontPanel(controls=[root], panel_bounds=(0, 0, 100, 100)),
     )
@@ -231,11 +245,17 @@ def test_a_control_loaded_standalone_and_through_its_library():
 def _typedef_with_panel(fields, root_type, controls, key="/p/Cfg.ctl"):
     g = InMemoryVIGraph()
     root = ParsedFPControl(
-        uid="1", name="Cfg", control_type="stdClust", bounds=(0, 0, 40, 40),
+        uid="1",
+        name="Cfg",
+        control_type="stdClust",
+        bounds=(0, 0, 40, 40),
         children=controls,
     )
     g._dep_graph.add_node(
-        key, node_type=NodeType.TYPEDEF, fields=fields, root_type=root_type,
+        key,
+        node_type=NodeType.TYPEDEF,
+        fields=fields,
+        root_type=root_type,
         front_panel=ParsedFrontPanel(controls=[root], panel_bounds=(0, 0, 100, 100)),
     )
     return g.get_typedef(key)
@@ -243,8 +263,12 @@ def _typedef_with_panel(fields, root_type, controls, key="/p/Cfg.ctl"):
 
 def _num(name: str, default: str | None = None, **kw) -> ParsedFPControl:
     return ParsedFPControl(
-        uid=name, name=name, control_type="stdNum", bounds=(0, 0, 10, 10),
-        default_value=default, **kw,
+        uid=name,
+        name=name,
+        control_type="stdNum",
+        bounds=(0, 0, 10, 10),
+        default_value=default,
+        **kw,
     )
 
 

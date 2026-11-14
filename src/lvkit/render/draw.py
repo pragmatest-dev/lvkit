@@ -1213,7 +1213,13 @@ def _draw_type_tree_mark(
     already uses."""
     x2, y2 = x + _TYPE_TREE_MARK_W, y + _TYPE_TREE_MARK_H
     backend.rect(
-        x, y, x2, y2, fill=theme.canvas, stroke=row.mark_color, stroke_width=1.0,
+        x,
+        y,
+        x2,
+        y2,
+        fill=theme.canvas,
+        stroke=row.mark_color,
+        stroke_width=1.0,
     )
     if row.mark_text:
         backend.text(
@@ -1225,9 +1231,7 @@ def _draw_type_tree_mark(
         )
 
 
-def _draw_cluster_type_panel(
-    node: RenderNode, backend: Backend, theme: Theme
-) -> None:
+def _draw_cluster_type_panel(node: RenderNode, backend: Backend, theme: Theme) -> None:
     """Draw a cluster CONSTANT's Context-Help-style type tree as its hover
     panel ("Cluster hover" — LabVIEW's own Context Help "Data type of wire"
     view): one row per field, a mini type mark in the field's own wire

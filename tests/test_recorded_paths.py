@@ -219,9 +219,7 @@ def test_a_missing_vi_two_callers_record_relatively_is_named_by_its_project_path
         [_static(["a.vi"], ["", "a.vi"]), _static(["b.vi"], ["", "sub", "b.vi"])],
     )
     out = tmp_path / "gen"
-    generate_python(
-        built.root / "proj" / "main.vi", out
-    )
+    generate_python(built.root / "proj" / "main.vi", out)
     messages = [
         line for line in capsys.readouterr().err.splitlines() if "was not found" in line
     ]

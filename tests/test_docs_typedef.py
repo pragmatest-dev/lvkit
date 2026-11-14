@@ -206,9 +206,7 @@ _ICON_LVLIB = _ICON_API / "LabVIEW Icon API.lvlib"
 def test_a_library_lists_its_controls_apart_from_its_vis():
     from lvkit.docs.generate import _collect_library_vis, _split_controls
 
-    vis, controls = _split_controls(
-        _collect_library_vis(_ICON_LVLIB, RunProblems())
-    )
+    vis, controls = _split_controls(_collect_library_vis(_ICON_LVLIB, RunProblems()))
     assert vis and controls
     assert all(p.suffix.lower() == ".vi" for p in vis)
     assert all(p.suffix.lower() == ".ctl" and p.is_file() for p in controls)

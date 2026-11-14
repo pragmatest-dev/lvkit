@@ -96,9 +96,7 @@ def read_descriptors(
         )
         pos = end
     names = TdPool(raw).names
-    return [
-        FlatTD(td.type_code, td.body, label) for td, label in zip(raw, names)
-    ], pos
+    return [FlatTD(td.type_code, td.body, label) for td, label in zip(raw, names)], pos
 
 
 def descriptor_type(descriptors: list[FlatTD], index: int) -> LVType | None:

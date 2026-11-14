@@ -216,9 +216,7 @@ def test_bundled_catalog_is_untouched_by_generation(
     before = _tree_digest(bundled)
     wired = Terminal(id="t:size", index=7, direction="input", name="Size")
 
-    source = _generate(
-        VILibResolver(), wired, 12.0, monkeypatch, vi="Get Text Rect.vi"
-    )
+    source = _generate(VILibResolver(), wired, 12.0, monkeypatch, vi="Get Text Rect.vi")
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before

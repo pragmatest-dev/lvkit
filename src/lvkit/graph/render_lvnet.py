@@ -2167,8 +2167,7 @@ def render_lvnet_uses(
                 dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP
             )
             lines.append(
-                f"    {kind_part}{qualified_part}{_LVNET_DEP_PATH_SEP}{dep.path}"
-                f"{marks}"
+                f"    {kind_part}{qualified_part}{_LVNET_DEP_PATH_SEP}{dep.path}{marks}"
             )
         else:
             lines.append(f"    {kind_part}{dep.qualified}{marks}")

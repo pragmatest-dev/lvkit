@@ -48,9 +48,7 @@ class BlastRadius:
     impact_score: int
 
 
-def project_vi_argument(
-    vis: Sequence[VIFacts], vi_key: str, project_root: Path
-) -> str:
+def project_vi_argument(vis: Sequence[VIFacts], vi_key: str, project_root: Path) -> str:
     """``vi_key`` as the index knows it: a project-relative path (the form the
     commands print) is the path of the VI under ``project_root``; anything else
     (an absolute path, a qualified name, a bare name) is returned as given."""

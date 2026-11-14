@@ -50,21 +50,24 @@ def blend(color: str, other: str, amount: float) -> str:
     return "#" + "".join(f"{c:02X}" for c in channels)
 
 
-def draw_round_led(
-    backend: Backend, body: Rect, halo: Rect | None, color: str
-) -> None:
+def draw_round_led(backend: Backend, body: Rect, halo: Rect | None, color: str) -> None:
     """A circle in the state color, lighter at its top left, with a darker rim
     and, when the Boolean has a bezel part, a pale 2 px halo around it."""
     x1, y1, x2, y2 = body
     cx, cy, r = (x1 + x2) / 2, (y1 + y2) / 2, (x2 - x1) / 2
     if halo is not None:
         hr = (halo[2] - halo[0]) / 2
-        backend.circle((halo[0] + halo[2]) / 2, (halo[1] + halo[3]) / 2, hr,
-                       fill=_HALO_OUTER)
-        backend.circle((halo[0] + halo[2]) / 2, (halo[1] + halo[3]) / 2, hr - 1,
-                       fill=_HALO_INNER)
+        backend.circle(
+            (halo[0] + halo[2]) / 2, (halo[1] + halo[3]) / 2, hr, fill=_HALO_OUTER
+        )
+        backend.circle(
+            (halo[0] + halo[2]) / 2, (halo[1] + halo[3]) / 2, hr - 1, fill=_HALO_INNER
+        )
     backend.gradient_rect(
-        cx - r, cy - r, cx + r, cy + r,
+        cx - r,
+        cy - r,
+        cx + r,
+        cy + r,
         stops=((0.0, blend(color, _WHITE, 0.3)), (1.0, blend(color, _BLACK, 0.15))),
         end=(1.0, 1.0),
         stroke=blend(color, _BLACK, 0.35),
@@ -82,7 +85,10 @@ def draw_slide_switch(
     radius = (y2 - y1) / 2
     backend.rect(x1, y1 + 2, x2, y2, fill=_SWITCH_SHADOW, rx=radius)
     backend.gradient_rect(
-        x1, y1, x2, y2 - 2,
+        x1,
+        y1,
+        x2,
+        y2 - 2,
         stops=((0.0, _SWITCH_TOP), (1.0, _SWITCH_BOTTOM)),
         stroke=_SWITCH_OUTLINE,
         stroke_width=1.5,
@@ -105,13 +111,19 @@ def draw_modern_button(
     """A rounded rectangle with a vertical gradient, a 1 px lighter edge at the
     left and top and a darker one at the bottom and right."""
     x1, y1, x2, y2 = body
-    backend.rect(x1, y1, x2, y2, fill=_MODERN_BUTTON_DARK_EDGE,
-                 rx=_MODERN_BUTTON_RADIUS)
-    backend.rect(x1, y1, x2 - 1, y2 - 1, fill=_MODERN_BUTTON_LIGHT_EDGE,
-                 rx=_MODERN_BUTTON_RADIUS)
+    backend.rect(
+        x1, y1, x2, y2, fill=_MODERN_BUTTON_DARK_EDGE, rx=_MODERN_BUTTON_RADIUS
+    )
+    backend.rect(
+        x1, y1, x2 - 1, y2 - 1, fill=_MODERN_BUTTON_LIGHT_EDGE, rx=_MODERN_BUTTON_RADIUS
+    )
     backend.gradient_rect(
-        x1 + 1, y1 + 1, x2 - 1, y2 - 1,
-        stops=_MODERN_BUTTON_STOPS, rx=_MODERN_BUTTON_RADIUS - 1,
+        x1 + 1,
+        y1 + 1,
+        x2 - 1,
+        y2 - 1,
+        stops=_MODERN_BUTTON_STOPS,
+        rx=_MODERN_BUTTON_RADIUS - 1,
     )
     _caption(backend, body, caption, style)
 
@@ -120,8 +132,9 @@ def draw_system_button(
     backend: Backend, body: Rect, caption: str, style: TextStyle
 ) -> None:
     """A flat face with a 1 px border."""
-    backend.rect(*body, fill=_SYSTEM_BUTTON_FACE, stroke=_SYSTEM_BUTTON_EDGE,
-                 stroke_width=1.0)
+    backend.rect(
+        *body, fill=_SYSTEM_BUTTON_FACE, stroke=_SYSTEM_BUTTON_EDGE, stroke_width=1.0
+    )
     _caption(backend, body, caption, style)
 
 
@@ -137,7 +150,8 @@ def draw_check_box(backend: Backend, body: Rect, on: bool) -> None:
                 (x1 + w * 0.42, y1 + h * 0.72),
                 (x1 + w * 0.78, y1 + h * 0.28),
             ],
-            stroke=_BLACK, stroke_width=1.5,
+            stroke=_BLACK,
+            stroke_width=1.5,
         )
 
 

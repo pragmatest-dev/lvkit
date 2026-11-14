@@ -203,7 +203,9 @@ _CONTROL_CHAR_VI = "ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscell
 
 
 def _case_element(rel_path: str, uid: str) -> ET.Element:
-    root = ET.parse(resolve_extracted(SAMPLES_ROOT / rel_path, roots=LibraryRoots())[0]).getroot()
+    root = ET.parse(
+        resolve_extracted(SAMPLES_ROOT / rel_path, roots=LibraryRoots())[0]
+    ).getroot()
     (elem,) = [
         e
         for e in root.iter()

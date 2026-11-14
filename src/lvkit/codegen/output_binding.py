@@ -80,8 +80,10 @@ def _changeable(term: Terminal) -> bool:
     place. An error cluster is not one: every change to an error makes a new
     error value (``nodes/nmux._generate_error_bundle``)."""
     lv_type = term.lv_type
-    return lv_type is not None and not term.is_error_cluster and (
-        lv_type.kind in _CHANGEABLE_KINDS or lv_type.ref_type == "UDClassInst"
+    return (
+        lv_type is not None
+        and not term.is_error_cluster
+        and (lv_type.kind in _CHANGEABLE_KINDS or lv_type.ref_type == "UDClassInst")
     )
 
 

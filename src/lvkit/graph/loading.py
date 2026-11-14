@@ -147,9 +147,7 @@ def _with_extraction_pool(method: _F) -> _F:
 # LoadMode`` call sites.
 
 
-def _has_qualified_name(
-    path: Path, qualified_name: str, roots: LibraryRoots
-) -> bool:
+def _has_qualified_name(path: Path, qualified_name: str, roots: LibraryRoots) -> bool:
     """Whether the VI at ``path`` is the one a caller records as
     ``qualified_name``: the libraries and classes it records it is in, then its
     file name (case-insensitive, as LabVIEW names compare). A class, library or
@@ -1158,9 +1156,7 @@ class LoadingMixin:
             copy = embedded_private_data_copy(lvclass_path, inside.name)
             if copy is None:
                 return []
-            ctl_key = self.load_typedef(
-                inside, source=copy, mode=LoadMode.MINIMAL
-            )
+            ctl_key = self.load_typedef(inside, source=copy, mode=LoadMode.MINIMAL)
         if ctl_key in self._stubs:
             pass  # the control's own node says why it could not be read
         elif not self._dep_graph.nodes[ctl_key].get("fields"):

@@ -87,17 +87,15 @@ class StringControlGlyph(ControlGlyph):
         frame = scale_local(self.frame_local, self.native_size, bounds)
         if self.style == ControlStyle.MODERN:
             modern.draw_field(
-                backend, frame, field,
+                backend,
+                frame,
+                field,
                 modern.field_fill(self.field_fill, self.is_indicator),
             )
             text_fill = modern.TEXT
         elif self.style == ControlStyle.SYSTEM:
-            fill = (
-                _SYSTEM_INDICATOR_FILL if self.is_indicator else _SYSTEM_CONTROL_FILL
-            )
-            backend.rect(
-                *field, fill=fill, stroke=_SYSTEM_BORDER, stroke_width=1.0
-            )
+            fill = _SYSTEM_INDICATOR_FILL if self.is_indicator else _SYSTEM_CONTROL_FILL
+            backend.rect(*field, fill=fill, stroke=_SYSTEM_BORDER, stroke_width=1.0)
             text_fill = _SYSTEM_TEXT
         else:
             self._draw_silver(backend, frame, field, bounds)
@@ -139,31 +137,46 @@ class StringControlGlyph(ControlGlyph):
         if max_lines == 1:
             text = fit_label(" ".join(lines), width, backend, size)
             draw_styled_text(
-                backend, x1 + _TEXT_INSET, (y1 + y2) / 2 + size * 0.36, text,
-                style, fill,
+                backend,
+                x1 + _TEXT_INSET,
+                (y1 + y2) / 2 + size * 0.36,
+                text,
+                style,
+                fill,
             )
             return
         for i, line in enumerate(lines[:max_lines]):
             draw_styled_text(
-                backend, x1 + _TEXT_INSET, y1 + size + i * line_h, line, style, fill,
+                backend,
+                x1 + _TEXT_INSET,
+                y1 + size + i * line_h,
+                line,
+                style,
+                fill,
             )
 
 
 def _draw_browse_button(backend: Backend, rect: Rect) -> None:
     x1, y1, x2, y2 = rect
-    backend.rect(x1, y1, x2, y2, fill=_BUTTON_FACE, stroke=_BUTTON_EDGE,
-                 stroke_width=1.0, rx=2.0)
+    backend.rect(
+        x1, y1, x2, y2, fill=_BUTTON_FACE, stroke=_BUTTON_EDGE, stroke_width=1.0, rx=2.0
+    )
     side = min(x2 - x1, y2 - y1) * 0.5
     fx = (x1 + x2) / 2 - side / 2
     fy = (y1 + y2) / 2 - side * 0.4
     tab = side * 0.3
     backend.polygon(
         [
-            (fx, fy + tab), (fx + side * 0.45, fy + tab),
-            (fx + side * 0.55, fy), (fx + side, fy),
-            (fx + side, fy + side * 0.8), (fx, fy + side * 0.8),
+            (fx, fy + tab),
+            (fx + side * 0.45, fy + tab),
+            (fx + side * 0.55, fy),
+            (fx + side, fy),
+            (fx + side, fy + side * 0.8),
+            (fx, fy + side * 0.8),
         ],
-        fill="none", stroke=_FOLDER, stroke_width=1.0,
+        fill="none",
+        stroke=_FOLDER,
+        stroke_width=1.0,
     )
 
 

@@ -386,9 +386,7 @@ class TdPool:
                     ">HHHH", body, 6 + 8 * i
                 )
                 rows.append(
-                    EventRegRow(
-                        self.names[row_index], event_type, self._ref(row_index)
-                    )
+                    EventRegRow(self.names[row_index], event_type, self._ref(row_index))
                 )
                 if nrows == 1:
                     element_type = self._ref(row_index)

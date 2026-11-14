@@ -349,9 +349,7 @@ def store_render(
     cache HIT answer "what VI is this" without a second graph load (#114's
     follow-up — the name was already in hand at build time, from the SAME
     graph that produced ``body``)."""
-    body_path, meta_path, source_label, _ = _render_paths(
-        input_path, fmt, roots, view
-    )
+    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt, roots, view)
     extra: dict[str, object] = {
         "lvkit_version": version,
         "options": options,
@@ -574,9 +572,7 @@ def cached_render(
             input_path, fmt, options, version, roots, project_store, view
         )
         if hit is not None:
-            return CachedBody(
-                hit, render_problems(input_path, fmt, roots, view), True
-            )
+            return CachedBody(hit, render_problems(input_path, fmt, roots, view), True)
     from lvkit.render.body import render_body_with_name
 
     # render_body_with_name has already loaded the graph to build the body --

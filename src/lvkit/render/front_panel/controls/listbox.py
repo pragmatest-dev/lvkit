@@ -64,7 +64,9 @@ class ListboxControlGlyph(ControlGlyph):
             return
         line = self.line_color or _DEFAULT_LINE
         backend.rect(
-            *frame, fill=self.fill_color or _DEFAULT_FILL, stroke=line,
+            *frame,
+            fill=self.fill_color or _DEFAULT_FILL,
+            stroke=line,
             stroke_width=1.0,
         )
         gx1, gy1, gx2, gy2 = grid
@@ -89,9 +91,12 @@ class ListboxControlGlyph(ControlGlyph):
         stripped = text.lstrip(" ")
         shown = _NO_BREAK_SPACE * (len(text) - len(stripped)) + stripped
         backend.text(
-            x + _TEXT_INSET, y + (_ROW_PITCH - _LINE) / 2 + _TEXT_SIZE * 0.36,
+            x + _TEXT_INSET,
+            y + (_ROW_PITCH - _LINE) / 2 + _TEXT_SIZE * 0.36,
             fit_label(shown, width - _TEXT_INSET, backend, _TEXT_SIZE),
-            _TEXT_SIZE, fill=_TEXT, anchor="start",
+            _TEXT_SIZE,
+            fill=_TEXT,
+            anchor="start",
         )
 
 

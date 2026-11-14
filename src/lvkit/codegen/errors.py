@@ -51,9 +51,7 @@ class MissingVIError(ConversionGap):
     """A call names a VI that was not found, so there is no module to import and
     no connector pane to name its terminals from. The call is the gap."""
 
-    def __init__(
-        self, name: str, recorded_path: str | None, reason: str | None = None
-    ):
+    def __init__(self, name: str, recorded_path: str | None, reason: str | None = None):
         self.name = name
         self.recorded_path = recorded_path
         self.reason = reason

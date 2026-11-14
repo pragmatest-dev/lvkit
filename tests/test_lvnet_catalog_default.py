@@ -123,9 +123,7 @@ def test_an_unwired_input_nothing_documents_is_a_gap_in_the_generated_code(
     assert "its default is not known" in gaps[0].reason
 
 
-def test_get_variant_attribute_with_unwired_default_returns_an_empty_variant() -> (
-    None
-):
+def test_get_variant_attribute_with_unwired_default_returns_an_empty_variant() -> None:
     """Unwired, `default value` is an empty variant: ``Variant()``. The variant is
     unwired too, an empty variant given no attributes."""
     from tests.helpers import generated_variants

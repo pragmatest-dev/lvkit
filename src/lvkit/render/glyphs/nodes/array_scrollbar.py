@@ -22,7 +22,10 @@ def draw_array_scrollbar(
 ) -> None:
     tx1, ty1, tx2, ty2 = track
     backend.rect(
-        tx1, ty1, tx2, ty2,
+        tx1,
+        ty1,
+        tx2,
+        ty2,
         fill=theme.fp_value_fill,
         stroke=theme.struct_border,
         stroke_width=0.75,
@@ -36,13 +39,19 @@ def draw_array_scrollbar(
     cx = (tx1 + tx2) / 2
     aw = track_w * 0.3
     backend.polygon(
-        [(cx - aw, cy_top + aw * 0.6), (cx + aw, cy_top + aw * 0.6),
-         (cx, cy_top - aw * 0.6)],
+        [
+            (cx - aw, cy_top + aw * 0.6),
+            (cx + aw, cy_top + aw * 0.6),
+            (cx, cy_top - aw * 0.6),
+        ],
         fill=theme.struct_border,
     )
     backend.polygon(
-        [(cx - aw, cy_bot - aw * 0.6), (cx + aw, cy_bot - aw * 0.6),
-         (cx, cy_bot + aw * 0.6)],
+        [
+            (cx - aw, cy_bot - aw * 0.6),
+            (cx + aw, cy_bot - aw * 0.6),
+            (cx, cy_bot + aw * 0.6),
+        ],
         fill=theme.struct_border,
     )
     scroll_y1, scroll_y2 = ty1 + arrow_h, ty2 - arrow_h
@@ -54,7 +63,10 @@ def draw_array_scrollbar(
     thumb_y2 = min(scroll_y2, scroll_y1 + thumb_h)
     backend.begin_group(cls="lv-array-scrollbar", data={"lv-struct": struct_uid})
     backend.rect(
-        tx1 + 1.5, scroll_y1 + 1.0, tx2 - 1.5, thumb_y2 - 1.0,
+        tx1 + 1.5,
+        scroll_y1 + 1.0,
+        tx2 - 1.5,
+        thumb_y2 - 1.0,
         fill=theme.fp_index_fill,
         stroke=theme.struct_border,
         stroke_width=0.5,

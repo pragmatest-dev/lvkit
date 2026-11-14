@@ -26,7 +26,13 @@ class PathGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill=theme.const_fill, stroke=self.color, stroke_width=1.2,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.const_fill,
+            stroke=self.color,
+            stroke_width=1.2,
         )
         w, h = x2 - x1, y2 - y1
         pad = 2.5
@@ -43,7 +49,12 @@ class PathGlyph:
             label = fit_label(self.value, w - 2 * pad, backend, size)
             if label:
                 backend.text(
-                    text_x, text_y, label, size, anchor="start", fill=self.color,
+                    text_x,
+                    text_y,
+                    label,
+                    size,
+                    anchor="start",
+                    fill=self.color,
                 )
 
     @staticmethod
@@ -67,5 +78,7 @@ class PathGlyph:
                 (x + s, y + s * 0.8),
                 (x, y + s * 0.8),
             ],
-            fill="none", stroke=color, stroke_width=1.1,
+            fill="none",
+            stroke=color,
+            stroke_width=1.1,
         )

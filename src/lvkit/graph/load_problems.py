@@ -48,10 +48,7 @@ def repeated_frame_problems(bd: ParsedBlockDiagram, vi: str) -> list[Problem]:
     ``vi`` is the VI as the user sees it."""
     structures: list[tuple[str, str, list[CaseFrame]]] = [
         *(("case structure", cs.uid, cs.frames) for cs in bd.case_structures),
-        *(
-            (ds.kind.structure_name, ds.uid, ds.frames)
-            for ds in bd.disable_structures
-        ),
+        *((ds.kind.structure_name, ds.uid, ds.frames) for ds in bd.disable_structures),
     ]
     problems: list[Problem] = []
     for what, uid, frames in structures:
@@ -176,9 +173,7 @@ class LoadProblemsMixin:
             problem = replace(problem, key=vi_key)
         if vi_key not in self._dep_graph:
             self._add_stub(vi_key, node_type, Path(vi_key).name, None, None, None)
-        held: tuple[Problem, ...] = self._dep_graph.nodes[vi_key].get(
-            PROBLEMS_ATTR, ()
-        )
+        held: tuple[Problem, ...] = self._dep_graph.nodes[vi_key].get(PROBLEMS_ATTR, ())
         if problem in held:
             return
         self._dep_graph.nodes[vi_key][PROBLEMS_ATTR] = (*held, problem)

@@ -62,6 +62,7 @@ def bundle_aggregate_columns(box: Rect, node: Rect) -> tuple[Rect, Rect]:
         interior = (ax2, ay1, ax2 + w, ay2)
     return interior, box
 
+
 # Structure border DCOs that live OUTSIDE their owning node's termList (loop
 # count/index/test terminals, case selector) — each has its own uid + bounds,
 # but the graph doesn't model them as full Terminal objects. Geometry only.

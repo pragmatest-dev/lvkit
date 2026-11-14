@@ -147,9 +147,7 @@ def test_parser_keeps_hidden_flag_sub_parts_and_number_format() -> None:
 
 
 def test_parser_carries_every_saved_element_value() -> None:
-    ctrl = _parse_ddo(
-        _array_ddo(), "1", set(), None, None, ["-40.0", "-30.0", "-20.0"]
-    )
+    ctrl = _parse_ddo(_array_ddo(), "1", set(), None, None, ["-40.0", "-30.0", "-20.0"])
     assert ctrl is not None
     assert ctrl.element_values == ["-40.0", "-30.0", "-20.0"]
 
@@ -174,8 +172,12 @@ def _numeric() -> ParsedFPControl:
         ParsedFPPart(9, "cosm", (18, 0, 55, 85)),
     ]
     return ParsedFPControl(
-        uid="9", name="Initial Time (S)", control_type="stdNum",
-        bounds=(0, 0, 55, 85), parts=parts, default_value="3600.0",
+        uid="9",
+        name="Initial Time (S)",
+        control_type="stdNum",
+        bounds=(0, 0, 55, 85),
+        parts=parts,
+        default_value="3600.0",
         number_format="%#_g",
     )
 
@@ -192,7 +194,10 @@ def test_numeric_spinner_sits_left_of_a_narrow_readout() -> None:
 
 def test_numeric_without_parts_is_a_plain_cell_with_no_spinner() -> None:
     bare = ParsedFPControl(
-        uid="1", name="x", control_type="stdNum", bounds=(0, 0, 20, 80),
+        uid="1",
+        name="x",
+        control_type="stdNum",
+        bounds=(0, 0, 20, 80),
         default_value="5.0",
     )
     svg = _svg(bare)

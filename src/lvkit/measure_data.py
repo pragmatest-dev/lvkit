@@ -200,8 +200,7 @@ def _load_table() -> dict[str, MeasureFlavor]:
             )
         if not isinstance(entry, dict):
             raise ValueError(
-                f"measure_data.json: flavor {flavor!r} must be an object, "
-                f"got {entry!r}"
+                f"measure_data.json: flavor {flavor!r} must be an object, got {entry!r}"
             )
         components: dict[int, str] = {}
         if "components" in entry:

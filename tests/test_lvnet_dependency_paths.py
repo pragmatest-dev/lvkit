@@ -76,9 +76,7 @@ def _loaded(
     return key
 
 
-def _absent(
-    graph: InMemoryVIGraph, caller: str, qname: str, tokens: list[str]
-) -> None:
+def _absent(graph: InMemoryVIGraph, caller: str, qname: str, tokens: list[str]) -> None:
     graph._add_stub(qname, NodeType.VI, qname, qname, caller=caller)  # noqa: SLF001
     graph._recorded.record(qname, caller, tokens, None)  # noqa: SLF001
     graph._recorded.note_stored(qname, caller, tokens, None)  # noqa: SLF001

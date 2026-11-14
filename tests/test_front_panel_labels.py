@@ -70,8 +70,11 @@ def test_parser_records_which_caption_text_is_visible() -> None:
 
 def _svg(**kw) -> str:
     ctrl = ParsedFPControl(
-        uid="1", name="pin_name", control_type="stdNum",
-        bounds=(30, 20, 60, 120), **kw,
+        uid="1",
+        name="pin_name",
+        control_type="stdNum",
+        bounds=(30, 20, 60, 120),
+        **kw,
     )
     return render_front_panel_svg(
         ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 400, 600))
@@ -86,7 +89,6 @@ def test_top_level_control_draws_only_the_visible_text() -> None:
     assert ">Pin Name<" in shown and ">pin_name<" not in shown
 
 
-
 def test_value_extent_ignores_hidden_parts() -> None:
     """A hidden part (objFlags bit 0x8) never pulls the value box open --
     real corpus bug: a stdGraph's hidden treeControl/stdClust chrome parts,
@@ -98,7 +100,10 @@ def test_value_extent_ignores_hidden_parts() -> None:
     from lvkit.render.front_panel.controls.base import value_extent
 
     ctrl = ParsedFPControl(
-        uid="1", name="Graph", control_type="stdGraph", bounds=(0, 0, 237, 168),
+        uid="1",
+        name="Graph",
+        control_type="stdGraph",
+        bounds=(0, 0, 237, 168),
         parts=[
             ParsedFPPart(16, "label", (0, 8, 17, 54)),
             ParsedFPPart(8023, "indArr", (-10, 7, 19, 168), flags=8),
@@ -116,7 +121,10 @@ def test_top_level_label_draws_at_its_own_part_rect() -> None:
     from lvkit.parser.models import ParsedFPPart
 
     ctrl = ParsedFPControl(
-        uid="1", name="ring", control_type="stdRing", bounds=(288, 72, 327, 200),
+        uid="1",
+        name="ring",
+        control_type="stdRing",
+        bounds=(288, 72, 327, 200),
         parts=[ParsedFPPart(16, "label", (0, 11, 15, 128))],
     )
     svg = render_front_panel_svg(

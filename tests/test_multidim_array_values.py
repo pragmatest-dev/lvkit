@@ -443,25 +443,14 @@ def test_a_default_object_has_no_private_data():
 
 def test_private_data_is_skipped_by_its_stored_byte_count():
     version = bytes([0, 1, 0, 0, 0, 0, 0, 0])
-    data = (
-        _u32(1)
-        + _name_section("Layer.lvclass")
-        + version
-        + _u32(5)
-        + b"abcde"
-    )
+    data = _u32(1) + _name_section("Layer.lvclass") + version + _u32(5) + b"abcde"
     assert _decode_element(data, _class_type())[1] == len(data)
 
 
 def test_every_level_carries_its_own_version_and_private_data():
     versions = bytes([0, 1, 0, 0, 0, 0, 0, 0]) * 2
     data = (
-        _u32(2)
-        + _name_section("Child.lvclass")
-        + versions
-        + _u32(0)
-        + _u32(3)
-        + b"xyz"
+        _u32(2) + _name_section("Child.lvclass") + versions + _u32(0) + _u32(3) + b"xyz"
     )
     assert _decode_element(data, _class_type())[1] == len(data)
 

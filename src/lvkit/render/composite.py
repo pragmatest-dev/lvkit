@@ -61,8 +61,6 @@ def _raw(qualified: str | None) -> str | None:
     return qualified.rsplit("::", 1)[-1] if qualified else None
 
 
-
-
 def _index(frame: object) -> int:
     """A ``SequenceFrame``'s own position (heap order) -- frame colors must
     be sorted by this, not dict/list insertion order, to line up with
@@ -189,13 +187,23 @@ def _draw_wire_pattern(
             end = min(t + _LINK_LEN, hi)
             if horizontal:
                 backend.rect(
-                    t, cross - half, end, cross + half,
-                    fill="none", stroke=color, stroke_width=lw,
+                    t,
+                    cross - half,
+                    end,
+                    cross + half,
+                    fill="none",
+                    stroke=color,
+                    stroke_width=lw,
                 )
             else:
                 backend.rect(
-                    cross - half, t, cross + half, end,
-                    fill="none", stroke=color, stroke_width=lw,
+                    cross - half,
+                    t,
+                    cross + half,
+                    end,
+                    fill="none",
+                    stroke=color,
+                    stroke_width=lw,
                 )
             # connector line to the next link
             c0, c1 = end, min(end + _LINK_CONN, hi)
@@ -228,13 +236,21 @@ def _draw_wire_diagonal(
             # a "\" stroke spanning the wire width over one step of length
             if horizontal:
                 backend.line(
-                    t, cross - half, t + width, cross + half,
-                    stroke=color, stroke_width=lw,
+                    t,
+                    cross - half,
+                    t + width,
+                    cross + half,
+                    stroke=color,
+                    stroke_width=lw,
                 )
             else:
                 backend.line(
-                    cross - half, t, cross + half, t + width,
-                    stroke=color, stroke_width=lw,
+                    cross - half,
+                    t,
+                    cross + half,
+                    t + width,
+                    stroke=color,
+                    stroke_width=lw,
                 )
             t += _DIAG_STEP
 

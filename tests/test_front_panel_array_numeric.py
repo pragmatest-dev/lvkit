@@ -30,12 +30,20 @@ _OVAL_START = "#D5D5D5"  # the Modern spinner oval's gradient start
 def _numeric_parts(arrows: int, readout_fill: str | None = None) -> list[ParsedFPPart]:
     """A Modern numeric's parts: readout, two arrow halves, frame."""
     return [
-        ParsedFPPart(10, "numLabel", (7, 17, 24, 37), image_ids=(-239,),
-                     bg_color=readout_fill, flags=0x40972),
-        ParsedFPPart(3, "bigMultiCosm", (14, 0, 28, 14), image_ids=(-414,),
-                     flags=arrows),
-        ParsedFPPart(2, "bigMultiCosm", (0, 0, 14, 14), image_ids=(-413,),
-                     flags=arrows),
+        ParsedFPPart(
+            10,
+            "numLabel",
+            (7, 17, 24, 37),
+            image_ids=(-239,),
+            bg_color=readout_fill,
+            flags=0x40972,
+        ),
+        ParsedFPPart(
+            3, "bigMultiCosm", (14, 0, 28, 14), image_ids=(-414,), flags=arrows
+        ),
+        ParsedFPPart(
+            2, "bigMultiCosm", (0, 0, 14, 14), image_ids=(-413,), flags=arrows
+        ),
         ParsedFPPart(9, "cosm", (3, 13, 28, 41), image_ids=(-412,)),
     ]
 
@@ -50,10 +58,20 @@ def _array(indicator: bool, values: list[object]) -> ParsedFPControl:
         (23, 45, 49, 110),
         parts=[
             ParsedFPPart(10, "numLabel", (5, 15, 22, 61), image_ids=(-239,)),
-            ParsedFPPart(3, "bigMultiCosm", (14, 0, 26, 12), image_ids=(-414,),
-                         flags=_HIDDEN if indicator else _SHOWN),
-            ParsedFPPart(2, "bigMultiCosm", (0, 0, 12, 12), image_ids=(-413,),
-                         flags=_HIDDEN if indicator else _SHOWN),
+            ParsedFPPart(
+                3,
+                "bigMultiCosm",
+                (14, 0, 26, 12),
+                image_ids=(-414,),
+                flags=_HIDDEN if indicator else _SHOWN,
+            ),
+            ParsedFPPart(
+                2,
+                "bigMultiCosm",
+                (0, 0, 12, 12),
+                image_ids=(-413,),
+                flags=_HIDDEN if indicator else _SHOWN,
+            ),
             ParsedFPPart(9, "cosm", (1, 11, 26, 65), image_ids=(-412,)),
         ],
         flags=393219 if indicator else 393218,

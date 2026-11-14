@@ -92,8 +92,9 @@ def _kind_user_event(
         fill="none",
     )
     # feed at the dish focus
-    backend.circle(cx - 0.10 * u, cy - 0.24 * u, max(0.6, u * 0.11), fill=navy,
-                   stroke="none")
+    backend.circle(
+        cx - 0.10 * u, cy - 0.24 * u, max(0.6, u * 0.11), fill=navy, stroke="none"
+    )
 
 
 def _kind_queue(backend: Backend, cx: float, cy: float, s: float, color: str) -> None:
@@ -115,9 +116,12 @@ def _kind_queue(backend: Backend, cx: float, cy: float, s: float, color: str) ->
     ah = s * 0.1
     backend.polygon(
         [
-            (x2 + s * 0.2, cy), (x2, cy - ah), (x2, cy + ah),
+            (x2 + s * 0.2, cy),
+            (x2, cy - ah),
+            (x2, cy + ah),
         ],
-        fill=color, stroke="none",
+        fill=color,
+        stroke="none",
     )
 
 
@@ -166,8 +170,13 @@ def _kind_generic(backend: Backend, cx: float, cy: float, s: float, color: str) 
         x0 = cx + dx * gap / 2 + (0 if dx > 0 else -cell)
         y0 = cy + dy * gap / 2 + (0 if dy > 0 else -cell)
         backend.rect(
-            x0, y0, x0 + cell, y0 + cell,
-            fill=color if i == 0 else "none", stroke=color, stroke_width=0.9,
+            x0,
+            y0,
+            x0 + cell,
+            y0 + cell,
+            fill=color if i == 0 else "none",
+            stroke=color,
+            stroke_width=0.9,
         )
 
 
@@ -213,7 +222,10 @@ class RefnumGlyph:
         if w > sym + 6.0 and h > sym + 6.0 + cut:
             drawer = _KIND_SYMBOLS.get(self.kind or "", _kind_generic)
             drawer(
-                backend, x1 + sym * 0.6 + 2.0, y1 + cut + sym * 0.6 + 2.0, sym,
+                backend,
+                x1 + sym * 0.6 + 2.0,
+                y1 + cut + sym * 0.6 + 2.0,
+                sym,
                 self.border_color,
             )
         self._draw_terminal(backend, bounds, theme)
@@ -226,7 +238,12 @@ class RefnumGlyph:
         glyph's full form shrunk."""
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill=theme.const_fill, stroke=self.border_color,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.const_fill,
+            stroke=self.border_color,
             stroke_width=1.0,
         )
         w, h = x2 - x1, y2 - y1
@@ -240,14 +257,20 @@ class RefnumGlyph:
         x1, y1, x2, y2 = bounds
         backend.polygon(
             [(x1, y1), (x2 - cut, y1), (x2, y1 + cut), (x2, y2), (x1, y2)],
-            fill=theme.const_fill, stroke=self.border_color, stroke_width=1.2,
+            fill=theme.const_fill,
+            stroke=self.border_color,
+            stroke_width=1.2,
         )
         if cut > 1.5:
             # The fold crease — a short diagonal just inside the cut corner,
             # suggesting a folded paper corner (the classic "dog-ear" cue).
             backend.line(
-                x2 - cut, y1 + cut * 0.3, x2 - cut * 0.3, y1 + cut,
-                stroke=self.border_color, stroke_width=0.9,
+                x2 - cut,
+                y1 + cut * 0.3,
+                x2 - cut * 0.3,
+                y1 + cut,
+                stroke=self.border_color,
+                stroke_width=0.9,
             )
 
     def _draw_terminal(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
@@ -286,14 +309,22 @@ class TypeTerminalGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2, fill=theme.const_fill,
-            stroke=theme.refnum_terminal_border, stroke_width=1.0,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.const_fill,
+            stroke=theme.refnum_terminal_border,
+            stroke_width=1.0,
             stroke_dasharray="2,1.5",
         )
         if self.text:
             size = min(6.0, (y2 - y1) - 2.0)
             if size > 0:
                 backend.text(
-                    (x1 + x2) / 2, (y1 + y2) / 2 + size * 0.35, self.text, size,
+                    (x1 + x2) / 2,
+                    (y1 + y2) / 2 + size * 0.35,
+                    self.text,
+                    size,
                     fill=self.color,
                 )

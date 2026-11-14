@@ -18,9 +18,7 @@ def _plan_for_scope(scope: str) -> str:
                 "name": "MyClass.lvclass",
                 "path": "MyClass.lvclass",
                 "private_data": None,
-                "methods": [
-                    {"name": "DoThing.vi", "scope": scope, "is_static": False}
-                ],
+                "methods": [{"name": "DoThing.vi", "scope": scope, "is_static": False}],
             }
         ],
     }

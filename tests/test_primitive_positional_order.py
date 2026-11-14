@@ -82,6 +82,7 @@ X_LOWER_PRIMS: set[int] = {1074, 1081, 1082, 1213, 1224, 1228, 23062}
 
 def _entries() -> dict[str, dict]:
     from lvkit._data import load_primitives
+
     return load_primitives()["primitives"]
 
 

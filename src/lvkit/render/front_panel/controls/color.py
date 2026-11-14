@@ -28,7 +28,10 @@ class ColorControlGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=self.color or theme.fp_value_fill,
             stroke=self.border_color,
             stroke_width=1.0,

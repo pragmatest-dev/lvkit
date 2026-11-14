@@ -67,14 +67,10 @@ def _text_data(node: PrimitiveNode, text: str) -> str:
 
 
 @register_op_fragment("WRITE_TO_TEXT_FILE")
-def write_to_text_file(
-    node: PrimitiveNode, ctx: CodeGenContext
-) -> CodeFragment | None:
+def write_to_text_file(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     file_text = input_expression(ctx, node, 11)
     if file_text is None:
-        raise ConversionGap(
-            "Write to Text File with no file shows a file dialog", node
-        )
+        raise ConversionGap("Write to Text File with no file shows a file dialog", node)
     file_term = terminal(node, "input", 11)
     file_type = file_term.lv_type if file_term is not None else None
     is_path = file_type is not None and file_type.underlying_type == "Path"

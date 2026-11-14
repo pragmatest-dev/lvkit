@@ -826,9 +826,7 @@ def _reconstruct_shift_register(
     return MuMerge(net=sr.net, init=init, recur=recur)
 
 
-def _reconstruct_tunnel(
-    t: ParsedTunnel, registry: dict[str, HandleTarget]
-) -> EtaMerge:
+def _reconstruct_tunnel(t: ParsedTunnel, registry: dict[str, HandleTarget]) -> EtaMerge:
     mode_text = t.mode
     conditional = False
     if mode_text.endswith("+conditional"):
@@ -839,9 +837,7 @@ def _reconstruct_tunnel(
         raise LvnetReconstructError(f"unrecognized tunnel mode word: {t.mode!r}")
     value = parse_source_token(t.source, registry)
     condition = (
-        require_netref(
-            parse_source_token(t.condition, registry), f"{t.net} condition"
-        )
+        require_netref(parse_source_token(t.condition, registry), f"{t.net} condition")
         if t.condition is not None
         else None
     )

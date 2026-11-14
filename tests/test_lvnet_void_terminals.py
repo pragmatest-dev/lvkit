@@ -87,14 +87,15 @@ def test_a_type_the_file_cannot_read_keeps_its_line_and_says_why(
         f"      out  x+1 : {_UNREADABLE}",
     ]
     out = next(
-        i
-        for i in views.json["body"]
-        if i["name"] == "Increment" and i["uid"] == "30"
+        i for i in views.json["body"] if i["name"] == "Increment" and i["uid"] == "30"
     )["outputs"][0]
     assert out["lv_type"]["unreadable"] == "its type descriptor could not be read"
-    assert "unreadable" not in next(
-        i for i in views.json["body"] if i["uid"] == "10"
-    )["outputs"][0]["lv_type"]
+    assert (
+        "unreadable"
+        not in next(i for i in views.json["body"] if i["uid"] == "10")["outputs"][0][
+            "lv_type"
+        ]
+    )
 
 
 def test_a_terminal_name_is_quoted_in_its_declaration_and_its_readers(

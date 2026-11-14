@@ -49,9 +49,7 @@ def _round_trips(views: Views) -> None:
 def test_a_ring_with_its_own_values_names_the_selected_item(tmp_path: Path) -> None:
     views = _views(tmp_path, ring_constant(701, 2, _ITEMS, [2, 3, 4]))
     assert views.diagram.splitlines()[1] == "      in   x   : I32 = 2 (verify)"
-    assert (
-        "ring{verify = 2, commit = 3, reserve = 4} = 2 (verify)" in views.describe
-    )
+    assert "ring{verify = 2, commit = 3, reserve = 4} = 2 (verify)" in views.describe
     _round_trips(views)
 
 
@@ -89,9 +87,7 @@ def test_a_control_named_like_a_number_and_item_is_quoted() -> None:
     assert lvnet_control_name_token("verify") == "verify"
 
 
-def _ring_control(
-    tmp_path: Path, default: int, items: list[str] = _ITEMS
-) -> Views:
+def _ring_control(tmp_path: Path, default: int, items: list[str] = _ITEMS) -> Views:
     """A Ring control ``mode`` on the connector pane, read by an Increment."""
     (tmp_path / "T_FPHb.xml").write_text(
         front_panel_xml(
@@ -117,7 +113,7 @@ def test_a_ring_control_default_names_its_item(tmp_path: Path) -> None:
 def test_a_ring_control_default_that_is_no_item_has_no_name(tmp_path: Path) -> None:
     views = _ring_control(tmp_path, 9)
     assert " default 9 @0\n" in views.lvnet
-    assert "= 9 (" not in views.describe and "= \"9\"" not in views.describe
+    assert "= 9 (" not in views.describe and '= "9"' not in views.describe
     _round_trips(views)
 
 

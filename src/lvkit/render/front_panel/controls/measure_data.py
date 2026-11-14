@@ -30,13 +30,21 @@ class MeasureDataGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
-            fill=theme.fp_value_fill, stroke=self.border_color, stroke_width=1.0,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.fp_value_fill,
+            stroke=self.border_color,
+            stroke_width=1.0,
         )
         text = fit_label(
             self.flavor or "Measurement Data", x2 - x1 - 6, backend, _LABEL_SIZE
         )
         backend.text(
-            (x1 + x2) / 2, (y1 + y2) / 2 + _LABEL_SIZE * 0.34, text, _LABEL_SIZE,
+            (x1 + x2) / 2,
+            (y1 + y2) / 2 + _LABEL_SIZE * 0.34,
+            text,
+            _LABEL_SIZE,
             fill=theme.pane_type_text,
         )

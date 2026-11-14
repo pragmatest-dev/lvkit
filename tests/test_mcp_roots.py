@@ -70,9 +70,7 @@ def test_uri_to_path_posix():
 def test_uri_to_path_windows_drive():
     # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x;
     # on a non-Windows (WSL) host that maps onto the /mnt mount.
-    assert _uri_to_path("file:///C:/Users/user/repo") == Path(
-        "/mnt/c/Users/user/repo"
-    )
+    assert _uri_to_path("file:///C:/Users/user/repo") == Path("/mnt/c/Users/user/repo")
 
 
 # ---- _win_to_wsl_path (Windows client -> WSL-hosted server) -----------------

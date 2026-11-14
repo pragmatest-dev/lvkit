@@ -2113,9 +2113,7 @@ def _parse_cluster_fields(
     fields are parsed in the frame the cluster's pane gives them.
     """
     direct = _direct_fields(cluster_ddo)
-    child_frame = (
-        cluster_child_frame(cluster_ddo, frame) if frame is not None else None
-    )
+    child_frame = cluster_child_frame(cluster_ddo, frame) if frame is not None else None
 
     fields: list[ParsedFPControl] = []
     labels = [extract_label_strict(field_elem) for field_elem in direct]
@@ -2396,7 +2394,10 @@ def _parse_ddo(
                     elem_defaults if isinstance(elem_defaults, dict) else None
                 )
                 children = _parse_cluster_fields(
-                    element, unresolved_uids, elem_clust_defaults, type_map,
+                    element,
+                    unresolved_uids,
+                    elem_clust_defaults,
+                    type_map,
                     element_frame,
                     fonts,
                 )

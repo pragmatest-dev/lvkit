@@ -64,9 +64,7 @@ EXISTS_PANE = [
 ]
 
 
-def _exists(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: Path | None
-) -> Any:
+def _exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: Path | None) -> Any:
     _, result = run_catalog_call(
         tmp_path,
         monkeypatch,
@@ -95,9 +93,7 @@ def test_a_file_a_folder_and_a_missing_path(
     assert missing.dup_path == target / "nope.txt"
 
 
-def test_an_empty_path_exists(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_an_empty_path_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # NI: "If you wire an empty path to path, file or folder exists? returns TRUE".
     assert _exists(tmp_path, monkeypatch, Path("")).exists is True
 

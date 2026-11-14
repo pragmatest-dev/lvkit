@@ -43,7 +43,10 @@ class ClassGlyph:
                 self._draw_cube(backend, x1 + pad, y1 + pad, cube, self.color)
             return
         backend.rect(
-            x1, y1, x2, y2,
+            x1,
+            y1,
+            x2,
+            y2,
             fill=theme.const_fill,
             stroke=self.color,
             stroke_width=1.2,
@@ -95,21 +98,31 @@ class ClassGlyph:
         fx2, fy2 = x + front, y + depth + front
         backend.polygon(
             [(fx1, fy1), (fx2, fy1), (fx2, fy2), (fx1, fy2)],
-            fill="none", stroke=color, stroke_width=1.0,
+            fill="none",
+            stroke=color,
+            stroke_width=1.0,
         )
         # Top face (parallelogram receding up-right).
         backend.polygon(
             [
-                (fx1, fy1), (x + depth, y),
-                (x + depth + front, y), (fx2, fy1),
+                (fx1, fy1),
+                (x + depth, y),
+                (x + depth + front, y),
+                (fx2, fy1),
             ],
-            fill="none", stroke=color, stroke_width=1.0,
+            fill="none",
+            stroke=color,
+            stroke_width=1.0,
         )
         # Side face (parallelogram receding up-right, right of the front).
         backend.polygon(
             [
-                (fx2, fy1), (x + depth + front, y),
-                (x + depth + front, y + front), (fx2, fy2),
+                (fx2, fy1),
+                (x + depth + front, y),
+                (x + depth + front, y + front),
+                (fx2, fy2),
             ],
-            fill="none", stroke=color, stroke_width=1.0,
+            fill="none",
+            stroke=color,
+            stroke_width=1.0,
         )

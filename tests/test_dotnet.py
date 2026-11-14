@@ -158,9 +158,7 @@ def test_records_follow_alignment_and_version_layout(
     version: LinkTableVersion, lead: int
 ) -> None:
     dnva = build_dnva_record(offset=lead, version=version)
-    dnda = build_dnda_record(
-        offset=lead + len(dnva), node_uids=[7, 8], version=version
-    )
+    dnda = build_dnda_record(offset=lead + len(dnva), node_uids=[7, 8], version=version)
     data = b"\x00" * lead + dnva + dnda
     table = decode_dotnet_assemblies(data, version)
     assert table.failures == []

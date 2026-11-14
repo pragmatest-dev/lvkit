@@ -172,9 +172,7 @@ def test_a_method_its_class_does_not_list_is_missing() -> None:
 
 
 @pytest.mark.needs_samples
-def test_a_vi_claiming_a_class_that_does_not_list_it_is_a_membership_problem() -> (
-    None
-):
+def test_a_vi_claiming_a_class_that_does_not_list_it_is_a_membership_problem() -> None:
     """The VI's claim is recorded (``claimed_owner``, by path), the class does not
     own it (no ``owns`` edge either way; the VI's own dependency on the class
     is an ordinary edge), and the disagreement is a problem on the VI in NI's

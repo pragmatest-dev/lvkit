@@ -485,21 +485,14 @@ _CONTEXT_HELP_SCALAR_TEXT: dict[str, str] = {
     "NumInt8": "byte [8-bit integer (-128 to 127)]",
     "NumInt16": "word [16-bit integer (-32768 to 32767)]",
     "NumInt32": "long [32-bit integer (-2147483648 to 2147483647)]",
-    "NumInt64": (
-        "quad [64-bit integer "
-        "(-9223372036854775808 to 9223372036854775807)]"
-    ),
+    "NumInt64": ("quad [64-bit integer (-9223372036854775808 to 9223372036854775807)]"),
     "NumUInt8": "unsigned byte [8-bit integer (0 to 255)]",
     "NumUInt16": "unsigned word [16-bit integer (0 to 65535)]",
     "NumUInt32": "unsigned long [32-bit integer (0 to 4294967295)]",
-    "NumUInt64": (
-        "unsigned quad [64-bit integer (0 to 18446744073709551615)]"
-    ),
+    "NumUInt64": ("unsigned quad [64-bit integer (0 to 18446744073709551615)]"),
     "NumFloat32": "single [32-bit real (single-precision) floating point]",
     "NumFloat64": "double [64-bit real (double-precision) floating point]",
-    "NumFloatExt": (
-        "extended [extended-precision real floating point]"
-    ),
+    "NumFloatExt": ("extended [extended-precision real floating point]"),
     "Boolean": "boolean (TRUE or FALSE)",
     "String": "string",
     "Path": "path",
@@ -620,9 +613,7 @@ def core_dasharray(style: WireStyle) -> str | None:
         row = pattern[len(pattern) // 2]  # the band rides the pattern's center row
         if row not in (0x00, 0xFF):
             bits = [(row >> (7 - i)) & 1 for i in range(8)]  # MSB = leftmost pixel
-            start = next(
-                (i for i in range(8) if bits[i] and not bits[(i - 1) % 8]), 0
-            )
+            start = next((i for i in range(8) if bits[i] and not bits[(i - 1) % 8]), 0)
             seq = [bits[(start + k) % 8] for k in range(8)]
             runs = [len(list(g)) for _, g in groupby(seq)]
             return ",".join(str(r) for r in runs)

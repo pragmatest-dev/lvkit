@@ -120,8 +120,7 @@ class ArrayControlGlyph(ControlGlyph):
         fills its whole row, since its parts are placed from the row's top-left."""
         glyph = self.default_element
         return (
-            isinstance(glyph, ElementRowGlyph)
-            and glyph.glyph.native_size is not None
+            isinstance(glyph, ElementRowGlyph) and glyph.glyph.native_size is not None
         )
 
     @property
@@ -183,9 +182,7 @@ class ArrayControlGlyph(ControlGlyph):
                 backend.rect(*rect, fill=theme.disabled_mask)
                 backend.end_group()
 
-    def _draw_indices(
-        self, backend: Backend, bounds: Rect, theme: Theme
-    ) -> list[Rect]:
+    def _draw_indices(self, backend: Backend, bounds: Rect, theme: Theme) -> list[Rect]:
         """Every shown dimension's index, each inside its own frame. Only the
         first dimension is the array controller's live target. Returns the rects
         drawn (each index's spinner and readout)."""
@@ -200,9 +197,14 @@ class ArrayControlGlyph(ControlGlyph):
                 ox, oy = index.numeric.value_origin
                 nw, nh = index.numeric.native_size or (0.0, 0.0)
                 numeric_box = scale_local(
-                    (box_local[0] + ox, box_local[1] + oy,
-                     box_local[0] + ox + nw, box_local[1] + oy + nh),
-                    self.native_size, bounds,
+                    (
+                        box_local[0] + ox,
+                        box_local[1] + oy,
+                        box_local[0] + ox + nw,
+                        box_local[1] + oy + nh,
+                    ),
+                    self.native_size,
+                    bounds,
                 )
                 if numeric_box is not None:
                     index.numeric.draw(backend, numeric_box, theme)
@@ -212,8 +214,11 @@ class ArrayControlGlyph(ControlGlyph):
             frame = scale_local(index.frame, self.native_size, bounds)
             if frame is not None:
                 backend.rect(
-                    *frame, fill=theme.fp_panel, stroke=theme.struct_border,
-                    stroke_width=1.0, rx=_INDEX_FRAME_RADIUS,
+                    *frame,
+                    fill=theme.fp_panel,
+                    stroke=theme.struct_border,
+                    stroke_width=1.0,
+                    rx=_INDEX_FRAME_RADIUS,
                 )
             if index.pieces is not None:
                 spinner = scale_local(index.pieces[0], self.native_size, bounds)
@@ -313,11 +318,7 @@ def _indices(
     elements; a Modern index looks the same then, other looks are washed."""
     ox, oy = origin
     shown = sorted(
-        (
-            p
-            for p in ctrl.parts
-            if p.part_id == _INDEX_PART_ID and not p.hidden
-        ),
+        (p for p in ctrl.parts if p.part_id == _INDEX_PART_ID and not p.hidden),
         key=lambda p: (part_rect_of(p)[1], part_rect_of(p)[0]),
     )
     result = []

@@ -42,6 +42,7 @@ def _panel() -> ParsedFrontPanel:
 
 def test_dispatcher_sends_a_ctl_to_the_control_renderer(monkeypatch) -> None:
     calls: dict[str, dict] = {}
+
     def stub(kind: str):
         return lambda path, **kw: calls.setdefault(kind, kw)
 
@@ -72,6 +73,7 @@ def test_with_name_dispatcher_mirrors_render_body(monkeypatch) -> None:
     from lvkit.render.body import render_body_with_name
 
     calls: dict[str, dict] = {}
+
     def stub(kind: str):
         return lambda path, **kw: calls.setdefault(kind, kw)
 

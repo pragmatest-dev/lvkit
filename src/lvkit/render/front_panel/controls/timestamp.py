@@ -73,8 +73,11 @@ class TimestampControlGlyph(ControlGlyph):
             self._draw_readout(backend, bounds, theme)
             return
         backend.rect(
-            *frame, fill=theme.fp_panel, stroke=theme.struct_border,
-            stroke_width=1.0, rx=3.0,
+            *frame,
+            fill=theme.fp_panel,
+            stroke=theme.struct_border,
+            stroke_width=1.0,
+            rx=3.0,
         )
         spinner = scale_local(self.spinner_local, self.native_size, bounds)
         if spinner is not None:
@@ -87,8 +90,13 @@ class TimestampControlGlyph(ControlGlyph):
     def _draw_readout(self, backend: Backend, box: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = box
         backend.rect(
-            x1, y1, x2, y2, fill=theme.fp_value_fill,
-            stroke=theme.struct_border, stroke_width=1.0,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.fp_value_fill,
+            stroke=theme.struct_border,
+            stroke_width=1.0,
         )
         lines = self.value.split("\n")
         n = len(lines)
@@ -96,7 +104,11 @@ class TimestampControlGlyph(ControlGlyph):
             text = fit_label(line, x2 - x1 - 4, backend, _TEXT_SIZE)
             ty = y1 + (y2 - y1) * (i + 1) / (n + 1) + _TEXT_SIZE * 0.3
             backend.text(
-                (x1 + x2) / 2, ty, text, _TEXT_SIZE, fill=theme.fp_value_text,
+                (x1 + x2) / 2,
+                ty,
+                text,
+                _TEXT_SIZE,
+                fill=theme.fp_value_text,
             )
 
     def _draw_calendar_button(self, backend: Backend, box: Rect, theme: Theme) -> None:
@@ -105,22 +117,36 @@ class TimestampControlGlyph(ControlGlyph):
         vendor's icon (same caveat as ``PictureControlGlyph``'s placeholder)."""
         x1, y1, x2, y2 = box
         backend.rect(
-            x1, y1, x2, y2, fill=theme.fp_panel,
-            stroke=theme.struct_border, stroke_width=1.0, rx=2.0,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.fp_panel,
+            stroke=theme.struct_border,
+            stroke_width=1.0,
+            rx=2.0,
         )
         w, h = x2 - x1, y2 - y1
         header_h = h * 0.32
         backend.rect(
-            x1, y1, x2, y1 + header_h,
-            fill=theme.pane_type_text, stroke="none",
+            x1,
+            y1,
+            x2,
+            y1 + header_h,
+            fill=theme.pane_type_text,
+            stroke="none",
         )
         tab_w = max(w * 0.08, 1.0)
         tab_h = header_h * 0.6
         for frac in (0.28, 0.72):
             tx = x1 + w * frac
             backend.line(
-                tx, y1, tx, y1 + tab_h,
-                stroke=theme.fp_panel, stroke_width=tab_w,
+                tx,
+                y1,
+                tx,
+                y1 + tab_h,
+                stroke=theme.fp_panel,
+                stroke_width=tab_w,
             )
 
 

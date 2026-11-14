@@ -328,9 +328,7 @@ class TestIPESDeleteLine:
 
     def test_graph_has_ipes_operation(self, delete_line_graph):
         """Parser → graph → InPlaceNode with boundary children."""
-        top = delete_line_graph.top_level_nodes(
-            vi_key(delete_line_graph, self.VI_NAME)
-        )
+        top = delete_line_graph.top_level_nodes(vi_key(delete_line_graph, self.VI_NAME))
         ipes_nodes = _find_ipes_nodes(
             delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
         )
@@ -338,9 +336,7 @@ class TestIPESDeleteLine:
 
     def test_ipes_has_decompose_and_recompose(self, delete_line_graph):
         """IPES must have decompose and recompose boundary children."""
-        top = delete_line_graph.top_level_nodes(
-            vi_key(delete_line_graph, self.VI_NAME)
-        )
+        top = delete_line_graph.top_level_nodes(vi_key(delete_line_graph, self.VI_NAME))
         ipes = _find_ipes_nodes(
             delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
         )[0]
@@ -352,9 +348,7 @@ class TestIPESDeleteLine:
 
     def test_decompose_has_agg_and_list_terminals(self, delete_line_graph):
         """Decompose op must have agg input + list outputs."""
-        top = delete_line_graph.top_level_nodes(
-            vi_key(delete_line_graph, self.VI_NAME)
-        )
+        top = delete_line_graph.top_level_nodes(vi_key(delete_line_graph, self.VI_NAME))
         ipes = _find_ipes_nodes(
             delete_line_graph, vi_key(delete_line_graph, self.VI_NAME), top
         )[0]

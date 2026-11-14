@@ -211,6 +211,7 @@ SCOPE_MAP = {
     4: "community",
 }
 
+
 def _same_class(label_text: str, classname: str) -> bool:
     """Case-insensitive class-name match for a private-data owner Label vs.
     a target ``<Name>.lvclass``.
@@ -959,9 +960,7 @@ def _build_ancestor_chain(
     current_link = parent_link_path
     current_link_type = parent_link_path_type
     while (
-        current_parent
-        and current_parent != ROOT_CLASS
-        and current_parent not in seen
+        current_parent and current_parent != ROOT_CLASS and current_parent not in seen
     ):
         ancestors.append(current_parent)
         seen.add(current_parent)

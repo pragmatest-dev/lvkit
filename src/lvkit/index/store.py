@@ -70,7 +70,8 @@ from .store_types import (
     require_types,
 )
 
-_SCHEMA = """
+_SCHEMA = (
+    """
 CREATE TABLE IF NOT EXISTS vis (
     path TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -263,7 +264,10 @@ CREATE TABLE IF NOT EXISTS meta (
     libraries TEXT,
     catalog_stamp TEXT NOT NULL DEFAULT ''
 );
-""" + TYPES_SCHEMA + TYPEDEFS_SCHEMA
+"""
+    + TYPES_SCHEMA
+    + TYPEDEFS_SCHEMA
+)
 
 _CHILD_TABLES = (
     "terminals",
@@ -664,9 +668,7 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
         return None
     try:
         conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
-        row = conn.execute(
-            "SELECT fingerprint FROM index_meta WHERE id = 0"
-        ).fetchone()
+        row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     except sqlite3.Error:
         return None
     if row is None or row[0] != _facts_fingerprint():

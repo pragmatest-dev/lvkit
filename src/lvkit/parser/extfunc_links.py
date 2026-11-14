@@ -157,9 +157,7 @@ def complete_library(
         found = exact or [
             r for r in in_library if _names_function(r.function, call.function)
         ]
-        same = {
-            (r.typed_name, r.path_type, r.path_tokens, r.function) for r in found
-        }
+        same = {(r.typed_name, r.path_type, r.path_tokens, r.function) for r in found}
         if len(same) != 1:
             return replace(
                 call,

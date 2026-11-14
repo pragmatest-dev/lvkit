@@ -202,7 +202,6 @@ class TestParallelCodegen:
         assert "ThreadPoolExecutor" not in code
 
 
-
 # =============================================================
 # Sequence frame integration
 # =============================================================

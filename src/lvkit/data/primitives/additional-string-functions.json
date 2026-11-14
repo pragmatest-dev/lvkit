@@ -268,6 +268,7 @@
     },
     "8101": {
       "name": "Scan String For Tokens",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-string-for-tokens.html",
       "terminals": [
         {
           "index": 0,
@@ -334,7 +335,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-string-for-tokens.html"
+      "gap_reason": "Scan String For Tokens is described by NI's page and one worked example, which does not pin down its edge cases: the operator format codes (%d, %o, %x, %b, %e/%f/%g), the unary + and - exception to the longest match, allow empty tokens?, and the backslash codes in the default delimiters (\\s, \\t, \\r, \\n). It is written when those are settled."
     }
   }
 }

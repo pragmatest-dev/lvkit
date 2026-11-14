@@ -180,7 +180,7 @@ _TWO_INPUTS = _state(5000, "%s and %s", inputs=2)
             _WARNING_RING,
             (),
             "error = LabVIEWError(code=6005, message=\"Attributes don't match VI "
-            "prototype.\", status=False)",
+            'prototype.", status=False)',
             (False, 6005, "", "Attributes don't match VI prototype."),
         ),
         (

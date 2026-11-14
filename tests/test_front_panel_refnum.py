@@ -91,7 +91,8 @@ def test_a_refnum_with_a_payload_resolves_via_its_own_ddo_child_typedesc(
 def test_typedef_wraps_reference_control_not_its_payload(tmp_path, has_payload):
     payload = (
         '<ddo class="stdString" uid="4"><bounds>(0, 0, 10, 10)</bounds></ddo>'
-        if has_payload else ""
+        if has_payload
+        else ""
     )
     saved_type = _QUEUE_STRING if has_payload else _VI_SERVER_REF
     fp_xml = _write_fp(

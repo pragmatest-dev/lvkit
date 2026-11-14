@@ -76,10 +76,10 @@ def _fill(xml: str) -> ET.Element:
             "00000000",
         ),
         ("<TypeDef><EW>1</EW></TypeDef>", "0001"),
-        ('<Path Ident="PTH0" TpVal="0" />', "5054483000000004" "00000000"),
+        ('<Path Ident="PTH0" TpVal="0" />', "505448300000000400000000"),
         (
             '<Path Ident="PTH0" TpVal="1"><String>a</String><String>bc</String></Path>',
-            "5054483000000009" "00010002" "0161" "026263",
+            "5054483000000009000100020161026263",
         ),
     ],
 )

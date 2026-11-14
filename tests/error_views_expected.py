@@ -639,7 +639,7 @@ Error Cluster From Error Code.vi""",
   (unnamed): Error = code 5
 
 ## Operations""",
-        "json": '[]',
+        "json": "[]",
     },
     "error_constant_none": {
         "lvnet": r"""vi Err.vi :
@@ -671,7 +671,7 @@ Error Cluster From Error Code.vi""",
   (unnamed): Error = no error
 
 ## Operations""",
-        "json": '[]',
+        "json": "[]",
     },
     "error_constant_warning": {
         "lvnet": r"""vi Err.vi :
@@ -703,7 +703,7 @@ Error Cluster From Error Code.vi""",
   (unnamed): Error = code 5
 
 ## Operations""",
-        "json": '[]',
+        "json": "[]",
     },
     "error_local_variable": {
         "lvnet": r"""vi Err.vi :

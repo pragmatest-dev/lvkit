@@ -102,7 +102,12 @@ class XNodeGlyph(DrawerHeaderGlyphBase):
         method_h = total_gap - header_h if self.method and has_real else equal_share
         hy2 = y1 + header_h
         backend.rect(
-            x1, y1, x2, hy2, fill=theme.xnode_header_fill, stroke="none",
+            x1,
+            y1,
+            x2,
+            hy2,
+            fill=theme.xnode_header_fill,
+            stroke="none",
         )
         backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
         if self.resource_name:

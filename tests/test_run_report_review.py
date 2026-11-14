@@ -209,9 +209,7 @@ def test_an_lvkit_error_in_any_command_ends_with_the_summary_and_a_hint(
 
     monkeypatch.setattr(target, explode)
     out = tmp_path / "out"
-    code = _lvkit(
-        monkeypatch, *(a.format(vi=vi, o=out) for a in argv)
-    )
+    code = _lvkit(monkeypatch, *(a.format(vi=vi, o=out) for a in argv))
     err = capsys.readouterr().err
     assert code == 1
     assert "KeyError: 'boom'" in err and "Traceback" in err

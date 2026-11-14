@@ -584,14 +584,10 @@ def test_bundle_connector_panel_aggregate_column_is_legible():
     # canvas-filled ones. It must reach the legibility floor.
     agg_widths = [
         float(w)
-        for w in re.findall(
-            r'<rect [^>]* width="([-\d.]+)"[^>]* fill="#fff6d8"', svg
-        )
+        for w in re.findall(r'<rect [^>]* width="([-\d.]+)"[^>]* fill="#fff6d8"', svg)
     ] or [
         float(w)
-        for w in re.findall(
-            r'<rect [^>]* fill="#fff6d8"[^>]* width="([-\d.]+)"', svg
-        )
+        for w in re.findall(r'<rect [^>]* fill="#fff6d8"[^>]* width="([-\d.]+)"', svg)
     ]
     assert agg_widths, "no aggregate cluster column drawn in the panel"
     assert max(agg_widths) >= _PANE_BUNDLE_AGG_MIN - 1.0, (
@@ -932,7 +928,9 @@ def test_empty_array_shows_disabled_default_element_not_blank_rect():
     # washed with the existing lv-disabled-mask convention (never a blank
     # theme.fp_panel rect).
     empty_glyph = ArrayConstantGlyph(
-        elements=(), element_color="#e05fa0", struct_uid="v::1",
+        elements=(),
+        element_color="#e05fa0",
+        struct_uid="v::1",
         default_element=default,
     )
     b1 = SvgBackend()
@@ -945,7 +943,9 @@ def test_empty_array_shows_disabled_default_element_not_blank_rect():
     # A NON-empty array: the real element is undimmed; rows past it get the
     # disabled default.
     populated_glyph = ArrayConstantGlyph(
-        elements=(_Marked(),), element_color="#e05fa0", struct_uid="v::2",
+        elements=(_Marked(),),
+        element_color="#e05fa0",
+        struct_uid="v::2",
         default_element=default,
     )
     b2 = SvgBackend()
@@ -970,7 +970,9 @@ def test_empty_array_shows_disabled_default_element_not_blank_rect():
     # draw ZERO rows for an empty array here; the fix is ``max(total, 1)``.
     small_bounds = (0.0, 0.0, 80.0, 24.0)  # tiny box -> exactly 1 visible row
     tiny_glyph = ArrayConstantGlyph(
-        elements=(), element_color="#e05fa0", struct_uid="v::4",
+        elements=(),
+        element_color="#e05fa0",
+        struct_uid="v::4",
         default_element=default,
     )
     b4 = SvgBackend()
@@ -1456,7 +1458,7 @@ _SUITES_RUNNING_TERM_UID = "14773"
 
 
 def test_empty_scalar_array_constant_shows_disabled_default_element():
-    """"SuitesRunning" (an empty array of strings) must show a DISABLED
+    """ "SuitesRunning" (an empty array of strings) must show a DISABLED
     default-valued element — a real empty-string constant glyph, dimmed —
     never a blank grey box (the disabled-default extension)."""
     from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
@@ -1469,11 +1471,7 @@ def test_empty_scalar_array_constant_shows_disabled_default_element():
     assert scene is not None
 
     target = next(
-        (
-            rn
-            for rn in scene.nodes
-            if rn.node.id == f"{vi}::{_SUITES_RUNNING_TERM_UID}"
-        ),
+        (rn for rn in scene.nodes if rn.node.id == f"{vi}::{_SUITES_RUNNING_TERM_UID}"),
         None,
     )
     assert target is not None, "SuitesRunning array constant not in scene"
@@ -1534,9 +1532,7 @@ def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_clus
         "dimmed — never a compact badge"
     )
     assert isinstance(result_changed_ref.terminal.inner, ClusterConstantGlyph)
-    smui_node = next(
-        n for n in graph.iter_nodes(vi) if n.id.endswith("::14625")
-    )
+    smui_node = next(n for n in graph.iter_nodes(vi) if n.id.endswith("::14625"))
     assert isinstance(smui_node, ConstantNode)
     assert smui_node.lv_type is not None and smui_node.lv_type.fields is not None
     field = next(f for f in smui_node.lv_type.fields if f.name == "ResultChangedRef")
@@ -1588,8 +1584,7 @@ def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_clus
 # cluster field ("error" -> status/code/source) — see issue #45's array-of-
 # clusters extension. Identified by its TERM uid (graph node id "...::633").
 _ARRAY_OF_CLUSTER_VI = Path(
-    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult/"
-    "TestResult_Init.vi"
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult/TestResult_Init.vi"
 )
 _ARRAY_OF_CLUSTER_TERM_UID = "633"
 
@@ -1650,7 +1645,9 @@ def test_array_of_cluster_constant_uses_real_element_geometry():
     error_field = next(fg for fg in real_cluster_geom.fields if fg.name == "error")
     assert error_field.nested is not None
     assert {nf.name for nf in error_field.nested.fields} == {
-        "status", "code", "source",
+        "status",
+        "code",
+        "source",
     }
     error_glyph = next(g for name, g in default.fields if name == "error")
     assert isinstance(error_glyph, ClusterConstantGlyph)
@@ -2504,9 +2501,9 @@ def test_gtr_slide_coercion_dot_frame_scoped_not_root():
     assert target.container_uid is not None  # never root -- would escape its frame
 
     tree = build_render_tree(scene)
-    assert not any(
-        pt in tree.content.dots for pt in target.coercion_dots
-    ), "the Slide coercion dot must NOT be in the root diagram's unconditional dots"
+    assert not any(pt in tree.content.dots for pt in target.coercion_dots), (
+        "the Slide coercion dot must NOT be in the root diagram's unconditional dots"
+    )
 
 
 def test_no_wire_segment_crosses_a_structure_it_is_not_inside():
@@ -3404,9 +3401,7 @@ def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
             ),
         ),
     )
-    glyph = ClusterConstantGlyph(
-        fields=fields, cluster_geom=cg, border_color="#ff00ff"
-    )
+    glyph = ClusterConstantGlyph(fields=fields, cluster_geom=cg, border_color="#ff00ff")
 
     backend = SvgBackend()
     glyph.draw(backend, box, DEFAULT_THEME)
@@ -3569,7 +3564,8 @@ def test_refnum_glyph_expanded_terminal_positions_at_real_heap_offset():
             backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
 
     inner = ClusterConstantGlyph(
-        fields=(("a", _Dot()),), border_color="#007f7f",
+        fields=(("a", _Dot()),),
+        border_color="#007f7f",
     )
     bounds = (0.0, 0.0, 100.0, 200.0)
     # The payload sits at a real heap sub-offset — e.g. left-inset, not
@@ -3909,7 +3905,7 @@ def test_array_typed_cluster_field_draws_real_elements_not_blank_box():
         fields=[ClusterField(name="Paths", type=path_array_type)],
     )
     glyph = _cluster_value_glyph(outer_type, None, False, None)
-    (name, field_glyph), = glyph.fields
+    ((name, field_glyph),) = glyph.fields
     assert name == "Paths"
     assert isinstance(field_glyph, ArrayConstantGlyph)
     assert field_glyph.elements == ()  # unset field -> genuinely empty array
@@ -3953,7 +3949,7 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
 
     glyph = _cluster_value_glyph(outer_type, None, False, None)
     assert isinstance(glyph, ClusterConstantGlyph)
-    (name, field_glyph), = glyph.fields
+    ((name, field_glyph),) = glyph.fields
     assert name == "EventRef"
     assert isinstance(field_glyph, RefnumGlyph)
     assert field_glyph.kind == "UserEvent"
@@ -3975,7 +3971,7 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     )
     glyph2 = _cluster_value_glyph(scalar_outer, None, False, None)
     assert isinstance(glyph2, ClusterConstantGlyph)
-    (name2, field_glyph2), = glyph2.fields
+    ((name2, field_glyph2),) = glyph2.fields
     assert name2 == "Q"
     assert isinstance(field_glyph2, RefnumGlyph)
     assert isinstance(field_glyph2.terminal, TypeTerminalGlyph)
@@ -3993,7 +3989,7 @@ def test_refnum_field_with_cluster_element_type_draws_compact_badge():
     )
     glyph3 = _cluster_value_glyph(plain_outer, None, False, None)
     assert isinstance(glyph3, ClusterConstantGlyph)
-    (name3, field_glyph3), = glyph3.fields
+    ((name3, field_glyph3),) = glyph3.fields
     assert name3 == "Plain"
     assert isinstance(field_glyph3, RefnumGlyph)
     assert field_glyph3.kind == "LVObjCtl"
@@ -4354,9 +4350,7 @@ def test_comparison_primitives_use_the_arith_triangle():
         "Less Or Equal?": (1104, "≤"),
     }
     for name, (prim_id, symbol) in expected.items():
-        node = _prim(
-            "prim", name, dirs=("input", "input", "output"), prim_id=prim_id
-        )
+        node = _prim("prim", name, dirs=("input", "input", "output"), prim_id=prim_id)
         glyph = resolve_glyph(node, _ctx())
         assert isinstance(glyph, ArithGlyph), name
         assert glyph.symbol == symbol, name
@@ -4868,9 +4862,7 @@ def test_bundle_by_name_class_fields_are_the_class_controls_current_ones():
     graph.load_vi(str(vi_path))  # default search -> class resolves too
     vi_name = vi_key(graph, vi_path.name)
 
-    dep_fields = graph.get_class_fields(
-        vi_key(graph, "DAQmx Module Runtime.lvclass")
-    )
+    dep_fields = graph.get_class_fields(vi_key(graph, "DAQmx Module Runtime.lvclass"))
     assert dep_fields is not None, "the class DOES resolve (case-insensitive)"
     channel_indeces = next(f for f in dep_fields if f.name == "Channel Indeces")
     assert [sf.name for sf in channel_indeces.type.fields] == [
@@ -5581,9 +5573,7 @@ def test_implicit_property_node_shows_target_name_and_type_color_bar():
         name="Abort",
         label="Abort",
         object_name="Bool",
-        properties=[
-            PropertyDef(segments=[PropertySegment(name="Disabled", code=0)])
-        ],
+        properties=[PropertyDef(segments=[PropertySegment(name="Disabled", code=0)])],
         terminals=[
             term(0, "input", "Refnum"),  # reference in (unwired, implicit)
             term(1, "output", "Refnum"),  # reference out
@@ -5653,7 +5643,9 @@ def test_property_node_glyph_draws_bar_only_when_implicit():
     assert 'fill="#4a9c3e"' in svg1  # the type-color bar
 
     explicit = PropertyNodeGlyph(
-        rows=(("Disabled", False),), class_name="Bool", is_implicit=False,
+        rows=(("Disabled", False),),
+        class_name="Bool",
+        is_implicit=False,
     )
     b2 = SvgBackend()
     explicit.draw(b2, bounds, DEFAULT_THEME)
@@ -5844,7 +5836,10 @@ def test_invoke_node_glyph_draws_bar_only_when_implicit():
     assert 'fill="#4a9c3e"' in svg1  # the type-color bar
 
     explicit = InvokeNodeGlyph(
-        method="Revert Symbols", rows=(), class_name="Tree (strict)", is_implicit=False,
+        method="Revert Symbols",
+        rows=(),
+        class_name="Tree (strict)",
+        is_implicit=False,
     )
     b2 = SvgBackend()
     explicit.draw(b2, bounds, DEFAULT_THEME)

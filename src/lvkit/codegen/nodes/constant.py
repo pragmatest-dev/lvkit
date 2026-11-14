@@ -28,7 +28,5 @@ def generate(node: ConstantNode, ctx: CodeGenContext) -> CodeFragment:
         return CodeFragment.empty()
 
     bound = ctx.constant_expression(node)
-    imports = (
-        {_SIMPLENAMESPACE_IMPORT} if _needs_simplenamespace(bound) else set()
-    )
+    imports = {_SIMPLENAMESPACE_IMPORT} if _needs_simplenamespace(bound) else set()
     return CodeFragment(bindings={const_id: bound}, imports=imports)

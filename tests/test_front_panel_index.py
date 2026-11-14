@@ -29,8 +29,12 @@ def _svg(indices: list[ParsedFPPart]) -> str:
         ParsedFPPart(None, "stdNum", (21, 47, 43, 101), {"typeDesc": "TypeID(39)"}),
     ]
     ctrl = ParsedFPControl(
-        uid="7", name="Grid", control_type="indArr", bounds=(0, 0, 80, 110),
-        parts=parts, label_visible=False,
+        uid="7",
+        name="Grid",
+        control_type="indArr",
+        bounds=(0, 0, 80, 110),
+        parts=parts,
+        label_visible=False,
     )
     return render_front_panel_svg(
         ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 300, 300))

@@ -41,9 +41,7 @@ def draw_free_label(
         )
 
 
-def _wrap(
-    line: str, width: float, backend: Backend, style: TextStyle
-) -> list[str]:
+def _wrap(line: str, width: float, backend: Backend, style: TextStyle) -> list[str]:
     """``line`` broken at spaces into lines that fit ``width``; a single word
     wider than that stays whole."""
     lines: list[str] = []

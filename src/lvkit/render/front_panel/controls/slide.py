@@ -63,8 +63,13 @@ class SlideControlGlyph:
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
-            x1, y1, x2, y2,
-            fill=theme.fp_value_fill, stroke=self.border_color, stroke_width=1.0,
+            x1,
+            y1,
+            x2,
+            y2,
+            fill=theme.fp_value_fill,
+            stroke=self.border_color,
+            stroke_width=1.0,
         )
         horizontal = (x2 - x1) >= (y2 - y1)
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
@@ -72,20 +77,31 @@ class SlideControlGlyph:
         if horizontal:
             tx1, tx2 = x1 + pad, x2 - pad
             backend.rect(
-                tx1, cy - _TRACK_THICKNESS / 2, tx2, cy + _TRACK_THICKNESS / 2,
-                fill=theme.pane_type_text, stroke="none",
+                tx1,
+                cy - _TRACK_THICKNESS / 2,
+                tx2,
+                cy + _TRACK_THICKNESS / 2,
+                fill=theme.pane_type_text,
+                stroke="none",
             )
             if self.fraction is not None:
                 backend.circle(
-                    tx1 + (tx2 - tx1) * self.fraction, cy, _THUMB_RADIUS,
-                    fill=theme.fp_value_fill, stroke=self.border_color,
+                    tx1 + (tx2 - tx1) * self.fraction,
+                    cy,
+                    _THUMB_RADIUS,
+                    fill=theme.fp_value_fill,
+                    stroke=self.border_color,
                     stroke_width=1.2,
                 )
         else:
             ty1, ty2 = y1 + pad, y2 - pad
             backend.rect(
-                cx - _TRACK_THICKNESS / 2, ty1, cx + _TRACK_THICKNESS / 2, ty2,
-                fill=theme.pane_type_text, stroke="none",
+                cx - _TRACK_THICKNESS / 2,
+                ty1,
+                cx + _TRACK_THICKNESS / 2,
+                ty2,
+                fill=theme.pane_type_text,
+                stroke="none",
             )
             if self.fraction is not None:
                 # A slide's origin is its BOTTOM (0 at the bottom, max at the
@@ -93,7 +109,10 @@ class SlideControlGlyph:
                 # control uses; 1 - fraction converts "distance from lo" to
                 # "distance from the top edge" this glyph draws downward from.
                 backend.circle(
-                    cx, ty2 - (ty2 - ty1) * self.fraction, _THUMB_RADIUS,
-                    fill=theme.fp_value_fill, stroke=self.border_color,
+                    cx,
+                    ty2 - (ty2 - ty1) * self.fraction,
+                    _THUMB_RADIUS,
+                    fill=theme.fp_value_fill,
+                    stroke=self.border_color,
                     stroke_width=1.2,
                 )

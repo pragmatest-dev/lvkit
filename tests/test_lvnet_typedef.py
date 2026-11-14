@@ -47,8 +47,13 @@ def test_a_cluster_control_renders_type_and_fields_with_defaults() -> None:
     fields = (
         TypedefField("Name", _STRING, "abc", ()),
         TypedefField("Gain", _DBL, "3600.0", ()),
-        TypedefField("Steps", LVType(LVTypeKind.ARRAY, element_type=_DBL), None, (),
-                     ("1.0", "2.0")),
+        TypedefField(
+            "Steps",
+            LVType(LVTypeKind.ARRAY, element_type=_DBL),
+            None,
+            (),
+            ("1.0", "2.0"),
+        ),
         TypedefField("Color", inner, None, (TypedefField("R", _DBL, "0.5", ()),)),
     )
     lines = render_lvnet_typedef(_info(root_type=root, fields=fields)).splitlines()
@@ -94,8 +99,13 @@ def test_names_and_string_defaults_are_escaped_like_a_vi_terminal() -> None:
     fields = (
         TypedefField("Slope ", _DBL, "1.0", ()),  # a trailing space forces quoting
         TypedefField("Note", _STRING, 'say "hi"\r\nnow', ()),
-        TypedefField("Names", LVType(LVTypeKind.ARRAY, element_type=_STRING), None, (),
-                     ("a", 'b"c')),
+        TypedefField(
+            "Names",
+            LVType(LVTypeKind.ARRAY, element_type=_STRING),
+            None,
+            (),
+            ("a", 'b"c'),
+        ),
     )
     lines = render_lvnet_typedef(_info(fields=fields)).splitlines()
     assert '    "Slope " : DBL default 1.0' in lines
@@ -106,7 +116,9 @@ def test_names_and_string_defaults_are_escaped_like_a_vi_terminal() -> None:
 
 def test_the_footnote_covers_a_named_type_under_an_array_root() -> None:
     named = LVType(
-        LVTypeKind.CLUSTER, typedef_name="Row.ctl", typedef_path="Row.ctl",
+        LVTypeKind.CLUSTER,
+        typedef_name="Row.ctl",
+        typedef_path="Row.ctl",
         fields=[ClusterField("A", _DBL)],
     )
     root = LVType(LVTypeKind.ARRAY, element_type=named, dimensions=1)

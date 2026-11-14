@@ -38,7 +38,9 @@ def test_a_graph_with_a_recorded_plot_area_insets_it_by_real_fraction() -> None:
     (partID 28) as a fraction of its own heap box, never a guessed
     constant."""
     ctrl = _control(
-        "Graph", "stdGraph", (0, 0, 100, 200),
+        "Graph",
+        "stdGraph",
+        (0, 0, 100, 200),
         parts=[_rect(9, (0, 0, 100, 200)), _rect(28, (10, 20, 90, 180))],
     )
     glyph = resolve_glyph(ctrl, DEFAULT_THEME)
@@ -64,7 +66,9 @@ def test_a_graph_actually_draws_its_inset_plot_area() -> None:
     """Hermetic, end-to-end through the real SVG markup: two nested
     ``<rect>``s, the inner one strictly inside the outer one."""
     ctrl = _control(
-        "Graph", "stdGraph", (0, 0, 100, 100),
+        "Graph",
+        "stdGraph",
+        (0, 0, 100, 100),
         parts=[_rect(9, (0, 0, 100, 100)), _rect(28, (10, 10, 90, 90))],
     )
     from lvkit.parser.models import ParsedFrontPanel

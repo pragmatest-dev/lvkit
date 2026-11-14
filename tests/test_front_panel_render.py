@@ -45,8 +45,9 @@ def _rects_filled(
 
 
 def _control(name: str, control_type: str, bounds, **kw) -> ParsedFPControl:
-    return ParsedFPControl(uid=name, name=name, control_type=control_type,
-                            bounds=bounds, **kw)
+    return ParsedFPControl(
+        uid=name, name=name, control_type=control_type, bounds=bounds, **kw
+    )
 
 
 def test_renders_svg_for_flat_controls():
@@ -82,19 +83,25 @@ def test_nested_cluster_children_placed_inside_parent_bounds():
     geometry.py-precomputed FPBox tree (per
     feedback_verify_render_against_reference: read the real markup)."""
     geom = ClusterGeom(
-        width=100.0, height=100.0,
+        width=100.0,
+        height=100.0,
         fields=(
-            ClusterFieldGeom(name="A", value_rect=(0.0, 0.0, 40.0, 100.0),
-                              label_rect=None),
-            ClusterFieldGeom(name="B", value_rect=(50.0, 0.0, 100.0, 100.0),
-                              label_rect=None),
+            ClusterFieldGeom(
+                name="A", value_rect=(0.0, 0.0, 40.0, 100.0), label_rect=None
+            ),
+            ClusterFieldGeom(
+                name="B", value_rect=(50.0, 0.0, 100.0, 100.0), label_rect=None
+            ),
         ),
     )
     field_a = _control("A", "stdNum", (0, 0, 100, 40))
     field_b = _control("B", "stdNum", (0, 50, 100, 100))
     cluster = _control(
-        "Group", "stdClust", (0, 0, 200, 200),
-        children=[field_a, field_b], cluster_geom=geom,
+        "Group",
+        "stdClust",
+        (0, 0, 200, 200),
+        children=[field_a, field_b],
+        cluster_geom=geom,
     )
     fp = ParsedFrontPanel(controls=[cluster], panel_bounds=(0, 0, 300, 300))
     svg = render_front_panel_svg(fp)
@@ -152,7 +159,10 @@ def test_svg_escapes_special_chars_in_names():
 
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 _TEST_SETTINGS_CTL = (
-    _SAMPLES / "ni-labview-icon-editor" / "vi.lib" / "LabVIEW Icon API"
+    _SAMPLES
+    / "ni-labview-icon-editor"
+    / "vi.lib"
+    / "LabVIEW Icon API"
     / "API_Test Settings.ctl"
 )
 
@@ -176,8 +186,15 @@ def test_real_ctl_renders_without_crashing():
 
 
 _LIST_VI_HIERARCHY = (
-    _SAMPLES / "OpenG" / "extracted" / "File Group 0" / "user.lib" / "_OpenG.lib"
-    / "appcontrol" / "appcontrol.llb" / "List VI Hierarchy__ogtk.vi"
+    _SAMPLES
+    / "OpenG"
+    / "extracted"
+    / "File Group 0"
+    / "user.lib"
+    / "_OpenG.lib"
+    / "appcontrol"
+    / "appcontrol.llb"
+    / "List VI Hierarchy__ogtk.vi"
 )
 
 
