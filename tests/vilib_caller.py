@@ -15,6 +15,10 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.grpc_server_module import (
+    GRPC_SERVER_MODULE_NAME,
+    GRPC_SERVER_MODULE_SOURCE,
+)
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
@@ -174,6 +178,7 @@ def run_catalog_call(
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (GRPC_SERVER_MODULE_NAME, GRPC_SERVER_MODULE_SOURCE),
     ):
         (package / f"{module}.py").write_text(text, encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -187,6 +192,7 @@ def run_catalog_call(
         for name in (
             "pkg.caller",
             "pkg.panels",
+            "pkg.grpc_server",
             "pkg.live_io",
             "pkg.variants",
             "pkg.errors",

@@ -1228,7 +1228,7 @@
       "name": "Register Reflection Descriptors.vi",
       "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Register Reflection Descriptors.vi",
       "category": "Addons",
-      "description": "gRPC library: hands the library the file descriptors its server's reflection service answers with; the generated code has no server, so the id passes on.",
+      "description": "gRPC library: hands the library the file descriptors its server's reflection service answers with; the generated server does not serve reflection, so the id passes on.",
       "terminals": [
         {
           "name": "error out",
@@ -1274,6 +1274,520 @@
       "status": "complete",
       "op": "GRPC_METADATA_PASSTHROUGH",
       "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Create Server.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Create Server.vi",
+      "category": "Addons",
+      "description": "gRPC library: makes a server. In Python the server id is the Server of the package's grpc_server module, on grpcio.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CREATE_SERVER",
+      "inline": true,
+      "runs_on_error": true,
+      "imports": []
+    },
+    {
+      "name": "Start Server.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Start Server.vi",
+      "category": "Addons",
+      "description": "gRPC library: starts the server listening on the address (0.0.0.0:50051 when it is empty), with TLS from the certificate and key files when the certificate path is longer than one character, and returns the port. A server that cannot start is error -8001.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Listening Port",
+          "index": 2,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "listening_port"
+        },
+        {
+          "name": "gRPCid server out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "Server Key File (.key)",
+          "index": 5,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "server_key_file"
+        },
+        {
+          "name": "Server Certificate File (.crt)",
+          "index": 7,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "server_certificate_file"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "gRPCid server in",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        },
+        {
+          "name": "Server Address",
+          "index": 11,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "server_address"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_START_SERVER",
+      "inline": true,
+      "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "RpcError",
+          "module": "grpc",
+          "code_attribute": "labview_code"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Stop Server.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Stop Server.vi",
+      "category": "Addons",
+      "description": "gRPC library: stops the server and cancels the calls in progress at once.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "gRPCid server in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_STOP_SERVER",
+      "inline": true,
+      "runs_on_error": true,
+      "imports": []
+    },
+    {
+      "name": "Create And Register Server Event.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Create And Register Server Event.vim",
+      "category": "Addons",
+      "description": "gRPC library: makes the user event a call of the method arrives on and registers it with the server; the first registration of a method is the one kept. The request and response message names give the Python classes of the messages.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "event",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "event"
+        },
+        {
+          "name": "gRPCid server out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "Method name",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "method_name"
+        },
+        {
+          "name": "Response Metadata Name",
+          "index": 8,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "response_metadata_name"
+        },
+        {
+          "name": "Request Metadata Name",
+          "index": 9,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "request_metadata_name"
+        },
+        {
+          "name": "event in",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "event_in"
+        },
+        {
+          "name": "gRPCid server in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_REGISTER_SERVER_EVENT",
+      "inline": true,
+      "runs_on_error": true,
+      "imports": []
+    },
+    {
+      "name": "Read Call Request.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Message Requests/Read Call Request.vim",
+      "category": "Addons",
+      "description": "gRPC library: reads the next request message of the call. A read that gets none is error -(1000 + the call's status), -1001 for a cancelled call, else -2.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Request Data",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "request_data"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Request Type",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "request_type"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_READ_CALL_REQUEST",
+      "inline": true,
+      "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "RpcError",
+          "module": "grpc",
+          "code_attribute": "labview_code"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Write Call Response.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Message Requests/Write Call Response.vim",
+      "category": "Addons",
+      "description": "gRPC library: sends one response message of the call. A write to a call that is over is error -(1000 + the call's status), -1001 for a cancelled call, else -2.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Response Data",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_data"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_WRITE_CALL_RESPONSE",
+      "inline": true,
+      "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "RpcError",
+          "module": "grpc",
+          "code_attribute": "labview_code"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Complete Call.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Message Requests/Complete Call.vi",
+      "category": "Addons",
+      "description": "gRPC library: ends the call with its status; a call that is over stays as it is.",
+      "terminals": [
+        {
+          "name": "gRPCid",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        },
+        {
+          "name": "error in",
+          "index": 3,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "error out",
+          "index": 10,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_COMPLETE_CALL",
+      "inline": true,
+      "runs_on_error": true,
+      "imports": []
+    },
+    {
+      "name": "Set Call Status.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Set Call Status.vi",
+      "category": "Addons",
+      "description": "gRPC library: sets the status the call ends with.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Details",
+          "index": 9,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "details"
+        },
+        {
+          "name": "Status Code",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "status_code"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_SET_CALL_STATUS",
+      "inline": true,
+      "runs_on_error": true,
+      "imports": []
+    },
+    {
+      "name": "Is Call Cancelled.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Message Requests/Is Call Cancelled.vi",
+      "category": "Addons",
+      "description": "gRPC library: whether the call ended before it was completed: the client cancelled it, its deadline passed, or the server stopped.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Is Cancelled",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "is_cancelled"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_IS_CALL_CANCELLED",
+      "inline": true,
+      "runs_on_error": true,
       "imports": []
     }
   ]

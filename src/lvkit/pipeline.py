@@ -36,6 +36,10 @@ from lvkit.codegen.errors_module import (
     LABVIEW_ERROR_NAME,
 )
 from lvkit.codegen.gaps import Gap, GapLog, gap_problem
+from lvkit.codegen.grpc_server_module import (
+    GRPC_SERVER_MODULE_NAME,
+    GRPC_SERVER_MODULE_SOURCE,
+)
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.live_io_module import (
     LIVE_IO_MODULE_NAME,
@@ -391,6 +395,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{PANELS_MODULE_NAME}.py")
         return f"from {dots}{module} import {names}"
 
+    def grpc_server_import(names: str) -> str:
+        dots, package, module = relative(output_dir / f"{GRPC_SERVER_MODULE_NAME}.py")
+        return f"from {dots}{module} import {names}"
+
     def root_module_import(stem: str, alias: str) -> ModuleImport:
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
@@ -415,6 +423,7 @@ def create_import_resolver(
         live_io_import,
         panels_import,
         variant_import,
+        grpc_server_import,
     )
 
 
@@ -452,6 +461,17 @@ def _write_notifiers_module(package_root: Path) -> None:
         f"{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}",
         NOTIFIERS_MODULE_NAME,
         NOTIFIERS_MODULE_SOURCE,
+    )
+
+
+def _write_grpc_server_module(package_root: Path) -> None:
+    """Write ``grpc_server.py`` at the package root when a generated module imports
+    from it."""
+    _write_support_module(
+        package_root,
+        f".{GRPC_SERVER_MODULE_NAME} import",
+        GRPC_SERVER_MODULE_NAME,
+        GRPC_SERVER_MODULE_SOURCE,
     )
 
 
@@ -936,6 +956,7 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
+            GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
         ],
     )
@@ -948,6 +969,7 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
+            GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
         },
     )
@@ -1227,6 +1249,7 @@ def generate_python(
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
+    _write_grpc_server_module(output_dir_resolved)
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)

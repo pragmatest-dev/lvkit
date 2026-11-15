@@ -64,6 +64,7 @@ from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_who
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
+from .grpc_server_module import GRPC_SERVER_MODULE_NAME
 from .import_resolver import ImportResolver, NameImport
 from .label_names import python_label
 from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
@@ -715,6 +716,14 @@ class CodeGenContext:
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
+
+    def import_grpc_server(self, names: str) -> None:
+        """Import ``names`` (``Server``, ``CallError``, comma separated) from the
+        package's ``grpc_server`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.grpc_server_import(names)
+        self.add_import(statement or f"from .{GRPC_SERVER_MODULE_NAME} import {names}")
 
     def import_panels(self, names: str, at_module_level: bool = False) -> None:
         """Import ``names`` (``Panel``, ``panel_of``, ``PanelError``, comma

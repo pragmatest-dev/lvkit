@@ -3,7 +3,8 @@ runs even when an error comes in on its error in. Each was checked against NI's
 public page (the polymorphic Digital waveform VIs against their instance pages).
 JKI State Machine's Parse State Queue and G CLI's Start CLI Interface and Exit With
 Error Cluster Code are not NI VIs: their own diagrams read the error in, so they
-run on one."""
+run on one. So do the gRPC library's server VIs: their diagrams call the DLL with
+no case on the error in and merge it with the call's own error."""
 
 from __future__ import annotations
 
@@ -16,9 +17,18 @@ DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
 
 VILIB_ENTRIES = frozenset(
     {
+        "addons:Complete Call.vi",
+        "addons:Create And Register Server Event.vim",
+        "addons:Create Server.vi",
         "addons:Exit With Error Cluster Code",
+        "addons:Is Call Cancelled.vi",
         "addons:Parse State Queue__jki_lib_state_machine",
+        "addons:Read Call Request.vim",
+        "addons:Set Call Status.vi",
         "addons:Start CLI Interface",
+        "addons:Start Server.vi",
+        "addons:Stop Server.vi",
+        "addons:Write Call Response.vim",
         "application-control:Close Reference Function",
         "application-control:Delete Data Value Reference Function",
         "cluster-class-variant:Preserve Run-Time Class Function",

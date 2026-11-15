@@ -196,6 +196,20 @@ def request_message(
     """The expression of the request message: the wired input ``param`` in its
     plain form read into ``request`` (an unwired one is the empty message). The
     assignment that holds the wired value goes onto ``statements``."""
+    return message_from_input(node, ctx, entry, request.expression(), statements, param)
+
+
+def message_from_input(
+    node: VINode,
+    ctx: CodeGenContext,
+    entry: VIEntry,
+    class_expression: str,
+    statements: list[ast.stmt],
+    param: str,
+) -> str:
+    """The expression of a message of the class ``class_expression`` (a Python
+    expression) read from the wired input ``param`` in its plain form. The
+    assignment that holds the wired value goes onto ``statements``."""
     request_term = terminal_of(node, entry, param, TerminalDirection.INPUT)
     plain = "{}"
     if request_term is not None and ctx.is_wired(request_term.id):
@@ -215,7 +229,7 @@ def request_message(
                 "clusters of them",
                 node,
             ) from error
-    return f"json_format.ParseDict({plain}, {request.expression()}())"
+    return f"json_format.ParseDict({plain}, {class_expression}())"
 
 
 def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:

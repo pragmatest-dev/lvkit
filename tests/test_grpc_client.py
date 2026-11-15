@@ -527,7 +527,7 @@ def test_the_metadata_registration_vis_pass_their_id_on(
     assert result.error is None
 
 
-def test_a_neighbour_server_vi_stays_a_gap(
+def test_the_generic_method_server_event_vi_stays_a_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     gaps: list[Gap] = []
@@ -535,7 +535,7 @@ def test_a_neighbour_server_vi_stays_a_gap(
         run_catalog_call(
             tmp_path,
             monkeypatch,
-            [*SERVER, "Message Requests", "Complete Call.vi"],
+            [*SERVER, "Server", "Create And Register Generic Method Server Event.vi"],
             [(0, "output", ERROR_CLUSTER), (8, "input", ERROR_CLUSTER)],
             {"error_in": (8, ERROR_CLUSTER)},
             {"error": (0, ERROR_CLUSTER)},
@@ -544,4 +544,4 @@ def test_a_neighbour_server_vi_stays_a_gap(
             runtime_not_implemented=True,
         )
     assert len(gaps) == 1
-    assert "Complete Call" in gaps[0].name
+    assert "Generic Method" in gaps[0].name

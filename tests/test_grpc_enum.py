@@ -284,8 +284,8 @@ def test_a_neighbour_gRPC_library_vi_stays_a_gap(
                 "gRPC",
                 "LabVIEW gRPC Library",
                 "Server API",
-                "Message Requests",
-                "Complete Call.vi",
+                "Server",
+                "Create And Register Generic Method Server Event.vi",
             ],
             [(0, "output", ERROR_CLUSTER), (8, "input", ERROR_CLUSTER)],
             {"error_in": (8, ERROR_CLUSTER)},
@@ -295,4 +295,4 @@ def test_a_neighbour_gRPC_library_vi_stays_a_gap(
             runtime_not_implemented=True,
         )
     assert len(gaps) == 1
-    assert "Complete Call" in gaps[0].name
+    assert "Generic Method" in gaps[0].name
