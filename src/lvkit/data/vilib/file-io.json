@@ -4411,7 +4411,7 @@
           "code": 6
         }
       ],
-      "python_code": "_target = {target_directory} if {target_directory} and str({target_directory}) != '.' else Path({zip_file}).parent\nwith zipfile.ZipFile({zip_file}) as _zip:\n    if {preview_only}:\n        raise NotImplementedError('Unzip: Preview only? is TRUE, and NI does not say how the file paths are written into Preview')\n    _names = _zip.namelist()\n    if any(_info.flag_bits & 0x1 for _info in _zip.infolist()):\n        raise ZipPasswordProtectedError('Unzip: ' + str({zip_file}) + ' is password protected')\n    _zip.extractall(_target)\n{unzipped_files} = [Path(_target) / _name for _name in _names if not _name.endswith('/')]\n{preview} = ''",
+      "python_code": "_target = {target_directory} if {target_directory} and str({target_directory}) != '.' else Path({zip_file}).parent\nwith zipfile.ZipFile({zip_file}) as _zip:\n    if {preview_only}:\n        raise NotImplementedError('Unzip of ' + str({zip_file}) + ': Preview only? is TRUE, and NI does not say how the file paths are written into Preview')\n    _names = _zip.namelist()\n    if any(_info.flag_bits & 0x1 for _info in _zip.infolist()):\n        raise ZipPasswordProtectedError('Unzip: ' + str({zip_file}) + ' is password protected')\n    _zip.extractall(_target)\n{unzipped_files} = [Path(_target) / _name for _name in _names if not _name.endswith('/')]\n{preview} = ''",
       "inline": true
     },
     {
