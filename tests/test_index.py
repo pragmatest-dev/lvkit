@@ -345,10 +345,10 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        # 195 (no static caller): dead code + top-level entry points + VIs
+        # 192 (no static caller): dead code + top-level entry points + VIs
         # reached only dynamically (Call-By-Reference / VI Server). Matches the
         # eval harness (q18). A call names its callee by file path, and a method
-        # called through a subclass names the ancestor's file. 195, not the 181
+        # called through a subclass names the ancestor's file. Not the 181
         # a search by file name gave: 13 methods are called only by VIs that
         # record them (or the parent class they inherit them from) at the
         # toolkit's installed <vilib>/addons/_JKI Toolkits/VI Tester/... path,
@@ -356,7 +356,11 @@ class TestFullCorpusDemo:
         # Prototype/.../MyNewVI.vi is uncalled: it claims MyClass.lvclass, but
         # the class does not list it, so it is not the method testMyNewVI.vi's
         # dispatch call names (that call is to a missing method).
-        assert total_uncalled == 195
+        # 192, not 195: a parent class recorded at a missing path is found on the
+        # VI search path by the path's tail, so the inherited calls of the
+        # Queue TestCase and Merge Errors TestCase examples now reach
+        # TestCase/failIf.vi, passIf.vi and passIfError.vi.
+        assert total_uncalled == 192
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====
