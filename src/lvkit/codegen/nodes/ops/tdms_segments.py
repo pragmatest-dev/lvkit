@@ -7,11 +7,9 @@ the channels ``channel name(s) in`` names, in the group ``group name in`` (the
 default is "Untitled"); unwired channel names are named "Untitled", "Untitled1",
 "Untitled2"...; ``group name out`` and ``channel name(s) out`` return the names
 written. npTDMS: ``writer.write_segment([ChannelObject(group, channel, data)])``.
-The data of one channel is a 1D array of numbers, Booleans or strings; a 1D
-array is one channel whatever the ``data layout``, which only says how a 2D
-array's rows and columns are the channels, so a 2D array is a gap. An analog
-waveform, or a 1D array of them, is written by ``tdms_waveform``; dynamic data,
-a digital waveform and a digital table are gaps.
+A 1D or 2D array of numbers, Booleans, strings or timestamps is written by
+``tdms_channels``. An analog waveform, or a 1D array of them, is written by
+``tdms_waveform``; dynamic data, a digital waveform and a digital table are gaps.
 
 NI, "TDMS Set Properties Function" (``functions/tdms-set-properties.html``): "If
 you wire the group name and channel name inputs with values, the function writes
@@ -32,7 +30,6 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVTypeKind, Terminal
 
 from ...context import CodeGenContext
@@ -48,24 +45,15 @@ from ._tdms import (
     SetPropertiesPane,
     WritePane,
 )
+from .tdms_channels import (
+    channel_data,
+    interleaved_gap_source,
+    rows_write_source,
+)
 from .tdms_waveform import IMPORTS as WAVEFORM_IMPORTS
 from .tdms_waveform import waveform_data, waveform_write_source
 
 UNTITLED = "'Untitled'"
-# The numpy type of a channel of each LabVIEW numeric type: npTDMS picks the
-# smallest integer type that holds the values of a list, so the type is written.
-NUMPY_TYPES = {
-    "NumInt8": "int8",
-    "NumInt16": "int16",
-    "NumInt32": "int32",
-    "NumInt64": "int64",
-    "NumUInt8": "uint8",
-    "NumUInt16": "uint16",
-    "NumUInt32": "uint32",
-    "NumUInt64": "uint64",
-    "NumFloat32": "float32",
-    "NumFloat64": "float64",
-}
 
 
 def _refnum(
@@ -99,44 +87,6 @@ def _is_array(term: Terminal | None) -> bool:
     return lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
 
 
-def _channel_data(node: PrimitiveNode, term: Terminal | None, data: str) -> str:
-    """The expression for the data of the one channel a TDMS Write writes."""
-    lv_type = term.lv_type if term is not None else None
-    if lv_type is None:
-        raise ConversionGap("TDMS Write of data of an unknown type", node)
-    element = lv_type.element_type if lv_type.kind == LVTypeKind.ARRAY else lv_type
-    if element is not None and element.underlying_type == "MeasureData":
-        raise ConversionGap(
-            "TDMS Write of dynamic data, a digital waveform or a digital table "
-            "is not converted",
-            node,
-        )
-    if lv_type.kind != LVTypeKind.ARRAY:
-        raise ConversionGap(
-            f"TDMS Write of {term.type_label() if term else 'that type'} is not "
-            "converted: only a 1D array is",
-            node,
-        )
-    if (lv_type.dimensions or 1) != 1:
-        raise ConversionGap(
-            "TDMS Write of a 2D array is not converted: NI's page does not say "
-            "whether the rows or the columns are the channels of each data layout",
-            node,
-        )
-    name = element.underlying_type if element else None
-    if name in NUMPY_TYPES:
-        return f"numpy.array({data}, dtype=numpy.{NUMPY_TYPES[name]})"
-    if is_boolean_type_name(name):
-        return f"numpy.array({data}, dtype=numpy.bool_)"
-    if is_string_type_name(name):
-        return data
-    raise ConversionGap(
-        f"TDMS Write of a 1D array of {name} is not converted: npTDMS has no "
-        "channel type for it",
-        node,
-    )
-
-
 @register_op_fragment("TDMS_WRITE")
 def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     pane: WritePane = WRITE_PANES[node.prim_id or 0]
@@ -155,27 +105,46 @@ def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         return _write_waveforms(
             ctx, node, pane, statements, (ref, group, channel), data_text, waveforms
         )
-    data = _channel_data(node, data_term, data_text)
-    if names_text is None:
-        channel_value = UNTITLED
-    elif _is_array(terminal(node, "input", pane.channel_names)):
-        names = string_variable(ctx, node, names_text, statements, "channel_names")
-        channel_value = f"{names}[0] if {names} else {UNTITLED}"
-    else:
-        channel_value = names_text
-    source = (
-        f"{channel} = {channel_value}\n"
-        f"{ref}[2].add(({group}, {channel}))\n"
-        f"{ref}[0].write_segment([nptdms.ChannelObject({group}, {channel}, {data})])"
-    )
-    statements.extend(ast.parse(source).body)
-    ctx.add_import(NPTDMS_IMPORT)
-    if "numpy." in data:
-        ctx.add_import("import numpy")
+    array = channel_data(node, data_term)
+    layout = input_expression(ctx, node, pane.data_layout)
     bindings: dict[str, str] = {}
     _bind(bindings, node, pane.refnum_out, ref)
     _bind(bindings, node, pane.group_name_out, group)
-    _bind(bindings, node, pane.channel_names_out, f"[{channel}]")
+    if array.dimensions == 2:
+        channels = ctx.make_output_var("channels", node.id)
+        source = rows_write_source(
+            ref,
+            group,
+            data_text,
+            layout or "0",
+            array.convert,
+            names_text,
+            _is_array(terminal(node, "input", pane.channel_names)),
+            channels,
+            channel,
+        )
+        _bind(bindings, node, pane.channel_names_out, channels)
+    else:
+        if layout is not None:
+            statements.extend(ast.parse(interleaved_gap_source(layout)).body)
+        if names_text is None:
+            channel_value = UNTITLED
+        elif _is_array(terminal(node, "input", pane.channel_names)):
+            names = string_variable(ctx, node, names_text, statements, "channel_names")
+            channel_value = f"{names}[0] if {names} else {UNTITLED}"
+        else:
+            channel_value = names_text
+        data = array.convert.format(data_text)
+        source = (
+            f"{channel} = {channel_value}\n"
+            f"{ref}[2].add(({group}, {channel}))\n"
+            f"{ref}[0].write_segment("
+            f"[nptdms.ChannelObject({group}, {channel}, {data})])"
+        )
+        _bind(bindings, node, pane.channel_names_out, f"[{channel}]")
+    statements.extend(ast.parse(source).body)
+    for needed in (NPTDMS_IMPORT, *array.imports):
+        ctx.add_import(needed)
     return CodeFragment(statements=statements, bindings=bindings)
 
 

@@ -34,6 +34,22 @@ from ...waveform_values import waveform_form
 NAME_ATTRIBUTE = "NI_ChannelName"
 ANALOG = "AnalogWaveform"
 IMPORTS = ("import datetime", "import nitypes.time")
+# Why the waveforms of the other nitypes classes have no channel. NI's TDMS Write
+# page lists "Digital waveform" as data but not how its lines are stored (web
+# searches of forums.ni.com and NI's TDMS file-format pages found no layout: a
+# forum thread, https://forums.ni.com/t5/LabVIEW/TDMS-digital-data/td-p/2822016,
+# reports plain TDMS nodes keep only one byte per value, with no line count), and
+# lists complex numbers only as arrays, never a complex waveform.
+_UNWRITTEN = {
+    "DigitalWaveform": (
+        "NI's TDMS Write page accepts it but does not document how its lines are "
+        "stored in the file"
+    ),
+    "ComplexWaveform": (
+        "NI's TDMS Write page lists complex numbers only as arrays, not a "
+        "complex waveform"
+    ),
+}
 
 
 def waveform_data(node: PrimitiveNode, term: Terminal | None) -> bool | None:
@@ -48,20 +64,18 @@ def waveform_data(node: PrimitiveNode, term: Terminal | None) -> bool | None:
     if element is None or element.underlying_type != "MeasureData":
         return None
     if element.is_timestamp:
-        raise ConversionGap(
-            "TDMS Write of timestamps is not converted: a timestamp channel is "
-            "not written yet",
-            node,
-        )
+        return None
     flavor = element.measure_flavor or "waveform"
-    if waveform_form(flavor, node).class_name != ANALOG:
+    form = waveform_form(flavor, node)
+    if form.class_name != ANALOG:
+        why = _UNWRITTEN.get(form.class_name, "only an analog waveform is")
+        raise ConversionGap(f"TDMS Write of a {flavor} is not converted: {why}", node)
+    if is_array and (lv_type.dimensions or 1) != 1:
         raise ConversionGap(
-            f"TDMS Write of a {flavor} is not converted: only an analog waveform "
-            "is",
+            "TDMS Write of a 2D array of waveforms is not converted: NI's TDMS "
+            "Write page accepts an analog waveform or a 1D array of them",
             node,
         )
-    if is_array and (lv_type.dimensions or 1) != 1:
-        raise ConversionGap("TDMS Write of a 2D array of waveforms", node)
     return is_array
 
 
