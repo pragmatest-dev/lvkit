@@ -1886,9 +1886,9 @@ class _DecomposeDataValRefHandler(NodeTypeHandler):
 
 
 class _DecomposeMatchHandler(NodeTypeHandler):
-    """Stub handler for variant match nodes (class="decomposeMatchNode").
-
-    Variant decompose — terminals are parsed but codegen is deferred to V2.
+    """The In Place Element structure's In Place In / Out Element border node
+    (class="decomposeMatchNode"): the whole value enters on one half and leaves,
+    same type, on the other (``codegen/nodes/in_place._pass_whole_values``).
     """
 
     xml_class = "decomposeMatchNode"
