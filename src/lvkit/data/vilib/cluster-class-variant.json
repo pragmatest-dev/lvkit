@@ -1,6 +1,6 @@
 {
   "category": "Cluster, Class, & Variant",
-  "count": 23,
+  "count": 24,
   "entries": [
     {
       "name": "Related Information",
@@ -979,6 +979,82 @@
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
+    },
+    {
+      "name": "Get Type Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Type Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves data type information from the data type stored in variant.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "type definition",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "type_definition",
+          "description": "type definition returns TRUE when the data type stored in variant is an instance of a type definition."
+        },
+        {
+          "name": "name",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "name",
+          "description": "name returns the name of the data type stored in variant."
+        },
+        {
+          "name": "type",
+          "index": 3,
+          "direction": "output",
+          "type": "UnitUInt8",
+          "enum_values": null,
+          "python_param": "type",
+          "description": "type returns the data type stored in variant."
+        },
+        {
+          "name": "type definition info",
+          "index": 4,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "type_definition_info",
+          "description": "type definition info returns the type definition information only if type definition is TRUE."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_TYPE_INFORMATION",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Data Type Parsing",
