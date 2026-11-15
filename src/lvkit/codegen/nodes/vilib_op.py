@@ -34,6 +34,7 @@ from . import (
     grpc_client,
     grpc_enum,
     grpc_stream,
+    search_and_replace_pattern,
 )
 
 
@@ -105,6 +106,7 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "GRPC_PACK_TO_ANY": grpc_any.pack_to_any,
     "GRPC_UNPACK_FROM_ANY": grpc_any.unpack_from_any,
     "GRPC_CLUSTER_METADATA": grpc_any.cluster_to_message_metadata,
+    "SEARCH_AND_REPLACE_PATTERN": search_and_replace_pattern.generate,
 }
 
 

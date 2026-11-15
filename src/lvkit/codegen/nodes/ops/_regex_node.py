@@ -1,6 +1,7 @@
 """What the ops that search a string with a regular expression (Match Pattern,
-Search and Replace String) share: reading their inputs, the search start an
-``offset`` input gives, and the translator functions written into a module."""
+Search and Replace String, Search and Replace Pattern) share: reading their
+inputs, the search start an ``offset`` input gives, and the translator functions
+written into a module."""
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ import ast
 from collections.abc import Callable
 from typing import Any
 
-from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.models import GraphNode, PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
@@ -43,7 +44,7 @@ def is_wired_output(ctx: CodeGenContext, node: PrimitiveNode, index: int) -> boo
 
 def string_variable(
     ctx: CodeGenContext,
-    node: PrimitiveNode,
+    node: GraphNode,
     text: str,
     statements: list[ast.stmt],
     base: str = "string",
@@ -59,7 +60,7 @@ def string_variable(
 
 def search_start(
     ctx: CodeGenContext,
-    node: PrimitiveNode,
+    node: GraphNode,
     offset: str | None,
     statements: list[ast.stmt],
 ) -> str | None:
