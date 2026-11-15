@@ -537,7 +537,9 @@ def test_system_exec_without_waiting_returns_empty_output(
     )
     assert (result.stdout, result.stderr) == ("", "")
     for _ in range(100):
-        if marker.exists():
+        # The shell creates the file before echo writes into it, so wait for the
+        # content, not the file.
+        if marker.exists() and marker.read_text(encoding="utf-8"):
             break
         time.sleep(0.05)
     assert marker.read_text(encoding="utf-8") == "hi\n"
