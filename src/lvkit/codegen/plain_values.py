@@ -8,8 +8,10 @@ itself. ``from_plain`` writes the statements that build a value of a LabVIEW typ
 from the plain form, checking each part against the type. Both work from the
 type at generation time, so the generated code is plain Python with the types
 written out. Only Booleans, integers, floating-point numbers, strings and the
-arrays and clusters of them have a plain form; any other type raises
-``UnsupportedPlainType`` naming it.
+arrays and clusters of them have a plain form, and so does an enum when the
+caller asks for it (``enums``): the name of its item, which is how protobuf's
+JSON names an enum's value. Any other type raises ``UnsupportedPlainType``
+naming it.
 
 A cluster is a tuple for an on-diagram cluster and a ``SimpleNamespace`` for a
 typedef (``cluster_members``); the labels come from the type's fields.
@@ -72,6 +74,8 @@ class PlainErrors:
 class PlainOptions:
     """How ``from_plain`` reads: ``null_to_default`` and ``strict`` are Python
     expressions (``"True"`` and ``"False"`` when known at generation time).
+    ``enums`` reads an enum from the name of its item (the enum is an
+    ``UnsupportedPlainType`` otherwise: NI's JSON has no enums);
     ``missing_to_default`` gives a cluster element the plain form leaves out the
     default of the type, instead of the ``element_missing`` error;
     ``numbers_as_text`` reads an integer or a floating-point number written as
@@ -83,6 +87,7 @@ class PlainOptions:
     errors: PlainErrors
     missing_to_default: bool = False
     numbers_as_text: bool = False
+    enums: bool = False
 
 
 @dataclass(frozen=True)
@@ -156,21 +161,43 @@ def is_container(lv_type: LVType) -> bool:
     return lv_type.kind == LVTypeKind.ARRAY or _is_cluster(lv_type)
 
 
-def to_plain(expr: str, lv_type: LVType, ctx: CodeGenContext) -> str:
-    """The expression of the plain form of ``expr``, a value of ``lv_type``."""
-    return _plain(expr, lv_type, ctx, 0)
+def to_plain(
+    expr: str, lv_type: LVType, ctx: CodeGenContext, enums: bool = False
+) -> str:
+    """The expression of the plain form of ``expr``, a value of ``lv_type``;
+    ``enums`` gives an enum the plain form of the name of its item."""
+    return _plain(expr, lv_type, ctx, 0, enums)
 
 
-def _plain(expr: str, lv_type: LVType, ctx: CodeGenContext, depth: int) -> str:
+def _enum_items(lv_type: LVType) -> list[str]:
+    """The item names of an enum, in the order of their values (the value of an
+    enum is the position of its item)."""
+    if not lv_type.values:
+        raise UnsupportedPlainType(f"the enum {_describe(lv_type)} with no items")
+    items = sorted(lv_type.values.items(), key=lambda item: item[1].value)
+    if [item.value for _, item in items] != list(range(len(items))):
+        raise UnsupportedPlainType(
+            f"the enum {_describe(lv_type)} whose items are not numbered from 0"
+        )
+    return [name for name, _ in items]
+
+
+def _plain(
+    expr: str, lv_type: LVType, ctx: CodeGenContext, depth: int, enums: bool
+) -> str:
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         return _plain_list(
-            expr, lv_type.element_type, lv_type.dimensions or 1, ctx, depth
+            expr, lv_type.element_type, lv_type.dimensions or 1, ctx, depth, enums
         )
+    if enums and lv_type.kind == LVTypeKind.ENUM:
+        return f"{tuple(_enum_items(lv_type))!r}[{expr}]"
     if _is_cluster(lv_type):
         cluster = _cluster(lv_type, ctx)
         items = [
             f"{key!r}: "
-            + _plain(cluster.member(expr, i), _field_type(f, lv_type), ctx, depth)
+            + _plain(
+                cluster.member(expr, i), _field_type(f, lv_type), ctx, depth, enums
+            )
             for i, (key, f) in enumerate(zip(cluster.keys, cluster.fields))
         ]
         return "{" + ", ".join(items) + "}"
@@ -185,13 +212,18 @@ def _field_type(field: ClusterField, owner: LVType) -> LVType:
 
 
 def _plain_list(
-    expr: str, element: LVType, dimensions: int, ctx: CodeGenContext, depth: int
+    expr: str,
+    element: LVType,
+    dimensions: int,
+    ctx: CodeGenContext,
+    depth: int,
+    enums: bool,
 ) -> str:
     item = f"_item{depth}"
     if dimensions > 1:
-        inner = _plain_list(item, element, dimensions - 1, ctx, depth + 1)
+        inner = _plain_list(item, element, dimensions - 1, ctx, depth + 1, enums)
     else:
-        inner = _plain(item, element, ctx, depth + 1)
+        inner = _plain(item, element, ctx, depth + 1, enums)
     return f"[{inner} for {item} in {expr}]"
 
 
@@ -243,6 +275,8 @@ class _Reader:
             )
         elif _is_cluster(lv_type):
             self.cluster(src, lv_type, default, target, where)
+        elif self.options.enums and lv_type.kind == LVTypeKind.ENUM:
+            self.enum(src, lv_type, default, target, where)
         else:
             self.scalar(src, lv_type, default, target, where)
 
@@ -325,6 +359,36 @@ class _Reader:
                 f"{target} = float({src})" if kind == "float" else f"{target} = {src}"
             )
         self.otherwise(expected, where)
+
+    def enum(
+        self, src: str, lv_type: LVType, default: str, target: str, where: str
+    ) -> None:
+        """The enum value (the position) of the item named ``src``; a name or
+        number with no item is ``out_of_range``."""
+        items = _enum_items(lv_type)
+        out = self.out
+        self.guarded(
+            src,
+            f"isinstance({src}, (str, int)) and not isinstance({src}, bool)",
+            default,
+            target,
+            where,
+        )
+        with out.indented():
+            out.add(f"if {src} not in {tuple(items)!r}:")
+            with out.indented():
+                out.add(
+                    f"raise {self.options.errors.out_of_range}"
+                    f"({where + ': not an item of the enum'!r})"
+                )
+            position = f"{tuple(items)!r}.index({src})"
+            namer = self.ctx.type_namer()
+            named = namer(lv_type) if namer is not None else None
+            if named is not None:
+                self.ctx.import_types(lv_type, at_run_time=True)
+                position = f"{named}({position})"
+            out.add(f"{target} = {position}")
+        self.otherwise("the name of an item", where)
 
     def cluster(
         self, src: str, lv_type: LVType, default: str, target: str, where: str

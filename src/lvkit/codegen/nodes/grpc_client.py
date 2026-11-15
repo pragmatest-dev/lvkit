@@ -17,7 +17,12 @@ the wired ``Response Type``; the request is its plain form (``plain_values``)
 read into the request message by ``json_format.ParseDict``, and the response
 message is ``json_format.MessageToDict`` read into the type (a field the
 response leaves out keeps the type's default; a 64-bit integer is text in
-protobuf's JSON, and is read as the integer). ``timeout (ms)`` above 0 is the
+protobuf's JSON, and is read as the integer). An enum field is the item's name
+in protobuf's JSON and the enum's value, the position of the item, in the
+cluster: the library maps the proto number to that position through the enum's
+registered items (``cluster_copier.cc``, ``CopyEnumToCluster`` and
+``CopyEnumFromCluster``), and the typedef lists the same item names, so each
+direction goes by name. ``timeout (ms)`` above 0 is the
 call's deadline and anything else no deadline (``ClientUnaryCall2``); a failed
 call is the error ``-(1000 + the gRPC status code)`` with the status's message
 (``CompleteClientUnaryCall2``), which the catalog entry's ``errors`` field
@@ -207,11 +212,11 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
         )
         try:
             assert request_term.lv_type is not None, "the request type is recorded"
-            plain = to_plain(data, request_term.lv_type, ctx)
+            plain = to_plain(data, request_term.lv_type, ctx, enums=True)
         except UnsupportedPlainType as error:
             raise ConversionGap(
                 f"{entry.name} does not handle {error} in the request data: "
-                "protobuf's JSON takes Booleans, numbers, strings and arrays or "
+                "protobuf's JSON takes Booleans, numbers, strings, enums and arrays or "
                 "clusters of them",
                 node,
             ) from error
@@ -262,13 +267,14 @@ def _read_response(
         errors=_RESPONSE_ERRORS,
         missing_to_default=True,
         numbers_as_text=True,
+        enums=True,
     )
     statements: list[ast.stmt] = [
         build_assign(
             plain,
             parse_expr(
                 f"json_format.MessageToDict({reply}, "
-                "preserving_proto_field_name=True, use_integers_for_enums=True)"
+                "preserving_proto_field_name=True)"
             ),
         ),
         build_assign(
@@ -282,7 +288,7 @@ def _read_response(
     except UnsupportedPlainType as error:
         raise ConversionGap(
             f"{entry.name} does not handle {error} in the response type: "
-            "protobuf's JSON gives Booleans, numbers, strings and arrays or "
+            "protobuf's JSON gives Booleans, numbers, strings, enums and arrays or "
             "clusters of them",
             node,
         ) from error

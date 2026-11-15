@@ -7,8 +7,14 @@ from __future__ import annotations
 
 import pytest
 
-from lvkit.codegen.plain_values import PlainErrors, PlainOptions, from_plain, to_plain
-from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.codegen.plain_values import (
+    PlainErrors,
+    PlainOptions,
+    UnsupportedPlainType,
+    from_plain,
+    to_plain,
+)
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from tests.helpers import error_cluster_type
 from tests.native_vi import Generated, array, generate, node, scalar
 
@@ -330,7 +336,40 @@ def test_from_plain_statements_check_each_part() -> None:
     errors = PlainErrors("TM", "EM", "EX", "OR", "DM", "RG")
     options = PlainOptions("False", "False", errors)
     statements = from_plain(
-        "src", LABELLED, "dflt", "out", _Context(), "n", options  # type: ignore[arg-type]
+        "src",
+        LABELLED,
+        "dflt",
+        "out",
+        _Context(),
+        "n",
+        options,  # type: ignore[arg-type]
     )
     text = ast.unparse(ast.Module(body=statements, type_ignores=[]))
     assert "raise EM(" in text and "raise TM(" in text and "EX" not in text
+
+
+ENUM = LVType(
+    kind=LVTypeKind.ENUM,
+    values={"ONE": EnumValue(value=0), "TWO": EnumValue(value=1)},
+)
+
+
+def test_an_enum_has_a_plain_form_only_when_the_caller_asks_for_it() -> None:
+    ctx = _Context()
+    assert to_plain("v", ENUM, ctx, enums=True) == "('ONE', 'TWO')[v]"  # type: ignore[arg-type]
+    assert to_plain("v", array(ENUM), ctx, enums=True) == (  # type: ignore[arg-type]
+        "[('ONE', 'TWO')[_item0] for _item0 in v]"
+    )
+    with pytest.raises(UnsupportedPlainType, match="enum"):
+        to_plain("v", ENUM, ctx)  # type: ignore[arg-type]
+    errors = PlainErrors("TM", "EM", "EX", "OR", "DM", "RG")
+    with pytest.raises(UnsupportedPlainType, match="enum"):
+        from_plain(
+            "s",
+            ENUM,
+            "d",
+            "o",
+            ctx,
+            "n",
+            PlainOptions("False", "False", errors),  # type: ignore[arg-type]
+        )

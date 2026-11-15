@@ -19,7 +19,7 @@ import grpc
 import pytest
 
 from lvkit.codegen.gaps import Gap
-from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.proto_messages import ProtoMessage, find_proto_message
 from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
 from tests.vilib_caller import BOOL, DBL, I32, STRING, run_catalog_call
@@ -44,6 +44,25 @@ INNER = cluster(("name", STRING), ("big", I64))
 REQUEST = cluster(("text", STRING), ("inner", INNER))
 RESPONSE = cluster(("echo", STRING), ("total", I64), ("inner", INNER), ("ratio", DBL))
 RESPONSE_DEFAULT = ("", 0, ("", 0), 0.0)
+# Color's numbers are not its positions: RED = 0, GREEN = 5, BLUE = 9.
+COLOR = LVType(
+    kind=LVTypeKind.ENUM,
+    underlying_type="UnitUInt16",
+    values={
+        "RED": EnumValue(value=0),
+        "GREEN": EnumValue(value=1),
+        "BLUE": EnumValue(value=2),
+    },
+)
+PAINT_REQUEST = cluster(
+    ("color", COLOR),
+    ("colors", LVType(kind=LVTypeKind.ARRAY, element_type=COLOR, dimensions=1)),
+)
+PAINT_RESPONSE = cluster(
+    ("color", COLOR),
+    ("colors", LVType(kind=LVTypeKind.ARRAY, element_type=COLOR, dimensions=1)),
+)
+PAINT_DEFAULT = (0, [])
 
 _PB2 = """\
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
@@ -63,12 +82,20 @@ response.field.add(name='total', number=2, type=3, label=1)
 response.field.add(name='inner', number=3, type=11, label=1,
                    type_name='.lvk.Inner')
 response.field.add(name='ratio', number=4, type=1, label=1)
+color = f.enum_type.add(name='Color')
+color.value.add(name='RED', number=0)
+color.value.add(name='GREEN', number=5)
+color.value.add(name='BLUE', number=9)
+paint = f.message_type.add(name='Paint')
+paint.field.add(name='color', number=1, type=14, label=1, type_name='.lvk.Color')
+paint.field.add(name='colors', number=2, type=14, label=3, type_name='.lvk.Color')
 pool = descriptor_pool.Default()
 pool.Add(f)
 Inner = message_factory.GetMessageClass(pool.FindMessageTypeByName('lvk.Inner'))
 Request = message_factory.GetMessageClass(pool.FindMessageTypeByName('lvk.Request'))
 Response = message_factory.GetMessageClass(
     pool.FindMessageTypeByName('lvk.Response'))
+Paint = message_factory.GetMessageClass(pool.FindMessageTypeByName('lvk.Paint'))
 """
 
 
@@ -86,7 +113,7 @@ def messages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Module
             module="lvkit_test_client_pb2",
             message=name,
         )
-        for name in ("Request", "Response", "Inner")
+        for name in ("Request", "Response", "Inner", "Paint")
     }
     monkeypatch.setattr(
         "lvkit.codegen.nodes.grpc_client.find_proto_message",
@@ -114,6 +141,12 @@ def address(messages: Any) -> Iterator[str]:
     def fail(request: Any, context: grpc.ServicerContext) -> Any:
         context.abort(grpc.StatusCode.NOT_FOUND, "no such thing")
 
+    def paint(request: Any, context: grpc.ServicerContext) -> Any:
+        # The request's colours come back with BLUE, GREEN and RED after them, and
+        # a number the type has no item for (7) when the request had three colours.
+        extra = [9, 5, 0] + ([7] if len(request.colors) == 3 else [])
+        return messages.Paint(color=request.color, colors=[*request.colors, *extra])
+
     def slow(request: Any, context: grpc.ServicerContext) -> Any:
         time.sleep(1.0)
         return messages.Response(echo="late")
@@ -130,7 +163,16 @@ def address(messages: Any) -> Iterator[str]:
         (
             grpc.method_handlers_generic_handler(
                 "lvk.Echo",
-                {"Call": handler(call), "Fail": handler(fail), "Slow": handler(slow)},
+                {
+                    "Call": handler(call),
+                    "Fail": handler(fail),
+                    "Slow": handler(slow),
+                    "Paint": grpc.unary_unary_rpc_method_handler(
+                        paint,
+                        request_deserializer=messages.Paint.FromString,
+                        response_serializer=messages.Paint.SerializeToString,
+                    ),
+                },
             ),
         )
     )
@@ -151,16 +193,21 @@ def _unary(
     constants: dict[int, tuple[str, LVType]] | None = None,
     context_id: Any = None,
     method_is_constant: bool = True,
+    request_type: LVType = REQUEST,
+    response_type: LVType = RESPONSE,
+    response_default: Any = RESPONSE_DEFAULT,
+    message_name: str = "lvk_Request",
+    response_name: str = "lvk_Response",
 ) -> Any:
     pane = [
         (0, "input", GRPC_ID),
-        (1, "input", RESPONSE),
+        (1, "input", response_type),
         (3, "input", I32),
         (4, "output", GRPC_ID),
         (5, "input", STRING),
-        (6, "output", RESPONSE),
+        (6, "output", response_type),
         (7, "input", GRPC_ID),
-        (9, "input", REQUEST),
+        (9, "input", request_type),
         (11, "input", ERROR_CLUSTER),
         (12, "input", STRING),
         (14, "input", STRING),
@@ -168,12 +215,12 @@ def _unary(
     ]
     inputs: dict[str, Any] = {
         "client": (0, GRPC_ID),
-        "response_type": (1, RESPONSE),
-        "request": (9, REQUEST),
+        "response_type": (1, response_type),
+        "request": (9, request_type),
     }
     arguments: dict[str, Any] = {
         "client": channel,
-        "response_type": RESPONSE_DEFAULT,
+        "response_type": response_default,
         "request": request,
     }
     if timeout is not None:
@@ -183,8 +230,8 @@ def _unary(
         inputs["context"] = (7, GRPC_ID)
         arguments["context"] = context_id
     fixed: dict[int, tuple[str, LVType]] = {
-        12: ("lvk_Request", STRING),
-        14: ("lvk_Response", STRING),
+        12: (message_name, STRING),
+        14: (response_name, STRING),
     }
     if method_is_constant:
         fixed[5] = (method, STRING)
@@ -200,7 +247,7 @@ def _unary(
         inputs,
         {
             "id_out": (4, GRPC_ID),
-            "response": (6, RESPONSE),
+            "response": (6, response_type),
             "error": (15, ERROR_CLUSTER),
         },
         arguments,
@@ -222,6 +269,49 @@ def test_a_unary_call_sends_the_nested_request_and_builds_the_response_cluster(
     assert result.response == ("HELLO", big * 2, ("n", big), 0.5)
     assert result.id_out is channel
     assert result.error is None
+    channel.close()
+
+
+def test_an_enum_field_goes_by_its_item_not_by_the_proto_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, address: str
+) -> None:
+    channel = grpc.insecure_channel(address)
+    # The enum's value is the item's position: GREEN is 1 in LabVIEW and 5 in
+    # the proto, and the server answers with the numbers 9, 5, 0.
+    result = _unary(
+        tmp_path,
+        monkeypatch,
+        channel,
+        "/lvk.Echo/Paint",
+        (1, [2, 0]),
+        request_type=PAINT_REQUEST,
+        response_type=PAINT_RESPONSE,
+        response_default=PAINT_DEFAULT,
+        message_name="lvk_Paint",
+        response_name="lvk_Paint",
+    )
+    assert result.error is None
+    assert result.response == (1, [2, 0, 2, 1, 0])
+    channel.close()
+
+
+def test_an_enum_number_the_type_has_no_item_for_is_out_of_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, address: str
+) -> None:
+    channel = grpc.insecure_channel(address)
+    with pytest.raises(OverflowError, match="not an item of the enum"):
+        _unary(
+            tmp_path,
+            monkeypatch,
+            channel,
+            "/lvk.Echo/Paint",
+            (0, [2, 0, 1]),
+            request_type=PAINT_REQUEST,
+            response_type=PAINT_RESPONSE,
+            response_default=PAINT_DEFAULT,
+            message_name="lvk_Paint",
+            response_name="lvk_Paint",
+        )
     channel.close()
 
 
