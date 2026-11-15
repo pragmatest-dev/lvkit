@@ -358,9 +358,14 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                     if field_type:
                         # Get field name from the referenced type's label
                         ref_td = flat_types.get(int(nested_type_id))
-                        default_name = f"field_{len(fields)}"
-                        field_name = _field_label(ref_td, default_name)
-                        fields.append(ClusterField(name=field_name, type=field_type))
+                        label = _field_label(ref_td, "")
+                        fields.append(
+                            ClusterField(
+                                name=label or f"field_{len(fields)}",
+                                type=field_type,
+                                labelled=bool(label),
+                            )
+                        )
 
             lv_type = LVType(
                 kind=LVTypeKind.CLUSTER,

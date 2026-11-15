@@ -170,7 +170,13 @@ def _cluster(
         if member_type is None:
             return None
         label = descriptors[member[0]].label
-        fields.append(ClusterField(name=label or f"field_{number}", type=member_type))
+        fields.append(
+            ClusterField(
+                name=label or f"field_{number}",
+                type=member_type,
+                labelled=bool(label),
+            )
+        )
     return LVType(
         kind=LVTypeKind.CLUSTER,
         underlying_type="Cluster",

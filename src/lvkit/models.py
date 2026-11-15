@@ -737,6 +737,8 @@ class ClusterField:
 
     name: str
     type: LVType | None = None
+    # False when the element has no label in the VI and `name` is a placeholder.
+    labelled: bool = True
 
 
 # LabVIEW's error cluster: these three fields, in this order. The typedef a

@@ -104,7 +104,7 @@ def _fields_of(lv_type: LVType, ctx: CodeGenContext) -> list[ClusterField] | Non
 def _is_unlabelled(fields: list[ClusterField]) -> bool:
     """Whether no element of the cluster has a label (an unlabelled element is
     named by its position)."""
-    return all(f.name == f"field_{i}" for i, f in enumerate(fields))
+    return not any(f.labelled for f in fields)
 
 
 def _cluster(lv_type: LVType, ctx: CodeGenContext) -> _Cluster:

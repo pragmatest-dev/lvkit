@@ -173,6 +173,7 @@ def reconstruct_control_lvtype(
                 ClusterField(
                     name=f"field_{i}",
                     type=reconstruct_control_lvtype(field_ctrl, depth + 1),
+                    labelled=False,
                 )
             )
         if not fields:

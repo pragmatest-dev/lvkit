@@ -20,16 +20,18 @@ STR = scalar("String")
 ERR = error_cluster_type()
 
 
-def cluster(*fields: tuple[str, LVType], typedef: str | None = None) -> LVType:
+def cluster(
+    *fields: tuple[str, LVType], typedef: str | None = None, labelled: bool = True
+) -> LVType:
     return LVType(
         kind=LVTypeKind.CLUSTER,
         typedef_name=typedef,
-        fields=[ClusterField(name=n, type=t) for n, t in fields],
+        fields=[ClusterField(name=n, type=t, labelled=labelled) for n, t in fields],
     )
 
 
 def unlabelled(*types: LVType) -> LVType:
-    return cluster(*((f"field_{i}", t) for i, t in enumerate(types)))
+    return cluster(*((f"field_{i}", t) for i, t in enumerate(types)), labelled=False)
 
 
 def flatten(source: LVType, extensions: bool | None = None) -> Generated:
@@ -127,6 +129,13 @@ def test_an_unlabelled_cluster_is_keyed_by_position_as_nis_example() -> None:
         '{"0":"abc","1":false,"2":[9.0,8.0,7.0]}'
     )
     assert "lvkit" not in generated.source
+
+
+def test_an_element_really_labelled_field_0_keeps_its_label_as_the_key() -> None:
+    target = cluster(("field_0", STR), ("field_1", BOOL))
+    assert run_flatten(flatten(target), ("abc", False)) == (
+        '{"field_0":"abc","field_1":false}'
+    )
 
 
 def test_a_labelled_cluster_is_keyed_by_label_with_no_spaces() -> None:

@@ -75,6 +75,7 @@ class LVPrivateDataField:
     lv_type_name: str = ""  # Raw LV type from VCTP (e.g. "String", "Boolean")
     sub_fields: list[LVPrivateDataField] = field(default_factory=list)
     ref_type: str = ""  # Refnum kind from VCTP (e.g. "DataValueRef"), else ""
+    labelled: bool = True  # False when the VI gives no label and ``name`` is invented
 
 
 @dataclass
@@ -389,7 +390,7 @@ def private_data_field_to_cluster_field(f: LVPrivateDataField) -> ClusterField:
             lv_type,
             fields=[private_data_field_to_cluster_field(sf) for sf in f.sub_fields],
         )
-    return ClusterField(name=f.name, type=lv_type)
+    return ClusterField(name=f.name, type=lv_type, labelled=f.labelled)
 
 
 def _resolve_type_ids(
@@ -493,6 +494,7 @@ def _resolve_type_ids(
             copy += 1
         taken.add(name)
         field_.name = name
+        field_.labelled = False
 
     return fields
 

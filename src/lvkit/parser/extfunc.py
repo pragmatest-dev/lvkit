@@ -73,20 +73,20 @@ def _prototype_names(elem: ET.Element, type_map: dict[int, LVType] | None) -> li
         return []
     if prototype is None or prototype.kind != LVTypeKind.CLUSTER:
         return []
-    return [f.name for f in prototype.fields or []]
+    return [f.name if f.labelled else "" for f in prototype.fields or []]
 
 
 def _row_name(
     label: str | None, names: list[str], row: int, is_return: bool
 ) -> str | None:
     """The row's name: the label of the type its DCO references, else its
-    prototype field name. An unnamed field arrives from the type reader as
-    ``field_<row>``; it is nameless, and the return value falls back to
+    prototype field name. An unlabelled prototype field has the empty name from
+    ``_prototype_names``; it is nameless, and the return value falls back to
     ``return value``."""
     if label:
         return label
     name = names[row] if row < len(names) else ""
-    if not name or name == f"field_{row}":
+    if not name:
         return RETURN_VALUE_NAME if is_return else None
     return name
 

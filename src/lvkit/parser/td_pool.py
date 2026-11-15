@@ -329,7 +329,11 @@ class TdPool:
             pos = member[1]
         member_types = [self._ref(r) for r in refs]
         fields = [
-            ClusterField(name=self.names[r] or f"field_{i}", type=member_types[i])
+            ClusterField(
+                name=self.names[r] or f"field_{i}",
+                type=member_types[i],
+                labelled=bool(self.names[r]),
+            )
             for i, r in enumerate(refs)
         ]
         return LVType(
