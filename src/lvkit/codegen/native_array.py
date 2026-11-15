@@ -148,3 +148,23 @@ def replaced_field(cluster: str, path: tuple[int, ...], value: str) -> str:
     if tail:
         value = replaced_field(f"{cluster}[{index}]", tuple(tail), value)
     return f"{cluster}[:{index}] + ({value},) + {cluster}[{index + 1}:]"
+
+
+def replace_column_statements(
+    array: str, new: str, column: str, target: str
+) -> list[ast.stmt]:
+    """Statements that bind ``target`` to a copy of the two-dimensional ``array``
+    with the one-dimensional ``new`` written down column ``column``, from row 0.
+    Any part of ``new`` longer than the column is cropped. The array is
+    unchanged; when the array has no rows or the column is negative or past the
+    end of a row the copy is returned as it is. Each row written into is copied
+    first."""
+    column = operand(column)
+    lines = [
+        f"{target} = copy.copy({array})",
+        f"if len({target}) > 0 and 0 <= {column} < len({target}[0]):",
+        f"    for _i0, _value0 in enumerate({new}[:len({target})]):",
+        f"        {target}[_i0] = copy.copy({target}[_i0])",
+        f"        {target}[_i0][{column}] = _value0",
+    ]
+    return ast.parse("\n".join(lines)).body

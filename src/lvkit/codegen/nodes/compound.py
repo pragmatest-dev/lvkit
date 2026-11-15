@@ -17,7 +17,7 @@ from ..context import CodeGenContext
 from ..error_flow import carries_error_cluster, status_read
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from ..native_array import replace_subarray_statements
+from ..native_array import replace_column_statements, replace_subarray_statements
 from ..output_binding import bind_output
 from ..type_default import type_default
 from .terminal_roles import laid_out_roles
@@ -461,8 +461,17 @@ def generate_array_replace(
 
     A new element with fewer dimensions than the array lands along the array's
     last dimensions, the leading indices picking the cell (a row into a 2-D
-    array: the first index is the row). The page does not say which axis a
-    subarray runs along when only a trailing index is wired, so a subarray
+    array: the first index is the row). One case runs the other way: a
+    one-dimensional subarray into a 2-D array with only the column index wired
+    replaces down that column from row 0. NI's page does not state the rule;
+    the NI forum thread "Replace array subset of 2D array with 1D array"
+    (forums.ni.com/t5/LabVIEW/Replace-array-subset-of-2D-array-with-1D-array/
+    td-p/2012364) says "if you do not wire up a row index, it will allow you to
+    just wire up the column index and will accept a 1D array" for replacing a
+    column, and the NI knowledge article "How Can I Replace/Insert a 1D Array
+    at a Specific Index into a 2D Array" says a specific row makes LabVIEW read
+    the array as a row, a specific column as a column. The unwired row index
+    is 0 (the page: unwired indices start at element 0). Any other subarray
     whose leading indices are not all wired raises a diagnostic.
     """
     roles = laid_out_roles(ctx, node, "aReplace")
@@ -494,7 +503,10 @@ def generate_array_replace(
             )
         index_vals = [ctx.wired_input(t.id, node) for t in indices]
         leading = rank - new_rank
-        if new_rank and not all(index_vals[:leading]):
+        down_a_column = rank == 2 and new_rank == 1 and not index_vals[0]
+        if new_rank and not all(index_vals[:leading]) and not (
+            down_a_column and index_vals[1]
+        ):
             raise ConversionGap(
                 "Replace Array Subset with a subarray needs the leading "
                 f"{leading} index input(s) wired: NI's page does not say along "
@@ -510,11 +522,16 @@ def generate_array_replace(
             else ctx.make_output_var(f"array_after_{position}", node.id)
         )
         offsets = [value or "0" for value in index_vals]
-        statements.extend(
-            replace_subarray_statements(
-                array_val, element_val, offsets, new_rank, target
+        if down_a_column and index_vals[1]:
+            statements.extend(
+                replace_column_statements(array_val, element_val, offsets[1], target)
             )
-        )
+        else:
+            statements.extend(
+                replace_subarray_statements(
+                    array_val, element_val, offsets, new_rank, target
+                )
+            )
         array_val = target
     return CodeFragment(
         statements=statements,
