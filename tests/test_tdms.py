@@ -570,7 +570,7 @@ def test_an_interleaved_2d_array_is_a_channel_per_column(
         assert list(tdms["G"]["Untitled2"][:]) == [3.0, 6.0]
 
 
-def test_a_1d_array_with_an_interleaved_layout_is_a_run_time_gap(
+def test_a_1d_array_with_a_constant_interleaved_layout_is_a_gap(
     project: Project,  # noqa: F811
     tmp_path: Path,
 ) -> None:

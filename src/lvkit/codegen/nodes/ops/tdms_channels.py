@@ -113,9 +113,9 @@ def interleaved_gap_source(layout: str) -> str:
     interleaved."""
     return (
         f"if {layout} == 1:\n"
-        "    raise NotImplementedError('TDMS Write of a 1D array with an "
-        "interleaved data layout is not converted: NI does not say how many "
-        "channels it holds')"
+        "    raise NotImplementedError('TDMS Write of a 1D array with the data "
+        f"layout ' + str({layout}) + ' (interleaved) is not converted: NI does "
+        "not say how many channels it holds')"
     )
 
 

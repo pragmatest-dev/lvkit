@@ -36,7 +36,7 @@ from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from . import register_op_fragment
 from ._flat_node import terminal
-from ._regex_node import input_expression, string_variable
+from ._regex_node import input_expression, literal, string_variable
 from ._tdms import (
     CLOSE_PANES,
     NPTDMS_IMPORT,
@@ -125,7 +125,13 @@ def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         )
         _bind(bindings, node, pane.channel_names_out, channels)
     else:
-        if layout is not None:
+        if layout is not None and literal(layout) == 1:
+            raise ConversionGap(
+                "TDMS Write of a 1D array with an interleaved data layout is not "
+                "converted: NI does not say how many channels it holds",
+                node,
+            )
+        if layout is not None and literal(layout) is None:
             statements.extend(ast.parse(interleaved_gap_source(layout)).body)
         if names_text is None:
             channel_value = UNTITLED
