@@ -370,7 +370,7 @@
       "terminals": [
         {
           "name": "[user-defined descriptions]",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -379,7 +379,7 @@
         },
         {
           "name": "[user-defined codes]",
-          "index": null,
+          "index": 1,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -418,7 +418,7 @@
         },
         {
           "name": "type of dialog (OK msg:1)",
-          "index": null,
+          "index": 9,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -428,7 +428,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -467,7 +467,7 @@
         },
         {
           "name": "error?",
-          "index": null,
+          "index": 4,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -476,7 +476,7 @@
         },
         {
           "name": "code out",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -485,7 +485,7 @@
         },
         {
           "name": "source out",
-          "index": null,
+          "index": 8,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -494,7 +494,7 @@
         },
         {
           "name": "message",
-          "index": null,
+          "index": 10,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -503,7 +503,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 15,
           "direction": "output",
           "type": null,
           "enum_values": null,
