@@ -310,13 +310,15 @@
           "index": 10,
           "direction": "input",
           "name": "count (1)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "one element"
         },
         {
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -437,7 +439,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -517,7 +520,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -617,7 +621,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_behavior": "file dialog"
         }
       ],
       "verified": true

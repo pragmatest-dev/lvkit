@@ -47,6 +47,13 @@ PRIMITIVE_DEFAULTS = [
     ("8058", "start_path", DefaultBehavior("last directory viewed")),
     ("1713", "abort (F)", False),
     ("8100", "UTC format", False),
+    ("8100", "seconds (now)", DefaultBehavior("current date and time")),
+    ("8100", "time format string (%c)", "%c"),
+    ("8051", "count (1)", DefaultBehavior("one element")),
+    ("8051", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8070", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8078", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8080", "file (use dialog)", DefaultBehavior("file dialog")),
     ("8101", "allow empty tokens? (F)", False),
     ("8101", "use cached delim/oper data? (F)", False),
     ("2308", "access mode", 0),
@@ -147,7 +154,6 @@ VILIB_DEFAULTS = [
 # they stay the bare `default`.
 STAYS_BARE = [
     ("8070", "count"),  # one line or the whole file, by a menu setting
-    ("8051", "count (1)"),  # NI describes a single element
     ("2135", "include static events? (T)"),  # depends on the event case
     ("8058", "prompt"),  # the dialog title differs between Windows/Linux and macOS
     # the enum is not an item value on the calls in the corpus

@@ -42,6 +42,7 @@ from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
+from .vilib_default_behavior import behavior_variable
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -254,6 +255,14 @@ def _generate_inline(
     # The placeholders are read from the catalog template only, never from a
     # value written into it (a value can hold braces of its own, an f-string).
     values: dict[str, str] = {}
+    # Inputs a documented behaviour made a value for (a task NI creates).
+    made: dict[str, str] = {}
+    made_statements: list[ast.stmt] = []
+    behaviors = {
+        terminal_placeholder(vt): vt.default_behavior
+        for vt in vilib_vi.terminals
+        if vt.direction == TerminalDirection.INPUT and vt.default_behavior is not None
+    }
     for term in ctx.enriched_terminals(node):
         if term.direction != "input" or term.index not in vilib_inputs:
             continue
@@ -264,6 +273,22 @@ def _generate_inline(
                 value = "None"
             elif param_key in vilib_defaults:
                 value = vilib_defaults[param_key]
+            elif param_key in behaviors:
+                value = behavior_variable(
+                    behaviors[param_key],
+                    ctx,
+                    node,
+                    f"{func_name}_{param_key}",
+                    made_statements,
+                )
+                if value is None:
+                    raise UnknownDefault(
+                        vilib_vi.name,
+                        term.name or param_key,
+                        node,
+                        behaviors[param_key],
+                    )
+                made[param_key] = value
             else:
                 raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
         values[param_key] = value or "None"
@@ -288,7 +313,9 @@ def _generate_inline(
                         continue
                     if term.index in vilib_inputs:
                         if vilib_inputs[term.index] == in_param:
-                            resolved = ctx.wired_input(term.id, node)
+                            resolved = ctx.wired_input(term.id, node) or made.get(
+                                in_param
+                            )
                             if resolved:
                                 ref_passthrough[out_param] = resolved
                             break
@@ -353,7 +380,7 @@ def _generate_inline(
     imports = set(vilib_vi.imports) if vilib_vi.imports else set()
 
     return CodeFragment(
-        statements=statements,
+        statements=[*made_statements, *statements],
         bindings=bindings,
         imports=imports,
     )

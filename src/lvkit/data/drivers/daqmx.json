@@ -12,6 +12,7 @@
           "index": 1,
           "direction": "input",
           "type": "String",
+          "default": "",
           "python_param": "task_name"
         },
         {
@@ -883,6 +884,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -895,12 +897,14 @@
         {
           "name": "minimum value",
           "direction": "input",
-          "python_param": "min_val"
+          "python_param": "min_val",
+          "index": 2
         },
         {
           "name": "maximum value",
           "direction": "input",
-          "python_param": "max_val"
+          "python_param": "max_val",
+          "index": 1
         },
         {
           "name": "task out",
@@ -933,6 +937,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -984,6 +989,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1034,6 +1040,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1084,6 +1091,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1134,6 +1142,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1184,6 +1193,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1234,6 +1244,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1284,6 +1295,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1334,6 +1346,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1384,6 +1397,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1434,6 +1448,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1484,6 +1499,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1534,6 +1550,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1584,6 +1601,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1624,6 +1642,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1636,12 +1655,14 @@
         {
           "name": "minimum value",
           "direction": "input",
-          "python_param": "min_val"
+          "python_param": "min_val",
+          "index": 2
         },
         {
           "name": "maximum value",
           "direction": "input",
-          "python_param": "max_val"
+          "python_param": "max_val",
+          "index": 1
         },
         {
           "name": "task out",
@@ -1674,6 +1695,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1724,6 +1746,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1754,7 +1777,7 @@
     {
       "name": "DAQmx Create Virtual Channel (DI Line).vi",
       "description": "Creates DI Line channel.",
-      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel}, line_grouping={line_grouping})",
+      "python_code": "{task_in}.di_channels.add_di_chan({physical_channel}, line_grouping=LineGrouping({line_grouping}))",
       "inline": true,
       "imports": [
         "import nidaqmx",
@@ -1765,6 +1788,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1786,7 +1810,7 @@
           "python_param": "line_grouping",
           "index": 9,
           "type": "NumInt32",
-          "default": "LineGrouping.CHAN_FOR_ALL_LINES"
+          "default": 1
         },
         {
           "name": "error in",
@@ -1825,6 +1849,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1855,7 +1880,7 @@
     {
       "name": "DAQmx Create Virtual Channel (DO Line).vi",
       "description": "Creates DO Line channel.",
-      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel}, line_grouping={line_grouping})",
+      "python_code": "{task_in}.do_channels.add_do_chan({physical_channel}, line_grouping=LineGrouping({line_grouping}))",
       "inline": true,
       "imports": [
         "import nidaqmx",
@@ -1866,6 +1891,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1887,7 +1913,7 @@
           "python_param": "line_grouping",
           "index": 9,
           "type": "NumInt32",
-          "default": "LineGrouping.CHAN_FOR_ALL_LINES"
+          "default": 1
         },
         {
           "name": "error in",
@@ -1926,6 +1952,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -1966,6 +1993,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2006,6 +2034,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2056,6 +2085,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2106,6 +2136,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2156,6 +2187,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2206,6 +2238,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2218,12 +2251,14 @@
         {
           "name": "frequency",
           "direction": "input",
-          "python_param": "freq"
+          "python_param": "freq",
+          "index": 1
         },
         {
           "name": "duty cycle",
           "direction": "input",
-          "python_param": "duty_cycle"
+          "python_param": "duty_cycle",
+          "index": 2
         },
         {
           "name": "task out",
@@ -2256,6 +2291,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },
@@ -2306,6 +2342,7 @@
         {
           "name": "task/channels in",
           "direction": "input",
+          "default_behavior": "new task",
           "python_param": "task_in",
           "index": 0
         },

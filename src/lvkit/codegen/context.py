@@ -1565,11 +1565,11 @@ def _format_constant(
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)
-    if underlying == "String" and isinstance(value, str):
-        # The decoders hand back a QUOTED, escaped string literal — double-quoted
-        # from _decode_string_default, single-quoted from _decode_element — so we
-        # must recover the RAW text and re-emit it once. repr'ing the quoted form
-        # directly double-wraps it (a space -> "' '").
+    if underlying in ("String", "Tag") and isinstance(value, str):
+        # A Tag is string-encoded. The decoders hand back a QUOTED, escaped string
+        # literal — double-quoted from _decode_string_default, single-quoted from
+        # _decode_element — so we must recover the RAW text and re-emit it once.
+        # repr'ing the quoted form directly double-wraps it (a space -> "' '").
         try:
             # A fully-escaped literal round-trips through literal_eval.
             return repr(ast.literal_eval(value))

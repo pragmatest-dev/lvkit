@@ -32,6 +32,9 @@ class DefaultBehavior(StrEnum):
     NEXT_INDEX = "previous index + 1"
     ENTIRE_DIMENSION = "entire row or column"
     LAST_DIRECTORY = "last directory viewed"
+    CURRENT_TIME = "current date and time"
+    FILE_DIALOG = "file dialog"
+    NEW_TASK = "new task"
 
 
 class TerminalDefault(BaseModel):
