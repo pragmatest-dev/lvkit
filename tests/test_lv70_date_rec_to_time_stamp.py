@@ -129,13 +129,38 @@ def test_the_record_of_the_epoch_gives_the_offset_from_utc_and_uses_no_lvkit(
 ) -> None:
     """What Get UTC Offset.vi does: the timestamp of 1904-01-01 00:00:00 is the
     seconds the computer's time zone is behind UTC."""
-    time_zone("EST5EDT,M3.2.0,M11.1.0")
+    time_zone("UTC+05:00")
     source, result = _to_time_stamp(
         tmp_path, monkeypatch, (0, 0, 0, 1, 1, 1904, 6, 1, 0)
     )
     assert _seconds_since_1904(result) == 5 * 3600
     assert "lvkit" not in source
-    assert "time.mktime((date_time_rec[5]" in source
+
+
+@needs_posix_tz
+def test_before_1970_uses_the_current_offset_even_where_dst_differs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, time_zone
+) -> None:
+    time_zone("EST5EDT,M3.2.0,M11.1.0")
+    result = _to_time_stamp(tmp_path, monkeypatch, (0, 0, 0, 1, 7, 1904, 6, 1, 0))[1]
+    # 1904-07-01 is 182 days after 1904-01-01 (a leap year); the offset is today's
+    assert _seconds_since_1904(result) == 182 * 86400 - time.localtime().tm_gmtoff
+
+
+def test_1904_record_runs_on_every_os_and_equals_the_current_offset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _to_time_stamp(tmp_path, monkeypatch, (0, 0, 0, 1, 1, 1904, 6, 1, 0))[1]
+    assert _seconds_since_1904(result) == -time.localtime().tm_gmtoff
+
+
+def test_2020_record_runs_on_every_os(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = (0, 30, 12, 15, 3, 2020, 1, 75, 0)
+    result = _to_time_stamp(tmp_path, monkeypatch, record)[1]
+    expected = time.mktime((2020, 3, 15, 12, 30, 0, 0, 0, 0))
+    assert _seconds_since_1904(result) == expected + EPOCH_1970_IN_1904_SECONDS
 
 
 def test_a_neighbour_old_version_vi_stays_a_gap(
