@@ -460,7 +460,7 @@
         "import nitypes.waveform",
         "import numpy"
       ],
-      "python_code": "_bits = int({resolution})\n_step = {full_scale_range} / 2 ** _bits\nif {data_format} == 0:\n    raise NotImplementedError('DWDT Analog to Digital with the data format unsigned binary: NI does not say which code a value of the range maps to')\n_codes = [min(max(round((_v + {full_scale_range} / 2) / _step), 0), 2 ** _bits - 1) for _v in {analog_waveform}.raw_data.tolist()]\nif {data_format} == 2:\n    _codes = [_c ^ (1 << (_bits - 1)) for _c in _codes]\n{digital_waveform} = nitypes.waveform.DigitalWaveform.from_lines(numpy.array([[(_c >> _b) & 1 for _b in range(_bits - 1, -1, -1)] for _c in _codes], dtype=numpy.uint8).reshape(len(_codes), _bits), numpy.uint8, timing={analog_waveform}.timing)\n{resolution_out} = _bits\n{full_scale_range_out} = {full_scale_range}",
+      "python_code": "_bits = int({resolution})\n_step = {full_scale_range} / 2 ** _bits\nif {data_format} == 0:\n    raise NotImplementedError(f'DWDT Analog to Digital with the data format {{data_format}} (unsigned binary): NI does not say which code a value of the range maps to')\n_codes = [min(max(round((_v + {full_scale_range} / 2) / _step), 0), 2 ** _bits - 1) for _v in {analog_waveform}.raw_data.tolist()]\nif {data_format} == 2:\n    _codes = [_c ^ (1 << (_bits - 1)) for _c in _codes]\n{digital_waveform} = nitypes.waveform.DigitalWaveform.from_lines(numpy.array([[(_c >> _b) & 1 for _b in range(_bits - 1, -1, -1)] for _c in _codes], dtype=numpy.uint8).reshape(len(_codes), _bits), numpy.uint8, timing={analog_waveform}.timing)\n{resolution_out} = _bits\n{full_scale_range_out} = {full_scale_range}",
       "inline": true
     },
     {

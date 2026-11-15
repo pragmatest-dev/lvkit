@@ -158,10 +158,12 @@ def test_the_defaults_are_16_bits_over_2_volts_in_offset_binary(
     assert _codes(result.digital) == [0, 32768, 49152]
 
 
-def test_unsigned_binary_is_a_gap_at_run_time(
+def test_unsigned_binary_is_refused_at_run_time_naming_the_value(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    with pytest.raises(NotImplementedError, match="unsigned binary"):
+    # A run-time check of an unusual input names the value it got (a message
+    # built at run time), unlike a gap, which is warned about at generation.
+    with pytest.raises(NotImplementedError, match=r"data format 0 \(unsigned binary\)"):
         _convert(
             tmp_path,
             monkeypatch,
