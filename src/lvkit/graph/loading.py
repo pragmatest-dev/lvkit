@@ -1188,9 +1188,14 @@ class LoadingMixin:
             name=parent_name + ".lvclass", path_tokens=path_tokens, path_type=path_type
         )
         candidate = self._recorded_path(dep_ref, lvclass_path)
-        if candidate is None:
-            return None, None
-        return self._locate_recorded(candidate, candidate.name), candidate
+        found = (
+            self._locate_recorded(candidate, candidate.name)
+            if candidate is not None
+            else None
+        )
+        if found is None:
+            found = self._search_for(dep_ref, dep_ref.name, lvclass_path)
+        return found, candidate
 
     def _resolve_parent(
         self, cls: LVClass, lvclass_path: Path
@@ -1233,7 +1238,16 @@ class LoadingMixin:
             # as a directory (members read ``../X.vi``), so resolve against
             # ``lvclass_path`` itself — that absorbs the leading ``..``.
             intended = (lvclass_path / cls.parent_url).resolve()
-            return self._locate_recorded(intended, intended.name), intended
+            found = self._locate_recorded(intended, intended.name)
+            if found is None:
+                dep_ref = ParsedDependencyRef(
+                    name=parent + ".lvclass",
+                    path_tokens=[
+                        t for t in cls.parent_url.split("/") if t and t != ".."
+                    ],
+                )
+                found = self._search_for(dep_ref, dep_ref.name, lvclass_path)
+            return found, intended
         if cls.parent_link_path:
             return self._resolve_recorded_class_ref(
                 parent, cls.parent_link_path, lvclass_path, cls.parent_link_path_type
