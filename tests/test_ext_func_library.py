@@ -572,3 +572,20 @@ def test_the_recorded_kind_decides_whether_the_path_is_used() -> None:
         library_path_kind=LibraryPathKind.OTHER,
     )
     assert "('kernel32.dll')" in source
+
+
+def test_a_path_above_the_drives_root_folder_is_loaded_by_name(
+    project: Project,
+) -> None:
+    tokens = ["", *([".."] * 60), "Program Files", "Vendor", "vendorlib.so"]
+    vi = project.write_vi("vendorlib.so", tokens, "f")
+    out = project.generate(vi)
+    assert not [p for p in _tree(out) if p.endswith(".so")]
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    assert (
+        _loader(
+            "_vendorlib_so",
+            "getattr(ctypes, 'WinDLL', ctypes.CDLL)('vendorlib.so')",
+        )
+        in source
+    )

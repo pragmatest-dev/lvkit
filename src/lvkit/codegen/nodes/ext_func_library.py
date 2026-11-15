@@ -20,8 +20,8 @@ from the VI's own module (``ModuleLayout.placed_beside``: in the project, a
 library folder or an outside project alike), with every file another expansion of
 a wildcard name selects and the libraries it needs that sit in its folder, and the
 module loads it by its path from the module's own folder. A library whose path
-leaves the VI's tree (above its project, library folder or outside project) is
-loaded by its name.
+leaves the VI's tree (above its project, library folder or outside project, or
+above the drive's root folder) is loaded by its name.
 """
 
 from __future__ import annotations
@@ -107,9 +107,10 @@ def _fail(ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, why: str)
 
 def _location(
     ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall
-) -> LibraryLocation:
+) -> LibraryLocation | None:
     """The folder a library recorded relative to the VI is in: the recorded path
-    walked from the VI's own file (``walk_relative``)."""
+    walked from the VI's own file (``walk_relative``); None when the walk goes
+    above the drive's root folder, where nothing can be found by that path."""
     source = (
         ctx.graph.get_vi_source_path(ctx.vi_name)
         if ctx.graph is not None and ctx.vi_name
@@ -119,7 +120,7 @@ def _location(
         raise _fail(ctx, node, call, "the VI's file is not known to resolve it from")
     walked = walk_relative(source.resolve().parts, call.library_path_tokens, keep=1)
     if not walked:
-        raise _fail(ctx, node, call, "that path leads above the drive's root folder")
+        return None
     return LibraryLocation(Path(*walked[:-1]), call.library or walked[-1])
 
 
@@ -154,10 +155,16 @@ def _copy_beside_vi(
     """Copy the library into the package beside the VI's own module, by the
     path the VI records relative to itself, and return the expression of its
     path from the module; None when that folder leaves the VI's tree (above its
-    project, its library folder or its own outside project)."""
+    project, its library folder or its own outside project) or goes above the
+    drive's root folder: no file is there, so the library is loaded by its name,
+    as LabVIEW searches for a library it cannot find at its path (NI, "Specifying
+    the Location of Shared Libraries on Disk", How LabVIEW Locates Missing Shared
+    Libraries: "If LabVIEW cannot locate a shared library that you specified either
+    by name or by path, LabVIEW searches the VI search path for the missing shared
+    library")."""
     location = _location(ctx, node, call)
     resolver, vi_key = ctx.import_resolver, ctx.vi_name
-    if resolver is None or not vi_key:
+    if location is None or resolver is None or not vi_key:
         return None
     recorded = call.library_path_tokens
     folder = resolver.beside_vi(vi_key, recorded, ())
