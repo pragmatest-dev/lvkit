@@ -276,8 +276,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 f"{node.object_name or 'unnamed'} class records no property name and "
                 "no property code, only its data type "
                 f"({term.lv_type.to_python() if term.lv_type else 'unknown'}), as "
-                "Property Nodes saved in LabVIEW 8.2 do, so which property it is "
-                "cannot be told from the file",
+                "and the class's reference type (the same for every property of the "
+                "class), as Property Nodes saved in LabVIEW 8.2 do, so which "
+                "property it is cannot be told from the file",
                 node,
             )
         attr_name = to_var_name("_".join(segment_names))

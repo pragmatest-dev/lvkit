@@ -1393,6 +1393,13 @@ other 70 (9.0 and later) record a code, or a name for a class property. The
 only recorded trace of the property is its data type (`LVPositionTypeDef.ctl`, `LVBoundsTypeDef.ctl`, a path, a string),
 which several properties of a class share, so the row is a gap, not a guess.
 
+The `omidTypeDesc` does not tell the properties apart either. In `List Dynamic
+Dispatch SubVIs.vi`, whose three `VI` class rows have the `omidTypeDesc` TypeIDs
+99, 125 and 115 (and the `SubVI` row 133), the `DTHP` pool (`read_td_list`) holds
+the same descriptor for the three: a `VoidBlock` (`0x62`) whose body is one
+`u16` client type index (`0x0008`), and a different one (`0x001c`) for the `SubVI`
+class. So it is the class's reference and is shared by every property of the class.
+
 ## A Property Node row's `propItemInfo` carries `dataTypeDesc`, the property's declared type; a row saved with a `Void` terminal type keeps it there (issue #181)
 
 Each `propItemInfo` of a row's `propList` has a `<dataTypeDesc>` (a
