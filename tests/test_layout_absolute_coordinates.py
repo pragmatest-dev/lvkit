@@ -88,3 +88,47 @@ def test_absolute_coordinates_by_saved_version(
 def test_absolute_coordinates_false_without_main_xml(tmp_path: Path):
     assert absolute_coordinates(None) is False
     assert absolute_coordinates(tmp_path / "missing.xml") is False
+
+
+# A flat sequence of two frames; frame 1 sits 300 to the right of frame 0 and
+# its flat sequence tunnel is saved in the diagram frame (rects are top, left,
+# bottom, right).
+_FLAT_SEQUENCE = """
+<root>
+  <zPlaneList>
+    <SL__arrayElement class="flatSequence" uid="1">
+      <bounds>(50, 100, 250, 700)</bounds>
+      <sequenceList>
+        <SL__arrayElement class="sequenceFrame" uid="2">
+          <bounds>(50, 100, 250, 400)</bounds>
+          <termList>
+            <SL__arrayElement class="term" uid="3">
+              <dco class="flatSeqTun" uid="4">
+                <termBounds>(120, 390, 130, 400)</termBounds>
+              </dco>
+            </SL__arrayElement>
+          </termList>
+        </SL__arrayElement>
+        <SL__arrayElement class="sequenceFrame" uid="5">
+          <bounds>(50, 400, 250, 700)</bounds>
+          <termList>
+            <SL__arrayElement class="term" uid="6">
+              <dco class="flatSeqTun" uid="7">
+                <termBounds>(120, 400, 130, 410)</termBounds>
+              </dco>
+            </SL__arrayElement>
+          </termList>
+        </SL__arrayElement>
+      </sequenceList>
+    </SL__arrayElement>
+  </zPlaneList>
+</root>
+"""
+
+
+def test_absolute_flat_sequence_tunnels_stay_in_the_diagram_frame():
+    layout = build_layout_from_root(
+        ET.fromstring(_FLAT_SEQUENCE), absolute_coordinates=True
+    )
+    assert layout.terminal_centers["3"] == (395.0, 125.0)
+    assert layout.terminal_centers["6"] == (405.0, 125.0)

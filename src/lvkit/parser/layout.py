@@ -1624,7 +1624,12 @@ class _LayoutBuilder:
             # (which has none) — so map them here with the frame offset.
             # Without this the structure's border tunnels get no geometry and
             # never render, and every wire through them is dropped.
-            self._map_terms(frame, ax1 + dx, ay1 + dy)
+            # An absolute-coordinate VI records the tunnels in the diagram
+            # frame already, so no frame offset is added.
+            if self.absolute_coordinates:
+                self._map_terms(frame, 0.0, 0.0)
+            else:
+                self._map_terms(frame, ax1 + dx, ay1 + dy)
             fdl = frame.find("diagramList")
             if fdl is None:
                 continue
