@@ -69,9 +69,30 @@ VISA = [("VisaIOError", None)]
 # The gRPC library's own InvalidEnumValueException code (its exceptions.h), not
 # one of NI's listed codes: the message is the exception's text.
 GRPC_LIBRARY_CODES = {-2003}
+# A cluster element missing from the JSON: LabVIEW reports -375006, "the cluster
+# element is not found in the JSON string" (forums.ni.com/t5/LabVIEW/unflatten-jason/
+# td-p/4058219); NI's code list skips it, so the message is the exception's text.
+JSON_UNLISTED_CODES = {-375006}
+JSON_UNFLATTEN = [
+    ("JSONDecodeError", -375003),
+    ("JSONRootError", -375001),
+    ("JSONPathNotFoundError", -375004),
+    ("JSONTypeMismatchError", -375005),
+    ("JSONElementNotFoundError", -375006),
+    ("JSONExtraItemsError", -375007),
+    ("JSONDimensionsError", -375008),
+    ("JSONRaggedArrayError", -375009),
+    ("JSONNaNError", -375010),
+    ("JSONInfinityError", -375011),
+    ("JSONOutOfRangeError", -375012),
+    ("ValueError", None),
+]
+JSON_FLATTEN = [("JSONNaNError", -375010), ("JSONInfinityError", -375011)]
 GRPC_ENUM_VALUE = [("ValueError", -2003), ("IndexError", -2003)]
 
 PRIMITIVES = {
+    "24201:Flatten To JSON": JSON_FLATTEN,
+    "24202:Unflatten From JSON": JSON_UNFLATTEN,
     "1922:VISA Close": VISA,
     "1925:VISA Read": VISA,
     "1926:VISA Write": VISA,
@@ -212,6 +233,7 @@ def test_every_declared_failure_is_an_exception_caught_in_a_reachable_order() ->
 
 def test_every_declared_code_has_ni_s_description() -> None:
     codes = {f.code for failures in _declared().values() for f in failures}
-    listed = {c for c in codes if c is not None} - GRPC_LIBRARY_CODES
+    unlisted = GRPC_LIBRARY_CODES | JSON_UNLISTED_CODES
+    listed = {c for c in codes if c is not None} - unlisted
     for code in {GENERIC_ERROR_CODE, *listed}:
         assert describe_error_code(code), code

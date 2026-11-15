@@ -115,7 +115,19 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "Flatten To JSON needs the mapping of a LabVIEW type to JSON written down: a named cluster as an object, an unnamed one as an object keyed \"0\", \"1\", ..., how a double is printed, NaN and Inf with `enable LabVIEW extensions?`. The decision is the maintainer's."
+      "op": "FLATTEN_TO_JSON",
+      "errors": [
+        {
+          "exception": "JSONNaNError",
+          "code": -375010,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONInfinityError",
+          "code": -375011,
+          "base": "ValueError"
+        }
+      ]
     },
     "24202": {
       "name": "Unflatten From JSON",
@@ -181,7 +193,67 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "Unflatten From JSON needs the same LabVIEW-type-to-JSON mapping as Flatten To JSON, read the other way (cluster names as keys, `path` into the string, `type/defaults` as the target type). The decision is the maintainer's."
+      "op": "UNFLATTEN_FROM_JSON",
+      "errors": [
+        {
+          "exception": "JSONDecodeError",
+          "module": "json",
+          "code": -375003
+        },
+        {
+          "exception": "JSONRootError",
+          "code": -375001,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONPathNotFoundError",
+          "code": -375004,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONTypeMismatchError",
+          "code": -375005,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONElementNotFoundError",
+          "code": -375006,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONExtraItemsError",
+          "code": -375007,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONDimensionsError",
+          "code": -375008,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONRaggedArrayError",
+          "code": -375009,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONNaNError",
+          "code": -375010,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONInfinityError",
+          "code": -375011,
+          "base": "ValueError"
+        },
+        {
+          "exception": "JSONOutOfRangeError",
+          "code": -375012,
+          "base": "ValueError"
+        },
+        {
+          "exception": "ValueError"
+        }
+      ]
     }
   }
 }
