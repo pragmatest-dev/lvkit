@@ -235,6 +235,31 @@ def test_an_enum_name_computed_at_run_time_is_a_gap(
     assert "not a constant" in gaps[0].reason
 
 
+@pytest.mark.parametrize(
+    ("name", "lv", "proto"),
+    [
+        ("google_protobuf_Syntax_Flat", 2, 1),
+        ("google_protobuf_Field_Kind_Flat", 18, 17),
+        ("google_protobuf_Field_Cardinality_Flat", 3, 2),
+    ],
+)
+def test_a_flat_typedef_name_converts_on_the_enum_of_the_plain_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, lv: int, proto: int
+) -> None:
+    assert _convert(tmp_path, monkeypatch, True, name, lv).lv == lv
+    assert _convert(tmp_path, monkeypatch, False, name, proto).proto == proto
+    assert find_proto_enum(name) == find_proto_enum(name.removesuffix("_Flat"))
+
+
+def test_a_flat_name_of_an_enum_the_table_does_not_list_is_a_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gaps: list[Gap] = []
+    with pytest.raises(NotImplementedError):
+        _convert(tmp_path, monkeypatch, False, "my_own_proto_Color_Flat", 1, gaps=gaps)
+    assert "'my_own_proto_Color_Flat'" in gaps[0].reason
+
+
 def test_an_enum_the_table_does_not_list_is_a_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

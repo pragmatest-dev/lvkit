@@ -5,6 +5,11 @@ registers the enum under (the underscored proto name, for example
 ``google_protobuf_Field_Kind``), the proto enum's full name, the PyPI
 distribution that ships its generated Python, the module that holds it and its
 attribute path in that module. An enum not listed has no known Python class.
+
+The gRPC scripting tools also save a second typedef of an enum's items under the
+enum's name and a fixed suffix (``flat_typedef_suffix``, the ``_Flat`` of a
+message that has a Oneof); only the plain name is registered, so a name with the
+suffix is the enum of the name without it.
 """
 
 from __future__ import annotations
@@ -38,12 +43,18 @@ class ProtoEnum(BaseModel):
 
 
 @lru_cache(maxsize=1)
-def _load() -> dict[str, ProtoEnum]:
+def _load() -> tuple[str, dict[str, ProtoEnum]]:
     path = data_dir() / "grpc" / "proto_enums.json"
     raw = json.loads(path.read_text(encoding="utf-8"))
-    return {name: ProtoEnum.model_validate(row) for name, row in raw["enums"].items()}
+    enums = {name: ProtoEnum.model_validate(row) for name, row in raw["enums"].items()}
+    return raw["flat_typedef_suffix"], enums
 
 
 def find_proto_enum(name: str) -> ProtoEnum | None:
-    """The enum registered under ``name``; None when the table does not list it."""
-    return _load().get(name)
+    """The enum registered under ``name``, or under ``name`` without the Flat
+    typedef suffix; None when the table lists neither."""
+    suffix, enums = _load()
+    found = enums.get(name)
+    if found is None and name.endswith(suffix):
+        found = enums.get(name[: -len(suffix)])
+    return found
