@@ -327,6 +327,7 @@ def test_the_pattern_is_written_into_the_module_with_no_lvkit_import() -> None:
         ("%3f", [DBL], "width with a floating-point code"),
         ("%f", [I32], "into a int output"),
         ("%d", [STRING], "a number into a string output"),
+        ("%g", [primitive("NumComplex128")], "NI does not document the text"),
         ("%s", [I32], "a string into a int output"),
         ("%d", [I32, I32], "1 specifiers and the node has 2 outputs"),
     ],

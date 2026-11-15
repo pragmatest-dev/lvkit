@@ -356,6 +356,18 @@ def _as_kind(number: str, spec: _LvSpecifier, kind: FormatKind) -> str:
         return number if spec.code in "fge" else f"float({number})"
     if kind.kind == "bool":
         return f"{number} > 0.5"
+    if kind.kind == "complex":
+        # NI's pages do not give the text a complex output reads. The forum
+        # threads found (forums.ni.com "Odd behavior with Error In for Scan From
+        # String function", td-p/3133984; "String to Complex Number",
+        # ta-p/3526278) give "a+bi" as the standard form and say the scan is
+        # greedy, but leave open whether "2+2" reads as 2+0i, whether spaces
+        # around the sign and "j" are accepted, and what "2i" alone reads.
+        raise ValueError(
+            f"Scan From String specifier {spec.text!r} (into a complex output: "
+            "NI does not document the text a complex output reads, and forum "
+            "reports leave its edge cases open) has no conversion"
+        )
     if kind.kind == "int" and spec.code in "dx":
         low, high = _range(kind)
         return f"max({low}, min({high}, {number}))"
