@@ -118,10 +118,8 @@ def test_a_node_with_a_row_that_is_not_listed_stays_a_gap(
     project.add(_other_row_vi(("Visible", 104013825)))
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "Implicit property reference requires a binding model" in str(
-        package.gaps[0]
-    )
-    with pytest.raises(NotImplementedError, match="binding model"):
+    assert "the Property Node of control 'n' writes 'Visible'" in str(package.gaps[0])
+    with pytest.raises(NotImplementedError, match="writes .Visible."):
         package.function(n=1)
 
 
@@ -218,7 +216,7 @@ def test_a_property_that_is_not_listed_is_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert f"control 'n' writes {row[0]!r}" in str(package.gaps[0])
 
 
 def test_a_read_of_a_listed_property_is_a_gap(
@@ -232,7 +230,7 @@ def test_a_read_of_a_listed_property_is_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "reads 'Visible'" in str(package.gaps[0])
 
 
 def test_an_unwired_listed_write_is_a_gap(project: Project) -> None:  # noqa: F811
@@ -244,7 +242,7 @@ def test_an_unwired_listed_write_is_a_gap(project: Project) -> None:  # noqa: F8
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "reads 'Visible'" in str(package.gaps[0])
 
 
 def test_a_vi_with_only_value_rows_has_no_property_hook(
@@ -391,4 +389,4 @@ def test_a_listed_row_and_an_unlisted_row_make_the_node_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "writes 'Frame Color'" in str(package.gaps[0])
