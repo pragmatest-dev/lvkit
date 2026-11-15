@@ -93,7 +93,9 @@ def case_xml(*, wire_selector: bool = True, read_input: bool = False) -> str:
     )
 
 
-def loop_xml(kind: str, *, stop_if_true: bool = True) -> str:
+def loop_xml(
+    kind: str, *, stop_if_true: bool = True, stop_tag: str = "loopTestDCO"
+) -> str:
     """A For Loop (count 5, N = outer 410) or While Loop (stop wired from False)
     with an input tunnel (outer 420, wired from 7) nothing in the body reads."""
     border = [tunnel("lpTun", 420, 421, [422])]
@@ -105,9 +107,9 @@ def loop_xml(kind: str, *, stop_if_true: bool = True) -> str:
     else:
         flags = 65536 if stop_if_true else 0
         extra = (
-            f'<loopTestDCO class="lTst" uid="430"><objFlags>{flags}</objFlags>'
+            f'<{stop_tag} class="lTst" uid="430"><objFlags>{flags}</objFlags>'
             '<termList elements="1"><SL__arrayElement uid="431"/></termList>'
-            "</loopTestDCO>"
+            f"</{stop_tag}>"
         )
         faces.append(term(431, '<dco uid="430"/>'))
     inner = frame_diagram(450, 460, faces)
