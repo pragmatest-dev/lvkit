@@ -53,6 +53,7 @@ from . import (
     formula,
     global_variable,
     in_place,
+    interleave,
     invoke_node,
     local_variable,
     loop,
@@ -174,6 +175,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "xNode": xnode.generate,
     "eventRegNode": event_register.generate_register,
     "decimate": decimate.generate,
+    "interLeave": interleave.generate,
 }
 
 

@@ -2357,12 +2357,18 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     termList, not in any allowlist) -- confirmed end to end against real
     corpus FPGA VIs, not just by this handler's registration.
 
-    "extFunc" (a Call Library Function Node) is reached the same way; its
-    handler only supplies the display name."""
+    "extFunc" (a Call Library Function Node) and "interLeave" (Interleave 1D
+    Arrays) are reached the same way; their handlers only supply the display
+    name."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode", "extFunc"}
+    reachable = set(OPERATION_NODE_CLASSES) | {
+        "commentNode",
+        "xNode",
+        "extFunc",
+        "interLeave",
+    }
     unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "

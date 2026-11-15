@@ -2102,6 +2102,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _DecomposeMatchHandler(),
     DecomposeRecomposeStructureHandler(),
     ExtFuncHandler(),
+    GenericHandler("interLeave", "Interleave 1D Arrays"),
     # Built-in primitives with specialized XML classes.
     # aDelete/aIndx/subset resolve by XML class via the node_types section of
     # primitives.json, so they carry NO primResID. Their old numeric IDs were
