@@ -157,6 +157,7 @@ PRIMITIVES = {
     "addons:Create Client": [("OSError", None)],
     "addons:Client Unary Call.vim": [("RpcError", None)],
     "addons:Client Complete Streaming Call.vi": [("RpcError", None)],
+    "addons:UnpackFromAny.vim": [("DecodeError", None)],
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],

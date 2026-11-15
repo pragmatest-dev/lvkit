@@ -27,7 +27,14 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-from . import elapsed_time, get_type_information, grpc_client, grpc_enum, grpc_stream
+from . import (
+    elapsed_time,
+    get_type_information,
+    grpc_any,
+    grpc_client,
+    grpc_enum,
+    grpc_stream,
+)
 
 
 def _type_descriptor_code(
@@ -95,6 +102,9 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "GRPC_CLIENT_COMPLETE_STREAMING_CALL": grpc_stream.complete_streaming_call,
     "GRPC_CLIENT_CANCEL_CALL": grpc_stream.cancel_call,
     "GRPC_METADATA_PASSTHROUGH": grpc_client.metadata_registration,
+    "GRPC_PACK_TO_ANY": grpc_any.pack_to_any,
+    "GRPC_UNPACK_FROM_ANY": grpc_any.unpack_from_any,
+    "GRPC_CLUSTER_METADATA": grpc_any.cluster_to_message_metadata,
 }
 
 

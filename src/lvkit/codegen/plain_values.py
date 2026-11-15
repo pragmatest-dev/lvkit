@@ -169,6 +169,15 @@ def to_plain(
     return _plain(expr, lv_type, ctx, 0, enums)
 
 
+def plain_fields(lv_type: LVType, ctx: CodeGenContext) -> list[tuple[str, LVType]]:
+    """The key and the type of each element of a cluster in its plain form."""
+    cluster = _cluster(lv_type, ctx)
+    return [
+        (key, _field_type(field, lv_type))
+        for key, field in zip(cluster.keys, cluster.fields)
+    ]
+
+
 def _enum_items(lv_type: LVType) -> list[str]:
     """The item names of an enum, in the order of their values (the value of an
     enum is the position of its item)."""

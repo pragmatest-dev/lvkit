@@ -191,14 +191,15 @@ def request_message(
     entry: VIEntry,
     request: ProtoMessage,
     statements: list[ast.stmt],
+    param: str = "request_data",
 ) -> str:
-    """The expression of the request message: the wired ``Request Data`` in its
+    """The expression of the request message: the wired input ``param`` in its
     plain form read into ``request`` (an unwired one is the empty message). The
     assignment that holds the wired value goes onto ``statements``."""
-    request_term = terminal_of(node, entry, "request_data", TerminalDirection.INPUT)
+    request_term = terminal_of(node, entry, param, TerminalDirection.INPUT)
     plain = "{}"
     if request_term is not None and ctx.is_wired(request_term.id):
-        data = ctx.make_output_var("request_data", node.id)
+        data = ctx.make_output_var(param, node.id)
         statements.append(
             build_assign(
                 data, parse_expr(ctx.wired_input(request_term.id, node) or "None")
@@ -273,15 +274,18 @@ def read_response(
     reply: str,
     out_id: str,
     optional: bool = False,
+    type_param: str = "response_type",
+    type_label: str = "Response Type",
 ) -> CodeFragment:
     """The ``Response Data`` output read from the message in ``reply``; with
     ``optional``, ``reply`` may be None (no message was read) and every field is
-    then the Response Type's."""
-    type_term = terminal_of(node, entry, "response_type", TerminalDirection.INPUT)
+    then the type's (the input ``type_param``, named ``type_label`` in the
+    gap)."""
+    type_term = terminal_of(node, entry, type_param, TerminalDirection.INPUT)
     out = next(t for t in node.terminals if t.id == out_id)
     lv_type = (type_term.lv_type if type_term else None) or out.lv_type
     if lv_type is None or type_term is None or not ctx.is_wired(type_term.id):
-        raise ConversionGap("the Response Type is not wired", node)
+        raise ConversionGap(f"the {type_label} is not wired", node)
     plain = ctx.make_output_var("response_dict", node.id)
     default = ctx.make_output_var("response_type", node.id)
     variable = ctx.make_output_var("response_data", node.id, terminal_id=out_id)
