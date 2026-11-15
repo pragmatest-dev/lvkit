@@ -216,10 +216,18 @@ def test_a_timestamp_past_the_range_converts_as_a_number_does() -> None:
     assert to_u64(_later(-1)).out == 2**64 - 1
 
 
-def test_a_timestamp_as_a_quad_integer_stays_a_gap() -> None:
-    with pytest.raises(NotImplementedError):
-        _, fn = _to_integer(1155, "To Quad Integer", scalar("NumInt64"))
-        fn(EPOCH_1904)
+def test_a_timestamp_as_a_quad_integer_is_the_rounded_seconds_since_1904() -> None:
+    source, fn = _to_integer(1155, "To Quad Integer", scalar("NumInt64"))
+    assert "in_" not in source
+    assert "ctypes.c_int64" in source
+    assert fn(EPOCH_1904).out == 0
+    assert fn(datetime_2020()).out == 3660681600
+    assert fn(_later(0.5)).out == 0
+    assert fn(_later(1.5)).out == 2
+    assert fn(_later(2.5)).out == 2
+    assert fn(_later(2.5001)).out == 3
+    # A date before 1904 is negative (a datetime cannot reach 2**63 seconds).
+    assert fn(_later(-1)).out == -1
 
 
 def datetime_2020() -> hightime.datetime:

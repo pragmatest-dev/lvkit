@@ -17,9 +17,12 @@ ADD_PRIM_ID = 1050
 SUBTRACT_PRIM_ID = 1051
 TO_DOUBLE_PRIM_ID = 1147
 
-# The unsigned integer conversions whose NI page lists "a time stamp" as the input
-# (To Unsigned Long Integer, To Unsigned Quad Integer), with the ctypes type each
-# keeps the low bits of, as the catalog's code for a number does.
+# The integer conversions whose NI page lists "a time stamp" as the input
+# (To Unsigned Long Integer, To Quad Integer, To Unsigned Quad Integer), with the
+# ctypes type each keeps the low bits of (a value past the range wraps for all
+# three; no source says a timestamp converts differently from a number). To Quad
+# Integer's page (functions/to-quad-integer.html) gives the same input and
+# rounding rule as the sources below.
 #
 # Rounding: those pages say "This function rounds all floating-point and
 # fixed-point numeric values to the nearest integer. If the fractional part of the
@@ -31,12 +34,12 @@ TO_DOUBLE_PRIM_ID = 1147
 # (forums.ni.com/t5/LabVIEW/timestamp-as-simple-long/td-p/910142). The rounding is
 # done on the exact fraction (a float of the seconds holds only ~0.5 us). No
 # source says a timestamp past the range converts differently from a number.
-_INTEGER_CTYPES = {1145: "c_uint32", 1156: "c_uint64"}
-# The other To <number type> conversions (To Byte / Word / Long / Quad Integer, the
+_INTEGER_CTYPES = {1145: "c_uint32", 1155: "c_int64", 1156: "c_uint64"}
+# The other To <number type> conversions (To Byte / Word / Long Integer, the
 # unsigned byte / word, To Single / Extended Precision Float, the three complex
 # types): their NI pages do not list a time stamp as an input.
 _UNDOCUMENTED_PRIM_IDS = frozenset(
-    {1140, 1141, 1142, 1143, 1144, 1146, 1149, 1151, 1152, 1154, 1155}
+    {1140, 1141, 1142, 1143, 1144, 1146, 1149, 1151, 1152, 1154}
 )
 
 # The modules the templates import (``import`` lines of the generated module).
