@@ -28,12 +28,20 @@ from ..ast_utils import (
 )
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
-from ..cluster_members import attribute_paths, is_anonymous_cluster, position_path
+from ..cluster_members import (
+    ClusterShape,
+    MemberStep,
+    field_slot,
+    is_anonymous_cluster,
+    member_path,
+    needs_copy,
+    read_member,
+    write_member,
+)
 from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
-from ..native_array import replaced_field
-from ..value_copy import own_path, owned_input
+from ..value_copy import owned_input
 from . import waveform_bundle
 
 
@@ -105,6 +113,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 ctx.vi_name,
                 "Bundle/Unbundle By Name",
             )
+    shape = ClusterShape(agg_lv_type, class_fields, class_attrs)
 
     if list_in and list_out:
         # LIST in + LIST out = passthrough at structure boundary
@@ -130,13 +139,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 if read is not None:
                     bindings[t.id] = read.role.in_error(agg_var)
             elif agg_var:
-                if anon:
-                    path = _position_path(t, class_fields)
-                    bindings[t.id] = f"({agg_var})" + "".join(
-                        f"[{index}]" for index in path
-                    )
-                else:
-                    bindings[t.id] = _field_expr(t, agg_var, class_fields, class_attrs)
+                read = element_read(node, t, agg_var, shape, ctx)
+                if read is not None:
+                    bindings[t.id] = read
 
     elif list_in and not list_out:
         # LIST in only = bundle
@@ -156,26 +161,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
         if agg_var:
             if anon:
-                updates: list[tuple[tuple[int, ...], str]] = []
-                for t in sorted(list_in, key=lambda t: t.index):
-                    value = ctx.wired_input(t.id, node)
-                    if value is None:
-                        raise TypeResolutionNeeded(type_name="bundle value")
-                    updates.append((_position_path(t, class_fields), value))
                 cluster_var = ctx.make_output_var(
                     "cluster", node.id, agg_out[0].id if agg_out else None
                 )
                 statements.append(build_assign(cluster_var, parse_expr(agg_var)))
-                for path, value in updates:
-                    statements.append(
-                        build_assign(
-                            cluster_var,
-                            parse_expr(replaced_field(cluster_var, path, value)),
-                        )
-                    )
+                _write_elements(
+                    node, list_in, cluster_var, shape, ctx, statements, imports
+                )
                 for t in agg_out:
                     bindings[t.id] = cluster_var
-                return CodeFragment(statements=statements, bindings=bindings)
+                return CodeFragment(
+                    statements=statements, bindings=bindings, imports=imports
+                )
             # Bundle By Name changes the object in place: work on a copy when
             # something else can still read the incoming value.
             owned = owned_input(ctx, agg_in[0], node, statements)
@@ -203,25 +200,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 for t in agg_out:
                     bindings[t.id] = cluster_var
             # Assign fields on an EXISTING cluster (incoming agg wire).
-            for t in sorted(list_in, key=lambda t: t.index):
-                val = ctx.wired_input(t.id, node)
-                if not val:
-                    continue
-                path = _field_path(t, class_fields, class_attrs)
-                if path:
-                    if len(path) > 1:
-                        imports.add(COPY_IMPORT)
-                        statements.extend(own_path(agg_var, path))
-                    statements.append(
-                        ast.Assign(
-                            targets=[_attribute_target(agg_var, path)],
-                            value=parse_expr(val),
-                        )
-                    )
-                else:
-                    raise TypeResolutionNeeded(
-                        type_name=f"field[{t.nmux_field_index}]"
-                    )
+            _write_elements(node, list_in, agg_var, shape, ctx, statements, imports)
         elif anon and agg_out:
             # CREATE a new anonymous cluster from the field inputs (a classic
             # Bundle with no incoming cluster wire) as a positional tuple, bound
@@ -299,11 +278,63 @@ def _error_read(
     return ErrorFieldRead(term.id, error_field_role(field.type))
 
 
-def _position_path(
-    term: Terminal, fields: list[ClusterField] | None
-) -> tuple[int, ...]:
-    """The tuple positions of the depth-first nMux field index of ``term``."""
-    return position_path(term.nmux_field_index, fields)
+def _member_path(
+    node: PrimitiveNode, term: Terminal, shape: ClusterShape
+) -> tuple[MemberStep, ...] | None:
+    """The way from the cluster to the member the element ``term`` selects; None
+    when the cluster has no such member."""
+    index = term.nmux_field_index
+    if index is not None and shape.fields:
+        index = field_slot(node.node_type, index, shape.fields)
+    return member_path(index, shape)
+
+
+def element_read(
+    node: PrimitiveNode,
+    term: Terminal,
+    cluster: str,
+    shape: ClusterShape,
+    ctx: CodeGenContext,
+) -> str | None:
+    """The expression reading the member the output element ``term`` of an
+    Unbundle takes out of ``cluster``. An element with nothing wired to it needs
+    no value, so one that selects no member of the cluster reads nothing; a wired
+    one that does not is a gap."""
+    path = _member_path(node, term, shape)
+    if path is not None:
+        return read_member(cluster, path)
+    if ctx.is_wired(term.id):
+        raise TypeResolutionNeeded(type_name=f"field[{term.nmux_field_index}]")
+    return None
+
+
+def _write_elements(
+    node: PrimitiveNode,
+    elements: list[Terminal],
+    cluster: str,
+    shape: ClusterShape,
+    ctx: CodeGenContext,
+    statements: list[ast.stmt],
+    imports: set[str],
+) -> None:
+    """Set each wired element of a Bundle into the cluster ``cluster``; an element
+    with nothing wired keeps the value the cluster already holds."""
+    for t in sorted(elements, key=lambda t: t.index):
+        value = ctx.wired_input(t.id, node)
+        if not value:
+            continue
+        path = _member_path(node, t, shape)
+        if path is None:
+            raise TypeResolutionNeeded(type_name=f"field[{t.nmux_field_index}]")
+        if isinstance(path[0], int) and not cluster.isidentifier():
+            raise ConversionGap(
+                f"{node.name!r} sets a member of a cluster held as the expression "
+                f"{cluster}, which has no variable to take the changed cluster",
+                node,
+            )
+        if needs_copy(path):
+            imports.add(COPY_IMPORT)
+        statements.extend(write_member(ctx, cluster, path, value))
 
 
 def _generate_error_bundle(
@@ -343,41 +374,3 @@ def _generate_error_bundle(
         statements=[build_assign(var, parse_expr(error))],
         bindings={t.id: var for t in agg_out},
     )
-
-
-def _field_path(
-    term: Terminal,
-    class_fields: list[ClusterField] | None,
-    class_attrs: ClassAttributes | None = None,
-) -> list[str] | None:
-    """The attribute path from the cluster to a LIST terminal's field, using
-    nmux_field_index, which counts the depth-first ``_flatten_fields`` slots."""
-    if term.nmux_field_index is None or not class_fields:
-        return None
-    paths = attribute_paths(class_fields, class_attrs)
-    if 0 <= term.nmux_field_index < len(paths):
-        return paths[term.nmux_field_index]
-    return None
-
-
-def _attribute_target(agg_var: str, path: list[str]) -> ast.Attribute:
-    """The assignment target ``agg_var.<path>``."""
-    target = parse_expr(f"{agg_var}.{'.'.join(path)}")
-    assert isinstance(target, ast.Attribute)
-    target.ctx = ast.Store()
-    return target
-
-
-def _field_expr(
-    term: Terminal,
-    agg_var: str,
-    class_fields: list[ClusterField] | None,
-    class_attrs: ClassAttributes | None = None,
-) -> str:
-    """Resolve field expression for a LIST output terminal (unbundle)."""
-    if term.nmux_field_index is not None and class_fields:
-        paths = attribute_paths(class_fields, class_attrs)
-        if 0 <= term.nmux_field_index < len(paths):
-            return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
-
-    raise TypeResolutionNeeded(type_name=f"field[{term.nmux_field_index}]")

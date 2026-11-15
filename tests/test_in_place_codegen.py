@@ -69,9 +69,11 @@ def _mk_ipes(
 
 
 def _cluster_type(*field_names: str) -> LVType:
-    """Build a cluster LVType with named fields."""
+    """Build a typedef cluster LVType with named fields."""
     return LVType(
-        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name=n) for n in field_names]
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="T.ctl",
+        fields=[ClusterField(name=n) for n in field_names],
     )
 
 
@@ -647,6 +649,7 @@ class TestIPESBorderDataFlowIds:
         ctx.bind("wy", "new_y")
         cluster = LVType(
             kind=LVTypeKind.CLUSTER,
+            typedef_name="T.ctl",
             fields=[ClusterField(name="x"), ClusterField(name="y")],
         )
         tiles = [
@@ -1074,3 +1077,104 @@ def test_a_border_tile_error_out_is_the_error_out_of_its_port():
 
     assert frag.bindings["err_read"] == "None"
     assert frag.bindings["err_write"] == "None"
+
+
+# ---------------------------------------------------------------------------
+# The form of the cluster: tuple, named cluster, waveform
+# ---------------------------------------------------------------------------
+
+
+def _code(frag) -> str:
+    return "\n".join(ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements)
+
+
+class TestIPESClusterForms:
+    def test_an_anonymous_cluster_is_read_and_written_by_position(self):
+        anonymous = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="a"), ClusterField(name="b")],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_b", "rec_b", "rec_agg_out")
+        ctx.bind("cluster_in", "data")
+        ctx.bind("rec_b", "new_b")
+        dec = _dec_op("p1", "dec_agg", "dec_b", lv_type=anonymous)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_b", lv_type=anonymous)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert ctx.resolve("dec_b") == "(data)[1]"
+        assert "data = data[:1] + (new_b,) + data[2:]" in _code(frag)
+
+    def test_a_field_inside_a_typedef_cluster_of_an_anonymous_one(self):
+        inner = _cluster_type("left", "right")
+        outer = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="mark"), ClusterField(name="box", type=inner)],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_r", "rec_r", "rec_agg_out")
+        ctx.bind("cluster_in", "data")
+        ctx.bind("rec_r", "new_r")
+        dec = _dec_op("p1", "dec_agg", "dec_r", lv_type=outer)
+        dec.terminals[1].nmux_field_index = 3
+        rec = _rec_op("p1", "rec_agg_out", "rec_r", lv_type=outer)
+        rec.terminals[0].nmux_field_index = 3
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert ctx.resolve("dec_r") == "(data)[1].right"
+        code = _code(frag)
+        assert "cluster_part = copy.copy(data[1])" in code
+        assert "cluster_part.right = new_r" in code
+        assert "import copy" in ctx.imports
+
+    def test_a_waveform_component_is_read_and_the_waveform_rebuilt(self):
+        waveform = LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Waveform",
+            measure_flavor="Float64Waveform",
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_dt", "rec_dt", "rec_agg_out")
+        ctx.bind("cluster_in", "wave")
+        ctx.bind("rec_dt", "new_dt")
+        ctx.is_wired = lambda _terminal_id: True
+        dec = _dec_op("p1", "dec_agg", "dec_dt", lv_type=waveform)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_dt", lv_type=waveform)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert "wave" in (ctx.resolve("dec_dt") or "")
+        assert "new_dt" in _code(frag)
+        assert ctx.resolve("rec_agg_out") not in (None, "wave")
+        assert (
+            "create_with_regular_interval(nitypes.bintime.TimeDelta(new_dt)"
+            in _code(frag)
+        )
+
+    def test_an_unwired_element_that_selects_no_field_reads_nothing(self):
+        empty = LVType(kind=LVTypeKind.CLUSTER, typedef_name="Empty.ctl", fields=[])
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_f")
+        ctx.bind("cluster_in", "data")
+        dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=empty)
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+        )
+        in_place.generate(node, ctx)
+        assert ctx.resolve("dec_f") is None

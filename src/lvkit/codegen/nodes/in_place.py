@@ -35,16 +35,17 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import COPY_IMPORT, parse_expr
+from ..ast_utils import parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
+from ..cluster_members import ClusterShape
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import guarded_indexes, replaced_elements
 from ..type_default import type_default
-from ..value_copy import own_path, owned_input
-from . import in_place_map
-from .nmux import _attribute_target, _field_expr, _field_path
+from ..value_copy import owned_input
+from . import in_place_map, waveform_bundle
+from .nmux import _write_elements, element_read
 
 _CLUSTER = "decomposeClusterNode"
 _ARRAY = "decomposeArrayNode"
@@ -284,9 +285,18 @@ def _take_element_out(
         whole = (ctx.wired_input(agg.id, op) if agg is not None else None) or data_var
         if agg is None or whole is None:
             return None
-        class_fields = _get_class_fields(agg, ctx)
+        shape = _cluster_shape(agg, ctx)
+        flavor = agg.lv_type.measure_flavor if agg.lv_type else None
         for t in _field_terminals(op, "output"):
-            ctx.bind(t.id, _field_expr(t, whole, class_fields, _class_attrs(agg, ctx)))
+            if flavor:
+                if ctx.is_wired(t.id):
+                    ctx.bind(
+                        t.id, waveform_bundle.component_read(op, t, whole, flavor, ctx)
+                    )
+                continue
+            read = element_read(op, t, whole, shape, ctx)
+            if read is not None:
+                ctx.bind(t.id, read)
         return _Element(whole)
     if tile.kind == _ARRAY:
         return _take_array_elements_out(op, ctx)
@@ -324,7 +334,7 @@ def _write_elements_back(
             continue
         op = tile.op
         if tile.kind == _CLUSTER:
-            stmts.extend(_write_fields_back(op, element, ctx))
+            stmts.extend(_write_fields_back(tile, element, ctx))
             continue
         if tile.kind == _ARRAY:
             stmts.extend(_write_array_element_back(tile, element, ctx))
@@ -451,24 +461,37 @@ def _write_array_element_back(
 
 
 def _write_fields_back(
-    op: PrimitiveNode, element: _Element, ctx: CodeGenContext
+    tile: _Tile, element: _Element, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """Emit data.field = modified_value for each field the WRITE tile takes."""
+    """Put each element the body produced back into the data: a field of a
+    cluster is set where it is; a waveform is rebuilt with the components."""
+    op = tile.op
     agg_out = _role_terminal(op, "agg", "output")
-    class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
-    stmts: list[ast.stmt] = []
-    for t in _field_terminals(op, "input"):
-        val = ctx.wired_input(t.id, op)
-        if val is None:
-            continue
-        path = _field_path(t, class_fields, _class_attrs(agg_out, ctx))
-        if path is None:
-            continue
-        if len(path) > 1:
-            ctx.add_import(COPY_IMPORT)
-            stmts.extend(own_path(element.whole, path))
-        stmts.append(_assign(_attribute_target(element.whole, path), val))
-    return stmts
+    fields = _field_terminals(op, "input")
+    flavor = agg_out.lv_type.measure_flavor if agg_out and agg_out.lv_type else None
+    if flavor and agg_out is not None:
+        fragment = waveform_bundle.bundle(
+            op, fields, [agg_out], element.whole, flavor, ctx
+        )
+        for statement_import in fragment.imports:
+            ctx.add_import(statement_import)
+        for carried in _carried_outputs(tile):
+            ctx.bind(carried.id, fragment.bindings[agg_out.id])
+        return fragment.statements
+    statements: list[ast.stmt] = []
+    imports: set[str] = set()
+    _write_elements(
+        op,
+        fields,
+        element.whole,
+        _cluster_shape(agg_out, ctx),
+        ctx,
+        statements,
+        imports,
+    )
+    for statement_import in imports:
+        ctx.add_import(statement_import)
+    return statements
 
 
 def _assign(target: ast.expr, value: str) -> ast.stmt:
@@ -612,6 +635,16 @@ def _class_attrs(
     if term is None or ctx.graph is None:
         return None
     return type_attributes(ctx.graph, term.lv_type, ctx.vi_name, "In Place Element")
+
+
+def _cluster_shape(term: Terminal | None, ctx: CodeGenContext) -> ClusterShape:
+    """The type, fields and class attributes of the cluster an aggregate terminal
+    carries."""
+    return ClusterShape(
+        term.lv_type if term else None,
+        _get_class_fields(term, ctx),
+        _class_attrs(term, ctx),
+    )
 
 
 def _get_class_fields(

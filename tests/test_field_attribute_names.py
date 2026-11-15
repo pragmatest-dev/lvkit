@@ -5,16 +5,23 @@ cluster constants."""
 from __future__ import annotations
 
 import ast
+import copy
 from types import SimpleNamespace
 
 from lvkit.codegen.ast_utils import field_attribute_names, field_attribute_paths
+from lvkit.codegen.cluster_members import (
+    ClusterShape,
+    member_path,
+    read_member,
+    write_member,
+)
 from lvkit.codegen.context import _format_cluster_constant
-from lvkit.codegen.nodes.nmux import _attribute_target, _field_expr, _field_path
 from lvkit.codegen.type_fields import field_annotations
 from lvkit.graph.models import ConstantNode
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind
 
 _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="I32")
+_NAMED = LVType(kind=LVTypeKind.CLUSTER, typedef_name="T.ctl")
 
 
 def _cluster(*labels: str) -> list[ClusterField]:
@@ -22,7 +29,11 @@ def _cluster(*labels: str) -> list[ClusterField]:
 
 
 def _nested() -> list[ClusterField]:
-    inner = LVType(kind=LVTypeKind.CLUSTER, fields=_cluster("Count", "count"))
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Inner.ctl",
+        fields=_cluster("Count", "count"),
+    )
     return [
         ClusterField(name="Count", type=_INT),
         ClusterField(name="count", type=inner),
@@ -42,26 +53,26 @@ def test_paths_follow_the_depth_first_field_slots() -> None:
     ]
 
 
-def _terminal(index: int) -> Terminal:
-    return Terminal(
-        id=f"t{index}", index=index, direction="output", nmux_field_index=index
-    )
+def _path(index: int, fields: list[ClusterField]) -> tuple[int | str, ...]:
+    path = member_path(index, ClusterShape(_NAMED, fields))
+    assert path is not None
+    return path
 
 
 def test_unbundle_and_bundle_by_name_use_the_distinct_names() -> None:
     fields = _nested()
-    expressions = [_field_expr(_terminal(i), "data", fields) for i in range(4)]
+    expressions = [read_member("data", _path(i, fields)) for i in range(4)]
     assert expressions == [
         "data.count",
         "data.count_2",
         "data.count_2.count",
         "data.count_2.count_2",
     ]
-    assert [_field_path(_terminal(i), fields) for i in range(4)] == [
-        ["count"],
-        ["count_2"],
-        ["count_2", "count"],
-        ["count_2", "count_2"],
+    assert [_path(i, fields) for i in range(4)] == [
+        ("count",),
+        ("count_2",),
+        ("count_2", "count"),
+        ("count_2", "count_2"),
     ]
 
 
@@ -69,11 +80,11 @@ def test_bundle_by_name_into_a_nested_field_sets_that_field_only() -> None:
     fields = _nested()
     for index, expected in [(2, (1, 9, 3)), (3, (1, 2, 9)), (0, (9, 2, 3))]:
         data = SimpleNamespace(count=1, count_2=SimpleNamespace(count=2, count_2=3))
-        target = _attribute_target("data", _field_path(_terminal(index), fields) or [])
-        statement = ast.unparse(
-            ast.Assign(targets=[target], value=ast.Constant(9), lineno=0)
+        statements = write_member(None, "data", _path(index, fields), "9")  # type: ignore[arg-type]
+        exec(  # noqa: S102
+            ast.unparse(ast.Module(body=statements, type_ignores=[])),
+            {"data": data, "copy": copy},
         )
-        exec(statement, {"data": data})  # noqa: S102
         assert (data.count, data.count_2.count, data.count_2.count_2) == expected
 
 
