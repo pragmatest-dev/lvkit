@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel
 
+from ..border_dco import BORDER_DCO_KIND, border_dco
 from ..constants import (
     LOOP_NODE_CLASSES,
     TERMINAL_CLASS,
@@ -29,22 +30,6 @@ from .base import extract_tunnel_mapping, frame_inner_node_uids
 # ``loopIndexDCO`` carries the identical no-objFlags/termBMPs=1 signature). See
 # issue #34.
 _TERM_HIDDEN_FLAG = 0x800000
-
-# Loop border DCO class -> the glyph kind the renderer draws for it. The iteration
-# terminal (i) and while-loop conditional (cond) are not graph Terminals; N is.
-# The class names the terminal; the element tag differs between VIs (a while
-# loop's conditional terminal is ``loopTestDCO`` in most and ``loopEndDCO`` in
-# others), so a border terminal is found by its class.
-_BORDER_DCO_KIND = {
-    "lCnt": "i",
-    "lMax": "N",
-    "lTst": "cond",
-}
-
-
-def _border_dco(loop_elem: ET.Element, dco_class: str) -> ET.Element | None:
-    """The loop's own border terminal of class ``dco_class`` (a direct child)."""
-    return loop_elem.find(f"*[@class='{dco_class}']")
 
 
 def _hidden_border_terminals(loop_elem: ET.Element) -> frozenset[str]:
@@ -73,8 +58,8 @@ def _hidden_border_terminals(loop_elem: ET.Element) -> frozenset[str]:
                     term_flags[dco.get("uid", "")] = safe_int(term.find("objFlags"))
 
     hidden: set[str] = set()
-    for dco_class, kind in _BORDER_DCO_KIND.items():
-        dco = _border_dco(loop_elem, dco_class)
+    for dco_class, kind in BORDER_DCO_KIND.items():
+        dco = border_dco(loop_elem, dco_class)
         uid = dco.get("uid") if dco is not None else None
         if uid and term_flags.get(uid, 0) & _TERM_HIDDEN_FLAG:
             hidden.add(kind)
@@ -338,7 +323,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
             # Find stop condition terminal for while loops (class="lTst")
             stop_condition_uid: str | None = None
             stop_condition_inverted = False
-            loop_test_dco = _border_dco(loop_elem, "lTst")
+            loop_test_dco = border_dco(loop_elem, "lTst")
             if loop_test_dco is not None:
                 # The termList inside has the terminal receiving the stop boolean
                 term_list = loop_test_dco.find("termList")

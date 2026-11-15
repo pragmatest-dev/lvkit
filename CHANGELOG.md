@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap
 ## [Unreleased]
+- **Fix: a While Loop whose stop terminal the VI records as `loopEndDCO` draws its stop glyph and wire** — the render found border terminals by tag; it now finds them by class, as the parser does, and the For Loop count terminal is still drawn once.
 - **vi.lib: LV70DateRecToTimeStamp.vi generates Python** — the LabVIEW 7.0 date and time record is read as the computer's local time (`time.mktime`, whose DST 0 / 1 / -1 are NI's standard / daylight / automatic) and gives a timestamp; a To <number type> conversion of a timestamp (To Long Integer, ...) is a gap naming that NI does not document it, not a run-time `TypeError`.
 - **Scan String For Tokens generates Python** — the next token, its index in `operators` (-1 other, -2 at the end) and the offset past it and its trailing delimiters, per NI's page and worked example; `allow empty tokens?` set to TRUE and operators with a format code or a `+`/`-` stay gaps.
 - **Fix: a While Loop whose conditional terminal the VI records as `loopEndDCO` stops when its condition says so** — it was read as having no condition and the generated loop ran once (44 corpus VIs, e.g. OpenG's String to 1D Array).

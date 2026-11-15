@@ -32,6 +32,7 @@ from pathlib import Path
 from ..cache_paths import LibraryRoots
 from ..extractor import extract_vi_xml
 from ..vi_files import is_vi_file
+from .border_dco import BORDER_DCO_KIND, GEOMETRY_ONLY_CLASSES, border_dco
 from .extfunc_bounds import extfunc_mirrored_bounds
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
 from .utils import extract_caption, extract_label_strict, heap_origin
@@ -65,20 +66,14 @@ def bundle_aggregate_columns(box: Rect, node: Rect) -> tuple[Rect, Rect]:
 # Structure border DCOs that live OUTSIDE their owning node's termList (loop
 # count/index/test terminals, case selector) — each has its own uid + bounds,
 # but the graph doesn't model them as full Terminal objects. Geometry only.
-_BORDER_DCO_TAGS = ("loopIndexDCO", "loopLimitDCO", "loopTestDCO", "caseSelDCO")
-
-# Fixed tag -> glyph-kind mapping. This is geometry-side decoration (same
-# category as the comment/free-label pass DESIGN.md already permits): the
-# DCO's on-diagram glyph meaning is a fixed function of which heap tag it
-# is, never re-derived dataflow semantics. The scene layer separately
+# A loop's border terminal is found by its CLASS (``BORDER_DCO_KIND``, the rule
+# the parser uses): the element tag differs between VIs (a While Loop's stop
+# terminal is ``loopTestDCO`` in most and ``loopEndDCO`` in others). The glyph
+# meaning is a fixed function of that class, never re-derived dataflow
+# semantics. The case selector is named by its tag. The scene layer separately
 # decides (from the graph) whether/where each kind actually needs drawing
 # -- see render/scene.py's structure-type-guaranteed border glyphs.
-_TAG_TO_GLYPH_KIND = {
-    "loopIndexDCO": "i",
-    "loopLimitDCO": "N",
-    "loopTestDCO": "cond",
-    "caseSelDCO": "selector",
-}
+_CASE_SELECTOR_TAG = "caseSelDCO"
 
 
 @dataclass(frozen=True)
@@ -214,9 +209,9 @@ class Layout:
         selector) keyed by their own raw heap uid. These aren't modeled as
         full graph Terminals, so they're kept separate from node_bounds.
     border_terminal_kind: raw border-terminal uid -> fixed glyph kind
-        ("i"/"N"/"cond"/"selector"), a pure function of which heap DCO tag
+        ("i"/"N"/"cond"/"selector"), a pure function of which heap DCO class
         produced the entry. Geometry-side decoration only — see
-        ``_TAG_TO_GLYPH_KIND``.
+        ``BORDER_DCO_KIND``.
     icon_png: the VI's extracted connector-pane icon, if present.
     """
 
@@ -1238,17 +1233,23 @@ class _LayoutBuilder:
         oy: float,
         structure_uid: str,
     ) -> None:
-        for tag in _BORDER_DCO_TAGS:
-            dco = struct.find(tag)
-            if dco is None:
-                continue
+        found: list[tuple[ET.Element, str]] = []
+        for dco_class in GEOMETRY_ONLY_CLASSES:
+            kind = BORDER_DCO_KIND[dco_class]
+            loop_dco = border_dco(struct, dco_class)
+            if loop_dco is not None:
+                found.append((loop_dco, kind))
+        selector = struct.find(_CASE_SELECTOR_TAG)
+        if selector is not None:
+            found.append((selector, "selector"))
+        for dco, kind in found:
             uid = dco.get("uid")
             tb = _rect(dco, "termBounds")
             if not uid or tb is None:
                 continue
             abs_rect = (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3])
             self.border_terminals.setdefault(uid, abs_rect)
-            self.border_terminal_kind.setdefault(uid, _TAG_TO_GLYPH_KIND[tag])
+            self.border_terminal_kind.setdefault(uid, kind)
             self.structure_border_uids.setdefault(structure_uid, []).append(uid)
             # A border DCO's WIREABLE terminal uid (its nested dco/term uids)
             # differs from the DCO's own uid; register the glyph center under
