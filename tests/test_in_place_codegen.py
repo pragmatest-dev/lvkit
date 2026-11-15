@@ -832,6 +832,67 @@ class TestIPESBorderDataFlowIds:
         with pytest.raises(ConversionGap, match="wired after one that is not"):
             in_place.generate(node, ctx)
 
+    def test_a_tile_with_two_elements_of_a_one_dimensional_array_swaps_them(self):
+        # Array Index with two index inputs and two element outputs of a 1-D
+        # array (JSONtext Format JSON Array Text.vi): each element has its own
+        # index, and the replace tile writes both back.
+        ctx = make_ctx(
+            "arr", "i0", "i1", "arr_out", "t_arr", "e0", "e1", "t_i0", "t_i1",
+            "n0", "n1", "w_arr",
+        )  # fmt: skip
+        ctx.bind("arr", "items")
+        ctx.bind("i0", "a")
+        ctx.bind("i1", "b")
+        ctx.bind("n0", "second")
+        ctx.bind("n1", "first")
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        tiles = [
+            _tile(
+                "index",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("t_arr", "input", dco="ARR", lv_type=array),
+                    _term("e0", "output", 1, role="agg"),
+                    _term("t_i0", "input", 2, dco="I0", role="list"),
+                    _term("e1", "output", 3, role="list"),
+                    _term("t_i1", "input", 4, dco="I1", role="list"),
+                ],
+            ),
+            _tile(
+                "replace",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("w_arr", "output", dco="ARR2", lv_type=array),
+                    _term("n0", "input", 1, role="agg"),
+                    _term("n1", "input", 3, role="list"),
+                ],
+            ),
+        ]
+        ports = [
+            _term("arr", "input", 0, dco="ARR"),
+            _term("i0", "input", 1, dco="I0"),
+            _term("i1", "input", 2, dco="I1"),
+            _term("arr_out", "output", 3, dco="ARR2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+        frag = in_place.generate(node, ctx)
+        namespace = {
+            "items": ["x", "y", "z"],
+            "a": 0,
+            "b": 2,
+            "second": "Z2",
+            "first": "X2",
+        }
+        for stmt in frag.statements:
+            module = ast.Module(body=[ast.fix_missing_locations(stmt)], type_ignores=[])
+            exec(compile(module, "<generated>", "exec"), namespace)
+        assert eval(ctx.resolve("e0"), namespace) == "x"
+        assert eval(ctx.resolve("e1"), namespace) == "z"
+        assert namespace[frag.bindings["arr_out"]] == ["Z2", "y", "X2"]
+        assert namespace["items"] == ["x", "y", "z"]
+
     def test_array_write_leaves_the_array_another_reader_holds_unchanged(self):
         items = [10, 20, 30]
         _ctx, frag, namespace = self._run_array_structure(items, 1, 99)

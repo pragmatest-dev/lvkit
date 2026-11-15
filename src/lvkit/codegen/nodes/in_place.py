@@ -71,11 +71,12 @@ class _Tile:
 @dataclass
 class _Element:
     """The data an In Place Element Structure edits: the variable that holds it
-    and, for an array, the variables that index the element (one per dimension,
-    outermost first)."""
+    and, for an array, the index variables of each element it takes (one set per
+    element, one index per dimension in a set, outermost first; a map's one set
+    is its key)."""
 
     whole: str
-    indexes: list[str] = field(default_factory=list)
+    index_sets: list[list[str]] = field(default_factory=list)
 
 
 def _split_children(
@@ -288,40 +289,10 @@ def _take_element_out(
             ctx.bind(t.id, _field_expr(t, whole, class_fields, _class_attrs(agg, ctx)))
         return _Element(whole)
     if tile.kind == _ARRAY:
-        array_in = _role_terminal(op, None, "input")
-        element_out = _role_terminal(op, "agg", "output")
-        if array_in is None or element_out is None:
-            return None
-        # NI: the border node "gains an additional index parameter for each
-        # additional dimension of the array", and its left half "is similar to
-        # the Index Array function": the element is whole[i][j]..., one index per
-        # dimension in terminal order. Fewer wired indexes than dimensions read
-        # the sub-array they select (one index of two dimensions, a row).
-        whole = ctx.wired_input(array_in.id, op)
-        indexes: list[str] = []
-        unwired_before = False
-        for term in _field_terminals(op, "input"):
-            value = ctx.wired_input(term.id, op)
-            if value is None:
-                unwired_before = True
-            elif unwired_before:
-                raise ConversionGap(
-                    "An In Place Element array tile with an index wired after one "
-                    "that is not has no code generation yet",
-                    op,
-                )
-            else:
-                indexes.append(value)
-        if whole is None or not indexes:
-            return None
-        # An index outside the array on any dimension reads the element type's
-        # default, as Index Array does, and its write leaves the array as it is.
-        default = ast.unparse(type_default(ctx, element_out.lv_type))
-        ctx.bind(element_out.id, guarded_indexes(whole, indexes, default))
-        return _Element(whole, indexes)
+        return _take_array_elements_out(op, ctx)
     if tile.kind == _MAP:
         access = in_place_map.read_tile(op, ctx)
-        return _Element(access[0], [access[1]]) if access is not None else None
+        return _Element(access[0], [[access[1]]]) if access is not None else None
     dvr_in = next(
         (t for t in op.terminals if t.direction == "input"),
         None,
@@ -360,7 +331,9 @@ def _write_elements_back(
             continue
         if tile.kind == _MAP:
             stmts.extend(
-                in_place_map.write_tile(op, element.whole, element.indexes[0], ctx)
+                in_place_map.write_tile(
+                    op, element.whole, element.index_sets[0][0], ctx
+                )
             )
             continue
         source = next(
@@ -376,24 +349,99 @@ def _write_elements_back(
     return stmts
 
 
+def _take_array_elements_out(op: PrimitiveNode, ctx: CodeGenContext) -> _Element | None:
+    """Bind each element output of an Index tile to the array element its indexes
+    pick. NI ("Array Index / Replace Elements"): the border node "gains an
+    additional index parameter for each additional dimension of the array", and
+    its left half "is similar to the Index Array function": an element is
+    whole[i][j]..., one index per dimension in terminal order, and a tile can
+    take several elements, each with its own set of indexes. Fewer wired indexes
+    than dimensions read the sub-array they select (one index of two dimensions,
+    a row). An index outside its dimension reads the element type's default."""
+    array_in = _role_terminal(op, None, "input")
+    outputs = sorted(
+        (
+            t
+            for t in op.terminals
+            if t.nmux_role in ("agg", "list") and t.direction == "output"
+        ),
+        key=lambda t: t.index,
+    )
+    index_terms = _field_terminals(op, "input")
+    if array_in is None or not outputs or not index_terms:
+        return None
+    whole = ctx.wired_input(array_in.id, op)
+    if whole is None:
+        return None
+    rank = (array_in.lv_type.dimensions if array_in.lv_type else None) or 1
+    if len(index_terms) != rank * len(outputs):
+        raise ConversionGap(
+            f"An In Place Element array tile with {len(index_terms)} indexes and "
+            f"{len(outputs)} elements of a {rank}-dimensional array has no code "
+            "generation yet",
+            op,
+        )
+    sets: list[list[str]] = []
+    for position, out in enumerate(outputs):
+        indexes: list[str] = []
+        unwired_before = False
+        for term in index_terms[position * rank : (position + 1) * rank]:
+            value = ctx.wired_input(term.id, op)
+            if value is None:
+                unwired_before = True
+            elif unwired_before:
+                raise ConversionGap(
+                    "An In Place Element array tile with an index wired after one "
+                    "that is not has no code generation yet",
+                    op,
+                )
+            else:
+                indexes.append(value)
+        sets.append(indexes)
+        if indexes:
+            default = ast.unparse(type_default(ctx, out.lv_type))
+            ctx.bind(out.id, guarded_indexes(whole, indexes, default))
+    if not any(sets):
+        return None
+    return _Element(whole, sets)
+
+
 def _write_array_element_back(
     tile: _Tile, element: _Element, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """Bind the tile's array output to a new array holding the element the body
-    produced. The array that came in is not changed, so any other reader of its
-    wire keeps its own value."""
+    """Bind the tile's array output to a new array holding the elements the body
+    produced, one replacement per element in order. The array that came in is not
+    changed, so any other reader of its wire keeps its own value."""
     op = tile.op
-    source = _role_terminal(op, "agg", "input")
-    value = ctx.wired_input(source.id, op) if source is not None else None
+    sources = sorted(
+        (
+            t
+            for t in op.terminals
+            if t.nmux_role in ("agg", "list") and t.direction == "input"
+        ),
+        key=lambda t: t.index,
+    )
     outputs = _carried_outputs(tile)
-    if value is None or not element.indexes:
-        return []
     out = outputs[0] if outputs else None
-    name = ctx.make_output_var("array", op.id, out.id if out else None)
+    stmts: list[ast.stmt] = []
+    current = element.whole
+    for source, indexes in zip(sources, element.index_sets):
+        value = ctx.wired_input(source.id, op)
+        if value is None or not indexes:
+            continue
+        name = ctx.make_output_var("array", op.id, out.id if out else None)
+        stmts.append(
+            _assign(
+                ast.Name(id=name, ctx=ast.Store()),
+                replaced_elements(current, indexes, value),
+            )
+        )
+        current = name
+    if not stmts:
+        return []
     for carried in outputs:
-        ctx.bind(carried.id, name)
-    new_array = replaced_elements(element.whole, element.indexes, value)
-    return [_assign(ast.Name(id=name, ctx=ast.Store()), new_array)]
+        ctx.bind(carried.id, current)
+    return stmts
 
 
 def _write_fields_back(
