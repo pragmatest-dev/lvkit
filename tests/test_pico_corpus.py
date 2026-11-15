@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.graph.models import ConstantNode
 from lvkit.pipeline import generate_python
 from tests.corpus_graphs import load_corpus_vi
 
@@ -107,3 +108,19 @@ def test_move_block_callers_no_longer_gap_on_it(tmp_path: Path) -> None:
         source = _written(vi, tmp_path).read_text()
         assert "LabVIEW:MoveBlock" not in source, vi.name
         assert "ctypes.memmove" in source, vi.name
+
+
+ADVANCED_TRIGGER_4000 = (
+    ROOT / "ps4000/PicoScope4000Lib/PicoScope4000AdvancedTriggerSettings.vi"
+)
+
+
+def test_a_two_dimensional_array_constant_is_read_from_the_default_data() -> None:
+    graph, key = load_corpus_vi(ADVANCED_TRIGGER_4000)
+    rows = [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [268435456, 0]]
+    found = [
+        node
+        for node in graph.iter_nodes(key)
+        if isinstance(node, ConstantNode) and node.value == str(rows)
+    ]
+    assert len(found) == 1

@@ -265,8 +265,8 @@ def _flatten(el: ET.Element, encoding: str) -> bytes:
         return b"".join(_flatten(child, encoding) for child in el)
     if tag == "Array":
         dims = el.findall("dim")
-        if len(dims) != 1:
-            raise _UnsupportedTag(f"Array of {len(dims)} dimensions")
+        if not dims:
+            raise _UnsupportedTag("Array of no dimensions")
         out = b""
         for dim in dims:
             out += struct.pack(">I", int((dim.text or "0").strip() or "0"))

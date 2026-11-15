@@ -80,6 +80,13 @@ def _fill(xml: str) -> ET.Element:
         ("<EL>1</EL>", "00000001"),
         ("<Array><dim>0</dim></Array>", "00000000"),
         ("<Array><dim>2</dim><I16>1</I16><I16>2</I16></Array>", "0000000200010002"),
+        (
+            # NI "Flattened Data": the size of each dimension, then the elements
+            "<Array><dim>2</dim><dim>3</dim><U8>1</U8><U8>2</U8><U8>3</U8>"
+            "<U8>4</U8><U8>5</U8><U8>6</U8></Array>",
+            "00000002" "00000003" "010203040506",
+        ),
+        ("<Array><dim>0</dim><dim>2</dim></Array>", "00000000" "00000002"),
         ("<Cluster><U8>1</U8><String>x</String></Cluster>", "010000000178"),
         (
             "<SpecialDSTMCluster><Array><dim>0</dim></Array></SpecialDSTMCluster>",
@@ -108,10 +115,7 @@ def test_a_data_fill_flattens_to_the_bytes_a_stored_value_has(
         ('<VisaRef StoredAs="String">COM1</VisaRef>', "VisaRef"),
         ("<UsrDefndTag>dev1</UsrDefndTag>", "UsrDefndTag"),
         ('<Path Ident="PTH0" TpVal="3" />', "Path"),
-        (
-            "<Array><dim>1</dim><dim>2</dim><U8>0</U8><U8>0</U8></Array>",
-            "Array of 2 dimensions",
-        ),
+        ("<Array><U8>0</U8></Array>", "Array of no dimensions"),
         ("<Cluster><U8>1</U8><LVObjCtl>0</LVObjCtl></Cluster>", "LVObjCtl"),
         ("<RepeatedBlock><I32>0</I32></RepeatedBlock>", "RepeatedBlock"),
     ],
