@@ -401,6 +401,12 @@ def _take_array_elements_out(op: PrimitiveNode, ctx: CodeGenContext) -> _Element
         if indexes:
             default = ast.unparse(type_default(ctx, out.lv_type))
             ctx.bind(out.id, guarded_indexes(whole, indexes, default))
+        elif ctx.is_wired(out.id):
+            raise ConversionGap(
+                "An In Place Element array tile element whose output is wired and "
+                "whose indexes are not has no code generation yet",
+                op,
+            )
     if not any(sets):
         return None
     return _Element(whole, sets)

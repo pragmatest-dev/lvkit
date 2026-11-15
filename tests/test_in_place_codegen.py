@@ -893,6 +893,37 @@ class TestIPESBorderDataFlowIds:
         assert namespace[frag.bindings["arr_out"]] == ["Z2", "y", "X2"]
         assert namespace["items"] == ["x", "y", "z"]
 
+    def test_an_element_wired_out_with_no_index_wired_is_a_gap(self, monkeypatch):
+        # A second element whose output feeds the body but whose index input is
+        # unwired: which element it reads is not generated, so it is a gap
+        # naming that, never an output left with no variable.
+        ctx = make_ctx("arr", "i0", "t_arr", "e0", "e1", "t_i0", "t_i1")
+        ctx.bind("arr", "items")
+        ctx.bind("i0", "a")
+        monkeypatch.setattr(ctx, "is_wired", lambda terminal_id: terminal_id == "e1")
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        tiles = [
+            _tile(
+                "index",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("t_arr", "input", dco="ARR", lv_type=array),
+                    _term("e0", "output", 1, role="agg"),
+                    _term("t_i0", "input", 2, dco="I0", role="list"),
+                    _term("e1", "output", 3, role="list"),
+                    _term("t_i1", "input", 4, role="list"),
+                ],
+            ),
+        ]
+        ports = [
+            _term("arr", "input", 0, dco="ARR"),
+            _term("i0", "input", 1, dco="I0"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+        with pytest.raises(ConversionGap, match="output is wired and whose indexes"):
+            in_place.generate(node, ctx)
+
     def test_array_write_leaves_the_array_another_reader_holds_unchanged(self):
         items = [10, 20, 30]
         _ctx, frag, namespace = self._run_array_structure(items, 1, 99)
