@@ -832,12 +832,17 @@ class CodeGenContext:
         """The expression a reference to a VI is: its function, imported, or, for
         a VI of a class, ``Class.method`` (the class imported; for an accessor VI
         the getter or setter of its property), or, for a Global VI, its module
-        (``global_module``), whose ``panel`` holds its controls."""
+        (``global_module``), whose ``panel`` holds its controls, or, for a type
+        definition (a control's file, which holds a class and no function), its
+        module."""
         if (
             self.graph is not None
             and key is not None
             and isinstance(self.import_resolver, ImportResolver)
-            and self.graph.get_vi_properties(key).is_global_vi
+            and (
+                self.graph.is_typedef(key)
+                or self.graph.get_vi_properties(key).is_global_vi
+            )
         ):
             module = self.import_resolver.module(key)
             self.add_import(module.statement)

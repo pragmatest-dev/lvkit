@@ -538,7 +538,9 @@ else:
 
 _IMPORT_MODULE = """\
 {suffix} = ""
-if {stem}.lower().endswith((".vi", ".vim", ".vit")):
+if {stem}.endswith(".py"):
+    {stem} = {stem}[:-3]
+elif {stem}.lower().endswith((".vi", ".vim", ".vit")):
     {stem}, {suffix} = {stem}.rsplit(".", 1)
     {suffix} = {{"vim": "_vim", "vit": "_vit"}}.get({suffix}.lower(), "")
 {module} = importlib.import_module(

@@ -534,6 +534,42 @@ def test_the_inline_module_of_a_name_is_the_generators(
     assert imported == ["." + layout.places[key].module]
 
 
+@pytest.mark.parametrize("stem", ["Run Test", "1D Test", "a-b", "class"])
+def test_the_inline_module_of_a_python_file_is_that_module(
+    stem: str, tmp_path: Path
+) -> None:
+    """``inspect.getfile`` of a generated VI is its module's ``.py`` file, and a
+    path computed from it imports that module."""
+    imported: list[str] = []
+
+    class Importlib:
+        @staticmethod
+        def import_module(name: str, package: str) -> object:
+            imported.append(name)
+            return types.SimpleNamespace(**{function: object()})
+
+    namespace: dict[str, object] = {
+        "keyword": keyword,
+        "builtins": builtins,
+        "importlib": Importlib,
+        "unicodedata": unicodedata,
+        "__package__": "pkg",
+    }
+    exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
+    exec(vi_reference.FUNCTION_NAME_SOURCE, namespace)  # noqa: S102
+    function = to_function_name(f"{stem}.vi")
+    snippet = vi_reference._IMPORT_MODULE.format(  # noqa: SLF001
+        stem="stem", suffix="suffix", package="'.'", module="m", reference="r"
+    )
+    key = str(tmp_path.resolve() / f"{stem}.vi")
+    layout = ModuleLayout(InMemoryVIGraph(), [key], tmp_path, frozenset(), {})
+    module = layout.places[key].module
+    namespace["stem"] = f"{module}.py"
+    exec(snippet, namespace)  # noqa: S102
+    assert imported == ["." + module]
+    assert namespace["r"] is not None
+
+
 def test_the_inline_function_name_is_the_generators() -> None:
     namespace: dict[str, object] = {
         "keyword": keyword,

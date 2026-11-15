@@ -324,7 +324,8 @@ def create_import_resolver(
 
     def module_import(global_vi_name: str) -> ModuleImport:
         dots, package, module = relative(locate_by_name(global_vi_name))
-        alias = f"{module}_global"
+        is_typedef = graph is not None and graph.is_typedef(global_vi_name)
+        alias = f"{module}_typedef" if is_typedef else f"{module}_global"
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 
     def node_import(key: str) -> NameImport:
