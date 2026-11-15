@@ -85,5 +85,5 @@ def test_to_probe_string_is_a_gap_with_its_reason() -> None:
         {"value": scalar("String")},
         {"out": scalar("String")},
     )
-    with pytest.raises(NotImplementedError, match="no NI page"):
+    with pytest.raises(NotImplementedError, match="no NI function page"):
         fn("x")
