@@ -9,8 +9,9 @@ default is "Untitled"); unwired channel names are named "Untitled", "Untitled1",
 written. npTDMS: ``writer.write_segment([ChannelObject(group, channel, data)])``.
 The data of one channel is a 1D array of numbers, Booleans or strings; a 1D
 array is one channel whatever the ``data layout``, which only says how a 2D
-array's rows and columns are the channels, so a 2D array is a gap, as are the
-data types that need a timestamp (a waveform, dynamic data, a digital table).
+array's rows and columns are the channels, so a 2D array is a gap. An analog
+waveform, or a 1D array of them, is written by ``tdms_waveform``; dynamic data,
+a digital waveform and a digital table are gaps.
 
 NI, "TDMS Set Properties Function" (``functions/tdms-set-properties.html``): "If
 you wire the group name and channel name inputs with values, the function writes
@@ -47,6 +48,8 @@ from ._tdms import (
     SetPropertiesPane,
     WritePane,
 )
+from .tdms_waveform import IMPORTS as WAVEFORM_IMPORTS
+from .tdms_waveform import waveform_data, waveform_write_source
 
 UNTITLED = "'Untitled'"
 # The numpy type of a channel of each LabVIEW numeric type: npTDMS picks the
@@ -96,13 +99,6 @@ def _is_array(term: Terminal | None) -> bool:
     return lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
 
 
-WAVEFORM_GAP = (
-    "TDMS Write of a waveform is not converted: the waveform's start time is "
-    "the channel's wf_start_time, and lvkit generates no datetime (the value "
-    "npTDMS writes) for a timestamp"
-)
-
-
 def _channel_data(node: PrimitiveNode, term: Terminal | None, data: str) -> str:
     """The expression for the data of the one channel a TDMS Write writes."""
     lv_type = term.lv_type if term is not None else None
@@ -110,7 +106,11 @@ def _channel_data(node: PrimitiveNode, term: Terminal | None, data: str) -> str:
         raise ConversionGap("TDMS Write of data of an unknown type", node)
     element = lv_type.element_type if lv_type.kind == LVTypeKind.ARRAY else lv_type
     if element is not None and element.underlying_type == "MeasureData":
-        raise ConversionGap(WAVEFORM_GAP, node)
+        raise ConversionGap(
+            "TDMS Write of dynamic data, a digital waveform or a digital table "
+            "is not converted",
+            node,
+        )
     if lv_type.kind != LVTypeKind.ARRAY:
         raise ConversionGap(
             f"TDMS Write of {term.type_label() if term else 'that type'} is not "
@@ -145,11 +145,17 @@ def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     data_text = input_expression(ctx, node, pane.data)
     if data_text is None:
         raise ConversionGap("TDMS Write with no data wired", node)
-    data = _channel_data(node, terminal(node, "input", pane.data), data_text)
+    data_term = terminal(node, "input", pane.data)
+    waveforms = waveform_data(node, data_term)
     group_text = input_expression(ctx, node, pane.group_name)
     group = string_variable(ctx, node, group_text or UNTITLED, statements, "group")
     names_text = input_expression(ctx, node, pane.channel_names)
     channel = ctx.make_output_var("channel", node.id)
+    if waveforms is not None:
+        return _write_waveforms(
+            ctx, node, pane, statements, (ref, group, channel), data_text, waveforms
+        )
+    data = _channel_data(node, data_term, data_text)
     if names_text is None:
         channel_value = UNTITLED
     elif _is_array(terminal(node, "input", pane.channel_names)):
@@ -159,6 +165,7 @@ def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         channel_value = names_text
     source = (
         f"{channel} = {channel_value}\n"
+        f"{ref}[2].add(({group}, {channel}))\n"
         f"{ref}[0].write_segment([nptdms.ChannelObject({group}, {channel}, {data})])"
     )
     statements.extend(ast.parse(source).body)
@@ -169,6 +176,33 @@ def tdms_write(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     _bind(bindings, node, pane.refnum_out, ref)
     _bind(bindings, node, pane.group_name_out, group)
     _bind(bindings, node, pane.channel_names_out, f"[{channel}]")
+    return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _write_waveforms(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    pane: WritePane,
+    statements: list[ast.stmt],
+    names: tuple[str, str, str],
+    data_text: str,
+    is_array: bool,
+) -> CodeFragment:
+    """TDMS Write of analog waveforms: one channel each (``tdms_waveform``)."""
+    ref, group, channel = names
+    names_text = input_expression(ctx, node, pane.channel_names)
+    names_is_array = _is_array(terminal(node, "input", pane.channel_names))
+    channels = ctx.make_output_var("channels", node.id)
+    source = waveform_write_source(
+        ref, group, data_text, is_array, names_text, names_is_array, channels, channel
+    )
+    statements.extend(ast.parse(source).body)
+    for needed in (NPTDMS_IMPORT, *WAVEFORM_IMPORTS):
+        ctx.add_import(needed)
+    bindings: dict[str, str] = {}
+    _bind(bindings, node, pane.refnum_out, ref)
+    _bind(bindings, node, pane.group_name_out, group)
+    _bind(bindings, node, pane.channel_names_out, channels)
     return CodeFragment(statements=statements, bindings=bindings)
 
 

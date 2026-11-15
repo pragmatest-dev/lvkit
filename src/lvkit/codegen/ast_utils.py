@@ -514,7 +514,8 @@ _PY_BUILTINS = frozenset(dir(builtins))
 # (``tests/test_reserved_module_names.py`` checks this).
 GENERATED_MODULE_NAMES = frozenset(
     {
-        "builtins", "calendar", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
+        "builtins", "calendar", "concurrent", "copy", "ctypes", "datetime", "filecmp",
+        "fnmatch",
         "functools", "gc", "getpass", "grpc", "hightime",
         "importlib", "inspect", "io", "ipaddress", "json", "keyword", "locale", "math",
         "ni", "nidaqmx",

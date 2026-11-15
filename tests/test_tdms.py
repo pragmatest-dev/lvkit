@@ -8,6 +8,7 @@ Python and runs it on real files, then reads the file back with npTDMS.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -389,10 +390,17 @@ def test_a_channel_name_without_a_group_name_is_a_gap(
             "TDMS Write of .* is not converted: only a 1D array is",
         ),
         (
-            '<TypeDesc Type="MeasureData" Flavor="Float64Waveform" />',
-            "TDMS Write of a waveform is not converted",
+            '<TypeDesc Type="MeasureData" Flavor="DigitalWaveform" />',
+            "TDMS Write of a DigitalWaveform is not converted",
         ),
-        (None, "TDMS Write of a waveform is not converted"),
+        (
+            '<TypeDesc Type="MeasureData" Flavor="Complex128Waveform" />',
+            "TDMS Write of a Complex128Waveform is not converted",
+        ),
+        (
+            '<TypeDesc Type="MeasureData" Flavor="Dynamicdata" />',
+            "A Dynamicdata is not converted",
+        ),
     ],
 )
 def test_the_data_that_has_no_channel_is_a_gap(
@@ -401,17 +409,106 @@ def test_the_data_that_has_no_channel_is_a_gap(
     data_type: str | None,
     reason: str,
 ) -> None:
-    """``None`` is a 1D array of waveforms."""
     _chain(
         project,
         operation=2,
         properties=False,
-        element=WAVEFORM if data_type is None else I32_XML,
-        data_type_xml=data_type.replace("{element}", "{ELEMENT}")
-        if data_type is not None
-        else None,
+        element=I32_XML,
+        data_type_xml=data_type.replace("{element}", "{ELEMENT}"),
     )
     package = project.generate(NAME)
     assert re.search(reason, package.source)
     with pytest.raises(NotImplementedError, match=reason):
         package.function(tmp_path / "x.tdms", [], [], "G", ["C"], [])
+
+
+def _waveform(samples: list[float], t0: datetime, dt: float, name: str | None = None):
+    import nitypes.bintime
+    import nitypes.time
+    import nitypes.waveform
+
+    timing = nitypes.waveform.Timing.create_with_regular_interval(
+        nitypes.bintime.TimeDelta(dt),
+        nitypes.time.convert_datetime(nitypes.bintime.DateTime, t0),
+    )
+    wave = nitypes.waveform.AnalogWaveform.from_array_1d(
+        samples, numpy.float64, timing=timing
+    )
+    if name is not None:
+        wave.extended_properties["NI_ChannelName"] = name
+    return wave
+
+
+START = datetime(2026, 11, 15, 8, 30, 0, tzinfo=UTC)
+
+
+def test_a_waveform_is_a_channel_with_its_timing_properties(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+        data_type_xml=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    assert "NotImplementedError" not in package.source
+    target = tmp_path / "wave.tdms"
+    first = _waveform([1.0, 2.0, 3.0], START, 0.5, "Volts")
+    package.function(target, [], [], "G", [], first)
+    second = _waveform([4.0, 5.0], START + timedelta(seconds=99), 0.25, "Volts")
+    result = package.function(target, [], [], "G", [], second)
+    assert result.error_out is None
+    with nptdms.TdmsFile.open(target) as tdms:
+        channel = tdms["G"]["Volts"]
+        assert list(channel[:]) == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert channel.properties["wf_increment"] == 0.5
+        assert channel.properties["wf_start_offset"] == 0.0
+        assert channel.properties["wf_samples"] == 3
+        assert channel.properties["NI_ChannelName"] == "Volts"
+        start = channel.properties["wf_start_time"]
+        assert numpy.datetime64(start) == numpy.datetime64("2026-11-15T08:30:00")
+
+
+def test_a_waveform_with_no_name_is_untitled_and_a_wired_name_wins(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+        data_type_xml=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "wave.tdms"
+    package.function(target, [], [], "G", [], _waveform([1.0], START, 1.0))
+    package.function(target, [], [], "G", ["Named"], _waveform([2.0], START, 1.0, "X"))
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["Untitled", "Named"]
+
+
+def test_an_array_of_waveforms_is_a_channel_each(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "waves.tdms"
+    waves = [_waveform([1.0], START, 1.0), _waveform([2.0, 3.0], START, 2.0, "B")]
+    package.function(target, [], [], "G", ["A"], waves)
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["A", "B"]
+        assert tdms["G"]["B"].properties["wf_increment"] == 2.0
+        assert list(tdms["G"]["B"][:]) == [2.0, 3.0]
