@@ -5,8 +5,10 @@ list, none of which Python can hash. A key or element that is a cluster or an ar
 is made into a tuple of its values, in cluster order, with a nested cluster or array
 a nested tuple, at the node where it ENTERS the collection; the value stored in a
 Map is never converted. A number, Boolean, string, path, enum or ring is its own
-key. A class object, a Variant, a reference, a Map, a Set or a waveform cannot be
-a key even then: that is a gap naming it.
+key. A reference (a queue, a file, ...) is a Python object hashed by identity, the
+way LabVIEW compares references, so it is its own key. A class object (LabVIEW
+compares it by value), a Variant, a Map, a Set or a waveform cannot be a key: that
+is a gap naming it.
 
 Order: NI's "Collection Maps" page (https://docs-be.ni.com/bundle/labview/page/
 grouping-data-with-collection-maps.html) says "A map groups key-value pairs in
@@ -38,7 +40,6 @@ from .native_array import operand
 _UNHASHABLE = {
     "Map": "a Map",
     "Set": "a Set",
-    "Refnum": "a reference",
 }
 
 

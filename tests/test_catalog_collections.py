@@ -182,6 +182,19 @@ def test_an_array_of_clusters_key_is_a_tuple_of_tuples() -> None:
     assert look(made, [(1, "a"), (2, "b")], -1).found == 7
 
 
+def test_a_queue_reference_is_a_key_by_identity() -> None:
+    import queue
+
+    reference = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
+    )
+    insert, look = _map_fns(reference)
+    first, other = queue.Queue(), queue.Queue()
+    made = insert({}, first, 7).out
+    assert look(made, first, -1).found == 7
+    assert look(made, other, -1).missing is True
+
+
 def test_the_value_stored_in_a_map_is_not_converted() -> None:
     cluster = _cluster("Pt")
     _, insert = generate(
