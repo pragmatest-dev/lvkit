@@ -116,6 +116,13 @@ def _unsupported_reason(
         codes = [seg.code for seg in row.segments]
         written = term is not None and term.direction == "input"
         verb = "writes" if written else "reads"
+        if not row.name and not any(codes):
+            return (
+                f"{subject} {verb} a property the VI file does not name: a "
+                "Property Node saved by an older LabVIEW records neither the "
+                "name nor the code of the property, only its data type, which "
+                "several properties of the control share"
+            )
         if is_value_row(class_name, codes):
             if not has_value:
                 return (

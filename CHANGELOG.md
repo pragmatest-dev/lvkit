@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap
 ## [Unreleased]
+- **A Property Node row the VI file records with no property name or code is a gap that says so** — a Property Node saved by an older LabVIEW (picosdk PicoScope6000Settings.vi, 8 rows) keeps only the property's data type, which several properties of the control share; the gap names the control and says it reads or writes "a property the VI file does not name" instead of `reads ''`.
 - **Replace Array Subset with a one-dimensional subarray and only the column index wired generates Python** — the subarray replaces down that column from row 0 and is cropped to the rows (picosdk advanced-trigger VIs); other subarrays with an unwired leading index stay a gap.
 - **A Call Library Function Node taking a multi-dimensional array data pointer generates `ctypes` code** — the elements go in row-major order and the nested list is rebuilt from the sizes sent (picosdk).
 - **A Call Library Function Node in a VI saved before LabVIEW 8.6 generates `ctypes` code** — its prototype is read from the VI's heap type pool (the node's parameter types, pass modes and return value), where only the type table of LabVIEW 9.0 and later was read (picosdk 8.5 examples).
