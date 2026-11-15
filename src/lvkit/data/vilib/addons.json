@@ -585,6 +585,286 @@
       "imports": []
     },
     {
+      "name": "Client Begin Server Streaming Call.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Client Begin Server Streaming Call.vim",
+      "category": "Addons",
+      "description": "gRPC library: starts a server-streaming call of the method with the request message; the call ID is the grpcio call, which Client Read From Stream reads. A call that fails reports its status when it completes.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Call ID out",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "call_id_out"
+        },
+        {
+          "name": "ClientID out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "contextId",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "contextid"
+        },
+        {
+          "name": "Response Message Name",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "response_message_name"
+        },
+        {
+          "name": "timeout (ms)",
+          "index": 6,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "timeout_ms"
+        },
+        {
+          "name": "Request Message Name",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "request_message_name"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Request Data",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "request_data"
+        },
+        {
+          "name": "Method Name",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "method_name"
+        },
+        {
+          "name": "ClientID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLIENT_BEGIN_SERVER_STREAMING_CALL",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Client Read From Stream.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Client Read From Stream.vim",
+      "category": "Addons",
+      "description": "gRPC library: reads the next message of the call; Success is False when the stream has ended (or failed: Client Complete Streaming Call reports the status) and Response Data is then the Response Type.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "Success",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "success"
+        },
+        {
+          "name": "Response Data",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_data"
+        },
+        {
+          "name": "Call ID out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "Response Type",
+          "index": 7,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_type"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Call ID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLIENT_READ_FROM_STREAM",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Client Complete Streaming Call.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Client Complete Streaming Call.vi",
+      "category": "Addons",
+      "description": "gRPC library: waits for the call to finish and reports its status as error -(1000 + the gRPC status code); with Cancel All Reads True it cancels the call instead (no error).",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "errorDetails",
+          "index": 1,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_details"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Cancel All Reads (F)",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "cancel_all_reads"
+        },
+        {
+          "name": "Call ID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLIENT_COMPLETE_STREAMING_CALL",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "RpcError",
+          "module": "grpc",
+          "code_expression": "-(1000 + {exception}.code().value[0])",
+          "message_expression": "{exception}.details() or ''"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Client Cancel Call.vi",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Client Cancel Call.vi",
+      "category": "Addons",
+      "description": "gRPC library: cancels the call (the grpcio call's cancel).",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "errorDetails",
+          "index": 1,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_details"
+        },
+        {
+          "name": "Call ID out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Call ID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLIENT_CANCEL_CALL",
+      "inline": true,
+      "imports": []
+    },
+    {
       "name": "Register Message Metadata",
       "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Register Message Metadata.vi",
       "category": "Addons",

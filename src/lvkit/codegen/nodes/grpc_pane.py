@@ -40,6 +40,11 @@ def terminal_of(
     )
 
 
+def output_of(node: VINode, entry: VIEntry, param: str) -> Terminal | None:
+    """The call's output terminal of the catalog terminal ``param``."""
+    return terminal_of(node, entry, param, TerminalDirection.OUTPUT)
+
+
 def wired(node: VINode, entry: VIEntry, param: str, ctx: CodeGenContext) -> str | None:
     """The expression wired to the input ``param``; None when it is unwired."""
     term = terminal_of(node, entry, param, TerminalDirection.INPUT)

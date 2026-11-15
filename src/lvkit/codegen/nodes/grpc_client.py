@@ -40,7 +40,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import Terminal, TerminalDirection
+from lvkit.models import TerminalDirection
 from lvkit.proto_messages import ProtoMessage, find_proto_message
 from lvkit.vilib_resolver import VIEntry
 
@@ -54,7 +54,13 @@ from ..plain_values import (
     from_plain,
     to_plain,
 )
-from .grpc_pane import bind_passthrough, constant_text, terminal_of, wired
+from .grpc_pane import (
+    bind_passthrough,
+    constant_text,
+    output_of,
+    terminal_of,
+    wired,
+)
 
 GRPCIO = "grpcio"
 PROTOBUF = "protobuf"
@@ -73,13 +79,9 @@ _RESPONSE_ERRORS = PlainErrors(
 )
 
 
-def _out(node: VINode, entry: VIEntry, param: str) -> Terminal | None:
-    return terminal_of(node, entry, param, TerminalDirection.OUTPUT)
-
-
 def create_client(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
     """``Create Client``: the channel to ``address``."""
-    out = _out(node, entry, "grpcid_out")
+    out = output_of(node, entry, "grpcid_out")
     if out is None or not ctx.is_wired(out.id):
         return CodeFragment.empty()
     address = wired(node, entry, "address", ctx)
@@ -124,7 +126,7 @@ def metadata_registration(
     return fragment
 
 
-def _message(
+def message_class(
     node: VINode, ctx: CodeGenContext, entry: VIEntry, param: str, label: str
 ) -> ProtoMessage:
     name = constant_text(wired(node, entry, param, ctx))
@@ -146,7 +148,7 @@ def _message(
     return message
 
 
-def _timeout(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
+def deadline(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
     text = wired(node, entry, "timeout_ms", ctx)
     if text is None:
         return "None"
@@ -157,7 +159,7 @@ def _timeout(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
     return repr(value / 1000) if value > 0 else "None"
 
 
-def _context_guard(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> list[ast.stmt]:
+def context_guard(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> list[ast.stmt]:
     """The statement that refuses a client context: the call's ``contextId`` is
     0 when it has none, and Python's call has no context to give."""
     text = wired(node, entry, "contextid", ctx)
@@ -183,24 +185,16 @@ def _context_guard(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> list[as
     ).body
 
 
-def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
-    """``Client Unary Call``: the call of the method on the channel."""
-    method = constant_text(wired(node, entry, "method_name", ctx))
-    if method is None:
-        raise ConversionGap(
-            "the method name is not a constant, so the call cannot "
-            "be written when the code is generated",
-            node,
-        )
-    request = _message(node, ctx, entry, "request_message_name", "request message name")
-    response = _message(
-        node, ctx, entry, "response_message_name", "response message name"
-    )
-    client = wired(node, entry, "grpcid_in", ctx)
-    if client is None:
-        raise ConversionGap("no client is wired", node)
-    statements = _context_guard(node, ctx, entry)
-
+def request_message(
+    node: VINode,
+    ctx: CodeGenContext,
+    entry: VIEntry,
+    request: ProtoMessage,
+    statements: list[ast.stmt],
+) -> str:
+    """The expression of the request message: the wired ``Request Data`` in its
+    plain form read into ``request`` (an unwired one is the empty message). The
+    assignment that holds the wired value goes onto ``statements``."""
     request_term = terminal_of(node, entry, "request_data", TerminalDirection.INPUT)
     plain = "{}"
     if request_term is not None and ctx.is_wired(request_term.id):
@@ -220,14 +214,36 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
                 "clusters of them",
                 node,
             ) from error
+    return f"json_format.ParseDict({plain}, {request.expression()}())"
+
+
+def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
+    """``Client Unary Call``: the call of the method on the channel."""
+    method = constant_text(wired(node, entry, "method_name", ctx))
+    if method is None:
+        raise ConversionGap(
+            "the method name is not a constant, so the call cannot "
+            "be written when the code is generated",
+            node,
+        )
+    request = message_class(
+        node, ctx, entry, "request_message_name", "request message name"
+    )
+    response = message_class(
+        node, ctx, entry, "response_message_name", "response message name"
+    )
+    client = wired(node, entry, "grpcid_in", ctx)
+    if client is None:
+        raise ConversionGap("no client is wired", node)
+    statements = context_guard(node, ctx, entry)
+    message = request_message(node, ctx, entry, request, statements)
 
     reply = ctx.make_output_var("response", node.id)
     call = (
         f"{client}.unary_unary({method!r}, "
         f"request_serializer={request.expression()}.SerializeToString, "
         f"response_deserializer={response.expression()}.FromString)("
-        f"json_format.ParseDict({plain}, {request.expression()}()), "
-        f"timeout={_timeout(node, ctx, entry)})"
+        f"{message}, timeout={deadline(node, ctx, entry)})"
     )
     statements.append(build_assign(reply, parse_expr(call)))
     fragment = CodeFragment(statements=statements)
@@ -244,15 +260,23 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
     )
     bind_passthrough(node, entry, ctx, fragment.bindings)
 
-    out = _out(node, entry, "response_data")
+    out = output_of(node, entry, "response_data")
     if out is not None and ctx.is_wired(out.id):
-        fragment.extend(_read_response(node, ctx, entry, reply, out.id))
+        fragment.extend(read_response(node, ctx, entry, reply, out.id))
     return fragment
 
 
-def _read_response(
-    node: VINode, ctx: CodeGenContext, entry: VIEntry, reply: str, out_id: str
+def read_response(
+    node: VINode,
+    ctx: CodeGenContext,
+    entry: VIEntry,
+    reply: str,
+    out_id: str,
+    optional: bool = False,
 ) -> CodeFragment:
+    """The ``Response Data`` output read from the message in ``reply``; with
+    ``optional``, ``reply`` may be None (no message was read) and every field is
+    then the Response Type's."""
     type_term = terminal_of(node, entry, "response_type", TerminalDirection.INPUT)
     out = next(t for t in node.terminals if t.id == out_id)
     lv_type = (type_term.lv_type if type_term else None) or out.lv_type
@@ -269,14 +293,14 @@ def _read_response(
         numbers_as_text=True,
         enums=True,
     )
+    as_dict = (
+        f"json_format.MessageToDict({reply}, "
+        "preserving_proto_field_name=True)"
+    )
+    if optional:
+        as_dict = f"{as_dict} if {reply} is not None else {{}}"
     statements: list[ast.stmt] = [
-        build_assign(
-            plain,
-            parse_expr(
-                f"json_format.MessageToDict({reply}, "
-                "preserving_proto_field_name=True)"
-            ),
-        ),
+        build_assign(plain, parse_expr(as_dict)),
         build_assign(
             default, parse_expr(ctx.wired_input(type_term.id, node) or "None")
         ),

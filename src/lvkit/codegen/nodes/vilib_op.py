@@ -27,7 +27,7 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-from . import elapsed_time, get_type_information, grpc_client, grpc_enum
+from . import elapsed_time, get_type_information, grpc_client, grpc_enum, grpc_stream
 
 
 def _type_descriptor_code(
@@ -66,14 +66,14 @@ def _type_descriptor_code(
     if lv_type is not None and is_variant_type_name(lv_type.underlying_type):
         variant = ctx.wired_input(wired.id, node) if wired is not None else None
         if variant is None:
-            raise ConversionGap(f"{entry.name} has no variant wired to it", node)
+            raise ConversionGap("no variant is wired to it", node)
         read = f"({variant}.type.code if {variant}.type is not None else 0)"
         base_name = result.python_param or "type_descriptor_enumeration"
         return bind_output(node, out.id, base_name, parse_expr(read), ctx)
     code = type_descriptor_code(lv_type) if lv_type is not None else None
     if code is None:
         raise ConversionGap(
-            f"{entry.name}: the type of the data wired to it is not recorded "
+            "the type of the data wired to it is not recorded "
             "as a LabVIEW type descriptor",
             node,
         )
@@ -90,6 +90,10 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "GRPC_CREATE_CLIENT": grpc_client.create_client,
     "GRPC_CLOSE_CLIENT": grpc_client.close_client,
     "GRPC_CLIENT_UNARY_CALL": grpc_client.unary_call,
+    "GRPC_CLIENT_BEGIN_SERVER_STREAMING_CALL": grpc_stream.begin_server_streaming_call,
+    "GRPC_CLIENT_READ_FROM_STREAM": grpc_stream.read_from_stream,
+    "GRPC_CLIENT_COMPLETE_STREAMING_CALL": grpc_stream.complete_streaming_call,
+    "GRPC_CLIENT_CANCEL_CALL": grpc_stream.cancel_call,
     "GRPC_METADATA_PASSTHROUGH": grpc_client.metadata_registration,
 }
 

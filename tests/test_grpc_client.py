@@ -127,8 +127,10 @@ def messages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Module
 
 @pytest.fixture
 def address(messages: Any) -> Iterator[str]:
-    """A localhost server with the methods ``/lvk.Echo/Call``, ``Fail`` and
-    ``Slow``."""
+    """A localhost server with the unary methods ``/lvk.Echo/Call``, ``Fail`` and
+    ``Slow`` and the server-streaming methods ``Count`` (as many responses as the
+    request's ``inner.big``), ``Broken`` (one response, then an aborted call) and
+    ``Endless`` (responses until the client goes away)."""
 
     def call(request: Any, context: grpc.ServicerContext) -> Any:
         return messages.Response(
@@ -151,6 +153,26 @@ def address(messages: Any) -> Iterator[str]:
         time.sleep(1.0)
         return messages.Response(echo="late")
 
+    def count(request: Any, context: grpc.ServicerContext) -> Iterator[Any]:
+        for number in range(1, request.inner.big + 1):
+            yield messages.Response(echo=f"#{number}", total=number)
+
+    def broken(request: Any, context: grpc.ServicerContext) -> Iterator[Any]:
+        yield messages.Response(echo="first")
+        context.abort(grpc.StatusCode.NOT_FOUND, "stream broke")
+
+    def endless(request: Any, context: grpc.ServicerContext) -> Iterator[Any]:
+        while context.is_active():
+            yield messages.Response(echo="tick")
+            time.sleep(0.02)
+
+    def streaming(function: Any) -> grpc.RpcMethodHandler:
+        return grpc.unary_stream_rpc_method_handler(
+            function,
+            request_deserializer=messages.Request.FromString,
+            response_serializer=messages.Response.SerializeToString,
+        )
+
     def handler(function: Any) -> grpc.RpcMethodHandler:
         return grpc.unary_unary_rpc_method_handler(
             function,
@@ -172,6 +194,9 @@ def address(messages: Any) -> Iterator[str]:
                         request_deserializer=messages.Paint.FromString,
                         response_serializer=messages.Paint.SerializeToString,
                     ),
+                    "Count": streaming(count),
+                    "Broken": streaming(broken),
+                    "Endless": streaming(endless),
                 },
             ),
         )
