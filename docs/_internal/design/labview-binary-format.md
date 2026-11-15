@@ -298,6 +298,18 @@ lands on zeros (`unrecognized path class b'\x00\x00\x00\x01'`).
 asserts it on the real file. A heap-to-VI record of 8.5 other than `IUVI` was not
 seen in either repo, so the `HpVL` and `DNDA` use of the same head is unverified for 8.5.
 
+## A VI saved before LabVIEW 8.6 records every `bounds` and `termBounds` in one diagram frame; a later VI records them relative to the enclosing structure
+
+The block diagram's `bounds` of a nested structure and the `termBounds` of its border terminals (iteration, count, stop) are in the one frame of the diagram in a VI whose `vers` version is before 8.6, and relative to the enclosing structure's own origin from then on. Receipt (single VIs of the Pico corpus; rects are (top, left, bottom, right), read from the `_BDHb.xml` of a loop and the loop it holds):
+
+| VI (saved in) | outer loop `bounds` | inner loop `bounds` | inner `loopIndexDCO` `termBounds` |
+|---|---|---|---|
+| `PicoScope3000ExampleBlock.vi` (8.5) | (116, 614, 558, 1443) | (257, 833, 390, 994) | (345, 845, 361, 861) |
+| `PicoScope5000ExampleStreaming.vi` (8.5) | (446, 1104, 744, 1681) | (516, 1339, 728, 1651) | (702, 1349, 718, 1365) |
+| `PicoLogCM3Example.vi` (10.0) | (38, 97, 752, 1619) | (16, 34, 695, 1451) | (280, 16, 296, 32) |
+
+In the 8.5 rows the inner loop lies inside the outer one and the index terminal inside the inner loop, all in the same numbers: one frame. In the 10.0 row the inner loop's top (16) is above the outer loop's top (38) and the index terminal's left (16) is left of the inner loop's left (34), so neither can be in the diagram frame: each is an offset from its container's own corner. A label box, a hot point and a flat sequence frame's tunnels follow the same frame (`parser/layout.py`, `absolute_coordinates`). The version is the `vers` section's `Major`/`Minor` (`parser/utils.py` `saved_version`); `tests/test_layout_absolute_coordinates.py` pins the threshold with 8.2 and 8.5 absolute and 8.6 and 11.0 relative. Thin evidence: the corpus holds no 8.6 file (only 8.2 and 8.5 below the threshold, 9.0 and later above), so the exact boundary rests on the two sides, not on a file saved by 8.6 itself; the front-panel containers' 9.0 boundary is a separate fact ("Front panel structure").
+
 ## A Shared Variable node's library is named by the `HpVL` link-table record, found by the node's uid
 
 A **Shared Variable** node (`class="sharedVariable"`) names its variable in its
@@ -1783,6 +1795,10 @@ paths are not recorded, so no corpus VI can be named for them.
   pointer to a string handle (one more level of pointer than the `String` field, which
   is the handle itself). Node seen: `CompleteClientUnaryCall2` param 3 (wire type
   String). A `PtrTo` whose child is a number is the existing "pass pointer to value".
+
+## A Call Library Function Node's prototype in a VI saved before LabVIEW 8.6 is a Cluster of the `DTHP` pool, not of the `VCTP`
+
+The node's `<funcTD>` is a heap `TypeID` in every version; before 8.6 there is no `VCTP` (the type descriptors are in the heap type pool, "Pre-LV9 (LV8.2) VIs have no VCTP" above), so the Cluster that lists the prototype rows (the section above) is read from the `DTHP` sidecar (`*_DTHP.bin`). Receipt: Pico's `usbpt104GetValue.vi` (`picosdk-ni-labview-examples/usbpt104/usbpt104Lib/`), `vers` 8.5.0 build 2, no `VCTP` in its main XML, a `vi_DTHP.bin` sidecar beside it, one `extFunc` node (`<nodeName>` `UsbPt104GetValue`) whose `<funcTD>` is `00A8`. The pool's descriptors are the ones the `VCTP` holds in a later VI (type code, flags, body; `td_pool.RawTD`): the heap `TypeID` indexes the pool's `TypeID` list (`pool.top[func_td - 1]`) to a Cluster descriptor whose body is a var-size member count and one var-size descriptor index per row, the return value first. A row's type is read by the same rules as a `VCTP` descriptor: a `PtrTo` body is the index of the type it points at, an `Array` / `ArrayDataPtr` body is a u16 dimension count, one u32 per dimension and the element's index (`parser/extfunc_pool_prototype.py`). The rows of `UsbPt104GetValue(handle, channel, *value, filtered)` read as by-value `int16`, by-value `int32`, a pointer to `int32`, by-value `int16`, after the `uint32` return value (`tests/test_extfunc_pool_prototype.py`, which builds the descriptors from that file's bytes and asserts the kinds on the real VI). Thin evidence: one 8.5 file's prototype is pinned by name; the 8.2 files of the corpus have no Call Library Function Node row checked here.
 
 ## A Call Library Function Node's library is named by the `NEXF` link-table record, found by the node's uid; `DSEF` records the same name by data-space offset
 
