@@ -30,7 +30,7 @@ import networkx as nx
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..cache_paths import LibraryRoots
-from ..embedded_instances import read_instance_sources
+from ..embedded_instances import read_instance_defaults, read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
@@ -1711,6 +1711,9 @@ class LoadingMixin:
         # Each malleable-VI call's recorded instance name -> the qualified name
         # of the file it is an instance of (filled while loading dependencies).
         instance_qnames: dict[str, str] = {}
+        # Each embedded instance's unwired control values (see
+        # ``read_instance_defaults``), by the instance's name.
+        instance_defaults: dict[str, dict[int, str | None]] = {}
         # Each dependency's identity (see ``_load_dependency``) by the qualified
         # name the caller's link table records for it.
         dep_keys: dict[str, str] = {}
@@ -1765,6 +1768,11 @@ class LoadingMixin:
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
             instance_sources = read_instance_sources(
+                main_xml.parent, metadata.instance_files, self.cache_roots
+            )
+            # An Express VI's dialog settings are the saved defaults of its
+            # instance's controls.
+            instance_defaults = read_instance_defaults(
                 main_xml.parent, metadata.instance_files, self.cache_roots
             )
 
@@ -1892,8 +1900,29 @@ class LoadingMixin:
             )
         else:
             self._stamp_callee_keys(vi_key, iuse_to_callee_key, poly_to_callee_key)
+        self._stamp_instance_defaults(
+            vi_key, metadata.iuse_to_qualified_name, instance_defaults
+        )
 
         return vi_key
+
+    def _stamp_instance_defaults(
+        self,
+        vi_key: str,
+        iuse_to_qname: dict[str, str],
+        instance_defaults: dict[str, dict[int, str | None]],
+    ) -> None:
+        """Give each call of an embedded instance in a VI the values its unwired
+        controls hold (``VINode.instance_defaults``)."""
+        if not instance_defaults:
+            return
+        for node_id in sorted(self._vi_nodes[vi_key]):
+            node = self._graph.nodes[node_id].get("node")
+            if not isinstance(node, VINode) or node.id == node.vi_path:
+                continue
+            qname = iuse_to_qname.get(node_id.rsplit("::", 1)[-1])
+            if qname is not None:
+                node.instance_defaults = instance_defaults.get(qname.rsplit(":", 1)[-1])
 
     def _stamp_callee_keys(
         self,

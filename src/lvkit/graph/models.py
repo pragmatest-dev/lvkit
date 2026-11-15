@@ -141,6 +141,12 @@ class VINode(GraphNode):
     # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
     # the node calls the VI its reference holds. None on every other node.
     call_save_style: int | None = None
+    # On a call of an embedded instance (an Express VI: its dialog's settings are
+    # the saved defaults of the instance's controls), what each of the instance's
+    # input controls holds when the call leaves it unwired, by connector-pane
+    # slot: the saved default as text, None when the control saves none (it
+    # holds its type's default). None on every other node.
+    instance_defaults: dict[int, str | None] | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the

@@ -39,7 +39,7 @@ from ..import_resolver import ImportResolver
 from ..label_names import python_label
 from ..native_failure import CatalogFailures, catch_failures
 from ..value_copy import is_by_value_object, owned_input
-from ..vilib_pane import check_against_pane
+from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
 
@@ -362,6 +362,7 @@ def _generate_inline(
 def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
     """``entry`` completed from the connector pane of the VI the call names when
     that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
+    entry = with_instance_defaults(entry, node)
     key = ctx.graph.loaded_callee_key(node) if ctx.graph is not None else None
     if ctx.graph is None or key is None:
         return entry

@@ -57,6 +57,33 @@ def default_fits(value: ScalarValue, lv_type: LVType | None) -> bool:
     return False
 
 
+def instance_saved_default(node: AnyGraphNode, terminal: Terminal) -> ScalarValue:
+    """What an unwired input of a call of an embedded instance holds: the saved
+    default of the instance's control at that slot, else its type's default
+    (``VINode.instance_defaults``). None when the call is not of an instance, the
+    instance has no control there, or the type has no scalar default."""
+    if not isinstance(node, VINode) or node.instance_defaults is None:
+        return None
+    if terminal.index not in node.instance_defaults:
+        return None
+    saved = node.instance_defaults[terminal.index]
+    if saved is not None:
+        return lvnet_typed_scalar(saved, terminal.lv_type)
+    lv_type = terminal.lv_type
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
+        return None
+    underlying = lv_type.underlying_type or ""
+    if is_boolean_type_name(underlying):
+        return False
+    if underlying in INTEGER_TYPE_NAMES:
+        return 0
+    if underlying in REAL_FLOAT_TYPE_NAMES:
+        return 0.0
+    if is_string_type_name(underlying):
+        return ""
+    return None
+
+
 def _catalog_terminals(
     primitives: PrimitiveResolver, vilib: VILibResolver, node: AnyGraphNode
 ) -> list[TerminalDefault] | None:
@@ -179,6 +206,9 @@ def instance_default(
         pane = _pane_terminal_at(graph, node, terminal.index)
         if pane is not None:
             value, name = pane_default(pane), pane.name
+    saved = instance_saved_default(node, terminal)
+    if saved is not None:
+        value = saved
     if value is None:
         return bare
     if not default_fits(value, terminal.lv_type):

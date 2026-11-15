@@ -53,6 +53,7 @@ def run_catalog_call(
     runtime_not_implemented: bool = False,
     constants: Mapping[int, tuple[str, LVType]] | None = None,
     calls: Sequence[Mapping[str, Any]] | None = None,
+    instance_defaults: dict[int, str | None] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -67,6 +68,8 @@ def run_catalog_call(
     wires a constant of the diagram, ``(value, type)``, to each call input
     index it names. ``calls`` runs the caller once per mapping of arguments, in order,
     and the result is the list of their results (a VI that keeps state between calls).
+    ``instance_defaults`` makes the call one of an embedded instance (an Express VI):
+    what each input control of the instance holds when unwired, by slot.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -89,6 +92,7 @@ def run_catalog_call(
         name=file_name,
         node_type="iUse",
         callee_key=key,
+        instance_defaults=instance_defaults,
         terminals=[
             FPTerminal(
                 id=f"k:{direction}{index}",

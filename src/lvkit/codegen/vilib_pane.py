@@ -15,13 +15,20 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
+from lvkit.graph.models import VINode
+from lvkit.graph.unwired_default import instance_saved_default
 from lvkit.lv_type_codes import (
     TD_FULL_TYPE,
     is_boolean_type_name,
     is_numeric_type_name,
     is_string_type_name,
 )
-from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
+from lvkit.models import (
+    LVTypeKind,
+    Terminal,
+    TerminalDirection,
+    control_type_to_lvtype,
+)
 from lvkit.vilib_resolver import VIEntry, VILibResolver, VITerminal
 
 from .ast_utils import parameter_default_expr
@@ -124,6 +131,33 @@ def check_against_pane(
                 update.update(_saved_default(match))
         terminals.append(catalog.model_copy(update=update) if update else catalog)
     return PaneCheck(entry.model_copy(update={"terminals": terminals}), mismatches)
+
+
+def with_instance_defaults(entry: VIEntry, node: VINode) -> VIEntry:
+    """``entry`` with the value each input holds in the call's embedded instance
+    (an Express VI's dialog settings, ``VINode.instance_defaults``) as its
+    default: what the instance's controls hold when the call leaves them
+    unwired replaces the default the catalog documents. A call of no instance
+    returns ``entry`` unchanged."""
+    if node.instance_defaults is None:
+        return entry
+    at_index = {t.index: t for t in node.terminals if t.index is not None}
+    terminals: list[VITerminal] = []
+    for catalog in entry.terminals:
+        call_terminal = (
+            at_index.get(catalog.index) if catalog.index is not None else None
+        )
+        value = (
+            instance_saved_default(node, call_terminal)
+            if catalog.direction == TerminalDirection.INPUT
+            and call_terminal is not None
+            else None
+        )
+        if value is None:
+            terminals.append(catalog)
+        else:
+            terminals.append(catalog.model_copy(update={"default": value}))
+    return entry.model_copy(update={"terminals": terminals})
 
 
 def _saved_default(control: Terminal) -> dict[str, object]:
