@@ -16,6 +16,12 @@ from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 ADD_PRIM_ID = 1050
 SUBTRACT_PRIM_ID = 1051
 TO_DOUBLE_PRIM_ID = 1147
+# The other To <number type> conversions (To Byte Integer ... To Unsigned Quad
+# Integer, To Single / Extended Precision Float, To Single / Double / Extended
+# Precision Complex).
+_TO_NUMBER_PRIM_IDS = frozenset(
+    {1140, 1141, 1142, 1143, 1144, 1145, 1146, 1149, 1151, 1152, 1154, 1155, 1156}
+)
 
 # The modules the templates import (``import`` lines of the generated module).
 TIMESTAMP_IMPORTS = ["import hightime", "from datetime import UTC"]
@@ -56,4 +62,20 @@ def timestamp_template(node: PrimitiveNode) -> str | None:
             return f"in_1 + {_seconds('in_2')}"
     if node.prim_id == TO_DOUBLE_PRIM_ID and _is_timestamp(_input(node, _NUMBER_INPUT)):
         return f"(in_1 - {EPOCH_1904_EXPRESSION}).total_seconds()"
+    return None
+
+
+def timestamp_gap(node: PrimitiveNode) -> str | None:
+    """Why a To <number type> conversion of a timestamp has no Python (None when
+    ``node`` is not one). NI gives the number of seconds since 1904 for To Double
+    Precision Float only; the page of the other conversions says nothing about a
+    timestamp, and the forum reports found disagree on whether the fraction of a
+    second rounds or is dropped."""
+    if node.prim_id in _TO_NUMBER_PRIM_IDS and _is_timestamp(
+        _input(node, _NUMBER_INPUT)
+    ):
+        return (
+            "NI does not document the number a timestamp converts to here (the "
+            "seconds since 1904, with the fraction of a second rounded or dropped)"
+        )
     return None

@@ -36,7 +36,11 @@ from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-from ..timestamp_templates import TIMESTAMP_IMPORTS, timestamp_template
+from ..timestamp_templates import (
+    TIMESTAMP_IMPORTS,
+    timestamp_gap,
+    timestamp_template,
+)
 from .template_inputs import template_reads
 
 
@@ -177,6 +181,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A timestamp operand: the number functions' code for timestamps.
     timestamp_code = timestamp_template(node)
+    timestamp_reason = timestamp_gap(node)
+    if timestamp_reason is not None:
+        raise ConversionGap(timestamp_reason, node)
     if timestamp_code is not None:
         resolved.imports = [*(resolved.imports or []), *TIMESTAMP_IMPORTS]
         if isinstance(resolved.python_code, dict) and resolved.python_code:
