@@ -30,11 +30,13 @@ String Into Enum -- Exact Match Otherwise Error", t5/LabVIEW/td-p/3333885; "Find
 Enum Item from String Input", ta-p/3490889): text after the label is ignored
 ("Oneasdf" gives One), text before it is an error, no matching item is error 85
 (the scan's usual failure here), and NI's knowledge base says the match is case
-sensitive. What the scan returns when one item's label starts another's is not
-settled by NI's pages or those reports (one poster says the position of the item
-in the list matters, another that it does not), so an enum with such labels is a
-gap, as is an empty label (a forum report says an enum whose first item is empty
-fails to scan back).
+sensitive. When one item's label starts another's NI's pages do not say which
+item the scan returns; the forum posts found say it "matches the longest string
+in the enum" (a reply on the "Exact Match" thread) and that the position of the
+item in the list made no difference in a test ("ThisIs" and "ThisIsnt"), while
+the original poster only feared the order might matter. The longest label is
+the recorded choice. An empty label is a gap (a forum report says an enum whose
+first item is empty fails to scan back).
 
 The pattern reads as far as the input matches: each specifier and the text
 before it sit in a group that is optional given the one before, so the number of
@@ -329,15 +331,8 @@ def _enum_field(text: str, width: int, kind: FormatKind) -> ScanField:
             f"Scan From String specifier {text!r} (an enum output with no item "
             "labels, or an empty one) has no conversion"
         )
-    for label in labels:
-        for other in labels:
-            if other is not label and other.startswith(label):
-                raise ValueError(
-                    f"Scan From String specifier {text!r} (an enum whose item "
-                    f"{label!r} starts the item {other!r}: which one the scan "
-                    "returns is not documented) has no conversion"
-                )
-    pattern = "|".join(re.escape(label) for label in labels)
+    longest_first = sorted(labels, key=lambda label: -len(label))
+    pattern = "|".join(re.escape(label) for label in longest_first)
     values = repr({label: value for value, label in kind.labels})
     # The value is a template in which ``{g}`` stands for the text.
     template = values.replace("{", "{{").replace("}", "}}") + "[{g}]"

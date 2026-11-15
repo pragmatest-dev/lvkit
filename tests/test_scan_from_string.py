@@ -394,7 +394,6 @@ def test_a_label_that_matches_nothing_keeps_the_default_and_is_error_85() -> Non
 @pytest.mark.parametrize(
     ("format_text", "outputs", "reason"),
     [
-        ("%s", [_enum("One", "OneTwo")], "starts the item 'OneTwo'"),
         ("%s", [_enum("", "A")], "an empty one"),
         ("%3s", [COLOR], "a width with an enum output"),
         ("%d", [COLOR], "into a enum output"),
@@ -416,3 +415,14 @@ def test_an_enum_label_with_braces_and_regular_expression_characters() -> None:
     odd = _enum("a{b}", "c.d")
     assert _values(_result("%s", [odd], "a{b}"), 1) == [0]
     assert _values(_result("%s", [odd], "c.d"), 1) == [1]
+
+
+def test_the_longest_label_wins_whatever_the_order_of_the_items() -> None:
+    for labels in (("Generic", "GenericClass"), ("GenericClass", "Generic")):
+        enum = _enum(*labels)
+        assert _values(_result("%s", [enum], "GenericClass"), 1) == [
+            labels.index("GenericClass")
+        ]
+        assert _values(_result("%s", [enum], "Generic"), 1) == [
+            labels.index("Generic")
+        ]
