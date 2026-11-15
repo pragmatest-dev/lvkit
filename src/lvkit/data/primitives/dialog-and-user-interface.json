@@ -75,11 +75,13 @@
         }
       ],
       "python_code": {
+        "_body": "live_io.prompt(in_2, [in_1])",
         "true": "True"
       },
-      "inline": true,
-      "verified": false,
-      "note": "One Button Dialog -- 3-terminal pane; message (idx2) wired 19/19, button name (idx1) never wired (defaults 'OK'). Two Button Dialog excluded (three strings). Side-effecting dialog; python_code does not emit it."
+      "inline": false,
+      "live_io": true,
+      "verified": true,
+      "note": "One Button Dialog -- 3-terminal pane; message (idx2), button name (idx1, defaults 'OK'), true (idx0). The dialog is live_io.prompt (D5); true is True once it closes, whichever way."
     },
     "1341": {
       "name": "Two Button Dialog",
@@ -114,9 +116,13 @@
           "type": "String"
         }
       ],
-      "placeholder": true,
-      "python_code": "pass",
-      "note": "Two Button Dialog. idx1=F button, idx2=T button (VI-Scripting nodes export). Placeholder: T-vs-F is a real branch, python_code hard-codes True."
+      "python_code": {
+        "_body": "_button = live_io.prompt(in_3, [in_2, in_1])",
+        "t_button_pressed": "_button == 0"
+      },
+      "inline": false,
+      "live_io": true,
+      "note": "Two Button Dialog. idx1=F button, idx2=T button, idx3=message (a corpus caller wires 'No' to idx1, 'Yes' to idx2). The T button is the first button of live_io.prompt; T button? is True when it was chosen. Closing the window answers FALSE (NI): a live_io that shows a window returns the F button's position."
     },
     "2147": {
       "name": "Merge Errors",

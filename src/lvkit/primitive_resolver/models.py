@@ -129,6 +129,9 @@ class PrimitiveEntry(BaseModel):
     icon: NodeIcon | None = None
     # NI's page says the node runs even when an error comes in on its error in.
     runs_on_error: bool = False
+    # The node's Python calls ``live_io`` (a dialog box): a VI that holds the
+    # node takes the ``live_io`` parameter (``codegen/panel_hooks.py``).
+    live_io: bool = False
     # The failures of the node's Python operation that are its error out, in
     # the order they are caught (``codegen/native_failure.py``).
     errors: list[NativeError] = Field(default_factory=list)
@@ -170,6 +173,8 @@ class ResolvedPrimitive(BaseModel):
     # NI's page says the node runs even when an error comes in on its error in
     # (``CodeFragment.runs_on_error``).
     runs_on_error: bool = False
+    # See ``PrimitiveEntry.live_io``.
+    live_io: bool = False
     # NI's page says every input of the node takes only the status of an error
     # cluster wired to it: a node whose inputs grow with it and have no catalog
     # terminals (Compound Arithmetic). A fixed input says it on its own terminal

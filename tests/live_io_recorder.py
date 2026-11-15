@@ -46,3 +46,17 @@ class Recorder(LiveIO):
         self.properties.append((name, prop, value))
         self.log.append(("property", name, prop, value))
         return None
+
+
+class PromptRecorder(LiveIO):
+    """A ``LiveIO`` that records every dialog a function shows, ``(message,
+    buttons, title)``, and answers each with the next of ``answers`` (the first
+    button, 0, once they run out)."""
+
+    def __init__(self, *answers: int) -> None:
+        self.answers = list(answers)
+        self.dialogs: list[tuple[str, list[str], str]] = []
+
+    def prompt(self, message: str, buttons: Any = ("OK",), title: str = "") -> int:
+        self.dialogs.append((message, list(buttons), title))
+        return self.answers.pop(0) if self.answers else 0

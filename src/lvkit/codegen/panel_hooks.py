@@ -3,8 +3,9 @@
 A VI whose diagram reads or writes its own front panel while it runs (a control
 or indicator terminal inside a loop or Event Structure, a Local Variable of one
 of its controls or indicators, a Value Property Node bound to one of its
-controls, or an Event Structure: ``InMemoryVIGraph.touches_panel_while_running``)
-takes one keyword-only parameter after its connector-pane ones::
+controls, an Event Structure, or a node that shows a dialog box through
+``live_io.prompt``: ``InMemoryVIGraph.touches_panel_while_running``) takes one
+keyword-only parameter after its connector-pane ones::
 
     live_io: LiveIO = NO_LIVE_IO
 
@@ -20,6 +21,10 @@ node generator of ``nodes/local_variable.py``), and once at entry for an
 off-pane control the diagram reads (``entry_reads``)::
 
     stop = live_io.read(AcquireValue.STOP, stop)
+
+A dialog box is ``live_io.prompt(message, [button texts], title)``, which returns
+the position of the button chosen (``codegen/error_dialog.py``, and the catalog
+entries that carry ``"live_io": true``).
 
 A VI whose bound Property Nodes write a listed control property
 (``control_properties.json``) calls

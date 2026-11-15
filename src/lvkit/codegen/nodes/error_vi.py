@@ -9,12 +9,15 @@ the error in, or an error of its error code, without a dialog.
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import TerminalDirection
 from lvkit.parser.constants import (
     VI_NAME_CLEAR_ERRORS,
     VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE,
+    VI_NAME_GENERAL_ERROR_HANDLER,
     VI_NAME_MERGE_ERRORS,
     VI_NAME_SIMPLE_ERROR_HANDLER,
 )
@@ -23,6 +26,7 @@ from lvkit.vilib_resolver import VIEntry
 from ..ast_utils import build_assign, paren_if_compound, parse_expr
 from ..context import CodeGenContext
 from ..error_codes import describe_error_code
+from ..error_dialog import dialog_statements
 from ..error_flow import (
     ErrorFieldRole,
     error_occurred,
@@ -53,7 +57,9 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if file_name == VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE:
         return _error_cluster_from_error_code(node, ctx)
     if file_name == VI_NAME_SIMPLE_ERROR_HANDLER:
-        return _simple_error_handler(node, ctx)
+        return _error_handler(node, ctx, _SIMPLE)
+    if file_name == VI_NAME_GENERAL_ERROR_HANDLER:
+        return _error_handler(node, ctx, _GENERAL)
     return CodeFragment.empty()
 
 
@@ -159,33 +165,74 @@ _SIMPLE_ERROR_HANDLER_OUTPUTS = {
     "source_out": ErrorFieldRole.SOURCE,
 }
 
-# The inputs of Simple Error Handler the error it reports is made from.
-_HANDLER_CODE = "error_code_no_error_0"
-_HANDLER_SOURCE = "error_source"
+
+@dataclass(frozen=True)
+class _Handler:
+    """The catalog names of the inputs of an error handler the error it reports
+    and its dialog are made from; ``unsupported`` are inputs the generator does
+    not write (wiring one is a gap)."""
+
+    code: str
+    source: str
+    dialog: str
+    unsupported: tuple[str, ...] = ()
 
 
-def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
-    """Simple Error Handler: the error it reports is the error in when an error
-    occurred on it; else, for a nonzero ``error code``, an error of that code
-    from ``error source``; else the error in (``None``, or a warning). Its error
-    out is that error, ``error?``, ``code out`` and ``source out`` are its
-    status, code and source, and ``message`` its message. It shows no dialog.
-    It runs whatever error comes in."""
+_SIMPLE = _Handler("error_code_no_error_0", "error_source", "type_of_dialog_ok_msg_1")
+_GENERAL = _Handler(
+    "error_code",
+    "error_source",
+    "type_of_dialog",
+    unsupported=(
+        "user_defined_descriptions",
+        "user_defined_codes",
+        "exception_action",
+        "exception_code",
+        "exception_source",
+    ),
+)
+
+
+def _error_handler(
+    node: VINode, ctx: CodeGenContext, handler: _Handler
+) -> CodeFragment:
+    """Simple Error Handler and General Error Handler: the error they report is
+    the error in when an error occurred on it; else, for a nonzero ``error
+    code``, an error of that code from ``error source``; else the error in
+    (``None``, or a warning). Their error out is that error, ``error?``, ``code
+    out`` and ``source out`` are its status, code and source, and ``message`` its
+    message. They show the dialog ``type of dialog`` says (default 1) through
+    ``live_io.prompt`` (``error_dialog``). They run whatever error comes in."""
     entry = ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node))
     if entry is None:
         return CodeFragment.empty()
+    for param in handler.unsupported:
+        if _catalog_input(node, ctx, entry, param) is not None:
+            raise ConversionGap(
+                f"{entry.name}: its input '{param}' is wired, and lvkit does not "
+                "yet write the user-defined error codes or the exception action "
+                "of the General Error Handler",
+                node,
+            )
     param_of = {
         t.index: t.python_param
         for t in entry.terminals
         if t.direction == TerminalDirection.OUTPUT
     }
     statements: list[ast.stmt] = []
-    error = _reported_error(node, ctx, entry)
+    error = _reported_error(node, ctx, entry, handler)
     if error != _incoming_error(node, ctx):
         var = ctx.make_output_var("handled_error", node.id)
         statements.append(build_assign(var, parse_expr(error)))
         error = var
     message = "''" if error == "None" else f"{error}.message if {error} else ''"
+    dialog_type = _catalog_input(node, ctx, entry, handler.dialog)
+    if dialog_type is None:
+        dialog_type = str(_catalog_default(entry, handler.dialog))
+    dialog = dialog_statements(
+        node, ctx, error, message, dialog_type, _int_constant(dialog_type)
+    )
+    statements.extend(dialog.statements)
     bindings = {term.id: error for term in error_terminals(node, "output")}
     for term in ctx.enriched_terminals(node):
         param = param_of.get(term.index)
@@ -200,22 +247,29 @@ def _simple_error_handler(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         value = message if role is None else role.in_error(error)
         statements.append(build_assign(var, parse_expr(value)))
         bindings[term.id] = var
-    return CodeFragment(statements=statements, bindings=bindings, runs_on_error=True)
+    return CodeFragment(
+        statements=statements,
+        bindings=bindings,
+        imports=dialog.imports,
+        runs_on_error=True,
+    )
 
 
-def _reported_error(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> str:
-    """The error Simple Error Handler reports, as an expression: the error in
+def _reported_error(
+    node: VINode, ctx: CodeGenContext, entry: VIEntry, handler: _Handler
+) -> str:
+    """The error an error handler reports, as an expression: the error in
     when an error occurred on it; else an error of the ``error code`` input with
     the ``error source`` input, when the code is not 0; else the error in. An
     unwired ``error code`` is 0, so the error in is all there is."""
     incoming = _incoming_error(node, ctx)
-    code = _catalog_input(node, ctx, entry, _HANDLER_CODE)
+    code = _catalog_input(node, ctx, entry, handler.code)
     constant = _int_constant(code) if code is not None else 0
     if code is None or constant == 0:
         return incoming
-    source = _catalog_input(node, ctx, entry, _HANDLER_SOURCE)
+    source = _catalog_input(node, ctx, entry, handler.source)
     if source is None:
-        source = repr(_catalog_default(entry, _HANDLER_SOURCE) or "")
+        source = repr(_catalog_default(entry, handler.source) or "")
     description = describe_error_code(constant) if constant is not None else None
     ctx.import_labview_error()
     found = (

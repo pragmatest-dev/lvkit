@@ -47,6 +47,7 @@ from tests.error_diagrams import (
     skipping_step,
 )
 from tests.error_views_expected import EXPECTED
+from tests.live_io_recorder import PromptRecorder
 
 Builder = Callable[[Project], str]
 
@@ -985,18 +986,21 @@ def test_error_cluster_from_error_code_is_a_warning_when_asked(
 # =============================================================
 
 
-def test_simple_error_handler_reports_the_error_without_a_dialog(
+def test_simple_error_handler_reports_the_error_and_shows_its_dialog_through_live_io(
     project: Project,  # noqa: F811
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     package = generate(project, C.simple_error_handler)
     capsys.readouterr()  # what generating printed
-    clean = package.function()
+    recorder = PromptRecorder()
+    clean = package.function(live_io=recorder)
     assert_result_object(clean, "failed", "code", "error_out")
     assert (clean.failed, clean.code, clean.error_out) == (False, 0, None)
+    assert recorder.dialogs == []
     error = package.error(7)
-    result = package.function(error_in=error)
+    result = package.function(error_in=error, live_io=recorder)
     assert (result.failed, result.code, result.error_out) == (True, 7, error)
+    assert [buttons for _, buttons, _ in recorder.dialogs] == [["Continue"]]
     captured = capsys.readouterr()
     assert captured.out == captured.err == ""
     assert "RuntimeError" not in package.source
@@ -1010,14 +1014,17 @@ def test_simple_error_handler_reports_its_error_code_when_no_error_came_in(
     error in with code 0 flows on."""
     package = generate(project, lambda p: C.simple_error_handler(p, with_code=True))
     fields = ("failed", "code", "source", "error_out")
-    found = package.function(error_code=7, error_source="my step")
+    recorder = PromptRecorder()
+    found = package.function(error_code=7, error_source="my step", live_io=recorder)
     assert_result_object(found, *fields)
     error = found.error_out
     assert (error.status, error.code, error.source) == (True, 7, "my step")
     assert (found.failed, found.code, found.source) == (True, 7, "my step")
 
     incoming = package.error(9)
-    result = package.function(error_in=incoming, error_code=7, error_source="mine")
+    result = package.function(
+        error_in=incoming, error_code=7, error_source="mine", live_io=recorder
+    )
     assert (result.failed, result.code, result.error_out) == (True, 9, incoming)
 
     clean = package.function()

@@ -243,6 +243,7 @@ class PrimitiveResolver:
                     icon=_collect_icon(prim),
                     doc_url=prim.get("doc_url"),
                     runs_on_error=prim.get("runs_on_error", False),
+                    live_io=prim.get("live_io", False),
                 )
                 alternatives = [
                     [TerminalAlias.model_validate(a) for a in alias_set]

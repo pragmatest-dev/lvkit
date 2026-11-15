@@ -210,6 +210,7 @@ def test_a_template_names_only_input_python_names(key: str, entry: dict) -> None
             for name in _template_names(template) - inputs - modules
             if name not in sys.stdlib_module_names
             and name not in ("Path", "__file__")
+            and not (name == "live_io" and entry.get("live_io"))
             and not name.startswith("_")
         }
         assert not stray, (key, template, stray, sorted(inputs))

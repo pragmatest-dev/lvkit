@@ -34,6 +34,10 @@ from .models import (
 )
 from .op_walk import correlate_property_terminals
 
+if TYPE_CHECKING:
+    from ..primitive_resolver import PrimitiveResolver
+    from ..vilib_resolver import VILibResolver
+
 
 class WireQueriesMixin:
     """Wire and Local Variable queries on ``InMemoryVIGraph``."""
@@ -50,6 +54,14 @@ class WireQueriesMixin:
         def terminal_vi(self, terminal_id: str) -> str | None: ...
         def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
         def loaded_callee_key(self, node: VINode) -> str | None: ...
+        def catalog_path(self, node: VINode) -> str | None: ...
+
+        @property
+        def primitive_catalog(self) -> PrimitiveResolver: ...
+
+        @property
+        def vilib_catalog(self) -> VILibResolver: ...
+
         def pane_terminals(
             self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
         ) -> list[Terminal]: ...
@@ -262,14 +274,30 @@ class WireQueriesMixin:
             isinstance(node, EventStructureNode) for node in self.iter_nodes(vi_name)
         )
 
+    def calls_live_io(self, vi_name: str) -> bool:
+        """Whether the VI's diagram holds a node whose catalog entry says its
+        Python calls ``live_io`` (a dialog box): a primitive, or a vi.lib VI
+        by the path its caller records."""
+        for node in self.iter_nodes(vi_name):
+            if isinstance(node, PrimitiveNode) and node.prim_id is not None:
+                resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)
+                if resolved is not None and resolved.live_io:
+                    return True
+            elif isinstance(node, VINode):
+                entry = self.vilib_catalog.resolve_recorded(self.catalog_path(node))
+                if entry is not None and entry.live_io:
+                    return True
+        return False
+
     def touches_panel_while_running(self, vi_name: str) -> bool:
         """Whether the VI's diagram reads or writes its own front panel while it
         runs: a control or indicator terminal inside a While Loop, For Loop or
         Event Structure, an Event Structure (it waits for the panel's events), a
         Local Variable of one of its controls or indicators, a Value Property
-        Node bound to one of its controls, or an off-pane control whose terminal
-        has a wire leaving it (the diagram reads it)."""
-        if self.has_event_structure(vi_name):
+        Node bound to one of its controls, an off-pane control whose terminal
+        has a wire leaving it (the diagram reads it), or a node whose Python
+        shows a dialog box through ``live_io`` (``calls_live_io``)."""
+        if self.has_event_structure(vi_name) or self.calls_live_io(vi_name):
             return True
         vi = self.get_graph_node(vi_name)
         if vi is not None and any(
