@@ -16,15 +16,32 @@ from lvkit.timestamp_value import EPOCH_1904_EXPRESSION
 ADD_PRIM_ID = 1050
 SUBTRACT_PRIM_ID = 1051
 TO_DOUBLE_PRIM_ID = 1147
-# The other To <number type> conversions (To Byte Integer ... To Unsigned Quad
-# Integer, To Single / Extended Precision Float, To Single / Double / Extended
-# Precision Complex).
-_TO_NUMBER_PRIM_IDS = frozenset(
-    {1140, 1141, 1142, 1143, 1144, 1145, 1146, 1149, 1151, 1152, 1154, 1155, 1156}
+
+# The unsigned integer conversions whose NI page lists "a time stamp" as the input
+# (To Unsigned Long Integer, To Unsigned Quad Integer), with the ctypes type each
+# keeps the low bits of, as the catalog's code for a number does.
+#
+# Rounding: those pages say "This function rounds all floating-point and
+# fixed-point numeric values to the nearest integer. If the fractional part of the
+# value is .5, the function rounds the value to the nearest even integer"
+# (https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/
+# to-unsigned-long-integer.html), and a timestamp is a 64.64 fixed-point count of
+# seconds (LAVA "Timestamp Behavior", lavag.org/topic/16198), so the seconds round
+# to nearest, ties to even; "the fractional part of the seconds will disappear"
+# (forums.ni.com/t5/LabVIEW/timestamp-as-simple-long/td-p/910142). The rounding is
+# done on the exact fraction (a float of the seconds holds only ~0.5 us). No
+# source says a timestamp past the range converts differently from a number.
+_INTEGER_CTYPES = {1145: "c_uint32", 1156: "c_uint64"}
+# The other To <number type> conversions (To Byte / Word / Long / Quad Integer, the
+# unsigned byte / word, To Single / Extended Precision Float, the three complex
+# types): their NI pages do not list a time stamp as an input.
+_UNDOCUMENTED_PRIM_IDS = frozenset(
+    {1140, 1141, 1142, 1143, 1144, 1146, 1149, 1151, 1152, 1154, 1155}
 )
 
 # The modules the templates import (``import`` lines of the generated module).
 TIMESTAMP_IMPORTS = ["import hightime", "from datetime import UTC"]
+_INTEGER_IMPORTS = ["from fractions import Fraction", "import ctypes"]
 
 _Y_INPUT = 1
 _X_INPUT = 2
@@ -62,20 +79,31 @@ def timestamp_template(node: PrimitiveNode) -> str | None:
             return f"in_1 + {_seconds('in_2')}"
     if node.prim_id == TO_DOUBLE_PRIM_ID and _is_timestamp(_input(node, _NUMBER_INPUT)):
         return f"(in_1 - {EPOCH_1904_EXPRESSION}).total_seconds()"
+    if node.prim_id in _INTEGER_CTYPES and _is_timestamp(_input(node, _NUMBER_INPUT)):
+        yoctoseconds = (
+            f"(in_1 - {EPOCH_1904_EXPRESSION}) // hightime.timedelta(yoctoseconds=1)"
+        )
+        ctype = _INTEGER_CTYPES[node.prim_id]
+        return f"ctypes.{ctype}(round(Fraction({yoctoseconds}, 10**24))).value"
     return None
+
+
+def timestamp_imports(node: PrimitiveNode) -> list[str]:
+    """The ``import`` lines ``timestamp_template`` of ``node`` needs."""
+    if node.prim_id in _INTEGER_CTYPES:
+        return [*TIMESTAMP_IMPORTS, *_INTEGER_IMPORTS]
+    return TIMESTAMP_IMPORTS
 
 
 def timestamp_gap(node: PrimitiveNode) -> str | None:
     """Why a To <number type> conversion of a timestamp has no Python (None when
-    ``node`` is not one). NI gives the number of seconds since 1904 for To Double
-    Precision Float only; the page of the other conversions says nothing about a
-    timestamp, and the forum reports found disagree on whether the fraction of a
-    second rounds or is dropped."""
-    if node.prim_id in _TO_NUMBER_PRIM_IDS and _is_timestamp(
+    ``node`` is not one). The conversions whose NI page does not list a time stamp
+    as an input stay gaps."""
+    if node.prim_id in _UNDOCUMENTED_PRIM_IDS and _is_timestamp(
         _input(node, _NUMBER_INPUT)
     ):
         return (
-            "NI does not document the number a timestamp converts to here (the "
-            "seconds since 1904, with the fraction of a second rounded or dropped)"
+            "NI's page for this conversion does not list a time stamp as its "
+            "input, so the number a timestamp converts to is not documented"
         )
     return None

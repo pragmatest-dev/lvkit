@@ -37,8 +37,8 @@ from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
 from ..timestamp_templates import (
-    TIMESTAMP_IMPORTS,
     timestamp_gap,
+    timestamp_imports,
     timestamp_template,
 )
 from .template_inputs import template_reads
@@ -185,7 +185,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if timestamp_reason is not None:
         raise ConversionGap(timestamp_reason, node)
     if timestamp_code is not None:
-        resolved.imports = [*(resolved.imports or []), *TIMESTAMP_IMPORTS]
+        resolved.imports = [*(resolved.imports or []), *timestamp_imports(node)]
         if isinstance(resolved.python_code, dict) and resolved.python_code:
             key = next(iter(resolved.python_code))
             resolved.python_code = {key: timestamp_code}

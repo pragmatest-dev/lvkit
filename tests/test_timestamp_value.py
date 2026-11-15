@@ -172,6 +172,60 @@ def test_a_timestamp_as_a_double_is_the_seconds_since_1904() -> None:
     assert fn(_later(86400.5)).out == 86400.5
 
 
+def _to_integer(prim_id: int, name: str, result: LVType):
+    return generate(
+        prim_id,
+        name,
+        [
+            Pin(1, "input", TIMESTAMP, source="x"),
+            Pin(0, "output", result, sink="out"),
+        ],
+        {"x": TIMESTAMP},
+        {"out": result},
+    )
+
+
+def test_a_timestamp_as_an_unsigned_long_is_the_rounded_seconds_since_1904() -> None:
+    source, fn = _to_integer(1145, "To Unsigned Long Integer", scalar("NumUInt32"))
+    assert "in_" not in source
+    assert "from fractions import Fraction" in source
+    assert fn(EPOCH_1904).out == 0
+    # 2020-01-01 00:00:00 UTC is 3660681600 s after 1904-01-01.
+    assert fn(datetime_2020()).out == 3660681600
+    # Ties go to the even integer: 0.5 -> 0, 1.5 -> 2; just over a half rounds up.
+    assert fn(_later(0.5)).out == 0
+    assert fn(_later(1.5)).out == 2
+    assert fn(_later(2.5)).out == 2
+    assert fn(_later(2.4999)).out == 2
+    assert fn(_later(2.5001)).out == 3
+    # A fraction a float of the seconds could not hold still decides the rounding.
+    just_over = EPOCH_1904 + hightime.timedelta(
+        seconds=3_000_000_000, microseconds=500_000, femtoseconds=1
+    )
+    assert fn(just_over).out == 3_000_000_001
+
+
+def test_a_timestamp_past_the_range_converts_as_a_number_does() -> None:
+    """A number past the range keeps its low bits (the catalog's To Unsigned
+    Long Integer); no source says a timestamp differs."""
+    _, to_u32 = _to_integer(1145, "To Unsigned Long Integer", scalar("NumUInt32"))
+    assert to_u32(_later(2**32 + 10)).out == 10
+    assert to_u32(_later(-1)).out == 2**32 - 1
+    _, to_u64 = _to_integer(1156, "To Unsigned Quad Integer", scalar("NumUInt64"))
+    assert to_u64(_later(3660681600)).out == 3660681600
+    assert to_u64(_later(-1)).out == 2**64 - 1
+
+
+def test_a_timestamp_as_a_quad_integer_stays_a_gap() -> None:
+    with pytest.raises(NotImplementedError):
+        _, fn = _to_integer(1155, "To Quad Integer", scalar("NumInt64"))
+        fn(EPOCH_1904)
+
+
+def datetime_2020() -> hightime.datetime:
+    return hightime.datetime(2020, 1, 1, tzinfo=datetime.UTC)
+
+
 def test_a_number_to_time_stamp_is_that_many_seconds_after_1904() -> None:
     _, fn = generate(
         TO_TIME_STAMP,

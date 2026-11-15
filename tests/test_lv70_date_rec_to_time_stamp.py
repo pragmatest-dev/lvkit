@@ -183,18 +183,17 @@ def test_a_neighbour_old_version_vi_stays_a_gap(
 
 
 def test_a_timestamp_into_an_integer_conversion_is_a_gap() -> None:
-    """Get UTC Offset.vi wires the timestamp into To Unsigned Long Integer, which
-    NI does not document for a timestamp."""
+    """To Long Integer's NI page does not list a time stamp as an input."""
     gaps: list[Gap] = []
     run = generate(
         {"t": TIMESTAMP},
-        {"n": scalar("NumUInt32")},
+        {"n": scalar("NumInt32")},
         [
             node(
                 "c",
-                1145,
+                1142,
                 [
-                    (0, "output", scalar("NumUInt32")),
+                    (0, "output", scalar("NumInt32")),
                     (1, "input", TIMESTAMP),
                 ],
             )
@@ -203,6 +202,6 @@ def test_a_timestamp_into_an_integer_conversion_is_a_gap() -> None:
         gaps=gaps,
     )
     assert len(gaps) == 1
-    assert "does not document the number a timestamp converts to" in gaps[0].message
+    assert "does not list a time stamp as its input" in gaps[0].message
     with pytest.raises(NotImplementedError):
         run.function(None)
