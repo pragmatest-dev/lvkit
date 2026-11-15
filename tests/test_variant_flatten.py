@@ -228,9 +228,7 @@ def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
         generated.function("\x00\x00\x00\x07", [4, 3])
 
 
-def test_a_known_type_with_no_flattened_form_is_a_gap_that_raises_where_it_runs() -> (
-    None
-):
+def test_a_known_type_with_no_type_string_is_a_gap_that_raises_where_it_runs() -> None:
     generated = to_string(scalar("Path"))
-    with pytest.raises(NotImplementedError, match="does not handle.*Path"):
+    with pytest.raises(NotImplementedError, match="no type string for.*Path"):
         generated.function(None)

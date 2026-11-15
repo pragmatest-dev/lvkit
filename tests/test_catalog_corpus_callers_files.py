@@ -176,3 +176,17 @@ def test_jki_read_lines_from_file_reads_lines_through_the_file_llb_vis(
     first_two = function(file_path_dialog_if_empty=target, number_of_lines_all_1=2)
     assert first_two.line_string == "one\ntwo\n"
     assert first_two.eof is False
+
+
+def test_openg_get_default_data_from_td_flattens_a_path(tmp_path: Path) -> None:
+    """OpenG's Get Default Data from TD flattens a Path default with Flatten To
+    String: it writes the ``PTH0`` helper instead of a gap."""
+    vi = (
+        SAMPLES
+        / "OpenG/extracted/File Group 0/user.lib/_OpenG.lib/lvdata/lvdata.llb"
+        / "Get Default Data from TD__ogtk.vi"
+    )
+    package = _generate(vi, tmp_path)
+    sources = "".join(p.read_text(encoding="utf-8") for p in package.rglob("*.py"))
+    assert "def _flatten_path(value):" in sources
+    assert "does not handle a value of type 'Path'" not in sources

@@ -4,6 +4,10 @@ trip through Unflatten From String."""
 
 from __future__ import annotations
 
+import os
+import struct
+from pathlib import Path
+
 import pytest
 
 from lvkit.models import ClusterField, LVType, LVTypeKind
@@ -212,3 +216,125 @@ def test_a_type_with_no_flattened_form_is_a_gap_that_raises_where_it_runs() -> N
     generated = flatten(scalar("Variant"))
     with pytest.raises(NotImplementedError, match="does not handle.*Variant"):
         generated.function(None)
+
+
+# --- Paths: "Flattened Data" gives ``C:\File`` as 5054 4830 0000 000B 0000 0002
+# 0143 0466 696C 65 (the component bytes there spell "file"): PTH0, the length of
+# what follows, the type, the component count, each component a Pascal string. A
+# path's volume is its first component (``lvkit.path_value.python_path``): ``C:/``
+# on Windows, ``/C`` elsewhere.
+
+PATH = scalar("Path")
+NI_PATH_HEX = "505448300000000b0000000201430466696c65"
+POSIX_ROOT_VOLUME = "C:/" if os.name == "nt" else "/C"
+
+
+def _unflatten(target: LVType, text: str) -> object:
+    generated = generate(
+        {"s": STR},
+        {"v": target},
+        [
+            node(
+                "uf",
+                1165,
+                [(2, "output", target), (7, "input", target), (11, "input", STR)],
+            )
+        ],
+        [("fp:s", "uf:11"), ("uf:2", "fp:v")],
+    )
+    return result_values(generated.function(text))[0]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (Path(POSIX_ROOT_VOLUME, "file"), NI_PATH_HEX),
+        (None, "5054483000000004" + "00020000"),
+        (Path(""), "5054483000000004" + "00000000"),
+        (Path("test.xml"), "505448300000000d" + "00010001" + "08746573742e786d6c"),
+        (Path(".."), "5054483000000005" + "00010001" + "00"),
+        (
+            Path("<vilib>", "x.vi"),
+            "5054483000000011" + "00000002" + "073c76696c69623e" + "04782e7669",
+        ),
+    ],
+)
+def test_a_path_flattens_to_pth0_its_length_its_type_and_its_components(
+    value: object, expected: str
+) -> None:
+    generated = flatten(PATH)
+    assert flat_hex(generated, value) == expected
+    assert "lvkit" not in generated.source
+
+
+def test_the_prepend_size_option_does_not_change_a_path() -> None:
+    value = Path(POSIX_ROOT_VOLUME, "file")
+    assert flat_hex(flatten(PATH, prefix=False), value) == NI_PATH_HEX
+    assert flat_hex(flatten(PATH, prefix=True), value) == NI_PATH_HEX
+
+
+def test_little_endian_orders_the_numbers_of_the_path_header() -> None:
+    value = Path(POSIX_ROOT_VOLUME, "file")
+    assert (
+        flat_hex(flatten(PATH, order=2), value)
+        == "50544830" + "0b000000" + "0000" + "0200" + "0143" + "0466696c65"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        Path(POSIX_ROOT_VOLUME, "Users", "me"),
+        None,
+        Path(""),
+        Path("a", "b.txt"),
+        Path("..", "up", "..", "again"),
+        Path("<vilib>", "Utility", "file.llb"),
+    ],
+)
+def test_a_flattened_path_is_unflattened_to_the_same_path(value: object) -> None:
+    flat = flatten(PATH)
+    text = result_values(flat.function(value))[0]
+    assert _unflatten(PATH, text) == value
+
+
+def test_the_page_s_example_unflattens_to_its_path() -> None:
+    text = bytes.fromhex(NI_PATH_HEX).decode("latin-1")
+    assert _unflatten(PATH, text) == Path(POSIX_ROOT_VOLUME, "file")
+
+
+def test_a_path_in_a_cluster_and_an_array_of_paths_round_trip() -> None:
+    record = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="p", type=PATH), ClusterField(name="s", type=STR)],
+    )
+    value = (Path("a", "b"), "tail")
+    flat = flatten(record)
+    text = result_values(flat.function(value))[0]
+    assert text.encode("latin-1").hex() == (
+        "5054483000000008" + "00010002" + "0161" + "0162" + "00000004" + "7461696c"
+    )
+    assert _unflatten(record, text) == value
+    paths = array(PATH)
+    listing = [Path("x"), None, Path("")]
+    flat = flatten(paths)
+    text = result_values(flat.function(listing))[0]
+    assert _unflatten(paths, text) == listing
+
+
+@pytest.mark.parametrize(
+    ("hex_text", "error", "message"),
+    [
+        ("505448300000000400030000", NotImplementedError, "UNC"),
+        ("505448300000000400070000", ValueError, "invalid type 7"),
+        ("505448300000000900000001", struct.error, "past the end"),
+        ("0000000400000000", struct.error, "PTH0"),
+        ("5054483000000005000000010001", ValueError, "no volume"),
+    ],
+)
+def test_a_flattened_path_of_another_form_raises_where_it_runs(
+    hex_text: str, error: type[Exception], message: str
+) -> None:
+    text = bytes.fromhex(hex_text).decode("latin-1")
+    with pytest.raises(error, match=message):
+        _unflatten(PATH, text)

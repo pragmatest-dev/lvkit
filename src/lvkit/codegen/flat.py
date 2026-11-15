@@ -37,6 +37,7 @@ from lvkit.models import LVType, LVTypeKind, unique_names
 
 from .ast_utils import to_var_name
 from .context import CodeGenContext
+from .flat_path_source import FLATTEN_PATH, UNFLATTEN_PATH
 from .native_array import dimension_sizes
 
 # The byte-order prefix of a ``struct`` format for LabVIEW's three byte orders:
@@ -63,7 +64,7 @@ _STRING_REFNUMS = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"}
 
 class UnsupportedLayout(Exception):
     """A type whose flattened form this does not write (extended-precision
-    numbers, variants, paths, …); the message names it."""
+    numbers, variants, …); the message names it."""
 
 
 @dataclass(frozen=True)
@@ -376,6 +377,45 @@ class Text(Layout):
 
 
 @dataclass(frozen=True)
+class PathLayout(Layout):
+    """A path: ``PTH0``, its own length, the type and the components
+    (``flat_path_source``). The length is part of the form, so the prepend-size
+    option does not change it."""
+
+    def fixed_size(self) -> int | None:
+        return None
+
+    def helper_label(self) -> str:
+        return "path"
+
+    def _imports(self, fns: Functions) -> None:
+        for line in ("import os", "import re", "from pathlib import Path"):
+            fns.ctx.add_import(line)
+
+    def flatten(self, value, prefix, depth, fns):
+        self._imports(fns)
+        name = fns.named(
+            "flatten",
+            "path",
+            ("path",),
+            lambda n: FLATTEN_PATH.format(name=n, order=fns.order),
+        )
+        return [Raw(f"{name}({value})")]
+
+    def unflatten(self, target, prefix, out, fns):
+        out.add(f"{target}, pos = {self.reader(fns, prefix)}(data, pos)")
+
+    def reader(self, fns, prefix):
+        self._imports(fns)
+        return fns.named(
+            "unflatten",
+            "path",
+            ("path",),
+            lambda n: UNFLATTEN_PATH.format(name=n, order=fns.order),
+        )
+
+
+@dataclass(frozen=True)
 class Sequence(Layout):
     element: Layout
     dimensions: int
@@ -625,6 +665,8 @@ def layout_of(lv_type: LVType | None) -> Layout:
         return Text()
     if is_string_type_name(underlying):
         return Text()
+    if underlying == "Path":
+        return PathLayout()
     if underlying == "Boolean":
         return Real("?", 1)
     # A unit type is its number with a physical unit; units mean nothing in Python.
