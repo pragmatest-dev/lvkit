@@ -219,6 +219,15 @@ def exception_import(failure: NativeError) -> str:
 def _labview_error(failure: NativeError, source: str, exception: str) -> ast.expr:
     """``LabVIEWError(code=…, source=…, message=…)`` for ``failure``, caught as
     the variable ``exception``."""
+    if failure.code_expression is not None:
+        message = (failure.message_expression or "str({exception})").format(
+            exception=exception
+        )
+        return parse_expr(
+            f"{LABVIEW_ERROR_NAME}(code="
+            f"{failure.code_expression.format(exception=exception)}, "
+            f"source={source!r}, message={message})"
+        )
     if failure.code_attribute is not None:
         return parse_expr(
             f"{LABVIEW_ERROR_NAME}(code={exception}.{failure.code_attribute}, "

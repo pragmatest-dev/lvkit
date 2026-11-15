@@ -15,8 +15,6 @@ that is not a constant, or not in the table, is a gap.
 
 from __future__ import annotations
 
-import ast
-
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import TerminalDirection
@@ -27,33 +25,9 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
+from .grpc_pane import bind_passthrough, constant_text, index_of, wired
 
 _ENUM_NAME = "enum_name"
-_PASSTHROUGH = ("grpcid_in", "grpcid_out")
-
-
-def _index_of(entry: VIEntry, param: str, direction: TerminalDirection) -> int | None:
-    return next(
-        (
-            t.index
-            for t in entry.terminals
-            if t.python_param == param and t.direction == direction
-        ),
-        None,
-    )
-
-
-def _wired(node: VINode, entry: VIEntry, param: str, ctx: CodeGenContext) -> str | None:
-    index = _index_of(entry, param, TerminalDirection.INPUT)
-    term = next(
-        (
-            t
-            for t in node.terminals
-            if t.index == index and t.direction == TerminalDirection.INPUT
-        ),
-        None,
-    )
-    return (ctx.wired_input(term.id, node) or None) if term is not None else None
 
 
 def _generate(
@@ -64,12 +38,8 @@ def _generate(
     value_out: str,
     convert: str,
 ) -> CodeFragment:
-    name_expression = _wired(node, entry, _ENUM_NAME, ctx)
-    try:
-        name = ast.literal_eval(name_expression) if name_expression else None
-    except (ValueError, SyntaxError):
-        name = None
-    if not isinstance(name, str):
+    name = constant_text(wired(node, entry, _ENUM_NAME, ctx))
+    if name is None:
         raise ConversionGap(
             f"{entry.name}: the enum name is not a constant, so the Python "
             "class of the proto enum is not known when the code is generated",
@@ -82,7 +52,7 @@ def _generate(
             "protobuf enums with a Python package (data/grpc/proto_enums.json)",
             node,
         )
-    value = _wired(node, entry, value_in, ctx)
+    value = wired(node, entry, value_in, ctx)
     if value is None:
         raise ConversionGap(f"{entry.name} has no value wired to convert", node)
     ctx.require_packages([proto_enum.distribution])
@@ -90,20 +60,17 @@ def _generate(
     expression = convert.format(values=values, value=value)
 
     fragment = CodeFragment(imports={proto_enum.import_statement()})
-    out_index = _index_of(entry, value_out, TerminalDirection.OUTPUT)
-    passthrough_in, passthrough_out = _PASSTHROUGH
-    out_id = _index_of(entry, passthrough_out, TerminalDirection.OUTPUT)
+    out_index = index_of(entry, value_out, TerminalDirection.OUTPUT)
     for term in node.terminals:
-        if term.direction != TerminalDirection.OUTPUT:
-            continue
-        if term.index == out_index and ctx.is_wired(term.id):
+        if (
+            term.direction == TerminalDirection.OUTPUT
+            and term.index == out_index
+            and ctx.is_wired(term.id)
+        ):
             fragment.extend(
                 bind_output(node, term.id, value_out, parse_expr(expression), ctx)
             )
-        elif term.index == out_id and ctx.is_wired(term.id):
-            fragment.bindings[term.id] = _wired(node, entry, passthrough_in, ctx) or (
-                "None"
-            )
+    bind_passthrough(node, entry, ctx, fragment.bindings)
     return fragment
 
 

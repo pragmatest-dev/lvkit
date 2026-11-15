@@ -1,0 +1,1133 @@
+{
+  "source": "message classes of NI's ni-apis-python packages and protobuf's well-known types, listed from their generated _pb2 modules by scripts/build_proto_messages.py",
+  "messages": {
+    "google_protobuf_Any": {
+      "proto_name": "google.protobuf.Any",
+      "distribution": "protobuf",
+      "module": "google.protobuf.any_pb2",
+      "message": "Any"
+    },
+    "google_protobuf_Api": {
+      "proto_name": "google.protobuf.Api",
+      "distribution": "protobuf",
+      "module": "google.protobuf.api_pb2",
+      "message": "Api"
+    },
+    "google_protobuf_BoolValue": {
+      "proto_name": "google.protobuf.BoolValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "BoolValue"
+    },
+    "google_protobuf_BytesValue": {
+      "proto_name": "google.protobuf.BytesValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "BytesValue"
+    },
+    "google_protobuf_DescriptorProto": {
+      "proto_name": "google.protobuf.DescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "DescriptorProto"
+    },
+    "google_protobuf_DescriptorProto_ExtensionRange": {
+      "proto_name": "google.protobuf.DescriptorProto.ExtensionRange",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "DescriptorProto.ExtensionRange"
+    },
+    "google_protobuf_DescriptorProto_ReservedRange": {
+      "proto_name": "google.protobuf.DescriptorProto.ReservedRange",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "DescriptorProto.ReservedRange"
+    },
+    "google_protobuf_DoubleValue": {
+      "proto_name": "google.protobuf.DoubleValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "DoubleValue"
+    },
+    "google_protobuf_Duration": {
+      "proto_name": "google.protobuf.Duration",
+      "distribution": "protobuf",
+      "module": "google.protobuf.duration_pb2",
+      "message": "Duration"
+    },
+    "google_protobuf_Empty": {
+      "proto_name": "google.protobuf.Empty",
+      "distribution": "protobuf",
+      "module": "google.protobuf.empty_pb2",
+      "message": "Empty"
+    },
+    "google_protobuf_Enum": {
+      "proto_name": "google.protobuf.Enum",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "message": "Enum"
+    },
+    "google_protobuf_EnumDescriptorProto": {
+      "proto_name": "google.protobuf.EnumDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "EnumDescriptorProto"
+    },
+    "google_protobuf_EnumDescriptorProto_EnumReservedRange": {
+      "proto_name": "google.protobuf.EnumDescriptorProto.EnumReservedRange",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "EnumDescriptorProto.EnumReservedRange"
+    },
+    "google_protobuf_EnumOptions": {
+      "proto_name": "google.protobuf.EnumOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "EnumOptions"
+    },
+    "google_protobuf_EnumValue": {
+      "proto_name": "google.protobuf.EnumValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "message": "EnumValue"
+    },
+    "google_protobuf_EnumValueDescriptorProto": {
+      "proto_name": "google.protobuf.EnumValueDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "EnumValueDescriptorProto"
+    },
+    "google_protobuf_EnumValueOptions": {
+      "proto_name": "google.protobuf.EnumValueOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "EnumValueOptions"
+    },
+    "google_protobuf_ExtensionRangeOptions": {
+      "proto_name": "google.protobuf.ExtensionRangeOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "ExtensionRangeOptions"
+    },
+    "google_protobuf_ExtensionRangeOptions_Declaration": {
+      "proto_name": "google.protobuf.ExtensionRangeOptions.Declaration",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "ExtensionRangeOptions.Declaration"
+    },
+    "google_protobuf_FeatureSet": {
+      "proto_name": "google.protobuf.FeatureSet",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FeatureSet"
+    },
+    "google_protobuf_FeatureSetDefaults": {
+      "proto_name": "google.protobuf.FeatureSetDefaults",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FeatureSetDefaults"
+    },
+    "google_protobuf_FeatureSetDefaults_FeatureSetEditionDefault": {
+      "proto_name": "google.protobuf.FeatureSetDefaults.FeatureSetEditionDefault",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FeatureSetDefaults.FeatureSetEditionDefault"
+    },
+    "google_protobuf_FeatureSet_ProtoLimitsFeature": {
+      "proto_name": "google.protobuf.FeatureSet.ProtoLimitsFeature",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FeatureSet.ProtoLimitsFeature"
+    },
+    "google_protobuf_FeatureSet_VisibilityFeature": {
+      "proto_name": "google.protobuf.FeatureSet.VisibilityFeature",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FeatureSet.VisibilityFeature"
+    },
+    "google_protobuf_Field": {
+      "proto_name": "google.protobuf.Field",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "message": "Field"
+    },
+    "google_protobuf_FieldDescriptorProto": {
+      "proto_name": "google.protobuf.FieldDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FieldDescriptorProto"
+    },
+    "google_protobuf_FieldMask": {
+      "proto_name": "google.protobuf.FieldMask",
+      "distribution": "protobuf",
+      "module": "google.protobuf.field_mask_pb2",
+      "message": "FieldMask"
+    },
+    "google_protobuf_FieldOptions": {
+      "proto_name": "google.protobuf.FieldOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FieldOptions"
+    },
+    "google_protobuf_FieldOptions_EditionDefault": {
+      "proto_name": "google.protobuf.FieldOptions.EditionDefault",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FieldOptions.EditionDefault"
+    },
+    "google_protobuf_FieldOptions_FeatureSupport": {
+      "proto_name": "google.protobuf.FieldOptions.FeatureSupport",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FieldOptions.FeatureSupport"
+    },
+    "google_protobuf_FileDescriptorProto": {
+      "proto_name": "google.protobuf.FileDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FileDescriptorProto"
+    },
+    "google_protobuf_FileDescriptorSet": {
+      "proto_name": "google.protobuf.FileDescriptorSet",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FileDescriptorSet"
+    },
+    "google_protobuf_FileOptions": {
+      "proto_name": "google.protobuf.FileOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "FileOptions"
+    },
+    "google_protobuf_FloatValue": {
+      "proto_name": "google.protobuf.FloatValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "FloatValue"
+    },
+    "google_protobuf_GeneratedCodeInfo": {
+      "proto_name": "google.protobuf.GeneratedCodeInfo",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "GeneratedCodeInfo"
+    },
+    "google_protobuf_GeneratedCodeInfo_Annotation": {
+      "proto_name": "google.protobuf.GeneratedCodeInfo.Annotation",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "GeneratedCodeInfo.Annotation"
+    },
+    "google_protobuf_Int32Value": {
+      "proto_name": "google.protobuf.Int32Value",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "Int32Value"
+    },
+    "google_protobuf_Int64Value": {
+      "proto_name": "google.protobuf.Int64Value",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "Int64Value"
+    },
+    "google_protobuf_ListValue": {
+      "proto_name": "google.protobuf.ListValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.struct_pb2",
+      "message": "ListValue"
+    },
+    "google_protobuf_MessageOptions": {
+      "proto_name": "google.protobuf.MessageOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "MessageOptions"
+    },
+    "google_protobuf_Method": {
+      "proto_name": "google.protobuf.Method",
+      "distribution": "protobuf",
+      "module": "google.protobuf.api_pb2",
+      "message": "Method"
+    },
+    "google_protobuf_MethodDescriptorProto": {
+      "proto_name": "google.protobuf.MethodDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "MethodDescriptorProto"
+    },
+    "google_protobuf_MethodOptions": {
+      "proto_name": "google.protobuf.MethodOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "MethodOptions"
+    },
+    "google_protobuf_Mixin": {
+      "proto_name": "google.protobuf.Mixin",
+      "distribution": "protobuf",
+      "module": "google.protobuf.api_pb2",
+      "message": "Mixin"
+    },
+    "google_protobuf_OneofDescriptorProto": {
+      "proto_name": "google.protobuf.OneofDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "OneofDescriptorProto"
+    },
+    "google_protobuf_OneofOptions": {
+      "proto_name": "google.protobuf.OneofOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "OneofOptions"
+    },
+    "google_protobuf_Option": {
+      "proto_name": "google.protobuf.Option",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "message": "Option"
+    },
+    "google_protobuf_ServiceDescriptorProto": {
+      "proto_name": "google.protobuf.ServiceDescriptorProto",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "ServiceDescriptorProto"
+    },
+    "google_protobuf_ServiceOptions": {
+      "proto_name": "google.protobuf.ServiceOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "ServiceOptions"
+    },
+    "google_protobuf_SourceCodeInfo": {
+      "proto_name": "google.protobuf.SourceCodeInfo",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "SourceCodeInfo"
+    },
+    "google_protobuf_SourceCodeInfo_Location": {
+      "proto_name": "google.protobuf.SourceCodeInfo.Location",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "SourceCodeInfo.Location"
+    },
+    "google_protobuf_SourceContext": {
+      "proto_name": "google.protobuf.SourceContext",
+      "distribution": "protobuf",
+      "module": "google.protobuf.source_context_pb2",
+      "message": "SourceContext"
+    },
+    "google_protobuf_StringValue": {
+      "proto_name": "google.protobuf.StringValue",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "StringValue"
+    },
+    "google_protobuf_Struct": {
+      "proto_name": "google.protobuf.Struct",
+      "distribution": "protobuf",
+      "module": "google.protobuf.struct_pb2",
+      "message": "Struct"
+    },
+    "google_protobuf_Timestamp": {
+      "proto_name": "google.protobuf.Timestamp",
+      "distribution": "protobuf",
+      "module": "google.protobuf.timestamp_pb2",
+      "message": "Timestamp"
+    },
+    "google_protobuf_Type": {
+      "proto_name": "google.protobuf.Type",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "message": "Type"
+    },
+    "google_protobuf_UInt32Value": {
+      "proto_name": "google.protobuf.UInt32Value",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "UInt32Value"
+    },
+    "google_protobuf_UInt64Value": {
+      "proto_name": "google.protobuf.UInt64Value",
+      "distribution": "protobuf",
+      "module": "google.protobuf.wrappers_pb2",
+      "message": "UInt64Value"
+    },
+    "google_protobuf_UninterpretedOption": {
+      "proto_name": "google.protobuf.UninterpretedOption",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "UninterpretedOption"
+    },
+    "google_protobuf_UninterpretedOption_NamePart": {
+      "proto_name": "google.protobuf.UninterpretedOption.NamePart",
+      "distribution": "protobuf",
+      "module": "google.protobuf.descriptor_pb2",
+      "message": "UninterpretedOption.NamePart"
+    },
+    "google_protobuf_Value": {
+      "proto_name": "google.protobuf.Value",
+      "distribution": "protobuf",
+      "module": "google.protobuf.struct_pb2",
+      "message": "Value"
+    },
+    "ni_measurementlink_PinMapContext": {
+      "proto_name": "ni.measurementlink.PinMapContext",
+      "distribution": "ni.measurementlink.proto",
+      "module": "ni.measurementlink.pin_map_context_pb2",
+      "message": "PinMapContext"
+    },
+    "ni_measurementlink_discovery_v1_ActiveServiceInformation": {
+      "proto_name": "ni.measurementlink.discovery.v1.ActiveServiceInformation",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ActiveServiceInformation"
+    },
+    "ni_measurementlink_discovery_v1_ComputeNodeDescriptor": {
+      "proto_name": "ni.measurementlink.discovery.v1.ComputeNodeDescriptor",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ComputeNodeDescriptor"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateActiveServicesRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateActiveServicesRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateActiveServicesRequest"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateActiveServicesResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateActiveServicesResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateActiveServicesResponse"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateComputeNodesRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateComputeNodesRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateComputeNodesRequest"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateComputeNodesResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateComputeNodesResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateComputeNodesResponse"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateServicesRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateServicesRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateServicesRequest"
+    },
+    "ni_measurementlink_discovery_v1_EnumerateServicesResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.EnumerateServicesResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "EnumerateServicesResponse"
+    },
+    "ni_measurementlink_discovery_v1_RegisterServiceRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.RegisterServiceRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "RegisterServiceRequest"
+    },
+    "ni_measurementlink_discovery_v1_RegisterServiceResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.RegisterServiceResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "RegisterServiceResponse"
+    },
+    "ni_measurementlink_discovery_v1_ResolveServiceRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.ResolveServiceRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ResolveServiceRequest"
+    },
+    "ni_measurementlink_discovery_v1_ResolveServiceWithInformationRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.ResolveServiceWithInformationRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ResolveServiceWithInformationRequest"
+    },
+    "ni_measurementlink_discovery_v1_ResolveServiceWithInformationResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.ResolveServiceWithInformationResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ResolveServiceWithInformationResponse"
+    },
+    "ni_measurementlink_discovery_v1_ServiceDescriptor": {
+      "proto_name": "ni.measurementlink.discovery.v1.ServiceDescriptor",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ServiceDescriptor"
+    },
+    "ni_measurementlink_discovery_v1_ServiceLocation": {
+      "proto_name": "ni.measurementlink.discovery.v1.ServiceLocation",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "ServiceLocation"
+    },
+    "ni_measurementlink_discovery_v1_UnregisterServiceRequest": {
+      "proto_name": "ni.measurementlink.discovery.v1.UnregisterServiceRequest",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "UnregisterServiceRequest"
+    },
+    "ni_measurementlink_discovery_v1_UnregisterServiceResponse": {
+      "proto_name": "ni.measurementlink.discovery.v1.UnregisterServiceResponse",
+      "distribution": "ni.measurementlink.discovery.v1.proto",
+      "module": "ni.measurementlink.discovery.v1.discovery_service_pb2",
+      "message": "UnregisterServiceResponse"
+    },
+    "ni_measurementlink_measurement_v1_ConfigurationParameter": {
+      "proto_name": "ni.measurementlink.measurement.v1.ConfigurationParameter",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "ConfigurationParameter"
+    },
+    "ni_measurementlink_measurement_v1_GetMetadataRequest": {
+      "proto_name": "ni.measurementlink.measurement.v1.GetMetadataRequest",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "GetMetadataRequest"
+    },
+    "ni_measurementlink_measurement_v1_GetMetadataResponse": {
+      "proto_name": "ni.measurementlink.measurement.v1.GetMetadataResponse",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "GetMetadataResponse"
+    },
+    "ni_measurementlink_measurement_v1_MeasureRequest": {
+      "proto_name": "ni.measurementlink.measurement.v1.MeasureRequest",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "MeasureRequest"
+    },
+    "ni_measurementlink_measurement_v1_MeasureResponse": {
+      "proto_name": "ni.measurementlink.measurement.v1.MeasureResponse",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "MeasureResponse"
+    },
+    "ni_measurementlink_measurement_v1_MeasurementDetails": {
+      "proto_name": "ni.measurementlink.measurement.v1.MeasurementDetails",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "MeasurementDetails"
+    },
+    "ni_measurementlink_measurement_v1_MeasurementSignature": {
+      "proto_name": "ni.measurementlink.measurement.v1.MeasurementSignature",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "MeasurementSignature"
+    },
+    "ni_measurementlink_measurement_v1_Output": {
+      "proto_name": "ni.measurementlink.measurement.v1.Output",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "Output"
+    },
+    "ni_measurementlink_measurement_v1_UserInterfaceDetails": {
+      "proto_name": "ni.measurementlink.measurement.v1.UserInterfaceDetails",
+      "distribution": "ni.measurementlink.measurement.v1.proto",
+      "module": "ni.measurementlink.measurement.v1.measurement_service_pb2",
+      "message": "UserInterfaceDetails"
+    },
+    "ni_measurementlink_measurement_v2_ConfigurationParameter": {
+      "proto_name": "ni.measurementlink.measurement.v2.ConfigurationParameter",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "ConfigurationParameter"
+    },
+    "ni_measurementlink_measurement_v2_GetMetadataRequest": {
+      "proto_name": "ni.measurementlink.measurement.v2.GetMetadataRequest",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "GetMetadataRequest"
+    },
+    "ni_measurementlink_measurement_v2_GetMetadataResponse": {
+      "proto_name": "ni.measurementlink.measurement.v2.GetMetadataResponse",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "GetMetadataResponse"
+    },
+    "ni_measurementlink_measurement_v2_MeasureRequest": {
+      "proto_name": "ni.measurementlink.measurement.v2.MeasureRequest",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "MeasureRequest"
+    },
+    "ni_measurementlink_measurement_v2_MeasureResponse": {
+      "proto_name": "ni.measurementlink.measurement.v2.MeasureResponse",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "MeasureResponse"
+    },
+    "ni_measurementlink_measurement_v2_MeasurementDetails": {
+      "proto_name": "ni.measurementlink.measurement.v2.MeasurementDetails",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "MeasurementDetails"
+    },
+    "ni_measurementlink_measurement_v2_MeasurementSignature": {
+      "proto_name": "ni.measurementlink.measurement.v2.MeasurementSignature",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "MeasurementSignature"
+    },
+    "ni_measurementlink_measurement_v2_Output": {
+      "proto_name": "ni.measurementlink.measurement.v2.Output",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "Output"
+    },
+    "ni_measurementlink_measurement_v2_UserInterfaceDetails": {
+      "proto_name": "ni.measurementlink.measurement.v2.UserInterfaceDetails",
+      "distribution": "ni.measurementlink.measurement.v2.proto",
+      "module": "ni.measurementlink.measurement.v2.measurement_service_pb2",
+      "message": "UserInterfaceDetails"
+    },
+    "ni_measurementlink_pinmap_v1_ChannelMapping": {
+      "proto_name": "ni.measurementlink.pinmap.v1.ChannelMapping",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "ChannelMapping"
+    },
+    "ni_measurementlink_pinmap_v1_CreatePinMapFromXmlRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.CreatePinMapFromXmlRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "CreatePinMapFromXmlRequest"
+    },
+    "ni_measurementlink_pinmap_v1_GetPinMapRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.GetPinMapRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "GetPinMapRequest"
+    },
+    "ni_measurementlink_pinmap_v1_PinDefinition": {
+      "proto_name": "ni.measurementlink.pinmap.v1.PinDefinition",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "PinDefinition"
+    },
+    "ni_measurementlink_pinmap_v1_PinGroupDefinition": {
+      "proto_name": "ni.measurementlink.pinmap.v1.PinGroupDefinition",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "PinGroupDefinition"
+    },
+    "ni_measurementlink_pinmap_v1_PinMap": {
+      "proto_name": "ni.measurementlink.pinmap.v1.PinMap",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "PinMap"
+    },
+    "ni_measurementlink_pinmap_v1_QueryPinsRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryPinsRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryPinsRequest"
+    },
+    "ni_measurementlink_pinmap_v1_QueryPinsResponse": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryPinsResponse",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryPinsResponse"
+    },
+    "ni_measurementlink_pinmap_v1_QueryRelaysRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryRelaysRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryRelaysRequest"
+    },
+    "ni_measurementlink_pinmap_v1_QueryRelaysResponse": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryRelaysResponse",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryRelaysResponse"
+    },
+    "ni_measurementlink_pinmap_v1_QueryResourceAccessInformationRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryResourceAccessInformationRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryResourceAccessInformationRequest"
+    },
+    "ni_measurementlink_pinmap_v1_QueryResourceAccessInformationResponse": {
+      "proto_name": "ni.measurementlink.pinmap.v1.QueryResourceAccessInformationResponse",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "QueryResourceAccessInformationResponse"
+    },
+    "ni_measurementlink_pinmap_v1_RelayDefinition": {
+      "proto_name": "ni.measurementlink.pinmap.v1.RelayDefinition",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "RelayDefinition"
+    },
+    "ni_measurementlink_pinmap_v1_RelayGroupDefinition": {
+      "proto_name": "ni.measurementlink.pinmap.v1.RelayGroupDefinition",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "RelayGroupDefinition"
+    },
+    "ni_measurementlink_pinmap_v1_ResolvedPinsOrRelays": {
+      "proto_name": "ni.measurementlink.pinmap.v1.ResolvedPinsOrRelays",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "ResolvedPinsOrRelays"
+    },
+    "ni_measurementlink_pinmap_v1_ResourceAccessInformation": {
+      "proto_name": "ni.measurementlink.pinmap.v1.ResourceAccessInformation",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "ResourceAccessInformation"
+    },
+    "ni_measurementlink_pinmap_v1_UpdatePinMapFromXmlRequest": {
+      "proto_name": "ni.measurementlink.pinmap.v1.UpdatePinMapFromXmlRequest",
+      "distribution": "ni.measurementlink.pinmap.v1.proto",
+      "module": "ni.measurementlink.pinmap.v1.pin_map_service_pb2",
+      "message": "UpdatePinMapFromXmlRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ChannelMapping": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ChannelMapping",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ChannelMapping"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetAllRegisteredMultiplexerSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetAllRegisteredMultiplexerSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetAllRegisteredMultiplexerSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetAllRegisteredMultiplexerSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetAllRegisteredMultiplexerSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetAllRegisteredMultiplexerSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetMultiplexerSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetMultiplexerSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetMultiplexerSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetMultiplexerSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetMultiplexerSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetMultiplexerSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_GetSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.GetSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "GetSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_MultiplexerSessionInformation": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.MultiplexerSessionInformation",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "MultiplexerSessionInformation"
+    },
+    "ni_measurementlink_sessionmanagement_v1_RegisterMultiplexerSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.RegisterMultiplexerSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "RegisterMultiplexerSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_RegisterMultiplexerSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.RegisterMultiplexerSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "RegisterMultiplexerSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_RegisterSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.RegisterSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "RegisterSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_RegisterSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.RegisterSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "RegisterSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ReserveAllRegisteredSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ReserveAllRegisteredSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ReserveAllRegisteredSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ReserveAllRegisteredSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ReserveAllRegisteredSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ReserveAllRegisteredSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ReserveSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ReserveSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ReserveSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ReserveSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ReserveSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ReserveSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_ResolvedPinsOrRelays": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.ResolvedPinsOrRelays",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "ResolvedPinsOrRelays"
+    },
+    "ni_measurementlink_sessionmanagement_v1_SessionInformation": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.SessionInformation",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "SessionInformation"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnregisterMultiplexerSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnregisterMultiplexerSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnregisterMultiplexerSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnregisterMultiplexerSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnregisterMultiplexerSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnregisterMultiplexerSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnregisterSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnregisterSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnregisterSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnregisterSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnregisterSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnregisterSessionsResponse"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnreserveSessionsRequest": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnreserveSessionsRequest",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnreserveSessionsRequest"
+    },
+    "ni_measurementlink_sessionmanagement_v1_UnreserveSessionsResponse": {
+      "proto_name": "ni.measurementlink.sessionmanagement.v1.UnreserveSessionsResponse",
+      "distribution": "ni.measurementlink.sessionmanagement.v1.proto",
+      "module": "ni.measurementlink.sessionmanagement.v1.session_management_service_pb2",
+      "message": "UnreserveSessionsResponse"
+    },
+    "ni_protobuf_types_AttributeValue": {
+      "proto_name": "ni.protobuf.types.AttributeValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.attribute_value_pb2",
+      "message": "AttributeValue"
+    },
+    "ni_protobuf_types_BoolArray": {
+      "proto_name": "ni.protobuf.types.BoolArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "BoolArray"
+    },
+    "ni_protobuf_types_BytesArray": {
+      "proto_name": "ni.protobuf.types.BytesArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "BytesArray"
+    },
+    "ni_protobuf_types_DigitalWaveform": {
+      "proto_name": "ni.protobuf.types.DigitalWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "DigitalWaveform"
+    },
+    "ni_protobuf_types_DigitalWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.DigitalWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "DigitalWaveformArrayValue"
+    },
+    "ni_protobuf_types_Double2DArray": {
+      "proto_name": "ni.protobuf.types.Double2DArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "Double2DArray"
+    },
+    "ni_protobuf_types_DoubleAnalogWaveform": {
+      "proto_name": "ni.protobuf.types.DoubleAnalogWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "DoubleAnalogWaveform"
+    },
+    "ni_protobuf_types_DoubleAnalogWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.DoubleAnalogWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "DoubleAnalogWaveformArrayValue"
+    },
+    "ni_protobuf_types_DoubleArray": {
+      "proto_name": "ni.protobuf.types.DoubleArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "DoubleArray"
+    },
+    "ni_protobuf_types_DoubleComplexWaveform": {
+      "proto_name": "ni.protobuf.types.DoubleComplexWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "DoubleComplexWaveform"
+    },
+    "ni_protobuf_types_DoubleComplexWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.DoubleComplexWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "DoubleComplexWaveformArrayValue"
+    },
+    "ni_protobuf_types_DoubleSpectrum": {
+      "proto_name": "ni.protobuf.types.DoubleSpectrum",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "DoubleSpectrum"
+    },
+    "ni_protobuf_types_DoubleSpectrumArrayValue": {
+      "proto_name": "ni.protobuf.types.DoubleSpectrumArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "DoubleSpectrumArrayValue"
+    },
+    "ni_protobuf_types_DoubleXYData": {
+      "proto_name": "ni.protobuf.types.DoubleXYData",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.xydata_pb2",
+      "message": "DoubleXYData"
+    },
+    "ni_protobuf_types_DoubleXYDataArrayValue": {
+      "proto_name": "ni.protobuf.types.DoubleXYDataArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.xydata_wrappers_pb2",
+      "message": "DoubleXYDataArrayValue"
+    },
+    "ni_protobuf_types_FloatAnalogWaveform": {
+      "proto_name": "ni.protobuf.types.FloatAnalogWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "FloatAnalogWaveform"
+    },
+    "ni_protobuf_types_FloatAnalogWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.FloatAnalogWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "FloatAnalogWaveformArrayValue"
+    },
+    "ni_protobuf_types_FloatComplexWaveform": {
+      "proto_name": "ni.protobuf.types.FloatComplexWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "FloatComplexWaveform"
+    },
+    "ni_protobuf_types_FloatComplexWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.FloatComplexWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "FloatComplexWaveformArrayValue"
+    },
+    "ni_protobuf_types_FloatSpectrum": {
+      "proto_name": "ni.protobuf.types.FloatSpectrum",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "FloatSpectrum"
+    },
+    "ni_protobuf_types_FloatSpectrumArrayValue": {
+      "proto_name": "ni.protobuf.types.FloatSpectrumArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "FloatSpectrumArrayValue"
+    },
+    "ni_protobuf_types_I16AnalogWaveform": {
+      "proto_name": "ni.protobuf.types.I16AnalogWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "I16AnalogWaveform"
+    },
+    "ni_protobuf_types_I16AnalogWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.I16AnalogWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "I16AnalogWaveformArrayValue"
+    },
+    "ni_protobuf_types_I16ComplexWaveform": {
+      "proto_name": "ni.protobuf.types.I16ComplexWaveform",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "I16ComplexWaveform"
+    },
+    "ni_protobuf_types_I16ComplexWaveformArrayValue": {
+      "proto_name": "ni.protobuf.types.I16ComplexWaveformArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_wrappers_pb2",
+      "message": "I16ComplexWaveformArrayValue"
+    },
+    "ni_protobuf_types_LinearScale": {
+      "proto_name": "ni.protobuf.types.LinearScale",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "LinearScale"
+    },
+    "ni_protobuf_types_PrecisionDuration": {
+      "proto_name": "ni.protobuf.types.PrecisionDuration",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.precision_duration_pb2",
+      "message": "PrecisionDuration"
+    },
+    "ni_protobuf_types_PrecisionTimestamp": {
+      "proto_name": "ni.protobuf.types.PrecisionTimestamp",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.precision_timestamp_pb2",
+      "message": "PrecisionTimestamp"
+    },
+    "ni_protobuf_types_SInt32Array": {
+      "proto_name": "ni.protobuf.types.SInt32Array",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "SInt32Array"
+    },
+    "ni_protobuf_types_SInt64Array": {
+      "proto_name": "ni.protobuf.types.SInt64Array",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "SInt64Array"
+    },
+    "ni_protobuf_types_Scalar": {
+      "proto_name": "ni.protobuf.types.Scalar",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.scalar_pb2",
+      "message": "Scalar"
+    },
+    "ni_protobuf_types_Scale": {
+      "proto_name": "ni.protobuf.types.Scale",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "Scale"
+    },
+    "ni_protobuf_types_String2DArray": {
+      "proto_name": "ni.protobuf.types.String2DArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "String2DArray"
+    },
+    "ni_protobuf_types_StringArray": {
+      "proto_name": "ni.protobuf.types.StringArray",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.array_pb2",
+      "message": "StringArray"
+    },
+    "ni_protobuf_types_Vector": {
+      "proto_name": "ni.protobuf.types.Vector",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.vector_pb2",
+      "message": "Vector"
+    },
+    "ni_protobuf_types_VectorArrayValue": {
+      "proto_name": "ni.protobuf.types.VectorArrayValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.vector_wrappers_pb2",
+      "message": "VectorArrayValue"
+    },
+    "ni_protobuf_types_WaveformAttributeValue": {
+      "proto_name": "ni.protobuf.types.WaveformAttributeValue",
+      "distribution": "ni.protobuf.types",
+      "module": "ni.protobuf.types.waveform_pb2",
+      "message": "WaveformAttributeValue"
+    },
+    "nidevice_grpc_DeviceProperties": {
+      "proto_name": "nidevice_grpc.DeviceProperties",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "DeviceProperties"
+    },
+    "nidevice_grpc_EnumerateDevicesRequest": {
+      "proto_name": "nidevice_grpc.EnumerateDevicesRequest",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "EnumerateDevicesRequest"
+    },
+    "nidevice_grpc_EnumerateDevicesResponse": {
+      "proto_name": "nidevice_grpc.EnumerateDevicesResponse",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "EnumerateDevicesResponse"
+    },
+    "nidevice_grpc_IsReservedByClientRequest": {
+      "proto_name": "nidevice_grpc.IsReservedByClientRequest",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "IsReservedByClientRequest"
+    },
+    "nidevice_grpc_IsReservedByClientResponse": {
+      "proto_name": "nidevice_grpc.IsReservedByClientResponse",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "IsReservedByClientResponse"
+    },
+    "nidevice_grpc_ReserveRequest": {
+      "proto_name": "nidevice_grpc.ReserveRequest",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "ReserveRequest"
+    },
+    "nidevice_grpc_ReserveResponse": {
+      "proto_name": "nidevice_grpc.ReserveResponse",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "ReserveResponse"
+    },
+    "nidevice_grpc_ResetServerRequest": {
+      "proto_name": "nidevice_grpc.ResetServerRequest",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "ResetServerRequest"
+    },
+    "nidevice_grpc_ResetServerResponse": {
+      "proto_name": "nidevice_grpc.ResetServerResponse",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "ResetServerResponse"
+    },
+    "nidevice_grpc_Session": {
+      "proto_name": "nidevice_grpc.Session",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "Session"
+    },
+    "nidevice_grpc_UnreserveRequest": {
+      "proto_name": "nidevice_grpc.UnreserveRequest",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "UnreserveRequest"
+    },
+    "nidevice_grpc_UnreserveResponse": {
+      "proto_name": "nidevice_grpc.UnreserveResponse",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "message": "UnreserveResponse"
+    },
+    "pb_enumvalue_JsonEnumValueOptions": {
+      "proto_name": "pb.enumvalue.JsonEnumValueOptions",
+      "distribution": "protobuf",
+      "module": "google.protobuf.json_enumvalue_options_pb2",
+      "message": "JsonEnumValueOptions"
+    }
+  }
+}

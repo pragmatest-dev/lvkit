@@ -1,6 +1,6 @@
 {
   "category": "Addons",
-  "count": 8,
+  "count": 14,
   "entries": [
     {
       "name": "LabVIEW Add-ons from National Instruments",
@@ -365,6 +365,371 @@
           "code": -2003
         }
       ],
+      "imports": []
+    },
+    {
+      "name": "Create Client",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Create Client.vi",
+      "category": "Addons",
+      "description": "gRPC library: a client of the server at address; with a certificate path the connection uses SSL with that root certificate. In Python the client is a grpcio channel.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "ClientID out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "auto cleanup",
+          "index": 7,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "auto_cleanup"
+        },
+        {
+          "name": "certificate path",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "certificate_path"
+        },
+        {
+          "name": "address",
+          "index": 11,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "address"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CREATE_CLIENT",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "OSError"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Close Client",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Close Client.vi",
+      "category": "Addons",
+      "description": "gRPC library: closes the client; in Python, the grpcio channel.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "ClientID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLOSE_CLIENT",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Client Unary Call.vim",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Client API/Client Unary Call.vim",
+      "category": "Addons",
+      "description": "gRPC library: calls a unary method of the server with the request message and reads the response message; a failed call is error -(1000 + the gRPC status code). In Python it is a grpcio unary_unary call on the message classes of the _pb2 modules.",
+      "terminals": [
+        {
+          "name": "ClientID in",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        },
+        {
+          "name": "Response Type",
+          "index": 1,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_type"
+        },
+        {
+          "name": "timeout (ms)",
+          "index": 3,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "timeout_ms"
+        },
+        {
+          "name": "ClientID out",
+          "index": 4,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "Method Name",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "method_name"
+        },
+        {
+          "name": "Response Data",
+          "index": 6,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_data"
+        },
+        {
+          "name": "contextId",
+          "index": 7,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "contextid"
+        },
+        {
+          "name": "Request Data",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "request_data"
+        },
+        {
+          "name": "error in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Request Message Name",
+          "index": 12,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "request_message_name"
+        },
+        {
+          "name": "Response Message Name",
+          "index": 14,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "response_message_name"
+        },
+        {
+          "name": "error out",
+          "index": 15,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_CLIENT_UNARY_CALL",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "RpcError",
+          "module": "grpc",
+          "code_expression": "-(1000 + {exception}.code().value[0])",
+          "message_expression": "{exception}.details() or ''"
+        }
+      ],
+      "imports": []
+    },
+    {
+      "name": "Register Message Metadata",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Register Message Metadata.vi",
+      "category": "Addons",
+      "description": "gRPC library: records metadata for the library's client; the _pb2 module of the messages does that in Python, so the id passes on.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Messages",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "metadata"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_METADATA_PASSTHROUGH",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Register Enum Metadata",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/Server/Register Enum Metadata.vi",
+      "category": "Addons",
+      "description": "gRPC library: records metadata for the library's client; the _pb2 module of the messages does that in Python, so the id passes on.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPCid out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "Enum Metadata",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "metadata"
+        },
+        {
+          "name": "gRPCid in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_METADATA_PASSTHROUGH",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "CompleteMetadataRegistration",
+      "vi_path": "gRPC/LabVIEW gRPC Library/Server API/CompleteMetadataRegistration.vi",
+      "category": "Addons",
+      "description": "gRPC library: records metadata for the library's client; the _pb2 module of the messages does that in Python, so the id passes on.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "gRPC ID Out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_out"
+        },
+        {
+          "name": "error in",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "gRPC ID in",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "grpcid_in"
+        }
+      ],
+      "status": "complete",
+      "op": "GRPC_METADATA_PASSTHROUGH",
+      "inline": true,
       "imports": []
     }
   ]

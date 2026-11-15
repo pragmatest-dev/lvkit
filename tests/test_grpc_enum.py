@@ -46,8 +46,8 @@ def _convert(
 ) -> Any:
     value_type_in, value_type_out = (I32, U32) if to_lv else (U32, I32)
     out_name = "lv" if to_lv else "proto"
-    inputs: dict[str, Any] = {"value": (9, value_type_in), "grpc": (11, GRPC_ID)}
-    arguments: dict[str, Any] = {"value": value, "grpc": 7}
+    inputs: dict[str, Any] = {"value": (9, value_type_in), "grpc_id": (11, GRPC_ID)}
+    arguments: dict[str, Any] = {"value": value, "grpc_id": 7}
     constants = None
     if name_is_constant:
         constants = {10: (enum_name, STRING)}
@@ -254,7 +254,14 @@ def test_a_neighbour_gRPC_library_vi_stays_a_gap(
         run_catalog_call(
             tmp_path,
             monkeypatch,
-            [*SHARED, "Register Enum Metadata.vi"],
+            [
+                "<vilib>",
+                "gRPC",
+                "LabVIEW gRPC Library",
+                "Server API",
+                "Message Requests",
+                "Complete Call.vi",
+            ],
             [(0, "output", ERROR_CLUSTER), (8, "input", ERROR_CLUSTER)],
             {"error_in": (8, ERROR_CLUSTER)},
             {"error": (0, ERROR_CLUSTER)},
@@ -263,4 +270,4 @@ def test_a_neighbour_gRPC_library_vi_stays_a_gap(
             runtime_not_implemented=True,
         )
     assert len(gaps) == 1
-    assert "Register Enum Metadata" in gaps[0].name
+    assert "Complete Call" in gaps[0].name

@@ -27,7 +27,7 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-from . import elapsed_time, grpc_enum
+from . import elapsed_time, grpc_client, grpc_enum
 
 
 def _type_descriptor_code(
@@ -86,6 +86,10 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "ELAPSED_TIME": elapsed_time.generate,
     "PROTO_ENUM_TO_LV_ENUM": grpc_enum.proto_to_lv,
     "LV_ENUM_TO_PROTO_ENUM": grpc_enum.lv_to_proto,
+    "GRPC_CREATE_CLIENT": grpc_client.create_client,
+    "GRPC_CLOSE_CLIENT": grpc_client.close_client,
+    "GRPC_CLIENT_UNARY_CALL": grpc_client.unary_call,
+    "GRPC_METADATA_PASSTHROUGH": grpc_client.metadata_registration,
 }
 
 

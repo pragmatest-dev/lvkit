@@ -72,6 +72,7 @@ dev = [
     "nicegui>=3.12.1",
     "nitypes>=1.1.0",
     "protobuf>=7.36.2",
+    "grpcio>=1.67.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -71,11 +71,18 @@ class PlainErrors:
 @dataclass(frozen=True)
 class PlainOptions:
     """How ``from_plain`` reads: ``null_to_default`` and ``strict`` are Python
-    expressions (``"True"`` and ``"False"`` when known at generation time)."""
+    expressions (``"True"`` and ``"False"`` when known at generation time).
+    ``missing_to_default`` gives a cluster element the plain form leaves out the
+    default of the type, instead of the ``element_missing`` error;
+    ``numbers_as_text`` reads an integer or a floating-point number written as
+    a string (protobuf's JSON writes a 64-bit integer, ``"NaN"`` and the
+    infinities so)."""
 
     null_to_default: str
     strict: str
     errors: PlainErrors
+    missing_to_default: bool = False
+    numbers_as_text: bool = False
 
 
 @dataclass(frozen=True)
@@ -279,11 +286,20 @@ class _Reader:
     ) -> None:
         kind = _scalar_kind(lv_type)
         out = self.out
+        text = self.options.numbers_as_text
         tests = {
             "bool": f"isinstance({src}, bool)",
             "string": f"isinstance({src}, str)",
-            "int": f"isinstance({src}, int) and not isinstance({src}, bool)",
-            "float": f"isinstance({src}, (int, float)) and not isinstance({src}, bool)",
+            "int": (
+                f"isinstance({src}, (int, str)) and not isinstance({src}, bool)"
+                if text
+                else f"isinstance({src}, int) and not isinstance({src}, bool)"
+            ),
+            "float": (
+                f"isinstance({src}, (int, float, str)) and not isinstance({src}, bool)"
+                if text
+                else f"isinstance({src}, (int, float)) and not isinstance({src}, bool)"
+            ),
         }
         expected = {
             "bool": "a Boolean",
@@ -295,6 +311,10 @@ class _Reader:
         with out.indented():
             if kind == "int":
                 low, high = _INTEGER_RANGES[lv_type.underlying_type or ""]
+                if text:
+                    number = self.fresh("number")
+                    out.add(f"{number} = int({src})")
+                    src = number
                 out.add(f"if not {low} <= {src} <= {high}:")
                 with out.indented():
                     out.add(
@@ -334,19 +354,34 @@ class _Reader:
                 element = self.fresh("element")
                 values.append(element)
                 part = f"{where}.{key}"
+                member = cluster.member(default, i)
                 out.add(f"if {key!r} not in {src}:")
                 with out.indented():
-                    out.add(
-                        f"raise {errors.element_missing}"
-                        f"({part + ': the cluster element is not found'!r})"
+                    if self.options.missing_to_default:
+                        out.add(f"{element} = {member}")
+                    else:
+                        out.add(
+                            f"raise {errors.element_missing}"
+                            f"({part + ': the cluster element is not found'!r})"
+                        )
+                if self.options.missing_to_default:
+                    out.add("else:")
+                    with out.indented():
+                        self.read(
+                            f"{src}[{key!r}]",
+                            _field_type(field, lv_type),
+                            member,
+                            element,
+                            part,
+                        )
+                else:
+                    self.read(
+                        f"{src}[{key!r}]",
+                        _field_type(field, lv_type),
+                        member,
+                        element,
+                        part,
                     )
-                self.read(
-                    f"{src}[{key!r}]",
-                    _field_type(field, lv_type),
-                    cluster.member(default, i),
-                    element,
-                    part,
-                )
             if cluster.attributes is None:
                 trailing = "," if len(values) == 1 else ""
                 out.add(f"{target} = ({', '.join(values)}{trailing})")

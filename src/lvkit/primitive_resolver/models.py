@@ -100,6 +100,11 @@ class NativeError(BaseModel):
     # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the
     # VISA error code LabVIEW reports unchanged); ``code`` is then None.
     code_attribute: str | None = None
+    # Python expressions of the LabVIEW error code and of the message, for a
+    # class whose code is computed from the exception (``{exception}`` stands
+    # for it; ``code`` is then None); the message is its text when absent.
+    code_expression: str | None = None
+    message_expression: str | None = None
 
 
 class PrimitiveEntry(BaseModel):
