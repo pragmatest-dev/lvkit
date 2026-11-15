@@ -24,7 +24,7 @@ class ParamKind(StrEnum):
     VALUE = "value"  # a number by value
     POINTER = "pointer"  # a pointer to a number; the function may write it
     C_STRING = "c_string"  # a NUL-terminated string pointer
-    ARRAY_DATA = "array_data"  # a pointer to the elements of a 1-D numeric array
+    ARRAY_DATA = "array_data"  # a pointer to the elements of a numeric array
     # Adapt to Type: a scalar is passed as a pointer to it (NI: "Scalars are passed
     # by reference"), so its C type is that of the wire type, known only on the
     # graph (see ``codegen.nodes.ext_func``). A bare pointer (``Ptr``) points at
@@ -55,7 +55,7 @@ class ExtFuncParam:
     kind: ParamKind
     c_type: str | None = None
     reason: str = ""  # why an UNSUPPORTED parameter is
-    dimensions: int = 0  # an array handle's number of dimensions
+    dimensions: int = 0  # an array's dimension count (0 = one, for array data)
 
 
 # Parameter kinds the generated Python cannot pass: each carries its ``reason``.
@@ -201,8 +201,12 @@ def param_from_td(td: ParamTd, is_return: bool) -> ExtFuncParam:
     if kind_name == "ArrayDataPtr" and target is not None and target.number:
         if td.dimensions == 1:
             return ExtFuncParam(ParamKind.ARRAY_DATA, target.number)
+        if td.dimensions > 1:
+            return ExtFuncParam(
+                ParamKind.ARRAY_DATA, target.number, dimensions=td.dimensions
+            )
         return ExtFuncParam(
-            ParamKind.UNSUPPORTED, reason="an array data pointer of several dimensions"
+            ParamKind.UNSUPPORTED, reason="an array data pointer of no dimensions"
         )
     if kind_name == "Void":
         if is_return:

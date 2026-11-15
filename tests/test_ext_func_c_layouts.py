@@ -49,6 +49,15 @@ int32_t negate_matrix(int32_t **h) {
     return b[0] * 100 + b[1];
 }
 
+void number_elements(int32_t *e, int32_t n) {
+    for (int32_t i = 0; i < n; i++) e[i] = i;
+}
+int32_t sum_elements(int32_t *e, int32_t n) {
+    int32_t s = 0;
+    for (int32_t i = 0; i < n; i++) s += e[i];
+    return s;
+}
+
 typedef struct { int8_t flag; double value; int32_t count; uint8_t ok; } Reading;
 int32_t update(Reading *r) {
     r->flag -= 1; r->value *= 2; r->count += 10; r->ok = r->ok ? 0 : 1;
@@ -280,3 +289,70 @@ def test_cluster_with_a_nested_cluster_and_a_string_handle(library: str) -> None
     assert source.index("class _Inner(") < source.index("class _P1Out(")
     assert "('inner', _Inner)" in source
     assert "('name', ctypes.POINTER(ctypes.POINTER(_LStr)))" in source
+
+
+def _data_pointer(dimensions: int) -> tuple[ExtFuncParam, LVType]:
+    return (
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int32", dimensions=dimensions),
+        LVType(
+            kind=LVTypeKind.ARRAY,
+            element_type=lv_type("NumInt32"),
+            dimensions=dimensions,
+        ),
+    )
+
+
+def test_two_dimensional_array_data_pointer_is_row_major(library: str) -> None:
+    array, wire = _data_pointer(2)
+    run, _ = build_vi(
+        library,
+        "number_elements",
+        [_VOID, array, _RET],
+        [wire, wire, "NumInt32"],
+        controls={1: "grid", 2: "count"},
+        indicators={1: "numbered"},
+    )
+    assert run([[9, 9, 9], [9, 9, 9]], 6).numbered == [[0, 1, 2], [3, 4, 5]]
+
+
+def test_two_dimensional_array_data_pointer_is_summed(library: str) -> None:
+    array, wire = _data_pointer(2)
+    run, _ = build_vi(
+        library,
+        "sum_elements",
+        [_RET, array, _RET],
+        ["NumInt32", wire, "NumInt32"],
+        controls={1: "grid", 2: "count"},
+        indicators={0: "total"},
+    )
+    assert run([[1, 2], [3, 4], [5, 6]], 6).total == 21
+
+
+def test_three_dimensional_array_data_pointer(library: str) -> None:
+    array, wire = _data_pointer(3)
+    run, _ = build_vi(
+        library,
+        "number_elements",
+        [_VOID, array, _RET],
+        [wire, wire, "NumInt32"],
+        controls={1: "grid", 2: "count"},
+        indicators={1: "numbered"},
+    )
+    cube = [[[0, 0], [0, 0], [0, 0]], [[0, 0], [0, 0], [0, 0]]]
+    assert run(cube, 12).numbered == [
+        [[0, 1], [2, 3], [4, 5]],
+        [[6, 7], [8, 9], [10, 11]],
+    ]
+
+
+def test_empty_two_dimensional_array_data_pointer(library: str) -> None:
+    array, wire = _data_pointer(2)
+    run, _ = build_vi(
+        library,
+        "number_elements",
+        [_VOID, array, _RET],
+        [wire, wire, "NumInt32"],
+        controls={1: "grid", 2: "count"},
+        indicators={1: "numbered"},
+    )
+    assert run([], 0).numbered == []

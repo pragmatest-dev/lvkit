@@ -215,6 +215,23 @@ def _text(value: str) -> str:
     return f"{value}.encode('latin-1')"
 
 
+def flatten(value: str, dimensions: int, prefix: str) -> tuple[str, list[str]]:
+    """The expression listing the elements of the nested list ``value`` in
+    row-major order (NI forum "Passing a LabVIEW 2D array to an LPVOID pointer of a
+    DLL": the first row's elements come first), and each dimension's size."""
+    loops = " ".join(
+        f"for {prefix}_e{k} in {value if k == 0 else f'{prefix}_e{k - 1}'}"
+        for k in range(dimensions)
+    )
+    flat = f"[{prefix}_e{dimensions - 1} {loops}]"
+    sizes = []
+    for k in range(dimensions):
+        deeper = value + "[0]" * k
+        guard = " and ".join(value + "[0]" * j for j in range(k))
+        sizes.append(f"len({deeper})" if k == 0 else f"len({deeper}) if {guard} else 0")
+    return flat, sizes
+
+
 def fill_handle(
     layout: StringHandle | ArrayHandle,
     value: str,
@@ -239,16 +256,7 @@ def fill_handle(
         ]
     struct = array_struct(module, layout)
     element = c_type(layout.element)
-    loops = " ".join(
-        f"for {prefix}_e{k} in {value if k == 0 else f'{prefix}_e{k - 1}'}"
-        for k in range(layout.dimensions)
-    )
-    flat = f"[{prefix}_e{layout.dimensions - 1} {loops}]"
-    sizes = []
-    for k in range(layout.dimensions):
-        deeper = value + "[0]" * k
-        guard = " and ".join(value + "[0]" * j for j in range(k))
-        sizes.append(f"len({deeper})" if k == 0 else f"len({deeper}) if {guard} else 0")
+    flat, sizes = flatten(value, layout.dimensions, prefix)
     lines = [f"{prefix}_flat = {flat}"]
     lines += [
         f"{prefix}_block = (ctypes.c_char * (ctypes.sizeof({struct})"
@@ -310,10 +318,10 @@ def read_handle(
         f"{prefix}_flat = list(({c_type(layout.element)} * ({count})).from_address("
         f"ctypes.addressof({array}.elt))) if {array} else []",
     ]
-    return lines, f"{_nest(f'{prefix}_flat', dims, prefix)} if {array} else []"
+    return lines, f"{nest(f'{prefix}_flat', dims, prefix)} if {array} else []"
 
 
-def _nest(flat: str, dims: list[str], prefix: str) -> str:
+def nest(flat: str, dims: list[str], prefix: str) -> str:
     """The expression that slices ``flat`` (row-major) into lists of ``dims``."""
 
     def build(level: int, offset: str) -> str:
