@@ -375,3 +375,12 @@ def test_the_border_nodes_are_nets_of_the_structure_in_the_views(
         "    nf = inplace_100::out2"
     )
     assert "Map Get Value" not in views.describe
+
+
+def test_the_default_of_a_map_or_set_type_is_an_empty_one() -> None:
+    """A map of maps read for a missing key gives an empty map to read on."""
+    from lvkit.codegen.ast_utils import type_default_expr
+
+    for name, text in (("Map", "{}"), ("Set", "set()")):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=name)
+        assert ast.unparse(type_default_expr(lv_type)) == text

@@ -44,7 +44,7 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
 
     A number is 0, a Boolean False, a string ``""``, an enum or ring its first
     item, a path the empty path, a timestamp 1904-01-01 00:00:00 UTC, an array
-    ``[]``; a named cluster is a
+    ``[]``, a map ``{}``, a set ``set()``; a named cluster is a
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
     error). A type with no Python value (a refnum, a variant) is ``None``, and so
@@ -67,6 +67,10 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
             return parse_expr("Path('')")
         if lv_type.is_timestamp:
             return parse_expr(EPOCH_1904_EXPRESSION)
+        if underlying == "Map":
+            return ast.Dict(keys=[], values=[])
+        if underlying == "Set":
+            return parse_expr("set()")
         return _scalar_default(underlying)
     if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)

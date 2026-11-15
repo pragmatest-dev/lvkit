@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the default of a map type is an empty dict and of a set type an empty set** — a Look In Map or Map Get Value default for a map of maps was `None`, so reading the inner map of a missing key crashed.
 - **An In Place Element Structure's Map Get / Replace Value border node generates Python** — the left half reads `map.get(key, default value)` and `key not found?`, the right half makes a new dict by the action (0 Modify Entry only if found, the unwired default; 1 Add or Modify Entry; 2 Delete Entry; any other action is a gap); both halves are named in every view and are `get`/`put` nets of the structure like the other border nodes. A cluster key stays a gap (the Map functions take a number, Boolean, string or path as a key).
 - **An In Place Element Structure's Array Index / Replace Elements tile with an index per dimension generates Python** — the element is `array[i][j]...` in terminal order; an index outside its dimension reads the element default and its write leaves the array as it is (Average Grayscale of Line.vi, JSONtext Format JSON Array Text.vi).
 - **Fix: an In Place Element Structure whose tiles pass the whole value through generates Python** — the two-terminal tile pair with no field split (Actor Framework `Message` Do.vi, Actor Pre Launch Init.vi and Receive Message.vi, Reply Msg Do Core.vi) hands its output port the value of its input port, so the VI no longer raises "has no variable (from In Place Element)".
