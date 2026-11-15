@@ -14,7 +14,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
-from lvkit.models import FPTerminal, LVType, Terminal
+from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
 from tests.helpers import GENERATED_PACKAGE, build_graph, exec_generated
 from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
 from tests.vilib_caller import BOOL, DBL, I32, STRING, U32, primitive
@@ -347,3 +347,72 @@ def test_a_format_wired_at_run_time_is_a_gap() -> None:
     _, function = _scan("%d", [I32], wire_format=True, gaps=gaps)
     assert len(gaps) == 1
     assert "only known when the code runs" in gaps[0].message
+
+
+def _enum(*labels: str) -> LVType:
+    return LVType(
+        kind=LVTypeKind.ENUM,
+        underlying_type="UnitUInt16",
+        values={label: EnumValue(value=i) for i, label in enumerate(labels)},
+    )
+
+
+COLOR = _enum("Red", "Green", "Blue")
+
+
+def test_an_enum_reads_the_label_of_an_item_as_its_value() -> None:
+    assert _values(_result("%s", [COLOR], "Blue"), 1) == [2]
+    assert _values(_result(None, [COLOR], "Green rest"), 1) == [1]
+    result = _result("color: %s", [COLOR], "color: Red")
+    assert _values(result, 1) == [0]
+    assert result.remaining == ""
+
+
+def test_text_after_the_label_is_left_and_the_match_is_case_sensitive() -> None:
+    result = _result("%s", [COLOR], "Greenish")
+    assert _values(result, 1) == [1]
+    assert result.remaining == "ish"
+    result = _result("%s", [COLOR], "green", error=True, arguments={"error_in": None})
+    assert _values(result, 1) == [0]
+    assert result.error_out.code == 85
+
+
+def test_a_label_that_matches_nothing_keeps_the_default_and_is_error_85() -> None:
+    result = _result(
+        "%s",
+        [COLOR],
+        "Purple",
+        error=True,
+        defaults=[2],
+        arguments={"default0": 2, "error_in": None},
+    )
+    assert _values(result, 1) == [2]
+    assert result.error_out.code == 85
+    assert result.remaining == "Purple"
+
+
+@pytest.mark.parametrize(
+    ("format_text", "outputs", "reason"),
+    [
+        ("%s", [_enum("One", "OneTwo")], "starts the item 'OneTwo'"),
+        ("%s", [_enum("", "A")], "an empty one"),
+        ("%3s", [COLOR], "a width with an enum output"),
+        ("%d", [COLOR], "into a enum output"),
+        ("%[a-z]", [COLOR], "a string into a enum output"),
+    ],
+)
+def test_an_enum_scan_with_no_documented_result_is_a_gap(
+    format_text: str, outputs: list[LVType], reason: str
+) -> None:
+    gaps: list[Gap] = []
+    _, function = _scan(format_text, outputs, gaps=gaps)
+    assert len(gaps) == 1
+    assert reason in gaps[0].message
+    with pytest.raises(NotImplementedError, match="Scan From String"):
+        function(text="One")
+
+
+def test_an_enum_label_with_braces_and_regular_expression_characters() -> None:
+    odd = _enum("a{b}", "c.d")
+    assert _values(_result("%s", [odd], "a{b}"), 1) == [0]
+    assert _values(_result("%s", [odd], "c.d"), 1) == [1]

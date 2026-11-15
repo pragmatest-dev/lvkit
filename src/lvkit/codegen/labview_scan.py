@@ -21,6 +21,21 @@ those words as TRUE Boolean values. The function reads F, FALSE, OFF, or NO and
 any lowercase versions of those words as FALSE"; with a numeric code "any numeric
 value greater than 0.5" is TRUE.
 
+An enum output (Scan From String: "If you wire an enumerated type to default 1,
+the function finds substrings matching the string values in the enumerated type
+and returns the corresponding numeric value of the enumerated type"; Format
+Specifier Syntax gives ``%s`` for an enum, the item's label) reads the label of
+one item at the scan position. NI forum reports (forums.ni.com, "Scan From
+String Into Enum -- Exact Match Otherwise Error", t5/LabVIEW/td-p/3333885; "Find
+Enum Item from String Input", ta-p/3490889): text after the label is ignored
+("Oneasdf" gives One), text before it is an error, no matching item is error 85
+(the scan's usual failure here), and NI's knowledge base says the match is case
+sensitive. What the scan returns when one item's label starts another's is not
+settled by NI's pages or those reports (one poster says the position of the item
+in the list matters, another that it does not), so an enum with such labels is a
+gap, as is an empty label (a forum report says an enum whose first item is empty
+fails to scan back).
+
 The pattern reads as far as the input matches: each specifier and the text
 before it sit in a group that is optional given the one before, so the number of
 specifiers scanned is the last group that matched, and a scan that stops early
@@ -45,9 +60,15 @@ _SET = re.compile(r"%(\d*)\[(\^?\]?[^\]]*)\]")
 _TRUE_WORDS = ("Y", "T", "TRUE", "ON", "YES", "y", "t", "true", "on", "yes")
 _FALSE_WORDS = ("F", "FALSE", "OFF", "NO", "f", "false", "off", "no")
 # What a Scan From String with no format string reads for each kind of output: a
-# string and a Boolean as ``%s``, an integer as ``%d``, a floating-point number as
-# ``%f`` (see ``default_format``).
-_DEFAULT_CODES = {"string": "%s", "bool": "%s", "int": "%d", "float": "%f"}
+# string, a Boolean and an enum as ``%s``, an integer as ``%d``, a floating-point
+# number as ``%f`` (see ``default_format``).
+_DEFAULT_CODES = {
+    "string": "%s",
+    "bool": "%s",
+    "enum": "%s",
+    "int": "%d",
+    "float": "%f",
+}
 
 
 @dataclass(frozen=True)
@@ -219,6 +240,8 @@ def _field(piece: ScanSpec | ScanSet, kind: FormatKind) -> ScanField:
             return ScanField(
                 f"(?:{words})(?![^\\s])", f"{{g}} in {_TRUE_WORDS!r}", False
             )
+        if kind.kind == "enum":
+            return _enum_field(spec.text, width, kind)
         return _string_field(spec.text, r"\S", width, kind)
     if spec.code == "d":
         text = _decimal_pattern(width)
@@ -291,6 +314,34 @@ def _set_pattern(piece: ScanSet) -> str:
     for char in body:
         out += "\\" + char if char in "\\]^[" else char
     return f"[{'^' if negate else ''}{out}]"
+
+
+def _enum_field(text: str, width: int, kind: FormatKind) -> ScanField:
+    """The label of one item of an enum output, read as its value."""
+    if width:
+        raise ValueError(
+            f"Scan From String specifier {text!r} (a width with an enum output) "
+            "has no conversion"
+        )
+    labels = [label for _, label in kind.labels]
+    if not labels or "" in labels:
+        raise ValueError(
+            f"Scan From String specifier {text!r} (an enum output with no item "
+            "labels, or an empty one) has no conversion"
+        )
+    for label in labels:
+        for other in labels:
+            if other is not label and other.startswith(label):
+                raise ValueError(
+                    f"Scan From String specifier {text!r} (an enum whose item "
+                    f"{label!r} starts the item {other!r}: which one the scan "
+                    "returns is not documented) has no conversion"
+                )
+    pattern = "|".join(re.escape(label) for label in labels)
+    values = repr({label: value for value, label in kind.labels})
+    # The value is a template in which ``{g}`` stands for the text.
+    template = values.replace("{", "{{").replace("}", "}}") + "[{g}]"
+    return ScanField(f"(?:{pattern})", template, False)
 
 
 def _string_field(text: str, char: str, width: int, kind: FormatKind) -> ScanField:
