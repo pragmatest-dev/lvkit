@@ -144,6 +144,12 @@ PRIMITIVES = {
     "file-io:New Zip File": FILE_PATH_OPS,
     "file-io:Add File to Zip": FILE_PATH_OPS,
     "file-io:Close Zip File": FILE_PATH_OPS,
+    "file-io:Read Characters From File": FILE_PATH_OPS,
+    "file-io:Write Characters To File": FILE_PATH_OPS,
+    "file-io:Open File+": FILE_PATH_OPS,
+    "file-io:Read File+ (string)": FILE_PATH_OPS,
+    "file-io:Write File+ (string)": FILE_PATH_OPS,
+    "file-io:Close File+": [*FILE_PATH_OPS, ("ValueError", 1)],
     "synchronization:Release Semaphore_71": [("ValueError", 1111)],
     "file-io:Unzip": [
         ("ZipPasswordProtectedError", None),

@@ -152,3 +152,27 @@ def test_resolve_pin_groups_removes_duplicates_in_the_source(
         encoding="utf-8"
     )
     assert "_element == _kept" in source
+
+
+def test_jki_read_lines_from_file_reads_lines_through_the_file_llb_vis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """JKI's Read Lines from File opens the file with Open File+, reads lines with
+    Read File+ (string) and closes it with Close File+ (the legacy file.llb VIs)."""
+    function = _function(
+        SAMPLES
+        / "JKI-EasyXML/Source/JKI Reuse Candidates"
+        / "Read Lines from File - With Error in and Error Out - JKI.vi",
+        tmp_path / "out",
+        monkeypatch,
+        "jki_reuse_candidates.read_lines_from_file___with_error_in_and_error_out___jki",
+        "read_lines_from_file___with_error_in_and_error_out___jki",
+    )
+    target = tmp_path / "lines.txt"
+    target.write_bytes(b"one\ntwo\nthree\n")
+    everything = function(file_path_dialog_if_empty=target)
+    assert everything.line_string == "one\ntwo\nthree\n"
+    assert everything.error_out is None
+    first_two = function(file_path_dialog_if_empty=target, number_of_lines_all_1=2)
+    assert first_two.line_string == "one\ntwo\n"
+    assert first_two.eof is False

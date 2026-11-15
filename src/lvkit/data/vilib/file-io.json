@@ -6932,6 +6932,650 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "Read Characters From File",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: reads characters from a byte stream file, from a byte offset, and returns the mark after the read.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "file path (dialog if empty)",
+          "index": 0,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        },
+        {
+          "name": "number of characters (all:-1)",
+          "index": 2,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "number_of_characters",
+          "default": -1
+        },
+        {
+          "name": "start of read offset (chars.:0)",
+          "index": 3,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "start_of_read_offset",
+          "default": 0
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "new file path (NotAPath if cancelled)",
+          "index": 6,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "new_file_path"
+        },
+        {
+          "name": "character string",
+          "index": 7,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "character_string"
+        },
+        {
+          "name": "EOF?",
+          "index": 8,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "eof"
+        },
+        {
+          "name": "mark after read (chars.)",
+          "index": 9,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_read"
+        }
+      ],
+      "match_names": [
+        "Read Characters From File.vi"
+      ],
+      "imports": [
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Read Characters From File: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\nwith open(_path, 'rb') as _file:\n    _file.seek({start_of_read_offset})\n    _bytes = _file.read() if {number_of_characters} < 0 else _file.read({number_of_characters})\n    {mark_after_read} = _file.tell()\n# NI (LabVIEW Wiki, Read Delimited Spreadsheet): EOF? is TRUE \"if you attempt to read past the end of file\"; mark after read is \"the character (byte) in the file following the last character read\"; the offset is in bytes\n{eof} = {number_of_characters} < 0 or len(_bytes) < {number_of_characters}\nif {convert_eol}:\n    _bytes = re.sub(rb'\\r\\n|\\r', b'\\n', _bytes)\n{character_string} = _bytes.decode('utf-8', 'surrogateescape')\n{new_file_path} = _path",
+      "inline": true
+    },
+    {
+      "name": "Write Characters To File",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: writes a string to a file, replacing it or appending to it.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "convert eol? (no:F)",
+          "index": 0,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "new file path (Not A Path if cancelled)",
+          "index": 2,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "new_file_path"
+        },
+        {
+          "name": "append to file? (new file:F)",
+          "index": 3,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "append_to_file",
+          "default": false
+        },
+        {
+          "name": "character string",
+          "index": 4,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "character_string"
+        },
+        {
+          "name": "file path (dialog if empty)",
+          "index": 5,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        }
+      ],
+      "match_names": [
+        "Write Characters To File.vi"
+      ],
+      "imports": [
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Write Characters To File: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\n_text = {character_string}\nif {convert_eol}:\n    # NI forums (convert eol - exactly what does it mean?): \"convert any EOL char combination to the type of EOL that is supported by the current OS\"\n    _text = re.sub(r'\\r\\n|\\r|\\n', lambda _match: os.linesep, _text)\nwith open(_path, 'ab' if {append_to_file} else 'wb') as _file:\n    _file.write(_text.encode('utf-8', 'surrogateescape'))\n{new_file_path} = _path",
+      "inline": true
+    },
+    {
+      "name": "Open File+",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: opens a file read-only and returns its refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "file size (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "file_size"
+        },
+        {
+          "name": "file path",
+          "index": 2,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path_out"
+        },
+        {
+          "name": "refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        },
+        {
+          "name": "advisory dialog? (display:T)",
+          "index": 4,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "advisory_dialog",
+          "default": true
+        },
+        {
+          "name": "[pattern]",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "pattern"
+        },
+        {
+          "name": "default name",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_name"
+        },
+        {
+          "name": "prompt",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "prompt"
+        },
+        {
+          "name": "error in (not an error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "open mode (read-only:1)",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "open_mode",
+          "default": 1
+        },
+        {
+          "name": "start path (Not A Path)",
+          "index": 10,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "start_path"
+        },
+        {
+          "name": "file path (\" \")",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        }
+      ],
+      "match_names": [
+        "Open File+.vi"
+      ],
+      "imports": [
+        "import os",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Open File+: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\nif {open_mode} != 1:\n    raise NotImplementedError('Open File+: open mode ' + str({open_mode}) + ' is not read-only (1), the only open mode the VI label documents')\n{refnum} = open(_path, 'rb')\n{file_size} = os.fstat({refnum}.fileno()).st_size\n{file_path_out} = _path",
+      "inline": true
+    },
+    {
+      "name": "Read File+ (string)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: reads characters, or one line, from an open file.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "mark after read (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_read"
+        },
+        {
+          "name": "string",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string"
+        },
+        {
+          "name": "dup refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "dup_refnum"
+        },
+        {
+          "name": "EOF?",
+          "index": 4,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "eof"
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "count",
+          "index": 6,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "count"
+        },
+        {
+          "name": "line mode (characters:F)",
+          "index": 7,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "line_mode",
+          "default": false
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "pos offset (bytes:0)",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_offset",
+          "default": 0
+        },
+        {
+          "name": "pos mode (rel. to current:2)",
+          "index": 10,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_mode",
+          "default": 2
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        }
+      ],
+      "match_names": [
+        "Read File+ (string).vi"
+      ],
+      "imports": [
+        "import re"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_file = getattr({refnum}, 'buffer', {refnum})\n# NI, Set File Position: from 0 start, 1 end, 2 current\n_file.seek({pos_offset}, [0, 2, 1][{pos_mode}])\n_start = _file.tell()\nif {line_mode}:\n    # one line (it ends in LF, CR or CRLF, which stays in the string), of at most count characters when count is above 0: JKI's Read Lines From File wires its 'max characters/row (no limit:0)' to count and loops over the lines itself\n    _data = b''\n    while True:\n        _chunk = _file.read(8192)\n        _data += _chunk\n        _end = re.search(rb'\\r\\n|\\n|\\r', _data)\n        if not _chunk or (_end and (_end.group() != b'\\r' or _end.end() < len(_data))):\n            break\n    _bytes = _data[:_end.end()] if _end else _data\n    _limited = {count} > 0 and len(_bytes) > {count}\n    if _limited:\n        _bytes = _bytes[:{count}]\n    _file.seek(_start + len(_bytes))\n    {eof} = not _limited and not _bytes.endswith((b'\\r', b'\\n'))\nelse:\n    _bytes = _file.read() if {count} < 0 else _file.read({count})\n    {eof} = {count} < 0 or len(_bytes) < {count}\n{mark_after_read} = _file.tell()\nif {convert_eol}:\n    _bytes = re.sub(rb'\\r\\n|\\r', b'\\n', _bytes)\n{string} = _bytes.decode('utf-8', 'surrogateescape')\n{dup_refnum} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Close File+",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: closes a file refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "close when? (now:T)",
+          "index": 1,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "close_when",
+          "default": true
+        },
+        {
+          "name": "error out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "refnum",
+          "index": 4,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        },
+        {
+          "name": "file size (bytes)",
+          "index": 6,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "file_size"
+        },
+        {
+          "name": "refnum",
+          "index": 7,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out"
+        }
+      ],
+      "match_names": [
+        "Close File+.vi"
+      ],
+      "imports": [
+        "import os"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        },
+        {
+          "exception": "ValueError",
+          "code": 1
+        }
+      ],
+      "python_code": "{file_size} = os.fstat({refnum}.fileno()).st_size\nif {close_when}:\n    {refnum}.close()\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write File+ (string)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: writes a string to an open file at a file position.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "mark after write (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_write"
+        },
+        {
+          "name": "dup refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "dup_refnum"
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 4,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "string",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 6,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "pos offset (bytes:0)",
+          "index": 7,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_offset",
+          "default": 0
+        },
+        {
+          "name": "pos mode (rel. to end:1)",
+          "index": 8,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_mode",
+          "default": 1
+        },
+        {
+          "name": "refnum",
+          "index": 9,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        }
+      ],
+      "match_names": [
+        "Write File+ (string).vi"
+      ],
+      "imports": [
+        "import os",
+        "import re"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_file = getattr({refnum}, 'buffer', {refnum})\n# NI, Set File Position: from 0 start, 1 end, 2 current\n_file.seek({pos_offset}, [0, 2, 1][{pos_mode}])\n_text = {string}\nif {convert_eol}:\n    # NI forums (convert eol - exactly what does it mean?): \"convert any EOL char combination to the type of EOL that is supported by the current OS\"\n    _text = re.sub(r'\\r\\n|\\r|\\n', lambda _match: os.linesep, _text)\n_file.write(_text.encode('utf-8', 'surrogateescape'))\n{mark_after_write} = _file.tell()\n{dup_refnum} = {refnum}",
+      "inline": true
     }
   ]
 }
