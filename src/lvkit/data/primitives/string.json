@@ -538,12 +538,15 @@
         }
       ],
       "python_code": {
-        "datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"
+        "datetime_string": "(in_2 if in_1 else (in_2.astimezone() if in_2.year >= 1970 else in_2.astimezone(datetime.timezone(datetime.timedelta(seconds=time.localtime().tm_gmtoff))))).strftime(in_3 or '%c')"
       },
+      "note": "NI: UTC format specifies if the output string is in Universal Time or in the configured time zone for the computer; TRUE is Universal Time, the default is FALSE (local time); an empty time format string uses the default %c. A time stamp is UTC. Local time is the operating system's from 1970 on; before 1970 it is the computer's CURRENT offset from UTC, the rule vilib LV70DateRecToTimeStamp uses (LAVA https://lavag.org/topic/3615-strange-time-behavior, NI forum https://ni.lithium.com/t5/LabVIEW/A-strange-behaviour-on-two-of-LV-s-time-VIs/m-p/176558: LabVIEW keeps the current-DST behaviour before 1970), because the operating system's own conversion fails before 1970 on Windows.",
       "requires": [
         "hightime"
       ],
       "imports": [
+        "import datetime",
+        "import time",
         "import hightime",
         "from datetime import UTC"
       ],

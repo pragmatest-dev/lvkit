@@ -37,7 +37,12 @@ TASKS = "<vilib>/DAQmx/configure/task.llb"
 
 
 def _format_stamp(wire_stamp: bool, wire_format: bool) -> object:
-    terminals = [(0, "output", STRING_T), (2, "input", STAMP_T), (3, "input", STRING_T)]
+    terminals = [
+        (0, "output", STRING_T),
+        (1, "input", scalar("Boolean")),
+        (2, "input", STAMP_T),
+        (3, "input", STRING_T),
+    ]
     inputs: dict[str, LVType] = {}
     wires = [("fm:0", "fp:out")]
     if wire_stamp:
@@ -56,19 +61,17 @@ def _format_stamp(wire_stamp: bool, wire_format: bool) -> object:
 
 def test_an_unwired_time_stamp_is_the_current_date_and_time() -> None:
     function = _format_stamp(wire_stamp=False, wire_format=True)
-    before = datetime.datetime.now(datetime.UTC)
+    after = datetime.datetime.now()
+    before = datetime.datetime.now()
     text = function("%Y-%m-%d %H:%M:%S").out  # type: ignore[operator]
-    after = datetime.datetime.now(datetime.UTC)
-    stamp = datetime.datetime.strptime(text, "%Y-%m-%d %H:%M:%S").replace(
-        tzinfo=datetime.UTC
-    )
+    stamp = datetime.datetime.strptime(text, "%Y-%m-%d %H:%M:%S")
     assert before.replace(microsecond=0) <= stamp <= after
 
 
 def test_an_unwired_time_format_is_percent_c() -> None:
     function = _format_stamp(wire_stamp=True, wire_format=False)
     when = hightime.datetime(2026, 11, 15, 8, 30, 5, tzinfo=datetime.UTC)
-    assert function(when).out == when.strftime("%c")  # type: ignore[operator]
+    assert function(when).out == when.astimezone().strftime("%c")  # type: ignore[operator]
 
 
 def test_format_date_time_catalog_records_the_documented_defaults() -> None:

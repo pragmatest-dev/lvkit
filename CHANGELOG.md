@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap
 ## [Unreleased]
+- **Format Date/Time String honours `UTC format`** — TRUE prints Universal Time; FALSE or unwired prints the computer's local time (before 1970 at the current offset from UTC, like Date/Time To Seconds, so it runs on Windows)
 - **An unwired Format Date/Time String time stamp is the current date and time, and a DAQmx Create Virtual Channel with no task adds the channel to a new task** — NI documents both defaults (time format `%c`, a new unnamed task); DI/DO Line pass `LineGrouping(...)` as nidaqmx expects, and a Tag constant is its text, not a quoted copy; an unwired `file (use dialog)` or Read from Binary File `count (1)` stays a gap that names its documented behaviour.
 - **Set File Position with `from` unwired generates Python** — NI's default is 0 (start) when `offset` is wired and 2 (current) when it is not, now recorded as `default_when_unwired`; a wired `from` also maps LabVIEW's 1 (end) and 2 (current) to Python's `seek` modes, which number them the other way round.
 - **File Dialog with `start path` unwired generates Python** — NI opens the dialog at the last directory viewed, which generated code has none of, so the start path is Not A Path (`None`) and `exists?` is false.

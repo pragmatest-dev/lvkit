@@ -270,6 +270,7 @@ def test_format_date_time_string_runs_on_the_timestamp() -> None:
         FORMAT_DATE_TIME,
         "Format Date/Time String",
         [
+            Pin(1, "input", scalar("Boolean"), constant="True"),
             Pin(2, "input", TIMESTAMP, source="when"),
             Pin(3, "input", string, source="format"),
             Pin(0, "output", string, sink="out"),
