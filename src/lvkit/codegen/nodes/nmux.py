@@ -160,9 +160,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 for t in sorted(list_in, key=lambda t: t.index):
                     value = ctx.wired_input(t.id, node)
                     if value is None:
-                        raise TypeResolutionNeeded(
-                            type_name="bundle value", context=t.id
-                        )
+                        raise TypeResolutionNeeded(type_name="bundle value")
                     updates.append((_position_path(t, class_fields), value))
                 cluster_var = ctx.make_output_var(
                     "cluster", node.id, agg_out[0].id if agg_out else None
@@ -222,8 +220,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     )
                 else:
                     raise TypeResolutionNeeded(
-                        type_name=f"field[{t.nmux_field_index}]",
-                        context=t.id,
+                        type_name=f"field[{t.nmux_field_index}]"
                     )
         elif anon and agg_out:
             # CREATE a new anonymous cluster from the field inputs (a classic
@@ -306,7 +303,7 @@ def _position_path(
     term: Terminal, fields: list[ClusterField] | None
 ) -> tuple[int, ...]:
     """The tuple positions of the depth-first nMux field index of ``term``."""
-    return position_path(term.nmux_field_index, fields, term.id)
+    return position_path(term.nmux_field_index, fields)
 
 
 def _generate_error_bundle(
@@ -383,7 +380,4 @@ def _field_expr(
         if 0 <= term.nmux_field_index < len(paths):
             return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
 
-    raise TypeResolutionNeeded(
-        type_name=f"field[{term.nmux_field_index}]",
-        context=term.id,
-    )
+    raise TypeResolutionNeeded(type_name=f"field[{term.nmux_field_index}]")

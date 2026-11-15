@@ -33,7 +33,7 @@ def is_anonymous_cluster(lv_type: LVType | None) -> bool:
 
 
 def position_path(
-    index: int | None, fields: list[ClusterField] | None, context: str
+    index: int | None, fields: list[ClusterField] | None
 ) -> tuple[int, ...]:
     """Map a depth-first field index, including parents, to tuple positions.
 
@@ -60,7 +60,7 @@ def position_path(
         path = paths[index]
         if path is not None:
             return path
-    raise TypeResolutionNeeded(type_name=f"positional field[{index}]", context=context)
+    raise TypeResolutionNeeded(type_name=f"positional field[{index}]")
 
 
 def attribute_paths(
@@ -84,17 +84,17 @@ def flat_index(fields: list[ClusterField], member: int) -> int:
 
 
 def member_expression(
-    ctx: CodeGenContext, lv_type: LVType, member: int, value: str, context: str
+    ctx: CodeGenContext, lv_type: LVType, member: int, value: str
 ) -> str:
     """The expression reading the top-level field ``member`` (its position among
     the fields) of the cluster ``value`` of type ``lv_type``."""
     fields = ctx.graph.get_type_fields(lv_type) if ctx.graph is not None else None
     fields = fields or lv_type.fields
     if not fields or not 0 <= member < len(fields):
-        raise TypeResolutionNeeded(type_name=f"field[{member}]", context=context)
+        raise TypeResolutionNeeded(type_name=f"field[{member}]")
     index = flat_index(fields, member)
     if is_anonymous_cluster(lv_type):
-        path = position_path(index, fields, context)
+        path = position_path(index, fields)
         return f"({value})" + "".join(f"[{position}]" for position in path)
     attributes = (
         type_attributes(ctx.graph, lv_type, ctx.vi_name, "Event Data Node")
@@ -103,5 +103,5 @@ def member_expression(
     )
     paths = attribute_paths(fields, attributes)
     if index >= len(paths):
-        raise TypeResolutionNeeded(type_name=f"field[{member}]", context=context)
+        raise TypeResolutionNeeded(type_name=f"field[{member}]")
     return f"{value}.{'.'.join(paths[index])}"

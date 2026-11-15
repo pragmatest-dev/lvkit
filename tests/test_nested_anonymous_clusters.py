@@ -334,8 +334,10 @@ def test_anonymous_path_does_not_guess_inside_named_descendant():
             ),
         ],
     )
-    with pytest.raises(TypeResolutionNeeded, match="positional field"):
+    with pytest.raises(TypeResolutionNeeded, match="positional field") as gap:
         run_fragment(node, (SimpleNamespace(child=10.0), 20.0))
+    assert "/" not in str(gap.value)
+    assert "referenced by" not in str(gap.value)
     node.terminals[1].nmux_field_index = 2
     fragment, namespace = run_fragment(node, (SimpleNamespace(child=10.0), 20.0))
     assert eval(fragment.bindings["field"], namespace) == 20.0

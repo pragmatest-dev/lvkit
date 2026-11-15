@@ -803,13 +803,9 @@ class TypeResolutionNeeded(ConversionGap):
     The type is referenced but not loaded in the dep_graph.
     """
 
-    def __init__(self, type_name: str, context: str = ""):
+    def __init__(self, type_name: str):
         self.type_name = type_name
-        self.context = context
-        msg = f"Type resolution needed for '{type_name}'"
-        if context:
-            msg += f" (referenced by {context})"
-        super().__init__(msg)
+        super().__init__(f"Type resolution needed for '{type_name}'")
 
 
 class TerminalDirection(StrEnum):
