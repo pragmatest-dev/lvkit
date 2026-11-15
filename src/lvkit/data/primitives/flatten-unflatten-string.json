@@ -18,7 +18,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "op": "FLATTEN_TO_XML"
     },
     "8401": {
       "name": "Unflatten From XML",
@@ -56,7 +57,40 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "op": "UNFLATTEN_FROM_XML",
+      "errors": [
+        {
+          "exception": "XMLEmptyStringError",
+          "code": 1102,
+          "base": "ValueError"
+        },
+        {
+          "exception": "XMLTagNotRecognizedError",
+          "code": 1103,
+          "base": "ValueError"
+        },
+        {
+          "exception": "ParseError",
+          "module": "xml.etree.ElementTree",
+          "code": 1104
+        },
+        {
+          "exception": "XMLUnexpectedTagError",
+          "code": 1105,
+          "base": "ValueError"
+        },
+        {
+          "exception": "XMLTypeMismatchError",
+          "code": 1106,
+          "base": "ValueError"
+        },
+        {
+          "exception": "XMLValueError",
+          "code": 1108,
+          "base": "ValueError"
+        }
+      ]
     },
     "8402": {
       "name": "Flatten To XML",
@@ -77,7 +111,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "Flatten To XML writes the LabVIEW XML schema (a tag per type and element, with the schema's own escaping and number formats); Python's xml packages have no equivalent, so the schema would be lvkit's own writer."
+      "op": "FLATTEN_TO_XML"
     },
     "24201": {
       "name": "Flatten To JSON",

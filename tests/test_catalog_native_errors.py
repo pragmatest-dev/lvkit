@@ -88,11 +88,20 @@ JSON_UNFLATTEN = [
     ("ValueError", None),
 ]
 JSON_FLATTEN = [("JSONNaNError", -375010), ("JSONInfinityError", -375011)]
+XML_UNFLATTEN = [
+    ("XMLEmptyStringError", 1102),
+    ("XMLTagNotRecognizedError", 1103),
+    ("ParseError", 1104),
+    ("XMLUnexpectedTagError", 1105),
+    ("XMLTypeMismatchError", 1106),
+    ("XMLValueError", 1108),
+]
 GRPC_ENUM_VALUE = [("ValueError", -2003), ("IndexError", -2003)]
 
 PRIMITIVES = {
     "24201:Flatten To JSON": JSON_FLATTEN,
     "24202:Unflatten From JSON": JSON_UNFLATTEN,
+    "8401:Unflatten From XML": XML_UNFLATTEN,
     "1922:VISA Close": VISA,
     "1925:VISA Read": VISA,
     "1926:VISA Write": VISA,

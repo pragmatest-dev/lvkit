@@ -178,6 +178,19 @@ def plain_fields(lv_type: LVType, ctx: CodeGenContext) -> list[tuple[str, LVType
     ]
 
 
+def plain_labels(lv_type: LVType, ctx: CodeGenContext) -> list[str]:
+    """The label of each element of a cluster, ``""`` for an element with no
+    label (``plain_fields`` keys such an element by its position)."""
+    fields = _cluster(lv_type, ctx).fields
+    return [f.name if f.labelled else "" for f in fields]
+
+
+def scalar_kind(lv_type: LVType) -> str:
+    """``bool``, ``string``, ``int`` or ``float`` for a type with a plain scalar
+    form (``UnsupportedPlainType`` otherwise)."""
+    return _scalar_kind(lv_type)
+
+
 def _enum_items(lv_type: LVType) -> list[str]:
     """The item names of an enum, in the order of their values (the value of an
     enum is the position of its item)."""

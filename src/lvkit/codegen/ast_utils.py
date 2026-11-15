@@ -525,7 +525,7 @@ GENERATED_MODULE_NAMES = frozenset(
         "serial",
         "shutil", "socket", "stat", "statistics",
         "struct", "subprocess", "sys", "tempfile", "threading", "time",
-        "unicodedata", "uuid", "webbrowser",
+        "unicodedata", "uuid", "webbrowser", "xml",
         "zipfile",
     }
 )  # fmt: skip
