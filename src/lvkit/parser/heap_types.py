@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..models import LVType
-from .td_pool import TdPool, block_sidecar_path, read_td_list
+from .td_pool import RawTD, TdPool, block_sidecar_path, read_td_list
 
 
 def heap_sidecar_path(xml_path: Path | str) -> Path:
@@ -42,34 +42,48 @@ class HeapTypes:
     failure: str | None = None
 
 
+@dataclass(frozen=True)
+class HeapPool:
+    """A ``DTHP`` block's descriptors as stored, and the descriptor index of each
+    heap ``TypeID`` (``top[k - 1]`` for ``TypeID`` k)."""
+
+    tds: list[RawTD]
+    top: tuple[int, ...]
+
+
+def read_heap_pool(dthp_bytes: bytes) -> HeapPool | str:
+    """The descriptors and ``TypeID`` table of a ``*_DTHP.bin`` sidecar, or why the
+    block cannot be read. An empty block (a pool with no descriptors) is an empty
+    pool."""
+    listed = read_td_list(dthp_bytes)
+    if listed.failure is not None:
+        return f"the heap type pool is unreadable: {listed.failure}"
+    if not listed.tds:
+        return HeapPool([], ())
+    end = listed.end
+    if end + 2 > len(dthp_bytes):
+        return "the heap type pool is unreadable: it has no TypeID table"
+    (ntop,) = struct.unpack_from(">H", dthp_bytes, end)
+    if end + 2 + 2 * ntop > len(dthp_bytes):
+        return (
+            "the heap type pool is unreadable: its TypeID table lists "
+            f"{ntop} entries the block does not hold"
+        )
+    return HeapPool(listed.tds, struct.unpack_from(f">{ntop}H", dthp_bytes, end + 2))
+
+
 def decode_heap_types(dthp_bytes: bytes) -> HeapTypes:
     """Decode a ``*_DTHP.bin`` sidecar into its ``HeapTypes``.
 
     An empty block (a pool with no descriptors) decodes to nothing and no failure;
     a block that does not follow the layout above has a ``failure`` saying where.
     """
-    listed = read_td_list(dthp_bytes)
-    if listed.failure is not None:
-        return HeapTypes(failure=f"the heap type pool is unreadable: {listed.failure}")
-    if not listed.tds:
-        return HeapTypes()
-    end = listed.end
-    if end + 2 > len(dthp_bytes):
-        return HeapTypes(
-            failure="the heap type pool is unreadable: it has no TypeID table"
-        )
-    (ntop,) = struct.unpack_from(">H", dthp_bytes, end)
-    if end + 2 + 2 * ntop > len(dthp_bytes):
-        return HeapTypes(
-            failure=(
-                "the heap type pool is unreadable: its TypeID table lists "
-                f"{ntop} entries the block does not hold"
-            )
-        )
-    pool = TdPool(listed.tds)
-    top = struct.unpack_from(f">{ntop}H", dthp_bytes, end + 2)
+    heap = read_heap_pool(dthp_bytes)
+    if isinstance(heap, str):
+        return HeapTypes(failure=heap)
+    pool = TdPool(heap.tds)
     types: dict[int, LVType] = {}
-    for type_id, td_index in enumerate(top, start=1):
+    for type_id, td_index in enumerate(heap.top, start=1):
         if td_index >= len(pool.lvtypes):
             return HeapTypes(
                 types,

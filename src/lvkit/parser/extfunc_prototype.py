@@ -146,6 +146,19 @@ def array_handle_problem(c_type: str) -> str | None:
     return None
 
 
+@dataclass(frozen=True)
+class ParamTd:
+    """A prototype field's type descriptor as the rules below read it, whether it
+    came from the VCTP's XML or from a pre-LV9 type pool: its type name, its
+    numeric C type (None when it is not a number), how many dimensions it records
+    and the descriptor it points at (a pointer's target, an array's element)."""
+
+    kind_name: str
+    number: str | None = None
+    dimensions: int = 0
+    child: ParamTd | None = None
+
+
 def _number(td: ET.Element | None) -> str | None:
     """The C element type of a numeric type descriptor, else None."""
     if td is None:
@@ -161,20 +174,33 @@ def _child(td: ET.Element, flat: dict[int, ET.Element]) -> ET.Element | None:
     return flat.get(int(ref.get("TypeID", "-1"))) if ref is not None else None
 
 
-def _param(
-    td: ET.Element, flat: dict[int, ET.Element], is_return: bool
-) -> ExtFuncParam:
-    kind_name = td.get("Type", "")
-    number = _number(td)
-    if number is not None:
-        return ExtFuncParam(ParamKind.VALUE, number)
-    if kind_name == "PtrTo" and (c_type := _number(_child(td, flat))):
-        return ExtFuncParam(ParamKind.POINTER, c_type)
+def param_td_from_xml(
+    td: ET.Element, flat: dict[int, ET.Element], depth: int = 1
+) -> ParamTd:
+    """The ``ParamTd`` of a VCTP ``TypeDesc`` element; ``depth`` levels of what it
+    points at are read."""
+    child = _child(td, flat) if depth > 0 else None
+    return ParamTd(
+        td.get("Type", ""),
+        _number(td),
+        len(td.findall("Dimension")),
+        param_td_from_xml(child, flat, depth - 1) if child is not None else None,
+    )
+
+
+def param_from_td(td: ParamTd, is_return: bool) -> ExtFuncParam:
+    """How the function takes (or, for the return value, gives) a field."""
+    kind_name = td.kind_name
+    if td.number is not None:
+        return ExtFuncParam(ParamKind.VALUE, td.number)
+    target = td.child
+    if kind_name == "PtrTo" and target is not None and target.number:
+        return ExtFuncParam(ParamKind.POINTER, target.number)
     if kind_name == "CString":
         return ExtFuncParam(ParamKind.C_STRING)
-    if kind_name == "ArrayDataPtr" and (c_type := _number(_child(td, flat))):
-        if len(td.findall("Dimension")) == 1:
-            return ExtFuncParam(ParamKind.ARRAY_DATA, c_type)
+    if kind_name == "ArrayDataPtr" and target is not None and target.number:
+        if td.dimensions == 1:
+            return ExtFuncParam(ParamKind.ARRAY_DATA, target.number)
         return ExtFuncParam(
             ParamKind.UNSUPPORTED, reason="an array data pointer of several dimensions"
         )
@@ -186,19 +212,17 @@ def _param(
         return ExtFuncParam(ParamKind.STRING_HANDLE)
     if kind_name == "Ptr":
         return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
-    if kind_name == "PtrTo" and (target := _child(td, flat)) is not None:
-        if target.get("Type") == "String":
-            return ExtFuncParam(ParamKind.STRING_HANDLE_POINTER)
+    if kind_name == "PtrTo" and target is not None and target.kind_name == "String":
+        return ExtFuncParam(ParamKind.STRING_HANDLE_POINTER)
     if kind_name == "Array":
-        element = _number(_child(td, flat))
-        dimensions = len(td.findall("Dimension"))
-        if element is None or dimensions < 1:
+        element = target.number if target is not None else None
+        if element is None or td.dimensions < 1:
             return ExtFuncParam(
                 ParamKind.UNSUPPORTED, reason="a LabVIEW array handle of non-numbers"
             )
         if problem := array_handle_problem(element):
             return ExtFuncParam(ParamKind.UNSUPPORTED, reason=problem)
-        return ExtFuncParam(ParamKind.ARRAY_HANDLE, element, dimensions=dimensions)
+        return ExtFuncParam(ParamKind.ARRAY_HANDLE, element, dimensions=td.dimensions)
     return ExtFuncParam(ParamKind.UNSUPPORTED, reason=f"a {kind_name} parameter")
 
 
@@ -216,7 +240,7 @@ def extfunc_params(
     for index, ref in enumerate(cluster.findall("TypeDesc[@TypeID]")):
         td = flat.get(int(ref.get("TypeID", "-1")))
         params.append(
-            _param(td, flat, index == 0)
+            param_from_td(param_td_from_xml(td, flat), index == 0)
             if td is not None
             else ExtFuncParam(ParamKind.UNSUPPORTED, reason="an unreadable type")
         )
