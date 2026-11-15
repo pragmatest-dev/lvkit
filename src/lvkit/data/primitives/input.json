@@ -119,7 +119,8 @@
           "index": 11,
           "direction": "input",
           "name": "start_path",
-          "type": "Path"
+          "type": "Path",
+          "default_behavior": "last directory viewed"
         },
         {
           "index": 0,
@@ -149,7 +150,7 @@
       "python_code": {
         "selected_path": "in_11",
         "cancelled": "False",
-        "exists": "__import__('os').path.exists(in_11)",
+        "exists": "in_11 is not None and __import__('os').path.exists(in_11)",
         "error_out": "in_8"
       },
       "note": "File Dialog -- identified by pane signature (file-pattern + start path -> path + cancelled?/exists?). Express-VI doc page has no backend connector pane, so verify names if refining.",

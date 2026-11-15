@@ -22,7 +22,7 @@ from ..lv_type_codes import (
 from ..models import LVType, LVTypeKind, ScalarValue, Terminal, TerminalDirection
 from ..path_value import is_path_text
 from ..primitive_resolver import PrimitiveResolver
-from ..terminal_default import DefaultBehavior, TerminalDefault
+from ..terminal_default import DefaultBehavior, TerminalDefault, default_for_wiring
 from ..vilib_resolver import VILibResolver
 from .core import InMemoryVIGraph
 from .index_array_plan import IndexUse, plan_index_array
@@ -201,7 +201,12 @@ def instance_default(
         behavior = _behavior(entry, placed, laid_out)
         if behavior is not None:
             return DefaultValue(literal=f"({behavior.value})", type_descriptor=label)
-        value, name = entry.default, getattr(entry, "name", name)
+        wired = {
+            t.index
+            for t in node.terminals
+            if t.direction == "input" and graph.incoming_edges(t.id)
+        }
+        value, name = default_for_wiring(entry, wired), getattr(entry, "name", name)
     elif isinstance(node, VINode):
         pane = _pane_terminal_at(graph, node, terminal.index)
         if pane is not None:

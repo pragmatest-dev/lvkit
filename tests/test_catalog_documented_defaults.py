@@ -43,6 +43,8 @@ PRIMITIVE_DEFAULTS = [
     ("24202", "enable LabVIEW extensions? (T)", True),
     ("24202", "strict validation? (F)", False),
     ("8073", "offset (in bytes) (0)", 0),
+    ("8073", "from (0:start)", 0),  # 2 when `offset` is unwired
+    ("8058", "start_path", DefaultBehavior("last directory viewed")),
     ("1713", "abort (F)", False),
     ("8100", "UTC format", False),
     ("8101", "allow empty tokens? (F)", False),
@@ -145,10 +147,8 @@ VILIB_DEFAULTS = [
 # they stay the bare `default`.
 STAYS_BARE = [
     ("8070", "count"),  # one line or the whole file, by a menu setting
-    ("8073", "from (0:start)"),  # depends on whether `offset` is wired
     ("8051", "count (1)"),  # NI describes a single element
     ("2135", "include static events? (T)"),  # depends on the event case
-    ("8058", "start_path"),  # the last directory viewed
     ("8058", "prompt"),  # the dialog title differs between Windows/Linux and macOS
     # the enum is not an item value on the calls in the corpus
     ("8051", "byte order (0:big-endian, network order)"),
@@ -216,6 +216,17 @@ def test_move_shows_overwrite_and_prompt(tmp_path: Path) -> None:
 def test_obtain_queue_shows_the_unnamed_queue(tmp_path: Path) -> None:
     views = _views(tmp_path, primitive(10, 9108, [(0, STR)], out_type=I32))
     assert '      in   0 : String default ""\n' in views.lvnet
+
+
+def test_set_file_position_shows_from_as_current_when_offset_is_unwired(
+    tmp_path: Path,
+) -> None:
+    views = _views(
+        tmp_path, primitive(10, 8073, [(5, I32), (6, I32)], out_type=I32)
+    )
+    assert "      in   from (0:start)" in views.lvnet
+    line = next(x for x in views.lvnet.splitlines() if "from (0:start)" in x)
+    assert line.endswith("default 2")
 
 
 def test_search_split_shows_offset_zero(tmp_path: Path) -> None:
