@@ -440,3 +440,59 @@ def test_a_classic_unbundle_counts_the_cluster_fields_before_it_once():
     )
     fragment, namespace = run_fragment(node, (10.0, (20.0, 30.0), 40.0))
     assert eval(fragment.bindings["field"], namespace) == 40.0
+
+
+STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+NAMED = LVType(
+    kind=LVTypeKind.CLUSTER,
+    typedef_name="Pair.ctl",
+    fields=[ClusterField(name="a", type=DBL), ClusterField(name="b", type=STRING)],
+)
+
+
+def _new_cluster_bundle(wired):
+    """A Bundle with no cluster wired in: a number, a string, a typedef cluster
+    and an anonymous cluster; only the elements named in ``wired`` have a wire."""
+    kinds = {"number": DBL, "text": STRING, "named": NAMED, "inner": INNER}
+    result = cluster(*kinds.items())
+    node = PrimitiveNode(
+        id="bundle",
+        vi_path="Cluster Test.vi",
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id="agg_out",
+                index=0,
+                direction="output",
+                nmux_role="agg",
+                lv_type=result,
+            )
+        ],
+    )
+    inputs = []
+    pairs = [("agg_out", "fp:value")]
+    for row, (name, kind) in enumerate(kinds.items()):
+        node.terminals.append(
+            Terminal(
+                id=name,
+                index=row + 1,
+                direction="input",
+                nmux_role="list",
+                nmux_field_index=row,
+                lv_type=kind,
+            )
+        )
+        if name in wired:
+            inputs.append(public_terminal(name, "input", kind, len(inputs)))
+            pairs.append((f"fp:{name}", name))
+    return compile_vi(node, inputs, public_terminal("value", "output", result), pairs)
+
+
+def test_a_new_cluster_takes_each_unwired_element_default():
+    value = _new_cluster_bundle(set())()
+    assert value.value == (0.0, "", SimpleNamespace(a=0.0, b=""), (0.0, 0.0))
+
+
+def test_a_new_cluster_keeps_the_wired_elements():
+    value = _new_cluster_bundle({"text", "inner"})("hello", (1.0, 2.0)).value
+    assert value == (0.0, "hello", SimpleNamespace(a=0.0, b=""), (1.0, 2.0))

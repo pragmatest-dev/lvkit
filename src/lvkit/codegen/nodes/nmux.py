@@ -41,6 +41,7 @@ from ..cluster_members import (
 from ..context import CodeGenContext
 from ..error_flow import ErrorFieldRole
 from ..fragment import CodeFragment
+from ..type_default import type_default
 from ..value_copy import owned_input
 from . import waveform_bundle
 
@@ -211,7 +212,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     t.nmux_field_index if t.nmux_field_index is not None else t.index
                 ),
             )
-            elts = [parse_expr(ctx.wired_input(t.id, node) or "None") for t in ordered]
+            # An element with nothing wired is its type's default.
+            elts = [
+                parse_expr(
+                    ctx.wired_input(t.id, node)
+                    or ast.unparse(
+                        type_default(ctx, _element_type(t, i, agg_lv_type), "A Bundle")
+                    )
+                )
+                for i, t in enumerate(ordered)
+            ]
             tup = ast.Tuple(elts=elts, ctx=ast.Load())
             for t in agg_out:
                 bindings[t.id] = ast.unparse(tup)
@@ -228,6 +238,19 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
 
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
+
+
+def _element_type(
+    element: Terminal, position: int, cluster: LVType | None
+) -> LVType | None:
+    """The type of a Bundle element: the terminal's own, else the type of the
+    cluster's field at ``position``."""
+    if element.lv_type is not None:
+        return element.lv_type
+    fields = cluster.fields if cluster is not None else None
+    if fields and position < len(fields):
+        return fields[position].type
+    return None
 
 
 def _carries_input(element: Terminal) -> bool:
