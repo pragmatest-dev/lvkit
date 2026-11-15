@@ -36,10 +36,10 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
+from ..collection_keys import key_expression
 from ..context import CodeGenContext
 from ..native_array import operand
 from ..type_default import type_default
-from .ops.collections import ensure_hashable
 
 
 def _is_map(term: Terminal) -> bool:
@@ -71,8 +71,8 @@ def map_terminal(op: PrimitiveNode, direction: str) -> Terminal | None:
 
 def read_tile(op: PrimitiveNode, ctx: CodeGenContext) -> tuple[str, str] | None:
     """Bind the READ tile's outputs to expressions over the map and the key.
-    Returns ``(map, key)`` as the expressions that feed it, None when either is
-    not wired."""
+    Returns ``(map, key)`` as the expressions that feed it (the key as wired, not
+    as the map stores it), None when either is not wired."""
     map_in = map_terminal(op, "input")
     inputs = _listed(op, "input")
     value_out = _agg(op, "output")
@@ -84,13 +84,13 @@ def read_tile(op: PrimitiveNode, ctx: CodeGenContext) -> tuple[str, str] | None:
     key = ctx.wired_input(key_in.id, op)
     if whole is None or key is None:
         return None
-    ensure_hashable(op, key_in.lv_type, "a key")
+    stored = key_expression(ctx, op, key, key_in.lv_type, "a key")
     default = ctx.wired_input(default_in.id, op)
     if default is None:
         default = ast.unparse(type_default(ctx, value_out.lv_type))
-    ctx.bind(value_out.id, f"{operand(whole)}.get({key}, {default})")
+    ctx.bind(value_out.id, f"{operand(whole)}.get({stored}, {default})")
     for out in not_found:
-        ctx.bind(out.id, _not_found(whole, key))
+        ctx.bind(out.id, _not_found(whole, stored))
     return whole, key
 
 
@@ -115,9 +115,19 @@ def write_tile(
     ctx.bind(map_out.id, name)
     if outputs:
         ctx.bind(outputs[0].id, key)
+    key_out = outputs[0] if outputs else None
+    stored = key_expression(
+        ctx, op, key, key_out.lv_type if key_out is not None else None, "a key"
+    )
+    statements: list[ast.stmt] = []
+    if stored != key:
+        held = ctx.make_output_var("key", op.id)
+        statements.extend(ast.parse(f"{held} = {stored}").body)
+        stored = held
     for out in outputs[1:]:
-        ctx.bind(out.id, _not_found(whole, key))
-    return _action_statements(op, name, whole, key, value, action, ctx)
+        ctx.bind(out.id, _not_found(whole, stored))
+    statements.extend(_action_statements(op, name, whole, stored, value, action, ctx))
+    return statements
 
 
 def _action_statements(

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,7 +23,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.nodes import in_place_map
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from tests.helpers import exec_generated
 from tests.structure_diagrams import (
     BOOL,
@@ -279,7 +280,13 @@ def test_an_action_that_is_only_known_at_run_time_chooses_the_branch_then(
                 lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Map"),
             ),
             Terminal(id="value_in", index=1, direction="input", nmux_role="agg"),
-            Terminal(id="key_out", index=2, direction="output", nmux_role="list"),
+            Terminal(
+                id="key_out",
+                index=2,
+                direction="output",
+                nmux_role="list",
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+            ),
             Terminal(id="nf_out", index=3, direction="output", nmux_role="list"),
             Terminal(id="action_in", index=4, direction="input", nmux_role="list"),
         ],
@@ -311,11 +318,8 @@ def test_an_action_that_is_only_known_at_run_time_chooses_the_branch_then(
         exec(compile(code, "<generated>", "exec"), namespace)
 
 
-def test_a_cluster_key_stays_a_gap(tmp_path: Path) -> None:
-    from tests.helpers import make_ctx
-
-    cluster = LVType(kind=LVTypeKind.CLUSTER)
-    left = _tile_node(
+def _left_tile(key_type: LVType) -> PrimitiveNode:
+    return _tile_node(
         "left",
         [
             Terminal(
@@ -330,17 +334,97 @@ def test_a_cluster_key_stays_a_gap(tmp_path: Path) -> None:
                 index=2,
                 direction="input",
                 nmux_role="list",
-                lv_type=cluster,
+                lv_type=key_type,
             ),
             Terminal(id="nf_out", index=3, direction="output", nmux_role="list"),
             Terminal(id="default_in", index=4, direction="input", nmux_role="list"),
         ],
     )
+
+
+def _point(typedef: str | None) -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name=typedef,
+        fields=[ClusterField("x", I32_TYPE), ClusterField("Name", STR_TYPE)],
+    )
+
+
+I32_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+STR_TYPE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+
+
+def test_a_cluster_key_reads_the_map_by_its_tuple() -> None:
+    from tests.helpers import make_ctx
+
+    for typedef, key in (
+        ("Pt", SimpleNamespace(x=1, name="a")),
+        (None, (1, "a")),
+    ):
+        ctx = make_ctx("map_in", "value_out", "key_in", "nf_out", "default_in")
+        ctx.bind("map_in", "m")
+        ctx.bind("key_in", "k")
+        ctx.bind("default_in", "-1")
+        in_place_map.read_tile(_left_tile(_point(typedef)), ctx)
+        namespace = {"m": {(1, "a"): 5}, "k": key}
+        assert eval(ctx.resolve("value_out"), namespace) == 5  # noqa: S307
+        assert eval(ctx.resolve("nf_out"), namespace) is False  # noqa: S307
+        namespace["k"] = SimpleNamespace(x=2, name="a") if typedef else (2, "a")
+        assert eval(ctx.resolve("value_out"), namespace) == -1  # noqa: S307
+        assert eval(ctx.resolve("nf_out"), namespace) is True  # noqa: S307
+
+
+def test_a_cluster_key_writes_each_action_by_its_tuple_and_gives_the_key_back() -> None:
+    from tests.helpers import make_ctx
+
+    point = _point("Pt")
+    right = _tile_node(
+        "right",
+        [
+            Terminal(
+                id="map_out",
+                index=0,
+                direction="output",
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Map"),
+            ),
+            Terminal(id="value_in", index=1, direction="input", nmux_role="agg"),
+            Terminal(
+                id="key_out",
+                index=2,
+                direction="output",
+                nmux_role="list",
+                lv_type=point,
+            ),
+            Terminal(id="nf_out", index=3, direction="output", nmux_role="list"),
+            Terminal(id="action_in", index=4, direction="input", nmux_role="list"),
+        ],
+    )
+    for action, found, expected in (
+        (0, (1, "a"), {(1, "a"): 5}),
+        (1, (2, "b"), {(1, "a"): 1, (2, "b"): 5}),
+        (2, (1, "a"), {}),
+    ):
+        ctx = make_ctx("map_out", "value_in", "key_out", "nf_out", "action_in")
+        ctx.bind("value_in", "new")
+        ctx.bind("action_in", str(action))
+        statements = in_place_map.write_tile(right, "m", "k", ctx)
+        code = "\n".join(ast.unparse(s) for s in statements)
+        key = SimpleNamespace(x=found[0], name=found[1])
+        namespace: dict[str, object] = {"m": {(1, "a"): 1}, "k": key, "new": 5}
+        exec(compile(code, "<generated>", "exec"), namespace)
+        assert namespace[ctx.resolve("map_out")] == expected
+        assert eval(ctx.resolve("key_out"), namespace) is key  # noqa: S307
+
+
+def test_a_class_object_key_stays_a_gap() -> None:
+    from tests.helpers import make_ctx
+
+    thing = LVType(kind=LVTypeKind.CLASS, classname="Thing")
     ctx = make_ctx("map_in", "value_out", "key_in", "nf_out", "default_in")
     ctx.bind("map_in", "m")
     ctx.bind("key_in", "k")
-    with pytest.raises(ConversionGap, match="key of cluster type"):
-        in_place_map.read_tile(left, ctx)
+    with pytest.raises(ConversionGap, match="a class object"):
+        in_place_map.read_tile(_left_tile(thing), ctx)
 
 
 def test_an_unwired_default_value_is_the_default_of_the_value_type(

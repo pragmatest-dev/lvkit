@@ -214,7 +214,7 @@ def _collection(
         if not entries:
             return "set()"
         elements = [
-            constant_value_expression(ctx, key_type, entry, f"an element of {where}")
+            _key_constant(ctx, key_type, entry, f"an element of {where}")
             for entry in entries
         ]
         return "{" + ", ".join(elements) + "}"
@@ -224,12 +224,53 @@ def _collection(
     items = []
     for entry in entries:
         assert isinstance(entry, list)
-        key = constant_value_expression(ctx, key_type, entry[0], f"a key of {where}")
+        key = _key_constant(ctx, key_type, entry[0], f"a key of {where}")
         value = constant_value_expression(
             ctx, value_type, entry[1], f"a value of {where}"
         )
         items.append(f"{key}: {value}")
     return "{" + ", ".join(items) + "}"
+
+
+def _key_constant(
+    ctx: CodeGenContext, lv_type: LVType, value: object, where: str
+) -> str:
+    """A key or element of a Map or Set constant, written the way a wired one
+    enters the collection (``collection_keys``): a cluster or an array as a tuple
+    of its values, anything else as the constant."""
+    if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields is not None:
+        if not isinstance(value, dict) or _is_error_cluster(lv_type):
+            return constant_value_expression(ctx, lv_type, value, where)
+        keys = unique_names(f.name for f in lv_type.fields)
+        parts = []
+        for f, key in zip(lv_type.fields, keys):
+            if f.type is None:
+                raise ConversionGap(
+                    f"The type of the field {f.name!r} of {where} is not known"
+                )
+            parts.append(_key_constant(ctx, f.type, value.get(key), where))
+        return f"({', '.join(parts)}{',' if len(parts) == 1 else ''})"
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        if not isinstance(value, list):
+            return constant_value_expression(ctx, lv_type, value, where)
+        return _key_array(
+            ctx, lv_type.element_type, lv_type.dimensions or 1, value, where
+        )
+    return constant_value_expression(ctx, lv_type, value, where)
+
+
+def _key_array(
+    ctx: CodeGenContext,
+    element: LVType,
+    dimensions: int,
+    value: list[object],
+    where: str,
+) -> str:
+    if dimensions > 1:
+        items = [_key_array(ctx, element, dimensions - 1, v, where) for v in value]  # type: ignore[arg-type]
+    else:
+        items = [_key_constant(ctx, element, v, where) for v in value]
+    return f"({', '.join(items)}{',' if len(items) == 1 else ''})"
 
 
 def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
