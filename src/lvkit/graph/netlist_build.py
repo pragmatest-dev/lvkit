@@ -38,6 +38,7 @@ from lvkit.lv_type_codes import (
 from lvkit.vi_files import is_vi_file
 
 from ..models import (
+    MAP_ACCESS_NODE_TYPE,
     CaseFrame,
     EventFrame,
     FPTerminal,
@@ -815,6 +816,8 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
         return False
     if not graph.get_poser_uid(node.id):
         return False
+    if node.node_type == MAP_ACCESS_NODE_TYPE:
+        return True
     has_list_out = any(
         t.nmux_role == "list" and t.direction == "output" for t in node.terminals
     )

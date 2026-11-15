@@ -933,6 +933,11 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
+# The XML class of the Map Get / Replace Value border node of an In Place Element
+# structure (both halves).
+MAP_ACCESS_NODE_TYPE = "Class018D"
+
+
 class InPlaceBorderSide(StrEnum):
     """Which half of an In Place Element Structure's border a tile is: the READ
     tile takes the element out of the data, the WRITE tile puts it back."""
@@ -956,7 +961,19 @@ def inplace_border_side(
       out); the write tile replaces (array back OUT). An array-kind OUTPUT means
       the write tile.
 
+    - ``Class018D`` (Map Get / Replace Value) -- the map is the INPUT on the
+      read tile (it looks a key up) and the OUTPUT on the write tile (the
+      resulting map).
+
     Returns ``None`` when the discriminating terminal isn't present."""
+    if node_type == MAP_ACCESS_NODE_TYPE:
+        for t in terminals:
+            lt = t.lv_type
+            if lt is not None and lt.underlying_type == "Map":
+                if t.direction == "input":
+                    return InPlaceBorderSide.READ
+                return InPlaceBorderSide.WRITE
+        return None
     if node_type == "decomposeClusterNode":
         fields = [t for t in terminals if t.nmux_role == "list"]
         if not fields:
@@ -990,14 +1007,17 @@ _INPLACE_BORDER_NAMES = {
     ("decomposeDataValRefNode", InPlaceBorderSide.WRITE): "DVR Write",
     ("decomposeArrayNode", InPlaceBorderSide.READ): "Array Index",
     ("decomposeArrayNode", InPlaceBorderSide.WRITE): "Array Replace",
+    (MAP_ACCESS_NODE_TYPE, InPlaceBorderSide.READ): "Map Get Value",
+    (MAP_ACCESS_NODE_TYPE, InPlaceBorderSide.WRITE): "Map Replace Value",
 }
 
 
 def inplace_border_name(node_type: str, terminals: list[Terminal]) -> str | None:
-    """Faithful per-tile name for the two IN-PLACE-ELEMENT-STRUCTURE border
+    """Faithful per-tile name for the IN-PLACE-ELEMENT-STRUCTURE border
     nodes that carry no field shape (unlike ``decomposeClusterNode``, which
-    goes through :func:`bundle_unbundle_name`): "DVR Read" / "DVR Write" and
-    "Array Index" / "Array Replace", from :func:`inplace_border_side`.
+    goes through :func:`bundle_unbundle_name`): "DVR Read" / "DVR Write",
+    "Array Index" / "Array Replace" and "Map Get Value" / "Map Replace Value",
+    from :func:`inplace_border_side`.
 
     Returns ``None`` when the discriminating type isn't present (leave the
     node's fallback name untouched). Public NI docs: the border nodes are the

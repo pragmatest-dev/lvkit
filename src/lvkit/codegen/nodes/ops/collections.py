@@ -68,10 +68,8 @@ def empty_collection(
     return {"empty": "len(in_1) == 0"}
 
 
-def _hashable(node: PrimitiveNode, index: int, what: str) -> None:
-    """Raise a gap unless input ``index`` is a number, Boolean, string or path."""
-    term = terminal(node, "input", index)
-    lv_type = term.lv_type if term is not None else None
+def ensure_hashable(node: PrimitiveNode, lv_type: LVType | None, what: str) -> None:
+    """Raise a gap unless ``lv_type`` is a number, Boolean, string or path."""
     if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
         kind = "an unknown type" if lv_type is None else lv_type.kind.value
         raise ConversionGap(
@@ -79,6 +77,12 @@ def _hashable(node: PrimitiveNode, index: int, what: str) -> None:
             "only a number, Boolean, string or path can be a key or element",
             node,
         )
+
+
+def _hashable(node: PrimitiveNode, index: int, what: str) -> None:
+    """Raise a gap unless input ``index`` is a number, Boolean, string or path."""
+    term = terminal(node, "input", index)
+    ensure_hashable(node, term.lv_type if term is not None else None, what)
 
 
 def _required(

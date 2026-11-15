@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
 from lvkit.models import (
+    MAP_ACCESS_NODE_TYPE,
     ClusterField,
     InPlaceBorderSide,
     Terminal,
@@ -42,14 +43,16 @@ from ..fragment import CodeFragment
 from ..native_array import guarded_indexes, replaced_elements
 from ..type_default import type_default
 from ..value_copy import own_path, owned_input
+from . import in_place_map
 from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"
 _ARRAY = "decomposeArrayNode"
 _DVR = "decomposeDataValRefNode"
+_MAP = MAP_ACCESS_NODE_TYPE
 # A whole-value tile: no field split, the value enters and leaves unchanged.
 _WHOLE = "decomposeMatchNode"
-_BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR)
+_BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR, _MAP)
 
 
 @dataclass
@@ -92,7 +95,7 @@ def _split_children(
         node_type = None
         side = None
         if isinstance(op, PrimitiveNode):
-            if op.node_type in (_ARRAY, _DVR):
+            if op.node_type in (_ARRAY, _DVR, _MAP):
                 node_type = op.node_type
             elif ctx.poser_uid(op):
                 node_type = _CLUSTER
@@ -316,6 +319,9 @@ def _take_element_out(
         default = ast.unparse(type_default(ctx, element_out.lv_type))
         ctx.bind(element_out.id, guarded_indexes(whole, indexes, default))
         return _Element(whole, indexes)
+    if tile.kind == _MAP:
+        access = in_place_map.read_tile(op, ctx)
+        return _Element(access[0], [access[1]]) if access is not None else None
     dvr_in = next(
         (t for t in op.terminals if t.direction == "input"),
         None,
@@ -351,6 +357,11 @@ def _write_elements_back(
             continue
         if tile.kind == _ARRAY:
             stmts.extend(_write_array_element_back(tile, element, ctx))
+            continue
+        if tile.kind == _MAP:
+            stmts.extend(
+                in_place_map.write_tile(op, element.whole, element.indexes[0], ctx)
+            )
             continue
         source = next(
             (t for t in op.terminals if t.direction == "input"),
@@ -517,6 +528,9 @@ def _carried_outputs(tile: _Tile) -> list[Terminal]:
             for t in tile.op.terminals
             if t.nmux_role is None and t.direction == "output"
         ]
+    if tile.kind == _MAP:
+        out = in_place_map.map_terminal(tile.op, "output")
+        return [out] if out is not None else []
     return _data_terminals(tile.op, "output")
 
 

@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
+    MAP_ACCESS_NODE_TYPE,
     CaseFrame,
     FPTerminal,
     LVType,
@@ -455,6 +456,8 @@ def _is_ipes_border_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     like tunnels, not in its body."""
     if graph._graph.nodes.get(node.id, {}).get("poser_uid") is None:
         return False
+    if getattr(node, "node_type", None) == MAP_ACCESS_NODE_TYPE:
+        return True
     has_list_out = any(
         t.nmux_role == "list" and t.direction == "output" for t in node.terminals
     )

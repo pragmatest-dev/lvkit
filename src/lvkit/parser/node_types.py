@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
 from typing import Any
 
-from ..models import LVType, PropertyDef, PropertySegment
+from ..models import MAP_ACCESS_NODE_TYPE, LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
 from .error_ring import ErrorRing
 from .extfunc import (
@@ -1867,6 +1867,21 @@ class DecomposeArrayHandler(DecomposeClusterHandler):
     display_name = "In Place Element"
 
 
+class MapAccessHandler(DecomposeClusterHandler):
+    """The In Place Element structure's Map Get / Replace Value border node
+    (class="Class018D", the left and right halves paired by one ``poser``).
+
+    Public NI docs ("Map Get / Replace Value", labview-api-ref
+    ``functions/map-get-replace-value.html``): the left half retrieves the value
+    of a key in a map, the right half modifies or discards it. The ``dcoAgg`` is
+    the ``value`` terminal; the ``dcoList`` holds the key, the key not found
+    flag and the default value (left) or action (right) terminals.
+    """
+
+    xml_class = MAP_ACCESS_NODE_TYPE
+    display_name = "Map Get / Replace Value"
+
+
 class _DecomposeDataValRefHandler(NodeTypeHandler):
     """Stub handler for DVR decompose nodes (class="decomposeDataValRefNode").
 
@@ -2082,6 +2097,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     ExpressionNodeHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
+    MapAccessHandler(),
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
     DecomposeRecomposeStructureHandler(),

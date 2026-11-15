@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+from ..models import MAP_ACCESS_NODE_TYPE
+
 # === XML Element Class Names ===
 # Node types on the block diagram
 NODE_CLASS_PRIM = "prim"
@@ -165,6 +167,7 @@ OPERATION_NODE_CLASSES = (
     "decomposeArrayNode",
     "decomposeDataValRefNode",
     "decomposeMatchNode",
+    MAP_ACCESS_NODE_TYPE,
 )
 
 # Loop node classes
