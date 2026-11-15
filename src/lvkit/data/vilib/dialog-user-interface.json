@@ -271,7 +271,6 @@
     },
     {
       "name": "Simple Error Handler",
-      "live_io": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/simple-error-handler-vi.html",
       "category": "Dialog & User Interface",
       "description": "Indicates whether an error occurred. If an error occurred, this VI returns a description of the error and optionally displays a dialog box. This VI calls the General Error Handler VI and has the same basic functionality as General Error Handler but with fewer options.",
@@ -361,7 +360,6 @@
     },
     {
       "name": "General Error Handler",
-      "live_io": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/general-error-handler-vi.html",
       "category": "Dialog & User Interface",
       "description": "Indicates whether an error occurred. If an error occurred, this VI returns a description Functions © National Instruments 1863 of the error and optionally displays a dialog box.",
@@ -372,7 +370,7 @@
       "terminals": [
         {
           "name": "[user-defined descriptions]",
-          "index": 2,
+          "index": null,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -381,7 +379,7 @@
         },
         {
           "name": "[user-defined codes]",
-          "index": 1,
+          "index": null,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -420,7 +418,7 @@
         },
         {
           "name": "type of dialog (OK msg:1)",
-          "index": 9,
+          "index": null,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -430,7 +428,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": 11,
+          "index": null,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -469,7 +467,7 @@
         },
         {
           "name": "error?",
-          "index": 4,
+          "index": null,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -478,7 +476,7 @@
         },
         {
           "name": "code out",
-          "index": 6,
+          "index": null,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -487,7 +485,7 @@
         },
         {
           "name": "source out",
-          "index": 8,
+          "index": null,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -496,7 +494,7 @@
         },
         {
           "name": "message",
-          "index": 10,
+          "index": null,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -505,7 +503,7 @@
         },
         {
           "name": "error out",
-          "index": 15,
+          "index": null,
           "direction": "output",
           "type": null,
           "enum_values": null,

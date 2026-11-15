@@ -105,7 +105,7 @@ a warning is `LabVIEWError(status=False, code=…)`.
 | Merge Errors | first input with status True, else first warning, else `None`, in input order |
 | Clear Errors | `err = None` (with a specific code wired: only that code) |
 | Error Cluster From Error Code | `LabVIEWError(code, …, status=not is_warning)` or `None` for code 0 |
-| Simple / General Error Handler | the error it reports: `err` when an error occurred on it; else, for a nonzero `error code`, `LabVIEWError(status=True, code=error_code, source=error_source)`; else `err` (`None`, or a warning). `error_out` is that error, outputs (`error?`, `code out`, `source out`, `message`) from it; an unwired `error code` is 0 and writes no code test; the dialog `type of dialog` says (default 1) is `live_io.prompt` (`live-panel-plan.md` D5), none for 0 |
+| Simple / General Error Handler | the error it reports: `err` when an error occurred on it; else, for a nonzero `error code`, `LabVIEWError(status=True, code=error_code, source=error_source)`; else `err` (`None`, or a warning). `error_out` is that error, outputs (`error?`, `code out`, `source out`, `message`) from it; an unwired `error code` is 0 and writes no code test; no dialog |
 | Error shift register / loop tunnel | a loop variable like any other |
 | Loop stop terminal wired to an error | `if err is not None and err.status: break` |
 | Forked error wire / parallel branches | plain sequential code, each branch carrying its own variable; the thread pool tier (`builder.py:_generate_parallel_tier`) is removed |
@@ -182,9 +182,7 @@ Every commit's diff is reviewed by me (a stronger model than its author).
 4. A typedef cluster's default: plain `SimpleNamespace` (as cluster constants
    are) or the typedef's own class. **Recommend: plain `SimpleNamespace`.**
 5. Simple / General Error Handler dialog: nothing, or print to stderr.
-   **Recommend: nothing** (the One Button Dialog precedent). **Replaced
-   (maintainer, 2026-11-14, `live-panel-plan.md` D5 and section 11): the dialog
-   is `live_io.prompt`, as every other dialog.**
+   **Recommend: nothing** (the One Button Dialog precedent).
 6. Error Ring (39 VIs, no codegen today): in this change or not. **Recommend:
    in, if its value decodes from the node's data; a gap otherwise.**
 8. **Decided 2026-11-01:** a VI's results are a frozen `dataclass`, not a

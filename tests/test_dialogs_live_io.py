@@ -17,14 +17,11 @@ from lvkit.codegen.gaps import Gap
 from lvkit.panel.live_io import LiveIO, PromptUnavailableError
 from tests.live_io_recorder import PromptRecorder
 from tests.primitive_caller import run_primitive
-from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
-from tests.vilib_caller import BOOL, I32, STRING, U32, primitive, run_catalog_call
+from tests.vilib_caller import BOOL, STRING, U32, primitive, run_catalog_call
 
 ARRAY = primitive("Array")
 ERROR_HANDLER = ["<vilib>", "Utility", "error.llb"]
 THREE_BUTTON = [*ERROR_HANDLER, "Three Button Dialog.vi"]
-SIMPLE_HANDLER = [*ERROR_HANDLER, "Simple Error Handler.vi"]
-GENERAL_HANDLER = [*ERROR_HANDLER, "General Error Handler.vi"]
 
 # One Button Dialog: [0] true, [1] button name, [2] message.
 ONE_BUTTON_PANE = [(0, "output", BOOL), (1, "input", STRING), (2, "input", STRING)]
@@ -198,165 +195,6 @@ def test_a_dialog_with_no_live_io_raises_the_error_that_names_it() -> None:
             {"message": "Disk full"},
         )
     assert type(raised.value).__name__ == "PromptUnavailableError"
-
-
-# Simple Error Handler: [0] error?, [1] code out, [3] error code, [4] error
-# source, [5] source out, [6] error out, [7] message, [8] type of dialog,
-# [9] error in. General Error Handler: [0] error code, [4] error?, [5] error
-# source, [6] code out, [8] source out, [9] type of dialog, [10] message,
-# [11] error in, [15] error out.
-SIMPLE_PANE = [
-    (0, "output", BOOL),
-    (1, "output", I32),
-    (3, "input", I32),
-    (5, "output", STRING),
-    (6, "output", ERROR_CLUSTER),
-    (7, "output", STRING),
-    (8, "input", I32),
-    (9, "input", ERROR_CLUSTER),
-]
-GENERAL_PANE = [
-    (0, "input", I32),
-    (4, "output", BOOL),
-    (6, "output", I32),
-    (8, "output", STRING),
-    (9, "input", I32),
-    (10, "output", STRING),
-    (11, "input", ERROR_CLUSTER),
-    (15, "output", ERROR_CLUSTER),
-]
-
-
-def _handler(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    recorded: list[str],
-    recorder: LiveIO,
-    code: int,
-    dialog: int | None,
-    simple: bool = True,
-    gaps: list[Gap] | None = None,
-) -> tuple[str, Any]:
-    pane = SIMPLE_PANE if simple else GENERAL_PANE
-    code_slot, dialog_slot, message_slot = (3, 8, 7) if simple else (0, 9, 10)
-    constants: dict[int, tuple[Any, Any]] = {code_slot: (code, I32)}
-    if dialog is not None:
-        constants[dialog_slot] = (dialog, I32)
-    return run_catalog_call(
-        tmp_path,
-        monkeypatch,
-        recorded,
-        pane,
-        {},
-        {"occurred": (0 if simple else 4, BOOL), "message": (message_slot, STRING)},
-        {"live_io": recorder},
-        constants=constants,
-        gaps=gaps,
-    )
-
-
-@pytest.mark.parametrize(
-    ("recorded", "simple"), [(SIMPLE_HANDLER, True), (GENERAL_HANDLER, False)]
-)
-def test_an_error_handler_shows_an_ok_dialog_for_an_error_by_default(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded: list[str], simple: bool
-) -> None:
-    recorder = PromptRecorder()
-    source, result = _handler(
-        tmp_path, monkeypatch, recorded, recorder, 7, None, simple
-    )
-    assert result.occurred is True
-    assert len(recorder.dialogs) == 1
-    message, buttons, _ = recorder.dialogs[0]
-    assert buttons == ["Continue"]
-    assert message == result.message and message
-    assert "lvkit" not in source
-
-
-@pytest.mark.parametrize(
-    ("recorded", "simple"), [(SIMPLE_HANDLER, True), (GENERAL_HANDLER, False)]
-)
-def test_an_error_handler_with_no_dialog_shows_none_and_needs_no_terminal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded: list[str], simple: bool
-) -> None:
-    recorder = PromptRecorder()
-    _, result = _handler(tmp_path, monkeypatch, recorded, recorder, 7, 0, simple)
-    assert result.occurred is True and result.message
-    assert recorder.dialogs == []
-
-
-def test_an_error_handler_shows_nothing_when_no_error_occurred(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    recorder = PromptRecorder()
-    _, result = _handler(tmp_path, monkeypatch, GENERAL_HANDLER, recorder, 0, 1, False)
-    assert result.occurred is False
-    assert recorder.dialogs == []
-
-
-def test_continue_or_stop_stops_the_run_when_stop_is_chosen(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    recorder = PromptRecorder(1)
-    with pytest.raises(SystemExit):
-        _handler(tmp_path, monkeypatch, SIMPLE_HANDLER, recorder, 7, 2)
-    assert recorder.dialogs[0][1] == ["Continue", "Stop"]
-
-
-def test_continue_or_stop_goes_on_when_continue_is_chosen(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    recorder = PromptRecorder(0)
-    _, result = _handler(tmp_path, monkeypatch, SIMPLE_HANDLER, recorder, 7, 2)
-    assert result.occurred is True
-    assert recorder.dialogs[0][1] == ["Continue", "Stop"]
-
-
-def test_a_dialog_type_wired_at_run_time_picks_its_buttons_then(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    recorder = PromptRecorder(0)
-    _, result = run_catalog_call(
-        tmp_path,
-        monkeypatch,
-        GENERAL_HANDLER,
-        GENERAL_PANE,
-        {"code": (0, I32), "kind": (9, I32)},
-        {"occurred": (4, BOOL)},
-        {"code": 7, "kind": 4, "live_io": recorder},
-    )
-    assert result.occurred is True
-    assert recorder.dialogs[0][1] == ["Continue", "Stop"]
-    quiet = PromptRecorder()
-    run_catalog_call(
-        tmp_path,
-        monkeypatch,
-        GENERAL_HANDLER,
-        GENERAL_PANE,
-        {"code": (0, I32), "kind": (9, I32)},
-        {"occurred": (4, BOOL)},
-        {"code": 7, "kind": 0, "live_io": quiet},
-    )
-    assert quiet.dialogs == []
-
-
-def test_general_error_handler_user_defined_codes_stay_a_gap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    gaps: list[Gap] = []
-    with pytest.raises(NotImplementedError, match="user_defined_codes"):
-        run_catalog_call(
-            tmp_path,
-            monkeypatch,
-            GENERAL_HANDLER,
-            [*GENERAL_PANE, (1, "input", ARRAY)],
-            {"code": (0, I32), "codes": (1, ARRAY)},
-            {"occurred": (4, BOOL)},
-            {"code": 7, "codes": [7], "live_io": PromptRecorder()},
-            gaps=gaps,
-            runtime_not_implemented=True,
-        )
-    assert len(gaps) == 1
 
 
 def test_a_neighbour_dialog_vi_stays_a_gap(

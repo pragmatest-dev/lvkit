@@ -23,8 +23,8 @@ off-pane control the diagram reads (``entry_reads``)::
     stop = live_io.read(AcquireValue.STOP, stop)
 
 A dialog box is ``live_io.prompt(message, [button texts], title)``, which returns
-the position of the button chosen (``codegen/error_dialog.py``, and the catalog
-entries that carry ``"live_io": true``).
+the position of the button chosen (the catalog entries that carry
+``"live_io": true``).
 
 A VI whose bound Property Nodes write a listed control property
 (``control_properties.json``) calls
