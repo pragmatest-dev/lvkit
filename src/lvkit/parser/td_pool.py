@@ -32,7 +32,7 @@ import struct
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from ..lv_type_codes import REFNUM_TYPE, TD_FULL_TYPE
+from ..lv_type_codes import MEASURE_DATA_FLAVOR, REFNUM_TYPE, TD_FULL_TYPE
 from ..models import (
     ClusterField,
     EnumValue,
@@ -284,6 +284,9 @@ class TdPool:
                 values=values,
             ), _label(td, off)
 
+        if full_type == TD_FULL_TYPE.MeasureData:
+            return self._decode_measure_data(td)
+
         if full_type == TD_FULL_TYPE.Cluster:
             return self._decode_cluster(td)
 
@@ -297,6 +300,20 @@ class TdPool:
             return self._decode_typedef(td)
 
         raise PoolError(f"type code 0x{code:02X} ({full_type.name}) is not read")
+
+    def _decode_measure_data(self, td: RawTD) -> tuple[LVType, str | None]:
+        """``u16`` flavor, the waveform or digital-data kind, named as the
+        extracted XML names it (a number for a flavor pylabview has no name for)."""
+        (code,) = struct.unpack_from(">H", td.body, 0)
+        try:
+            flavor = MEASURE_DATA_FLAVOR(code).name
+        except ValueError:
+            flavor = str(code)
+        return LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type=TD_FULL_TYPE.MeasureData.name,
+            measure_flavor=flavor,
+        ), _label(td, 2)
 
     def _decode_array(self, td: RawTD) -> tuple[LVType, str | None]:
         """``u16`` ndims, ndims x ``u32`` dimension size, then the element TD."""

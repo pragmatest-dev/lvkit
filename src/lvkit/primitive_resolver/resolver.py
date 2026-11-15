@@ -342,6 +342,7 @@ class PrimitiveResolver:
                 inputs_error_cluster_status=info.get(
                     "inputs_error_cluster_status", False
                 ),
+                gap_reason=info.get("gap_reason"),
             )
         return None
 

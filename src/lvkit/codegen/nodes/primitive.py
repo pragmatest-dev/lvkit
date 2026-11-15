@@ -105,6 +105,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         # Fall through if node_type resolved but has no code -- unless it carries
         # an ``op`` tag, whose generator-owned handler supplies python_code below.
         if resolved and not resolved.python_code and not resolved.op:
+            if resolved.gap_reason:
+                raise_unknown(node, prim_id, ctx, resolved.gap_reason)
             resolved = None
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(
