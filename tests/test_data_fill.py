@@ -60,6 +60,16 @@ def _fill(xml: str) -> ET.Element:
         ("<U64>5</U64>", "0000000000000005"),
         ("<SGL>1.5</SGL>", "3fc00000"),
         ("<DBL>48000000</DBL>", "4186e36000000000"),
+        ("<EXT>1.00000000000000000000000000000000000000</EXT>", "3fff" + "00" * 14),
+        ("<EXT>-1.5</EXT>", "bfff8" + "0" * 27),
+        ("<EXT>0</EXT>", "00" * 16),
+        ("<EXT>-0</EXT>", "80" + "00" * 15),
+        ("<EXT>Infinity</EXT>", "7fff" + "00" * 14),
+        ("<EXT>nan (0x7FFF8000000000000000000000000000)</EXT>", "7fff8" + "0" * 27),
+        (
+            "<EXT>1.68105157155604675313133890866087630130e-4932</EXT>",
+            "0000" + "80" + "00" * 13,  # half the smallest normal: 2**-16383
+        ),
         ("<Boolean>1</Boolean>", "01"),
         ("<Boolean>0</Boolean>", "00"),
         ("<String />", "00000000"),
@@ -94,7 +104,7 @@ def test_a_data_fill_flattens_to_the_bytes_a_stored_value_has(
 @pytest.mark.parametrize(
     ("xml", "tag"),
     [
-        ("<EXT>1.5</EXT>", "EXT"),
+        ("<EXT>not a number</EXT>", "EXT"),
         ('<VisaRef StoredAs="String">COM1</VisaRef>', "VisaRef"),
         ("<UsrDefndTag>dev1</UsrDefndTag>", "UsrDefndTag"),
         ('<Path Ident="PTH0" TpVal="3" />', "Path"),
