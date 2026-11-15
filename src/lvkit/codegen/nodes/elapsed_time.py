@@ -82,7 +82,7 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
         term = outputs.get(param)
         if term is not None and ctx.is_wired(term.id):
             raise ConversionGap(
-                f"{entry.name}: the {term.name or param} output is wired, and NI "
+                f"the {term.name or param} output is wired, and NI "
                 "does not document the format of its text",
                 node,
             )
@@ -127,7 +127,7 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
     auto_reset = setting("auto_reset")
     if auto_reset is None:
         raise ConversionGap(
-            f"{entry.name}: Auto Reset is not wired, and the Auto Reset setting of "
+            "Auto Reset is not wired, and the Auto Reset setting of "
             "the Elapsed Time Express VI is in its configuration, which this "
             "call does not record",
             node,

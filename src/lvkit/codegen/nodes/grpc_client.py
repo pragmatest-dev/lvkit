@@ -84,7 +84,7 @@ def create_client(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFrag
         return CodeFragment.empty()
     address = wired(node, entry, "address", ctx)
     if address is None:
-        raise ConversionGap(f"{entry.name} has no address wired", node)
+        raise ConversionGap("no address is wired", node)
     certificate = wired(node, entry, "certificate_path", ctx)
     insecure = f"grpc.insecure_channel({address}, options={_CHANNEL_OPTIONS})"
     if certificate is None or constant_text(certificate) == "":
@@ -109,7 +109,7 @@ def close_client(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragm
     """``Close Client``: closes the channel."""
     client = wired(node, entry, "grpcid_in", ctx)
     if client is None:
-        raise ConversionGap(f"{entry.name} has no client wired", node)
+        raise ConversionGap("no client is wired", node)
     return CodeFragment(
         statements=[ast.Expr(value=parse_expr(f"{client}.close()"))],
     )
@@ -130,14 +130,14 @@ def _message(
     name = constant_text(wired(node, entry, param, ctx))
     if name is None:
         raise ConversionGap(
-            f"{entry.name}: the {label} is not a constant, so the Python class of "
+            f"the {label} is not a constant, so the Python class of "
             "the message is not known when the code is generated",
             node,
         )
     message = find_proto_message(name)
     if message is None:
         raise ConversionGap(
-            f"{entry.name}: the message {name!r} is not in lvkit's table of "
+            f"the message {name!r} is not in lvkit's table of "
             "protobuf messages with a Python package "
             "(data/grpc/proto_messages.json); generate Python from your .proto "
             "file with grpcio-tools",
@@ -171,11 +171,11 @@ def _context_guard(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> list[as
         return []
     if value is not None:
         raise ConversionGap(
-            f"{entry.name}: a client context (contextId {value!r}) has no Python "
+            f"a client context (contextId {value!r}) has no Python "
             "equivalent on a grpcio call",
             node,
         )
-    prefix = f"{entry.name}: a client context (contextId "
+    prefix = "a client context (contextId "
     suffix = ") has no Python equivalent on a grpcio call"
     return ast.parse(
         f"if {text}:\n"
@@ -188,7 +188,7 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
     method = constant_text(wired(node, entry, "method_name", ctx))
     if method is None:
         raise ConversionGap(
-            f"{entry.name}: the method name is not a constant, so the call cannot "
+            "the method name is not a constant, so the call cannot "
             "be written when the code is generated",
             node,
         )
@@ -198,7 +198,7 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
     )
     client = wired(node, entry, "grpcid_in", ctx)
     if client is None:
-        raise ConversionGap(f"{entry.name} has no client wired", node)
+        raise ConversionGap("no client is wired", node)
     statements = _context_guard(node, ctx, entry)
 
     request_term = terminal_of(node, entry, "request_data", TerminalDirection.INPUT)
@@ -215,7 +215,7 @@ def unary_call(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragmen
             plain = to_plain(data, request_term.lv_type, ctx, enums=True)
         except UnsupportedPlainType as error:
             raise ConversionGap(
-                f"{entry.name} does not handle {error} in the request data: "
+                f"cannot convert {error} in the request data: "
                 "protobuf's JSON takes Booleans, numbers, strings, enums and arrays or "
                 "clusters of them",
                 node,
@@ -257,7 +257,7 @@ def _read_response(
     out = next(t for t in node.terminals if t.id == out_id)
     lv_type = (type_term.lv_type if type_term else None) or out.lv_type
     if lv_type is None or type_term is None or not ctx.is_wired(type_term.id):
-        raise ConversionGap(f"{entry.name} needs the Response Type wired", node)
+        raise ConversionGap("the Response Type is not wired", node)
     plain = ctx.make_output_var("response_dict", node.id)
     default = ctx.make_output_var("response_type", node.id)
     variable = ctx.make_output_var("response_data", node.id, terminal_id=out_id)
@@ -287,7 +287,7 @@ def _read_response(
         )
     except UnsupportedPlainType as error:
         raise ConversionGap(
-            f"{entry.name} does not handle {error} in the response type: "
+            f"cannot convert {error} in the response type: "
             "protobuf's JSON gives Booleans, numbers, strings, enums and arrays or "
             "clusters of them",
             node,

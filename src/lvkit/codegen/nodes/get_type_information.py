@@ -50,7 +50,7 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
         term = terminal_of(node, entry, param, TerminalDirection.OUTPUT)
         if term is not None and ctx.is_wired(term.id):
             raise ConversionGap(
-                f"{entry.name}: the {term.name or param} output is wired, and "
+                f"the {term.name or param} output is wired, and "
                 f"{reason}",
                 node,
             )
@@ -60,13 +60,13 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
     items = item_values_by_code(out.lv_type) if out.lv_type is not None else None
     if items is None:
         raise ConversionGap(
-            f"{entry.name}: the Type output is not recorded as the items of the "
+            "the Type output is not recorded as the items of the "
             "Data Type enum, so the value of each type's item is not known",
             node,
         )
     variant = wired(node, entry, "variant", ctx)
     if variant is None:
-        raise ConversionGap(f"{entry.name} has no variant wired to it", node)
+        raise ConversionGap("no variant is wired to it", node)
     recorded = ctx.make_output_var("variant_type", node.id)
     result = ctx.make_output_var("type", node.id)
     table = "{" + ", ".join(f"{code}: {value}" for code, value in items.items()) + "}"

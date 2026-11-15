@@ -41,20 +41,20 @@ def _generate(
     name = constant_text(wired(node, entry, _ENUM_NAME, ctx))
     if name is None:
         raise ConversionGap(
-            f"{entry.name}: the enum name is not a constant, so the Python "
+            "the enum name is not a constant, so the Python "
             "class of the proto enum is not known when the code is generated",
             node,
         )
     proto_enum = find_proto_enum(name)
     if proto_enum is None:
         raise ConversionGap(
-            f"{entry.name}: the proto enum {name!r} is not in lvkit's table of "
+            f"the proto enum {name!r} is not in lvkit's table of "
             "protobuf enums with a Python package (data/grpc/proto_enums.json)",
             node,
         )
     value = wired(node, entry, value_in, ctx)
     if value is None:
-        raise ConversionGap(f"{entry.name} has no value wired to convert", node)
+        raise ConversionGap("no value is wired to convert", node)
     ctx.require_packages([proto_enum.distribution])
     values = f"{proto_enum.expression()}.values()"
     expression = convert.format(values=values, value=value)
