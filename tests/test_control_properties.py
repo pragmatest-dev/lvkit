@@ -43,5 +43,12 @@ def test_a_partial_or_reordered_path_is_not_listed() -> None:
 
 def test_an_unlisted_code_is_none() -> None:
     assert control_property("Tree (strict)", [1969896466]) is None
-    assert control_property("Bool", [104013825]) is None
+    assert control_property("Bool", [104013830]) is None
     assert control_property("Bool", []) is None
+
+
+def test_the_old_disabled_code_is_the_disabled_property() -> None:
+    old = control_property("Bool", [104013825])
+    new = control_property("Bool", [104013885])
+    assert old is not None and new is not None
+    assert (old.member, old.value, old.doc_url) == (new.member, new.value, new.doc_url)
