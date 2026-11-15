@@ -19,15 +19,50 @@ def guarded_index(array: str, index: str, default: str) -> str:
     """The element at ``index``, or ``default`` when the index is outside the
     array (Index Array returns the element type's default there; a bare
     subscript would raise)."""
-    return f"({array}[{index}] if 0 <= {index} < len({array}) else {default})"
+    return guarded_indexes(array, [index], default)
+
+
+def guarded_indexes(array: str, indexes: list[str], default: str) -> str:
+    """The element at ``array[i][j]...`` (one index per dimension, outermost
+    first), or ``default`` when any index is outside its dimension. Each bound is
+    checked after the outer ones, so a short outer dimension never reaches the
+    inner subscript."""
+    path = array
+    bounds: list[str] = []
+    for index in indexes:
+        bounds.append(f"0 <= {index} < len({path})")
+        path = f"{path}[{index}]"
+    return f"({path} if {' and '.join(bounds)} else {default})"
 
 
 def replaced_element(array: str, index: str, new: str) -> str:
     """A new array equal to ``array`` with the element at ``index`` replaced by
     ``new``; ``array`` itself is not changed. An index outside the array (negative
     or past the end) gives the array as it is."""
-    a, i = operand(array), operand(index)
-    return f"({a}[:{i}] + [{new}] + {a}[{i} + 1:] if 0 <= {i} < len({a}) else {a})"
+    return replaced_elements(array, [index], new)
+
+
+def replaced_elements(array: str, indexes: list[str], new: str) -> str:
+    """A new array equal to ``array`` with the element at ``array[i][j]...`` (one
+    index per dimension, outermost first) replaced by ``new``; ``array`` and the
+    rows it holds are not changed. An index outside its dimension gives the array
+    as it is."""
+    a = operand(array)
+    steps = [operand(i) for i in indexes]
+    path = a
+    bounds: list[str] = []
+    for step in steps:
+        bounds.append(f"0 <= {step} < len({path})")
+        path = f"{path}[{step}]"
+
+    def rebuild(base: str, rest: list[str]) -> str:
+        i = rest[0]
+        inner = (
+            f"[{new}]" if len(rest) == 1 else f"[{rebuild(f'{base}[{i}]', rest[1:])}]"
+        )
+        return f"{base}[:{i}] + {inner} + {base}[{i} + 1:]"
+
+    return f"({rebuild(a, steps)} if {' and '.join(bounds)} else {a})"
 
 
 def dimension_sizes(array: str, rank: int) -> list[str]:

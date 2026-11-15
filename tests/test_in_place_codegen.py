@@ -707,7 +707,7 @@ class TestIPESBorderDataFlowIds:
         assert frag.bindings["out_a"] == "obj_a"
         assert frag.bindings["out_b"] == "obj_b"
 
-    def _array_structure(self, *, second_index: bool = False):
+    def _array_structure(self, *, second_index: bool = False, wire_first: bool = True):
         ctx = make_ctx(
             "arr",
             "idx",
@@ -721,7 +721,8 @@ class TestIPESBorderDataFlowIds:
             "w_arr",
         )
         ctx.bind("arr", "items")
-        ctx.bind("idx", "i")
+        if wire_first:
+            ctx.bind("idx", "i")
         ctx.bind("new", "replacement")
         array = LVType(kind=LVTypeKind.ARRAY, dimensions=2 if second_index else 1)
         indexes = [_term("t_idx", "input", 2, dco="IDX", role="list", field=0)]
@@ -760,10 +761,12 @@ class TestIPESBorderDataFlowIds:
             ports.append(_term("idx2", "input", 3, dco="IDX2"))
         return ctx, _ipes_with_tiles(ctx, ports, tiles)
 
-    def _run_array_structure(self, items, index, replacement):
-        ctx, node = self._array_structure()
+    def _run_array_structure(self, items, index, replacement, *, second_index=None):
+        ctx, node = self._array_structure(second_index=second_index is not None)
         frag = in_place.generate(node, ctx)
         namespace = {"items": items, "i": index, "replacement": replacement}
+        if second_index is not None:
+            namespace["j"] = second_index
         for stmt in frag.statements:
             module = ast.Module(body=[ast.fix_missing_locations(stmt)], type_ignores=[])
             exec(compile(module, "<generated>", "exec"), namespace)
@@ -781,11 +784,52 @@ class TestIPESBorderDataFlowIds:
             ctx, _frag, namespace = self._run_array_structure([10, 20, 30], index, 99)
             assert eval(ctx.resolve("elem"), namespace) is None
 
-    def test_an_index_for_each_of_two_dimensions_is_a_gap(self):
-        # NI: the border node gains an index for each dimension of the array;
-        # only one index is generated, so two are a gap rather than a row read.
-        ctx, node = self._array_structure(second_index=True)
-        with pytest.raises(ConversionGap, match="each of 2 dimensions"):
+    def test_an_index_for_each_of_two_dimensions_reads_one_element(self):
+        # NI: the border node gains an index for each dimension of the array.
+        rows = [[1, 2, 3], [4, 5, 6]]
+        ctx, _frag, namespace = self._run_array_structure(rows, 1, 0, second_index=2)
+        assert eval(ctx.resolve("elem"), namespace) == 6
+
+    def test_a_two_dimensional_index_outside_either_dimension_reads_the_default(self):
+        rows = [[1, 2, 3], [4, 5, 6]]
+        for i, j in ((2, 0), (-1, 0), (0, 3), (0, -1), (5, 9)):
+            ctx, _frag, namespace = self._run_array_structure(
+                rows, i, 0, second_index=j
+            )
+            assert eval(ctx.resolve("elem"), namespace) is None
+
+    def test_a_two_dimensional_write_replaces_one_element_in_a_new_array(self):
+        rows = [[1, 2, 3], [4, 5, 6]]
+        _ctx, frag, namespace = self._run_array_structure(rows, 1, 99, second_index=2)
+        assert namespace[frag.bindings["arr_out"]] == [[1, 2, 3], [4, 5, 99]]
+        assert rows == [[1, 2, 3], [4, 5, 6]]
+
+    def test_a_two_dimensional_write_outside_either_dimension_changes_nothing(self):
+        for i, j in ((2, 0), (-1, 0), (0, 3), (0, -1)):
+            rows = [[1, 2, 3], [4, 5, 6]]
+            _ctx, frag, namespace = self._run_array_structure(
+                rows, i, 99, second_index=j
+            )
+            assert namespace[frag.bindings["arr_out"]] == [[1, 2, 3], [4, 5, 6]]
+            assert rows == [[1, 2, 3], [4, 5, 6]]
+
+    def test_a_three_dimensional_write_is_built_from_the_nested_slices(self):
+        from lvkit.codegen.native_array import guarded_indexes, replaced_elements
+
+        cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        namespace = {"c": cube, "a": 1, "b": 0, "d": 1}
+        read = eval(guarded_indexes("c", ["a", "b", "d"], "None"), namespace)
+        assert read == 6
+        new = eval(replaced_elements("c", ["a", "b", "d"], "60"), namespace)
+        assert new == [[[1, 2], [3, 4]], [[5, 60], [7, 8]]]
+        assert cube == [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        namespace["d"] = 2
+        assert eval(replaced_elements("c", ["a", "b", "d"], "60"), namespace) == cube
+
+    def test_an_index_wired_after_one_that_is_not_stays_a_gap(self):
+        # NI does not say which dimension a lone second index picks.
+        ctx, node = self._array_structure(second_index=True, wire_first=False)
+        with pytest.raises(ConversionGap, match="wired after one that is not"):
             in_place.generate(node, ctx)
 
     def test_array_write_leaves_the_array_another_reader_holds_unchanged(self):

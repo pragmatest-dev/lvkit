@@ -21,7 +21,7 @@ generate() is structured as three explicit passes:
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
@@ -39,7 +39,7 @@ from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..native_array import guarded_index, replaced_element
+from ..native_array import guarded_indexes, replaced_elements
 from ..type_default import type_default
 from ..value_copy import own_path, owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
@@ -68,10 +68,11 @@ class _Tile:
 @dataclass
 class _Element:
     """The data an In Place Element Structure edits: the variable that holds it
-    and, for an array, the variable that indexes the element."""
+    and, for an array, the variables that index the element (one per dimension,
+    outermost first)."""
 
     whole: str
-    index: str | None = None
+    indexes: list[str] = field(default_factory=list)
 
 
 def _split_children(
@@ -285,32 +286,36 @@ def _take_element_out(
         return _Element(whole)
     if tile.kind == _ARRAY:
         array_in = _role_terminal(op, None, "input")
-        index_in = _role_terminal(op, "list", "input")
         element_out = _role_terminal(op, "agg", "output")
-        if array_in is None or index_in is None or element_out is None:
+        if array_in is None or element_out is None:
             return None
         # NI: the border node "gains an additional index parameter for each
-        # additional dimension of the array"; only one index is generated.
-        indexes = [
-            t
-            for t in _field_terminals(op, "input")
-            if ctx.wired_input(t.id, op) is not None
-        ]
-        if len(indexes) > 1:
-            raise ConversionGap(
-                "An In Place Element array tile with an index for each of "
-                f"{len(indexes)} dimensions has no code generation yet",
-                op,
-            )
+        # additional dimension of the array", and its left half "is similar to
+        # the Index Array function": the element is whole[i][j]..., one index per
+        # dimension in terminal order. Fewer wired indexes than dimensions read
+        # the sub-array they select (one index of two dimensions, a row).
         whole = ctx.wired_input(array_in.id, op)
-        index = ctx.wired_input(index_in.id, op)
-        if whole is None or index is None:
+        indexes: list[str] = []
+        unwired_before = False
+        for term in _field_terminals(op, "input"):
+            value = ctx.wired_input(term.id, op)
+            if value is None:
+                unwired_before = True
+            elif unwired_before:
+                raise ConversionGap(
+                    "An In Place Element array tile with an index wired after one "
+                    "that is not has no code generation yet",
+                    op,
+                )
+            else:
+                indexes.append(value)
+        if whole is None or not indexes:
             return None
-        # An index outside the array reads the element type's default, as Index
-        # Array does, and its write leaves the array as it is.
+        # An index outside the array on any dimension reads the element type's
+        # default, as Index Array does, and its write leaves the array as it is.
         default = ast.unparse(type_default(ctx, element_out.lv_type))
-        ctx.bind(element_out.id, guarded_index(whole, index, default))
-        return _Element(whole, index)
+        ctx.bind(element_out.id, guarded_indexes(whole, indexes, default))
+        return _Element(whole, indexes)
     dvr_in = next(
         (t for t in op.terminals if t.direction == "input"),
         None,
@@ -370,13 +375,13 @@ def _write_array_element_back(
     source = _role_terminal(op, "agg", "input")
     value = ctx.wired_input(source.id, op) if source is not None else None
     outputs = _carried_outputs(tile)
-    if value is None or element.index is None:
+    if value is None or not element.indexes:
         return []
     out = outputs[0] if outputs else None
     name = ctx.make_output_var("array", op.id, out.id if out else None)
     for carried in outputs:
         ctx.bind(carried.id, name)
-    new_array = replaced_element(element.whole, element.index, value)
+    new_array = replaced_elements(element.whole, element.indexes, value)
     return [_assign(ast.Name(id=name, ctx=ast.Store()), new_array)]
 
 
