@@ -358,3 +358,15 @@ def heap_color(text: str | None) -> str | None:
     except ValueError:
         return None
     return "#" + value[2:].upper()
+
+
+def saved_version(main_root: ET.Element) -> tuple[int, int] | None:
+    """The ``(major, minor)`` LabVIEW version a VI was saved by, from its main
+    XML's ``vers`` section; None when the VI records none."""
+    version = main_root.find(".//vers/Section/Version")
+    if version is None:
+        return None
+    try:
+        return (int(version.get("Major", "")), int(version.get("Minor", "")))
+    except ValueError:
+        return None

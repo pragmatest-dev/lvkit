@@ -31,6 +31,7 @@ from ..lv_type_codes import (
 from ..models import LVType, LVTypeKind
 from ..text_encoding import xml_text_encoding
 from .refnum_value import holds_handle
+from .utils import saved_version
 
 # The TM80 flag that marks a type whose value is its default (no DataFill).
 _DEFAULT_VALUE_FLAG = "TMFBit11"
@@ -192,14 +193,8 @@ def read_index_shift(root: ET.Element) -> int | None:
 def _types_pooled(root: ET.Element) -> bool:
     """Whether the VI was saved by LabVIEW 8.6 or later (its ``vers`` version);
     True when the VI records none."""
-    version = root.find(".//vers/Section/Version")
-    if version is None:
-        return True
-    try:
-        saved = (int(version.get("Major", "")), int(version.get("Minor", "")))
-    except ValueError:
-        return True
-    return saved >= _POOLED_TYPES_SINCE
+    saved = saved_version(root)
+    return saved is None or saved >= _POOLED_TYPES_SINCE
 
 
 def read_default_data_space(root: ET.Element) -> DefaultDataSpace:

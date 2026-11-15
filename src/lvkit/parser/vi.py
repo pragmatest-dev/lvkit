@@ -108,6 +108,7 @@ from .layout import (
     _cluster_field_geoms,
     _icon_for_heap,
     _part_shown,
+    absolute_coordinates,
     build_layout_from_root,
     cluster_child_frame,
     stored_top_left,
@@ -619,6 +620,12 @@ def _parse_block_diagram(
                 resource_sections(Path(main_xml))
                 if main_xml is not None
                 else resources_for_heap(Path(bd_xml))
+            ),
+            absolute_coordinates=absolute_coordinates(
+                main_xml
+                if main_xml is not None
+                else Path(bd_xml).parent
+                / f"{Path(bd_xml).stem.replace('_BDHb', '')}.xml"
             ),
         )
         if want_layout
