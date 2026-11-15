@@ -23,12 +23,14 @@ STR = scalar("String")
 ERR = error_cluster_type()
 
 
-def flatten(source: LVType, prim_id: int = 8400) -> Generated:
+def flatten(
+    source: LVType, prim_id: int = 8400, label: str = "x"
+) -> Generated:
     return generate(
-        {"x": source},
+        {label: source},
         {"r": STR},
         [node("ft", prim_id, [(2, "output", STR), (6, "input", source)])],
-        [("fp:x", "ft:6"), ("ft:2", "fp:r")],
+        [(f"fp:{label}", "ft:6"), ("ft:2", "fp:r")],
     )
 
 
@@ -92,14 +94,41 @@ def test_catalog_entries_are_ops(prim_id: int) -> None:
 def test_a_dbl_is_the_text_labview_writes_for_it() -> None:
     """forums.ni.com/t5/LabVIEW/save-and-read-control-value-using-xml/m-p/
     1063145: <DBL> / <Name>Numeric</Name> / <Val>1.00000000000000</Val> / </DBL>
-    (the name is the wire's label, which Flatten To XML written here leaves
-    empty)."""
-    generated = flatten(DBL)
+    (the name is the label of the control wired in)."""
+    generated = flatten(DBL, label="Numeric")
     text = run_flatten(generated, 1.0)
     assert text == lines(
-        "<DBL>", "<Name></Name>", "<Val>1.00000000000000</Val>", "</DBL>"
+        "<DBL>", "<Name>Numeric</Name>", "<Val>1.00000000000000</Val>", "</DBL>"
     )
     assert "lvkit" not in generated.source
+
+
+def test_a_constant_with_no_label_gives_an_empty_name() -> None:
+    generated = generate(
+        {},
+        {"r": STR},
+        [node("ft", 8400, [(2, "output", STR), (6, "input", I32)])],
+        [("c", "ft:6"), ("ft:2", "fp:r")],
+        constants={"c": (7, I32)},
+    )
+    assert generated.function().r == lines(
+        "<I32>", "<Name></Name>", "<Val>7</Val>", "</I32>"
+    )
+
+
+def test_a_labelled_cluster_control_names_the_root_and_keeps_element_names() -> None:
+    target = cluster(("a", I32))
+    text = run_flatten(flatten(target, label="Settings"), (3,))
+    assert text == lines(
+        "<Cluster>",
+        "<Name>Settings</Name>",
+        "<NumElts>1</NumElts>",
+        "<I32>",
+        "<Name>a</Name>",
+        "<Val>3</Val>",
+        "</I32>",
+        "</Cluster>",
+    )
 
 
 def test_an_unlabelled_i32_cluster_is_the_text_of_the_timestamp_thread() -> None:
@@ -109,7 +138,7 @@ def test_an_unlabelled_i32_cluster_is_the_text_of_the_timestamp_thread() -> None
     target = unlabelled(I32, I32)
     assert run_flatten(flatten(target), (0, -1047981475)) == lines(
         "<Cluster>",
-        "<Name></Name>",
+        "<Name>x</Name>",
         "<NumElts>2</NumElts>",
         "<I32>",
         "<Name></Name>",
@@ -127,7 +156,7 @@ def test_a_labelled_cluster_names_its_elements_and_writes_a_boolean_as_1_or_0() 
     target = cluster(("Enable Controller", BOOL), ("Proportional Feedback", DBL))
     assert run_flatten(flatten(target), (True, 5.4)) == lines(
         "<Cluster>",
-        "<Name></Name>",
+        "<Name>x</Name>",
         "<NumElts>2</NumElts>",
         "<Boolean>",
         "<Name>Enable Controller</Name>",
@@ -145,7 +174,7 @@ def test_an_array_has_a_dimsize_per_dimension_and_its_elements_in_row_order() ->
     text = run_flatten(flatten(array("NumInt32", 2)), [[1, 2], [3, 4]])
     assert text == lines(
         "<Array>",
-        "<Name></Name>",
+        "<Name>x</Name>",
         "<Dimsize>2</Dimsize>",
         "<Dimsize>2</Dimsize>",
         *(
@@ -160,7 +189,7 @@ def test_an_array_has_a_dimsize_per_dimension_and_its_elements_in_row_order() ->
 def test_an_empty_array_has_dimsize_0_and_one_default_element() -> None:
     assert run_flatten(flatten(array("String")), []) == lines(
         "<Array>",
-        "<Name></Name>",
+        "<Name>x</Name>",
         "<Dimsize>0</Dimsize>",
         "<String>",
         "<Name></Name>",

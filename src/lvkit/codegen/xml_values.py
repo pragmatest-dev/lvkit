@@ -29,11 +29,14 @@ Sources (public; the NI pages do not print the schema file ``LVXMLSchema.xsd``):
   the later form is used.
 - An I32 inside a cluster with an empty ``<Name>``, ``<NumElts>`` 4:
   forums.ni.com/t5/LabVIEW/XML-Timestamp-Interpretation/td-p/445511.
+- The root ``<Name>`` is the label of the data wired to ``anything``, empty when
+  it has none (forums.ni.com/t5/LabVIEW/XML-assign-name-to-a-string/td-p/411870;
+  lavag.org/topic/10063-wire-lables).
 - The ``<Dimsize>`` array layout, CR LF lines, NaN / Inf / -Inf, the empty array's
   one default element and ``<Boolean>`` ``1``/``0``: github.com/JaviLianes8/lvxml
   (README and GUIDE.md, its notes on files LabVIEW wrote).
 Not documented anywhere found: the text of a SGL or EXT number (writing one is a
-gap), the Name of the value Flatten To XML is wired to (written empty), SI
+gap), SI
 suffixes such as ``1k`` that LabVIEW reads in a number (an error here).
 """
 
@@ -241,18 +244,24 @@ class _Writer(_Source):
 
 
 def write_xml(
-    source: str, lv_type: LVType, ctx: CodeGenContext, node_id: str, target: str
+    source: str,
+    lv_type: LVType,
+    ctx: CodeGenContext,
+    node_id: str,
+    target: str,
+    name: str = "",
 ) -> tuple[list[ast.stmt], list[str]]:
     """The statements that give ``target`` the XML string of ``source``, a
-    variable holding a value of ``lv_type``, and the imports they need
-    (``UnsupportedPlainType`` for a type with no XML written)."""
+    variable holding a value of ``lv_type`` whose wire is labelled ``name``, and
+    the imports they need (``UnsupportedPlainType`` for a type with no XML
+    written)."""
     writer = _Writer(ctx, node_id)
     value = writer.fresh("plain")
     holder = writer.fresh("holder")
     root = writer.fresh("root")
     writer.add(f"{value} = {to_plain(source, lv_type, ctx)}")
     writer.add(f"{holder} = ET.Element('Holder')")
-    writer.write(value, lv_type, holder, "")
+    writer.write(value, lv_type, holder, name)
     writer.add(f"{root} = {holder}[0]")
     writer.lines.extend(_FINISH.format(root=root, target=target).splitlines())
     return writer.statements(), [
