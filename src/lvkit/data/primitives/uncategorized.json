@@ -2288,7 +2288,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "To Probe String has no NI page: what string it makes of a value, and what its maximum string length cuts, are not documented. Its terminals are the callers' (probe string out 3, error in 4, maximum string length 6, data value 7)."
+      "gap_reason": "To Probe String has no NI function page; NI's custom-probe page says only that it converts the data into the string the probe's Value column shows, compressed and trimmed to fit the available space, so its text depends on the probe window's size and no format for each type is published (web searches of NI forums and docs found none); what it makes of a value, and what its maximum string length cuts, are not documented. Its terminals are the callers' (probe string out 3, error in 4, maximum string length 6, data value 7)."
     },
     "2414": {
       "name": "Type Of",
