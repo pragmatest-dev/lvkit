@@ -760,12 +760,12 @@ def test_unzip_preview_only_is_not_written_for_lack_of_a_documented_format(
 # --- VIs without NI text for the case the call needs stay gaps ----------------
 
 
-def test_dflt_data_dir_is_found_by_its_file_name_and_stays_a_gap() -> None:
+def test_dflt_data_dir_is_found_by_its_file_name_and_has_python() -> None:
     entry = VILibResolver().resolve_recorded(
         "<vilib>/Utility/file.llb/Dflt Data Dir.vi"
     )
     assert entry is not None
-    assert entry.python_code is None
+    assert entry.python_code is not None
 
 
 def test_librarian_get_info_and_qualified_name_array_to_single_string_are_gaps(

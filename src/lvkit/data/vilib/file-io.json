@@ -1859,7 +1859,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_review",
+      "status": "resolved",
       "terminals": [
         {
           "name": "App:Default Data Directory",
@@ -1873,7 +1873,12 @@
       ],
       "match_names": [
         "Dflt Data Dir.vi"
-      ]
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "python_code": "# NI, \"Customizing the Default Data Directory\": the LabVIEW Data directory in the default file directory of the operating system (Windows: C:\\Users\\<username>\\Documents\\LabVIEW Data); the path is returned, the folder is not created\n{appdefault_data_directory} = Path.home() / 'Documents' / 'LabVIEW Data'",
+      "inline": true
     },
     {
       "name": "VI Library Function",

@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **vi.lib: Default Data Directory (Dflt Data Dir.vi) generates Python** — the path is `Path.home() / "Documents" / "LabVIEW Data"` (NI: the LabVIEW Data directory in the operating system's default file directory); it is not created. Blocked 98 modules (Get LV Glyph Path.vi now generates with no gaps).
 - **Interleave 1D Arrays generates Python** — the output takes element k of every array in turn and stops at the shortest array (`zip`); the node shows as "Interleave 1D Arrays". An array input with nothing wired stays a gap (NI does not say what it contributes). Blocked 102 modules (Draw Flattened Pixmap (Fast) in JKI VI Tester now generates with no gaps).
 - **Fix: a Bundle that builds a new cluster gives an unwired element its type's default** — the element was `None`; a number is 0, a string `""`, a typedef or anonymous cluster its fields' defaults, nested to any depth.
 - **A cluster or an array as a Map key or Set element generates Python** — Look In Map, Insert Into Map, Insert Into Set, Remove From Set, Map Get / Replace Value and Map and Set constants use a tuple of the values (nested clusters and arrays nested tuples, in cluster order) where the key enters the collection; the value stored in a Map is unchanged; a class object, Variant, Map, Set or waveform key stays a gap naming it. Measurement plug-in generation: the `Map Get Value` cluster-key warning went from 2 to 0.
