@@ -47,6 +47,8 @@ from .nmux import _attribute_target, _field_expr, _field_path
 _CLUSTER = "decomposeClusterNode"
 _ARRAY = "decomposeArrayNode"
 _DVR = "decomposeDataValRefNode"
+# A whole-value tile: no field split, the value enters and leaves unchanged.
+_WHOLE = "decomposeMatchNode"
 _BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR)
 
 
@@ -74,14 +76,18 @@ class _Element:
 
 def _split_children(
     children: list[AnyGraphNode], ctx: CodeGenContext
-) -> tuple[list[_Tile], list[AnyGraphNode]]:
-    """Split the structure's inner graph nodes into border tiles and regular body
-    nodes. A cluster tile is a node with a pairing id and field terminals in one
-    direction only; an array or data value reference tile is told by its node
-    type."""
+) -> tuple[list[_Tile], list[PrimitiveNode], list[AnyGraphNode]]:
+    """Split the structure's inner graph nodes into border tiles, whole-value
+    tiles and regular body nodes. A cluster tile is a node with a pairing id and
+    field terminals in one direction only; an array, data value reference or
+    whole-value tile is told by its node type."""
     tiles: list[_Tile] = []
+    whole: list[PrimitiveNode] = []
     regular: list[AnyGraphNode] = []
     for op in children:
+        if isinstance(op, PrimitiveNode) and op.node_type == _WHOLE:
+            whole.append(op)
+            continue
         node_type = None
         side = None
         if isinstance(op, PrimitiveNode):
@@ -95,7 +101,7 @@ def _split_children(
             tiles.append(_Tile(op, side, node_type, (node_type, ctx.poser_uid(op))))
         else:
             regular.append(op)
-    return tiles, regular
+    return tiles, whole, regular
 
 
 def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
@@ -105,7 +111,7 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports: set[str] = set()
 
     tunnels = ctx.tunnels(node)
-    tiles, inner_nodes = _split_children(ctx.child_nodes(node), ctx)
+    tiles, whole_tiles, inner_nodes = _split_children(ctx.child_nodes(node), ctx)
 
     # --- Input boundary ---
     _bind_input_tunnels(node, tunnels, ctx)
@@ -120,6 +126,8 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     for tile in tiles:
         ctx.merge(error_flow.guard(tile.op, CodeFragment(), ctx).bindings)
 
+    _pass_whole_values(node, whole_tiles, ctx)
+
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(inner_nodes, (node.id, None))
     for stmt in body_stmts:
@@ -128,13 +136,14 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports.update(ctx.imports)
 
     # --- Output boundary ---
+    _pass_whole_values(node, whole_tiles, ctx)
     all_stmts.extend(_write_elements_back(tiles, elements, ctx))
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, tunnels, ctx, all_bindings)
 
     # The data comes back out of the structure on its output ports.
-    producers = [*(t.op for t in tiles), *inner_nodes]
+    producers = [*(t.op for t in tiles), *whole_tiles, *inner_nodes]
     _bind_data_outputs(node, producers, data_var, tunnel_uids, all_bindings, ctx)
 
     return CodeFragment(
@@ -202,6 +211,31 @@ def _bind_tile_inputs(
                     if value is not None:
                         ctx.bind(term.id, value)
                     break
+
+
+def _pass_whole_values(
+    node: InPlaceNode, whole_tiles: list[PrimitiveNode], ctx: CodeGenContext
+) -> None:
+    """Bind the output of each whole-value tile to the value on its input: that
+    of the wire feeding it, else of the structure input port that carries the same
+    data (same ``dco_uid``). A tile whose input has no value yet is left for the
+    next call, once the body has produced it."""
+    ports = [t for t in node.terminals if t.direction == "input"]
+    for op in whole_tiles:
+        source = next((t for t in op.terminals if t.direction == "input"), None)
+        target = next((t for t in op.terminals if t.direction == "output"), None)
+        if source is None or target is None:
+            continue
+        if ctx.resolve(target.id, allow_none=True) is not None:
+            continue
+        value = ctx.resolve(source.id, allow_none=True)
+        if value is None and source.dco_uid is not None:
+            for port in ports:
+                if port.dco_uid == source.dco_uid:
+                    value = ctx.resolve(port.id, allow_none=True)
+                    break
+        if value is not None:
+            ctx.bind(target.id, value)
 
 
 def _take_elements_out(
