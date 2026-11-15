@@ -11,6 +11,7 @@ import networkx as nx
 from ..control_properties import (
     ControlProperty,
     control_property,
+    is_reinit_to_default,
     is_value_row,
     is_value_signaling_row,
 )
@@ -218,8 +219,8 @@ class WireQueriesMixin:
         self, vi_name: str
     ) -> tuple[dict[str, FPTerminal], dict[str, FPTerminal]]:
         """The indicators of a VI that a bound Property Node's ``Value`` row
-        reads and those it writes, by terminal id, in that order. A ``Value
-        (Signaling)`` row writes (it cannot be read)."""
+        reads and those it writes, by terminal id, in that order. A Reinit To Default
+        writes, and so does a ``Value (Signaling)`` row (it cannot be read)."""
         read: dict[str, FPTerminal] = {}
         written: dict[str, FPTerminal] = {}
         for node in self.iter_nodes(vi_name):
@@ -228,6 +229,8 @@ class WireQueriesMixin:
             bound = self.bound_terminal(node)
             if bound is None or not bound.is_indicator:
                 continue
+            if is_reinit_to_default(node.method_code):
+                written[bound.id] = bound
             for row, term in correlate_property_terminals(
                 node.properties, node.terminals, node.property_value_terminal_ids
             ):
@@ -294,7 +297,8 @@ class WireQueriesMixin:
         runs: a control or indicator terminal inside a While Loop, For Loop or
         Event Structure, an Event Structure (it waits for the panel's events), a
         Local Variable of one of its controls or indicators, a Value Property
-        Node bound to one of its controls, an off-pane control whose terminal
+        Node bound to one of its controls, Reinit To Default on a control or
+        indicator of its own, an off-pane control whose terminal
         has a wire leaving it (the diagram reads it), or a node whose Python
         shows a dialog box through ``live_io`` (``calls_live_io``)."""
         if self.has_event_structure(vi_name) or self.calls_live_io(vi_name):
@@ -317,7 +321,14 @@ class WireQueriesMixin:
             elif (
                 isinstance(node, PrimitiveNode)
                 and node.bound_control_uid
-                and (self.has_value_row(node) or self.listed_property_writes(node))
+                and (
+                    self.has_value_row(node)
+                    or self.listed_property_writes(node)
+                    or (
+                        is_reinit_to_default(node.method_code)
+                        and self.bound_terminal(node) is not None
+                    )
+                )
             ):
                 return True
         return False

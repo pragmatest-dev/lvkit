@@ -192,3 +192,25 @@ def shared_label_vi(name: str = "Shared Label.vi") -> Vi:
     vi.wire(second, add["y"])
     vi.wire(add["sum"], total)
     return vi
+
+
+REINIT_TO_DEFAULT = 104012800
+
+
+def bound_method(
+    vi: Vi, pane_term: int, method_name: str, method_code: int, class_name: str
+) -> None:
+    """An Invoke Node of ``method_name`` bound to the front-panel control or
+    indicator whose terminal is ``pane_term`` (a method with no parameters)."""
+    pane = next(p for p in vi.panes if vi.fp_terms[p.uid] == pane_term)
+    uid = vi.next_uid(1)
+    vi.scope.nodes.append(
+        f'<SL__arrayElement class="invokeNode" uid="{uid}">'
+        '<termList elements="0"></termList>'
+        '<dcoList elements="0"></dcoList>'
+        '<permDCOList elements="0"></permDCOList>'
+        f'<nodeName>"{class_name}"</nodeName><oMId>0007</oMId>'
+        f'<ddo uid="{pane.uid}1" />'
+        f'<methName>"{method_name}"</methName>'
+        f"<methCode>{method_code}</methCode></SL__arrayElement>"
+    )

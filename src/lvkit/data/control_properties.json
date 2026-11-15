@@ -8,6 +8,12 @@
       "Str": [104093696]
     }
   },
+  "methods": {
+    "reinit_to_default": {
+      "codes": [104012800],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/reinittodefault.html"
+    }
+  },
   "value_signaling_codes": {
     "inherited": [104013860],
     "classes": {

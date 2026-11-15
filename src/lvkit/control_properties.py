@@ -68,6 +68,7 @@ class _Table:
     inherited_signaling: frozenset[int]
     class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
+    reinit_to_default: frozenset[int]
 
 
 def _entries(raw: dict[str, dict[str, str]]) -> dict[str, ControlProperty]:
@@ -101,7 +102,16 @@ def _table() -> _Table:
             for name, entry in raw["reference_rows"].items()
             for path in entry["codes"]
         },
+        reinit_to_default=frozenset(raw["methods"]["reinit_to_default"]["codes"]),
     )
+
+
+def is_reinit_to_default(method_code: int | None) -> bool:
+    """Whether an Invoke Node's method code is the control method Reinit To
+    Default (the one code every control class shares). NI: "Reinitializes the
+    value of the control to the default value." (the ``methods`` entry's
+    ``doc_url``)."""
+    return method_code in _table().reinit_to_default
 
 
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:
