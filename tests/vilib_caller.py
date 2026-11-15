@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,7 @@ def run_catalog_call(
     gaps: list[Gap] | None = None,
     runtime_not_implemented: bool = False,
     constants: Mapping[int, tuple[str, LVType]] | None = None,
+    calls: Sequence[Mapping[str, Any]] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -64,7 +65,8 @@ def run_catalog_call(
     dialog): the generation itself still has no gap. A ``gaps`` list collects
     the gaps the generation finds, for a test that expects one. ``constants``
     wires a constant of the diagram, ``(value, type)``, to each call input
-    index it names.
+    index it names. ``calls`` runs the caller once per mapping of arguments, in order,
+    and the result is the list of their results (a VI that keeps state between calls).
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -173,7 +175,10 @@ def run_catalog_call(
     monkeypatch.syspath_prepend(str(tmp_path))
     try:
         caller = importlib.import_module("pkg.caller")
-        result = caller.caller(**arguments)
+        if calls is None:
+            result = caller.caller(**arguments)
+        else:
+            result = [caller.caller(**each) for each in calls]
     finally:
         for name in (
             "pkg.caller",

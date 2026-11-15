@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **vi.lib: the Elapsed Time Express VI (`subElapsedTime.vi`) generates Python** — a module-level start time kept between calls (the first call's present time, or `Set Start Time`; `Reset` starts again; `Auto Reset` starts over from the call that reached the target), `Present (s)` seconds since 1904 UTC, `Elapsed Time (s)` and `Time has Elapsed` (`elapsed >= Time Target`); an unwired `Auto Reset` is FALSE, and a wired text output is a gap (NI documents no format). Blocked 91 modules (Kill Service.vi now generates with no gaps).
 - **vi.lib: Default Data Directory (Dflt Data Dir.vi) generates Python** — the path is `Path.home() / "Documents" / "LabVIEW Data"` (NI: the LabVIEW Data directory in the operating system's default file directory); it is not created. Blocked 98 modules (Get LV Glyph Path.vi now generates with no gaps).
 - **Interleave 1D Arrays generates Python** — the output takes element k of every array in turn and stops at the shortest array (`zip`); the node shows as "Interleave 1D Arrays". An array input with nothing wired stays a gap (NI does not say what it contributes). Blocked 102 modules (Draw Flattened Pixmap (Fast) in JKI VI Tester now generates with no gaps).
 - **Fix: a Bundle that builds a new cluster gives an unwired element its type's default** — the element was `None`; a number is 0, a string `""`, a typedef or anonymous cluster its fields' defaults, nested to any depth.
