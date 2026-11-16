@@ -30,6 +30,7 @@ from ..parser.models import ParsedType, ParsedVI
 from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
 from .search_path import SearchPath
+from .typedef_copy import incompatible_copy_message, saved_as_loaded
 
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
@@ -587,11 +588,10 @@ class InMemoryVIGraph(
         A class type's fields are the ones its class declares (a Bundle/Unbundle
         By Name on a class wire counts the wire's own class's fields only:
         private data is private to its class), read from the class file
-        ``LVType.file_key`` names. A typedef's are the loaded control's: LabVIEW
-        updates every VI's copy of a typedef to the loaded one, so a VI saved
-        against an older typedef reads the loaded typedef's field names (the VI's
-        saved copy, :meth:`stale_typedef_copy`, only when the control is not
-        loaded). Any other cluster has the fields its wire's type records.
+        ``LVType.file_key`` names. A typedef instance's are its saved copy's
+        fields mapped onto the loaded control's (:mod:`.typedef_copy`: by name,
+        else by position); the loaded control's when the VI saved no fields. Any
+        other cluster has the fields its wire's type records.
         """
         if lv_type.classname:
             return self._named_fields(lv_type)
@@ -599,46 +599,38 @@ class InMemoryVIGraph(
         if lv_type.typedef_name:
             loaded = self._named_fields(lv_type)
             if loaded:
-                return loaded
+                if not lv_type.fields:
+                    return loaded
+                mapped = saved_as_loaded(lv_type.fields, loaded)
+                if mapped is not None:
+                    return mapped
 
         return lv_type.fields or None
 
     def stale_typedef_copy(self, lv_type: LVType) -> str | None:
         """Why a VI's saved copy of a loaded typedef cannot be read through the
-        loaded typedef: the copy and the typedef have a different number of
-        fields, so no saved position names the loaded field it meant (LabVIEW
-        keeps a node's field by its position when the typedef changes: NI forum
-        reports of a Bundle/Unbundle By Name that relinks to the element now at
-        the deleted one's position, forums.ni.com/t5/LabVIEW/Unbundle-by-name-
-        nodes-incorrectly-re-link-when-defining-type-is/td-p/116039 and
-        forums.ni.com/t5/LabVIEW/Wrong-linking-of-cluster-elements-after-
-        deleting-elements-from/td-p/3242009). None when the type is no loaded
-        typedef, or the copy has as many fields."""
+        loaded typedef (no saved field maps to a loaded field, rule 3 of
+        :mod:`.typedef_copy`), naming both field lists. None when the type is no
+        loaded typedef or its copy maps."""
         if lv_type.classname or not lv_type.typedef_name or not lv_type.fields:
             return None
         loaded = self._named_fields(lv_type)
-        if not loaded or len(loaded) == len(lv_type.fields):
+        if not loaded or saved_as_loaded(lv_type.fields, loaded) is not None:
             return None
-        saved = ", ".join(f.name for f in lv_type.fields)
-        now = ", ".join(f.name for f in loaded)
-        return (
-            f"the VI is saved with an older copy of the typedef "
-            f"{lv_type.typedef_name}: its fields were [{saved}], the loaded "
-            f"typedef's are [{now}]"
-        )
+        return incompatible_copy_message(lv_type.typedef_name, lv_type.fields, loaded)
 
     def typedef_instance(self, lv_type: LVType) -> LVType:
-        """``lv_type`` as an instance of its loaded typedef: the typedef's field
-        names at the saved copy's positions (``lv_type`` itself when it is no
-        loaded typedef). A saved copy with another field count is a
-        ``ConversionGap`` (:meth:`stale_typedef_copy`)."""
+        """``lv_type`` as an instance of its loaded typedef: the saved copy's
+        fields mapped onto the loaded typedef (``lv_type`` itself when it is no
+        loaded typedef). An incompatible copy is a ``ConversionGap``
+        (:meth:`stale_typedef_copy`)."""
         stale = self.stale_typedef_copy(lv_type)
         if stale is not None:
             raise ConversionGap(stale)
-        loaded = self.get_type_fields(lv_type)
-        if not lv_type.typedef_name or not loaded or loaded is lv_type.fields:
+        mapped = self.get_type_fields(lv_type)
+        if not lv_type.typedef_name or not mapped or mapped is lv_type.fields:
             return lv_type
-        return dataclasses.replace(lv_type, fields=loaded)
+        return dataclasses.replace(lv_type, fields=mapped)
 
     def _named_fields(self, lv_type: LVType) -> list[ClusterField] | None:
         """The fields of the class or control file ``lv_type.file_key`` names;

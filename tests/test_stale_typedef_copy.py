@@ -49,7 +49,12 @@ def _pane(name: str, direction: str, kind: LVType, index: int = 0) -> FPTerminal
     )
 
 
-def _unbundle(saved: LVType, position: int) -> tuple[InMemoryVIGraph, VIContext]:
+LOADED = ("get service descriptor VI path", "get type specializations VI path")
+
+
+def _unbundle(
+    saved: LVType, position: int, loaded: tuple[str, ...] = LOADED
+) -> tuple[InMemoryVIGraph, VIContext]:
     node = PrimitiveNode(
         id="unbundle",
         vi_path="Caller.vi",
@@ -78,12 +83,7 @@ def _unbundle(saved: LVType, position: int) -> tuple[InMemoryVIGraph, VIContext]
         ],
     )
     graph = build_graph(context, context.name, [node])
-    graph._dep_graph.add_node(
-        TYPEDEF_KEY,
-        fields=_fields(
-            "get service descriptor VI path", "get type specializations VI path"
-        ),
-    )
+    graph._dep_graph.add_node(TYPEDEF_KEY, fields=_fields(*loaded))
     return graph, context
 
 
@@ -196,3 +196,65 @@ def test_a_decoded_cluster_constant_of_a_stale_copy_takes_the_loaded_names() -> 
     assert expression.startswith("SimpleNamespace(get_service_descriptor_vi_path=")
     assert "get_type_specializations_vi_path=" in expression
     assert "get_measurement_details" not in expression
+
+
+def _run_unbundle(saved: LVType, position: int, loaded: tuple[str, ...], value):
+    graph, context = _unbundle(saved, position, loaded)
+    source = build_module(context, context.name, graph=graph)
+    namespace: dict = {}
+    exec_generated(source, namespace, context.name)
+    return namespace["caller"](value).value
+
+
+def test_a_typedef_that_gained_fields_maps_each_saved_field_by_name() -> None:
+    # (a) every saved name exists in the loaded typedef: fields appended after.
+    loaded = ("alpha", "beta", "gamma", "delta")
+    saved = _saved_copy("alpha", "beta")
+    graph, _context = _unbundle(saved, 1, loaded)
+    assert graph.stale_typedef_copy(saved) is None
+    assert [f.name for f in graph.get_type_fields(saved) or []] == ["alpha", "beta"]
+    value = SimpleNamespace(alpha="A", beta="B", gamma="C", delta="D")
+    assert _run_unbundle(saved, 1, loaded, value) == "B"
+    ctx = CodeGenContext(graph=graph)
+    default = eval(  # noqa: S307
+        ast.unparse(type_default(ctx, saved)), {"SimpleNamespace": SimpleNamespace}
+    )
+    assert list(vars(default)) == ["alpha", "beta"]
+
+
+def test_a_typedef_with_reordered_fields_maps_each_saved_field_by_name() -> None:
+    # (a) the same names in another order: by name, not by position.
+    loaded = ("beta", "alpha")
+    saved = _saved_copy("alpha", "beta")
+    graph, _context = _unbundle(saved, 0, loaded)
+    assert graph.stale_typedef_copy(saved) is None
+    assert [f.name for f in graph.get_type_fields(saved) or []] == ["alpha", "beta"]
+    assert _run_unbundle(saved, 0, loaded, SimpleNamespace(alpha="A", beta="B")) == "A"
+
+
+def test_a_renamed_field_maps_by_position_when_the_counts_match() -> None:
+    # (b) a name is missing from the loaded typedef and the counts are equal.
+    loaded = ("alpha", "renamed")
+    saved = _saved_copy("alpha", "beta")
+    graph, _context = _unbundle(saved, 1, loaded)
+    assert graph.stale_typedef_copy(saved) is None
+    assert [f.name for f in graph.get_type_fields(saved) or []] == list(loaded)
+    assert (
+        _run_unbundle(saved, 1, loaded, SimpleNamespace(alpha="A", renamed="R")) == "R"
+    )
+
+
+def test_renamed_and_shorter_is_a_gap_naming_both_lists() -> None:
+    # (c) a name is missing and the counts differ.
+    loaded = ("w", "x", "y", "z")
+    saved = _saved_copy("a", "b", "c")
+    graph, context = _unbundle(saved, 0, loaded)
+    message = graph.stale_typedef_copy(saved)
+    assert message is not None
+    assert "[a, b, c]" in message
+    assert "[w, x, y, z]" in message
+    source = build_module(context, context.name, graph=graph)
+    namespace: dict = {}
+    exec_generated(source, namespace, context.name)
+    with pytest.raises(NotImplementedError, match="older copy of the typedef"):
+        namespace["caller"](SimpleNamespace())
