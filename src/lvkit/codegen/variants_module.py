@@ -24,6 +24,8 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import type_descriptor_code
 from lvkit.models import ClusterField, LVType, LVTypeKind
 
+from .type_reader import type_reader_source
+
 VARIANTS_MODULE_NAME = "variants"
 VARIANT_NAME = "Variant"
 LV_TYPE_NAME = "LVType"
@@ -147,6 +149,7 @@ _CLASSES_SOURCE = '''"""The value of a LabVIEW variant."""
 
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -175,9 +178,28 @@ class Variant:
 '''
 
 
+def _scalar_constants_by_code() -> dict[int, str]:
+    """The constant of each scalar type that has a type string, by its code."""
+    constants: dict[int, str] = {}
+    for lv_type in map(_scalar, _SCALAR_TYPE_NAMES):
+        code, _ = lv_type_code_and_name(lv_type)
+        try:
+            type_string.encode(lv_type)
+        except type_string.TypeStringError:
+            continue
+        constants[code] = _constant_name(lv_type)
+    return constants
+
+
 def _module_source() -> str:
     lines = [f"{name} = {inline}" for inline, name in _CONSTANTS.items()]
-    return _CLASSES_SOURCE + "\n\n" + "\n".join(lines) + "\n"
+    return (
+        _CLASSES_SOURCE
+        + "\n\n"
+        + "\n".join(lines)
+        + "\n"
+        + type_reader_source(_scalar_constants_by_code())
+    )
 
 
 VARIANTS_MODULE_SOURCE = _module_source()

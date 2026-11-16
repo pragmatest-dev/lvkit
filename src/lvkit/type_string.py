@@ -52,12 +52,12 @@ from lvkit.lv_type_codes import (
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.td_pool import RawTD, TdPool
 
-_VARIABLE_SIZE = 0xFFFF
+VARIABLE_SIZE = 0xFFFF
 _MAX_SIZE = 0x7FFF
 
 # The numbers the page documents, by type code (physical quantities carry base
 # units and are not written).
-_NUMBER_CODES = {
+NUMBER_CODES = {
     TD_FULL_TYPE[name].name: TD_FULL_TYPE[name]
     for name in (
         "NumInt8",
@@ -76,7 +76,7 @@ _NUMBER_CODES = {
         "NumComplexExt",
     )
 }
-_ENUM_CODES = {
+ENUM_CODES = {
     name: TD_FULL_TYPE[name] for name in ("UnitUInt8", "UnitUInt16", "UnitUInt32")
 }
 # What a decoded descriptor may be; anything else has no flattened layout here.
@@ -125,7 +125,7 @@ def _descriptor(lv_type: LVType) -> list[int]:
             raise TypeStringError("an array of arrays or of an unknown type")
         dimensions = lv_type.dimensions or 1
         inner = _descriptor(element)
-        head = [0x0040, dimensions, *([_VARIABLE_SIZE] * (2 * dimensions))]
+        head = [0x0040, dimensions, *([VARIABLE_SIZE] * (2 * dimensions))]
         return _sized(head + inner)
     if lv_type.kind == LVTypeKind.CLUSTER:
         if not lv_type.fields:
@@ -143,16 +143,16 @@ def _descriptor(lv_type: LVType) -> list[int]:
     if is_boolean_type_name(underlying):
         return _sized([TD_FULL_TYPE.Boolean.value])
     if is_string_type_name(underlying):
-        return _sized([TD_FULL_TYPE.String.value, _VARIABLE_SIZE, _VARIABLE_SIZE])
-    if underlying in _NUMBER_CODES:
-        return _sized([_NUMBER_CODES[underlying].value])
+        return _sized([TD_FULL_TYPE.String.value, VARIABLE_SIZE, VARIABLE_SIZE])
+    if underlying in NUMBER_CODES:
+        return _sized([NUMBER_CODES[underlying].value])
     if is_numeric_type_name(underlying):
         raise TypeStringError(f"a number of type {underlying!r}")
     raise TypeStringError(f"a value of type {underlying or lv_type.kind.value!r}")
 
 
 def _enum(lv_type: LVType) -> list[int]:
-    code = _ENUM_CODES.get(lv_type.underlying_type or "")
+    code = ENUM_CODES.get(lv_type.underlying_type or "")
     if code is None or lv_type.values is None:
         raise TypeStringError("an enum with no recorded items")
     labels = sorted(lv_type.values.items(), key=lambda item: item[1].value)
@@ -237,7 +237,7 @@ def _require_known(lv_type: LVType) -> None:
             _require_known(member.type)
     underlying = lv_type.underlying_type or ""
     if lv_type.kind == LVTypeKind.PRIMITIVE and not (
-        underlying in _NUMBER_CODES
+        underlying in NUMBER_CODES
         or is_boolean_type_name(underlying)
         or underlying == TD_FULL_TYPE.String.name
     ):
