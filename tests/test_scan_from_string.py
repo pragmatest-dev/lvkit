@@ -533,3 +533,11 @@ def test_a_time_into_an_integer_is_a_gap() -> None:
     gaps: list[Gap] = []
     _scan("%^<%H:%M>T", [I32], gaps=gaps)
     assert "a time into a int output" in gaps[0].message
+
+
+def test_a_fraction_of_a_second_is_exact_to_the_digit() -> None:
+    result = _result("%^<%Y-%m-%dT%H:%M:%S%3u>T", [TIME], "2026-11-16T10:20:30.123Z")
+    value = _values(result, 1)[0]
+    assert value == _utc(2026, 11, 16, 10, 20, 30, 123000)
+    assert (value.microsecond, value.femtosecond, value.yoctosecond) == (123000, 0, 0)
+    assert result.remaining == "Z"
