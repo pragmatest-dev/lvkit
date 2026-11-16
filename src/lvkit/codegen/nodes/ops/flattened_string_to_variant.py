@@ -11,8 +11,11 @@ A ``type string`` computed as the program runs names no type the code can be
 written for. When ``data string`` is what a Variant To Flattened String pickled
 (its variant's type unknown when generating) it is unpickled. (Unpickling runs
 code the string names, so the string must come from a trusted source.) Any other
-data string holds LabVIEW's flattened bytes, which only a known type reads: that
-is a gap.
+data string holds LabVIEW's flattened bytes: they are read by the type string's
+type when the code runs, with ``variants.variant_from_flattened``
+(``codegen/flat_reader.py``), which reads the layouts ``flat.py`` writes for a
+known type and raises ``NotImplementedError`` naming a type it does not read. With
+no type string wired, that is a gap.
 
 Terminals (from the primitives entry):
   in  index 4 = error in
@@ -60,15 +63,32 @@ def flattened_string_to_variant(
             f"Flattened String To Variant cannot read its type string: {error}", node
         ) from error
     if lv_type is None:
+        variable = ctx.make_output_var("variant", node.id, terminal_id=variant_term.id)
         if not is_pickled(ctx, string_term):
-            raise ConversionGap(
-                "Flattened String To Variant's type is known only when the code "
-                "runs, and its data string holds LabVIEW's flattened bytes, not a "
-                "pickle: the generated code has no LabVIEW type to read them with",
-                node,
+            type_term = terminal(node, "input", 7)
+            type_text = (
+                ctx.wired_input(type_term.id, node)
+                if type_term is not None and ctx.is_wired(type_term.id)
+                else None
+            )
+            if type_text is None:
+                raise ConversionGap(
+                    "Flattened String To Variant has no type string wired, and "
+                    "its data string holds LabVIEW's flattened bytes: there is no "
+                    "type to read them with",
+                    node,
+                )
+            ctx.import_variant("variant_from_flattened")
+            return CodeFragment(
+                statements=[
+                    build_assign(
+                        variable,
+                        parse_expr(f"variant_from_flattened({text}, {type_text})"),
+                    )
+                ],
+                bindings={variant_term.id: variable},
             )
         ctx.add_import("import pickle")
-        variable = ctx.make_output_var("variant", node.id, terminal_id=variant_term.id)
         return CodeFragment(
             statements=[
                 build_assign(

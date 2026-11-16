@@ -24,6 +24,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import type_descriptor_code
 from lvkit.models import ClusterField, LVType, LVTypeKind
 
+from .flat_reader import flat_reader_source
 from .type_reader import type_reader_source
 
 VARIANTS_MODULE_NAME = "variants"
@@ -149,6 +150,7 @@ _CLASSES_SOURCE = '''"""The value of a LabVIEW variant."""
 
 from __future__ import annotations
 
+import math
 import struct
 from dataclasses import dataclass, field
 from typing import Any
@@ -199,6 +201,7 @@ def _module_source() -> str:
         + "\n".join(lines)
         + "\n"
         + type_reader_source(_scalar_constants_by_code())
+        + flat_reader_source()
     )
 
 

@@ -38,24 +38,19 @@ from lvkit.models import LVType, LVTypeKind, unique_names
 from .ast_utils import to_var_name
 from .context import CodeGenContext
 from .flat_path_source import FLATTEN_PATH, UNFLATTEN_PATH
+from .flat_tables import (
+    COMPLEX_CODES,
+    EXTENDED_UNFLATTEN,
+    FLOAT_CODES,
+    INTEGER_CODES,
+    NUMBER_PREFIX,
+    UNIT_PREFIX,
+)
 from .native_array import dimension_sizes
 
 # The byte-order prefix of a ``struct`` format for LabVIEW's three byte orders:
 # big-endian, the machine's, little-endian.
 BYTE_ORDER_PREFIX = {0: ">", 1: "=", 2: "<"}
-
-_INTEGER_CODES = {
-    "NumInt8": ("b", "c_int8", 1),
-    "NumUInt8": ("B", "c_uint8", 1),
-    "NumInt16": ("h", "c_int16", 2),
-    "NumUInt16": ("H", "c_uint16", 2),
-    "NumInt32": ("i", "c_int32", 4),
-    "NumUInt32": ("I", "c_uint32", 4),
-    "NumInt64": ("q", "c_int64", 8),
-    "NumUInt64": ("Q", "c_uint64", 8),
-}
-_FLOAT_CODES = {"NumFloat32": ("f", 4), "NumFloat64": ("d", 8)}
-_COMPLEX_CODES = {"NumComplex64": ("ff", 8), "NumComplex128": ("dd", 16)}
 
 # Refnum kinds that do not flatten as a 32-bit integer (NI's "Flattened Data":
 # VISA, IVI and user-defined tags flatten as strings or several values).
@@ -282,21 +277,6 @@ _EXTENDED_FLATTEN = """def {name}(value):
     return head + fraction.to_bytes(14, 'big')
 """
 
-_EXTENDED_UNFLATTEN = """def {name}(data, pos):
-    head = struct.unpack_from('>H', data, pos)[0]
-    fraction = int.from_bytes(data[pos + 2:pos + 16], 'big')
-    sign = -1.0 if head & 0x8000 else 1.0
-    exponent = head & 0x7FFF
-    if exponent == 0x7FFF:
-        return (math.nan if fraction else sign * math.inf), pos + 16
-    if exponent == 0:
-        return sign * 0.0, pos + 16
-    try:
-        value = math.ldexp(fraction + (1 << 112), exponent - 16383 - 112)
-    except OverflowError:
-        value = math.inf
-    return sign * value, pos + 16
-"""
 
 
 @dataclass(frozen=True)
@@ -323,7 +303,7 @@ class Extended(Layout):
             "unflatten",
             "extended",
             ("extended",),
-            lambda name: _EXTENDED_UNFLATTEN.format(name=name),
+            lambda name: EXTENDED_UNFLATTEN.format(name=name),
         )
 
     def flatten(self, value, prefix, depth, fns):
@@ -670,15 +650,15 @@ def layout_of(lv_type: LVType | None) -> Layout:
     if underlying == "Boolean":
         return Real("?", 1)
     # A unit type is its number with a physical unit; units mean nothing in Python.
-    if underlying.startswith("Unit"):
-        underlying = "Num" + underlying[len("Unit") :]
-    if underlying in _INTEGER_CODES:
-        code, ctype, width = _INTEGER_CODES[underlying]
+    if underlying.startswith(UNIT_PREFIX):
+        underlying = NUMBER_PREFIX + underlying[len(UNIT_PREFIX) :]
+    if underlying in INTEGER_CODES:
+        code, ctype, width = INTEGER_CODES[underlying]
         return Integer(code, ctype, width)
-    if underlying in _FLOAT_CODES:
-        return Real(*_FLOAT_CODES[underlying])
+    if underlying in FLOAT_CODES:
+        return Real(*FLOAT_CODES[underlying])
     if underlying in ("NumFloatExt", "NumComplexExt"):
         return Extended(is_complex=underlying == "NumComplexExt")
-    if underlying in _COMPLEX_CODES:
-        return Real(*_COMPLEX_CODES[underlying])
+    if underlying in COMPLEX_CODES:
+        return Real(*COMPLEX_CODES[underlying])
     raise UnsupportedLayout(f"a value of type {underlying or lv_type.kind.value!r}")

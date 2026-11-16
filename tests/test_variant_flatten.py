@@ -213,10 +213,11 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
     ast.parse(both.source)
 
 
-def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
+def test_labview_bytes_with_a_run_time_type_string_are_read_by_that_type() -> None:
     """A data string that did not come from a pickling Variant To Flattened
     String holds LabVIEW's bytes (OpenG Get Default Data from TD reads a Type
-    Cast): with no type known when generating, that is a gap, never pickle."""
+    Cast): they are read by the type string when the code runs, never pickle; a
+    type the reader does not know raises naming it."""
     generated = generate(
         {"d": STR, "t": TS},
         {"v": VARIANT},
@@ -230,8 +231,26 @@ def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
         [("fp:d", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:v")],
     )
     assert "pickle.loads" not in generated.source
-    with pytest.raises(NotImplementedError, match="LabVIEW's flattened bytes"):
-        generated.function("\x00\x00\x00\x07", [4, 3])
+    variants = generated_variants()
+    (read,) = result_values(generated.function("\x00\x00\x00\x07", [4, 3]))
+    assert read == variants.Variant(7, variants.LV_I32)
+    (cluster,) = result_values(
+        generated.function("\x00\x00\x00\x03ABC\x00\x04", encode(record()))
+    )
+    assert cluster.value == ("ABC", 4)
+    with pytest.raises(NotImplementedError, match="not read"):
+        generated.function("\x00\x00\x00\x00", [4, 0x54])
+
+
+def test_labview_bytes_with_no_type_string_wired_are_a_gap() -> None:
+    generated = generate(
+        {"d": STR},
+        {"v": VARIANT},
+        [node("fv", 8202, [(3, "output", VARIANT), (6, "input", STR)])],
+        [("fp:d", "fv:6"), ("fv:3", "fp:v")],
+    )
+    with pytest.raises(NotImplementedError, match="no type string wired"):
+        generated.function("\x00\x00\x00\x07")
 
 
 def test_a_known_type_with_no_type_string_is_a_gap_that_raises_where_it_runs() -> None:
