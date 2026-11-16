@@ -57,6 +57,27 @@ def test_unary_math_functions_apply_to_every_element():
     assert lifted("math.log10(a)", a=1) == "[math.log10(_e0) for _e0 in a]"
 
 
+def test_a_chained_comparison_applies_to_every_element():
+    assert lifted("lo <= x <= hi", x=1) == "[lo <= _e0 <= hi for _e0 in x]"
+    assert evaluated("1 <= x <= 3", x=[0, 1, 3, 4]) == [False, True, True, False]
+    assert evaluated("lo <= x <= hi", x=[1, 5], lo=[0, 6], hi=[2, 9]) == [True, False]
+
+
+def test_max_and_min_of_several_values_pick_per_element():
+    assert evaluated("max(0, min(x, 5))", x=[-2, 3, 9]) == [0, 3, 5]
+    assert evaluated("max(a, b)", a=[1, 9], b=[4, 2]) == [4, 9]
+
+
+def test_a_whole_value_test_does_not_make_a_conditional_per_element():
+    source = "0 <= j < (len(a[0]) if a else 0)"
+    assert lifted(source, a=2) == source
+    assert evaluated(source, a=[[1, 2], [3, 4]], j=1) is True
+
+
+def test_max_of_one_array_is_a_reduction_and_stays():
+    assert lifted("max(x)", x=1) == "max(x)"
+
+
 def test_fixed_width_conversions_apply_to_every_element():
     assert (
         lifted("ctypes.c_uint8(a).value", a=1)
