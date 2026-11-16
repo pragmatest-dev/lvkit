@@ -176,3 +176,32 @@ def test_get_cluster_element_names_of_an_unlabelled_cluster_is_empty_per_element
         _UNLABELLED_CLUSTER, 0x50, tmp_path, monkeypatch,
     )
     assert result.element_names == ["", ""]
+
+
+def test_get_default_data_from_td_reads_flattened_bytes_by_the_type_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Flattened String To Variant gets its type string only as the code runs
+    (the VI's input): the flattened default of a number, a Boolean and a string is
+    read back by that type string."""
+    package = _generate(
+        _LVDATA / "Get Default Data from TD__ogtk.vi", tmp_path, exit_codes=(0, 3)
+    )
+    monkeypatch.syspath_prepend(str(package.parent))
+    try:
+        module = importlib.import_module(
+            f"{package.name}.{_LVDATA_MODULE}.get_default_data_from_td__ogtk"
+        )
+        read = module.get_default_data_from_td__ogtk
+        for lv_type, default in (
+            (_scalar("NumInt32"), 0),
+            (_scalar("NumFloat64"), 0.0),
+            (_scalar("Boolean"), False),
+            (_scalar("String"), ""),
+        ):
+            result = read(type_string.encode(lv_type))
+            assert result.error_out is None
+            assert result.default_vdata.value == default
+    finally:
+        for loaded in [m for m in sys.modules if m.split(".")[0] == package.name]:
+            del sys.modules[loaded]
