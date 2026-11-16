@@ -35,10 +35,10 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import parse_expr
+from ..ast_utils import build_assign, parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
-from ..cluster_members import ClusterShape
+from ..cluster_members import ClusterShape, is_anonymous_cluster
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import guarded_indexes, replaced_elements
@@ -194,6 +194,16 @@ def _own_data_inputs(
         owned = owned_input(ctx, port, node, statements)
         if owned is not None and owned != value:
             ctx.bind(port.id, owned)
+        elif (
+            value is not None
+            and not value.isidentifier()
+            and is_anonymous_cluster(port.lv_type)
+        ):
+            # A tuple written into is rebuilt and stored back, so the cluster
+            # needs a variable to hold the changed one.
+            var = ctx.make_output_var("cluster", node.id, port.id)
+            statements.append(build_assign(var, parse_expr(value)))
+            ctx.bind(port.id, var)
 
 
 def _bind_tile_inputs(

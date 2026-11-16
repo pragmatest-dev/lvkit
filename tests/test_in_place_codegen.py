@@ -1111,6 +1111,31 @@ class TestIPESClusterForms:
         assert ctx.resolve("dec_b") == "(data)[1]"
         assert "data = data[:1] + (new_b,) + data[2:]" in _code(frag)
 
+    def test_an_anonymous_cluster_given_as_an_expression_gets_a_variable(self):
+        anonymous = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="a"), ClusterField(name="b")],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_b", "rec_b", "rec_agg_out")
+        ctx.bind("cluster_in", "(Variant(), Variant())")
+        ctx.bind("rec_b", "new_b")
+        dec = _dec_op("p1", "dec_agg", "dec_b", lv_type=anonymous)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_b", lv_type=anonymous)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[
+                Terminal(id="cluster_in", index=0, direction="input", lv_type=anonymous)
+            ],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        code = _code(frag)
+        assert "cluster = (Variant(), Variant())" in code
+        assert "cluster = cluster[:1] + (new_b,) + cluster[2:]" in code
+
     def test_a_field_inside_a_typedef_cluster_of_an_anonymous_one(self):
         inner = _cluster_type("left", "right")
         outer = LVType(
