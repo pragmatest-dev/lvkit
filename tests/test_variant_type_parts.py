@@ -241,8 +241,12 @@ def test_cluster_information_lists_the_member_types(
     cluster = _cluster(_scalar("NumInt32"), _scalar("String"), _scalar("Boolean"))
     result = _caller(source)(_of(cluster))
     v = generated_variants()
+    # Each member is labelled f0, f1, f2, so its descriptor carries that name
+    # (flag 0x40 on the type code, then a Pascal string "f<i>" padded to even).
     assert result.elements == [
-        v.Variant(0, v.LV_I32), v.Variant("", v.LV_String), v.Variant(False, v.LV_TF)
+        v.Variant(0, v.LVType(3, "f0", (8, 0x4003, 0x0266, 0x3000))),
+        v.Variant("", v.LVType(0x30, "f1", (12, 0x4030, -1, -1, 0x0266, 0x3100))),
+        v.Variant(False, v.LVType(0x21, "f2", (8, 0x4021, 0x0266, 0x3200))),
     ]
     with pytest.raises(ValueError, match="is not a cluster"):
         _caller(source)(v.Variant(1, v.LV_I32))

@@ -138,3 +138,41 @@ def test_variant_to_json_text_reads_the_type_and_keeps_the_refnum_and_waveform_g
     assert "read_type(" in source
     assert "number_of_dimensions" in source
     assert "Get Refnum Information cannot read" in source
+
+
+_LABELLED_CLUSTER = LVType(
+    LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[
+        ClusterField("count", _scalar("NumInt32")),
+        ClusterField("text", _scalar("String")),
+    ],
+)
+_UNLABELLED_CLUSTER = LVType(
+    LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[
+        ClusterField("a", _scalar("NumInt32"), labelled=False),
+        ClusterField("b", _scalar("String"), labelled=False),
+    ],
+)
+
+
+def test_get_cluster_element_names_returns_the_labels_the_type_string_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _run(
+        "Get Cluster Element Names", "get_cluster_element_names",
+        _LABELLED_CLUSTER, 0x50, tmp_path, monkeypatch,
+    )
+    assert result.element_names == ["count", "text"]
+
+
+def test_get_cluster_element_names_of_an_unlabelled_cluster_is_empty_per_element(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _run(
+        "Get Cluster Element Names", "get_cluster_element_names",
+        _UNLABELLED_CLUSTER, 0x50, tmp_path, monkeypatch,
+    )
+    assert result.element_names == ["", ""]

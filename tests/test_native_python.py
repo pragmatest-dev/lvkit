@@ -741,3 +741,36 @@ def test_not_of_an_unsigned_integer_wraps_with_ctypes():
     signed = unary(1064, I32, I32)
     assert "~x" in body(signed) and "ctypes" not in signed.source
     assert run(signed, 5) == -6
+
+
+def split_number(source, high, low):
+    return generate(
+        {"x": source},
+        {"hi": high, "lo": low},
+        [
+            node(
+                "p",
+                1170,
+                [(0, "input", source), (1, "output", high), (2, "output", low)],
+            )
+        ],
+        [("fp:x", "p:0"), ("p:1", "fp:hi"), ("p:2", "fp:lo")],
+    )
+
+
+@pytest.mark.parametrize(
+    "source,half,x,expected",
+    [
+        (I16, U8, 0x0709, (7, 9)),
+        (I16, U8, -2, (0xFF, 0xFE)),
+        (U32, scalar("NumUInt16"), 0xABCD1234, (0xABCD, 0x1234)),
+        (scalar("NumUInt64"), U32, 0x1122334455667788, (0x11223344, 0x55667788)),
+        (U8, U8, 0xAB, (0, 0xAB)),
+    ],
+)
+def test_split_number_halves_are_half_the_width_of_the_input(
+    source, half, x, expected
+):
+    generated = split_number(source, half, half)
+    assert result_values(generated.function(x)) == expected
+    no_lvkit(generated)

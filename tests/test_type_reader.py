@@ -29,7 +29,9 @@ def _cluster(*members: LVType) -> LVType:
     return LVType(
         LVTypeKind.CLUSTER,
         underlying_type="Cluster",
-        fields=[ClusterField(f"f{i}", m) for i, m in enumerate(members)],
+        fields=[
+            ClusterField(f"f{i}", m, labelled=False) for i, m in enumerate(members)
+        ],
     )
 
 

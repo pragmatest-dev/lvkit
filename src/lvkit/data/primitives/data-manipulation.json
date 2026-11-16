@@ -335,13 +335,9 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "high": "in_0 >> 16",
-        "low": "in_0 & 0xFFFF"
-      },
-      "inline": true,
+      "op": "SPLIT_NUMBER",
       "verified": false,
-      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
+      "note": "Split Number: hi(x) and lo(x) are the upper and lower halves of the input integer, each an unsigned integer of half its width (NI's page); emitted via the SPLIT_NUMBER op handler, which reads the width from the input terminal's type."
     },
     "1171": {
       "name": "Join Numbers",

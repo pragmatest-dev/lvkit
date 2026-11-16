@@ -32,9 +32,12 @@ referring to each other by index, are what a VI file stores
 reads it with that decoder.
 
 ``encode`` writes the types ``codegen/flat.py`` has a layout for among those the
-page documents: numbers, Booleans, strings, arrays, clusters and enums. It writes
-no names on cluster members (flattening does not read them), and pads an enum's
-item list to an even number of bytes, as the VI file does. Any other type is a
+page documents: numbers, Booleans, strings, arrays, clusters and enums. A cluster
+member with a label is written named, as the page's I16 named ``radio`` is
+(``000A 4002 0572 6164 696F``: the 0x40 flag on the type code, the name a Pascal
+string padded to an even length, counted in the size word); an unlabelled member
+is written without a name. An enum's item list is padded to an even number of
+bytes, as the VI file does. Any other type is a
 ``TypeStringError``.
 """
 
@@ -54,6 +57,8 @@ from lvkit.parser.td_pool import RawTD, TdPool
 
 VARIABLE_SIZE = 0xFFFF
 _MAX_SIZE = 0x7FFF
+# The flag in the type code's high byte that a name follows the descriptor.
+_NAME_FLAG = 0x4000
 
 # The numbers the page documents, by type code (physical quantities carry base
 # units and are not written).
@@ -89,9 +94,11 @@ class TypeStringError(Exception):
     """A type that has no type string, or a type string that is not one."""
 
 
-def encode(lv_type: LVType) -> list[int]:
-    """The type string of ``lv_type``: its descriptor as signed 16-bit numbers."""
-    return [_signed(word) for word in _descriptor(lv_type)]
+def encode(lv_type: LVType, name: str | None = None) -> list[int]:
+    """The type string of ``lv_type``: its descriptor as signed 16-bit numbers,
+    with ``name`` (the data's own label, when known) appended as the page
+    describes. A cluster member is written with its label when it has one."""
+    return [_signed(word) for word in _descriptor(lv_type, name)]
 
 
 def decode(numbers: Sequence[int]) -> LVType:
@@ -116,8 +123,9 @@ def _signed(word: int) -> int:
     return word - 0x10000 if word & 0x8000 else word
 
 
-def _descriptor(lv_type: LVType) -> list[int]:
-    """The 16-bit words of ``lv_type``'s descriptor."""
+def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
+    """The 16-bit words of ``lv_type``'s descriptor, ending in ``name`` when
+    given."""
     underlying = lv_type.underlying_type or ""
     if lv_type.kind == LVTypeKind.ARRAY:
         element = lv_type.element_type
@@ -126,7 +134,7 @@ def _descriptor(lv_type: LVType) -> list[int]:
         dimensions = lv_type.dimensions or 1
         inner = _descriptor(element)
         head = [0x0040, dimensions, *([VARIABLE_SIZE] * (2 * dimensions))]
-        return _sized(head + inner)
+        return _sized(head + inner, name)
     if lv_type.kind == LVTypeKind.CLUSTER:
         if not lv_type.fields:
             raise TypeStringError("a cluster with no members")
@@ -134,24 +142,26 @@ def _descriptor(lv_type: LVType) -> list[int]:
         for member in lv_type.fields:
             if member.type is None:
                 raise TypeStringError("a cluster member of an unknown type")
-            members += _descriptor(member.type)
-        return _sized([0x0050, len(lv_type.fields), *members])
+            members += _descriptor(
+                member.type, member.name if member.labelled and member.name else None
+            )
+        return _sized([0x0050, len(lv_type.fields), *members], name)
     if lv_type.kind == LVTypeKind.ENUM:
-        return _enum(lv_type)
+        return _enum(lv_type, name)
     if lv_type.kind != LVTypeKind.PRIMITIVE:
         raise TypeStringError(f"a value of type {lv_type.kind.value!r}")
     if is_boolean_type_name(underlying):
-        return _sized([TD_FULL_TYPE.Boolean.value])
+        return _sized([TD_FULL_TYPE.Boolean.value], name)
     if is_string_type_name(underlying):
-        return _sized([TD_FULL_TYPE.String.value, VARIABLE_SIZE, VARIABLE_SIZE])
+        return _sized([TD_FULL_TYPE.String.value, VARIABLE_SIZE, VARIABLE_SIZE], name)
     if underlying in NUMBER_CODES:
-        return _sized([NUMBER_CODES[underlying].value])
+        return _sized([NUMBER_CODES[underlying].value], name)
     if is_numeric_type_name(underlying):
         raise TypeStringError(f"a number of type {underlying!r}")
     raise TypeStringError(f"a value of type {underlying or lv_type.kind.value!r}")
 
 
-def _enum(lv_type: LVType) -> list[int]:
+def _enum(lv_type: LVType, name: str | None) -> list[int]:
     code = ENUM_CODES.get(lv_type.underlying_type or "")
     if code is None or lv_type.values is None:
         raise TypeStringError("an enum with no recorded items")
@@ -163,12 +173,26 @@ def _enum(lv_type: LVType) -> list[int]:
     if len(items) % 2:
         items += b"\x00"
     words = struct.unpack(f">{len(items) // 2}H", items)
-    return _sized([code.value, len(labels), *words])
+    return _sized([code.value, len(labels), *words], name)
 
 
-def _sized(words: list[int]) -> list[int]:
+def _sized(words: list[int], name: str | None = None) -> list[int]:
     """``words`` (the type code onward) behind the size word, which counts bytes
-    and itself."""
+    and itself. A ``name`` sets the "has a name" flag (0x40) in the high byte of
+    the type code and follows the type-specific words as a Pascal string, padded
+    to an even number of bytes."""
+    if name is not None:
+        raw = name.encode("latin-1")
+        if len(raw) > 0xFF:
+            raise TypeStringError("a name longer than 255 bytes")
+        text = bytes([len(raw)]) + raw
+        if len(text) % 2:
+            text += b"\x00"
+        words = [
+            words[0] | _NAME_FLAG,
+            *words[1:],
+            *struct.unpack(f">{len(text) // 2}H", text),
+        ]
     size = 2 * (len(words) + 1)
     if size > _MAX_SIZE:
         raise TypeStringError("a type whose descriptor is too large")

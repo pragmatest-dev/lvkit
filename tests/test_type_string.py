@@ -24,7 +24,10 @@ def words(*hex_words: int) -> list[int]:
 def cluster(*members: LVType) -> LVType:
     return LVType(
         kind=LVTypeKind.CLUSTER,
-        fields=[ClusterField(name=f"m{i}", type=t) for i, t in enumerate(members)],
+        fields=[
+            ClusterField(name=f"m{i}", type=t, labelled=False)
+            for i, t in enumerate(members)
+        ],
     )
 
 
@@ -132,3 +135,47 @@ def test_a_type_with_no_layout_has_no_type_string() -> None:
         encode(scalar("Path"))
     with pytest.raises(TypeStringError):
         encode(array(array("NumInt8")))
+
+
+def test_the_documented_named_i16_is_written() -> None:
+    # NI's example: an I16 named "radio" (size 4 + 6, flag 0x40 on the code word).
+    assert encode(I16, "radio") == words(0x000A, 0x4002, 0x0572, 0x6164, 0x696F)
+
+
+def test_a_labelled_cluster_member_is_written_named_and_an_unlabelled_one_is_not() -> (
+    None
+):
+    # Members "a" (I16) and "bc" (U32), then an unlabelled I16. A name is a Pascal
+    # string padded to an even length ("bc" is 3 bytes, so 4), counted in the size.
+    members = [
+        ClusterField("a", I16),
+        ClusterField("bc", U32),
+        ClusterField("m2", I16, labelled=False),
+    ]
+    named = LVType(kind=LVTypeKind.CLUSTER, fields=members)
+    assert encode(named) == words(
+        0x0018, 0x0050, 0x0003,
+        0x0006, 0x4002, 0x0161,
+        0x0008, 0x4007, 0x0262, 0x6300,
+        0x0004, 0x0002,
+    )  # fmt: skip
+
+
+def test_names_round_trip_through_decode() -> None:
+    original = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField("count", I32),
+            ClusterField("text", STR),
+            ClusterField("flag", BOOL),
+            ClusterField("m3", array("NumFloat64"), labelled=False),
+        ],
+    )
+    decoded = decode(encode(original))
+    assert [(f.name, f.labelled) for f in decoded.fields or []][:3] == [
+        ("count", True),
+        ("text", True),
+        ("flag", True),
+    ]
+    assert (decoded.fields or [])[3].labelled is False
+    assert encode(decoded) == encode(original)
