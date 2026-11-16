@@ -362,7 +362,7 @@ VILIB_CALL_DEFAULTS = [
     ),
     pytest.param(
         "Three Button Dialog.vi",
-        ["dialog"],
+        ["Utility", "error.llb"],
         [(4, "Boolean"), (7, "String"), (8, "String"), (9, "String"), (10, "String")],
         [
             "in Allow user to close window? (TRUE) : TF default True",
