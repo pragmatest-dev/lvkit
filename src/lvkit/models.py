@@ -1255,6 +1255,24 @@ class SelectorRange(BaseModel):
         return self.start == self.end and not self.open_start and not self.open_end
 
 
+class StringRange(BaseModel):
+    """One range of a string selector, ``"a".."c"``.
+
+    NI's help (https://www.ni.com/docs/en-US/bundle/labview/page/lvhowto/case_selector_values.html,
+    "String ranges"): "A range of a..c includes all strings beginning with a or
+    b, but not c. String ranges are case sensitive ... LabVIEW uses ASCII values
+    to determine a string range." The forum thread quoting the help adds "A range
+    of a..c,c includes the ending value of c"
+    (https://forums.ni.com/t5/LabVIEW/Range-of-strings-as-a-case-element-is-not-inclusive/m-p/1305758),
+    and https://lavag.org/topic/20011-string-case-selector-range/ shows the
+    string ``"9"`` missing ``"0".."9"``. So a string matches when
+    ``start <= string < end``, compared by character code. ``None`` is an open
+    side: no bound there."""
+
+    start: str | None
+    end: str | None
+
+
 class Frame(BaseModel):
     """Base frame — common fields for any structure frame."""
 
@@ -1285,6 +1303,9 @@ class CaseFrame(Frame):
     # the default frame — there ``selector_value``/``selector_ranges`` carry
     # the token. ``selector_value`` holds the first string as the unique key.
     selector_strings: list[str] = []
+    # The ranges (``"0".."9"``) of a STRING selector frame, beside its single
+    # strings above.
+    selector_string_ranges: list[StringRange] = []
     # For a Boolean selector: the value this frame matches (True or False). None
     # for every other selector type.
     boolean_value: bool | None = None

@@ -12,7 +12,7 @@ from lvkit.lv_type_codes import (
     is_integer_type_name,
     is_string_type_name,
 )
-from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, Tunnel
+from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, StringRange, Tunnel
 from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS, TUNNEL_CLASS_CASE_SEL
@@ -415,8 +415,14 @@ def _extract_one_case_structure(
                     boolean_value = sv == 1
                     resolved_selector = str(boolean_value)
                 elif selector_type == SelectorKind.STRING:
-                    strings = _range_strings(ranges, string_labels)
-                    resolved_selector = strings[0] if strings else None
+                    singles, string_ranges = _string_selector_values(
+                        ranges, string_labels
+                    )
+                    resolved_selector = (
+                        _string_selector_key(singles, string_ranges)
+                        if singles or string_ranges
+                        else None
+                    )
                 else:
                     is_no_error = selector_type == SelectorKind.ERROR and sv == 0
                     # Integer, enum, error — semantic identity is the raw
@@ -458,7 +464,10 @@ def _extract_one_case_structure(
                 # A default frame can also have explicit selector values.
                 # Numeric/enum ranges and the catch-all flag are independent.
                 if selector_type == SelectorKind.STRING:
-                    frame.selector_strings = _range_strings(ranges, string_labels)
+                    (
+                        frame.selector_strings,
+                        frame.selector_string_ranges,
+                    ) = _string_selector_values(ranges, string_labels)
                 elif selector_type != SelectorKind.BOOLEAN:
                     frame.selector_ranges = ranges
                 frames.append(frame)
@@ -633,15 +642,42 @@ def _parsed_type_to_selector_type(parsed_type: ParsedType) -> SelectorKind | Non
     return None
 
 
-def _range_strings(ranges: list[SelectorRange], string_labels: list[str]) -> list[str]:
-    """The strings a string-selector frame matches: each range's start..end are
-    indices into the case's ``SelectStringArray``."""
-    return [
-        string_labels[i]
-        for r in ranges
-        for i in range(r.start, r.end + 1)
-        if 0 <= i < len(string_labels)
-    ]
+def _string_selector_values(
+    ranges: list[SelectorRange], string_labels: list[str]
+) -> tuple[list[str], list[StringRange]]:
+    """The values a string-selector frame matches, as ``(single strings, ranges)``.
+    Each range's start/end are indices into the case's ``SelectStringArray``: a
+    single string has ``start == end``; ``start != end`` is the range
+    ``"start".."end"`` (an open side has no string)."""
+
+    def label(i: int) -> str | None:
+        return string_labels[i] if 0 <= i < len(string_labels) else None
+
+    singles: list[str] = []
+    string_ranges: list[StringRange] = []
+    for r in ranges:
+        if r.is_single:
+            text = label(r.start)
+            if text is not None:
+                singles.append(text)
+            continue
+        lo = None if r.open_start else label(r.start)
+        hi = None if r.open_end else label(r.end)
+        if (lo is None and not r.open_start) or (hi is None and not r.open_end):
+            continue
+        string_ranges.append(StringRange(start=lo, end=hi))
+    return singles, string_ranges
+
+
+def _string_selector_key(singles: list[str], string_ranges: list[StringRange]) -> str:
+    """The frame's unique key: its first single string, else its first range
+    written ``a..b``."""
+    if singles:
+        return singles[0]
+    if string_ranges:
+        first = string_ranges[0]
+        return f"{first.start or ''}..{first.end or ''}"
+    return ""
 
 
 def _parse_type_id(type_desc: str | None) -> int | None:
@@ -864,20 +900,25 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_value = "Default"
             frame.selector_ranges = []
             frame.selector_strings = []
+            frame.selector_string_ranges = []
             frame.boolean_value = None
             frame.is_no_error = False
             continue
         # The heap recorded no default, so a frame with values is not one.
         frame.is_default = False
         if table.has_strings:
-            strings: list[str] = []
-            for start, end in my_ranges:
-                for i in range(start, end + 1):
-                    if 0 <= i < len(table.strings):
-                        strings.append(table.strings[i])
-            frame.selector_strings = strings
+            singles, string_ranges = _string_selector_values(
+                [SelectorRange(start=start, end=end) for start, end in my_ranges],
+                table.strings,
+            )
+            frame.selector_strings = singles
+            frame.selector_string_ranges = string_ranges
             frame.selector_ranges = []
-            frame.selector_value = strings[0] if strings else str(idx)
+            frame.selector_value = (
+                _string_selector_key(singles, string_ranges)
+                if singles or string_ranges
+                else str(idx)
+            )
         elif case.selector_type == SelectorKind.BOOLEAN:
             # A boolean table names True/False by a 0/1 point range per diagram.
             frame.selector_ranges = []

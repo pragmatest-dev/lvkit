@@ -253,7 +253,7 @@ class TestPreDeclareSkipsInvalidTargets:
 # ---------------------------------------------------------------------------
 
 from lvkit.codegen.nodes.case import _build_frame_pattern  # noqa: E402
-from lvkit.models import CaseFrame, SelectorRange  # noqa: E402
+from lvkit.models import CaseFrame, SelectorRange, StringRange  # noqa: E402
 
 
 def _pattern_src(
@@ -374,3 +374,89 @@ class TestPreDeclareOutputsTypeDefault:
 
     def test_string_tunnel_predeclared_empty(self):
         assert self._pre("String") == "result = ''"
+
+
+def _run_string_case(frames: list[CaseFrame], value: str) -> str:
+    """Generate the match statement the case codegen builds for ``frames`` (the
+    last is the Default frame, as the codegen places it) and run it."""
+    cases = []
+    for i, frame in enumerate(frames):
+        if frame.is_default:
+            pattern, guard = ast.MatchAs(pattern=None, name=None), None
+        else:
+            pattern, guard = _build_frame_pattern(frame, "sel", True)
+        body = ast.parse(f"out = 'frame{i}'").body
+        cases.append(ast.match_case(pattern=pattern, guard=guard, body=body))
+    cases.sort(key=lambda c: isinstance(c.pattern, ast.MatchAs) and c.guard is None)
+    mod = ast.Module(
+        body=[ast.Match(subject=ast.Name(id="sel", ctx=ast.Load()), cases=cases)],
+        type_ignores=[],
+    )
+    scope: dict[str, str] = {"sel": value, "out": "none"}
+    exec(compile(ast.fix_missing_locations(mod), "<case>", "exec"), scope)
+    return scope["out"]
+
+
+class TestStringRangeRuns:
+    """LabVIEW: "a range of a..c includes all strings beginning with a or b, but
+    not c"; compared by character code (NI help, case selector values)."""
+
+    FRAMES = [
+        CaseFrame(selector_value="/", selector_strings=["/"]),
+        CaseFrame(
+            selector_value="0..9",
+            selector_string_ranges=[StringRange(start="0", end="9")],
+        ),
+        CaseFrame(selector_value="Default", is_default=True),
+    ]
+
+    def test_a_string_inside_the_range_matches_it(self):
+        assert _run_string_case(self.FRAMES, "5") == "frame1"
+        assert _run_string_case(self.FRAMES, "0") == "frame1"
+        assert _run_string_case(self.FRAMES, "2026-11-16") == "frame1"
+
+    def test_the_end_of_the_range_is_excluded(self):
+        assert _run_string_case(self.FRAMES, "9") == "frame2"
+
+    def test_a_single_value_frame_matches_only_that_string(self):
+        assert _run_string_case(self.FRAMES, "/") == "frame0"
+
+    def test_a_string_outside_every_frame_takes_the_default(self):
+        assert _run_string_case(self.FRAMES, "x") == "frame2"
+        assert _run_string_case(self.FRAMES, "") == "frame2"
+
+    def test_comparison_is_by_character_code(self):
+        upper = [
+            CaseFrame(
+                selector_value="A..c",
+                selector_string_ranges=[StringRange(start="A", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(upper, "Z") == "frame0"
+        assert _run_string_case(upper, "a") == "frame0"
+        assert _run_string_case(upper, "c") == "frame1"
+
+    def test_a_range_and_a_list_value_in_one_frame(self):
+        frames = [
+            CaseFrame(
+                selector_value="c",
+                selector_strings=["c"],
+                selector_string_ranges=[StringRange(start="a", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(frames, "c") == "frame0"
+        assert _run_string_case(frames, "b") == "frame0"
+        assert _run_string_case(frames, "d") == "frame1"
+
+    def test_open_ends_compare_one_sided(self):
+        frames = [
+            CaseFrame(
+                selector_value="m..",
+                selector_string_ranges=[StringRange(start="m", end=None)],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(frames, "zebra") == "frame0"
+        assert _run_string_case(frames, "apple") == "frame1"

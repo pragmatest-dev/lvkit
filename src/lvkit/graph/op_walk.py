@@ -406,8 +406,10 @@ _DEFAULT_LABEL = "Default"
 
 def _is_string_selector(frame: CaseFrame, lv_type: LVType | None) -> bool:
     """Whether the frame's values are strings (shown quoted)."""
-    return bool(frame.selector_strings) or bool(
-        lv_type and lv_type.underlying_type == "String"
+    return (
+        bool(frame.selector_strings)
+        or bool(frame.selector_string_ranges)
+        or bool(lv_type and lv_type.underlying_type == "String")
     )
 
 
@@ -428,7 +430,11 @@ def _selector_values(frame: CaseFrame, lv_type: LVType | None) -> list[str]:
         )
     if frame.selector_ranges:  # integer selector
         return _range_tokens(frame.selector_ranges, str)
-    return list(frame.selector_strings)  # string selector: one frame, several
+    # string selector: one frame, several values then ranges (``a..c``)
+    return [
+        *frame.selector_strings,
+        *(f"{r.start or ''}..{r.end or ''}" for r in frame.selector_string_ranges),
+    ]
 
 
 def error_code_ranges(frame: CaseFrame) -> list[SelectorRange]:

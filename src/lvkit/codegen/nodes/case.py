@@ -10,7 +10,7 @@ from lvkit.graph.core import kind_display
 from lvkit.graph.models import CaseStructureNode
 from lvkit.graph.op_walk import error_code_ranges
 from lvkit.lv_type_codes import is_boolean_type_name
-from lvkit.models import CaseFrame, SelectorRange
+from lvkit.models import CaseFrame, SelectorRange, StringRange
 
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -61,6 +61,7 @@ def _has_placeholder_frame(node: CaseStructureNode) -> bool:
     return any(
         not frame.is_default
         and not frame.selector_strings
+        and not frame.selector_string_ranges
         and not frame.selector_ranges
         and frame.boolean_value is None
         for frame in node.frames
@@ -262,6 +263,18 @@ def _range_clause(selector_var: str, r: SelectorRange) -> str:
     return f"{r.start} <= {selector_var} <= {r.end}"
 
 
+def _string_range_clause(selector_var: str, r: StringRange) -> str:
+    """The Python comparison for one string range: ``start <= s < end`` by
+    character code (the end is excluded; see ``StringRange``). An open side has
+    no bound."""
+    parts = []
+    if r.start is not None:
+        parts.append(f"{selector_var} >= {r.start!r}")
+    if r.end is not None:
+        parts.append(f"{selector_var} < {r.end!r}")
+    return "(" + " and ".join(parts) + ")" if parts else "True"
+
+
 def _build_frame_pattern(
     frame: CaseFrame,
     selector_var: str,
@@ -275,7 +288,14 @@ def _build_frame_pattern(
     range (closed or open-ended) is expressed as a ``case _ if`` guard,
     OR-combined with the singletons.
     """
-    # String selector: OR of the matched string literals.
+    # String selector: OR of the matched string literals; a range guards a
+    # wildcard, as a numeric range does.
+    if frame.selector_string_ranges:
+        clauses = [f"{selector_var} == {s!r}" for s in frame.selector_strings]
+        clauses += [
+            _string_range_clause(selector_var, r) for r in frame.selector_string_ranges
+        ]
+        return ast.MatchAs(pattern=None, name=None), parse_expr(" or ".join(clauses))
     if frame.selector_strings:
         pats: list[ast.pattern] = [
             ast.MatchValue(value=ast.Constant(value=s)) for s in frame.selector_strings
