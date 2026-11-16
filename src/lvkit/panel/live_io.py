@@ -4,7 +4,9 @@ A function converted from a VI that reads or writes its LabVIEW front panel
 while it runs takes ``live_io``: it calls ``write`` after it writes an
 indicator, ``read`` before it uses a control it reads while running,
 ``set_property`` when it sets a control property, ``prompt`` when it shows a
-dialog box, and takes the front panel's events from ``events``. The base class
+dialog box, calls ``open_panel`` / ``close_panel`` when it opens or closes its
+own front panel window, and takes the front panel's events from ``events``.
+The base class
 does nothing, except ``prompt``, which asks on the terminal: ``read`` returns
 the value the function already holds. Pass a subclass to show, record or supply
 the values (a UI, a test, a data service).
@@ -45,6 +47,23 @@ class LiveIO:
     def set_property(self, name: Enum, prop: Enum, value: Any) -> Any:
         """The function set the property ``prop`` of the control or indicator
         ``name`` to ``value``."""
+        return None
+
+    def open_panel(self, activate: bool = False, state: int = 1) -> None:
+        """The function opened its own front panel window (Front Panel:Open,
+        FP.Open).
+        ``activate`` is NI's Activate?: False (default), the window does not open
+        as the active window; True, it does. ``state`` is NI's State, the state to
+        open the window in: 1 Standard (default), 3 Hidden, 4 Minimized, 5
+        Maximized (0 Invalid and 2 Closed are errors in LabVIEW). Called again
+        while the window is open, it sets the window's state to ``state``
+        (docs-be ``properties-and-methods/vi-server/vi/openfrontpanel.html``)."""
+        return None
+
+    def close_panel(self) -> None:
+        """The function closed its own front panel window (Front Panel:Close,
+        FP.Close, which has no inputs: docs-be
+        ``properties-and-methods/vi-server/vi/closefrontpanel.html``)."""
         return None
 
     def prompt(

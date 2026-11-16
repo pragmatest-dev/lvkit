@@ -47,6 +47,12 @@ class Recorder(LiveIO):
         self.log.append(("property", name, prop, value))
         return None
 
+    def open_panel(self, activate: bool = False, state: int = 1) -> None:
+        self.log.append(("open_panel", activate, state))
+
+    def close_panel(self) -> None:
+        self.log.append(("close_panel",))
+
 
 class PromptRecorder(LiveIO):
     """A ``LiveIO`` that records every dialog a function shows, ``(message,

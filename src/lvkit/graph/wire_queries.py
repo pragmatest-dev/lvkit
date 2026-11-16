@@ -56,6 +56,9 @@ class WireQueriesMixin:
         def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
         def loaded_callee_key(self, node: VINode) -> str | None: ...
         def catalog_path(self, node: VINode) -> str | None: ...
+        def acts_on_own_front_panel_window(
+            self, node: AnyGraphNode, vi_name: str
+        ) -> bool: ...
 
         @property
         def primitive_catalog(self) -> PrimitiveResolver: ...
@@ -278,10 +281,13 @@ class WireQueriesMixin:
         )
 
     def calls_live_io(self, vi_name: str) -> bool:
-        """Whether the VI's diagram holds a node whose catalog entry says its
-        Python calls ``live_io`` (a dialog box): a primitive, or a vi.lib VI
-        by the path its caller records."""
+        """Whether the VI's diagram holds a node whose Python calls ``live_io``:
+        a node whose catalog entry says so (a dialog box), a primitive, or a
+        vi.lib VI by the path its caller records; or an Invoke Node that opens or
+        closes the VI's own front panel window (FP.Open, FP.Close)."""
         for node in self.iter_nodes(vi_name):
+            if self.acts_on_own_front_panel_window(node, vi_name):
+                return True
             if isinstance(node, PrimitiveNode) and node.prim_id is not None:
                 resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)
                 if resolved is not None and resolved.live_io:
@@ -300,7 +306,8 @@ class WireQueriesMixin:
         Node bound to one of its controls, Reinit To Default on a control or
         indicator of its own, an off-pane control whose terminal
         has a wire leaving it (the diagram reads it), or a node whose Python
-        shows a dialog box through ``live_io`` (``calls_live_io``)."""
+        calls ``live_io`` (a dialog box, opening or closing its own front panel
+        window: ``calls_live_io``)."""
         if self.has_event_structure(vi_name) or self.calls_live_io(vi_name):
             return True
         vi = self.get_graph_node(vi_name)
