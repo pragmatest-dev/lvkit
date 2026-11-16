@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.frame_structure import pre_declare_outputs
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import CaseStructureNode
 from lvkit.models import Terminal, Tunnel
 from tests.helpers import make_ctx, make_graph_with_edge, tunnel_terminals
@@ -376,7 +379,20 @@ class TestPreDeclareOutputsTypeDefault:
         assert self._pre("String") == "result = ''"
 
 
-def _run_string_case(frames: list[CaseFrame], value: str) -> str:
+def _string_node(frames: list[CaseFrame], insensitive: bool) -> CaseStructureNode:
+    return CaseStructureNode(
+        id="case1",
+        vi_path="test.vi",
+        name="Case",
+        node_type="caseStruct",
+        frames=frames,
+        case_insensitive=insensitive,
+    )
+
+
+def _run_string_case(
+    frames: list[CaseFrame], value: str, insensitive: bool = False
+) -> str:
     """Generate the match statement the case codegen builds for ``frames`` (the
     last is the Default frame, as the codegen places it) and run it."""
     cases = []
@@ -384,7 +400,9 @@ def _run_string_case(frames: list[CaseFrame], value: str) -> str:
         if frame.is_default:
             pattern, guard = ast.MatchAs(pattern=None, name=None), None
         else:
-            pattern, guard = _build_frame_pattern(frame, "sel", True)
+            pattern, guard = _build_frame_pattern(
+                frame, "sel", True, _string_node(frames, insensitive)
+            )
         body = ast.parse(f"out = 'frame{i}'").body
         cases.append(ast.match_case(pattern=pattern, guard=guard, body=body))
     cases.sort(key=lambda c: isinstance(c.pattern, ast.MatchAs) and c.guard is None)
@@ -460,3 +478,36 @@ class TestStringRangeRuns:
         ]
         assert _run_string_case(frames, "zebra") == "frame0"
         assert _run_string_case(frames, "apple") == "frame1"
+
+
+class TestCaseInsensitiveMatch:
+    """NI (labviewwiki.org/wiki/Case_Structure): "a" matches "a" or "A"; a list
+    matches each value in either case; the comparison is ASCII."""
+
+    FRAMES = [
+        CaseFrame(selector_value="a", selector_strings=["a", "o"]),
+        CaseFrame(selector_value="Straße", selector_strings=["Straße"]),
+        CaseFrame(selector_value="Default", is_default=True),
+    ]
+
+    def test_either_case_matches_a_single_value_and_a_list(self):
+        for text in ("a", "A", "o", "O"):
+            assert _run_string_case(self.FRAMES, text, True) == "frame0"
+
+    def test_a_sensitive_structure_still_matches_exactly(self):
+        assert _run_string_case(self.FRAMES, "A", False) == "frame2"
+
+    def test_only_ascii_letters_fold(self):
+        assert _run_string_case(self.FRAMES, "STRAßE", True) == "frame1"
+        assert _run_string_case(self.FRAMES, "STRASSE", True) == "frame2"
+
+    def test_a_string_range_is_a_gap(self):
+        frames = [
+            CaseFrame(
+                selector_value="a..c",
+                selector_string_ranges=[StringRange(start="a", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        with pytest.raises(ConversionGap, match="Case Insensitive Match"):
+            _run_string_case(frames, "b", True)

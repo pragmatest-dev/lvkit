@@ -186,7 +186,9 @@ def _generate_match_case(
             pattern: ast.pattern = ast.MatchAs(pattern=None, name=None)
             guard: ast.expr | None = None
         else:
-            pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
+            pattern, guard = _build_frame_pattern(
+                frame, selector_var, is_string, node if is_string else None
+            )
         patterns.append((pattern, guard))
 
         inner_fragment = generate_frame_body(node, frame, ops_by_frame, ctx)
@@ -275,10 +277,39 @@ def _string_range_clause(selector_var: str, r: StringRange) -> str:
     return "(" + " and ".join(parts) + ")" if parts else "True"
 
 
+def _insensitive_string_pattern(
+    frame: CaseFrame, selector_var: str, node: CaseStructureNode
+) -> tuple[ast.pattern, ast.expr | None]:
+    """The pattern of a frame of a case structure with Case Insensitive Match.
+    NI (labviewwiki.org/wiki/Case_Structure, string selectors): with the option
+    on, a selector of "a" "executes if the value is either "a" or "A"" and a list
+    matches every value in either case. The comparison is the ASCII one (the same
+    page: "ranges are matched using the ASCII character set"), so only the
+    letters A-Z fold: ``bytes.lower`` lowers exactly those. A string range has no
+    documented case-insensitive form beyond that page's table (its closed range
+    "a".."z" runs for values ">= A and < z"), which does not say how either end
+    is compared, so a range is a gap."""
+    if frame.selector_string_ranges:
+        raise ConversionGap(
+            "A string range in a Case structure with Case Insensitive Match: NI "
+            "does not document how its ends are compared",
+            node,
+        )
+    values = frame.selector_strings or [str(frame.selector_value)]
+    folded = ", ".join(
+        repr(v.encode("utf-8", "surrogateescape").lower()) for v in values
+    )
+    guard = parse_expr(
+        f"{selector_var}.encode('utf-8', 'surrogateescape').lower() in ({folded},)"
+    )
+    return ast.MatchAs(pattern=None, name=None), guard
+
+
 def _build_frame_pattern(
     frame: CaseFrame,
     selector_var: str,
     is_string: bool,
+    string_node: CaseStructureNode | None = None,
 ) -> tuple[ast.pattern, ast.expr | None]:
     """Build the match pattern (and optional guard) for one non-default frame.
 
@@ -288,6 +319,9 @@ def _build_frame_pattern(
     range (closed or open-ended) is expressed as a ``case _ if`` guard,
     OR-combined with the singletons.
     """
+    insensitive = string_node is not None and string_node.case_insensitive
+    if insensitive and string_node is not None:
+        return _insensitive_string_pattern(frame, selector_var, string_node)
     # String selector: OR of the matched string literals; a range guards a
     # wildcard, as a numeric range does.
     if frame.selector_string_ranges:

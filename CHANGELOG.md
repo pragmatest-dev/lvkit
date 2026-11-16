@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap
 ## [Unreleased]
+- **A string Case structure with Case Insensitive Match matches either case** — `"a"` runs for `a` and `A` (ASCII letters only, NI's wiki table); a string range in such a structure is a gap, as NI does not document how its ends compare.
 - **A string Case structure range shows each end quoted (`"0".."9"`) in describe, lvnet, JSON and the diagram** — it showed `"0..9"`; lvnet reads the range form back.
 - **In Range and Coerce on an array computes element by element** — an array `x` with scalar or array limits gives an array of Booleans and the coerced array (it generated `48 <= list <= 57`, which fails on a list); swapped limits (lower above upper) are exchanged before coercing, as NI documents.
 - **An open-ended range of one stored value (`45..`) in an enum or integer Case structure is a range** — only an error case reads that shape as its "No Error" point; JSONtext's `Variant to JSON Text.vi` no longer reports "two frames for \"0\"" for it.
