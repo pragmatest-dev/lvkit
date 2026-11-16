@@ -41,6 +41,7 @@ from .input_default import build_input_defaults, is_none_defaulted
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
+from .nodes.front_panel_title import entry_title
 from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
@@ -196,6 +197,8 @@ def function_body(
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
+    # A VI that writes the Title of its own window keeps it in a variable.
+    body.extend(entry_title(ctx))
 
     # An unwired input holds its control's default: its ``def`` default is None
     # when the type's default is an object (array, cluster, path, class).

@@ -207,6 +207,9 @@ class CodeGenContext:
     # (``panel_hooks.entry_events``), set when its function starts; one per
     # function, copied to child contexts.
     events_var: str | None = None
+    # The variable that holds the Title of the VI's own front panel window
+    # (``nodes/front_panel_title.entry_title``), set when its function starts.
+    window_title_var: str | None = None
     # The variable that holds the message an Event Structure handles, by the id of
     # the structure. One per function, shared by child contexts.
     event_messages: dict[str, str] = field(default_factory=dict, repr=False)
@@ -646,6 +649,7 @@ class CodeGenContext:
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
             events_var=self.events_var,
+            window_title_var=self.window_title_var,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module

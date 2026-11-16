@@ -61,6 +61,11 @@ VI_DESCRIPTION_PROPERTY_CODE = 502
 VI_FP_OPEN_METHOD_CODE = 1080
 VI_FP_CLOSE_METHOD_CODE = 1061
 
+# The Front Panel Window:Title property (FP.Title; NI:
+# properties-and-methods/vi-server/vi/fpwintitle.html), by the code a Property
+# Node records beside that name (553 in every such node of the corpus).
+VI_FP_TITLE_PROPERTY_CODE = 553
+
 # The Property Node's VI reference input.
 _PROPERTY_REFERENCE_INDEX = 0
 # An Invoke Node's VI reference output.
@@ -147,13 +152,58 @@ class VIReferenceMixin(WireOriginMixin):
         for an Invoke Node of the VI class) or wired from "This VI". FP.Open or
         FP.Close on the reference of another VI, or on one only known when the
         diagram runs, is not."""
-        if (
-            not isinstance(node, PrimitiveNode)
-            or node.object_name != VI_CLASS
-            or node.method_code
-            not in (VI_FP_OPEN_METHOD_CODE, VI_FP_CLOSE_METHOD_CODE)
-        ):
-            return False
+        return (
+            isinstance(node, PrimitiveNode)
+            and node.object_name == VI_CLASS
+            and node.method_code in (VI_FP_OPEN_METHOD_CODE, VI_FP_CLOSE_METHOD_CODE)
+            and self._reference_is_own(node, vi_name)
+        )
+
+    def acts_on_own_window_title(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` is a Property Node whose every row is Front Panel
+        Window:Title (code 553), on the VI ``vi_name`` that holds it: its reference
+        is unwired or wired from "This VI". The Title of another VI's reference,
+        or of one only known when the diagram runs, is not."""
+        return (
+            isinstance(node, PrimitiveNode)
+            and node.object_name == VI_CLASS
+            and bool(node.properties)
+            and all(
+                len(p.segments) == 1
+                and p.segments[0].code == VI_FP_TITLE_PROPERTY_CODE
+                for p in node.properties
+            )
+            and self._reference_is_own(node, vi_name)
+        )
+
+    def writes_own_window_title(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` writes the Title of the VI's own window
+        (``acts_on_own_window_title`` with a row that takes a value in)."""
+        return (
+            isinstance(node, PrimitiveNode)
+            and self.acts_on_own_window_title(node, vi_name)
+            and any(
+                t.id in node.property_value_terminal_ids and t.direction == "input"
+                for t in node.terminals
+            )
+        )
+
+    def has_own_window_title_node(self, vi_name: str) -> bool:
+        """Whether the VI's diagram holds a Property Node of its own window's
+        Title."""
+        return any(
+            self.acts_on_own_window_title(n, vi_name) for n in self.iter_nodes(vi_name)
+        )
+
+    def writes_a_window_title(self, vi_name: str) -> bool:
+        """Whether the VI's diagram writes the Title of its own window anywhere."""
+        return any(
+            self.writes_own_window_title(n, vi_name) for n in self.iter_nodes(vi_name)
+        )
+
+    def _reference_is_own(self, node: PrimitiveNode, vi_name: str) -> bool:
+        """Whether the node's VI reference is unwired (the default VI object) or
+        resolves to ``vi_name``."""
         reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
         if reference is None or not self.wire_origins(reference.id):
             return True

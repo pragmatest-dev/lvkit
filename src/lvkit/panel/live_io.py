@@ -5,7 +5,8 @@ while it runs takes ``live_io``: it calls ``write`` after it writes an
 indicator, ``read`` before it uses a control it reads while running,
 ``set_property`` when it sets a control property, ``prompt`` when it shows a
 dialog box, calls ``open_panel`` / ``close_panel`` when it opens or closes its
-own front panel window, and takes the front panel's events from ``events``.
+own front panel window, calls ``set_window_title`` when it writes that window's
+title, and takes the front panel's events from ``events``.
 The base class
 does nothing, except ``prompt``, which asks on the terminal: ``read`` returns
 the value the function already holds. Pass a subclass to show, record or supply
@@ -64,6 +65,14 @@ class LiveIO:
         """The function closed its own front panel window (Front Panel:Close,
         FP.Close, which has no inputs: docs-be
         ``properties-and-methods/vi-server/vi/closefrontpanel.html``)."""
+        return None
+
+    def set_window_title(self, title: str) -> None:
+        """The function wrote the Title of its own front panel window (Front Panel
+        Window:Title, FP.Title: docs-be
+        ``properties-and-methods/vi-server/vi/fpwintitle.html``): the string in
+        the window's title bar. The function keeps the title for its own later
+        reads."""
         return None
 
     def prompt(

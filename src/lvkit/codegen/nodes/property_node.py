@@ -22,7 +22,7 @@ from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..panel_hooks import property_stmt
 from ..variant_values import is_variant_type
-from . import class_property_node, panel_reference, vi_reference
+from . import class_property_node, front_panel_title, panel_reference, vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -281,6 +281,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _bound_value(node, ctx)
     if ctx.graph is not None and class_property_node.is_class_property_node(node):
         return class_property_node.generate(node, ctx)
+    if ctx.graph is not None and ctx.graph.acts_on_own_window_title(
+        node, ctx.vi_name or ""
+    ):
+        return front_panel_title.generate(node, ctx)
     fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)

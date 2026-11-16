@@ -59,6 +59,9 @@ class WireQueriesMixin:
         def acts_on_own_front_panel_window(
             self, node: AnyGraphNode, vi_name: str
         ) -> bool: ...
+        def writes_own_window_title(
+            self, node: AnyGraphNode, vi_name: str
+        ) -> bool: ...
 
         @property
         def primitive_catalog(self) -> PrimitiveResolver: ...
@@ -284,9 +287,12 @@ class WireQueriesMixin:
         """Whether the VI's diagram holds a node whose Python calls ``live_io``:
         a node whose catalog entry says so (a dialog box), a primitive, or a
         vi.lib VI by the path its caller records; or an Invoke Node that opens or
-        closes the VI's own front panel window (FP.Open, FP.Close)."""
+        closes the VI's own front panel window (FP.Open, FP.Close) or writes its
+        Title."""
         for node in self.iter_nodes(vi_name):
-            if self.acts_on_own_front_panel_window(node, vi_name):
+            if self.acts_on_own_front_panel_window(
+                node, vi_name
+            ) or self.writes_own_window_title(node, vi_name):
                 return True
             if isinstance(node, PrimitiveNode) and node.prim_id is not None:
                 resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)

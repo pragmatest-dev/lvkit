@@ -53,6 +53,9 @@ class Recorder(LiveIO):
     def close_panel(self) -> None:
         self.log.append(("close_panel",))
 
+    def set_window_title(self, title: str) -> None:
+        self.log.append(("window_title", title))
+
 
 class PromptRecorder(LiveIO):
     """A ``LiveIO`` that records every dialog a function shows, ``(message,
