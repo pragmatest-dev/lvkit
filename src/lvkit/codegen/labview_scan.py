@@ -51,6 +51,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .labview_format import _lv_decode_escapes, _lv_parse, _LvSpecifier
+from .labview_scan_time import time_scan
 
 if TYPE_CHECKING:
     from .nodes.ops._numeric import FormatKind
@@ -101,6 +102,7 @@ class ScanField:
     pattern: str
     value: str
     skips_white_space: bool
+    imports: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -111,6 +113,7 @@ class ScanPlan:
 
     pattern: str
     values: tuple[str, ...]
+    imports: tuple[str, ...] = ()
 
 
 def scan_pieces(format_text: str) -> list[str | ScanSpec | ScanSet]:
@@ -193,6 +196,7 @@ def scan_plan(
     conversion for its output is a ``ValueError`` giving the reason."""
     segments: list[str] = []
     values: list[str] = []
+    imports: list[str] = []
     literal = ""
     fields = iter(kinds)
     for piece in pieces:
@@ -206,13 +210,14 @@ def scan_plan(
         white = r"\s*" if field.skips_white_space else ""
         segments.append(f"{prefix}{white}({field.pattern})")
         values.append(field.value)
+        imports.extend(field.imports)
     pattern = ""
     tail = _literal_pattern(literal)
     if tail:
         pattern = f"(?:{tail})?"
     for segment in reversed(segments):
         pattern = f"(?:{segment}{pattern})?"
-    return ScanPlan(pattern, tuple(values))
+    return ScanPlan(pattern, tuple(values), tuple(dict.fromkeys(imports)))
 
 
 def _literal_pattern(text: str) -> str:
@@ -236,6 +241,8 @@ def _field(piece: ScanSpec | ScanSet, kind: FormatKind) -> ScanField:
     if reason:
         raise ValueError(reason)
     width = spec.width
+    if spec.code == "T":
+        return _time_field(piece, kind)
     if spec.code == "s":
         if kind.kind == "bool":
             words = "|".join((*_TRUE_WORDS, *_FALSE_WORDS))
@@ -273,7 +280,9 @@ def _unsupported(piece: ScanSpec) -> str | None:
     """Why the specifier cannot be read (None when it can)."""
     spec = piece.spec
     part = None
-    if spec.code == ";":
+    if spec.code == "T":
+        part = _time_unsupported(spec)
+    elif spec.code == ";":
         part = "the system decimal separator"
     elif spec.flags:
         part = "a flag"
@@ -290,6 +299,43 @@ def _unsupported(piece: ScanSpec) -> str | None:
     if part is None:
         return None
     return f"Scan From String specifier {spec.text!r} ({part}) has no conversion"
+
+
+def _time_unsupported(spec: _LvSpecifier) -> str | None:
+    """Why a ``T`` specifier cannot be read (None when it can): only the ``^``
+    flag and the embedded time format are read."""
+    if set(spec.flags) - {"^"}:
+        return "a flag"
+    if spec.width or spec.precision is not None or spec.bare_precision:
+        return "a width or precision"
+    if spec.significant is not None or spec.unit:
+        return "significant digits or a unit"
+    if not spec.embedded:
+        return "no embedded time format"
+    return None
+
+
+def _time_field(piece: ScanSpec, kind: FormatKind) -> ScanField:
+    """The text of a ``%<...>T`` and the value it reads: a time stamp output gets
+    the time stamp, a floating-point output the time stamp as seconds since
+    1904-01-01 UTC (NI, Format Specifier Syntax: "T can interpret time stamps and
+    numerics"; a time stamp is read as a number of seconds), whose default is
+    likewise a number of seconds."""
+    spec = piece.spec
+    if kind.kind not in ("timestamp", "float"):
+        raise ValueError(
+            f"Scan From String specifier {spec.text!r} (a time into a "
+            f"{kind.kind} output) has no conversion"
+        )
+    scan = time_scan(spec.text, spec.embedded, "^" in spec.flags, piece.decimal)
+    value = scan.value
+    if kind.kind == "float":
+        epoch = "hightime.datetime(1904, 1, 1, tzinfo=UTC)"
+        value = value.replace(
+            "{d}", f"({epoch} + hightime.timedelta(seconds={{d}}))"
+        )
+        value = f"({value} - {epoch}).total_seconds()"
+    return ScanField(scan.pattern, value, False, scan.imports)
 
 
 def _decimal_pattern(width: int) -> str:

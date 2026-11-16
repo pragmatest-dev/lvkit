@@ -99,6 +99,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(str(reason), node) from None
 
     ctx.add_import("import re")
+    for statement_import in plan.imports:
+        ctx.add_import(statement_import)
     fragment = CodeFragment()
     text = parse_expr(wired(_INPUT_INDEX) or "''")
     if not isinstance(text, ast.Name | ast.Constant):
@@ -140,7 +142,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         )
         value = ast.IfExp(
             test=parse_expr(f"{group} is not None"),
-            body=parse_expr(plan.values[position].format(g=group)),
+            body=parse_expr(
+                plan.values[position].format(g=group, d=ast.unparse(default_expr))
+            ),
             orelse=default_expr,
         )
         fragment.extend(

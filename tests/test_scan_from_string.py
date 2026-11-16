@@ -6,8 +6,11 @@ later outputs at their defaults and gives error 85."""
 from __future__ import annotations
 
 import sys
+import time
+from datetime import UTC
 from typing import Any
 
+import hightime
 import pytest
 
 from lvkit.codegen.builder import build_module
@@ -15,6 +18,7 @@ from lvkit.codegen.errors_module import ERRORS_MODULE_NAME
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.helpers import GENERATED_PACKAGE, build_graph, exec_generated
 from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
 from tests.vilib_caller import BOOL, DBL, I32, STRING, U32, primitive
@@ -427,3 +431,105 @@ def test_the_longest_label_wins_whatever_the_order_of_the_items() -> None:
         assert _values(_result("%s", [enum], "Generic"), 1) == [
             labels.index("Generic")
         ]
+
+
+# A time stamp: ``%<...>T`` reads the codes of the embedded time format.
+TIME = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
+
+
+def _utc(*parts: int, **keywords: int) -> hightime.datetime:
+    return hightime.datetime(*parts, **keywords, tzinfo=UTC)
+
+
+def test_a_utc_time_stamp_reads_its_date_and_time() -> None:
+    result = _result(
+        "%^<%Y-%m-%dT%H:%M:%S>T", [TIME], "2026-11-16T10:20:30.123Z"
+    )
+    assert _values(result, 1) == [_utc(2026, 11, 16, 10, 20, 30)]
+    assert result.remaining == ".123Z"
+
+
+def test_the_fraction_of_a_second_reads_its_digits_exactly() -> None:
+    result = _result("%^<%S%99u>T", [TIME], "30.123456789012")
+    value = _values(result, 1)[0]
+    assert (value.second, value.microsecond, value.femtosecond) == (
+        30,
+        123456,
+        789012000,
+    )
+    result = _result("%,;%^<%99u>T", [TIME], ",5")
+    assert _values(result, 1)[0].microsecond == 500000
+    result = _result("%^<%H.%M.%S.%3u>T", [TIME], "01.02.03.456")
+    assert _values(result, 1)[0].microsecond == 456000
+
+
+def test_a_field_the_format_does_not_name_keeps_the_default_time_stamp() -> None:
+    result = _result("%^<%H:%M>T", [TIME], "07:30")
+    assert _values(result, 1) == [_utc(1904, 1, 1, 7, 30)]
+
+
+def test_two_digit_years_follow_the_century_rule() -> None:
+    assert _values(_result("%^<%y>T", [TIME], "68"), 1)[0].year == 2068
+    assert _values(_result("%^<%y>T", [TIME], "69"), 1)[0].year == 1969
+
+
+def test_a_time_stamp_without_the_flag_is_local_time(monkeypatch) -> None:
+    monkeypatch.setenv("TZ", "America/Denver")
+    time.tzset()
+    result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-07-01 12:00")
+    assert _values(result, 1) == [_utc(2026, 7, 1, 18, 0)]
+    result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-01-01 12:00")
+    assert _values(result, 1) == [_utc(2026, 1, 1, 19, 0)]
+
+
+def test_a_text_that_does_not_match_gives_the_default() -> None:
+    result = _result("%^<%Y-%m-%d>T", [TIME], "20x6-11-16")
+    assert _values(result, 1) == [_utc(1904, 1, 1)]
+
+
+@pytest.mark.parametrize(
+    ("format_text", "reason"),
+    [
+        ("%^<%b %d>T", "the code '%b'"),
+        ("%^<%I:%M %p>T", "the code '%I'"),
+        ("%^<%x>T", "the code '%x'"),
+        ("%^<%Y %Y>T", "'%Y' twice"),
+        ("%;%^<%99u>T", "the system decimal separator"),
+        ("%^<%u>T", "without its digit count"),
+        ("%+<%Y>T", "a flag"),
+    ],
+)
+def test_a_time_code_the_scan_cannot_read_is_a_gap(
+    format_text: str, reason: str
+) -> None:
+    gaps: list[Gap] = []
+    _scan(format_text, [TIME], gaps=gaps)
+    assert len(gaps) == 1
+    assert reason in gaps[0].message
+
+
+def test_a_time_into_a_number_is_seconds_since_1904() -> None:
+    # JDP's "%[+-]%^<%H:%M>T" reads an hour and minute offset as seconds.
+    result = _result("%^<%H:%M>T", [DBL], "05:30")
+    assert _values(result, 1) == [5.5 * 3600]
+    # The default is 100 s = 00:01:40: the seconds the format does not name stay.
+    result = _result(
+        "%^<%H:%M>T",
+        [DBL],
+        "05:30",
+        defaults=[100.0],
+        arguments={"default0": 100.0},
+    )
+    assert _values(result, 1) == [5.5 * 3600 + 40]
+    result = _result("%[+-]%^<%H:%M>T", [STRING, DBL], "-01:15")
+    assert _values(result, 2) == ["-", 4500.0]
+
+
+def test_a_time_into_an_integer_is_a_gap() -> None:
+    gaps: list[Gap] = []
+    _scan("%^<%H:%M>T", [I32], gaps=gaps)
+    assert "a time into a int output" in gaps[0].message

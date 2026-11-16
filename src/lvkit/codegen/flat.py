@@ -46,6 +46,11 @@ from .flat_tables import (
     NUMBER_PREFIX,
     UNIT_PREFIX,
 )
+from .flat_timestamp_source import (
+    FLATTEN_TIMESTAMP,
+    TIMESTAMP_IMPORTS,
+    UNFLATTEN_TIMESTAMP,
+)
 from .native_array import dimension_sizes
 
 # The byte-order prefix of a ``struct`` format for LabVIEW's three byte orders:
@@ -321,6 +326,32 @@ class Extended(Layout):
         out.add(f"{real}, pos = {read}(data, pos)")
         out.add(f"{imaginary}, pos = {read}(data, pos)")
         out.add(f"{target} = complex({real}, {imaginary})")
+
+
+@dataclass(frozen=True)
+class TimeStamp(Layout):
+    """A time stamp: an I64 count of seconds and a U64 fraction, 16 bytes."""
+
+    def fixed_size(self) -> int | None:
+        return 16
+
+    def _function(self, fns: Functions, kind: str, template: str) -> str:
+        for statement_import in TIMESTAMP_IMPORTS:
+            fns.ctx.add_import(statement_import)
+        return fns.named(
+            kind,
+            "timestamp",
+            ("timestamp",),
+            lambda name: template.format(name=name, order=fns.order),
+        )
+
+    def flatten(self, value, prefix, depth, fns):
+        write = self._function(fns, "flatten", FLATTEN_TIMESTAMP)
+        return [Raw(f"{write}({value})")]
+
+    def unflatten(self, target, prefix, out, fns):
+        read = self._function(fns, "unflatten", UNFLATTEN_TIMESTAMP)
+        out.add(f"{target}, pos = {read}(data, pos)")
 
 
 @dataclass(frozen=True)
@@ -638,6 +669,8 @@ def layout_of(lv_type: LVType | None) -> Layout:
                 for field, name in zip(lv_type.fields, names)
             ),
         )
+    if lv_type.is_timestamp:
+        return TimeStamp()
     underlying = lv_type.underlying_type or ""
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
         return Integer("I", "c_uint32", 4)

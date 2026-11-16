@@ -5,10 +5,14 @@ run."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+import hightime
 import pytest
 
 from lvkit.codegen.flat import Integer, Real, Record, Sequence, Text, layout_of
 from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.native_vi import array, generate, node, scalar
 
 STR = scalar("String")
@@ -225,3 +229,33 @@ def test_integers_wrap_around_at_their_width() -> None:
     assert swap(U32, 1162)(0x1_1234_5678).r == 0x34127856
     assert cast(U32, U32)(0x1_0000_0001).r == 0x1_0000_0001  # same type: kept
     assert cast(U32, STR)(0x1_0000_0001).r == "\x00\x00\x00\x01"
+
+
+_TIME = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
+
+
+def test_a_time_stamp_flattens_as_seconds_and_a_fraction() -> None:
+    # NI, "How LabVIEW Stores Data in Memory": an I64 count of seconds since
+    # 1904-01-01 UTC and a U64 count of 2^-64 s; big-endian.
+    stamp = hightime.datetime(1904, 1, 1, 0, 0, 1, microsecond=500000, tzinfo=UTC)
+    assert flattened_hex(stamp, _TIME) == "0000000000000001" + "8000000000000000"
+    pair = cluster(("seconds", scalar("NumInt64")), ("fraction", scalar("NumUInt64")))
+    assert cast(_TIME, pair)(stamp).r == (1, 2**63)
+    assert cast(pair, _TIME)((1, 2**63)).r == stamp
+
+
+def test_a_time_stamp_round_trips_through_a_cast() -> None:
+    stamp = hightime.datetime(2026, 11, 16, 10, 20, 30, microsecond=123456, tzinfo=UTC)
+    pair = cluster(("seconds", scalar("NumInt64")), ("fraction", scalar("NumUInt64")))
+    seconds, fraction = cast(_TIME, pair)(stamp).r
+    elapsed = datetime(2026, 11, 16, 10, 20, 30) - datetime(1904, 1, 1)
+    assert seconds == int(elapsed.total_seconds())
+    # 2^-64 s cannot hold 123456 us exactly: the value read back flattens to the
+    # same two numbers.
+    back = cast(pair, _TIME)((seconds, fraction)).r
+    assert cast(_TIME, pair)(back).r == (seconds, fraction)
+    assert abs((back - stamp).total_seconds()) < 1e-9
