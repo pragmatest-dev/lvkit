@@ -748,3 +748,25 @@ class TestStringRangeFrames:
         assert frames[1].selector_strings == ["/"]
         assert frames[1].selector_string_ranges == []
         assert [f.selector_value for f in frames] == ["Default", "/", "0..9"]
+
+
+class TestOpenRangeOfOneValue:
+    def test_an_open_ended_range_of_an_integer_case_is_a_range_not_a_no_error_point(
+        self,
+    ):
+        """``45..`` is stored as (45, 45) with the end open. Only an error
+        selector reads that shape as its "No Error" point."""
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0), (45, 45, 1)],
+            default_diag=2,
+            num_diags=3,
+            range_types=[(0, 0), (1, 3)],
+        )
+        cs = extract_case_structures(root, _make_terminal_info("sel1", "NumInt32"))[0]
+        assert [f.selector_value for f in cs.frames] == ["0", "45", "Default"]
+        assert [(r.start, r.open_end) for r in cs.frames[1].selector_ranges] == [
+            (45, True)
+        ]
+        assert not cs.frames[1].is_no_error

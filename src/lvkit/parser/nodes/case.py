@@ -164,6 +164,8 @@ def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
 
 def _frame_ranges(
     entries: list[tuple[int, int, RangeEndType, RangeEndType]],
+    *,
+    is_error_selector: bool,
 ) -> tuple[bool, list[SelectorRange]]:
     """One frame's ``(start, end, startRangeType, endRangeType)`` entries as
     ``(is_no_error, selector ranges)``.
@@ -173,9 +175,14 @@ def _frame_ranges(
     whole domain (the error cluster's second frame, labeled ``Error ..``). A
     single-valued entry open on one side is the error cluster's "No Error"
     point: it marks the frame and is not one of its ranges, so any entries
-    beside it are the frame's error codes.
+    beside it are the frame's error codes. In any other selector that entry is
+    an ordinary open range (``45..`` of an enum or integer case).
     """
-    point = [e for e in entries if e[0] == e[1] and RangeEndType.OPEN in (e[2], e[3])]
+    point = (
+        [e for e in entries if e[0] == e[1] and RangeEndType.OPEN in (e[2], e[3])]
+        if is_error_selector
+        else []
+    )
     ranges = [
         SelectorRange(
             start=s,
@@ -342,7 +349,9 @@ def _extract_one_case_structure(
             )
 
     for diag_idx, entries in raw_ranges_by_diag.items():
-        is_no_error_point, frame_ranges = _frame_ranges(entries)
+        is_no_error_point, frame_ranges = _frame_ranges(
+            entries, is_error_selector=selector_type == SelectorKind.ERROR
+        )
         if is_no_error_point:
             no_error_diags.add(diag_idx)
         if frame_ranges:
