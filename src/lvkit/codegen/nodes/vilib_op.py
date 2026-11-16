@@ -36,6 +36,7 @@ from . import (
     grpc_server,
     grpc_stream,
     search_and_replace_pattern,
+    variant_type_parts,
 )
 
 
@@ -94,6 +95,11 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "TYPE_DESCRIPTOR_CODE": _type_descriptor_code,
     "ELAPSED_TIME": elapsed_time.generate,
     "GET_TYPE_INFORMATION": get_type_information.generate,
+    "GET_ARRAY_INFORMATION": variant_type_parts.array_information,
+    "GET_CLUSTER_INFORMATION": variant_type_parts.cluster_information,
+    "GET_NUMERIC_INFORMATION": variant_type_parts.numeric_information,
+    "GET_REFNUM_INFORMATION": variant_type_parts.gap_refnum,
+    "GET_WAVEFORM_INFORMATION": variant_type_parts.gap_waveform,
     "PROTO_ENUM_TO_LV_ENUM": grpc_enum.proto_to_lv,
     "LV_ENUM_TO_PROTO_ENUM": grpc_enum.lv_to_proto,
     "GRPC_CREATE_CLIENT": grpc_client.create_client,

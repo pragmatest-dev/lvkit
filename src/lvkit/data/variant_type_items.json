@@ -37,5 +37,25 @@
     "FixedPoint": "Fixed Point",
     "ExtData": "External Data",
     "PolyVI": "Poly VI"
+  },
+  "representations_source": "Each key is a type-descriptor code name; each value is the label of the item of LVNumericRepresentation.ctl that the Representation output of Get Numeric Information.vi returns for it (read from the caller's recorded type of that terminal). The labels are LabVIEW's own names of the representations: Long (I32), Word (I16), Byte (I8), Quad (I64), the Unsigned forms, Single/Double/Extended Precision (SGL/DBL/EXT) and Complex Single/Double/Extended. An enum is stored as an unsigned integer of its width. A code not listed (a number with a unit, fixed-point) is not read.",
+  "representations": {
+    "NumInt8": "Byte",
+    "NumInt16": "Word",
+    "NumInt32": "Long",
+    "NumInt64": "Quad",
+    "NumUInt8": "Unsigned Byte",
+    "NumUInt16": "Unsigned Word",
+    "NumUInt32": "Unsigned Long",
+    "NumUInt64": "Unsigned Quad",
+    "NumFloat32": "Single Precision",
+    "NumFloat64": "Double Precision",
+    "NumFloatExt": "Extended Precision",
+    "NumComplex64": "Complex Single",
+    "NumComplex128": "Complex Double",
+    "NumComplexExt": "Complex Extended",
+    "UnitUInt8": "Unsigned Byte",
+    "UnitUInt16": "Unsigned Word",
+    "UnitUInt32": "Unsigned Long"
   }
 }

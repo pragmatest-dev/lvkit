@@ -26,6 +26,31 @@ def _labels() -> dict[str, str]:
     return items
 
 
+@lru_cache(maxsize=1)
+def _representations() -> dict[str, str]:
+    path = data_dir() / "variant_type_items.json"
+    items: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))[
+        "representations"
+    ]
+    unknown = sorted(set(items) - set(TD_FULL_TYPE.__members__))
+    if unknown:
+        raise ValueError(f"{path.name} names no type-descriptor code {unknown}")
+    return items
+
+
+def representation_values(representation: LVType) -> dict[str, int] | None:
+    """The value of the item of the enum ``representation`` each number type (by its
+    type-descriptor code name) is, for the names the table lists whose item the
+    enum holds; None when ``representation`` is not an enum."""
+    if representation.kind != LVTypeKind.ENUM or not representation.values:
+        return None
+    return {
+        name: representation.values[label].value
+        for name, label in sorted(_representations().items())
+        if label in representation.values
+    }
+
+
 def item_values_by_code(data_type: LVType) -> dict[int, int] | None:
     """The value of the item of the enum ``data_type`` each type-descriptor code is,
     for the codes the table lists whose item the enum holds; None when
