@@ -32,6 +32,7 @@ from lvkit.graph.models import (
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import (
+    ClusterField,
     Frame,
     LVType,
     LVTypeKind,
@@ -892,6 +893,11 @@ class CodeGenContext:
         self.add_import(imported.statement)
         return imported.name
 
+    def typedef_instance(self, lv_type: LVType) -> LVType:
+        """``lv_type`` with the field names of the loaded typedef it is an
+        instance of (itself when generated with no graph)."""
+        return lv_type if self.graph is None else self.graph.typedef_instance(lv_type)
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""
@@ -958,7 +964,27 @@ class CodeGenContext:
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
-        return _format_constant(const, names)
+        return _format_constant(const, names, self._loaded_typedef_fields(const))
+
+    def _loaded_typedef_fields(
+        self, const: Constant | ConstantNode
+    ) -> list[ClusterField] | None:
+        """The fields of the loaded typedef a cluster constant is an instance of:
+        the constant's saved copy takes the loaded typedef's field names, each at
+        its saved position. None for a constant of no loaded typedef; a saved copy
+        with another field count is a gap."""
+        lv_type = const.lv_type
+        if (
+            self.graph is None
+            or lv_type is None
+            or lv_type.kind != LVTypeKind.CLUSTER
+            or not lv_type.typedef_name
+        ):
+            return None
+        stale = self.graph.stale_typedef_copy(lv_type)
+        if stale is not None:
+            raise ConversionGap(f"The cluster constant {const.label or ''!r}: {stale}")
+        return self.graph.get_type_fields(lv_type)
 
     def scalar_constant_expression(self, lv_type: LVType, text: str) -> str:
         """A value of the scalar type ``lv_type``, given as the text the VI's
@@ -1407,17 +1433,22 @@ def _needs_simplenamespace(expr: str) -> bool:
     return "SimpleNamespace(" in expr
 
 
-def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
+def _format_cluster_constant(
+    const: Constant | ConstantNode, loaded: list[ClusterField] | None = None
+) -> str | None:
     """Format a CLUSTER constant as a Python object: a named/typedef cluster as
     ``SimpleNamespace(field=value, ...)`` (attribute access, and mutable so
     Bundle By Name can assign fields), an anonymous cluster as a positional
     tuple, from the value's display text (a cluster with no decoded value, such as
     a global variable's saved default). Returns None if that text is not a
-    literal dict or the fields can't be resolved."""
+    literal dict or the fields can't be resolved. ``loaded`` is the loaded
+    typedef's fields when the constant is an instance of one: the saved value of
+    each position is written under that position's loaded name."""
     lv_type = const.lv_type
     if lv_type is None or not lv_type.fields:
         return None
-    fields = lv_type.fields
+    saved = lv_type.fields
+    fields = loaded if loaded and len(loaded) == len(saved) else saved
     anon = not lv_type.typedef_name and not lv_type.classname
     value = const.value
     if isinstance(value, str):
@@ -1429,7 +1460,7 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         return None
     # Values in field order; a field absent from the parsed dict falls back to
     # None (LabVIEW's cluster default fills every field, so this is defensive).
-    keys = unique_names(f.name for f in fields)
+    keys = unique_names(f.name for f in saved)
     ordered = [
         (f.name, _python_literal(value.get(key))) for f, key in zip(fields, keys)
     ]
@@ -1500,7 +1531,9 @@ def terminal_default_expression(default: ScalarValue, type_name: str | None) -> 
 
 
 def _format_constant(
-    const: Constant | ConstantNode, names: TypeNamer | None = None
+    const: Constant | ConstantNode,
+    names: TypeNamer | None = None,
+    loaded: list[ClusterField] | None = None,
 ) -> str:
     """Format a constant value as a Python expression.
 
@@ -1529,7 +1562,7 @@ def _format_constant(
     # (no field names) is a positional tuple, the representation nmux uses for
     # anonymous clusters.
     if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
-        cluster_expr = _format_cluster_constant(const)
+        cluster_expr = _format_cluster_constant(const, loaded)
         if cluster_expr is not None:
             return cluster_expr
         if const.lv_type.fields:

@@ -326,7 +326,10 @@ def _cluster(
     if not lv_type.typedef_name and not lv_type.classname:
         trailing = "," if len(expressions) == 1 else ""
         return f"({', '.join(expressions)}{trailing})"
-    attributes = field_attribute_names(f.name for f in lv_type.fields)
+    # An instance of a loaded typedef takes the typedef's field names, each at
+    # its saved position.
+    named = ctx.typedef_instance(lv_type).fields or lv_type.fields
+    attributes = field_attribute_names(f.name for f in named)
     arguments = ", ".join(
         f"{attribute}={expression}"
         for attribute, expression in zip(attributes, expressions, strict=True)

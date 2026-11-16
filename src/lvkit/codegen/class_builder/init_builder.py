@@ -41,6 +41,9 @@ class _FieldClasses:
         statement = self._resolver.variant_import(names)
         self.statements.add(statement or variants_import(".", names))
 
+    def typedef_instance(self, lv_type: LVType) -> LVType:
+        return self._graph.typedef_instance(lv_type)
+
 
 class _InitBuilderMixin:
     """The attributes a class declares and the ``__init__`` that sets them."""

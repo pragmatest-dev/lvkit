@@ -107,6 +107,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     class_attrs: ClassAttributes | None = None
     if agg_terminals and agg_terminals[0].lv_type:
         if ctx.graph is not None:
+            stale = ctx.graph.stale_typedef_copy(agg_terminals[0].lv_type)
+            if stale is not None:
+                raise ConversionGap(stale, node)
             class_fields = ctx.graph.get_type_fields(agg_terminals[0].lv_type)
             class_attrs = type_attributes(
                 ctx.graph,
