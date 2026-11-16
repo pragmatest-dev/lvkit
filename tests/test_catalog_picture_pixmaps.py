@@ -680,3 +680,38 @@ def test_a_picture_vi_the_catalog_does_not_describe_stays_a_gap(
             runtime_not_implemented=True,
         )
     assert gaps
+
+
+def test_draw_8_bit_pixmap_looks_each_index_up_in_the_color_table(
+    tmp_path, monkeypatch
+) -> None:
+    pane = [
+        (0, "input", PICTURE),
+        (2, "input", CLUSTER),
+        (3, "input", ARRAY),
+        (4, "input", ARRAY),
+        (6, "output", PICTURE),
+        (8, "input", ARRAY),
+    ]
+    image = _call(
+        tmp_path,
+        monkeypatch,
+        [*PICT, "Draw 8-Bit Pixmap.vi"],
+        pane,
+        {"data": (3, ARRAY), "color_table": (4, ARRAY)},
+        {"new_picture": (6, PICTURE)},
+        {"data": [[1, 0], [0, 1]], "color_table": [RED, GREEN]},
+    ).new_picture
+    assert image.size == (2, 2)
+    assert image.getpixel((0, 0)) == _rgba(GREEN)
+    assert image.getpixel((1, 0)) == _rgba(RED)
+    with pytest.raises(NotImplementedError, match="8-bit"):
+        _call(
+            tmp_path,
+            monkeypatch,
+            [*PICT, "Draw 8-Bit Pixmap.vi"],
+            pane,
+            {"data": (3, ARRAY)},
+            {"new_picture": (6, PICTURE)},
+            {"data": [[1]]},
+        )

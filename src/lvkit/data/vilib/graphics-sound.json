@@ -5635,7 +5635,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "transparency_thresh",
-          "description": "Transparency Thresh: alpha values equal to or greater than it are opaque; all others are fully transparent (0 to 255)."
+          "description": "Transparency Thresh: alpha values equal to or greater than it are opaque; all others are fully transparent (0 to 255). NI states no default; 127 is what NI forum answers give (forums.ni.com/t5/LabVIEW/problem-with-READ-PNG-FILE/m-p/804500).",
+          "default": 127
         },
         {
           "name": "error in (no error)",
@@ -6255,6 +6256,78 @@
         }
       ],
       "op": "PICTURE_BITARRAY_TO_BYTEARRAY",
+      "inline": true
+    },
+    {
+      "name": "Draw 8-Bit Pixmap",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-8-bit-pixmap-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Converts an 8-bit pixmap into a picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "picture",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add the pixmap. The default is an empty picture.",
+          "default_behavior": "empty picture"
+        },
+        {
+          "name": "top left point(0, 0)",
+          "index": 2,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "top_left",
+          "description": "top left point is where to place the top-left corner of the image.",
+          "default_behavior": "(0, 0)"
+        },
+        {
+          "name": "data",
+          "index": 3,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "data",
+          "description": "data is a 2D array of 8-bit unsigned integers, each an index into color table."
+        },
+        {
+          "name": "color table",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "color_table",
+          "description": "color table is an array of up to 256 colors (0x00RRGGBB). If unwired, NI's default 256-color palette, which NI does not publish.",
+          "default_behavior": "empty array"
+        },
+        {
+          "name": "new picture",
+          "index": 6,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new image."
+        },
+        {
+          "name": "mask",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mask",
+          "description": "mask describes mask information for each pixel.",
+          "default_behavior": "empty array"
+        }
+      ],
+      "op": "PICTURE_DRAW_8_BIT",
       "inline": true
     }
   ]

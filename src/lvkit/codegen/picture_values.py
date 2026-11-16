@@ -251,6 +251,25 @@ _FILE_READ_END = (
 _FILE_WRITE_PREFIX = _READ + _READ_MASK + _TO_IMAGE + "{path} = {path_in}\n"
 
 
+def _draw_pixmap(depth: str, colors: str) -> str:
+    """Draw 2D array ``{data}`` of ``depth`` bits at ``{top_left}``; ``colors`` is
+    the expression of its color table."""
+    return (
+        "_rows = [[int(_v) for _v in _r] for _r in {data}]\n"
+        "_h = len(_rows)\n"
+        "_w = len(_rows[0]) if _rows else 0\n"
+        "_mask = list({mask})\n"
+        "_flags = [_i >> 3 >= len(_mask) or bool(_mask[_i >> 3] >> (7 - (_i & 7)) & 1)"
+        " for _i in range(_w * _h)]\n"
+        f"_depth = {depth}\n"
+        f"_colors = {colors}\n"
+        + _TO_IMAGE
+        + "_w, _h = max({top_left}[0] + _w, 0), max({top_left}[1] + _h, 0)\n"
+        + _GROW
+        + "{new_picture}.paste(_img, ({top_left}[0], {top_left}[1]), _img)\n"
+    )
+
+
 def _write(save: str) -> str:
     return _FILE_WRITE_PREFIX + save
 
@@ -338,20 +357,8 @@ TEMPLATES: Mapping[str, str] = {
         + _GROW
         + "{new_picture}.paste(_img, (_rect[0], _rect[1]), _img)\n"
     ),
-    "PICTURE_DRAW_TRUE_COLOR": (
-        "_rows = [[int(_v) for _v in _r] for _r in {data}]\n"
-        "_h = len(_rows)\n"
-        "_w = len(_rows[0]) if _rows else 0\n"
-        "_mask = list({mask})\n"
-        "_flags = [_i >> 3 >= len(_mask) or bool(_mask[_i >> 3] >> (7 - (_i & 7)) & 1)"
-        " for _i in range(_w * _h)]\n"
-        "_depth = 24\n"
-        "_colors = []\n"
-        + _TO_IMAGE
-        + "_w, _h = max({top_left}[0] + _w, 0), max({top_left}[1] + _h, 0)\n"
-        + _GROW
-        + "{new_picture}.paste(_img, ({top_left}[0], {top_left}[1]), _img)\n"
-    ),
+    "PICTURE_DRAW_TRUE_COLOR": _draw_pixmap("24", "[]"),
+    "PICTURE_DRAW_8_BIT": _draw_pixmap("8", "list({color_table})"),
     "PICTURE_GET_IMAGE_SUBSET": (
         _READ
         + _READ_MASK
