@@ -124,7 +124,8 @@ def _unflatten_value(
             if not width:
                 raise NotImplementedError(
                     "flattened data of an array of variable-size elements "
-                    "without sizes is not read"
+                    f"({getattr(element, 'kind', element)!r}) without sizes is "
+                    "not read"
                 )
             sizes = [(len(data) - pos) // width]
         count = 1
