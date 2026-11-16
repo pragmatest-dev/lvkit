@@ -180,7 +180,13 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         {"note": variants.Variant("x", variants.LV_String)},
     )
     type_string, _ = result_values(flatten.function(given))
-    assert type_string is None
+    assert type_string == [4, 3]
+    empty = variants.Variant()
+    with pytest.raises(NotImplementedError, match="holds no type"):
+        flatten.function(empty)
+    bare = variants.Variant(1, variants.LVType(0x70, 'Refnum', None))
+    with pytest.raises(NotImplementedError, match="'Refnum', which records no"):
+        flatten.function(bare)
     # The pickled data string, read back with a type string known only at run
     # time, is unpickled.
     both = generate(

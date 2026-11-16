@@ -9,11 +9,12 @@ written as the literal list of 16-bit numbers of that type's descriptor
 (``type_string.py``), so a reader of the descriptor works.
 
 A variant whose type is not known when the code is generated has nothing to
-flatten by: the whole ``Variant`` (value, type and attributes) is pickled,
-``type string`` is ``None``, and the string is
-read back only by Flattened String To Variant. A subVI that parses ``type string``
-as a descriptor works only where the type is known. A known type that cannot be
-flattened is a gap.
+flatten by: the whole ``Variant`` (value, type and attributes) is pickled, and the
+string is read back only by Flattened String To Variant. Its ``type string`` is the
+type string the variant records (``Variant.type``), so a subVI that parses the
+descriptor reads it; a variant whose type records none (an empty variant, a type
+``type_string.encode`` does not write) raises ``NotImplementedError`` where the
+node runs. A known type that cannot be flattened is a gap.
 
 Terminals (from the primitives entry):
   in  index 0 = Variant
@@ -38,6 +39,24 @@ from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 from ._variant_flat import variant_static_type
 
 
+def _recorded_type_string(
+    ctx: CodeGenContext, node: PrimitiveNode, value: str, variable: str
+) -> list[ast.stmt]:
+    """The statements that set ``variable`` to the type string the variant
+    ``value`` records, as a list of 16-bit numbers."""
+    recorded = ctx.make_output_var("variant_type", node.id)
+    return ast.parse(
+        f"{recorded} = {value}.type\n"
+        f"if {recorded} is None or {recorded}.type_string is None:\n"
+        f"    raise NotImplementedError(\n"
+        f"        'Variant To Flattened String: the variant holds '\n"
+        f"        + ('no type' if {recorded} is None else repr({recorded}.name))\n"
+        f"        + ', which records no type string'\n"
+        f"    )\n"
+        f"{variable} = list({recorded}.type_string)\n"
+    ).body
+
+
 @register_op_fragment("VARIANT_TO_FLATTENED_STRING")
 def variant_to_flattened_string(
     node: PrimitiveNode, ctx: CodeGenContext
@@ -56,7 +75,7 @@ def variant_to_flattened_string(
     if lv_type is None:
         flattened = f"pickle.dumps({value})"
         ctx.add_import("import pickle")
-        numbers = "None"
+        numbers = None
     else:
         try:
             layout = layout_of(lv_type)
@@ -79,7 +98,10 @@ def variant_to_flattened_string(
     if wants_type:
         assert type_term is not None
         variable = ctx.make_output_var("type_string", node.id, terminal_id=type_term.id)
-        statements.append(build_assign(variable, parse_expr(numbers)))
+        if numbers is None:
+            statements.extend(_recorded_type_string(ctx, node, value, variable))
+        else:
+            statements.append(build_assign(variable, parse_expr(numbers)))
         bindings[type_term.id] = variable
     add_flat_imports(ctx, statements)
     return CodeFragment(statements=statements, bindings=bindings)
