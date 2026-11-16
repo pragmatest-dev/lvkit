@@ -35,6 +35,12 @@ class DefaultBehavior(StrEnum):
     CURRENT_TIME = "current date and time"
     FILE_DIALOG = "file dialog"
     NEW_TASK = "new task"
+    EMPTY_PICTURE = "empty picture"
+    DEFAULT_PEN = "default pen"
+    ZERO_POINT = "(0, 0)"
+    WHOLE_IMAGE = "entire image"
+    EMPTY_ARRAY = "empty array"
+    IGNORED = "ignored"
 
 
 class TerminalDefault(BaseModel):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from lvkit.catalog_stamp import vi_file_name
 from lvkit.library_folders import is_symbolic_root
 from lvkit.models import LVType, LVTypeKind
 
@@ -122,7 +123,11 @@ class _VILibLookupMixin:
     def _entry_at(self, file_name: str, recorded_path: str | None) -> VIEntry | None:
         """The entry listed under ``file_name`` when it describes the VI at
         ``recorded_path``; None when it is another VI's."""
-        entry = self._by_name.get(file_name)
+        # A call can record a library VI by its name without the file extension
+        # (``<vilib>/picture/picture.llb/Empty Picture``).
+        entry = self._by_name.get(file_name) or self._by_name.get(
+            vi_file_name(file_name)
+        )
         if entry is None or not _is_other_vi(entry, file_name, recorded_path):
             return entry
         return None

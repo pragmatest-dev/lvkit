@@ -24,6 +24,15 @@ from ..context import CodeGenContext
 
 _EXPRESSIONS: dict[DefaultBehavior, str] = {
     DefaultBehavior.NEW_TASK: "nidaqmx.Task()",
+    # The Picture VIs (``picture_values``): the empty picture is None, the pen
+    # is (width, style) with a width of one pixel and the solid style (style 0
+    # is NI's "(default)"; NI states no default width, so one pixel).
+    DefaultBehavior.EMPTY_PICTURE: "None",
+    DefaultBehavior.DEFAULT_PEN: "(1, 0)",
+    DefaultBehavior.ZERO_POINT: "(0, 0)",
+    DefaultBehavior.WHOLE_IMAGE: "None",
+    DefaultBehavior.EMPTY_ARRAY: "[]",
+    DefaultBehavior.IGNORED: "None",
 }
 
 

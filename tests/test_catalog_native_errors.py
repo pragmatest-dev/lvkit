@@ -157,6 +157,11 @@ PRIMITIVES = {
     "file-io:Write Characters To File": FILE_PATH_OPS,
     "file-io:Open File+": FILE_PATH_OPS,
     "file-io:Read File+ (string)": FILE_PATH_OPS,
+    **{
+        f"graphics-sound:{verb} {fmt} File": FILE_PATH_OPS
+        for verb in ("Read", "Write")
+        for fmt in ("PNG", "BMP", "JPEG")
+    },
     "file-io:Write File+ (string)": FILE_PATH_OPS,
     "file-io:Close File+": [*FILE_PATH_OPS, ("ValueError", 1)],
     "synchronization:Release Semaphore_71": [("ValueError", 1111)],

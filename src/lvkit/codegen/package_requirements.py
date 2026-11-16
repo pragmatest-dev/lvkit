@@ -26,6 +26,7 @@ _GENERATED_IMPORTS = {
     "import hightime": "hightime",
     "import nitypes.waveform": "nitypes",
     "import numpy": "numpy",
+    "from PIL import": "Pillow>=10.1",
 }
 
 

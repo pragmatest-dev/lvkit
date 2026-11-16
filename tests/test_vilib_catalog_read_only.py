@@ -217,7 +217,7 @@ def test_bundled_catalog_is_untouched_by_generation(
     wired = Terminal(id="t:size", index=7, direction="input", name="Size")
 
     source = _generate(
-        VILibResolver(), wired, 12.0, monkeypatch, vi="Get Text Rect.vi"
+        VILibResolver(), wired, 12.0, monkeypatch, vi="Draw Text in Rect.vi"
     )
 
     assert "size=12.0" in source

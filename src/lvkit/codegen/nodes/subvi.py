@@ -105,7 +105,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         fragment = (
             vilib_op.generate(node, ctx, vilib_vi)
             if vilib_vi.op
-            else _generate_inline(node, ctx, vilib_vi)
+            else generate_inline(node, ctx, vilib_vi)
         )
         fragment.runs_on_error = vilib_vi.runs_on_error
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
@@ -215,7 +215,7 @@ def terminal_placeholder(terminal: VITerminal) -> str:
     return terminal.python_param or to_var_name(terminal.name)
 
 
-def _generate_inline(
+def generate_inline(
     node: VINode, ctx: CodeGenContext, vilib_vi: VIEntry
 ) -> CodeFragment:
     """Generate inline Python code instead of function call.

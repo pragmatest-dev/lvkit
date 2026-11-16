@@ -27,6 +27,7 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
+from ..picture_values import TEMPLATES
 from . import (
     elapsed_time,
     get_type_information,
@@ -35,6 +36,7 @@ from . import (
     grpc_enum,
     grpc_server,
     grpc_stream,
+    picture,
     search_and_replace_pattern,
     variant_type_parts,
 )
@@ -123,6 +125,7 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "GRPC_UNPACK_FROM_ANY": grpc_any.unpack_from_any,
     "GRPC_CLUSTER_METADATA": grpc_any.cluster_to_message_metadata,
     "SEARCH_AND_REPLACE_PATTERN": search_and_replace_pattern.generate,
+    **{op: picture.generate for op in TEMPLATES},
 }
 
 
