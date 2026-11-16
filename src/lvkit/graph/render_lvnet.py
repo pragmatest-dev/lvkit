@@ -110,6 +110,7 @@ from .netlist_models import (
     ReferenceTarget,
 )
 from .op_walk import _format_error_cluster
+from .selector_text import quote_selector_value
 
 # ============================================================
 # render_lvnet -- the lvnet surface (docs/_internal/design/netlist-language.md)
@@ -1423,7 +1424,7 @@ def _lvnet_case_header(values: tuple[str, ...], is_default: bool) -> str:
     """A case frame's header text, between ``frame `` and `` :`` (§8): the
     quoted selector values, then the bare ``default`` keyword when the frame is
     the structure's default (the sole entry when it has no values)."""
-    entries = [lvnet_literal_token(v) for v in values]
+    entries = [quote_selector_value(v, lvnet_literal_token) for v in values]
     if is_default:
         entries.append(_LVNET_DEFAULT_KEYWORD)
     return ", ".join(entries)

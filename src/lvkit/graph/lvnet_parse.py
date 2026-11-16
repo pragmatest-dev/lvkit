@@ -128,6 +128,7 @@ from .render_lvnet import (
     lvnet_reference_target_token,
     lvnet_source_text,
 )
+from .selector_text import RANGE_SEPARATOR, StringRangeText
 
 # lvnet §5's three real dispositions -- ``unknown`` never renders a keyword
 # at all (terse and verbose both omit it, see ``_lvnet_requirement_trailing``),
@@ -1644,11 +1645,23 @@ def _parse_case_frame_header(
         if header[pos:] == _LVNET_DEFAULT_KEYWORD:
             label = header[:pos].removesuffix(", ") or "Default"
             return label, tuple(values), True
-        if not header.startswith('"', pos):
+        start: str | None = None
+        if header.startswith('"', pos):
+            end = _scan_quoted_literal(header, pos)
+            start = _unescape_lvnet_string(header[pos:end])
+            pos = end
+        elif not header.startswith(RANGE_SEPARATOR + '"', pos):
             raise error
-        end = _scan_quoted_literal(header, pos)
-        values.append(_unescape_lvnet_string(header[pos:end]))
-        pos = end
+        if header.startswith(RANGE_SEPARATOR, pos):
+            pos += len(RANGE_SEPARATOR)
+            finish: str | None = None
+            if header.startswith('"', pos):
+                end = _scan_quoted_literal(header, pos)
+                finish = _unescape_lvnet_string(header[pos:end])
+                pos = end
+            values.append(StringRangeText(start, finish))
+        else:
+            values.append(start or "")
         if pos == len(header):
             return header, tuple(values), False
         if not header.startswith(", ", pos):

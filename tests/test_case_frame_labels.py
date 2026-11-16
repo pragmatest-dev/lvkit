@@ -290,3 +290,22 @@ def test_open_ended_no_error_frame_alone_still_reads_no_error(
         lvnet=['frame "No Error" :', 'frame "Error", default :'],
         json_labels=["No Error", "Error"],
     )
+
+
+def test_a_string_range_shows_each_end_quoted_in_every_view(tmp_path: Path) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "string",
+        [
+            FrameSpec(strings=("/",), string_ranges=(("0", "9"),)),
+            FrameSpec(string_ranges=(("m", None),)),
+            VALUELESS,
+        ],
+        default_frame=2,
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "/", "0".."9":', 'Frame "m"..:'],
+        lvnet=['frame "/", "0".."9" :', 'frame "m".. :', "frame default :"],
+        json_labels=['"/", "0".."9"', '"m"..', "Default"],
+    )
