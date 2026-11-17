@@ -78,14 +78,18 @@ _LIMITS = _FOCUS | {"minimum", "maximum"}
 # The control properties (``member`` of ``control_properties.json``) the widget of a
 # kind can show, for a control and for an indicator: what the ``Port`` of each
 # builder in ``runtime/widgets*.py`` holds appliers for, and Visible, which every
-# drawn control has (``PanelWidgets.box``).
+# drawn control has (``PanelWidgets.box``). Every kind shows Visible and Disabled (a
+# container applies Disabled to the inputs inside it). What remains unshown has no
+# widget meaning: Key Focus on a kind with no single focusable input (an indicator,
+# a complex number's two boxes, a cluster, an array, an error cluster, a variant's
+# text) and Minimum / Maximum on anything but a number control.
 SHOWN_PROPERTIES: dict[tuple[PanelKind, bool], frozenset[str]] = {
     (PanelKind.NUMBER, False): _LIMITS,
     (PanelKind.NUMBER, True): _DISABLE,
     (PanelKind.COMPLEX, False): _DISABLE,
     (PanelKind.COMPLEX, True): _DISABLE,
     (PanelKind.BOOLEAN, False): _FOCUS,
-    (PanelKind.BOOLEAN, True): _VISIBLE,
+    (PanelKind.BOOLEAN, True): _DISABLE,
     (PanelKind.STRING, False): _FOCUS,
     (PanelKind.STRING, True): _DISABLE,
     (PanelKind.PATH, False): _FOCUS,
@@ -96,12 +100,12 @@ SHOWN_PROPERTIES: dict[tuple[PanelKind, bool], frozenset[str]] = {
     (PanelKind.RING, True): _DISABLE,
     (PanelKind.VARIANT, False): _DISABLE,
     (PanelKind.VARIANT, True): _DISABLE,
-    (PanelKind.ARRAY, False): _VISIBLE,
-    (PanelKind.ARRAY, True): _VISIBLE,
-    (PanelKind.CLUSTER, False): _VISIBLE,
-    (PanelKind.CLUSTER, True): _VISIBLE,
-    (PanelKind.ERROR, False): _VISIBLE,
-    (PanelKind.ERROR, True): _VISIBLE,
+    (PanelKind.ARRAY, False): _DISABLE,
+    (PanelKind.ARRAY, True): _DISABLE,
+    (PanelKind.CLUSTER, False): _DISABLE,
+    (PanelKind.CLUSTER, True): _DISABLE,
+    (PanelKind.ERROR, False): _DISABLE,
+    (PanelKind.ERROR, True): _DISABLE,
 }
 
 

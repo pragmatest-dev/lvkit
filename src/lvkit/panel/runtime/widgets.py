@@ -113,7 +113,7 @@ def bool_port(default: bool, *, readonly: bool) -> Port:
             light.classes(replace="text-green-500" if lit else "text-gray-400")
 
         show_light(default)
-        return Port(lambda: lit, show_light)
+        return Port(lambda: lit, show_light, widget_properties(light))
     port: Port
     switch = ui.switch(value=bool(default), on_change=lambda e: port.changed())
     port = Port(

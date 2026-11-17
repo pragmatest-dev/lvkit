@@ -18,6 +18,7 @@ from collections.abc import Callable
 from typing import Any
 
 from nicegui import ui
+from nicegui.elements.mixins.disableable_element import DisableableElement
 
 VISIBLE = "visible"
 DISABLED = "disabled"
@@ -30,21 +31,31 @@ MAXIMUM = "maximum"
 ENABLED_STATE = 0
 GREYED_OUT_STATE = 2
 GREYED_OUT_CLS = "opacity-40"
+# A disabled widget takes no pointer input, whatever it holds (an array's grid, an
+# indicator light), as well as disabling the input elements inside it.
+NO_INPUT_CLS = "pointer-events-none"
 
 Applier = Callable[[Any], object]
 
 
 def disabled_applier(*widgets: Any) -> Applier:
     """Disabled 0 enables the widgets, 1 disables them and 2 disables them and
-    greys them out."""
+    greys them out. A widget that holds others (a cluster, an array, an error
+    cluster) applies it to every input element inside it."""
 
     def apply(value: Any) -> None:
         state = int(value)
         for widget in widgets:
+            for element in widget.descendants(include_self=True):
+                if isinstance(element, DisableableElement):
+                    if state == ENABLED_STATE:
+                        element.enable()
+                    else:
+                        element.disable()
             if state == ENABLED_STATE:
-                widget.enable()
+                widget.classes(remove=NO_INPUT_CLS)
             else:
-                widget.disable()
+                widget.classes(add=NO_INPUT_CLS)
             if state == GREYED_OUT_STATE:
                 widget.classes(add=GREYED_OUT_CLS)
             else:
@@ -61,7 +72,7 @@ def focus_applier(widget: Any, *, root: bool = False) -> Applier:
     def apply(value: Any) -> None:
         action = "focus" if value else "blur"
         if root:
-            ui.run_javascript(f"getElement({widget.id}).$refs.qRef.$el.{action}()")
+            ui.run_javascript(f"getElement({widget.id}).$el.{action}()")
         else:
             widget.run_method(action)
 

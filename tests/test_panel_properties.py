@@ -252,7 +252,7 @@ def test_a_property_a_widget_cannot_show_is_a_warning_and_raises_where_set(
     simulate(panel.build_panel, scenario)
 
 
-def test_a_stored_state_a_kind_cannot_show_is_a_warning(
+def test_a_greyed_out_boolean_indicator_starts_greyed_with_no_warning(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
@@ -262,11 +262,35 @@ def test_a_stored_state_a_kind_cannot_show_is_a_warning(
     vi.wire(vi.bool_constant(True), flag)
     project.add(vi)
     package = project.generate(NAME, panel=True)
-    assert [
-        (g.node_name, g.identifier)
-        for g in package.gaps
-        if g.kind == UNSUPPORTED_CONTROL_PROPERTY
-    ] == [("lamp", "disabled")]
+    assert [g for g in package.gaps if g.kind == UNSUPPORTED_CONTROL_PROPERTY] == []
+    panel = panel_of(package, STEM)
+
+    async def scenario(user: User) -> None:
+        (light,) = found(user, ui.icon)[-1:]
+        assert "opacity-40" in light.classes
+        assert "pointer-events-none" in light.classes
+
+    simulate(panel.build_panel, scenario)
+
+
+def test_disabled_on_a_cluster_disables_every_input_inside_it() -> None:
+    members = [
+        controls.Member("a", "a", controls.number_port, 0.0, False),
+        controls.Member("b", "b", controls.string_port, ""),
+    ]
+    ports: list[Any] = []
+
+    def build() -> None:
+        ports.append(controls.cluster_port(False, members, readonly=False))
+
+    async def scenario(user: User) -> None:
+        inputs = found(user, ui.number) + found(user, ui.input)
+        ports[0].properties["disabled"](2)
+        assert [e.enabled for e in inputs] == [False, False]
+        ports[0].properties["disabled"](0)
+        assert [e.enabled for e in inputs] == [True, True]
+
+    simulate(build, scenario)
 
 
 def _port_makers() -> dict[PanelKind, Callable[[bool], Any]]:
