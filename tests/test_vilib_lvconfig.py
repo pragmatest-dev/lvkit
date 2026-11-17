@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from lvkit.codegen.gaps import Gap
-from lvkit.models import LVType
+from lvkit.models import LVType, LVTypeKind
 from lvkit.vilib_resolver import get_resolver
 from tests.vilib_caller import (
     BOOL,
@@ -272,14 +272,14 @@ def test_a_neighbour_in_the_same_library_without_an_entry_stays_a_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     resolver = get_resolver()
-    pathlist = "<resource>/dialog/lvconfig.llb/LV Config Read Pathlist.vi"
-    assert resolver.resolve_recorded(pathlist) is None
+    numeric = "<resource>/dialog/lvconfig.llb/LV Config Write Numeric (I32).vi"
+    assert resolver.resolve_recorded(numeric) is None
     gaps: list[Gap] = []
     with pytest.raises(NotImplementedError, match="terminal_mapping"):
         run_catalog_call(
             tmp_path,
             monkeypatch,
-            [*LLB, "LV Config Read Pathlist.vi"],
+            [*LLB, "LV Config Write Numeric (I32).vi"],
             pane=[(7, "input", STRING)],
             inputs={"key": (7, STRING)},
             outputs={},
@@ -288,3 +288,100 @@ def test_a_neighbour_in_the_same_library_without_an_entry_stays_a_gap(
             runtime_not_implemented=True,
         )
     assert len(gaps) == 1
+
+
+PATH_LIST = LVType(kind=LVTypeKind.ARRAY, element_type=PATH, dimensions=1)
+
+
+def _read_pathlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **arguments: Any
+) -> Any:
+    inputs: dict[str, tuple[int, LVType]] = {"key": (7, STRING)}
+    if "default" in arguments:
+        inputs["default"] = (6, PATH_LIST)
+    _, result = run_catalog_call(
+        tmp_path,
+        monkeypatch,
+        [*LLB, "LV Config Read Pathlist.vi"],
+        pane=[
+            (2, "output", BOOL),
+            (3, "output", PATH_LIST),
+            (6, "input", PATH_LIST),
+            (7, "input", STRING),
+        ],
+        inputs=inputs,
+        outputs={"value": (3, PATH_LIST), "found": (2, BOOL)},
+        arguments=arguments,
+    )
+    return result
+
+
+def test_read_pathlist_splits_the_vi_search_path_example_on_semicolons(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _ini(tmp_path).write_text(
+        "[LabVIEW]\n"
+        'viSearchPath="<topvi>:\\*;<foundvi>:\\;<vilib>:\\*;<userlib>:\\*;'
+        '<instrlib>:\\*"\n',
+        encoding="utf-8",
+    )
+    result = _read_pathlist(tmp_path, monkeypatch, key="viSearchPath", default=[])
+    assert result.found is True
+    assert [str(p) for p in result.value] == [
+        "<topvi>:\\*",
+        "<foundvi>:\\",
+        "<vilib>:\\*",
+        "<userlib>:\\*",
+        "<instrlib>:\\*",
+    ]
+    assert all(isinstance(p, Path) for p in result.value)
+
+
+def test_write_pathlist_then_read_back_and_the_file_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = [Path("a/b"), Path("<vilib>:\\*"), Path("c")]
+    run_catalog_call(
+        tmp_path,
+        monkeypatch,
+        [*LLB, "LV Config Write Pathlist.vi"],
+        pane=[(6, "input", PATH_LIST), (7, "input", STRING)],
+        inputs={"key": (7, STRING), "value": (6, PATH_LIST)},
+        outputs={},
+        arguments={"key": "Paths", "value": paths},
+    )
+    assert _ini(tmp_path).read_text(encoding="utf-8") == (
+        '[LabVIEW]\nPaths="a/b;<vilib>:\\*;c"\n\n'
+    )
+    result = _read_pathlist(tmp_path, monkeypatch, key="paths", default=[])
+    assert result.value == paths
+
+
+def test_pathlist_empty_list_and_not_a_path_element_round_trip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for value in ([], [Path("x"), None, Path("y")]):
+        run_catalog_call(
+            tmp_path,
+            monkeypatch,
+            [*LLB, "LV Config Write Pathlist.vi"],
+            pane=[(6, "input", PATH_LIST), (7, "input", STRING)],
+            inputs={"key": (7, STRING), "value": (6, PATH_LIST)},
+            outputs={},
+            arguments={"key": "k", "value": value},
+        )
+        result = _read_pathlist(tmp_path, monkeypatch, key="k", default=[Path("d")])
+        assert result.value == value
+
+
+def test_read_pathlist_of_a_missing_key_returns_the_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    default = [Path("d1"), Path("d2")]
+    missing_file = _read_pathlist(tmp_path, monkeypatch, key="k", default=default)
+    assert (missing_file.value, missing_file.found) == (default, False)
+    _ini(tmp_path).write_text('[LabVIEW]\nother="x"\n', encoding="utf-8")
+    missing_key = _read_pathlist(tmp_path, monkeypatch, key="k", default=default)
+    assert (missing_key.value, missing_key.found) == (default, False)
+    unwired = _read_pathlist(tmp_path, monkeypatch, key="k")
+    assert (unwired.value, unwired.found) == ([], False)
