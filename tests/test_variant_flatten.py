@@ -201,6 +201,7 @@ RUN_TIME_CASES = [
     (scalar("Boolean"), True),
     (array("NumInt32"), [1, 2, 3]),
     (array("NumInt32", 2), [[1, 2, 3], [4, 5, 6]]),
+    (array("NumInt32", 3), [[[1, 2]], [[3, 4]]]),
     (record(), ("ABC", 4)),
     (
         LVType(
@@ -226,9 +227,8 @@ def test_a_variant_of_unknown_type_flattens_as_the_type_it_records(
     # The type string is the descriptor the reader expects, and the data string
     # is the bytes the generation-time writer (Flatten To String's) gives.
     assert [w & 0xFFFF for w in type_string] == [w & 0xFFFF for w in words]
-    if lv_type.kind != LVTypeKind.ARRAY or lv_type.dimensions == 1:
-        _, static_data = result_values(to_string(lv_type).function(value))
-        assert data == static_data
+    _, static_data = result_values(to_string(lv_type).function(value))
+    assert data == static_data
     (back,) = result_values(unknown_type_round_trip().function(given))
     assert back.value == value or list(back.value) == list(value)
     assert back.type.type_string == given.type.type_string
@@ -291,3 +291,27 @@ def test_a_known_type_with_no_type_string_is_a_gap_that_raises_where_it_runs() -
     generated = to_string(scalar("Path"))
     with pytest.raises(NotImplementedError, match="no type string for.*Path"):
         generated.function(None)
+
+
+def test_a_multi_dimensional_array_is_its_sizes_then_its_elements_row_major() -> None:
+    """NI's "Flattened Data" page: the 32-bit size of each dimension precedes the
+    data, the slowest varying dimension first; the elements follow row by row."""
+    variants = generated_variants()
+    flatten = unknown_type_flatten()
+    expected = {
+        2: (
+            [[1, 2, 3], [4, 5, 6]],
+            "0000000200000003" + "".join(f"{n:08x}" for n in range(1, 7)),
+        ),
+        3: (
+            [[[1, 2]], [[3, 4]]],
+            "000000020000000100000002" + "".join(f"{n:08x}" for n in range(1, 5)),
+        ),
+    }
+    for rank, (value, hexed) in expected.items():
+        lv_type = array("NumInt32", rank)
+        given = variants.Variant(value, variants.type_from_string(encode(lv_type)))
+        _, run_time = result_values(flatten.function(given))
+        _, generated = result_values(to_string(lv_type).function(value))
+        assert run_time.encode("latin-1").hex() == hexed
+        assert generated.encode("latin-1").hex() == hexed
