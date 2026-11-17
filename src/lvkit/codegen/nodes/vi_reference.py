@@ -12,7 +12,8 @@ it holds is found when the code is generated, not when it runs:
   forgotten call on a daemon thread;
 - Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
-  ``__name__`` and file, and its Description is the function's docstring
+  ``vi_name`` (the VI's qualified name, ``call_chain.vi_name_statement``) and
+  file, and its Description is the function's docstring
   (``vi_property_read``).
 
 A reference to a member VI of a class is ``Class.method`` and the call passes
@@ -81,12 +82,16 @@ from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import front_panel_title, method_call, primitive, subvi
+from .call_chain import VI_NAME_ATTRIBUTE
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
 
 # NI, General LabVIEW Error Codes: 1026 "VI Reference is invalid."
 INVALID_VI_REFERENCE_CODE = 1026
+
+# NI, General LabVIEW Error Codes: 7 "File not found."
+FILE_NOT_FOUND_CODE = 7
 
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
@@ -620,7 +625,55 @@ def _generate_lookup(
         text = head + _CLASS_MEMBER.format(**names) + textwrap.indent(rest, "    ")
     statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
-    return CodeFragment(statements=statements, bindings=bindings)
+    fragment = CodeFragment(statements=statements, bindings=bindings)
+    _, error_outs = own_error_terminals(node, ctx)
+    if not any(ctx.is_wired(term.id) for term in error_outs):
+        # With nowhere to put an error, a name or path that finds no VI stays
+        # the lookup's own exception, as a native failure does
+        # (``native_failure``).
+        return fragment
+    return _not_found_is_error_7(node, ctx, fragment, reference_var, value)
+
+
+def _not_found_is_error_7(
+    node: PrimitiveNode,
+    ctx: CodeGenContext,
+    fragment: CodeFragment,
+    reference_var: str,
+    value: str,
+) -> CodeFragment:
+    """``fragment``, the lookup of a computed VI name or path, with a name or
+    path that finds no VI in the project made the node's own error 7, "File not
+    found.", and the reference Not a Refnum. NI, Open VI Reference: "If a
+    matching VI is not found in memory, LabVIEW then tries to load the VI from
+    that file on disk. An error occurs if LabVIEW cannot find the file." (7 is
+    NI's General LabVIEW Error Code for a file not found.)"""
+    own_error = ctx.make_output_var("own_error", node.id)
+    ctx.import_labview_error()
+    not_found = labview_error(
+        FILE_NOT_FOUND_CODE,
+        _label(node),
+        f"'the VI ' + repr({value}) + ' is not in memory and has no file'",
+    )
+    fragment.statements = [
+        ast.Try(
+            body=fragment.statements,
+            handlers=[
+                ast.ExceptHandler(
+                    type=parse_expr("LookupError"),
+                    name=None,
+                    body=[
+                        build_assign(reference_var, parse_expr("None")),
+                        build_assign(own_error, not_found),
+                    ],
+                )
+            ],
+            orelse=[build_assign(own_error, parse_expr("None"))],
+            finalbody=[],
+        )
+    ]
+    fragment.own_error = own_error
+    return fragment
 
 
 def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
@@ -717,7 +770,9 @@ def vi_property_read(
     node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
-    function: Name is the function's name, Path its file, Description its
+    function: Name is its ``vi_name`` (NI, VI Name: "If a LabVIEW project library
+    owns the VI, the property returns the qualified name of the VI"), Path its
+    file, Description its
     docstring (the VI's description), Exec.State the state of its front panel
     (``Panel.state``: 1 Idle, 2 Run top level while it runs), Front Panel
     Window:Title its ``window_title`` (``front_panel_title``).
@@ -729,7 +784,7 @@ def vi_property_read(
         return front_panel_title.read(reference)
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
-        return parse_expr(f"{reference}.__name__")
+        return parse_expr(f"{reference}.{VI_NAME_ATTRIBUTE}")
     if code == VI_PATH_PROPERTY_CODE:
         ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")

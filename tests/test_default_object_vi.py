@@ -78,10 +78,10 @@ def test_unwired_user_name_is_written_in_and_runs(tmp_path: Path) -> None:
     assert _run(source, tmp_path) == getpass.getuser()
 
 
-def test_this_vis_name_is_its_function_name(tmp_path: Path) -> None:
+def test_this_vis_name_is_its_qualified_name(tmp_path: Path) -> None:
     source = _vi("VI", "Name", 500)
-    assert "name = user.__name__\n" in source
-    assert _run(source, tmp_path) == "user"
+    assert "name = user.vi_name\n" in source
+    assert _run(source, tmp_path) == "User.vi"
 
 
 def test_this_vis_path_is_its_file(tmp_path: Path) -> None:
@@ -102,7 +102,7 @@ def test_the_application_directory_is_the_running_programs_folder(
 
 def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
     none = _vi("VI", "Callees' Names", 545)
-    assert "callees_names = [callee.__name__ for callee in ()]\n" in none
+    assert "callees_names = [callee.vi_name for callee in ()]\n" in none
     assert _run(none, tmp_path) == "[]"
     helper = VINode(
         id="helper",
@@ -113,7 +113,7 @@ def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
     )
     source = _vi("VI", "Callees' Names", 545, [helper])
     assert "from .helper import helper\n" in source
-    assert "[callee.__name__ for callee in (helper,)]" in source
+    assert "[callee.vi_name for callee in (helper,)]" in source
 
 
 def test_properties_with_no_python_meaning_raise_where_they_run() -> None:

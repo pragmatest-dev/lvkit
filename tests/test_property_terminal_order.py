@@ -125,6 +125,7 @@ def vi_fixture(rows, **kwargs):
     def target():
         return None
 
+    target.vi_name = "target"  # type: ignore[attr-defined]
     namespace["ref"] = target
     namespace["inspect"] = inspect
     return node, ctx, namespace
@@ -157,9 +158,9 @@ def test_unwired_reads_still_execute_once_and_keep_distinct_snapshots():
         ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
     )
     assert source.splitlines() == [
-        "ref_name = ref.__name__",
+        "ref_name = ref.vi_name",
         "ref_path = inspect.getfile(ref)",
-        "ref_name_2 = ref.__name__",
+        "ref_name_2 = ref.vi_name",
     ]
     assert fragment.bindings["row_0"] == "ref_name"
     assert fragment.bindings["row_1"] == "ref_path"
@@ -362,15 +363,16 @@ def test_an_unwired_vi_name_reads_the_function_name_by_either_name(stored_name):
     fragment, code, namespace = _generate_unwired(
         [("Value", "output")], "VI", stored_name, 500
     )
-    assert ast.unparse(code).endswith(" = my_function.__name__")
+    assert ast.unparse(code).endswith(" = my_function.vi_name")
 
     def my_function():
         pass
 
+    my_function.vi_name = "My Function.vi"  # type: ignore[attr-defined]
     namespace["my_function"] = my_function
     (variable,) = fragment.bindings.values()
     exec(compile(code, "property-test", "exec"), namespace)
-    assert namespace[variable] == "my_function"
+    assert namespace[variable] == "My Function.vi"
 
 
 def _wire_from_this_application(ctx, class_name="Application"):

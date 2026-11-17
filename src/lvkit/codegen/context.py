@@ -869,6 +869,9 @@ class CodeGenContext:
             if self.graph is not None and key is not None
             else None
         )
+        if shape is None and key is not None and key == self.vi_name:
+            # The VI being generated is already defined in its own module.
+            return self.function_name
         if shape is None or not isinstance(self.import_resolver, ImportResolver):
             return self.import_function(vi_name, key)
         assert self.graph is not None

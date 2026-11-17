@@ -7,7 +7,7 @@ or Event Structure is preceded by ``live_io.read``.
 
 "This VI" is the VI being generated, and a VI is its function: the reference is
 that function (``CodeGenContext.this_vi_expression``), so a subVI that is passed
-it receives the function and ``ref.__name__`` / ``inspect.getfile(ref)`` read its
+it receives the function and ``ref.vi_name`` / ``inspect.getfile(ref)`` read its
 properties.
 "This Application" is the running application: Python has no object for it, so its
 wire carries ``None``, and each Property or Invoke Node that reads it is generated

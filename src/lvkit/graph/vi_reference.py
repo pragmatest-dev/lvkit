@@ -238,8 +238,14 @@ class VIReferenceMixin(WireOriginMixin):
         if isinstance(node, PrimitiveNode) and is_on_vi_reference(node):
             code = _read_property_code(node, source.terminal_id)
             reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
-            if code in (VI_NAME_PROPERTY_CODE, VI_PATH_PROPERTY_CODE) and reference:
-                return self.referenced_vi(reference.id)
+            if code in (VI_NAME_PROPERTY_CODE, VI_PATH_PROPERTY_CODE):
+                if reference is not None and self.wire_origins(reference.id):
+                    return self.referenced_vi(reference.id)
+                # An unwired reference is the VI holding the node (NI, Invoke
+                # Node of the VI class: the default VI object).
+                own = self.terminal_vi(source.terminal_id)
+                if own is not None:
+                    return ReferencedVI(self.vi_display_name(own), own)
         try:
             text = self.origin_text(node, source)
         except PathNotConstant:

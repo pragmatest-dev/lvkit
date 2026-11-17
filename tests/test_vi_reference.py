@@ -653,7 +653,7 @@ def test_name_and_path_of_a_vi_reference_are_read_from_the_function(
     )
     source = _source(loaded)
     assert "callee_Name" not in source
-    assert "callee.__name__" in source
+    assert "callee.vi_name" in source
     assert "inspect.getfile(callee)" in source
     assert "import inspect" in source
 
@@ -781,6 +781,7 @@ _CALLEE = (
     "def threading_name():\n"
     "    import threading\n"
     "    return threading.current_thread().name\n"
+    "callee.vi_name = 'Callee.vi'\n"
 )
 
 
@@ -886,7 +887,7 @@ def test_name_and_path_run_as_the_function_s_own_properties(tmp_path: Path) -> N
     for refs in _package(tmp_path, _source(loaded), _CALLEE):
         refs.refs()  # type: ignore[attr-defined]
         callee = sys.modules["generated_refs.callee"]
-        assert callee.calls[0][0] == "callee"
+        assert callee.calls[0][0] == "Callee.vi"
 
 
 def test_a_reference_that_is_a_value_is_called_with_the_panes_names(
@@ -959,7 +960,7 @@ def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_is_a_direct_call(
 
 def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
     """ "This VI" wired into a Property Node reading Name: the reference is the
-    generated function, so Name is ``refs.__name__``; the value runs into a call."""
+    generated function, so Name is ``refs.vi_name``; the value runs into a call."""
     name = d.vi_name_property(60, 500, "Name")
     loaded = d.load(
         tmp_path,
@@ -968,12 +969,103 @@ def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
     )
     d.type_terminal(loaded, 81, d.this_vi_type())
     source = _source(loaded)
-    assert "refs.__name__" in source
+    assert "refs.vi_name" in source
+    assert "NotImplementedError" not in source
+    for refs in _package(tmp_path, _full_source(loaded), _CALLEE):
+        refs.refs()  # type: ignore[attr-defined]
+        callee = sys.modules["generated_refs.callee"]
+        assert callee.calls[0][0] == "Refs.vi"
+
+
+def _full_source(loaded: d.Loaded) -> str:
+    """The generated module with the attributes the generator gives its function
+    (``vi_name``) that ``_source`` leaves out."""
+    full = build_module(
+        loaded.graph.get_vi_context(loaded.caller), loaded.caller, graph=loaded.graph
+    )
+    (name_line,) = (line for line in full.split("\n") if ".vi_name = " in line)
+    return _source(loaded) + "\n" + name_line + "\n"
+
+
+@pytest.mark.parametrize("display", ["Refs.vi", "Lib.lvlib:Refs.vi"])
+def test_vi_name_of_this_vi_is_its_qualified_name_when_the_code_runs(
+    tmp_path: Path, display: str
+) -> None:
+    """NI, VI Name: "If a LabVIEW project library owns the VI, the property
+    returns the qualified name of the VI, which includes the project library
+    filename." An unwired Property Node is the VI holding it."""
+    name = d.vi_name_property(60, 500, "Name")
+    loaded = d.load(
+        tmp_path,
+        [_STATIC, name, _CALL],
+        [d.wire(101, 11, 31), d.wire(103, 69, 41)],
+    )
+    loaded.graph._vi_display_names[loaded.caller] = display  # noqa: SLF001
+    source = _full_source(loaded)
+    assert "__name__" not in source
+    for refs in _package(tmp_path, source, _CALLEE):
+        refs.refs()  # type: ignore[attr-defined]
+        assert sys.modules["generated_refs.callee"].calls[0][0] == display
+
+
+def test_open_vi_reference_by_the_name_of_the_vi_itself_opens_that_vi(
+    tmp_path: Path,
+) -> None:
+    """NI, Open VI Reference: "vi path accepts ... a string containing the name
+    of the VI that you want to reference": the Name of an unwired Property Node
+    is this VI's name, so the reference is this VI; a property read on it is
+    this VI's."""
+    own = d.vi_name_property(60, 500, "Name")
+    read = d.vi_name_property(80, 500, "Name")
+    loaded = d.load(
+        tmp_path,
+        [_STATIC, _CALL, _OPEN, own, read],
+        [
+            d.wire(100, 69, 23),
+            d.wire(101, 21, 81),
+            d.wire(102, 11, 31),
+            d.wire(103, 89, 41),
+        ],
+    )
+    loaded.graph._vi_display_names[loaded.caller] = "Lib.lvlib:Refs.vi"  # noqa: SLF001
+    source = _full_source(loaded)
     assert "NotImplementedError" not in source
     for refs in _package(tmp_path, source, _CALLEE):
         refs.refs()  # type: ignore[attr-defined]
-        callee = sys.modules["generated_refs.callee"]
-        assert callee.calls[0][0] == "refs"
+        assert sys.modules["generated_refs.callee"].calls[0][0] == "Lib.lvlib:Refs.vi"
+
+
+def test_a_computed_name_of_another_vi_opens_it_and_calls_it(tmp_path: Path) -> None:
+    loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
+    d.type_terminal(loaded, 21, d.typed_vi_reference())
+    d.type_terminal(loaded, 31, d.typed_vi_reference())
+    for refs in _package(tmp_path, _source(loaded), _CALLEE):
+        refs.refs("Callee.vi")  # type: ignore[attr-defined]
+        assert [x for x, _ in sys.modules["generated_refs.callee"].calls] == [5]
+
+
+def _open_with_error_out(tmp_path: Path) -> d.Loaded:
+    loaded = d.load(tmp_path, [d.open_vi_reference(20, errors=True)], [])
+    d.add_control(loaded, "vi_path", _STRING_TYPE, 23, uid="vi_path")
+    d.type_terminal(loaded, 27, d.ERROR)
+    d.add_indicator(loaded, "error out", d.ERROR, 27, 1)
+    return loaded
+
+
+def test_a_name_that_no_vi_of_the_project_has_is_error_7_on_the_error_out(
+    tmp_path: Path,
+) -> None:
+    """NI, Open VI Reference: "If a matching VI is not found in memory, LabVIEW
+    then tries to load the VI from that file on disk. An error occurs if
+    LabVIEW cannot find the file." (NI, General LabVIEW Error Codes: 7 "File
+    not found.")"""
+    loaded = _open_with_error_out(tmp_path)
+    for refs in _package(tmp_path, _source(loaded), _CALLEE):
+        found = refs.refs("Callee.vi")  # type: ignore[attr-defined]
+        assert found.error_out is None
+        missing = refs.refs("Missing.vi")  # type: ignore[attr-defined]
+        assert missing.error_out.code == 7
+        assert "'Missing.vi'" in missing.error_out.message
 
 
 # --- the node's own error in and error out -----------------------------------
