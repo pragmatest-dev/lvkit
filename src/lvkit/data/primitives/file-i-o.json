@@ -275,7 +275,33 @@
     },
     "8051": {
       "name": "Read from Binary File",
+      "op": "READ_FROM_BINARY_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "EOFError",
+          "code": 4
+        },
+        {
+          "exception": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
         {
           "exception": "OSError",
           "code": 6
@@ -336,7 +362,8 @@
           "index": 2,
           "direction": "output",
           "name": "data",
-          "type": "String"
+          "type": "String",
+          "keeps_on_failure": true
         },
         {
           "index": 3,
@@ -345,12 +372,6 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "data": "in_11.read(in_10)",
-        "refnum_out": "in_11",
-        "error_out": "in_8",
-        "cancelled": "False"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
       "verified": false
     },

@@ -7,6 +7,7 @@ behaviours generated code cannot write: each stays a gap that names the behaviou
 from __future__ import annotations
 
 import datetime
+import io
 import json
 from pathlib import Path
 
@@ -233,7 +234,7 @@ def test_a_wired_file_has_no_gap() -> None:
     assert _read_text_file(file_wired=True) == []
 
 
-def test_an_unwired_count_of_binary_elements_is_a_gap_that_names_one_element() -> None:
+def test_an_unwired_count_of_binary_elements_reads_one_element() -> None:
     terminals = [
         (0, "output", ERROR_T),
         (2, "output", STRING_T),
@@ -244,15 +245,18 @@ def test_an_unwired_count_of_binary_elements_is_a_gap_that_names_one_element() -
         (11, "input", REFNUM_T),
     ]
     gaps: list[Gap] = []
-    generate(
+    generated = generate(
         {"file": REFNUM_T},
         {"data": STRING_T},
         [node("rb", 8051, terminals)],
         [("fp:file", "rb:11"), ("rb:2", "fp:data")],
         gaps=gaps,
     )
-    assert [g.kind for g in gaps] == ["unknown_default"]
-    assert "default (one element) is not written" in gaps[0].reason
+    # NI: "By default, the function returns a single data element"; a string
+    # instance carries its size.
+    assert gaps == []
+    stream = io.BytesIO(b"\x00\x00\x00\x02hiXY")
+    assert generated.function(stream).data == "hi"  # type: ignore[attr-defined]
 
 
 def test_a_tag_constant_is_its_text_not_a_quoted_copy_of_it() -> None:
