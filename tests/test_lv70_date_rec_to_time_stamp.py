@@ -11,7 +11,6 @@ offset of local time from UTC, which only a local-time reading makes meaningful.
 from __future__ import annotations
 
 import os
-import sys
 import time
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from lvkit.codegen.gaps import Gap
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.native_vi import generate, node, scalar
+from tests.time_zone import needs_posix_tz
 from tests.vilib_caller import I32, run_catalog_call
 
 OLDVERS = ["<vilib>", "_oldvers", "_oldvers.llb", "LV70DateRecToTimeStamp.vi"]
@@ -48,10 +48,6 @@ RECORD = LVType(
 )
 EPOCH_1970_IN_1904_SECONDS = 2082844800
 
-needs_posix_tz = pytest.mark.skipif(
-    sys.platform == "win32", reason="time.tzset is POSIX only"
-)
-
 
 def _to_time_stamp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, record: tuple[int, ...]
@@ -70,17 +66,6 @@ def _to_time_stamp(
 def _seconds_since_1904(result: object) -> float:
     stamp = result.time_stamp  # type: ignore[attr-defined]
     return stamp.timestamp() + EPOCH_1970_IN_1904_SECONDS
-
-
-@pytest.fixture
-def time_zone(monkeypatch: pytest.MonkeyPatch):
-    def use(name: str) -> None:
-        monkeypatch.setenv("TZ", name)
-        time.tzset()
-
-    yield use
-    monkeypatch.undo()
-    time.tzset()
 
 
 @needs_posix_tz

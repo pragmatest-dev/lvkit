@@ -9,15 +9,14 @@ Python is run."""
 from __future__ import annotations
 
 import datetime
-import sys
 import time
 
 import hightime
-import pytest
 
 from lvkit.models import LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.prim_vi import Pin, generate, scalar
+from tests.time_zone import needs_posix_tz
 
 TIMESTAMP = LVType(
     kind=LVTypeKind.PRIMITIVE,
@@ -27,10 +26,6 @@ TIMESTAMP = LVType(
 STRING = scalar("String")
 BOOL = scalar("Boolean")
 FORMAT = "%Y-%m-%d %H:%M:%S"
-
-needs_posix_tz = pytest.mark.skipif(
-    sys.platform == "win32", reason="time.tzset is POSIX only"
-)
 
 
 def _stamp(*parts: int) -> hightime.datetime:
@@ -54,17 +49,6 @@ def _format(utc: str | bool | None):
     else:
         pins.append(Pin(1, "input", BOOL, constant=str(utc)))
     return generate(8100, "Format Date/Time String", pins, inputs, {"out": STRING})[1]
-
-
-@pytest.fixture
-def time_zone(monkeypatch: pytest.MonkeyPatch):
-    def use(name: str) -> None:
-        monkeypatch.setenv("TZ", name)
-        time.tzset()
-
-    yield use
-    monkeypatch.delenv("TZ", raising=False)
-    time.tzset()
 
 
 @needs_posix_tz

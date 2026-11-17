@@ -6,7 +6,6 @@ later outputs at their defaults and gives error 85."""
 from __future__ import annotations
 
 import sys
-import time
 from datetime import UTC
 from typing import Any
 
@@ -21,6 +20,7 @@ from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.helpers import GENERATED_PACKAGE, build_graph, exec_generated
 from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
+from tests.time_zone import needs_posix_tz
 from tests.vilib_caller import BOOL, DBL, I32, STRING, U32, primitive
 
 U8 = primitive("NumUInt8")
@@ -477,9 +477,9 @@ def test_two_digit_years_follow_the_century_rule() -> None:
     assert _values(_result("%^<%y>T", [TIME], "69"), 1)[0].year == 1969
 
 
-def test_a_time_stamp_without_the_flag_is_local_time(monkeypatch) -> None:
-    monkeypatch.setenv("TZ", "America/Denver")
-    time.tzset()
+@needs_posix_tz
+def test_a_time_stamp_without_the_flag_is_local_time(time_zone) -> None:
+    time_zone("America/Denver")
     result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-07-01 12:00")
     assert _values(result, 1) == [_utc(2026, 7, 1, 18, 0)]
     result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-01-01 12:00")
