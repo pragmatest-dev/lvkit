@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
-
 from lvkit.lv_type_codes import (
     COMPLEX_TYPE_NAMES,
     INTEGER_BYTE_WIDTHS,
@@ -16,6 +14,8 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
 )
 from lvkit.models import LVType, LVTypeKind
+
+from ...labview_format import FormatKind
 
 
 def _scalar_underlying(lv_type: LVType | None) -> str | None:
@@ -39,18 +39,6 @@ def is_real(lv_type: LVType | None) -> bool:
 
 def is_array(lv_type: LVType | None) -> bool:
     return lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
-
-
-class FormatKind(NamedTuple):
-    """How Format Into String sees an input: its kind (``string``, ``path``,
-    ``bool``, ``int``, ``float``, ``complex``, ``enum``, ``timestamp``, or the name
-    of a type it has no conversion for), for an integer its bit width and
-    signedness, and for an enum each item's value and label."""
-
-    kind: str
-    bits: int = 0
-    signed: bool = False
-    labels: tuple[tuple[int, str], ...] = ()
 
 
 def format_kind(lv_type: LVType | None) -> FormatKind:

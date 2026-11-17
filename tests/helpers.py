@@ -18,6 +18,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
@@ -378,6 +379,7 @@ def install_generated_package() -> None:
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
     ):
         module = ModuleType(f"{GENERATED_PACKAGE}.{name}")
         sys.modules[module.__name__] = module
@@ -408,6 +410,7 @@ def write_support_modules(package_dir: Path) -> None:
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
     ):
         module = package_dir / f"{name}.py"
         if not module.exists():

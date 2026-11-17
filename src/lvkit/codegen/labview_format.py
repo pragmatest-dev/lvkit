@@ -18,6 +18,19 @@ import inspect
 import locale
 import re
 from dataclasses import dataclass
+from typing import NamedTuple
+
+
+class FormatKind(NamedTuple):
+    """How Format Into String sees an input: its kind (``string``, ``path``,
+    ``bool``, ``int``, ``float``, ``complex``, ``enum``, ``timestamp``, or the name
+    of a type it has no conversion for), for an integer its bit width and
+    signedness, and for an enum each item's value and label."""
+
+    kind: str
+    bits: int = 0
+    signed: bool = False
+    labels: tuple[tuple[int, str], ...] = ()
 
 
 @dataclass(frozen=True)

@@ -21,6 +21,7 @@ from lvkit.codegen.grpc_server_module import (
 )
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
@@ -194,6 +195,7 @@ def run_catalog_call(
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
         (GRPC_SERVER_MODULE_NAME, GRPC_SERVER_MODULE_SOURCE),
     ):
         (package / f"{module}.py").write_text(text, encoding="utf-8")

@@ -2,7 +2,7 @@
 
 A ``raise NotImplementedError("<fixed text>")`` is a gap by the one gap rule: it is
 warned about when the code is generated and names the VI and node it stands for.
-The shared modules (``errors``, ``variants``, ``live_io``, ``panels``,
+The shared modules (``errors``, ``variants``, ``live_io``, ``panels``, ``scan``,
 ``notifiers``, ``grpc_server``) belong to no VI, so a refusal in them is a check of
 an unusual value met at run time and names that value: its message is built when
 it runs. A fixed-text raise there would also mark every module that imports the
@@ -20,6 +20,7 @@ from lvkit.codegen.grpc_server_module import GRPC_SERVER_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.notifiers_module import NOTIFIERS_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 
 SOURCES = {
@@ -28,6 +29,7 @@ SOURCES = {
     "live_io": LIVE_IO_MODULE_SOURCE,
     "notifiers": NOTIFIERS_MODULE_SOURCE,
     "panels": PANELS_MODULE_SOURCE,
+    "scan": SCAN_MODULE_SOURCE,
     "variants": VARIANTS_MODULE_SOURCE,
 }
 

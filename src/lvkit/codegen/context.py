@@ -75,6 +75,7 @@ from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
 from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
+from .scan_module import scan_import
 from .variant_values import wrap_if_coerced
 from .variants_module import VARIANT_NAME, variants_import
 
@@ -725,6 +726,13 @@ class CodeGenContext:
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
+
+    def import_scan(self) -> None:
+        """Import ``scan_text`` from the package's ``scan`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.scan_import()
+        self.add_import(statement or scan_import("."))
 
     def import_grpc_server(self, names: str) -> None:
         """Import ``names`` (``Server``, ``CallError``, comma separated) from the

@@ -87,9 +87,11 @@ class ImportResolver:
         panels_import: Callable[[str], str] | None = None,
         variant_import: Callable[[Sequence[str]], str] | None = None,
         grpc_server_import: Callable[[str], str] | None = None,
+        scan_import: Callable[[], str] | None = None,
     ) -> None:
         self._variant_import = variant_import
         self._grpc_server_import = grpc_server_import
+        self._scan_import = scan_import
         self._notifier_import = notifier_import
         self._panels_import = panels_import
         self._live_io_import = live_io_import
@@ -207,6 +209,11 @@ class ImportResolver:
         """The statement importing ``names`` from the package root's ``panels``
         module; None when this resolver has no package."""
         return self._panels_import(names) if self._panels_import else None
+
+    def scan_import(self) -> str | None:
+        """The statement importing ``scan_text`` from the package root's ``scan``
+        module; None when this resolver has no package."""
+        return self._scan_import() if self._scan_import else None
 
     def grpc_server_import(self, names: str) -> str | None:
         """The statement importing ``names`` (``Server``, ``CallError``, comma

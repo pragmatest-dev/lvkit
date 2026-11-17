@@ -55,6 +55,12 @@ from lvkit.codegen.notifiers_module import (
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import (
+    SCAN_FUNCTION_NAME,
+    SCAN_MODULE_NAME,
+    SCAN_MODULE_SOURCE,
+    scan_import,
+)
 from lvkit.codegen.type_constants import share_type_constants
 from lvkit.codegen.type_module import build_type_module
 from lvkit.codegen.variants_module import (
@@ -396,6 +402,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{PANELS_MODULE_NAME}.py")
         return f"from {dots}{module} import {names}"
 
+    def scan_import_statement() -> str:
+        dots, package, module = relative(output_dir / f"{SCAN_MODULE_NAME}.py")
+        return scan_import(dots)
+
     def grpc_server_import(names: str) -> str:
         dots, package, module = relative(output_dir / f"{GRPC_SERVER_MODULE_NAME}.py")
         return f"from {dots}{module} import {names}"
@@ -425,6 +435,7 @@ def create_import_resolver(
         panels_import,
         variant_import,
         grpc_server_import,
+        scan_import_statement,
     )
 
 
@@ -507,6 +518,17 @@ def _write_errors_module(package_root: Path) -> None:
         f"import {LABVIEW_ERROR_NAME}",
         ERRORS_MODULE_NAME,
         ERRORS_MODULE_SOURCE,
+    )
+
+
+def _write_scan_module(package_root: Path) -> None:
+    """Write ``scan.py`` at the package root when a generated module imports from
+    it."""
+    _write_support_module(
+        package_root,
+        f".{SCAN_MODULE_NAME} import {SCAN_FUNCTION_NAME}",
+        SCAN_MODULE_NAME,
+        SCAN_MODULE_SOURCE,
     )
 
 
@@ -959,6 +981,7 @@ def generate_python(
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
+            SCAN_MODULE_NAME,
         ],
     )
     package_modules = PackageModules.from_graph(
@@ -972,6 +995,7 @@ def generate_python(
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
+            SCAN_MODULE_NAME,
         },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
@@ -1254,6 +1278,7 @@ def generate_python(
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)
+    _write_scan_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")

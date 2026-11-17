@@ -54,7 +54,7 @@ from .labview_format import _lv_decode_escapes, _lv_parse, _LvSpecifier
 from .labview_scan_time import time_scan
 
 if TYPE_CHECKING:
-    from .nodes.ops._numeric import FormatKind
+    from .labview_format import FormatKind
 
 # The conversion codes a scan reads: signed decimal, floating point (``f``, ``g``
 # and ``e`` read the same text), hexadecimal and string.

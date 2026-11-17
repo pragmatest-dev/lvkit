@@ -5,6 +5,7 @@ later outputs at their defaults and gives error 85."""
 
 from __future__ import annotations
 
+import ast
 import sys
 from datetime import UTC
 from typing import Any
@@ -15,6 +16,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
@@ -347,13 +349,6 @@ def test_what_has_no_conversion_is_a_gap_with_its_reason(
         function(text="1")
 
 
-def test_a_format_wired_at_run_time_is_a_gap() -> None:
-    gaps: list[Gap] = []
-    _, function = _scan("%d", [I32], wire_format=True, gaps=gaps)
-    assert len(gaps) == 1
-    assert "only known when the code runs" in gaps[0].message
-
-
 def _enum(*labels: str) -> LVType:
     return LVType(
         kind=LVTypeKind.ENUM,
@@ -541,3 +536,115 @@ def test_a_fraction_of_a_second_is_exact_to_the_digit() -> None:
     assert value == _utc(2026, 11, 16, 10, 20, 30, 123000)
     assert (value.microsecond, value.femtosecond, value.yoctosecond) == (123000, 0, 0)
     assert result.remaining == "Z"
+
+
+# A format string wired from a value the code computes is translated when the
+# code runs, by the same translator (the package's ``scan`` module).
+
+
+def _wired_result(
+    format_text: str, outputs: list[LVType], text: str, **options: Any
+) -> Any:
+    arguments = {**options.pop("arguments", {}), "format_": format_text}
+    _, function = _scan(format_text, outputs, wire_format=True, **options)
+    return function(text=text, **arguments)
+
+
+_RUN_TIME_CASES = [
+    ("%d", [I32], "-42"),
+    ("%d", [I32], "  \t 12abc"),
+    ("%d:%d:%f", [I32, I32, DBL], "12:34:56.25"),
+    ("%g", [DBL], "-1.5e3"),
+    ("%,;%g", [DBL], "3,25"),
+    ("%s %x", [STRING, I32], "name FF rest"),
+    ("HTTP/%d.%d %d ", [I32, I32, I32], "HTTP/1.1   200 OK"),
+    ("%[^,],%s", [STRING, STRING], "welcome to LabVIEW,Smith"),
+    ("%3d%3d", [I32, I32], "0123456789"),
+    ("%d", [U8], "300"),
+    ("%d", [I8], "-300"),
+    ("%d", [BOOL], "1"),
+    ("%s", [BOOL], "YES"),
+    ("%d%%", [I32], "50%"),
+    ("%d:%d", [I32, I32], "12:ab"),
+    ("%d", [I32], "abc"),
+    ("%s", [COLOR], "Blue"),
+    ("%s", [COLOR], "Purple"),
+    ("%^<%Y-%m-%dT%H:%M:%S%3u>T", [TIME], "2026-11-16T10:20:30.123Z"),
+    ("%^<%H:%M>T", [DBL], "05:30"),
+]
+
+
+@pytest.mark.parametrize(("format_text", "outputs", "text"), _RUN_TIME_CASES)
+def test_a_format_wired_at_run_time_reads_what_a_constant_one_reads(
+    format_text: str, outputs: list[LVType], text: str
+) -> None:
+    options: dict[str, Any] = {
+        "error": True,
+        "arguments": {"error_in": None},
+    }
+    constant = _result(format_text, outputs, text, **options)
+    wired = _wired_result(format_text, outputs, text, **options)
+    assert _values(wired, len(outputs)) == _values(constant, len(outputs))
+    assert (wired.remaining, wired.offset) == (constant.remaining, constant.offset)
+    assert (wired.error_out is None) == (constant.error_out is None)
+    if wired.error_out is not None:
+        assert wired.error_out.code == constant.error_out.code == 85
+        assert wired.error_out.source == constant.error_out.source
+
+
+def test_a_wired_format_keeps_the_default_and_the_initial_scan_location() -> None:
+    result = _wired_result(
+        "%d:%d",
+        [I32, I32],
+        "ab 12:cd",
+        initial=True,
+        error=True,
+        defaults=[None, 7],
+        arguments={"initial": 2, "default1": 7, "error_in": None},
+    )
+    assert _values(result, 2) == [12, 7]
+    assert result.error_out.source == "Scan From String (arg 2)"
+    assert (result.remaining, result.offset) == (":cd", 5)
+
+
+def test_a_wired_format_is_translated_by_the_scan_module_not_written_in() -> None:
+    source, _ = _scan("%d", [I32], wire_format=True)
+    assert "scan_text(format_, text, " in source
+    assert "re.match(" not in source
+    assert "lvkit" not in source
+
+
+def test_two_formats_wired_at_run_time_in_one_vi_each_read_by_their_own() -> None:
+    _, function = _scan("%d", [I32], wire_format=True)
+    assert function(text="12 34", format_="%d").out0 == 12
+    assert function(text="12 34", format_="%x").out0 == 0x12
+    first = function(text="ab-5", format_="ab%d")
+    second = function(text="ab-5", format_="%x")
+    assert (first.out0, first.remaining) == (-5, "")
+    assert (second.out0, second.remaining) == (0xAB, "-5")
+
+
+def test_a_format_with_no_conversion_raises_naming_it_when_the_code_runs() -> None:
+    gaps: list[Gap] = []
+    _, function = _scan("%d", [DBL], wire_format=True, gaps=gaps)
+    assert gaps == []
+    with pytest.raises(NotImplementedError) as refused:
+        function(text="1.5", format_="%5.2f")
+    assert "'%5.2f'" in str(refused.value)
+    assert "a precision" in str(refused.value)
+    with pytest.raises(NotImplementedError, match="has 2 specifiers"):
+        function(text="1", format_="%d %d")
+
+
+def test_the_scan_module_imports_nothing_from_the_package_or_lvkit() -> None:
+    imported = [
+        node
+        for node in ast.walk(ast.parse(SCAN_MODULE_SOURCE))
+        if isinstance(node, ast.ImportFrom | ast.Import)
+    ]
+    for node in imported:
+        if isinstance(node, ast.ImportFrom):
+            assert node.level == 0
+            assert (node.module or "").split(".")[0] != "lvkit"
+        else:
+            assert all(a.name.split(".")[0] != "lvkit" for a in node.names)
