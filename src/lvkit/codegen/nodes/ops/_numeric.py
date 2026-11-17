@@ -93,10 +93,21 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
 _ORDERED_KINDS = frozenset({"int", "float", "bool", "string", "timestamp"})
 
 
-def is_orderable(lv_type: LVType | None) -> bool:
-    """Whether Python's ``<`` on the generated value gives LabVIEW's order: an
-    integer, a real number, a Boolean (FALSE below TRUE), a string (by character
-    code) or a time stamp, or an array of one."""
-    while lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
-        lv_type = lv_type.element_type
-    return format_kind(lv_type).kind in _ORDERED_KINDS
+def unorderable_leaf(lv_type: LVType) -> LVType | None:
+    """The first value inside ``lv_type`` that Python's ``<`` does not order as
+    LabVIEW does, or None when every one does. A value is an integer, a real
+    number, a Boolean (FALSE below TRUE), a string (by character code) or a time
+    stamp, alone or as the element of an array or a field of a cluster (a cluster
+    with no fields is returned as it is)."""
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        return unorderable_leaf(lv_type.element_type)
+    if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields:
+        for field in lv_type.fields:
+            if field.type is None:
+                return lv_type
+            if (leaf := unorderable_leaf(field.type)) is not None:
+                return leaf
+        return None
+    if format_kind(lv_type).kind in _ORDERED_KINDS:
+        return None
+    return lv_type

@@ -12,6 +12,7 @@ value internally before computing coerced(x)"."""
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,7 +22,7 @@ from lvkit.codegen.nodes.ops.in_range_and_coerce import (
     INCLUDE_UPPER_LIMIT,
 )
 from lvkit.graph import InMemoryVIGraph
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR, timestamp_from_parts
 from tests.native_vi import array, scalar
 from tests.primitive_caller import run_primitive
@@ -34,6 +35,14 @@ TIMESTAMP = LVType(
 )
 BOOL_ARRAY = array("Boolean")
 DBL_ARRAY = array("NumFloat64")
+
+
+def _cluster(*fields, named: bool = False) -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Limits" if named else None,
+        fields=[ClusterField(name=name, type=type_) for name, type_ in fields],
+    )
 
 
 def _run(lower, x, upper, *, array_limits: bool = False, flags: int = 0):
@@ -198,6 +207,28 @@ def test_the_generated_array_code_is_a_comprehension() -> None:
     assert "for _e0 in x" in source
 
 
+def _run_shapes(x_type, limit_types, result_type, lower, x, upper, flags=0):
+    """A node whose x, lower and upper have the given types; ``result_type`` is
+    the type of In Range? and ``x_type`` that of coerced(x)."""
+    lower_type, upper_type = limit_types
+    pane = [
+        (0, "output", result_type),
+        (1, "output", x_type),
+        (2, "input", lower_type),
+        (3, "input", x_type),
+        (4, "input", upper_type),
+    ]
+    return run_primitive(
+        1127,
+        pane,
+        {"lower": (2, lower_type), "x": (3, x_type), "upper": (4, upper_type)},
+        {"in_range": (0, result_type), "coerced": (1, x_type)},
+        {"lower": lower, "x": x, "upper": upper},
+        name="InRange",
+        obj_flags=flags,
+    )
+
+
 def _run_typed(lv_type, lower, x, upper, *, flags: int = 0, gaps=None):
     pane = [
         (0, "output", BOOL),
@@ -257,9 +288,10 @@ def test_a_time_stamp_is_ordered_by_time() -> None:
     [
         (scalar("NumComplex128"), "complex input"),
         (scalar("Path"), "path input"),
-        (LVType(kind=LVTypeKind.CLUSTER), "Compare Elements/Compare Aggregates"),
+        (LVType(kind=LVTypeKind.CLUSTER), "cluster input"),
+        (_cluster(("a", DBL), ("p", scalar("Path"))), "path input"),
     ],
-    ids=["complex", "path", "cluster"],
+    ids=["complex", "path", "empty-cluster", "cluster-with-a-path"],
 )
 def test_types_NI_does_not_order_are_a_gap(lv_type, reason) -> None:
     gaps: list[Gap] = []
@@ -267,3 +299,119 @@ def test_types_NI_does_not_order_are_a_gap(lv_type, reason) -> None:
         _run_typed(lv_type, None, None, None, gaps=gaps)
     assert reason in str(raised.value)
     assert [g.kind for g in gaps]
+
+
+# A cluster is compared in Compare Elements mode (NI, Using Comparison Functions:
+# functions "compare an array or cluster of a data type to a scalar of the same
+# data type and produce an array or cluster of Boolean values").
+X_TYPE = _cluster(("a", DBL), ("n", scalar("NumInt32")))
+FLAGS_TYPE = _cluster(("a", BOOL), ("n", BOOL))
+BOTH = INCLUDE_LOWER_LIMIT | INCLUDE_UPPER_LIMIT
+
+
+def test_a_cluster_x_with_scalar_limits_is_compared_field_by_field() -> None:
+    _, result = _run_shapes(
+        X_TYPE, (DBL, DBL), FLAGS_TYPE, 0.0, (5.0, 20), 10.0, flags=BOTH
+    )
+    assert result.in_range == (True, False)
+    assert result.coerced == (5.0, 10.0)
+
+
+def test_a_cluster_x_with_cluster_limits_pairs_the_fields() -> None:
+    _, result = _run_shapes(
+        X_TYPE, (X_TYPE, X_TYPE), FLAGS_TYPE, (0.0, 1), (5.0, 5), (4.0, 7)
+    )
+    assert result.in_range == (False, True)
+    assert result.coerced == (4.0, 5)
+
+
+def test_the_include_upper_flag_applies_to_a_field_at_the_limit() -> None:
+    for flags, expected in ((INCLUDE_LOWER_LIMIT, False), (BOTH, True)):
+        _, result = _run_shapes(
+            X_TYPE, (DBL, DBL), FLAGS_TYPE, 0.0, (3.0, 10), 10.0, flags=flags
+        )
+        assert result.in_range == (True, expected)
+        assert result.coerced == (3.0, 10)
+
+
+def test_swapped_cluster_limits_are_never_in_range_and_coerce_between_them() -> None:
+    _, result = _run_shapes(
+        X_TYPE, (DBL, DBL), FLAGS_TYPE, 10.0, (5.0, 5), 0.0, flags=BOTH
+    )
+    assert result.in_range == (False, False)
+    assert result.coerced == (5.0, 5)
+
+
+def test_a_named_cluster_comes_back_as_a_named_cluster() -> None:
+    named = _cluster(("a", DBL), ("b", DBL), named=True)
+    flags_type = _cluster(("a", BOOL), ("b", BOOL), named=True)
+    _, result = _run_shapes(
+        named,
+        (named, named),
+        flags_type,
+        SimpleNamespace(a=0.0, b=0.0),
+        SimpleNamespace(a=5.0, b=50.0),
+        SimpleNamespace(a=10.0, b=10.0),
+    )
+    assert result.in_range == SimpleNamespace(a=True, b=False)
+    assert result.coerced == SimpleNamespace(a=5.0, b=10.0)
+
+
+def test_in_range_is_built_in_the_type_of_its_output() -> None:
+    named = _cluster(("a", DBL), ("b", DBL), named=True)
+    _, result = _run_shapes(
+        named,
+        (DBL, DBL),
+        _cluster(("a", BOOL), ("b", BOOL)),
+        0.0,
+        SimpleNamespace(a=5.0, b=50.0),
+        10.0,
+    )
+    assert result.in_range == (True, False)
+    assert result.coerced == SimpleNamespace(a=5.0, b=10.0)
+
+
+def test_an_array_of_clusters_is_compared_in_every_element() -> None:
+    array_x = array(X_TYPE)
+    _, result = _run_shapes(
+        array_x,
+        (DBL, DBL),
+        array(FLAGS_TYPE),
+        0.0,
+        [(1.0, 2), (20.0, 3)],
+        10.0,
+    )
+    assert result.in_range == [(True, True), (False, True)]
+    assert result.coerced == [(1.0, 2), (10.0, 3)]
+
+
+def test_an_array_in_a_cluster_is_compared_element_by_element() -> None:
+    inner = _cluster(("v", DBL_ARRAY), ("k", DBL))
+    flags_type = _cluster(("v", BOOL_ARRAY), ("k", BOOL))
+    _, result = _run_shapes(
+        inner, (DBL, DBL), flags_type, 0.0, ([1.0, 20.0], 5.0), 10.0
+    )
+    assert result.in_range == ([True, False], True)
+    assert result.coerced == ([1.0, 10.0], 5.0)
+
+
+def test_clusters_of_different_shape_are_a_gap() -> None:
+    other = _cluster(("a", DBL))
+    gaps: list[Gap] = []
+    with pytest.raises(NotImplementedError) as raised:
+        run_primitive(
+            1127,
+            [
+                (0, "output", FLAGS_TYPE),
+                (1, "output", X_TYPE),
+                (2, "input", other),
+                (3, "input", X_TYPE),
+                (4, "input", DBL),
+            ],
+            {"lower": (2, other), "x": (3, X_TYPE), "upper": (4, DBL)},
+            {"in_range": (0, FLAGS_TYPE), "coerced": (1, X_TYPE)},
+            {"lower": (0.0,), "x": (1.0, 2), "upper": 5.0},
+            name="InRange",
+            gaps=gaps,
+        )
+    assert "same shape" in str(raised.value)
