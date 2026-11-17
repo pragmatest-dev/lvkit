@@ -110,15 +110,19 @@ def test_the_class_id_of_a_control_reference_is_nis_number(tmp_path: Path) -> No
             "b": 8,
         }
         assert all(r.error_out is None for r in results.values())
-        # a control whose class has no row: error 1 on error out, naming it
-        unmapped = read(ctl=by_label["u"])
-        assert unmapped.error_out.code == 1
-        assert '"u"' in unmapped.error_out.message
-        # not a reference
+        # a control whose front-panel class has no row: the conversion does not know
+        # it, so the run refuses, naming the control and the class
+        with pytest.raises(NotImplementedError) as refused:
+            read(ctl=by_label["u"])
+        assert str(refused.value) == (
+            "ClassID of the control 'u': its front-panel class 'stdGraph' has no "
+            "VI Server class in the conversion's table"
+        )
+        # not a reference (LabVIEW's own error)
         assert read(ctl=None).error_out.code == 1026
 
 
-def test_a_class_name_nis_table_does_not_list_is_an_error_naming_it(
+def test_a_class_name_nis_table_does_not_list_is_refused_naming_it(
     tmp_path: Path,
 ) -> None:
     project = Project(tmp_path)
@@ -128,6 +132,6 @@ def test_a_class_name_nis_table_does_not_list_is_an_error_naming_it(
         control = panels.Control(
             module("target").target.panel, "x", "x", False, None, "Mystery"
         )
-        with pytest.raises(panels.PanelError) as raised:
+        with pytest.raises(NotImplementedError) as raised:
             control.class_id  # noqa: B018
-        assert "'Mystery'" in raised.value.message
+        assert "'Mystery'" in str(raised.value)

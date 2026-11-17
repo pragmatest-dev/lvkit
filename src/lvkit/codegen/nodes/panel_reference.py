@@ -23,8 +23,8 @@ that module, and these rows read them:
   use this reference with the Text properties") is ``.label``;
 - ``ClassID`` (.../generic/classid.html, "This integer uniquely identifies the class
   of a LabVIEW object") is ``.class_id``: NI's number of the control's VI Server
-  class (``control_classes.json``), error 1 naming the control for one whose
-  front-panel class has no recorded VI Server class.
+  class (``control_classes.json``); a control whose front-panel class has no
+  recorded VI Server class raises NotImplementedError naming it, built when read.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
 by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
