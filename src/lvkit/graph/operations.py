@@ -218,6 +218,8 @@ class OperationsMixin:
                         is_public=t.is_public,
                         caption=t.caption,
                         caption_visible=t.caption_visible,
+                        starts_hidden=t.starts_hidden,
+                        enable_state=t.enable_state,
                         control_type=t.control_type,
                         default_value=t.default_value,
                         unwritable=t.unwritable,

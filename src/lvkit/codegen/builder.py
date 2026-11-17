@@ -29,6 +29,7 @@ from .ast_utils import (
     with_statements_after_docstring,
 )
 from .context import CodeGenContext
+from .control_property_state import entry_property_states
 from .elementwise import arrayify_module
 from .error_flow import share_guards
 from .errors import CodeGenError
@@ -199,6 +200,9 @@ def function_body(
     body.extend(entry_events(ctx))
     # A VI that writes the Title of its own window keeps it in a variable.
     body.extend(entry_title(ctx))
+    # A VI that reads Visible or Disabled of its own controls keeps each in a
+    # module variable seeded to the state the file stores.
+    body.extend(entry_property_states(ctx))
 
     # An unwired input holds its control's default: its ``def`` default is None
     # when the type's default is an object (array, cluster, path, class).

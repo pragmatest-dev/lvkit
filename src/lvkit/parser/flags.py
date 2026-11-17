@@ -47,6 +47,20 @@ def is_ext_func_return_value(dco_class: str | None, flags: int) -> bool:
 # panel structure").
 FP_IS_INDICATOR = 0x1
 
+# The same ``objFlags`` record a control's starting state (labview-binary-format.md
+# "A control's starting Visible and Disabled state is in its ddo objFlags"): bit 3
+# is set on a control hidden when the VI starts; bit 9 on a disabled one, and
+# bits 9 and 7 together on one disabled and greyed out.
+FP_HIDDEN = 0x8
+FP_DISABLED = 0x200
+FP_GREYED_OUT = 0x80
+
+# The values of LabVIEW's Disabled property (DisabledEnum): enabled, disabled,
+# disabled and greyed out.
+ENABLE_STATE_ENABLED = 0
+ENABLE_STATE_DISABLED = 1
+ENABLE_STATE_GREYED_OUT = 2
+
 # Connector-pane TypeDesc ``Flags`` (the Function TypeDesc that CONP points to,
 # one child per connector slot). Bit 8 marks an output; bits 11 and 12 are the
 # wiring rule and never both set: bit 12 = Required, bit 11 = Recommended,
@@ -77,6 +91,26 @@ def is_inverted_terminal(flags: int) -> bool:
 def is_indicator(flags: int) -> bool:
     """Check if a front-panel control's ``ddo`` ``objFlags`` mark an indicator."""
     return bool(flags & FP_IS_INDICATOR)
+
+
+def starts_hidden(flags: int) -> bool:
+    """Whether a front-panel control's ``ddo`` ``objFlags`` mark it hidden when
+    the VI starts (Visible False)."""
+    return bool(flags & FP_HIDDEN)
+
+
+def starting_enable_state(flags: int) -> int | None:
+    """The Disabled property's value a control starts with, from its ``ddo``
+    ``objFlags``: enabled when neither bit is set, disabled and greyed out when
+    both are. A control with only one of the two bits has a state the corpus does
+    not settle, so it is None."""
+    disabled = bool(flags & FP_DISABLED)
+    greyed = bool(flags & FP_GREYED_OUT)
+    if disabled and greyed:
+        return ENABLE_STATE_GREYED_OUT
+    if not disabled and not greyed:
+        return ENABLE_STATE_ENABLED
+    return None
 
 
 def get_wiring_rule(flags: int) -> ParsedWiringRule:

@@ -21,6 +21,7 @@ from ..models import (
     TunnelTerminal,
 )
 from ..parser.constants import NODE_CLASS_EXPRESSION
+from ..parser.flags import ENABLE_STATE_GREYED_OUT
 from ..parser.node_types import get_display_name
 from ..path_value import is_path_text
 from ..vi_files import strip_vi_extension
@@ -328,6 +329,11 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
         line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
+    if isinstance(t, FPTerminal):
+        if t.starts_hidden:
+            line += " (hidden)"
+        if t.enable_state == ENABLE_STATE_GREYED_OUT:
+            line += " (disabled and grayed out)"
     line += default_suffix(t.default_value, t.lv_type)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"

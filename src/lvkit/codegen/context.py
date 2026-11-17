@@ -210,6 +210,13 @@ class CodeGenContext:
     # The variable that holds the Title of the VI's own front panel window
     # (``nodes/front_panel_title.entry_title``), set when its function starts.
     window_title_var: str | None = None
+    # The module variable that holds the Visible or Disabled state of a control
+    # the VI reads, by (terminal id, property member)
+    # (``control_property_state.entry_property_states``). One per function,
+    # shared by child contexts.
+    property_states: dict[tuple[str, str], str] = field(
+        default_factory=dict, repr=False
+    )
     # The variable that holds the message an Event Structure handles, by the id of
     # the structure. One per function, shared by child contexts.
     event_messages: dict[str, str] = field(default_factory=dict, repr=False)
@@ -650,6 +657,7 @@ class CodeGenContext:
             panel_hooks=self.panel_hooks,
             events_var=self.events_var,
             window_title_var=self.window_title_var,
+            property_states=self.property_states,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module

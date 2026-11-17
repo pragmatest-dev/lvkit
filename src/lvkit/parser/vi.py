@@ -82,6 +82,8 @@ from .flags import (
     is_inverted_terminal,
     is_method_row_input,
     is_output_terminal,
+    starting_enable_state,
+    starts_hidden,
 )
 from .flat_type import descriptor_type, read_descriptors, read_var_size
 from .fp_fonts import read_font_table
@@ -2425,6 +2427,8 @@ def _parse_ddo(
         bounds=bounds,
         is_indicator=control_is_indicator,
         shows_as_indicator=is_indicator(safe_int(ddo.find("objFlags"))),
+        starts_hidden=starts_hidden(safe_int(ddo.find("objFlags"))),
+        starting_enable_state=starting_enable_state(safe_int(ddo.find("objFlags"))),
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),

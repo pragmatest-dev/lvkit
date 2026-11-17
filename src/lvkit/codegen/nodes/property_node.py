@@ -17,6 +17,7 @@ from lvkit.models import FPTerminal, PropertyDef, Terminal
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
+from ..control_property_state import assign_state, starting_state
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -137,12 +138,12 @@ def _unsupported_reason(
                 )
             if not written:
                 return f"{subject} reads 'Value (Signaling)', which is write only"
-        elif control_property(class_name, codes) is None:
+        elif (listed := control_property(class_name, codes)) is None:
             return (
                 f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
                 "how to carry out while the VI runs"
             )
-        elif not written:
+        elif not written and starting_state(bound, listed.member) is None:
             return (
                 f"{subject} reads {row.name!r}, and the file does not record "
                 "the starting state of the control"
@@ -167,7 +168,10 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     (Signaling)`` write of such an indicator assigns it the same way and fires its
     Value Change event as for a control. A node with any other row, a ``Value`` or
     ``Value (Signaling)`` row of an indicator that is not held, or a read of
-    ``Value (Signaling)`` (write only), is a gap."""
+    ``Value (Signaling)`` (write only), is a gap. A read of ``Visible`` or
+    ``Disabled`` reads the module variable that holds the property's state
+    (``control_property_state``), when the file records the control's starting
+    state."""
     graph = ctx.graph
     bound = graph.bound_terminal(node) if graph is not None else None
     control = graph.bound_control(node) if graph is not None else None
@@ -245,12 +249,21 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             hooks = ctx.panel_hooks
             if listed is None:
                 raise CodeGenError("Property row is not a listed property", node)
+            if term.direction == "output":
+                state = ctx.property_states.get((bound.id, listed.member))
+                if state is None:
+                    raise CodeGenError("Property state has no variable", node)
+                read = ctx.make_output_var(listed.member, node.id, term.id)
+                statements.append(build_assign(read, parse_expr(state)))
+                bindings[term.id] = read
+                continue
             if hooks is None or bound.id not in hooks.names:
                 raise ConversionGap(
                     f"The {listed.name!r} property of {bound.name!r} is written, "
                     "and this function has no panel hooks to report it to",
                     node,
                 )
+            statements += assign_state(ctx, bound.id, listed.member, parse_expr(value))
             statements.append(property_stmt(hooks, bound.id, listed, value))
     return CodeFragment(statements=statements, bindings=bindings)
 

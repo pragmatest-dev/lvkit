@@ -685,6 +685,11 @@ class ParsedFPControl:
     # (and so a cluster field or array element takes its container's); this is
     # the control's own.
     shows_as_indicator: bool = False
+    # The control's own ddo ``objFlags`` also record how it starts: hidden
+    # (Visible False), and the Disabled property's value (0 enabled, 2 disabled and
+    # greyed out; None when the flags leave it open). See ``parser/flags.py``.
+    starts_hidden: bool = False
+    starting_enable_state: int | None = 0
     # This control's own resolved LabVIEW type, from the VI's VCTP type map
     # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
     # connector-pane terminal's type comes from. Real per-control identity

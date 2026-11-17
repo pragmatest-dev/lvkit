@@ -1044,6 +1044,12 @@ class FPTerminal(Terminal):
     # its label) and whether it is shown. The label stays the identity.
     caption: str | None = None
     caption_visible: bool = False
+    # How the control starts, from its front-panel flags (``parser/flags.py``):
+    # whether it is hidden (Visible False), and its Disabled property's value
+    # (0 enabled, 2 disabled and greyed out). None: the file does not record it
+    # (no front panel, or flags that leave the Disabled value open).
+    starts_hidden: bool | None = None
+    enable_state: int | None = None
     control_type: str | None = None
     # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
     # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike

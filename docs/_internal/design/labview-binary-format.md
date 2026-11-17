@@ -2162,3 +2162,14 @@ With the `format string` input unwired, LabVIEW builds the format from each wire
 Source: the maintainer, 2026-11-13 ("If it says signaling it signals"), and NI's "Value (Signaling)" page: the property writes the value and generates an event "as if the user had interactively changed the value of the object".
 
 An Event Structure can have a Value Change case for an indicator, and writing the indicator's Value (Signaling) fires it exactly as for a control: the event carries the new value and the indicator's value before the write. Value (Signaling) is write only.
+
+## A control's starting Visible and Disabled state is in its ddo objFlags
+
+A front-panel control's own `ddo` `<objFlags>` (the same field whose bit 0 marks an indicator) records how the control starts, read from the extracted `*_FPHb.xml` of the sample corpus. Absent `<objFlags>` is 0 (visible and enabled).
+
+- **Bit 3 (0x8) = hidden (Visible False at start).** The part objects of a control use the same bit for "hidden" (`parser/layout.py`, a label part). Evidence: in OpenG `Dictionary Example.vi` the three controls `Add`, `New Username` and `Cancel` have it (ddo objFlags 0x60008, 0x2000c, 0x60008) and no other of the 14 controls does; the VI's own instructions say they appear after "Add New User" is clicked, and one Event Structure frame writes True to a Property Node on each of the three. Controls the corpus diagrams only read Visible of (`Increment?` in `Count Actors.vi`, 0x0; `Operation` in `Load and Execute Tests Process.vi`, 0x40000) have no 0x8.
+- **Bit 9 (0x200) = disabled, bits 9 and 7 (0x200 and 0x80) together = disabled and greyed out.** Evidence: `Apply` and `Revert` of `Dictionary Example.vi` have 0x60280, and the diagram writes DisabledEnum 0 (Enabled) to them when a field is edited and 2 (Disabled and Grayed Out) after Apply/Revert. Over 13,262 distinct extracted VIs no control has 0x80 without 0x200 (79 have both, 53 have 0x200 alone: status string indicators such as JKI's `Last Run:` (0x20201) and the `OK Button` of ActorFramework `Reference Method Dialog.vi` (0x60200), whose diagram writes 2 and 0).
+- **UNVERIFIED: what 0x200 alone means.** It is probably Disabled (1), but no diagram in the corpus both stores it and reads it back, so lvkit records the starting Disabled value only for neither bit (0, Enabled) and both bits (2), and a read of a control with one bit stays a gap (`parser/flags.starting_enable_state`).
+- Not decoded: Key Focus (no corpus diagram reads it), the numeric data range (Minimum / Maximum: no corpus diagram reads it, so the read gap it would close does not occur).
+
+`parser/flags.py` decodes the bits; `ParsedFPControl.starts_hidden` / `starting_enable_state` carry them, `FPTerminal.starts_hidden` / `enable_state` the graph.
