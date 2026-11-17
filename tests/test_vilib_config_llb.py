@@ -332,6 +332,20 @@ def test_ni_table_44_key_value_examples(
     assert number.value == 12.3
 
 
+def test_a_number_or_boolean_in_quotation_marks_is_read_without_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """NI: "LabVIEW removes the quotation marks when a VI returns the value"; OpenG
+    stores a number as a quoted string (``count="42"``) and reads it back as one."""
+    text = '[S]\ni="42"\nu=\'7\'\nd="1.5"\nb="TRUE"\n'
+    ref = _open(tmp_path, monkeypatch, path=_ini(tmp_path, text)).refnum
+    assert _read(tmp_path, monkeypatch, "I32", I32, ref, "i", default=0).value == 42
+    assert _read(tmp_path, monkeypatch, "U32", U32, ref, "u", default=0).value == 7
+    double = _read(tmp_path, monkeypatch, "Double", DBL, ref, "d", default=0.0)
+    assert double.value == 1.5
+    assert _read(tmp_path, monkeypatch, "Boolean", BOOL, ref, "b", default=False).value
+
+
 def test_boolean_values_are_not_case_sensitive_and_zero_is_false(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

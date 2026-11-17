@@ -2400,7 +2400,7 @@
         "import re",
         "from pathlib import Path"
       ],
-      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\n_num = _text.split(';')[0].strip()\n_flag = _num.casefold()\n{value} = {default_value}\nif {found} and _flag in ('true', '1'):\n    {value} = True\nelif {found} and _flag in ('false', '0'):\n    {value} = False",
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n_flag = _num.casefold()\n{value} = {default_value}\nif {found} and _flag in ('true', '1'):\n    {value} = True\nelif {found} and _flag in ('false', '0'):\n    {value} = False",
       "inline": true
     },
     {
@@ -2505,7 +2505,7 @@
         "import re",
         "from pathlib import Path"
       ],
-      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        {value} = float(_num)\n    except ValueError:\n        {value} = {default_value}",
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        {value} = float(_num)\n    except ValueError:\n        {value} = {default_value}",
       "inline": true
     },
     {
@@ -2610,7 +2610,7 @@
         "import re",
         "from pathlib import Path"
       ],
-      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and -2147483648 <= _n <= 2147483647:\n        {value} = _n",
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and -2147483648 <= _n <= 2147483647:\n        {value} = _n",
       "inline": true
     },
     {
@@ -2715,7 +2715,7 @@
         "import re",
         "from pathlib import Path"
       ],
-      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and 0 <= _n <= 4294967295:\n        {value} = _n",
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and 0 <= _n <= 4294967295:\n        {value} = _n",
       "inline": true
     },
     {
