@@ -356,24 +356,35 @@ class WireQueriesMixin:
             for codes in ([s.code for s in row.segments] for row in node.properties)
         )
 
-    def listed_property_writes(
+    def listed_property_rows(
         self, node: PrimitiveNode
     ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
-        """The rows of the bound Property Node ``node`` that write a property
-        listed in ``control_properties.json``, in row order, each with its value
-        terminal; the node must be bound to a control or indicator of its VI."""
+        """The rows of the bound Property Node ``node`` (reads and writes) of a
+        property listed in ``control_properties.json``, in row order, each with
+        its value terminal; the node must be bound to a control or indicator of
+        its VI."""
         if self.bound_terminal(node) is None:
             return []
-        writes: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
+        rows: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
         for row, term in correlate_property_terminals(
             node.properties, node.terminals, node.property_value_terminal_ids
         ):
             listed = control_property(
                 node.object_name or "", [s.code for s in row.segments]
             )
-            if term is not None and term.direction == "input" and listed is not None:
-                writes.append((row, term, listed))
-        return writes
+            if term is not None and listed is not None:
+                rows.append((row, term, listed))
+        return rows
+
+    def listed_property_writes(
+        self, node: PrimitiveNode
+    ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
+        """The rows of ``listed_property_rows`` that write the property."""
+        return [
+            found
+            for found in self.listed_property_rows(node)
+            if found[1].direction == "input"
+        ]
 
     def bound_terminal(self, node: PrimitiveNode) -> FPTerminal | None:
         """The control or indicator of the VI that the bound Property Node

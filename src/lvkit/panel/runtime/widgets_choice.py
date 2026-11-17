@@ -11,6 +11,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Port, bind_control, bind_indicator
+from .properties import widget_properties
 from .view import PanelWidgets
 
 
@@ -33,7 +34,12 @@ def choice_port(
             widget.update()
         widget.set_value(number)
 
-    port = Port(lambda: widget.value, show)
+    port = Port(
+        lambda: widget.value,
+        show,
+        widget_properties(widget, focusable=None if readonly else widget),
+        None if readonly else widget,
+    )
     return port
 
 

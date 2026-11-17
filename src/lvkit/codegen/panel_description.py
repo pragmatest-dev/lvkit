@@ -28,6 +28,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``types`` and ``variants``: the type of each control and indicator that has a
   type-descriptor code, and the names of those that are Variants
   (``panel_types``);
+- ``states``: the name of each control or indicator the file stores hidden, disabled
+  or greyed out to its properties by member name (``{"x": {"visible": False}}``),
+  what a panel starts the control in (``control_property_state.stored_states``);
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -50,6 +53,7 @@ from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
+from .control_property_state import stored_states
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
@@ -235,6 +239,27 @@ def panel_statements(
             )
         )
     objects = [*controls, *indicators, *passed]
+    states = {
+        names[t.id]: stored
+        for t, _ in objects
+        if isinstance(t, FPTerminal) and (stored := stored_states(t))
+    }
+    if states:
+        keywords.append(
+            (
+                "states",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in states],
+                    values=[
+                        ast.Dict(
+                            keys=[ast.Constant(value=member) for member in stored],
+                            values=[ast.Constant(value=v) for v in stored.values()],
+                        )
+                        for stored in states.values()
+                    ],
+                ),
+            )
+        )
     given = [names[t.id] for t, _ in objects]
     tabbing = _tabbing_order(names, objects)
     if tabbing != given:

@@ -29,6 +29,7 @@ class Recorder(LiveIO):
         self.calls: list[tuple[Enum, Any]] = []
         self.reads: list[tuple[Enum, Any]] = []
         self.properties: list[tuple[Enum, Enum, Any]] = []
+        self.property_reads: list[tuple[Enum, Enum, Any]] = []
         self.log: list[tuple[Any, ...]] = []
 
     def write(self, name: Enum, value: Any) -> None:
@@ -46,6 +47,11 @@ class Recorder(LiveIO):
         self.properties.append((name, prop, value))
         self.log.append(("property", name, prop, value))
         return None
+
+    def get_property(self, name: Enum, prop: Enum, value: Any) -> Any:
+        self.property_reads.append((name, prop, value))
+        self.log.append(("get_property", name, prop, value))
+        return value
 
     def open_panel(self, activate: bool = False, state: int = 1) -> None:
         self.log.append(("open_panel", activate, state))

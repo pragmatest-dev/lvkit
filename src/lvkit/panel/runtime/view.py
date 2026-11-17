@@ -12,6 +12,10 @@ recorded under the view's own lock, and one timer on the loop calls ``paint``,
 which draws the latest value of each changed name and then hands the run's
 start and end to the toolbar.
 
+A property the VI sets on a control (Visible, Disabled, Key Focus, Minimum, Maximum:
+``properties.py``) is recorded the same way and applied by ``paint``; a control
+starts in the state the panel holds for each property.
+
 Everything is by name: the name a widget is built with is the name of its control
 or indicator on the panel (``codegen/panel_names.py``), which also tells the view
 of a change by name.
@@ -21,10 +25,13 @@ from __future__ import annotations
 
 import copy
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
+from nicegui import ui
+
 from .events import PanelEvents
+from .properties import KEY_FOCUS, VISIBLE
 
 if TYPE_CHECKING:
     from .port import Port
@@ -62,6 +69,9 @@ class PanelWidgets:
         self._dirty: dict[str, None] = {}
         self._steps: list[tuple[str, BaseException | None]] = []
         self._painters: dict[str, Callable[[Any], object]] = {}
+        self._appliers: dict[str, dict[str, Callable[[Any], object]]] = {}
+        self._property_latest: dict[tuple[str, str], Any] = {}
+        self._property_dirty: dict[tuple[str, str], None] = {}
         self._shown: dict[str, Any] = {}
         self._painting = False
         self._own = threading.local()
@@ -69,9 +79,18 @@ class PanelWidgets:
 
     # -- the widgets (on the event loop) -----------------------------------
 
+    def box(self, name: Any) -> ui.column:
+        """The box of the control or indicator ``name``, its caption and its widget
+        built inside it: the property Visible shows or hides it."""
+        key = key_of(name)
+        box = ui.column()
+        self._appliers.setdefault(key, {})[VISIBLE] = box.set_visibility
+        return box
+
     def add_control(self, name: Any, port: Port) -> None:
         """A control: it starts at the panel's value (the widget's own when the
-        panel holds none yet) and the user's changes are set on the panel."""
+        panel holds none yet) and the user's changes are set on the panel. It
+        starts in the panel's state of its properties (hidden, disabled)."""
         key = key_of(name)
         starting = port.get()
         if self.panel is not None and self.panel.holds(key):
@@ -81,16 +100,52 @@ class PanelWidgets:
         self._shown[key] = port.get()
         self._painters[key] = port.show
         port.on_change(lambda value: self.set_control(name, value))
+        self._add_properties(key, port.properties)
+        if port.focus_widget is not None and self.panel is not None:
+            self._report_focus(key, port.focus_widget)
 
-    def add_indicator(self, name: Any, painter: Callable[[Any], object]) -> None:
-        """An indicator, with the function that shows a value in its widget. It
-        shows the panel's value when the panel holds one."""
+    def add_indicator(
+        self,
+        name: Any,
+        painter: Callable[[Any], object],
+        properties: Mapping[str, Callable[[Any], object]] | None = None,
+    ) -> None:
+        """An indicator, with the function that shows a value in its widget and the
+        appliers of the properties the widget can show. It shows the panel's value
+        when the panel holds one, and starts in the panel's state of its
+        properties."""
         key = key_of(name)
         self._painters[key] = painter
         if self.panel is not None and self.panel.holds(key):
             held = self.panel.value(key)
             if held is not None:
                 self._show(painter, held)
+        self._add_properties(key, properties or {})
+
+    def _add_properties(
+        self, key: str, appliers: Mapping[str, Callable[[Any], object]]
+    ) -> None:
+        """Take the appliers of ``key`` and put its widget in the state the panel
+        holds for each property it can show. A held state no widget shows is a gap
+        the panel generator warned of."""
+        self._appliers.setdefault(key, {}).update(appliers)
+        if self.panel is None or not self.panel.holds(key):
+            return
+        for prop, value in self.panel.properties_of(key).items():
+            applier = self._appliers[key].get(prop)
+            if applier is not None:
+                self._show(applier, value)
+
+    def _report_focus(self, key: str, widget: Any) -> None:
+        """Tell the panel when the user moves the keyboard focus to or from the
+        widget of ``key``, so a VI that reads Key Focus gets the user's."""
+        for event, focused in (("focus", True), ("blur", False)):
+            widget.on(
+                event,
+                lambda _e, focused=focused: self.panel.note_property(
+                    key, KEY_FOCUS, focused
+                ),
+            )
 
     def set_control(self, name: Any, value: Any) -> None:
         """A control the user changed (called from its change handler): set it on
@@ -124,6 +179,8 @@ class PanelWidgets:
         with self._lock:
             changed = [(k, self._latest[k]) for k in self._dirty]
             self._dirty.clear()
+            properties = [(k, self._property_latest[k]) for k in self._property_dirty]
+            self._property_dirty.clear()
             steps = self._steps
             self._steps = []
         for name, value in changed:
@@ -131,6 +188,10 @@ class PanelWidgets:
             if painter is not None:
                 self._shown[name] = value
                 self._show(painter, value)
+        for (name, prop), value in properties:
+            applier = self._appliers.get(name, {}).get(prop)
+            if applier is not None:
+                self._show(applier, value)
         if self._run_listener is not None:
             for kind, error in steps:
                 self._run_listener(kind, error)
@@ -149,7 +210,20 @@ class PanelWidgets:
         self._record(name, value)
 
     def property_changed(self, name: str, prop: str, value: Any) -> None:
-        """The page draws no control property (Visible, Disabled, ...) yet."""
+        """The running VI set the property ``prop`` of ``name``: ``paint`` applies
+        it to the widget. A control the page draws whose widget cannot show the
+        property is a gap, which raises here, in the VI's run, as every gap does."""
+        appliers = self._appliers.get(name)
+        if appliers is None:
+            return
+        if prop not in appliers:
+            raise NotImplementedError(
+                f"The panel cannot show the property {prop!r} of {name!r}.\n"
+                "gap kind: unsupported_control_property"
+            )
+        with self._lock:
+            self._property_latest[(name, prop)] = value
+            self._property_dirty[(name, prop)] = None
 
     def run_started(self) -> None:
         with self._lock:

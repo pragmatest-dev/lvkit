@@ -52,6 +52,10 @@ MISSING_VI = "missing_vi"
 # A front-panel control the generated panel (``generate --panel``) has no widget
 # for.
 UNSUPPORTED_CONTROL = "unsupported_control"
+# A control property (Visible, Disabled, Maximum, ...) the VI sets or reads, or the
+# file stores the control in, that the generated panel's widget for the control
+# cannot show.
+UNSUPPORTED_CONTROL_PROPERTY = "unsupported_control_property"
 
 
 @dataclass(frozen=True)

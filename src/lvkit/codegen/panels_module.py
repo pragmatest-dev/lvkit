@@ -28,7 +28,14 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         types={"x": LV_DBL, "y": LV_DBL},
         variants=["any"],
         order=["list_", "thing_out", "x", "y"],
+        states={"x": {"visible": False, "disabled": 2}},
     )
+
+``states`` maps the name of each control or indicator that is stored in a state
+other than the default (hidden, disabled or greyed out) to its properties, by the
+member name of the property (``control_properties.json``); the panel holds the
+state of each property from then on (``Panel.property_of``): a view starts the
+widget in it and a running VI's ``get_property`` reads it.
 
 ``controls`` maps the name of each control to its label; a control whose name is a
 parameter of the function is passed to it by a run, any other (a control off the
@@ -345,6 +352,12 @@ class PanelIO(LiveIO):
         self._panel._checkpoint()
         self._panel._live_property(key_of(name), key_of(prop), value)
 
+    def get_property(self, name: Any, prop: Any, value: Any) -> Any:
+        """The panel's state of the property ``prop`` of ``name`` (including a
+        Key Focus the user moved), else ``value``."""
+        self._panel._checkpoint()
+        return self._panel._live_get_property(key_of(name), key_of(prop), value)
+
 
 class PanelValues:
     """The values of a front panel: each control and indicator by name, with the
@@ -364,8 +377,12 @@ class PanelValues:
         clusters: Mapping[str, Sequence[Any]] | None = None,
         types: Mapping[str, LVType] | None = None,
         variants: Sequence[str] | None = None,
+        states: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         clusters = clusters or {}
+        self._properties: dict[str, dict[str, Any]] = {
+            name: dict(held) for name, held in (states or {}).items()
+        }
         self._controls = dict(controls or {})
         self._indicators = dict(indicators or {})
         self._defaults = dict(defaults or {})
@@ -442,6 +459,28 @@ class PanelValues:
     def holds(self, name: str) -> bool:
         """Whether ``name`` is the name of a control or indicator of the panel."""
         return name in self._controls or name in self._indicators
+
+    def property_of(self, name: str, prop: str, default: Any = None) -> Any:
+        """The state of the property ``prop`` (``"visible"``, ``"disabled"``,
+        ``"key_focus"``, ...) of the control or indicator ``name``: the last value
+        the VI set or a view noted, else the state the control is stored in, else
+        ``default``."""
+        self._check(name)
+        with self._lock:
+            return self._properties.get(name, {}).get(prop, default)
+
+    def properties_of(self, name: str) -> dict[str, Any]:
+        """Every property state the panel holds for ``name``."""
+        self._check(name)
+        with self._lock:
+            return dict(self._properties.get(name, {}))
+
+    def note_property(self, name: str, prop: str, value: Any) -> None:
+        """A view tells the panel that the user changed the property ``prop`` of
+        ``name`` (the control got the keyboard focus). No view is told."""
+        self._check(name)
+        with self._lock:
+            self._properties.setdefault(name, {})[prop] = value
 
     def put(self, name: str, value: Any) -> None:
         """Set the control or indicator ``name`` and tell the views."""
@@ -569,6 +608,7 @@ class Panel(PanelValues):
         clusters: Mapping[str, Sequence[Any]] | None = None,
         types: Mapping[str, LVType] | None = None,
         variants: Sequence[str] | None = None,
+        states: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -578,6 +618,7 @@ class Panel(PanelValues):
             clusters=clusters,
             types=types,
             variants=variants,
+            states=states,
         )
         self.function = function
         self._results = dict(results or {})
@@ -717,8 +758,19 @@ class Panel(PanelValues):
         return None
 
     def _live_property(self, name: str, prop: str, value: Any) -> None:
+        """The function set the property ``prop`` of ``name``: the panel holds it
+        (a view that is built later starts from it) and tells the views."""
         if self.holds(name):
+            with self._lock:
+                self._properties.setdefault(name, {})[prop] = value
             self._tell("property_changed", name, prop, value)
+
+    def _live_get_property(self, name: str, prop: str, held: Any) -> Any:
+        """The panel's state of the property ``prop`` of ``name``; ``held`` (the
+        function's own) when the panel has none."""
+        if not self.holds(name):
+            return held
+        return self.property_of(name, prop, held)
 
     def _arguments(self) -> dict[str, Any]:
         """The keyword arguments of a run: each control that is a parameter of the

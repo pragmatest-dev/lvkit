@@ -4,18 +4,39 @@ to it, in the names the generated function uses."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import replace
 
 from lvkit.codegen.ast_utils import interface_names, to_var_name
+from lvkit.codegen.control_property_state import stored_states
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.panel_names import panel_names
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.interface_order import is_required
-from lvkit.graph.models import VIContext
+from lvkit.graph.models import PrimitiveNode, VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .kinds import PanelControl
 from .shape import describe
+
+
+def _used_properties(
+    graph: InMemoryVIGraph, vi_name: str, terminals: Iterable[Terminal]
+) -> dict[str, set[str]]:
+    """The control properties of each control and indicator (by terminal id) that
+    the panel has to show: the ones a Property Node of the VI writes or reads and
+    the ones the file stores the control in."""
+    used: dict[str, set[str]] = {}
+    for node in graph.iter_nodes(vi_name):
+        if isinstance(node, PrimitiveNode) and node.bound_control_uid:
+            bound = graph.bound_terminal(node)
+            if bound is not None:
+                for _row, _term, prop in graph.listed_property_rows(node):
+                    used.setdefault(bound.id, set()).add(prop.member)
+    for terminal in terminals:
+        if isinstance(terminal, FPTerminal):
+            used.setdefault(terminal.id, set()).update(stored_states(terminal))
+    return used
 
 
 def panel_controls(
@@ -43,6 +64,7 @@ def panel_controls(
         ]
         if isinstance(t, FPTerminal) and t.fp_dco_uid
     }
+    used = _used_properties(graph, vi_name, terminals.values())
     on_pane_inputs = {t.id for t in vi_context.inputs}
     on_pane_outputs = {t.id for t in vi_context.outputs}
     controls: list[PanelControl] = []
@@ -86,6 +108,7 @@ def panel_controls(
                 ),
                 required=terminal.id in on_pane_inputs
                 and is_required(terminal, "input"),
+                properties=tuple(sorted(used.get(terminal.id, ()))),
             )
         )
     return controls

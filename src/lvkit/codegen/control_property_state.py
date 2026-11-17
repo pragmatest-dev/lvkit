@@ -9,6 +9,9 @@ a module variable, seeded to the stored state, holds it. Like an indicator a Loc
 Variable reads (``local_indicators``), the variable keeps its value from one call
 of the VI to the next, as the control keeps its state in LabVIEW. A write of the
 property assigns it as well as telling the panel (``live_io.set_property``).
+In a VI that takes ``live_io`` the read is ``live_io.get_property(..., <the
+variable>)``: the panel answers with the state it holds, and with no panel the
+variable does.
 
 A control whose stored state the file leaves open (the flags set the greyed bit
 without the disabled bit, which no corpus file does) has no variable: its read
@@ -40,6 +43,22 @@ def starting_state(control: FPTerminal, member: str) -> bool | int | None:
     if member == "disabled":
         return control.enable_state
     return None
+
+
+DEFAULT_STATES: dict[str, bool | int] = {"visible": True, "disabled": 0}
+"""The state of each of ``STATE_MEMBERS`` for a control in LabVIEW's default."""
+
+
+def stored_states(control: FPTerminal) -> dict[str, bool | int]:
+    """The properties of ``control`` that the file stores in a state other than
+    the default (hidden, disabled, greyed out), by member name: what the panel
+    starts the control in."""
+    states: dict[str, bool | int] = {}
+    for member in STATE_MEMBERS:
+        state = starting_state(control, member)
+        if state is not None and state != DEFAULT_STATES[member]:
+            states[member] = state
+    return states
 
 
 def entry_property_states(ctx: CodeGenContext) -> list[ast.stmt]:

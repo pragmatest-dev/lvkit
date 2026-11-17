@@ -116,8 +116,9 @@ def panel_source(spec: PanelSource) -> str:
             lines.append("            with ui.column():")
             for control in column:
                 lines += [
-                    f"                caption({control.label!r})",
-                    f"                {_widget_call(control, enum, spec.vi_label)}",
+                    f"                with values.box({_key(control, enum)}):",
+                    f"                    caption({control.label!r})",
+                    f"                    {_widget_call(control, enum, spec.vi_label)}",
                 ]
     if not spec.rows:
         lines.append("        pass")

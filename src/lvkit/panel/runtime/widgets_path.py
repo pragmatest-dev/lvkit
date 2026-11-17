@@ -14,6 +14,7 @@ from nicegui import ui
 
 from .filepicker import FilePicker
 from .port import Port, bind_control, bind_indicator
+from .properties import widget_properties
 from .view import PanelWidgets
 
 
@@ -34,6 +35,8 @@ def path_port(default: str, *, readonly: bool) -> Port:
     port = Port(
         lambda: Path(widget.value or ""),
         lambda value: widget.set_value(path_text(value)),
+        widget_properties(widget, focusable=None if readonly else widget),
+        None if readonly else widget,
     )
     if not readonly:
 

@@ -29,7 +29,10 @@ the position of the button chosen (the catalog entries that carry
 A VI whose bound Property Nodes write a listed control property
 (``control_properties.json``) calls
 ``live_io.set_property(AcquireValue.COUNT, AcquireProperty.VISIBLE, flag)`` at
-each such write.
+each such write, and a read of Visible or Disabled of a control with a stored state
+is ``flag = live_io.get_property(AcquireValue.COUNT, AcquireProperty.VISIBLE,
+_lv_visible_count)``: the panel answers with the state it holds, and with no panel
+the module variable of the function does (``control_property_state``).
 
 The name is a member of ``AcquireValue``, the ``(str, Enum)`` the module of the
 VI defines before its function (``PanelHooks.for_vi`` writes it): one member per
@@ -146,7 +149,7 @@ class PanelHooks:
                 [(members[t], names[t]) for t in names],
             )
         )
-        written_properties = _written_properties(graph, vi_name)
+        written_properties = _used_properties(graph, vi_name)
         property_enum = None
         if written_properties:
             property_enum = ctx.add_module_function(
@@ -249,13 +252,13 @@ def method_property_enum_name(class_name: str, method_name: str) -> str:
     return f"{class_name}{class_style_name(method_name)}Property"
 
 
-def _written_properties(graph: InMemoryVIGraph, vi_name: str) -> list[ControlProperty]:
-    """The control properties the Property Nodes of ``vi_name`` write, each once,
-    in diagram order."""
+def _used_properties(graph: InMemoryVIGraph, vi_name: str) -> list[ControlProperty]:
+    """The control properties the Property Nodes of ``vi_name`` write or read,
+    each once, in diagram order."""
     found: dict[str, ControlProperty] = {}
     for node in graph.iter_nodes(vi_name):
         if isinstance(node, PrimitiveNode) and node.bound_control_uid:
-            for _row, _term, prop in graph.listed_property_writes(node):
+            for _row, _term, prop in graph.listed_property_rows(node):
                 found.setdefault(prop.member, prop)
     return list(found.values())
 
@@ -313,6 +316,24 @@ def property_stmt(
         parse_expr(value),
     ]
     return _live_io_call("set_property", args, None)
+
+
+def get_property_stmt(
+    hooks: PanelHooks,
+    terminal_id: str,
+    prop: ControlProperty,
+    held: str,
+    target: str,
+) -> ast.stmt:
+    """``<target> = live_io.get_property(<Enum>.<MEMBER>, <PropertyEnum>.<PROPERTY>,
+    <held>)``, the property ``prop`` of the control or indicator ``terminal_id``;
+    ``held`` is the variable that holds its state when no panel answers."""
+    args = [
+        hooks.member(terminal_id),
+        hooks.property_member(prop),
+        parse_expr(held),
+    ]
+    return _live_io_call("get_property", args, target)
 
 
 def read_stmt(hooks: PanelHooks, terminal_id: str, variable: str) -> ast.stmt:

@@ -3,7 +3,8 @@
 A function converted from a VI that reads or writes its LabVIEW front panel
 while it runs takes ``live_io``: it calls ``write`` after it writes an
 indicator, ``read`` before it uses a control it reads while running,
-``set_property`` when it sets a control property, ``prompt`` when it shows a
+``set_property`` when it sets a control property, ``get_property`` when it reads
+one, ``prompt`` when it shows a
 dialog box, calls ``open_panel`` / ``close_panel`` when it opens or closes its
 own front panel window, calls ``set_window_title`` when it writes that window's
 title, and takes the front panel's events from ``events``.
@@ -49,6 +50,13 @@ class LiveIO:
         """The function set the property ``prop`` of the control or indicator
         ``name`` to ``value``."""
         return None
+
+    def get_property(self, name: Enum, prop: Enum, value: Any) -> Any:
+        """The property ``prop`` of the control or indicator ``name`` that the
+        function reads now. ``value`` is the one the function holds (the state
+        the control started in, or the last value the function set); the base
+        class returns it."""
+        return value
 
     def open_panel(self, activate: bool = False, state: int = 1) -> None:
         """The function opened its own front panel window (Front Panel:Open,

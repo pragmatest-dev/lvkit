@@ -21,7 +21,7 @@ from ..control_property_state import assign_state, starting_state
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from ..panel_hooks import property_stmt
+from ..panel_hooks import get_property_stmt, property_stmt
 from ..variant_values import is_variant_type
 from . import class_property_node, front_panel_title, panel_reference, vi_reference
 from .base import (
@@ -254,7 +254,16 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 if state is None:
                     raise CodeGenError("Property state has no variable", node)
                 read = ctx.make_output_var(listed.member, node.id, term.id)
-                statements.append(build_assign(read, parse_expr(state)))
+                if (
+                    hooks is not None
+                    and bound.id in hooks.names
+                    and listed.member in hooks.property_members
+                ):
+                    statements.append(
+                        get_property_stmt(hooks, bound.id, listed, state, read)
+                    )
+                else:
+                    statements.append(build_assign(read, parse_expr(state)))
                 bindings[term.id] = read
                 continue
             if hooks is None or bound.id not in hooks.names:
