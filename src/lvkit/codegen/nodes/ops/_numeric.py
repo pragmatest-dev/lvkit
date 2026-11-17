@@ -88,3 +88,15 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
     if name == TD_FULL_TYPE.Path.name:
         return FormatKind("path")
     return FormatKind(name or "unknown")
+
+
+_ORDERED_KINDS = frozenset({"int", "float", "bool", "string", "timestamp"})
+
+
+def is_orderable(lv_type: LVType | None) -> bool:
+    """Whether Python's ``<`` on the generated value gives LabVIEW's order: an
+    integer, a real number, a Boolean (FALSE below TRUE), a string (by character
+    code) or a time stamp, or an array of one."""
+    while lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
+        lv_type = lv_type.element_type
+    return format_kind(lv_type).kind in _ORDERED_KINDS

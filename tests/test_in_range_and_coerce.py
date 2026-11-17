@@ -15,15 +15,23 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes.ops.in_range_and_coerce import (
     INCLUDE_LOWER_LIMIT,
     INCLUDE_UPPER_LIMIT,
 )
 from lvkit.graph import InMemoryVIGraph
-from tests.native_vi import array
+from lvkit.models import LVType, LVTypeKind
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR, timestamp_from_parts
+from tests.native_vi import array, scalar
 from tests.primitive_caller import run_primitive
 from tests.vilib_caller import BOOL, DBL
 
+TIMESTAMP = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
 BOOL_ARRAY = array("Boolean")
 DBL_ARRAY = array("NumFloat64")
 
@@ -188,3 +196,74 @@ def test_the_generated_array_code_is_a_comprehension() -> None:
         name="InRange",
     )
     assert "for _e0 in x" in source
+
+
+def _run_typed(lv_type, lower, x, upper, *, flags: int = 0, gaps=None):
+    pane = [
+        (0, "output", BOOL),
+        (1, "output", lv_type),
+        (2, "input", lv_type),
+        (3, "input", lv_type),
+        (4, "input", lv_type),
+    ]
+    return run_primitive(
+        1127,
+        pane,
+        {"lower": (2, lv_type), "x": (3, lv_type), "upper": (4, lv_type)},
+        {"in_range": (0, BOOL), "coerced": (1, lv_type)},
+        {"lower": lower, "x": x, "upper": upper},
+        name="InRange",
+        obj_flags=flags,
+        gaps=gaps,
+    )[1]
+
+
+def test_a_string_is_ordered_by_character_code() -> None:
+    both = INCLUDE_LOWER_LIMIT | INCLUDE_UPPER_LIMIT
+    inside = _run_typed(scalar("String"), "b", "bz", "c", flags=both)
+    assert inside.in_range is True
+    assert inside.coerced == "bz"
+    outside = _run_typed(scalar("String"), "b", "a", "c", flags=both)
+    assert outside.in_range is False
+    assert outside.coerced == "b"
+    # Upper case sorts below lower case by ASCII code.
+    assert _run_typed(scalar("String"), "a", "B", "c").in_range is False
+
+
+def test_an_unsigned_byte_is_ordered_as_an_integer() -> None:
+    result = _run_typed(scalar("NumUInt8"), 10, 200, 100)
+    assert result.in_range is False
+    assert result.coerced == 100
+    assert _run_typed(scalar("NumUInt8"), 10, 50, 100).in_range is True
+
+
+def test_a_boolean_is_ordered_false_below_true() -> None:
+    both = INCLUDE_LOWER_LIMIT | INCLUDE_UPPER_LIMIT
+    assert _run_typed(BOOL, False, True, True, flags=both).in_range is True
+    assert _run_typed(BOOL, True, False, True, flags=both).in_range is False
+    assert _run_typed(BOOL, True, False, True, flags=both).coerced is True
+
+
+def test_a_time_stamp_is_ordered_by_time() -> None:
+    t = lambda seconds: timestamp_from_parts(seconds, 0)  # noqa: E731
+    result = _run_typed(TIMESTAMP, t(100), t(500), t(300))
+    assert result.in_range is False
+    assert result.coerced == t(300)
+    assert _run_typed(TIMESTAMP, t(100), t(200), t(300)).in_range is True
+
+
+@pytest.mark.parametrize(
+    ("lv_type", "reason"),
+    [
+        (scalar("NumComplex128"), "complex input"),
+        (scalar("Path"), "path input"),
+        (LVType(kind=LVTypeKind.CLUSTER), "Compare Elements/Compare Aggregates"),
+    ],
+    ids=["complex", "path", "cluster"],
+)
+def test_types_NI_does_not_order_are_a_gap(lv_type, reason) -> None:
+    gaps: list[Gap] = []
+    with pytest.raises(NotImplementedError) as raised:
+        _run_typed(lv_type, None, None, None, gaps=gaps)
+    assert reason in str(raised.value)
+    assert [g.kind for g in gaps]

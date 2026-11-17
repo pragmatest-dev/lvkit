@@ -26,12 +26,13 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
+from lvkit.models import LVType, LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
 
 from ...ast_utils import parse_expr
 from ...elementwise import arrayify
 from . import register_op
-from ._numeric import is_real
+from ._numeric import format_kind, is_orderable
 
 # The node's own ``objFlags`` bits.
 INCLUDE_LOWER_LIMIT = 0x200000
@@ -63,17 +64,34 @@ def _lifted(expr: str, node: PrimitiveNode) -> str:
     return ast.unparse(lifted)
 
 
+def _unsupported(lv_type: LVType) -> str:
+    """Why an input of ``lv_type`` has no Python: NI's Using Comparison Functions
+    page takes any type but complex, path or refnum, and a cluster is compared in
+    Compare Elements or Compare Aggregates mode, which the node's saved
+    settings do not decode yet."""
+    while lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        lv_type = lv_type.element_type
+    kind = format_kind(lv_type).kind
+    if kind == "cluster":
+        return (
+            "In Range and Coerce on a cluster: its Compare Elements/Compare "
+            "Aggregates mode is not decoded"
+        )
+    return (
+        f"In Range and Coerce on a {kind} input: it orders numbers, strings, "
+        "Booleans and time stamps only"
+    )
+
+
 @register_op("IN_RANGE_AND_COERCE")
 def in_range_and_coerce(
     node: PrimitiveNode, resolved: ResolvedPrimitive
 ) -> dict[str, str]:
-    numbers = [t for t in node.terminals if t.direction == "input"]
-    if not numbers or not all(is_real(t.lv_type) for t in numbers):
-        raise ConversionGap(
-            "In Range and Coerce supports resolved real numbers and arrays of "
-            "them only",
-            node,
-        )
+    for terminal in node.terminals:
+        if terminal.direction != "input" or terminal.lv_type is None:
+            continue
+        if not is_orderable(terminal.lv_type):
+            raise ConversionGap(_unsupported(terminal.lv_type), node)
     return {
         "in_range": _lifted(_in_range(node.obj_flags), node),
         "coercedx": _lifted(_COERCED, node),
