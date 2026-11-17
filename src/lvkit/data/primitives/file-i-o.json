@@ -219,8 +219,14 @@
         {
           "exception": "OSError",
           "code": 6
+        },
+        {
+          "exception": "ReplaceCancelledError",
+          "code": 43,
+          "base": "Exception"
         }
       ],
+      "live_io": true,
       "terminals": [
         {
           "index": 6,
@@ -270,7 +276,8 @@
           "index": 1,
           "direction": "output",
           "name": "cancelled",
-          "type": "Boolean"
+          "type": "Boolean",
+          "keeps_on_failure": true
         },
         {
           "index": 3,

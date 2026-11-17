@@ -18,9 +18,18 @@ new file, or replaces an existing file".
   error": 1430, and a path with a null character 1 (``absolute_path_check``).
 * ``disable buffering`` (default FALSE): "(macOS and Linux) LabVIEW ignores this
   input", so TRUE is an unbuffered Python file (``buffering=0``).
-* ``cancelled`` is FALSE (no dialog is shown). Operation 5 asks for permission to
-  replace in a dialog: a gap when the operation is that constant, and refused at
-  run time naming the value when a wired value is 5.
+* ``cancelled``: NI, "is TRUE if you cancel the file dialog box or if you do not
+  select the replacement in an advisory dialog box", and "Error 43 occurs if you
+  cancel the dialog box" (43: "Operation cancelled by user", the catalog's
+  ``ReplaceCancelledError``). Operation 5 ("Creates a new file or replaces a file
+  if it exists and you give permission") asks only when the file exists, in the
+  dialog every dialog box of lvkit uses, ``live_io.prompt(message, buttons,
+  title)`` (``panel/live_io.py``; the base class asks on the terminal, and with none
+  raises naming the dialog). The forum describes the dialog as offering Replace and
+  Cancel (forums.ni.com, Write Characters To File "a dialogue appears for
+  'Replace' and 'Cancel'"): Replace, the first button, replaces the file as
+  operation 4 does; Cancel is error 43 with ``cancelled`` TRUE and no file opened.
+  ``cancelled`` is FALSE otherwise.
 
 The Python file is opened for the access (``'r+b'``, ``'rb'``, ``'wb'``: the
 wrapper refuses the other direction, which the Read and Write nodes report as
@@ -43,7 +52,7 @@ import ast
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 
-from ...ast_utils import build_assign, parse_expr
+from ...ast_utils import LIVE_IO, build_assign, parse_expr
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from . import register_op_fragment
@@ -59,12 +68,14 @@ _OPERATION_FLAGS = (
     "os.O_CREAT | os.O_EXCL",
     "os.O_CREAT",
     "os.O_CREAT | os.O_TRUNC",
+    "os.O_CREAT | os.O_TRUNC",
 )
 _MODES = ("'r+b'", "'rb'", "'wb'")
 _ACCESS_FLAGS = ("os.O_RDWR", "os.O_RDONLY", "os.O_WRONLY")
-_REPLACING = (1, 4)
+_REPLACING = (1, 4, 5)
 _READ_ONLY = 1
 _WITH_CONFIRMATION = 5
+_CONFIRMATION_TITLE = "Open/Create/Replace File"
 _BINARY = "getattr(os, 'O_BINARY', 0)"
 
 
@@ -94,6 +105,22 @@ def _name_or_literal(
     return string_variable(ctx, node, text, statements, base)
 
 
+def _confirmation(asking: str, path: str, cancelled_var: str | None) -> ast.stmt:
+    """The advisory dialog of operation 5: when ``asking`` holds (the file
+    exists), Replace goes on to replace it, and any other answer is error 43
+    (``cancelled_var``, when the node has the output, TRUE)."""
+    mark = f"        {cancelled_var} = True\n" if cancelled_var else ""
+    [statement] = ast.parse(
+        f"if {asking}:\n"
+        f"    if {LIVE_IO}.prompt(f'The file {{{path}}} already exists. Do you want "
+        f"to replace it?', ['Replace', 'Cancel'], {_CONFIRMATION_TITLE!r}) != 0:\n"
+        f"{mark}"
+        f"        raise ReplaceCancelledError(f'The file {{{path}}} was not "
+        "replaced: the replacement was not confirmed.')"
+    ).body
+    return statement
+
+
 @register_op_fragment("OPEN_CREATE_REPLACE_FILE")
 def open_create_replace_file(
     node: PrimitiveNode, ctx: CodeGenContext
@@ -108,12 +135,6 @@ def open_create_replace_file(
     buffering_text = input_expression(ctx, node, 6)
     operation = _constant(operation_text, 0, "operation", node)
     access = _constant(access_text, 0, "access", node)
-    if operation == _WITH_CONFIRMATION:
-        raise ConversionGap(
-            "Open/Create/Replace File replace or create with confirmation "
-            "shows a dialog",
-            node,
-        )
     if operation != -1 and not 0 <= operation < len(_OPERATION_FLAGS):
         raise ConversionGap(f"Open/Create/Replace File operation {operation}", node)
     if access != -1 and not 0 <= access < len(_MODES):
@@ -125,6 +146,14 @@ def open_create_replace_file(
             node,
         )
     statements: list[ast.stmt] = []
+    cancelled = terminal(node, "output", 1)
+    cancelled_var = None
+    if cancelled is not None:
+        # First, so the output has its value whatever fails after it.
+        cancelled_var = ctx.make_output_var(
+            "cancelled", node.id, terminal_id=cancelled.id
+        )
+        statements.append(build_assign(cancelled_var, parse_expr("False")))
     path = string_variable(ctx, node, path_text, statements, "path")
     statements.extend(ast.parse(absolute_path_check(path)).body)
     flags = ctx.make_output_var("open_flags", node.id)
@@ -159,6 +188,11 @@ def open_create_replace_file(
             f"({', '.join(_ACCESS_FLAGS)})[{access_var}]"
         )
     statements.append(build_assign(flags, parse_expr(f"{flag_text} | {_BINARY}")))
+    if operation in (-1, _WITH_CONFIRMATION):
+        asking = f"os.path.exists({path})"
+        if operation == -1:
+            asking = f"{operation_var} == {_WITH_CONFIRMATION} and {asking}"
+        statements.append(_confirmation(asking, path, cancelled_var))
     buffering = "-1"
     if buffering_text is not None and literal(buffering_text) is not False:
         buffering = (
@@ -178,9 +212,6 @@ def open_create_replace_file(
         bindings[refnum_out.id] = file
     else:
         statements.append(ast.Expr(value=parse_expr(open_call)))
-    cancelled = terminal(node, "output", 1)
-    if cancelled is not None:
-        var = ctx.make_output_var("cancelled", node.id, terminal_id=cancelled.id)
-        statements.append(build_assign(var, parse_expr("False")))
-        bindings[cancelled.id] = var
+    if cancelled is not None and cancelled_var is not None:
+        bindings[cancelled.id] = cancelled_var
     return CodeFragment(statements=statements, bindings=bindings)

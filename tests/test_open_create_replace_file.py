@@ -25,6 +25,7 @@ from tests.error_diagrams import (
     Vi,
     project,  # noqa: F401  (the fixture)
 )
+from tests.live_io_recorder import PromptRecorder
 
 # How an input is given: left unwired, wired to a constant, or to a control.
 WIRED = "wired"
@@ -42,6 +43,7 @@ def _node(
     path = vi.control("path", PATH, REQUIRED)
     ein = vi.error_in()
     refnum = vi.indicator("refnum", FILE)
+    cancelled = vi.indicator("cancelled", BOOL)
     eout = vi.error_out()
     controls: dict[str, int] = {}
     node = vi.primitive(
@@ -79,6 +81,7 @@ def _node(
     if "buffering" in controls:
         vi.wire(controls["buffering"], node["disable buffering"])
     vi.wire(node["refnum"], refnum)
+    vi.wire(node["cancelled"], cancelled)
     vi.wire(node["error out"], eout)
     project.add(vi)
     return "Err.vi"
@@ -248,7 +251,7 @@ def test_disable_buffering_opens_an_unbuffered_file(
 
 @pytest.mark.parametrize(
     ("operation", "access"),
-    [(7, READ_WRITE), (REPLACE, READ_ONLY), (OPEN, 3), (CONFIRM, READ_WRITE)],
+    [(7, READ_WRITE), (REPLACE, READ_ONLY), (OPEN, 3), (CONFIRM, READ_ONLY)],
 )
 def test_a_wired_value_that_cannot_be_honoured_raises_naming_it(
     project: Project,  # noqa: F811
@@ -265,7 +268,7 @@ def test_a_wired_value_that_cannot_be_honoured_raises_naming_it(
 @pytest.mark.parametrize(
     ("operation", "access", "reason"),
     [
-        (CONFIRM, None, "confirmation"),
+        (CONFIRM, READ_ONLY, "read-only"),
         (REPLACE, READ_ONLY, "read-only"),
         (REPLACE_OR_CREATE, READ_ONLY, "read-only"),
     ],
@@ -279,6 +282,91 @@ def test_a_constant_that_cannot_be_honoured_is_a_gap(
     vi_name = _node(project, operation=operation, access=access)
     package = project.generate(vi_name, None)
     assert any(reason in str(gap) for gap in package.gaps)
+
+
+# =============================================================
+# operation 5, replace or create with confirmation
+# =============================================================
+
+
+@pytest.mark.parametrize("as_constant", [True, False])
+def test_confirmation_replaces_an_existing_file_when_replace_is_chosen(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+    as_constant: bool,
+) -> None:
+    package = _generate(project, operation=CONFIRM if as_constant else WIRED)
+    path = _there(tmp_path)
+    recorder = PromptRecorder(0)
+    inputs = {} if as_constant else {"operation": CONFIRM}
+    result = _open(package, path, live_io=recorder, **inputs)
+    assert recorder.dialogs == [
+        (
+            f"The file {path} already exists. Do you want to replace it?",
+            ["Replace", "Cancel"],
+            "Open/Create/Replace File",
+        )
+    ]
+    _check(result, path, None, b"")
+    assert result.cancelled is False
+
+
+@pytest.mark.parametrize("as_constant", [True, False])
+def test_confirmation_cancel_is_error_43_and_leaves_the_file_unopened(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+    as_constant: bool,
+) -> None:
+    package = _generate(project, operation=CONFIRM if as_constant else WIRED)
+    path = _there(tmp_path)
+    inputs = {} if as_constant else {"operation": CONFIRM}
+    result = _open(package, path, live_io=PromptRecorder(1), **inputs)
+    assert result.error_out.code == 43
+    assert result.error_out.message
+    assert result.cancelled is True
+    _check(result, path, 43, b"old")
+
+
+@pytest.mark.parametrize("as_constant", [True, False])
+def test_confirmation_creates_a_missing_file_without_asking(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+    as_constant: bool,
+) -> None:
+    package = _generate(project, operation=CONFIRM if as_constant else WIRED)
+    path = tmp_path / "missing.bin"
+    recorder = PromptRecorder(1)
+    inputs = {} if as_constant else {"operation": CONFIRM}
+    result = _open(package, path, live_io=recorder, **inputs)
+    assert recorder.dialogs == []
+    _check(result, path, None, True)
+    assert result.cancelled is False
+
+
+def test_a_wired_operation_other_than_5_never_asks(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = _generate(project, operation=WIRED)
+    recorder = PromptRecorder(1)
+    result = _open(
+        package, _there(tmp_path), live_io=recorder, operation=REPLACE_OR_CREATE
+    )
+    assert recorder.dialogs == []
+    assert result.error_out is None
+    result.refnum.close()
+
+
+def test_confirmation_with_no_live_io_and_no_terminal_names_the_dialog(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    package = _generate(project, operation=CONFIRM)
+    path = _there(tmp_path)
+    with pytest.raises(RuntimeError, match="Open/Create/Replace File") as raised:
+        _open(package, path)
+    assert type(raised.value).__name__ == "PromptUnavailableError"
+    assert path.read_bytes() == b"old"
 
 
 def test_a_relative_path_is_error_1430(

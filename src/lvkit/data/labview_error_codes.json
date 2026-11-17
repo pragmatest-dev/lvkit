@@ -1193,6 +1193,7 @@
   "8": "File permission error.",
   "10": "Duplicate path.",
   "42": "Generic error.",
+  "43": "Operation cancelled by user.",
   "54": "The network address is ill-formed. Make sure the address is in a valid format. For TCP/IP, the address can be either a machine name or an IP address in the form xxx.xxx.xxx.xxx. If this error occurs when specifying a machine name, make sure the machine name is valid. Try to ping the machine name. Check that you have a DNS server properly configured. If you are using the TCP Open Connection function, ensure that the value of the remote port or service name is not 0.",
   "56": "The network operation exceeded the user-specified or system time limit.",
   "62": "The system caused the network connection to be aborted.",

@@ -133,6 +133,7 @@ PRIMITIVES = {
         ("PermissionError", 8),
         ("FileExistsError", 10),
         ("OSError", 6),
+        ("ReplaceCancelledError", 43),
     ],
     "8051:Read from Binary File": [
         ("EmptyOrRelativePathError", 1430),
