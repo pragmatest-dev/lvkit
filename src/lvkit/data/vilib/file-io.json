@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 116,
+  "count": 117,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -9515,6 +9515,51 @@
         "from pathlib import Path"
       ],
       "python_code": "{labview_preferences_ini_file_path} = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'",
+      "inline": true
+    },
+    {
+      "name": "compatOverwrite",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "The compatibility VI of the legacy file VIs (<vilib>/_oldvers/_oldvers.llb) that turns the old 'overwrite (F)' Boolean into the operation of Open/Create/Replace File. TRUE gives 4 (replace or create): the file is replaced without asking. FALSE gives 5 (replace or create with confirmation): an existing file is replaced only after the user confirms. Pane: the callers OpenG Write GIF File (Animated) and JKI Prompt Web Browser Path record output 0 'overwrite?' (an unsigned 16-bit enum) wired to the 'operation' input (index 10) of Open/Create/Replace File (primitive 8050) and input 1 'overwrite (F)' (Boolean, default FALSE). The maintainer's decision (2026-11-17): 'it allows the file to be overwritten'; the forum reports that the legacy Write Characters To File shows a Replace/Cancel dialog when the file exists (forums.ni.com/t5/LabVIEW/How-do-I-replace-a-file-using-Write-Characters-to-file-vi/td-p/21126). Open/Create/Replace File's operation values are NI's (Open/Create/Replace File Function page): 4 replace or create, 5 replace or create with confirmation.",
+      "vi_path": "<vilib>/_oldvers/_oldvers.llb/compatOverwrite.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "overwrite?",
+          "index": 0,
+          "direction": "output",
+          "type": "NumUInt16",
+          "enum_values": [
+            [
+              4,
+              "replace or create"
+            ],
+            [
+              5,
+              "replace or create with confirmation"
+            ]
+          ],
+          "python_param": "overwrite_operation",
+          "description": "The operation for Open/Create/Replace File: 4 (replace or create) when overwrite (F) is TRUE, 5 (replace or create with confirmation) when it is FALSE."
+        },
+        {
+          "name": "overwrite (F)",
+          "index": 1,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "overwrite",
+          "description": "overwrite (F) is TRUE to replace an existing file without asking; FALSE (the default) asks the user to confirm.",
+          "default": false
+        }
+      ],
+      "match_names": [
+        "compatOverwrite.vi"
+      ],
+      "python_code": "{overwrite_operation} = 4 if {overwrite} else 5",
       "inline": true
     }
   ]

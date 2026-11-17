@@ -436,11 +436,11 @@
         }
       ],
       "python_code": {
-        "_body": "in_7.close()",
+        "_body": "in_7.close() if in_7 is not None else None",
         "path": "getattr(in_7, 'name', None)",
         "error_out": "in_4"
       },
-      "note": "closes the file; the path output is the closed file's path",
+      "note": "closes the file; the path output is the closed file's path. Close File runs after an error, and an Open/Create/Replace File that failed or was cancelled leaves no file, so a missing refnum has nothing to close and the error on the wire passes through.",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "verified": false
     },
