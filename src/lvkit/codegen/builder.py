@@ -41,6 +41,7 @@ from .import_resolver import ImportResolver
 from .input_default import build_input_defaults, is_none_defaulted
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .nodes.call_chain import vi_name_statement
 from .nodes.feedback import feedback_master_of
 from .nodes.front_panel_title import window_title_statement
 from .panel_description import function_panel_statements
@@ -497,6 +498,7 @@ def build_module_ast(
     )
     module_body.append(func_def)
     module_body.append(window_title_statement(ctx, vi_name, func_def.name))
+    module_body.append(vi_name_statement(ctx, vi_name, func_def.name))
     module_body.extend(
         function_panel_statements(
             vi_context,

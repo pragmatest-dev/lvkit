@@ -447,6 +447,19 @@ def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
             refs.refs("Other.lvclass:Callee.vi")  # type: ignore[attr-defined]
 
 
+def test_a_computed_name_with_no_owner_finds_the_loaded_vi_of_that_name(
+    tmp_path: Path,
+) -> None:
+    """What Call Chain gives for a VI of no library or class is its file name."""
+    loaded = _computed(tmp_path, _STRING_TYPE)
+    source = _source(loaded)
+    assert "_vi_unowned = {'Callee.vi': '.', 'Refs.vi': '.'}" in source
+    for refs in _package(tmp_path, source, _CALLEE):
+        refs.refs("Callee.vi")  # type: ignore[attr-defined]
+        with pytest.raises(KeyError):
+            refs.refs("Other.vi")  # type: ignore[attr-defined]
+
+
 def test_a_call_by_reference_of_a_static_method_found_when_the_code_runs_calls_it(
     tmp_path: Path,
 ) -> None:

@@ -350,8 +350,8 @@ GENERATED_PACKAGE = "generated_package"
 
 
 _PANEL_LINE = re.compile(
-    r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |from \.+panels import "
-    r"|from \.+variants import |[A-Z0-9_]+_TYPE = LVType\()"
+    r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |[\w.]+\.vi_name = "
+    r"|from \.+panels import |from \.+variants import |[A-Z0-9_]+_TYPE = LVType\()"
 )
 
 

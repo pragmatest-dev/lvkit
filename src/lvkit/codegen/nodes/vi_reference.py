@@ -521,7 +521,7 @@ while {parts}[0] == "..":
 
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
-{package} = {owners}[{owner}]
+{package} = {owners}[{owner}] if {owner} else {unowned}[{stem}]
 """
 
 # A VI a class lists is a method of the class, found by the name or the path
@@ -594,7 +594,7 @@ def _generate_lookup(
     names["member"] = f"{reference_var}_member"
     has_members = bool(ctx.graph.class_members())
     if by_name:
-        names["owners"] = _owners_table(node, ctx)
+        names["owners"], names["unowned"] = _owners_tables(ctx)
         locate = _IMPORT_BY_NAME
         ctx.add_import("import importlib")
     else:
@@ -688,29 +688,33 @@ def _path_from(resolver: object, key: str, module_key: str) -> str:
     return Path(os.path.relpath(key, os.path.dirname(module_key))).as_posix()
 
 
-def _owners_table(node: PrimitiveNode, ctx: CodeGenContext) -> str:
-    """The module-level dictionary from each owner's full delimited name to the
-    package holding the modules of its VIs, as the start of an import spec
-    (the dots, then the dotted package and a final dot)."""
+def _owners_tables(ctx: CodeGenContext) -> tuple[str, str]:
+    """The module-level dictionaries from each owner's full delimited name, and from
+    each VI that no library or class owns (its ``Name.vi``), to the package holding
+    the modules of its VIs, as the start of an import spec (the dots, then the
+    dotted package and a final dot)."""
     assert ctx.graph is not None
     resolver = ctx.import_resolver
-    owners = ctx.graph.owner_files()
-    table = "_vi_owners"
-    ctx.add_module_global(
-        table,
-        ast.Dict(
-            keys=[ast.Constant(value=name) for name in owners],
-            values=[
-                ast.Constant(
-                    value=resolver.package_spec(key)
-                    if isinstance(resolver, ImportResolver)
-                    else "."
-                )
-                for key in owners.values()
-            ],
-        ),
+    tables = (
+        ("_vi_owners", ctx.graph.owner_files()),
+        ("_vi_unowned", ctx.graph.unowned_vi_files()),
     )
-    return table
+    for table, files in tables:
+        ctx.add_module_global(
+            table,
+            ast.Dict(
+                keys=[ast.Constant(value=name) for name in files],
+                values=[
+                    ast.Constant(
+                        value=resolver.package_spec(key)
+                        if isinstance(resolver, ImportResolver)
+                        else "."
+                    )
+                    for key in files.values()
+                ],
+            ),
+        )
+    return tables[0][0], tables[1][0]
 
 
 def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:

@@ -268,6 +268,20 @@ class VIReferenceMixin(WireOriginMixin):
                 owners[owner_name] = owner_key
         return owners
 
+    def unowned_vi_files(self) -> dict[str, str]:
+        """The file of each loaded VI that no library or class owns, by its name
+        (``Name.vi``): a name that a diagram computes when it runs and that has no
+        ``<owner>:`` is one of these. A name two loaded files share is left out
+        (it names no single VI)."""
+        found: dict[str, list[str]] = {}
+        for key in sorted(self._vi_nodes):
+            display = self.vi_display_name(key)
+            if ":" in display or self.is_stub(key):
+                continue
+            if self.node_type(key) == NodeType.VI:
+                found.setdefault(display, []).append(key)
+        return {name: keys[0] for name, keys in found.items() if len(keys) == 1}
+
     def class_members(self) -> list[tuple[str, str, str]]:
         """``(qualified name, member key, class key)`` of each loaded VI a class
         lists: the VIs that are methods of their class's module, found by the

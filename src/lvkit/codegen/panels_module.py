@@ -90,6 +90,13 @@ writes store the indicator on the panel and tell the views, and every call is a
 point where ``Panel.abort`` ends the run and ``Panel.pause`` holds it. The
 function's Event Structure reads ``Panel.events``, the queue of the run, which a
 view pushes its events into.
+
+Like ``window_title``, ``function.vi_name`` is an attribute the VI's function
+carries: its LabVIEW qualified name (``Lib.lvlib:Class.lvclass:Method.vi``).
+``call_chain()`` is the Call Chain function: it reads Python's own stack and gives
+the ``vi_name`` of every VI function on it, the VI it is called from first. It lives
+here because it reports the VIs as run (the function objects that carry ``panel``,
+``window_title`` and ``vi_name``), which is what this module's ``panel_of`` reaches.
 """
 
 from __future__ import annotations
@@ -101,6 +108,7 @@ PANEL_ERROR_NAME = "PanelError"
 PANEL_OF_NAME = "panel_of"
 AS_PANEL_NAME = "as_panel"
 AS_CONTROL_NAME = "as_control"
+CALL_CHAIN_NAME = "call_chain"
 # What a node that calls a method of a panel imports where it runs.
 PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
 
@@ -121,8 +129,10 @@ from __future__ import annotations
 
 import copy
 import inspect
+import sys
 import threading
 import time
+import types
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from queue import Empty, Queue
 from typing import Any, NoReturn
@@ -818,6 +828,47 @@ def panel_of(reference: Any) -> PanelValues:
             code=1026, source="panel_of", message="VI Reference is invalid."
         )
     return panel
+
+
+def _function_of(frame: types.FrameType) -> Any:
+    """The function object the ``frame`` runs, found by its code through the
+    module's globals (``co_qualname``: ``f`` for a function, ``Class.m`` for a
+    method, a property's getter or setter); None for code that is not reachable
+    that way (a nested function, a lambda, a comprehension)."""
+    found: Any = frame.f_globals
+    for part in frame.f_code.co_qualname.split("."):
+        if part == "<locals>" or part.startswith("<"):
+            return None
+        found = (
+            found.get(part) if isinstance(found, dict) else getattr(found, part, None)
+        )
+        if found is None:
+            return None
+    candidates = (
+        found,
+        getattr(found, "fget", None),
+        getattr(found, "fset", None),
+        getattr(found, "__func__", None),
+    )
+    for candidate in candidates:
+        if getattr(candidate, "__code__", None) is frame.f_code:
+            return candidate
+    return None
+
+
+def call_chain() -> list[str]:
+    """Call Chain: the ``vi_name`` of each VI function on this thread's stack, the
+    function that called ``call_chain`` first and the top-level VI last. Code that
+    is not a VI function (a helper, a test, ``Panel.run``) is skipped; a VI that
+    runs in another thread has the stack of that thread, which ends at its top VI."""
+    names: list[str] = []
+    frame: types.FrameType | None = sys._getframe(1)
+    while frame is not None:
+        name = getattr(_function_of(frame), "vi_name", None)
+        if isinstance(name, str):
+            names.append(name)
+        frame = frame.f_back
+    return names
 
 
 def as_panel(reference: Any) -> PanelValues:
