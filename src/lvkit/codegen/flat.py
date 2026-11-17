@@ -68,19 +68,34 @@ class UnsupportedLayout(Exception):
     numbers, variants, …); the message names it."""
 
 
-# What a node writes for one integer of an array or cluster: (the integer's layout,
-# the expression of the integer) -> the expression of its result.
-IntegerLeaf = Callable[["Integer", str], str]
-# The same for two integers taken together: (first's layout, second's layout,
-# first's expression, second's expression) -> the expression of the result.
-PairLeaf = Callable[["Integer", "Integer", str, str], str]
+class ShapeMismatch(UnsupportedLayout):
+    """Operands of an element-wise node whose arrays and clusters do not line up.
+    ``operand_labels`` name every operand's layout at the place they differ, in
+    operand order."""
+
+    def __init__(
+        self, driver: Layout, other: Layout, operands: SequenceOf[Operand]
+    ) -> None:
+        super().__init__(f"{driver.helper_label()} taken with {other.helper_label()}")
+        self.operand_labels = [layout.helper_label() for layout, _ in operands]
 
 
 # One value of an element-wise node: (its layout, its expression).
 Operand = tuple["Layout", str]
 # What a node writes for the values in the same place of every operand: (their
-# expressions, in operand order) -> the expression of its result.
-OperandLeaf = Callable[[list[str]], str]
+# layouts, their expressions, both in operand order) -> the expression of its
+# result. A leaf that handles only some kinds of value (integers) checks the
+# layouts itself.
+OperandLeaf = Callable[[list["Layout"], list[str]], str]
+
+# The names an operand's value has inside a helper function a cluster needs.
+_PARAMETERS = ("value", "other")
+# The first letter of the loop variables of operand 0, 1, ... in a comprehension.
+_LOOP_LETTERS = "stuvwxyz"
+
+
+def _parameter(operand: int) -> str:
+    return _PARAMETERS[operand] if operand < len(_PARAMETERS) else f"operand{operand}"
 
 
 @dataclass(frozen=True)
@@ -180,39 +195,6 @@ class Layout(ABC):
         """Lines that read this type from ``data`` at ``pos`` into ``target``,
         advancing ``pos``."""
 
-    def map_integers(
-        self,
-        value: str,
-        leaf: IntegerLeaf,
-        kind: str,
-        tag: object,
-        depth: int,
-        fns: Functions,
-    ) -> str:
-        """``value`` with ``leaf(integer layout, element)`` applied to every integer
-        in it, an array or cluster keeping its shape (other values are kept).
-        ``kind`` and ``tag`` name the helper function a cluster needs."""
-        return value
-
-    def map_pairs(
-        self,
-        other: Layout,
-        value: str,
-        other_value: str,
-        leaf: PairLeaf,
-        kind: str,
-        tag: object,
-        depth: int,
-        fns: Functions,
-    ) -> str:
-        """The two values ``value`` (of this layout) and ``other_value`` (of
-        ``other``) taken together: ``leaf`` is applied to each pair of integers in
-        the same place of an array or cluster, and the result has this layout's
-        shape. Raises ``UnsupportedLayout`` naming both when the shapes differ."""
-        raise UnsupportedLayout(
-            f"{self.helper_label()} paired with {other.helper_label()}"
-        )
-
     def map_operands(
         self,
         operands: SequenceOf[Operand],
@@ -222,18 +204,21 @@ class Layout(ABC):
         depth: int,
         fns: Functions,
         result: Layout | None = None,
+        broadcast: bool = True,
     ) -> str:
         """Called on the first aggregate of ``operands`` by ``walk_operands``; a
         value that is no array or cluster applies ``leaf`` to the operands'
-        expressions, and raises ``UnsupportedLayout`` when another operand is an
-        array or cluster. ``result`` is the layout of the value the walk builds
-        (None: this layout's own shape)."""
+        layouts and expressions, and raises ``ShapeMismatch`` when another operand
+        is an array or cluster. ``result`` is the layout of the value the walk
+        builds (None: this layout's own shape); ``broadcast`` is whether a value
+        that is no array or cluster goes with every element of an aggregate."""
         for layout, _ in operands:
             if isinstance(layout, (Record, Sequence)):
-                raise UnsupportedLayout(
-                    f"{self.helper_label()} taken with {layout.helper_label()}"
-                )
-        return leaf([expression for _, expression in operands])
+                raise ShapeMismatch(self, layout, operands)
+        return leaf(
+            [layout for layout, _ in operands],
+            [expression for _, expression in operands],
+        )
 
     def helper_label(self) -> str:
         return "value"
@@ -283,16 +268,6 @@ class Integer(Layout):
             f"{target} = struct.unpack_from({fns.order + self.code!r}, data, pos)[0]"
         )
         out.add(f"pos += {self.width}")
-
-    def map_integers(self, value, leaf, kind, tag, depth, fns):
-        return leaf(self, value)
-
-    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
-        if not isinstance(other, Integer):
-            return super().map_pairs(
-                other, value, other_value, leaf, kind, tag, depth, fns
-            )
-        return leaf(self, other, value, other_value)
 
 
 @dataclass(frozen=True)
@@ -561,39 +536,17 @@ class Sequence(Layout):
         if self.dimensions > 1:
             out.add(f"{target} = {_reshape(flat, sizes)}")
 
-    def map_integers(self, value, leaf, kind, tag, depth, fns):
-        names = [f"_s{depth}_{level}" for level in range(self.dimensions)]
-        inner = self.element.map_integers(
-            names[-1], leaf, kind, tag, depth + 1, fns
-        )
-        if inner == names[-1]:
-            return value
-        expression = inner
-        for level in reversed(range(self.dimensions)):
-            source = value if level == 0 else names[level - 1]
-            expression = f"[{expression} for {names[level]} in {source}]"
-        return expression
-
-    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
-        if not isinstance(other, Sequence) or other.dimensions != self.dimensions:
-            return super().map_pairs(
-                other, value, other_value, leaf, kind, tag, depth, fns
-            )
-        names = [f"_s{depth}_{level}" for level in range(self.dimensions)]
-        others = [f"_t{depth}_{level}" for level in range(self.dimensions)]
-        expression = self.element.map_pairs(
-            other.element, names[-1], others[-1], leaf, kind, tag, depth + 1, fns
-        )
-        for level in reversed(range(self.dimensions)):
-            source = value if level == 0 else names[level - 1]
-            other_source = other_value if level == 0 else others[level - 1]
-            expression = (
-                f"[{expression} for {names[level]}, {others[level]} "
-                f"in zip({source}, {other_source})]"
-            )
-        return expression
-
-    def map_operands(self, operands, leaf, kind, tag, depth, fns, result=None):
+    def map_operands(
+        self,
+        operands,
+        leaf,
+        kind,
+        tag,
+        depth,
+        fns,
+        result=None,
+        broadcast=True,
+    ):
         element_result = None
         if result is not None:
             if not isinstance(result, Sequence) or result.dimensions != self.dimensions:
@@ -605,14 +558,20 @@ class Sequence(Layout):
             j for j, (layout, _) in enumerate(operands) if isinstance(layout, Sequence)
         ]
         for layout, _ in operands:
-            if isinstance(layout, Record) or (
-                isinstance(layout, Sequence) and layout.dimensions != self.dimensions
-            ):
-                raise UnsupportedLayout(
-                    f"{self.helper_label()} taken with {layout.helper_label()}"
+            if (
+                isinstance(layout, Record)
+                or (
+                    isinstance(layout, Sequence)
+                    and layout.dimensions != self.dimensions
                 )
+                or (not broadcast and not isinstance(layout, Sequence))
+            ):
+                raise ShapeMismatch(self, layout, operands)
         names = {
-            j: [f"_s{depth}_{j}_{level}" for level in range(self.dimensions)]
+            j: [
+                f"_{_LOOP_LETTERS[j]}{depth}_{level}"
+                for level in range(self.dimensions)
+            ]
             for j in arrays
         }
         inner = [
@@ -622,14 +581,10 @@ class Sequence(Layout):
             for j, (layout, expression) in enumerate(operands)
         ]
         expression = walk_operands(
-            inner,
-            leaf,
-            kind,
-            tag,
-            depth + 1,
-            fns,
-            element_result,
+            inner, leaf, kind, tag, depth + 1, fns, element_result, broadcast
         )
+        if len(operands) == 1 and expression == names[0][-1]:
+            return operands[0][1]
         for level in reversed(range(self.dimensions)):
             targets = ", ".join(names[j][level] for j in arrays)
             sources = [
@@ -743,79 +698,56 @@ class Record(Layout):
         out.add(f"return {built}, pos")
         return f"def {name}(data, pos):\n" + "\n".join(out.lines) + "\n"
 
-    def map_integers(self, value, leaf, kind, tag, depth, fns):
-        members = [
-            f.layout.map_integers(self._member("value", i), leaf, kind, tag, 0, fns)
-            for i, f in enumerate(self.fields)
-        ]
-        if all(m == self._member("value", i) for i, m in enumerate(members)):
-            return value
-        name = fns.named(
-            kind,
-            self.label,
-            (self, tag),
-            lambda n: self._mapped_source(n, members),
-        )
-        return f"{name}({value})"
-
-    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
-        if not isinstance(other, Record) or len(other.fields) != len(self.fields):
-            return super().map_pairs(
-                other, value, other_value, leaf, kind, tag, depth, fns
-            )
-        members = [
-            f.layout.map_pairs(
-                g.layout,
-                self._member("value", i),
-                other._member("other", i),
-                leaf,
-                kind,
-                tag,
-                0,
-                fns,
-            )
-            for i, (f, g) in enumerate(zip(self.fields, other.fields))
-        ]
-        name = fns.named(
-            kind,
-            self.label,
-            (self, other, tag),
-            lambda n: self._mapped_source(n, members, "value, other"),
-        )
-        return f"{name}({value}, {other_value})"
-
-    def map_operands(self, operands, leaf, kind, tag, depth, fns, result=None):
+    def map_operands(
+        self,
+        operands,
+        leaf,
+        kind,
+        tag,
+        depth,
+        fns,
+        result=None,
+        broadcast=True,
+    ):
         built = self if result is None else result
         if not isinstance(built, Record) or len(built.fields) != len(self.fields):
             raise UnsupportedLayout(
                 f"{self.helper_label()} giving {built.helper_label()}"
             )
         for layout, _ in operands:
-            if isinstance(layout, Sequence) or (
-                isinstance(layout, Record) and len(layout.fields) != len(self.fields)
+            if (
+                isinstance(layout, Sequence)
+                or (
+                    isinstance(layout, Record)
+                    and len(layout.fields) != len(self.fields)
+                )
+                or (not broadcast and not isinstance(layout, Record))
             ):
-                raise UnsupportedLayout(
-                    f"{self.helper_label()} taken with {layout.helper_label()}"
-                )
-        parameters = [f"operand{j}" for j in range(len(operands))]
-        members = []
-        for index in range(len(self.fields)):
-            members.append(
-                walk_operands(
-                    [
-                        (layout.fields[index].layout, layout._member(parameter, index))
-                        if isinstance(layout, Record)
-                        else (layout, parameter)
-                        for (layout, _), parameter in zip(operands, parameters)
-                    ],
-                    leaf,
-                    kind,
-                    tag,
-                    0,
-                    fns,
-                    built.fields[index].layout,
-                )
+                raise ShapeMismatch(self, layout, operands)
+        parameters = [_parameter(j) for j in range(len(operands))]
+        members = [
+            walk_operands(
+                [
+                    (layout.fields[index].layout, layout._member(parameter, index))
+                    if isinstance(layout, Record)
+                    else (layout, parameter)
+                    for (layout, _), parameter in zip(operands, parameters)
+                ],
+                leaf,
+                kind,
+                tag,
+                0,
+                fns,
+                built.fields[index].layout,
+                broadcast,
             )
+            for index in range(len(self.fields))
+        ]
+        if len(operands) == 1 and all(
+            member == self._member(parameters[0], index)
+            for index, member in enumerate(members)
+        ):
+            return operands[0][1]
         layouts = tuple(layout for layout, _ in operands)
         if built.named:
             fns.ctx.add_import("from types import SimpleNamespace")
@@ -852,19 +784,24 @@ def walk_operands(
     depth: int,
     fns: Functions,
     result: Layout | None = None,
+    broadcast: bool = True,
 ) -> str:
     """The expression that applies ``leaf`` to the values in the same place of
     every operand, element by element: an array or cluster operand fixes the
     shape (the first one, when several), arrays and clusters of the same shape
-    are taken in step, and a value that is neither is used with every element.
-    ``result`` is the layout of the value built (its clusters' names and kind),
-    None for the shape of the operand that fixes it. ``kind`` and ``tag`` name the
-    helper function a cluster needs."""
+    are taken in step, and a value that is neither is used with every element
+    (with ``broadcast`` false, every operand must be of that shape: a mismatch
+    raises ``ShapeMismatch``). A walk of one operand whose leaf returns every value
+    as it is gives that operand itself. ``result`` is the layout of the value built
+    (its clusters' names and kind), None for the shape of the operand that fixes
+    it. ``kind`` and ``tag`` name the helper function a cluster needs."""
     driver = next(
         (layout for layout, _ in operands if isinstance(layout, (Record, Sequence))),
         operands[0][0],
     )
-    return driver.map_operands(operands, leaf, kind, tag, depth, fns, result)
+    return driver.map_operands(
+        operands, leaf, kind, tag, depth, fns, result, broadcast
+    )
 
 
 def layout_of(lv_type: LVType | None) -> Layout:

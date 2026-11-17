@@ -13,7 +13,7 @@ The halves depend on the width of the input's integer type, which a static
 template cannot express, so it is read from the input terminal's type: an array
 is split element by element (one comprehension per dimension) and a cluster
 field by field, each output keeping the input's shape
-(``Layout.map_integers``).
+(``flat.walk_operands``).
 
 Terminals: in index 0 = x; out index 1 = hi(x), out index 2 = lo(x).
 """
@@ -28,9 +28,11 @@ from ...flat import (
     BYTE_ORDER_PREFIX,
     Functions,
     Integer,
-    IntegerLeaf,
+    Layout,
+    OperandLeaf,
     UnsupportedLayout,
     layout_of,
+    walk_operands,
 )
 from ...fragment import CodeFragment
 from ...output_binding import bind_output
@@ -38,8 +40,11 @@ from . import register_op_fragment
 from ._flat_node import terminal, unsupported_layout_error
 
 
-def _half_leaf(high: bool) -> IntegerLeaf:
-    def leaf(integer: Integer, value: str) -> str:
+def _half_leaf(high: bool) -> OperandLeaf:
+    def leaf(layouts: list[Layout], values: list[str]) -> str:
+        integer, value = layouts[0], values[0]
+        if not isinstance(integer, Integer):
+            return value
         if integer.width == 1:
             return "0" if high else value
         half = integer.width * 4
@@ -63,8 +68,8 @@ def split_number(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | Non
         output = terminal(node, "output", index)
         if output is None or not ctx.is_wired(output.id):
             continue
-        expression = layout.map_integers(
-            value, _half_leaf(high), f"split_{name}", name, 0, fns
+        expression = walk_operands(
+            [(layout, value)], _half_leaf(high), f"split_{name}", name, 0, fns
         )
         parsed = parse_expr(expression)
         fragment.extend(bind_output(node, output.id, name, parsed, ctx))

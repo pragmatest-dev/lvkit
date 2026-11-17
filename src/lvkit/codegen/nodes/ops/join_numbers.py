@@ -9,8 +9,9 @@ to its own width first, as an unsigned integer is.
 
 The widths come from the input terminals' types. An array input joins element by
 element (``arrayify``). An input holding a cluster joins field by field through
-the paired layout walk (``Layout.map_pairs``): ``hi`` and ``lo`` must have the
-same shape (the same arrays and clusters), else it is a gap naming both types.
+the layout walk (``flat.walk_operands``, a single value not broadcast): ``hi`` and
+``lo`` must have the same shape (the same arrays and clusters), else it is a gap
+naming both types.
 
 Terminals: out index 0 = (hi.lo); in index 1 = lo; in index 2 = hi.
 """
@@ -29,7 +30,16 @@ from lvkit.primitive_resolver import ResolvedPrimitive
 
 from ...ast_utils import parse_expr
 from ...elementwise import arrayify
-from ...flat import BYTE_ORDER_PREFIX, Functions, Integer, UnsupportedLayout, layout_of
+from ...flat import (
+    BYTE_ORDER_PREFIX,
+    Functions,
+    Integer,
+    Layout,
+    ShapeMismatch,
+    UnsupportedLayout,
+    layout_of,
+    walk_operands,
+)
 from . import register_context_op
 from ._flat_node import add_flat_imports
 
@@ -89,15 +99,35 @@ def _join_clusters(
     node: PrimitiveNode, ctx: CodeGenContext, high: LVType | None, low: LVType | None
 ) -> str:
     fns = Functions(ctx, BYTE_ORDER_PREFIX[0])
+
+    def leaf(layouts: list[Layout], values: list[str]) -> str:
+        high_layout, low_layout = layouts
+        if not (isinstance(high_layout, Integer) and isinstance(low_layout, Integer)):
+            raise UnsupportedLayout(
+                f"{high_layout.helper_label()} paired with {low_layout.helper_label()}"
+            )
+        return _join(high_layout, low_layout, *values)
+
     try:
-        expression = layout_of(high).map_pairs(
-            layout_of(low), "in_2", "in_1", _join, "join_numbers", None, 0, fns
+        expression = walk_operands(
+            [(layout_of(high), "in_2"), (layout_of(low), "in_1")],
+            leaf,
+            "join_numbers",
+            None,
+            0,
+            fns,
+            broadcast=False,
         )
     except UnsupportedLayout as error:
+        detail = (
+            " paired with ".join(error.operand_labels)
+            if isinstance(error, ShapeMismatch)
+            else str(error)
+        )
         raise ConversionGap(
             f"Join Numbers of {_describe(high)} (hi) and {_describe(low)} (lo): hi "
             "and lo must have the same shape of arrays and clusters of integers "
-            f"({error})",
+            f"({detail})",
             node,
         ) from error
     add_flat_imports(ctx, [ast.Expr(value=parse_expr(expression))])

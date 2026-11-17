@@ -109,7 +109,7 @@ def _compare_elements(
     clusters. The result is built in the type of output terminal ``output``."""
     operands = [(_layout(node, "input", i), f"in_{i}") for i in _OPERANDS]
 
-    def leaf(expressions: list[str]) -> str:
+    def leaf(layouts: list[Layout], expressions: list[str]) -> str:
         x, lower, upper = expressions
         return template.format(x=x, lower=lower, upper=upper)
 

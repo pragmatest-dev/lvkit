@@ -19,9 +19,11 @@ from ...flat import (
     BYTE_ORDER_PREFIX,
     Functions,
     Integer,
-    IntegerLeaf,
+    Layout,
+    OperandLeaf,
     UnsupportedLayout,
     layout_of,
+    walk_operands,
 )
 from ...fragment import CodeFragment
 from ...output_binding import bind_output
@@ -29,12 +31,13 @@ from . import register_op_fragment
 from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
 
-def _swap_leaf(fns: Functions, chunk: int, width_min: int) -> IntegerLeaf:
+def _swap_leaf(fns: Functions, chunk: int, width_min: int) -> OperandLeaf:
     """The integer with its ``chunk``-byte halves swapped, when it has at least
     ``width_min`` bytes."""
 
-    def leaf(integer: Integer, value: str) -> str:
-        if integer.width < width_min:
+    def leaf(layouts: list[Layout], values: list[str]) -> str:
+        integer, value = layouts[0], values[0]
+        if not isinstance(integer, Integer) or integer.width < width_min:
             return value
         signed = integer.code.islower()
         name = fns.named(
@@ -69,8 +72,8 @@ def _swap(
         raise unsupported_layout_error(node, error) from error
     fns = Functions(ctx, BYTE_ORDER_PREFIX[0])
     kind = f"swap_{'bytes' if chunk == 1 else 'words'}"
-    expression = layout.map_integers(
-        value, _swap_leaf(fns, chunk, width_min), kind, width_min, 0, fns
+    expression = walk_operands(
+        [(layout, value)], _swap_leaf(fns, chunk, width_min), kind, width_min, 0, fns
     )
     swapped = parse_expr(expression)
     add_flat_imports(ctx, [ast.Expr(value=swapped)])
