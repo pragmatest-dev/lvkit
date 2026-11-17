@@ -367,18 +367,21 @@
       ]
     },
     {
-      "name": "Get LV Class Default Value",
+      "name": "Get LV Class Default Value.vi",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-default-value-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose path you wire to the class path input. If the class is not in memory, LabVIEW attempts to load it from disk. If any dependencies are missing, LabVIEW searches for the missing dependencies. If LabVIEW cannot find the dependency, LabVIEW assumes the dependency is missing and does not prompt the user to browse to the needed file. Use this VI to dynamically create class objects, including class objects that are unknown at edit time. Related Information Crea",
-      "vi_path": null,
+      "vi_path": "vi.lib/Utility/LVClass/Get LV Class Default Value.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "resolved",
+      "status": "complete",
+      "op": "GET_LV_CLASS_DEFAULT_VALUE",
+      "inline": true,
+      "imports": [],
       "terminals": [
         {
           "name": "class path",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -397,7 +400,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -406,7 +409,7 @@
         },
         {
           "name": "object",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -415,7 +418,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,

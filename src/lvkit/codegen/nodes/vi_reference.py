@@ -31,8 +31,6 @@ error in and error out are a parameter and a result of the call like any other.
 from __future__ import annotations
 
 import ast
-import os
-import posixpath
 import textwrap
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -73,6 +71,7 @@ from ..class_model import (
     not_a_method,
     python_class_name,
 )
+from ..computed_path import PATH_FROM_HERE, computed_path_module_key, path_from
 from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
@@ -506,10 +505,7 @@ def _function_name(stem):
     return name
 """.replace("{modules}", repr(sorted(GENERATED_MODULE_NAMES)))
 
-_IMPORT_BY_PATH = """\
-{here} = os.path.dirname(__file__)
-{path} = os.path.join({here}, os.fspath({value}).replace("\\\\", "/"))
-{rel} = os.path.relpath({path}, {here}).replace(os.sep, "/")
+_IMPORT_BY_PATH = PATH_FROM_HERE + """\
 {parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
@@ -633,16 +629,9 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     that a diagram can compute, each with its class's module spec, its class's
     name and its method's name. A member the catalog gives Python for is no
     method of its class and is not listed."""
-    assert ctx.graph is not None and ctx.vi_name is not None
+    assert ctx.graph is not None
     resolver = ctx.import_resolver
-    # A path computed when the code runs is read from the folder of the module
-    # being written (the resolver's ``module_key``: a class, a polymorphic VI,
-    # the VI itself).
-    module_key = (
-        resolver.module_key
-        if isinstance(resolver, ImportResolver) and resolver.module_key
-        else ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
-    )
+    module_key = computed_path_module_key(ctx)
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)
@@ -662,7 +651,7 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
         class_name = python_class_name(class_key)
         entry = (module, class_name, run_time_name(class_name, shape.name))
         entries[name] = entry
-        entries[_path_from(resolver, key, module_key)] = entry
+        entries[path_from(resolver, key, module_key)] = entry
     ctx.add_module_global(
         "_class_members",
         ast.Dict(
@@ -676,16 +665,6 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
             ],
         ),
     )
-
-
-def _path_from(resolver: object, key: str, module_key: str) -> str:
-    """The path of the file ``key`` from the folder of the module generated for
-    ``module_key``, both by the project-relative paths modules are placed by."""
-    if isinstance(resolver, ImportResolver):
-        member = resolver.shown(key)
-        folder = posixpath.dirname(resolver.shown(module_key))
-        return posixpath.relpath(member, folder or ".")
-    return Path(os.path.relpath(key, os.path.dirname(module_key))).as_posix()
 
 
 def _owners_tables(ctx: CodeGenContext) -> tuple[str, str]:

@@ -24,6 +24,7 @@ from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
@@ -58,6 +59,7 @@ def run_catalog_call(
     constants: Mapping[int, tuple[str, LVType]] | None = None,
     calls: Sequence[Mapping[str, Any]] | None = None,
     instance_defaults: dict[int, str | None] | None = None,
+    classes: Mapping[str, str] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -74,6 +76,8 @@ def run_catalog_call(
     and the result is the list of their results (a VI that keeps state between calls).
     ``instance_defaults`` makes the call one of an embedded instance (an Express VI):
     what each input control of the instance holds when unwired, by slot.
+    ``classes`` adds classes to the project: each class file name (``A.lvclass``)
+    with the source of the module generated for it, written beside the caller.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -82,10 +86,22 @@ def run_catalog_call(
     graph._recorded.record(key, None, recorded)  # noqa: SLF001
     package = tmp_path / "pkg"
     package.mkdir(parents=True, exist_ok=True)
+    class_files = {}
+    for class_file, class_source in (classes or {}).items():
+        graph._dep_graph.add_node(  # noqa: SLF001
+            f"/{class_file}", node_type=NodeType.CLASS
+        )
+        module_file = package / f"{Path(class_file).stem.lower()}.py"
+        module_file.write_text(class_source, encoding="utf-8")
+        class_files[f"/{class_file}"] = module_file
     resolver = create_import_resolver(
         "pkg",
         package,
-        {key: package / "callee.py", "caller.vi": package / "caller.py"},
+        {
+            key: package / "callee.py",
+            "caller.vi": package / "caller.py",
+            **class_files,
+        },
         package / "caller.py",
         caller_key="caller.vi",
         graph=graph,
@@ -191,6 +207,7 @@ def run_catalog_call(
     finally:
         for name in (
             "pkg.caller",
+            *(f"pkg.{Path(c).stem.lower()}" for c in (classes or {})),
             "pkg.panels",
             "pkg.grpc_server",
             "pkg.live_io",

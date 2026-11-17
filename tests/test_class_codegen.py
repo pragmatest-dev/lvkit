@@ -1210,14 +1210,14 @@ def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
 
 
 def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:
-    from lvkit.codegen.nodes.vi_reference import _path_from
+    from lvkit.codegen.computed_path import path_from
 
     assert (
-        _path_from(object(), "/p/Cls/private/X.vi", "/p/Cls/Cls.lvclass")
+        path_from(object(), "/p/Cls/private/X.vi", "/p/Cls/Cls.lvclass")
         == "private/X.vi"
     )
     assert (
-        _path_from(object(), "/p/Other/Y.vi", "/p/Cls/Cls.lvclass") == "../Other/Y.vi"
+        path_from(object(), "/p/Other/Y.vi", "/p/Cls/Cls.lvclass") == "../Other/Y.vi"
     )
 
 
