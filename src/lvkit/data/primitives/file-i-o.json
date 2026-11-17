@@ -405,6 +405,11 @@
       "runs_on_error": true,
       "errors": [
         {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
           "exception": "OSError",
           "code": 6
         }
@@ -436,11 +441,11 @@
         }
       ],
       "python_code": {
-        "_body": "in_7.close() if in_7 is not None else None",
+        "_body": "if in_7 is None:\n    raise InvalidRefnumError('Close File: there is no open file to close')\nelse:\n    in_7.close()",
         "path": "getattr(in_7, 'name', None)",
         "error_out": "in_4"
       },
-      "note": "closes the file; the path output is the closed file's path. Close File runs after an error, and an Open/Create/Replace File that failed or was cancelled leaves no file, so a missing refnum has nothing to close and the error on the wire passes through.",
+      "note": "closes the file; the path output is the closed file's path. NI: Close File runs even if an error occurred before it (\"closes the file regardless of whether an error occurred in a preceding operation\"). An Open/Create/Replace File that failed or was cancelled leaves no refnum (None); closing it is error 1 \"An input parameter is invalid\" (the error Close File gives an invalid refnum; forums.ni.com Help-Invalid-reference-error-when-closing-file), unless an error came in, which error out then keeps.",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "verified": false
     },

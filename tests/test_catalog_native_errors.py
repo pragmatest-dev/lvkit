@@ -143,7 +143,7 @@ PRIMITIVES = {
         ("ValueError", None),
         *FILE_PATH_OPS,
     ],
-    "8052:Close File": FILE_REFNUM_OPS,
+    "8052:Close File": [("InvalidRefnumError", 1), *FILE_REFNUM_OPS],
     "8053:Copy": COPY_MOVE,
     "8062:Get File Position": FILE_REFNUM_OPS,
     "8063:Get File Size": FILE_REFNUM_OPS,
