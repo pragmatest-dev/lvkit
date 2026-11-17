@@ -90,14 +90,19 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
     return FormatKind(name or "unknown")
 
 
-_ORDERED_KINDS = frozenset({"int", "float", "bool", "string", "timestamp"})
+# An enum is ordered by its number: the generated enum is an ``IntEnum`` (or a
+# plain ``int`` when it records no item labels), which ``<`` orders as an integer.
+_ORDERED_KINDS = frozenset(
+    {"int", "float", "bool", "string", "timestamp", "enum", "enum with no item labels"}
+)
 
 
 def unorderable_leaf(lv_type: LVType) -> LVType | None:
     """The first value inside ``lv_type`` that Python's ``<`` does not order as
-    LabVIEW does, or None when every one does. A value is an integer, a real
-    number, a Boolean (FALSE below TRUE), a string (by character code) or a time
-    stamp, alone or as the element of an array or a field of a cluster (a cluster
+    LabVIEW does, or None when every one does. A value is an integer, an enum (by
+    its number), a real number, a Boolean (FALSE below TRUE), a string (by
+    character code) or a time stamp, alone or as the element of an array or a
+    field of a cluster (a cluster
     with no fields is returned as it is)."""
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         return unorderable_leaf(lv_type.element_type)

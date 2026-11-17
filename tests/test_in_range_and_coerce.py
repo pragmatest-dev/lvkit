@@ -268,6 +268,16 @@ def test_an_unsigned_byte_is_ordered_as_an_integer() -> None:
     assert _run_typed(scalar("NumUInt8"), 10, 50, 100).in_range is True
 
 
+def test_an_enum_is_ordered_by_its_number() -> None:
+    enum = LVType(kind=LVTypeKind.ENUM, underlying_type="NumUInt16")
+    result = _run_typed(enum, 12, 25, 21)
+    assert result.in_range is False
+    assert result.coerced == 21
+    assert _run_typed(enum, 12, 15, 21).in_range is True
+    # The upper limit is excluded by default.
+    assert _run_typed(enum, 12, 21, 21).in_range is False
+
+
 def test_a_boolean_is_ordered_false_below_true() -> None:
     both = INCLUDE_LOWER_LIMIT | INCLUDE_UPPER_LIMIT
     assert _run_typed(BOOL, False, True, True, flags=both).in_range is True
