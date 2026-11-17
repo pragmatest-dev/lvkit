@@ -75,6 +75,8 @@ from .lvnet_grammar import (
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_SCRIPT_KINDS,
+    _LVNET_STARTS_ENABLE_WORDS,
+    _LVNET_STARTS_HIDDEN_WORD,
     _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_CAP,
@@ -1974,6 +1976,10 @@ def _lvnet_boundary_trailing(
         requirement = _lvnet_requirement_trailing(pane)
         if requirement is not None:
             parts.append(requirement)
+        if pane.starts_hidden:
+            parts.append(_LVNET_STARTS_HIDDEN_WORD)
+        if pane.enable_state in _LVNET_STARTS_ENABLE_WORDS:
+            parts.append(_LVNET_STARTS_ENABLE_WORDS[pane.enable_state])
         if pane.default is not None:
             parts.append(
                 f"{_LVNET_DEFAULT_KEYWORD} "

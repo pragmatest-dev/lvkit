@@ -82,6 +82,8 @@ from .lvnet_grammar import (
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_SCRIPT_KEYWORDS,
+    _LVNET_STARTS_ENABLE_WORDS,
+    _LVNET_STARTS_HIDDEN_WORD,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
@@ -413,6 +415,10 @@ class ParsedBoundaryTerminal:
     # ``caption`` clause) and whether it is shown (no ``hidden`` marker).
     caption: str | None = None
     caption_visible: bool = False
+    # How the control starts: a ``starts-hidden`` word, and the Disabled value of
+    # a ``starts-disabled`` (1) / ``starts-grayed-out`` (2) word (0 with neither).
+    starts_hidden: bool = False
+    enable_state: int = 0
     # The ` (id <uid>)` after the name, when the label is shared (verbose text).
     uid: str | None = None
 
@@ -477,6 +483,8 @@ class _BoundaryTail(NamedTuple):
     caption: str | None
     caption_visible: bool
     index: int | None
+    starts_hidden: bool = False
+    enable_state: int = 0
 
 
 def _split_trailing_caption(raw: str, line_no: int) -> tuple[str, str | None, bool]:
@@ -574,6 +582,15 @@ def _split_type_requirement_default(
             _validate_if_quoted(default, line_no)
 
     type_str = _collapse_padding(raw)
+    enable_state = 0
+    head, _, last = type_str.rpartition(" ")
+    for value, word in _LVNET_STARTS_ENABLE_WORDS.items():
+        if last == word:
+            enable_state, type_str = value, head
+    starts_hidden = False
+    head, _, last = type_str.rpartition(" ")
+    if last == _LVNET_STARTS_HIDDEN_WORD:
+        starts_hidden, type_str = True, head
     requirement: str | None = None
     head, _, last = type_str.rpartition(" ")
     if last in _REQUIREMENT_WORDS:
@@ -585,7 +602,14 @@ def _split_type_requirement_default(
             f"keywords: {line!r}"
         )
     return _BoundaryTail(
-        type_str, requirement, default, caption, caption_visible, index
+        type_str,
+        requirement,
+        default,
+        caption,
+        caption_visible,
+        index,
+        starts_hidden,
+        enable_state,
     )
 
 
@@ -2190,6 +2214,8 @@ def _parse_boundary_terminal_line(
         index=split.index,
         caption=split.caption,
         caption_visible=split.caption_visible,
+        starts_hidden=split.starts_hidden,
+        enable_state=split.enable_state,
         uid=uid,
     )
 
@@ -2641,7 +2667,16 @@ def _module_default_token(
 
 
 BoundarySignatureEntry = tuple[
-    str, TypeShape, str, str | None, str | None, int | None, str | None, bool
+    str,
+    TypeShape,
+    str,
+    str | None,
+    str | None,
+    int | None,
+    str | None,
+    bool,
+    bool,
+    int,
 ]
 
 
@@ -2684,6 +2719,8 @@ def boundary_signature(
                 t.index,
                 t.caption,
                 t.caption_visible,
+                t.starts_hidden,
+                t.enable_state,
             )
             for t in module_or_parsed.boundary
         )
@@ -2715,6 +2752,8 @@ def boundary_signature(
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
+                pane.starts_hidden,
+                pane.enable_state,
             )
             for inp, pane in zip(module.inputs, input_panes, strict=True)
         ]
@@ -2730,6 +2769,8 @@ def boundary_signature(
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
+                pane.starts_hidden,
+                pane.enable_state,
             )
             for o, pane in zip(module.outputs, output_panes, strict=True)
         ]
@@ -2745,6 +2786,8 @@ def boundary_signature(
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
+                pane.starts_hidden,
+                pane.enable_state,
             )
             for pane in off_panes
         ]

@@ -828,6 +828,11 @@ class ConnectorPaneTerminal:
     # label (``name``) stays the identity; the caption is display text.
     caption: str | None = None
     caption_visible: bool = False
+    # How the control starts (``FPTerminal.starts_hidden`` / ``enable_state``):
+    # hidden, and its Disabled value (0 enabled, 1 disabled, 2 disabled and
+    # grayed out).
+    starts_hidden: bool = False
+    enable_state: int = 0
     # The control's or indicator's terminal on the block diagram -- see
     # ``BoundaryOutput``.
     terminal_uid: str | None = None

@@ -312,6 +312,8 @@ def _pane_terminal(
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
+        starts_hidden=isinstance(t, FPTerminal) and bool(t.starts_hidden),
+        enable_state=(t.enable_state or 0) if isinstance(t, FPTerminal) else 0,
         terminal_uid=_fp_terminal_uid(t),
     )
 

@@ -119,6 +119,12 @@ _LVNET_RESERVED_CONTROL_PREFIXES = (
 # ``caption hidden "<text>"`` when the caption is set but not shown.
 _LVNET_CAPTION_KEYWORD = "caption"
 _LVNET_CAPTION_HIDDEN_KEYWORD = "hidden"
+# The §5 boundary-row start-state words, written between the requirement and
+# the ``default`` clause: ``starts-hidden`` for a control hidden when the VI
+# starts, and ``starts-disabled`` / ``starts-grayed-out`` for a Disabled value
+# of 1 / 2 (``FPTerminal.starts_hidden`` / ``enable_state``).
+_LVNET_STARTS_HIDDEN_WORD = "starts-hidden"
+_LVNET_STARTS_ENABLE_WORDS = {1: "starts-disabled", 2: "starts-grayed-out"}
 # The drive-position `(default <Type>)` form's own prefix (§4) -- derived
 # from ``_LVNET_DEFAULT_KEYWORD`` rather than re-spelled, so the two can
 # never drift apart.

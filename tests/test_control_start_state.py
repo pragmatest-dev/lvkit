@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit.graph.lvnet_parse import ParsedLvnet, netlist_signature, parse_lvnet
+from lvkit.graph.lvnet_reconstruct import reconstruct_module
+from lvkit.graph.netlist import render_lvnet
 from lvkit.models import FPTerminal
 from tests.error_diagrams import (
     BOOL,
@@ -64,6 +67,8 @@ def test_a_visible_read_gives_the_stored_state(
     [
         (0, 0),
         (HIDDEN, 0),
+        (DISABLED, 1),
+        (DISABLED | HIDDEN, 1),
         (DISABLED | GREYED_OUT, 2),
         (DISABLED | GREYED_OUT | HIDDEN, 2),
     ],
@@ -80,12 +85,10 @@ def test_a_disabled_read_gives_the_stored_state(
     assert package.function(n=1).seen == expected
 
 
-@pytest.mark.parametrize("flags", [DISABLED, GREYED_OUT])
-def test_a_disabled_state_the_file_leaves_open_stays_a_gap(
-    flags: int,
+def test_a_greyed_bit_without_the_disabled_bit_stays_a_gap(
     project: Project,  # noqa: F811
 ) -> None:
-    project.add(_read_vi("DisabledEnum", flags, as_bool=False))
+    project.add(_read_vi("DisabledEnum", GREYED_OUT, as_bool=False))
     package = project.generate(NAME)
     assert len(package.gaps) == 1
     assert "reads 'DisabledEnum', and the file does not record" in str(package.gaps[0])
@@ -174,5 +177,81 @@ def test_the_graph_records_the_stored_state(
         "shown": (False, 0),
         "hidden": (True, 0),
         "greyed": (False, 2),
-        "open": (False, None),
+        "open": (False, 1),
     }
+
+
+def _states_vi() -> Vi:
+    vi = Vi(NAME)
+    vi.control("shown", I32, REQUIRED)
+    vi.control("hidden", I32, REQUIRED, ddo_flags=HIDDEN)
+    vi.control("open", I32, REQUIRED, ddo_flags=DISABLED)
+    vi.control("greyed", I32, REQUIRED, ddo_flags=DISABLED | GREYED_OUT)
+    vi.control("both", I32, REQUIRED, ddo_flags=HIDDEN | DISABLED | GREYED_OUT)
+    vi.indicator("out", I32)
+    return vi
+
+
+def test_describe_shows_a_disabled_control(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(_states_vi())
+    inputs = project.views(NAME).describe.split("## Inputs\n", 1)[1].split("\n\n")[0]
+    assert inputs.splitlines() == [
+        "  shown: I32 (required)",
+        "  hidden: I32 (required) (hidden)",
+        "  open: I32 (required) (disabled)",
+        "  greyed: I32 (required) (disabled and grayed out)",
+        "  both: I32 (required) (hidden) (disabled and grayed out)",
+    ]
+
+
+def test_json_carries_the_start_state(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(_states_vi())
+    terminals = project.views(NAME).json["connector_pane"]["terminals"]
+    assert [
+        (t["name"], t["starts_hidden"], t["enable_state"]) for t in terminals
+    ] == [
+        ("shown", False, 0),
+        ("hidden", True, 0),
+        ("open", False, 1),
+        ("greyed", False, 2),
+        ("both", True, 2),
+        ("out", False, 0),
+    ]
+
+
+def test_lvnet_writes_the_start_state_and_the_round_trip_keeps_it(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(_states_vi())
+    views = project.views(NAME)
+    rows = {
+        line.split(" : ")[0].split()[1]: line.split(" : ", 1)[1]
+        for line in views.lvnet.split("  block-diagram :")[0].splitlines()
+        if line.strip().startswith(("in ", "out ")) and " : " in line
+    }
+    assert rows == {
+        "shown": "I32 required @0",
+        "hidden": "I32 required starts-hidden @1",
+        "open": "I32 required starts-disabled @2",
+        "greyed": "I32 required starts-grayed-out @3",
+        "both": "I32 required starts-hidden starts-grayed-out @4",
+        "out": "I32 recommended @5",
+    }
+    assert "starts-" not in views.terse
+    parsed = parse_lvnet(views.lvnet)
+    assert isinstance(parsed, ParsedLvnet)
+    assert {t.name: (t.starts_hidden, t.enable_state) for t in parsed.boundary} == {
+        "shown": (False, 0),
+        "hidden": (True, 0),
+        "open": (False, 1),
+        "greyed": (False, 2),
+        "both": (True, 2),
+        "out": (False, 0),
+    }
+    rebuilt = reconstruct_module(parsed)
+    assert render_lvnet(rebuilt, display_name=NAME, verbose=True) == views.lvnet
+    assert netlist_signature(rebuilt) == netlist_signature(parsed)

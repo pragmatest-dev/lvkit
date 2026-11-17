@@ -10,8 +10,9 @@ Variable reads (``local_indicators``), the variable keeps its value from one cal
 of the VI to the next, as the control keeps its state in LabVIEW. A write of the
 property assigns it as well as telling the panel (``live_io.set_property``).
 
-A control whose stored state the file leaves open (the flags set one of the two
-Disabled bits only) has no variable: its read stays a gap (``property_node``)."""
+A control whose stored state the file leaves open (the flags set the greyed bit
+without the disabled bit, which no corpus file does) has no variable: its read
+stays a gap (``property_node``)."""
 
 from __future__ import annotations
 

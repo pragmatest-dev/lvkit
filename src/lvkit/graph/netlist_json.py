@@ -548,6 +548,8 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "default": p.default,
                     "caption": p.caption,
                     "caption_visible": p.caption_visible,
+                    "starts_hidden": p.starts_hidden,
+                    "enable_state": p.enable_state,
                     **_scope_entry(
                         (placed.reads if p.direction == "input" else placed.drives).get(
                             p.terminal_uid or p.name

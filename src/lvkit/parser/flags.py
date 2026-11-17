@@ -101,14 +101,16 @@ def starts_hidden(flags: int) -> bool:
 
 def starting_enable_state(flags: int) -> int | None:
     """The Disabled property's value a control starts with, from its ``ddo``
-    ``objFlags``: enabled when neither bit is set, disabled and greyed out when
-    both are. A control with only one of the two bits has a state the corpus does
-    not settle, so it is None."""
+    ``objFlags``: enabled when neither bit is set, disabled when only the
+    disabled bit is, disabled and greyed out when both are. The greyed bit never
+    occurs without the disabled bit in the corpus; such flags give None."""
     disabled = bool(flags & FP_DISABLED)
     greyed = bool(flags & FP_GREYED_OUT)
     if disabled and greyed:
         return ENABLE_STATE_GREYED_OUT
-    if not disabled and not greyed:
+    if disabled:
+        return ENABLE_STATE_DISABLED
+    if not greyed:
         return ENABLE_STATE_ENABLED
     return None
 
