@@ -7,6 +7,7 @@ and read/write; error 7 when the file cannot be found."""
 
 from __future__ import annotations
 
+import inspect
 import io
 from pathlib import Path
 from typing import Any
@@ -355,6 +356,26 @@ def test_a_wired_operation_other_than_5_never_asks(
     assert recorder.dialogs == []
     assert result.error_out is None
     result.refnum.close()
+
+
+@pytest.mark.parametrize(
+    ("operation", "takes_live_io"),
+    [
+        (None, False),
+        (OPEN, False),
+        (REPLACE_OR_CREATE, False),
+        (CONFIRM, True),
+        (WIRED, True),
+    ],
+)
+def test_only_a_node_that_can_ask_gives_its_vi_the_live_io_parameter(
+    project: Project,  # noqa: F811
+    operation: int | str | None,
+    takes_live_io: bool,
+) -> None:
+    package = _generate(project, operation=operation)
+    parameters = inspect.signature(package.function).parameters
+    assert ("live_io" in parameters) is takes_live_io
 
 
 def test_confirmation_with_no_live_io_and_no_terminal_names_the_dialog(

@@ -244,6 +244,7 @@ class PrimitiveResolver:
                     doc_url=prim.get("doc_url"),
                     runs_on_error=prim.get("runs_on_error", False),
                     live_io=prim.get("live_io", False),
+                    live_io_when_input=prim.get("live_io_when_input"),
                 )
                 alternatives = [
                     [TerminalAlias.model_validate(a) for a in alias_set]

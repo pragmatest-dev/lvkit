@@ -296,12 +296,46 @@ class WireQueriesMixin:
                 return True
             if isinstance(node, PrimitiveNode) and node.prim_id is not None:
                 resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)
-                if resolved is not None and resolved.live_io:
+                if resolved is not None and (
+                    resolved.live_io
+                    or (
+                        resolved.live_io_when_input is not None
+                        and self._input_may_be(
+                            node,
+                            resolved.live_io_when_input.index,
+                            resolved.live_io_when_input.value,
+                        )
+                    )
+                ):
                     return True
             elif isinstance(node, VINode):
                 entry = self.vilib_catalog.resolve_recorded(self.catalog_path(node))
                 if entry is not None and entry.live_io:
                     return True
+        return False
+
+    def _input_may_be(self, node: PrimitiveNode, index: int, value: int) -> bool:
+        """Whether the input of ``node`` at connector-pane ``index`` can be
+        ``value`` when the code runs: it is a constant of that value, or it is
+        wired from something only known then. An unwired input is its default,
+        which the catalog's ``live_io_when_input`` does not name."""
+        terminal = next(
+            (t for t in node.terminals if t.index == index and t.direction == "input"),
+            None,
+        )
+        if terminal is None:
+            return False
+        for source in self.incoming_edges(terminal.id):
+            origin = self.get_graph_node(source.node_id)
+            if not isinstance(origin, ConstantNode):
+                return True
+            held = origin.value
+            if isinstance(held, str):
+                try:
+                    held = int(held)
+                except ValueError:
+                    return False
+            return held == value and not isinstance(held, bool)
         return False
 
     def touches_panel_while_running(self, vi_name: str) -> bool:

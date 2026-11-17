@@ -226,7 +226,10 @@
           "base": "Exception"
         }
       ],
-      "live_io": true,
+      "live_io_when_input": {
+        "index": 10,
+        "value": 5
+      },
       "terminals": [
         {
           "index": 6,
