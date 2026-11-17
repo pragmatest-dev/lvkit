@@ -17,6 +17,15 @@ from lvkit.primitive_resolver import NativeError
 DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
 
 FILE_PATH_OPS = [("FileNotFoundError", 7), ("PermissionError", 8), ("OSError", 6)]
+# A read or write through a file refnum also fails when the file was opened for the
+# other direction only (error 8, File permission error: NI forum reports it for a
+# write to a file opened read-only).
+FILE_RW_OPS = [
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("UnsupportedOperation", 8),
+    ("OSError", 6),
+]
 INI_FILE_OPS = [("PermissionError", 8), ("OSError", 6)]
 FILE_REFNUM_OPS = [("OSError", 6)]
 COPY_MOVE = [
@@ -45,7 +54,7 @@ CREATE_FOLDER = [
 WRITE_TO_TEXT_FILE = [
     ("EmptyOrRelativePathError", 1430),
     ("InvalidPathError", 1),
-    *FILE_PATH_OPS,
+    *FILE_RW_OPS,
 ]
 
 TCP_OPEN = [
@@ -117,11 +126,19 @@ PRIMITIVES = {
         ("FileExistsError", 10),
         ("OSError", 6),
     ],
-    "8050:Open/Create/Replace File": FILE_PATH_OPS,
+    "8050:Open/Create/Replace File": [
+        ("EmptyOrRelativePathError", 1430),
+        ("InvalidPathError", 1),
+        ("FileNotFoundError", 7),
+        ("PermissionError", 8),
+        ("FileExistsError", 10),
+        ("OSError", 6),
+    ],
     "8051:Read from Binary File": [
         ("EmptyOrRelativePathError", 1430),
         ("InvalidPathError", 1),
         ("EOFError", 4),
+        ("UnsupportedOperation", 8),
         ("ValueError", None),
         *FILE_PATH_OPS,
     ],
@@ -131,14 +148,14 @@ PRIMITIVES = {
     "8063:Get File Size": FILE_REFNUM_OPS,
     "8065:Get Permissions": FILE_PATH_OPS,
     "8068:Move": COPY_MOVE,
-    "8070:Read from Text File": FILE_PATH_OPS,
+    "8070:Read from Text File": FILE_RW_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8074:Set File Size": FILE_REFNUM_OPS,
     "8076:Set Permissions": FILE_PATH_OPS,
     "8078:Write to Binary File": [
         ("EmptyOrRelativePathError", 1430),
         ("InvalidPathError", 1),
-        *FILE_PATH_OPS,
+        *FILE_RW_OPS,
     ],
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,

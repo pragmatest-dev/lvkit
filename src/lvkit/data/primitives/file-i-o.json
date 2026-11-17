@@ -192,7 +192,18 @@
     },
     "8050": {
       "name": "Open/Create/Replace File",
+      "op": "OPEN_CREATE_REPLACE_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
         {
           "exception": "FileNotFoundError",
           "code": 7
@@ -200,6 +211,10 @@
         {
           "exception": "PermissionError",
           "code": 8
+        },
+        {
+          "exception": "FileExistsError",
+          "code": 10
         },
         {
           "exception": "OSError",
@@ -265,11 +280,6 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "refnum": "open(in_11, 'r+b')",
-        "cancelled": "False",
-        "error_out": "in_8"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html",
       "verified": false
     },
@@ -290,6 +300,11 @@
         {
           "exception": "EOFError",
           "code": 4
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
+          "code": 8
         },
         {
           "exception": "ValueError"
@@ -431,6 +446,11 @@
           "code": 8
         },
         {
+          "exception": "UnsupportedOperation",
+          "module": "io",
+          "code": 8
+        },
+        {
           "exception": "OSError",
           "code": 6
         }
@@ -520,6 +540,11 @@
           "code": 8
         },
         {
+          "exception": "UnsupportedOperation",
+          "module": "io",
+          "code": 8
+        },
+        {
           "exception": "OSError",
           "code": 6
         }
@@ -605,6 +630,11 @@
         },
         {
           "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
           "code": 8
         },
         {

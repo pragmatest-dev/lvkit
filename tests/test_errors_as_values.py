@@ -440,7 +440,7 @@ def test_another_file_failure_is_the_generic_file_error_6(
     ``PermissionError`` on Windows)."""
     package = generate(project, C.native_failure)
 
-    def device_error(*_args: Any) -> Any:
+    def device_error(*_args: Any, **_kwargs: Any) -> Any:
         raise OSError(errno.EIO, "I/O error")
 
     monkeypatch.setattr(package.module, "open", device_error, raising=False)
