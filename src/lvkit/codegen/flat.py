@@ -71,6 +71,9 @@ class UnsupportedLayout(Exception):
 # What a node writes for one integer of an array or cluster: (the integer's layout,
 # the expression of the integer) -> the expression of its result.
 IntegerLeaf = Callable[["Integer", str], str]
+# The same for two integers taken together: (first's layout, second's layout,
+# first's expression, second's expression) -> the expression of the result.
+PairLeaf = Callable[["Integer", "Integer", str, str], str]
 
 
 @dataclass(frozen=True)
@@ -184,6 +187,25 @@ class Layout(ABC):
         ``kind`` and ``tag`` name the helper function a cluster needs."""
         return value
 
+    def map_pairs(
+        self,
+        other: Layout,
+        value: str,
+        other_value: str,
+        leaf: PairLeaf,
+        kind: str,
+        tag: object,
+        depth: int,
+        fns: Functions,
+    ) -> str:
+        """The two values ``value`` (of this layout) and ``other_value`` (of
+        ``other``) taken together: ``leaf`` is applied to each pair of integers in
+        the same place of an array or cluster, and the result has this layout's
+        shape. Raises ``UnsupportedLayout`` naming both when the shapes differ."""
+        raise UnsupportedLayout(
+            f"{self.helper_label()} paired with {other.helper_label()}"
+        )
+
     def helper_label(self) -> str:
         return "value"
 
@@ -235,6 +257,13 @@ class Integer(Layout):
 
     def map_integers(self, value, leaf, kind, tag, depth, fns):
         return leaf(self, value)
+
+    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
+        if not isinstance(other, Integer):
+            return super().map_pairs(
+                other, value, other_value, leaf, kind, tag, depth, fns
+            )
+        return leaf(self, other, value, other_value)
 
 
 @dataclass(frozen=True)
@@ -516,6 +545,25 @@ class Sequence(Layout):
             expression = f"[{expression} for {names[level]} in {source}]"
         return expression
 
+    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
+        if not isinstance(other, Sequence) or other.dimensions != self.dimensions:
+            return super().map_pairs(
+                other, value, other_value, leaf, kind, tag, depth, fns
+            )
+        names = [f"_s{depth}_{level}" for level in range(self.dimensions)]
+        others = [f"_t{depth}_{level}" for level in range(self.dimensions)]
+        expression = self.element.map_pairs(
+            other.element, names[-1], others[-1], leaf, kind, tag, depth + 1, fns
+        )
+        for level in reversed(range(self.dimensions)):
+            source = value if level == 0 else names[level - 1]
+            other_source = other_value if level == 0 else others[level - 1]
+            expression = (
+                f"[{expression} for {names[level]}, {others[level]} "
+                f"in zip({source}, {other_source})]"
+            )
+        return expression
+
 
 def _reshape(flat: str, sizes: list[str], start: str = "", depth: int = 0) -> str:
     """The nested lists of ``flat`` with the given ``sizes``, outermost first;
@@ -635,7 +683,35 @@ class Record(Layout):
         )
         return f"{name}({value})"
 
-    def _mapped_source(self, name: str, members: list[str]) -> str:
+    def map_pairs(self, other, value, other_value, leaf, kind, tag, depth, fns):
+        if not isinstance(other, Record) or len(other.fields) != len(self.fields):
+            return super().map_pairs(
+                other, value, other_value, leaf, kind, tag, depth, fns
+            )
+        members = [
+            f.layout.map_pairs(
+                g.layout,
+                self._member("value", i),
+                other._member("other", i),
+                leaf,
+                kind,
+                tag,
+                0,
+                fns,
+            )
+            for i, (f, g) in enumerate(zip(self.fields, other.fields))
+        ]
+        name = fns.named(
+            kind,
+            self.label,
+            (self, other, tag),
+            lambda n: self._mapped_source(n, members, "value, other"),
+        )
+        return f"{name}({value}, {other_value})"
+
+    def _mapped_source(
+        self, name: str, members: list[str], parameters: str = "value"
+    ) -> str:
         if self.named:
             built = (
                 "SimpleNamespace("
@@ -644,7 +720,7 @@ class Record(Layout):
             )
         else:
             built = "(" + "".join(f"{m}, " for m in members) + ")"
-        return f"def {name}(value):\n    return {built}\n"
+        return f"def {name}({parameters}):\n    return {built}\n"
 
     def helper_label(self) -> str:
         return self.label

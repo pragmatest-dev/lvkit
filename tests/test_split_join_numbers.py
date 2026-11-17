@@ -3,6 +3,8 @@ and a cluster of integers: each case is generated on a one-node diagram and run.
 
 from __future__ import annotations
 
+import pytest
+
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import array, generate, node, scalar
 
@@ -130,11 +132,51 @@ def test_split_then_join_is_the_identity() -> None:
     assert join(U16, U16, U32)(halves.hi, halves.lo).r == value
 
 
-def test_join_of_clusters_is_a_gap_that_raises_when_run() -> None:
-    import pytest
+def test_join_a_cluster_joins_field_by_field() -> None:
+    halves = cluster(("a", U8), ("b", U8))
+    joined = cluster(("a", U16), ("b", U16))
+    assert join(halves, halves, joined)((1, 2), (3, 4)).r == (0x0103, 0x0204)
 
+
+def test_join_a_cluster_with_fields_of_different_widths() -> None:
+    high = cluster(("a", U8), ("b", U16))
+    low = cluster(("a", U8), ("b", U16))
+    joined = cluster(("a", U16), ("b", U32))
+    assert join(high, low, joined)((0x12, 0xABCD), (0x34, 0x0001)).r == (
+        0x1234,
+        0xABCD0001,
+    )
+
+
+def test_join_an_array_of_clusters() -> None:
     halves = cluster(("a", U8))
     joined = cluster(("a", U16))
-    function = join(halves, halves, joined)
-    with pytest.raises(NotImplementedError, match="Join Numbers of a cluster"):
-        function((1,), (2,))
+    result = join(array(halves), array(halves), array(joined))(
+        [(1,), (2,)], [(3,), (4,)]
+    )
+    assert result.r == [(0x0103,), (0x0204,)]
+
+
+def test_join_a_cluster_holding_an_array() -> None:
+    halves = cluster(("n", U8), ("list", array("NumUInt8")))
+    joined = cluster(("n", U16), ("list", array("NumUInt16")))
+    assert join(halves, halves, joined)((1, [1, 2]), (2, [3, 4])).r == (
+        0x0102,
+        [0x0103, 0x0204],
+    )
+
+
+def test_join_of_clusters_of_different_shapes_is_a_gap_naming_both() -> None:
+    high = cluster(("a", U8), ("b", U8))
+    low = cluster(("a", U8))
+    function = join(high, low, cluster(("a", U16)))
+    with pytest.raises(NotImplementedError) as raised:
+        function((1, 2), (3,))
+    assert "cluster (NumUInt8, NumUInt8) (hi)" in str(raised.value)
+    assert "cluster (NumUInt8) (lo)" in str(raised.value)
+
+
+def test_join_of_a_cluster_and_a_scalar_is_a_gap() -> None:
+    function = join(cluster(("a", U8)), U8, cluster(("a", U16)))
+    with pytest.raises(NotImplementedError, match="same shape"):
+        function((1,), 2)
