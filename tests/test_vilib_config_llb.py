@@ -383,7 +383,7 @@ def test_write_close_reopen_and_read_back(
     closed = _close(tmp_path, monkeypatch, ref)
     assert closed.path == path
     assert path.read_text(encoding="utf-8") == (
-        '[S]\nname="e"\nraw="x\\y"\nwhere="rel/dir/file.txt"\n\n'
+        '[S]\nname="e"\nraw="x\\y"\nwhere="rel/dir/file.txt"\n'
     )
     back = _open(tmp_path, monkeypatch, path=path).refnum
     assert (
@@ -410,7 +410,7 @@ def test_a_string_with_backslash_and_control_characters_round_trips(
     _write(tmp_path, monkeypatch, "String", STRING, ref, "k", value)
     _close(tmp_path, monkeypatch, ref)
     assert (
-        path.read_text(encoding="utf-8") == '[S]\nk="a = b ; c\\\\d\tend\\0Aline"\n\n'
+        path.read_text(encoding="utf-8") == '[S]\nk="a = b ; c\\\\d\tend\\0Aline"\n'
     )
     back = _open(tmp_path, monkeypatch, path=path).refnum
     assert (
@@ -485,7 +485,7 @@ def test_remove_key_reports_found_and_the_file_drops_the_key(
     )
     assert (found.found, missing.found) == (True, False)
     _close(tmp_path, monkeypatch, ref)
-    assert path.read_text(encoding="utf-8") == "[S]\nb=2\n\n"
+    assert path.read_text(encoding="utf-8") == "[S]\nb=2\n"
 
 
 def test_get_key_names_lists_the_keys_in_file_order(
@@ -525,6 +525,181 @@ def test_get_key_names_lists_the_keys_in_file_order(
         section="X",
     )
     assert (none.names, none.exists) == ([], False)
+
+
+def _remove_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ref: Any, section: str, key: str
+) -> Any:
+    return _call(
+        tmp_path,
+        monkeypatch,
+        "Remove Key",
+        [
+            (2, "output", BOOL),
+            (3, "output", REFNUM),
+            (7, "input", STRING),
+            (10, "input", STRING),
+            (11, "input", REFNUM),
+        ],
+        {"ref": (11, REFNUM), "section": (7, STRING), "key": (10, STRING)},
+        {"found": (2, BOOL)},
+        ref=ref,
+        section=section,
+        key=key,
+    )
+
+
+def test_writing_back_keeps_the_comments_blank_lines_and_order_of_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ini(
+        tmp_path,
+        "; settings for the app\n"
+        "# hash line\n"
+        "\n"
+        "[First]\n"
+        "; about a\n"
+        "a=1\n"
+        "b = 2 ;c\n"
+        "keep=x\n"
+        "\n"
+        "[Second]\n"
+        "z=9\n",
+    )
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    _write(tmp_path, monkeypatch, "String", STRING, ref, "A", "new", section="First")
+    _write(tmp_path, monkeypatch, "String", STRING, ref, "fresh", "v", section="First")
+    _write(tmp_path, monkeypatch, "String", STRING, ref, "t", "v", section="Third")
+    assert _remove_key(tmp_path, monkeypatch, ref, "First", "b").found is True
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == (
+        "; settings for the app\n"
+        "# hash line\n"
+        "\n"
+        "[First]\n"
+        "; about a\n"
+        'a="new"\n'
+        "keep=x\n"
+        'fresh="v"\n'
+        "\n"
+        "[Second]\n"
+        "z=9\n"
+        "\n"
+        "[Third]\n"
+        't="v"\n'
+    )
+    back = _open(tmp_path, monkeypatch, path=path).refnum
+    assert _read(tmp_path, monkeypatch, "String", STRING, back, "keep", "First").found
+
+
+def test_a_changed_key_keeps_the_text_before_its_value_and_a_second_write_is_a_diff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ini(tmp_path, "[S]\nk  =  1\nj=2\n")
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    _write(tmp_path, monkeypatch, "I32", I32, ref, "k", 5)
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == "[S]\nk  =  5\nj=2\n"
+    _write(tmp_path, monkeypatch, "I32", I32, ref, "j", 6)
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == "[S]\nk  =  5\nj=6\n"
+
+
+def test_writing_back_keeps_the_line_endings_of_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "crlf.ini"
+    path.write_bytes(b"; c\r\n[S]\r\na=1\r\n")
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    _write(tmp_path, monkeypatch, "I32", I32, ref, "a", 2)
+    _write(tmp_path, monkeypatch, "I32", I32, ref, "b", 3)
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_bytes() == b"; c\r\n[S]\r\na=2\r\nb=3\r\n"
+
+
+def test_a_key_with_continuation_lines_is_removed_with_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ini(tmp_path, "[S]\na=1\n  more\nb=2\n")
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    _remove_key(tmp_path, monkeypatch, ref, "S", "a")
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == "[S]\nb=2\n"
+
+
+def test_write_key_boolean_i32_and_u32_write_their_text_and_read_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ini(tmp_path)
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    created = _write(tmp_path, monkeypatch, "Boolean", BOOL, ref, "flag", True)
+    assert created.found is False
+    assert _write(tmp_path, monkeypatch, "Boolean", BOOL, ref, "FLAG", False).found
+    _write(tmp_path, monkeypatch, "Boolean", BOOL, ref, "on", True)
+    _write(tmp_path, monkeypatch, "I32", I32, ref, "n", -5)
+    _write(tmp_path, monkeypatch, "U32", U32, ref, "u", 4000000000)
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == (
+        "[S]\nflag=FALSE\non=TRUE\nn=-5\nu=4000000000\n"
+    )
+    back = _open(tmp_path, monkeypatch, path=path).refnum
+    flag = _read(tmp_path, monkeypatch, "Boolean", BOOL, back, "on", default=False)
+    assert flag.value is True
+    number = _read(tmp_path, monkeypatch, "I32", I32, back, "n", default=0)
+    assert number.value == -5
+    big = _read(tmp_path, monkeypatch, "U32", U32, back, "u", default=0)
+    assert big.value == 4000000000
+
+
+def test_remove_section_reports_found_and_the_file_drops_its_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _ini(tmp_path, "[A]\nx=1\n; kept\n[B]\ny=2\n")
+    ref = _open(tmp_path, monkeypatch, path=path).refnum
+    pane = [
+        (2, "output", BOOL),
+        (3, "output", REFNUM),
+        (7, "input", STRING),
+        (11, "input", REFNUM),
+    ]
+    inputs = {"ref": (11, REFNUM), "section": (7, STRING)}
+    outputs = {"exists": (2, BOOL)}
+
+    def remove() -> Any:
+        return _call(
+            tmp_path,
+            monkeypatch,
+            "Remove Section",
+            pane,
+            inputs,
+            outputs,
+            ref=ref,
+            section="a",
+        )
+
+    first, again = remove(), remove()
+    assert (first.exists, again.exists) == (True, False)
+    _close(tmp_path, monkeypatch, ref)
+    assert path.read_text(encoding="utf-8") == "; kept\n[B]\ny=2\n"
+
+
+def test_write_key_double_stays_a_gap_for_its_unrecorded_extra_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gaps: list[Gap] = []
+    with pytest.raises(NotImplementedError, match="Write Key"):
+        run_catalog_call(
+            tmp_path,
+            monkeypatch,
+            [*LLB, "Write Key (Double).vi"],
+            pane=[(3, "output", REFNUM), (11, "input", REFNUM), (9, "input", DBL)],
+            inputs={"ref": (11, REFNUM), "value": (9, DBL)},
+            outputs={"ref_out": (3, REFNUM)},
+            arguments={"ref": None, "value": 1.5},
+            gaps=gaps,
+            runtime_not_implemented=True,
+        )
+    assert [gap.node_name for gap in gaps] == ["Write Key (Double).vi"]
 
 
 def test_a_neighbour_with_no_recorded_pane_stays_a_gap(

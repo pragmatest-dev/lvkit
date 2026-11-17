@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 113,
+  "count": 116,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -2001,7 +2001,7 @@
       "name": "Open Config Data",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/open-config-data-vi.html",
       "category": "File I/O",
-      "description": "Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Open Config Data.vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2086,14 +2086,15 @@
           "code": 6
         }
       ],
-      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\nwith open(_path, encoding='utf-8') as _file:\n    _cfg.read_file(_file)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = _IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
       "name": "Open Config Data (compatibility)",
       "doc_url": null,
       "category": "File I/O",
-      "description": "The 8.6-era Open Config Data VI NI keeps in NI_LVConfig.lvlib so older code does not break (forums.ni.com/t5/LabVIEW/Open-Config-Data-Compatibility-VI-8-6/m-p/1441950: the newer VI added an output for the file format and extra handling of non-standard files). Its pane is the same as Open Config Data's and it opens the file the same way: Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "The 8.6-era Open Config Data VI NI keeps in NI_LVConfig.lvlib so older code does not break (forums.ni.com/t5/LabVIEW/Open-Config-Data-Compatibility-VI-8-6/m-p/1441950: the newer VI added an output for the file format and extra handling of non-standard files). Its pane is the same as Open Config Data's and it opens the file the same way: Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Open Config Data (compatibility).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2178,14 +2179,15 @@
           "code": 6
         }
       ],
-      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\nwith open(_path, encoding='utf-8') as _file:\n    _cfg.read_file(_file)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = _IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
       "name": "Read Key (String)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-string-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (String).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2300,7 +2302,7 @@
       "name": "Read Key (Boolean)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-boolean-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (Boolean).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2405,7 +2407,7 @@
       "name": "Read Key (Double)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-double-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (Double).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2510,7 +2512,7 @@
       "name": "Read Key (I32)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-i32-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (I32).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2615,7 +2617,7 @@
       "name": "Read Key (U32)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-u32-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (U32).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2720,7 +2722,7 @@
       "name": "Read Key (Path)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-path-vi.html",
       "category": "File I/O",
-      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Read Key (Path).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2825,7 +2827,7 @@
       "name": "Write Key (String)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-string-vi.html",
       "category": "File I/O",
-      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Write Key (String).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -2930,7 +2932,7 @@
       "name": "Write Key (Path)",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-path-vi.html",
       "category": "File I/O",
-      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Write Key (Path).vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -3019,6 +3021,291 @@
         "from pathlib import Path"
       ],
       "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_p = {value}\n_s = '' if _p is None else Path(_p).as_posix()\nif _p is not None and Path(_p).drive:\n    _s = '/' + Path(_p).drive[0].casefold() + _s[2:]\n_encoded = '\"' + _s + '\"'\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (Boolean)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-boolean-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (Boolean): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (Boolean) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A Boolean is written as TRUE or FALSE (NI: 'LabVIEW writes Boolean values as TRUE and FALSE by default').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (Boolean).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (Boolean).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = 'TRUE' if {value} else 'FALSE'\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (I32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-i32-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (I32): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (I32) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A number is written in decimal with no quotation marks (NI: 'they place quotation marks around any string or path data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (I32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "I32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (I32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = str({value})\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (U32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-u32-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (U32): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (U32) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A number is written in decimal with no quotation marks (NI: 'they place quotation marks around any string or path data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (U32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "U32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (U32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = str({value})\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
       "inline": true
     },
     {
@@ -3151,7 +3438,7 @@
       "name": "Remove Key",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-key-vi.html",
       "category": "File I/O",
-      "description": "Removes a key in a specified section from the configuration data identified by refnum. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Removes a key in a specified section from the configuration data identified by refnum. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Remove Key.vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -3237,33 +3524,51 @@
       "name": "Remove Section",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-section-vi.html",
       "category": "File I/O",
-      "description": "Removes a section from the configuration data identified by refnum.",
-      "vi_path": null,
+      "description": "Removes a section from the configuration data identified by refnum. The terminal indices are those of Remove Key (section 7, error in 8, refnum 11; refnum out 3, the Boolean 2, error out 0): NI's Remove Section pane image draws the same wires as Remove Key's with the key wire absent. Remove Key, Get Key Names and Remove Section take the same section, refnum and error in terminals at the same positions. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Remove Section.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "section",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "section exists?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "section_exists",
+          "description": "section exists? is TRUE if the VI found the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
           "enum_values": null,
           "python_param": "section",
           "description": "section is the name of the section to remove."
         },
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
-        },
-        {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -3271,39 +3576,32 @@
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is the reference number of the configuration data."
-        },
-        {
-          "name": "section exists?",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "section_exists",
-          "description": "section exists? is TRUE if the VI found the specified section ."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
         }
-      ]
+      ],
+      "match_names": [
+        "Remove Section.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n{section_exists} = _sec is not None\nif _sec is not None:\n    _cfg.remove_section(_sec)\n    {refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
     },
     {
       "name": "Close Config Data",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/close-config-data-vi.html",
       "category": "File I/O",
-      "description": "Writes data to the platform-independent configuration file identified by refnum and then closes the reference to that file. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Writes data to the platform-independent configuration file identified by refnum and then closes the reference to that file. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Close Config Data.vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -3375,14 +3673,15 @@
           "code": 6
         }
       ],
-      "python_code": "_ref = {refnum}\n{file_path} = _ref['path']\nif {write_file_if_changed} and _ref['changed']:\n    with open(_ref['path'], 'w', encoding='utf-8') as _file:\n        _ref['parser'].write(_file, space_around_delimiters=False)\n    _ref['changed'] = False",
+      "python_code": "_ref = {refnum}\n{file_path} = _ref['path']\nif {write_file_if_changed} and _ref['changed']:\n    _ref['parser'].save(_ref['path'])\n    _ref['changed'] = False",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
       "name": "Get Key Names",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/get-key-names-vi.html",
       "category": "File I/O",
-      "description": "Gets the names of all keys in the specified section from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); comments and lines without a key in an existing file are not kept when it is written back (NI preserves them).",
+      "description": "Gets the names of all keys in the specified section from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
       "vi_path": "<vilib>/Utility/config.llb/Get Key Names.vi",
       "is_polymorphic": false,
       "python_hint": null,
@@ -8915,7 +9214,8 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
@@ -8966,7 +9266,8 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
@@ -9017,7 +9318,8 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
@@ -9136,7 +9438,8 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = '\"' + ';'.join('' if _p is None else str(_p) for _p in {value}) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + ';'.join('' if _p is None else str(_p) for _p in {value}) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {
@@ -9178,7 +9481,8 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    with open(_ini, 'w', encoding='utf-8') as _file:\n        _cfg.write(_file, space_around_delimiters=False)",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    _cfg.save(_ini)",
+      "helpers": ["ini_file"],
       "inline": true
     },
     {

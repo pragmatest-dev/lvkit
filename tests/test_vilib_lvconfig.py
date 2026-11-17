@@ -162,7 +162,7 @@ def test_write_string_then_read_back_with_equals_spaces_and_backslashes(
     value = "a = b ; c\\d\tend\nline"
     _write(tmp_path, monkeypatch, "LV Config Write String", STRING, "Path", value)
     text = _ini(tmp_path).read_text(encoding="utf-8")
-    assert text == '[LabVIEW]\nPath="a = b ; c\\\\d\tend\\0Aline"\n\n'
+    assert text == '[LabVIEW]\nPath="a = b ; c\\\\d\tend\\0Aline"\n'
     result = _read(
         tmp_path, monkeypatch, "LV Config Read String", STRING, key="Path", default=""
     )
@@ -176,7 +176,32 @@ def test_write_string_keeps_the_other_keys_and_the_case_of_the_key_it_replaces(
     _ini(tmp_path).write_text('[LabVIEW]\nKeepMe="1"\nMyKey="old"\n', encoding="utf-8")
     _write(tmp_path, monkeypatch, "LV Config Write String", STRING, "MYKEY", "new")
     assert _ini(tmp_path).read_text(encoding="utf-8") == (
-        '[LabVIEW]\nKeepMe="1"\nMyKey="new"\n\n'
+        '[LabVIEW]\nKeepMe="1"\nMyKey="new"\n'
+    )
+
+
+def test_write_and_remove_keep_the_comments_blank_lines_and_other_sections(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _ini(tmp_path).write_text(
+        "; top\n[LabVIEW]\n# note\nKeep=\"1\"\n\nOld=\"x\"\nGone=2\n[DEFAULT]\nd=1\n"
+        "[Other]\nq=1\n",
+        encoding="utf-8",
+    )
+    _write(tmp_path, monkeypatch, "LV Config Write String", STRING, "old", "new")
+    _write(tmp_path, monkeypatch, "LV Config Write String", STRING, "Fresh", "v")
+    run_catalog_call(
+        tmp_path,
+        monkeypatch,
+        [*LLB, "LV Config Remove.vi"],
+        pane=[(7, "input", STRING)],
+        inputs={"key": (7, STRING)},
+        outputs={},
+        arguments={"key": "gone"},
+    )
+    assert _ini(tmp_path).read_text(encoding="utf-8") == (
+        "; top\n[LabVIEW]\n# note\nKeep=\"1\"\n\nOld=\"new\"\nFresh=\"v\"\n"
+        "[DEFAULT]\nd=1\n[Other]\nq=1\n"
     )
 
 
@@ -238,7 +263,7 @@ def test_remove_deletes_only_that_key(
         outputs={},
         arguments={"key": "b"},
     )
-    assert _ini(tmp_path).read_text(encoding="utf-8") == "[LabVIEW]\na=1\n\n"
+    assert _ini(tmp_path).read_text(encoding="utf-8") == "[LabVIEW]\na=1\n"
 
 
 def test_get_preferences_file_path_is_the_package_ini(
@@ -351,7 +376,7 @@ def test_write_pathlist_then_read_back_and_the_file_text(
         arguments={"key": "Paths", "value": paths},
     )
     assert _ini(tmp_path).read_text(encoding="utf-8") == (
-        '[LabVIEW]\nPaths="a/b;<vilib>:\\*;c"\n\n'
+        '[LabVIEW]\nPaths="a/b;<vilib>:\\*;c"\n'
     )
     result = _read_pathlist(tmp_path, monkeypatch, key="paths", default=[])
     assert result.value == paths
