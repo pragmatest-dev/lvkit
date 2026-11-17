@@ -122,6 +122,7 @@ VILIB_DEFAULTS = [
     ("Generate Temporary File Path", "Temporary File Extension (tmp)", "tmp"),
     ("Write to System Log", "severity", 0),
     ("Picture to Pixmap", "depth", 24),
+    ("Picture to Pixmap", "Background Color", 0),
     ("General Error Handler", "[error code] (0)", 0),
     ("General Error Handler", '[error source] (" ")', " "),
     ("General Error Handler", "[exception action] (none:0)", 0),

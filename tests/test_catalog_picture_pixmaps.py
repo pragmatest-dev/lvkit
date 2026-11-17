@@ -246,8 +246,11 @@ PICTURE_TO_PIXMAP_PANE = [
 
 
 def _to_pixmap(tmp_path, monkeypatch, picture, depth=None, rect=None, bg=WHITE) -> Any:
-    inputs: dict[str, Any] = {"picture": (11, PICTURE), "background_color": (8, I32)}
-    arguments: dict[str, Any] = {"picture": picture, "background_color": bg}
+    inputs: dict[str, Any] = {"picture": (11, PICTURE)}
+    arguments: dict[str, Any] = {"picture": picture}
+    if bg is not None:
+        inputs["background_color"] = (8, I32)
+        arguments["background_color"] = bg
     if depth is not None:
         inputs["depth"] = (9, I32)
         arguments["depth"] = depth
@@ -289,6 +292,17 @@ def test_picture_to_pixmap_rect_crops_and_transparent_pixels_take_the_background
     assert result.image_data[5] == (1, 0, 3, 1)
     assert _unflatten(tmp_path, monkeypatch, result.image_data).pixmap_24bit == [
         [0x123456, BLUE]
+    ]
+
+
+def test_picture_to_pixmap_unwired_background_color_is_black(
+    tmp_path, monkeypatch
+) -> None:
+    picture = _picture([[RED, GREEN, BLUE]])
+    picture.putpixel((1, 0), (0, 0, 0, 0))
+    result = _to_pixmap(tmp_path, monkeypatch, picture, bg=None)
+    assert _unflatten(tmp_path, monkeypatch, result.image_data).pixmap_24bit == [
+        [RED, 0x000000, BLUE]
     ]
 
 

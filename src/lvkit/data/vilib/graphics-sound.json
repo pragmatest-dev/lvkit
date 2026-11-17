@@ -5005,7 +5005,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "background_color",
-          "description": "Background Color sets the background color of the image."
+          "description": "Background Color sets the background color of the image. NI states no default; unwired it is its number type's default, 0 (black, 0x000000), by the maintainer's decision (2026-11-16).",
+          "default": 0
         },
         {
           "name": "depth",
