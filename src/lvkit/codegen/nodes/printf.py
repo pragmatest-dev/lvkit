@@ -24,6 +24,7 @@ from ..fragment import CodeFragment
 from ..gaps import gap_of, raise_statement
 from ..labview_format import (
     _lv_decode_escapes,
+    _lv_default_code,
     _lv_format_into_string,
     _lv_negative_float_reason,
     _lv_parse,
@@ -39,21 +40,6 @@ from .ops._numeric import FormatKind, format_kind
 _FORMAT_INDEX = 0
 _INITIAL_INDEX = 1
 _FIRST_VALUE_INDEX = 5
-# What a Format Into String with no format string writes for each kind of input
-# (see ``_default_format``): a string, a path, an enum (its item label) and a
-# Boolean (TRUE or FALSE) as ``%s``, an integer as ``%d``, a floating-point
-# number and the real part of a complex one as ``%f``.
-_DEFAULT_CODES = {
-    "string": "%s",
-    "path": "%s",
-    "enum": "%s",
-    "bool": "%s",
-    "int": "%d",
-    "float": "%f",
-    "complex": "%f",
-    "timestamp": "%<%.3X %x>T",
-}
-
 
 def literal_text(source: str) -> str | None:
     """The text of the string literal ``source`` (its escapes decoded), or None
@@ -66,7 +52,8 @@ def literal_text(source: str) -> str | None:
 
 
 def _default_format(node: PrimitiveNode, kinds: list[FormatKind]) -> str:
-    """The format string LabVIEW uses when none is wired: one code per value, by
+    """The format string LabVIEW uses when none is wired or it is empty (see
+    ``_lv_format_into_string``): one code per value, by
     the value's own type, joined by one space. NI: "Defaults match the data type
     of the input arguments" (Format Into String); the code of each type is the one
     its Format Specifier Syntax page gives (``%d`` signed decimal integer, ``%f``
@@ -80,7 +67,7 @@ def _default_format(node: PrimitiveNode, kinds: list[FormatKind]) -> str:
     Bug: Format Into String Adds Spaces". A kind with no code is a gap."""
     codes: list[str] = []
     for kind in kinds:
-        code = _DEFAULT_CODES.get(kind.kind)
+        code = _lv_default_code(kind.kind)
         if code is None:
             raise ConversionGap(
                 "Format Into String has no format string, and its default "
@@ -365,7 +352,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if format_value is not None and text is None:
         expr = _runtime_format(format_value, arguments, initial, ctx)
     else:
-        if format_value is None:
+        if format_value is None or (text == "" and arguments):
+            # An empty format string is the same as none (``_lv_format_into_string``).
             text = _default_format(node, [kind for _, kind in arguments])
         assert text is not None
         expr = _literal_format(text, arguments, initial, node, ctx, negative_gaps)

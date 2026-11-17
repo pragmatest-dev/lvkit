@@ -308,6 +308,39 @@ def test_no_format_string_writes_each_value_by_its_type(
     assert _run(None, arguments, initial=initial) == expected
 
 
+@pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
+@pytest.mark.parametrize(
+    ("arguments", "expected", "initial"),
+    DEFAULT_CASES,
+    ids=[case[1] for case in DEFAULT_CASES],
+)
+def test_an_empty_format_string_is_the_same_as_none(
+    arguments: list[tuple[Any, LVType]],
+    expected: str,
+    initial: str | None,
+    wired_format: bool,
+) -> None:
+    assert _run("", arguments, initial=initial, wired_format=wired_format) == expected
+
+
+@pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
+def test_an_empty_format_string_with_no_values_writes_the_initial_string(
+    wired_format: bool,
+) -> None:
+    assert _run("", [], initial="pre", wired_format=wired_format) == "pre"
+
+
+def test_an_empty_diagram_format_and_a_timestamp_is_a_gap() -> None:
+    with pytest.raises(ConversionGap, match="embedded time format"):
+        _build("", [(1.5, TIME)])
+
+
+def test_an_empty_wired_format_and_a_timestamp_raises_where_it_runs() -> None:
+    source, values = _build("", [(1.5, TIME)], wired_format=True)
+    with pytest.raises(NotImplementedError):
+        exec(compile(source, "printf", "exec"), dict(values))
+
+
 def test_no_format_string_and_a_timestamp_is_a_gap_for_its_time_format() -> None:
     with pytest.raises(ConversionGap, match=r"%<%\.3X %x>T.*embedded time format"):
         _build(None, [(1.5, TIME)])

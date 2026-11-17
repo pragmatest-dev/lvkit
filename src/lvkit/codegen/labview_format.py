@@ -298,12 +298,51 @@ def _lv_format_value(spec, value, kind, bits, labels, point=None):
     return _lv_pad(text, spec.width, spec.left, spec.zero)
 
 
+def _lv_default_code(kind):
+    """The specifier Format Into String writes a value of ``kind`` with when it has
+    no format string, or None for a kind with no default: ``%s`` for a string, a
+    path, an enum (its item label) and a Boolean (TRUE or FALSE), ``%d`` for an
+    integer, ``%f`` for a floating-point number and the real part of a complex one,
+    ``%<%.3X %x>T`` for a time stamp.
+
+    NI, Format Into String: "Defaults match the data type of the input arguments"
+    (``format string``); the codes are those of NI's Format Specifier Syntax page."""
+    codes = {
+        "string": "%s",
+        "path": "%s",
+        "enum": "%s",
+        "bool": "%s",
+        "int": "%d",
+        "float": "%f",
+        "complex": "%f",
+        "timestamp": "%<%.3X %x>T",
+    }
+    return codes.get(kind)
+
+
 def _lv_format_into_string(format_string, initial, args):
     """What Format Into String writes: ``initial`` followed by the format string
     with each specifier replaced by the value it takes from ``args``, a list of
-    ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels)."""
+    ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels).
+
+    An empty format string is the same as none: one default specifier per value,
+    joined by a space. A forum answer to "format into string bug"
+    (forums.ni.com/t5/LabVIEW/format-into-string-bug/td-p/614667): "Make the
+    entire format string empty, you do get the start string with all the strings
+    concatenated to the end, and no error."."""
     text = initial
     point = None
+    if format_string == "" and args:
+        codes = []
+        for arg in args:
+            code = _lv_default_code(arg[1])
+            if code is None:
+                raise NotImplementedError(
+                    "Format Into String with an empty format string has no default "
+                    "format for a " + str(arg[1]) + " input"
+                )
+            codes.append(code)
+        format_string = " ".join(codes)
     for piece in _lv_parse(format_string):
         if isinstance(piece, str):
             text += _lv_decode_escapes(piece)
@@ -343,7 +382,9 @@ _DEPENDENCIES: dict[object, tuple[object, ...]] = {
         _lv_scientific,
         _lv_negative_float_reason,
     ),
+    _lv_default_code: (),
     _lv_format_into_string: (
+        _lv_default_code,
         _lv_decode_escapes,
         _lv_parse,
         _lv_unsupported,
