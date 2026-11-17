@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from collections.abc import Sequence as SequenceOf
 from dataclasses import dataclass
 
@@ -65,6 +66,11 @@ _STRING_REFNUMS = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"}
 class UnsupportedLayout(Exception):
     """A type whose flattened form this does not write (extended-precision
     numbers, variants, …); the message names it."""
+
+
+# What a node writes for one integer of an array or cluster: (the integer's layout,
+# the expression of the integer) -> the expression of its result.
+IntegerLeaf = Callable[["Integer", str], str]
 
 
 @dataclass(frozen=True)
@@ -164,11 +170,18 @@ class Layout(ABC):
         """Lines that read this type from ``data`` at ``pos`` into ``target``,
         advancing ``pos``."""
 
-    def swap(
-        self, value: str, chunk: int, width_min: int, depth: int, fns: Functions
+    def map_integers(
+        self,
+        value: str,
+        leaf: IntegerLeaf,
+        kind: str,
+        tag: object,
+        depth: int,
+        fns: Functions,
     ) -> str:
-        """``value`` with the ``chunk``-byte halves swapped in every integer of at
-        least ``width_min`` bytes (other values are kept)."""
+        """``value`` with ``leaf(integer layout, element)`` applied to every integer
+        in it, an array or cluster keeping its shape (other values are kept).
+        ``kind`` and ``tag`` name the helper function a cluster needs."""
         return value
 
     def helper_label(self) -> str:
@@ -220,24 +233,8 @@ class Integer(Layout):
         )
         out.add(f"pos += {self.width}")
 
-    def swap(self, value, chunk, width_min, depth, fns):
-        if self.width < width_min:
-            return value
-        signed = self.code.islower()
-        name = fns.named(
-            f"swap_{'bytes' if chunk == 1 else 'words'}",
-            self.ctype,
-            (self.ctype,),
-            lambda n: (
-                f"def {n}(value):\n"
-                f"    raw = ctypes.{self.ctype}(value).value.to_bytes("
-                f"{self.width}, 'big', signed={signed})\n"
-                f"    swapped = b''.join(raw[i + {chunk}:i + {2 * chunk}] + "
-                f"raw[i:i + {chunk}] for i in range(0, {self.width}, {2 * chunk}))\n"
-                f"    return int.from_bytes(swapped, 'big', signed={signed})\n"
-            ),
-        )
-        return f"{name}({value})"
+    def map_integers(self, value, leaf, kind, tag, depth, fns):
+        return leaf(self, value)
 
 
 @dataclass(frozen=True)
@@ -506,9 +503,11 @@ class Sequence(Layout):
         if self.dimensions > 1:
             out.add(f"{target} = {_reshape(flat, sizes)}")
 
-    def swap(self, value, chunk, width_min, depth, fns):
+    def map_integers(self, value, leaf, kind, tag, depth, fns):
         names = [f"_s{depth}_{level}" for level in range(self.dimensions)]
-        inner = self.element.swap(names[-1], chunk, width_min, depth + 1, fns)
+        inner = self.element.map_integers(
+            names[-1], leaf, kind, tag, depth + 1, fns
+        )
         if inner == names[-1]:
             return value
         expression = inner
@@ -621,23 +620,22 @@ class Record(Layout):
         out.add(f"return {built}, pos")
         return f"def {name}(data, pos):\n" + "\n".join(out.lines) + "\n"
 
-    def swap(self, value, chunk, width_min, depth, fns):
+    def map_integers(self, value, leaf, kind, tag, depth, fns):
         members = [
-            f.layout.swap(self._member("value", i), chunk, width_min, 0, fns)
+            f.layout.map_integers(self._member("value", i), leaf, kind, tag, 0, fns)
             for i, f in enumerate(self.fields)
         ]
         if all(m == self._member("value", i) for i, m in enumerate(members)):
             return value
-        kind = "bytes" if chunk == 1 else "words"
         name = fns.named(
-            f"swap_{kind}",
+            kind,
             self.label,
-            (self, width_min),
-            lambda n: self._swap_source(n, members),
+            (self, tag),
+            lambda n: self._mapped_source(n, members),
         )
         return f"{name}({value})"
 
-    def _swap_source(self, name: str, members: list[str]) -> str:
+    def _mapped_source(self, name: str, members: list[str]) -> str:
         if self.named:
             built = (
                 "SimpleNamespace("

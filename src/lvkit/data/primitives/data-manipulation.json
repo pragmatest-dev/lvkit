@@ -362,11 +362,9 @@
           "type": "NumUInt16"
         }
       ],
-      "python_code": {
-        "hilo": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
-      },
+      "op": "JOIN_NUMBERS",
       "verified": true,
-      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result. Emitted via the JOIN_NUMBERS op handler, which shifts hi up by the width of the widest input (NI's page) and joins arrays element by element."
     },
     "1606": {
       "name": "Rotate Left With Carry",
