@@ -134,7 +134,11 @@ PRIMITIVES = {
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8074:Set File Size": FILE_REFNUM_OPS,
     "8076:Set Permissions": FILE_PATH_OPS,
-    "8078:Write to Binary File": FILE_REFNUM_OPS,
+    "8078:Write to Binary File": [
+        ("EmptyOrRelativePathError", 1430),
+        ("InvalidPathError", 1),
+        *FILE_PATH_OPS,
+    ],
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8003:Variant To Data": [("TypeError", 91)],

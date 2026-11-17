@@ -499,7 +499,26 @@
     },
     "8078": {
       "name": "Write to Binary File",
+      "op": "WRITE_TO_BINARY_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
         {
           "exception": "OSError",
           "code": 6
@@ -563,11 +582,6 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "refnum_out": "(in_11.write(in_10), in_11)[1]",
-        "error_out": "in_8",
-        "cancelled": "False"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
       "verified": false
     },
