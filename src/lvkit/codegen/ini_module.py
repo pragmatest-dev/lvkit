@@ -1,10 +1,11 @@
-"""Module-level classes a catalog entry's inline Python uses (``VIEntry.helpers``).
+"""The module a generated package holds for a Configuration File VI's .ini file.
 
-A helper is plain standard-library Python that imports nothing from lvkit; its source
-is copied into the generated module once, however many nodes use it, and the entry's
-Python refers to it by its class name.
+It is written once into the package root as ``ini.py``, only when a generated module
+imports it (a catalog entry whose ``imports`` list ``from .ini import IniFile``), and
+imports nothing from the package or from lvkit. Its source is the header below and the
+text of ``IniFile``.
 
-``_IniFile``: Python has no call that changes an .ini file in place. ``configparser``
+``IniFile``: Python has no call that changes an .ini file in place. ``configparser``
 writes a file back from its in-memory data and drops every comment and blank line,
 and NI's Configuration File VIs keep them: "During a write operation, Configuration
 File VIs preserve lines that lack section names or value-key pairs." (NI, Windows
@@ -17,14 +18,28 @@ other line stays byte for byte.
 
 from __future__ import annotations
 
-import ast
 import configparser
 import inspect
 import re
-from dataclasses import dataclass
+
+INI_MODULE_NAME = "ini"
+INI_CLASS_NAME = "IniFile"
+
+# A relative import of the package's ``ini`` module.
+_INI_IMPORT = re.compile(rf"^from \.+{INI_MODULE_NAME} import ")
 
 
-class _IniFile(configparser.ConfigParser):
+def imports_ini(statement: str) -> bool:
+    """Whether ``statement`` imports from the package's ``ini`` module."""
+    return _INI_IMPORT.match(statement) is not None
+
+
+def ini_import(prefix: str) -> str:
+    """``from <prefix>ini import IniFile``."""
+    return f"from {prefix}{INI_MODULE_NAME} import {INI_CLASS_NAME}"
+
+
+class IniFile(configparser.ConfigParser):
     """A ``ConfigParser`` that saves by editing the text it loaded."""
 
     _ini_text = ""
@@ -148,21 +163,15 @@ class _IniFile(configparser.ConfigParser):
         self._ini_original = self._ini_snapshot()
 
 
-@dataclass(frozen=True)
-class CatalogHelper:
-    """A helper class and the imports its source needs."""
+_HEADER = '''"""Reads and writes an .ini file as NI's Configuration File VIs do: a write
+keeps the file's comments, blank lines and order."""
 
-    source: type
-    imports: tuple[str, ...]
+from __future__ import annotations
 
-
-HELPERS: dict[str, CatalogHelper] = {
-    "ini_file": CatalogHelper(_IniFile, ("import configparser", "import re")),
-}
+import configparser
+import re
 
 
-def helper_definition(name: str) -> ast.ClassDef:
-    """The class definition of catalog helper ``name``."""
-    (definition,) = ast.parse(inspect.getsource(HELPERS[name].source)).body
-    assert isinstance(definition, ast.ClassDef)
-    return definition
+'''
+
+INI_MODULE_SOURCE = _HEADER + inspect.getsource(IniFile)

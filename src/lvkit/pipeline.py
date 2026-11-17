@@ -41,6 +41,12 @@ from lvkit.codegen.grpc_server_module import (
     GRPC_SERVER_MODULE_SOURCE,
 )
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.ini_module import (
+    INI_CLASS_NAME,
+    INI_MODULE_NAME,
+    INI_MODULE_SOURCE,
+    ini_import,
+)
 from lvkit.codegen.live_io_module import (
     LIVE_IO_MODULE_NAME,
     LIVE_IO_MODULE_SOURCE,
@@ -406,6 +412,10 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{SCAN_MODULE_NAME}.py")
         return scan_import(dots)
 
+    def ini_import_statement() -> str:
+        dots, package, module = relative(output_dir / f"{INI_MODULE_NAME}.py")
+        return ini_import(dots)
+
     def grpc_server_import(names: str) -> str:
         dots, package, module = relative(output_dir / f"{GRPC_SERVER_MODULE_NAME}.py")
         return f"from {dots}{module} import {names}"
@@ -436,6 +446,7 @@ def create_import_resolver(
         variant_import,
         grpc_server_import,
         scan_import_statement,
+        ini_import_statement,
     )
 
 
@@ -529,6 +540,17 @@ def _write_scan_module(package_root: Path) -> None:
         f".{SCAN_MODULE_NAME} import {SCAN_FUNCTION_NAME}",
         SCAN_MODULE_NAME,
         SCAN_MODULE_SOURCE,
+    )
+
+
+def _write_ini_module(package_root: Path) -> None:
+    """Write ``ini.py`` at the package root when a generated module imports from
+    it."""
+    _write_support_module(
+        package_root,
+        f".{INI_MODULE_NAME} import {INI_CLASS_NAME}",
+        INI_MODULE_NAME,
+        INI_MODULE_SOURCE,
     )
 
 
@@ -982,6 +1004,7 @@ def generate_python(
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
             SCAN_MODULE_NAME,
+            INI_MODULE_NAME,
         ],
     )
     package_modules = PackageModules.from_graph(
@@ -996,6 +1019,7 @@ def generate_python(
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
             SCAN_MODULE_NAME,
+            INI_MODULE_NAME,
         },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
@@ -1279,6 +1303,7 @@ def generate_python(
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)
     _write_scan_module(output_dir_resolved)
+    _write_ini_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")

@@ -67,6 +67,7 @@ from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .grpc_server_module import GRPC_SERVER_MODULE_NAME
 from .import_resolver import ImportResolver, NameImport
+from .ini_module import ini_import
 from .label_names import python_label
 from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .local_indicators import LocalIndicators
@@ -733,6 +734,13 @@ class CodeGenContext:
         if isinstance(self.import_resolver, ImportResolver):
             statement = self.import_resolver.scan_import()
         self.add_import(statement or scan_import("."))
+
+    def import_ini(self) -> None:
+        """Import ``IniFile`` from the package's ``ini`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.ini_import()
+        self.add_import(statement or ini_import("."))
 
     def import_grpc_server(self, names: str) -> None:
         """Import ``names`` (``Server``, ``CallError``, comma separated) from the

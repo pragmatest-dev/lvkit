@@ -30,13 +30,13 @@ from ..ast_utils import (
 from ..called_vi import run_call
 from ..called_vi import vilib_resolver as _vilib_resolver
 from ..callee_names import callee_names
-from ..catalog_helpers import HELPERS, helper_definition
 from ..class_model import accessor_of, member_shape
 from ..context import CodeGenContext, terminal_default_expression
 from ..error_path import is_error_wire_vi
-from ..errors import CodeGenError, UnknownDefault
+from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..ini_module import imports_ini
 from ..label_names import python_label
 from ..native_failure import CatalogFailures, catch_failures
 from ..value_copy import is_by_value_object, owned_input
@@ -378,15 +378,10 @@ def generate_inline(
         statements = [ast.Expr(value=parsed_expr.body)]
 
     # Build imports from vilib imports
-    imports = set(vilib_vi.imports) if vilib_vi.imports else set()
-    for helper_name in vilib_vi.helpers:
-        helper = HELPERS[helper_name]
-        definition = helper_definition(helper_name)
-        if ctx.add_module_function(definition) != definition.name:
-            raise CodeGenError(
-                f"The module-level name {definition.name} is taken by an import"
-            )
-        imports.update(helper.imports)
+    # An import of the package's ``ini`` module is spelled for the calling module.
+    imports = {i for i in vilib_vi.imports if not imports_ini(i)}
+    if len(imports) != len(vilib_vi.imports):
+        ctx.import_ini()
 
     return CodeFragment(
         statements=[*made_statements, *statements],

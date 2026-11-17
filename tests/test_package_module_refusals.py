@@ -3,10 +3,10 @@
 A ``raise NotImplementedError("<fixed text>")`` is a gap by the one gap rule: it is
 warned about when the code is generated and names the VI and node it stands for.
 The shared modules (``errors``, ``variants``, ``live_io``, ``panels``, ``scan``,
-``notifiers``, ``grpc_server``) belong to no VI, so a refusal in them is a check of
-an unusual value met at run time and names that value: its message is built when
-it runs. A fixed-text raise there would also mark every module that imports the
-shared one as holding a gap.
+``ini``, ``notifiers``, ``grpc_server``) belong to no VI, so a refusal in them is a
+check of an unusual value met at run time and names that value: its message is
+built when it runs. A fixed-text raise there would also mark every module that
+imports the shared one as holding a gap.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import pytest
 
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.grpc_server_module import GRPC_SERVER_MODULE_SOURCE
+from lvkit.codegen.ini_module import INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.notifiers_module import NOTIFIERS_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
@@ -26,6 +27,7 @@ from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 SOURCES = {
     "errors": ERRORS_MODULE_SOURCE,
     "grpc_server": GRPC_SERVER_MODULE_SOURCE,
+    "ini": INI_MODULE_SOURCE,
     "live_io": LIVE_IO_MODULE_SOURCE,
     "notifiers": NOTIFIERS_MODULE_SOURCE,
     "panels": PANELS_MODULE_SOURCE,

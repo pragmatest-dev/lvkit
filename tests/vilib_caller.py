@@ -19,6 +19,7 @@ from lvkit.codegen.grpc_server_module import (
     GRPC_SERVER_MODULE_NAME,
     GRPC_SERVER_MODULE_SOURCE,
 )
+from lvkit.codegen.ini_module import INI_MODULE_NAME, INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
@@ -196,6 +197,7 @@ def run_catalog_call(
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
         (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
+        (INI_MODULE_NAME, INI_MODULE_SOURCE),
         (GRPC_SERVER_MODULE_NAME, GRPC_SERVER_MODULE_SOURCE),
     ):
         (package / f"{module}.py").write_text(text, encoding="utf-8")

@@ -88,7 +88,9 @@ class ImportResolver:
         variant_import: Callable[[Sequence[str]], str] | None = None,
         grpc_server_import: Callable[[str], str] | None = None,
         scan_import: Callable[[], str] | None = None,
+        ini_import: Callable[[], str] | None = None,
     ) -> None:
+        self._ini_import = ini_import
         self._variant_import = variant_import
         self._grpc_server_import = grpc_server_import
         self._scan_import = scan_import
@@ -214,6 +216,11 @@ class ImportResolver:
         """The statement importing ``scan_text`` from the package root's ``scan``
         module; None when this resolver has no package."""
         return self._scan_import() if self._scan_import else None
+
+    def ini_import(self) -> str | None:
+        """The statement importing ``IniFile`` from the package root's ``ini``
+        module; None when this resolver has no package."""
+        return self._ini_import() if self._ini_import else None
 
     def grpc_server_import(self, names: str) -> str | None:
         """The statement importing ``names`` (``Server``, ``CallError``, comma

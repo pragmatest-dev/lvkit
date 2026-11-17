@@ -48,9 +48,6 @@ class VIEntry(BaseModel):
     # order they are caught (``codegen/native_failure.py``).
     errors: list[NativeError] = Field(default_factory=list)
     imports: list[str] = Field(default_factory=list)
-    # Module-level classes the inline ``python_code`` uses, by name in
-    # ``codegen/catalog_helpers.py``: each is written into the generated module once.
-    helpers: list[str] = Field(default_factory=list)
     status: str = "needs_review"
     # Public NI docs URL (labview-api-ref bundle). Replaces the old `page` PDF
     # ref (task #87) — devs don't have the licensed PDF. Absent when no

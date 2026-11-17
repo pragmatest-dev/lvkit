@@ -2067,6 +2067,7 @@
         "Open Config Data.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import os",
         "import re",
@@ -2086,8 +2087,7 @@
           "code": 6
         }
       ],
-      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = _IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
-      "helpers": ["ini_file"],
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
       "inline": true
     },
     {
@@ -2160,6 +2160,7 @@
         "Open Config Data (compatibility).vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import os",
         "import re",
@@ -2179,8 +2180,7 @@
           "code": 6
         }
       ],
-      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = _IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
-      "helpers": ["ini_file"],
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
       "inline": true
     },
     {
@@ -3674,7 +3674,6 @@
         }
       ],
       "python_code": "_ref = {refnum}\n{file_path} = _ref['path']\nif {write_file_if_changed} and _ref['changed']:\n    _ref['parser'].save(_ref['path'])\n    _ref['changed'] = False",
-      "helpers": ["ini_file"],
       "inline": true
     },
     {
@@ -9199,6 +9198,7 @@
         "LV Config Write String.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import re",
         "import sys",
@@ -9214,8 +9214,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
-      "helpers": ["ini_file"],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
       "inline": true
     },
     {
@@ -9251,6 +9250,7 @@
         "LV Config Write Boolean.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import re",
         "import sys",
@@ -9266,8 +9266,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
-      "helpers": ["ini_file"],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
       "inline": true
     },
     {
@@ -9303,6 +9302,7 @@
         "LV Config Write Color.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import re",
         "import sys",
@@ -9318,8 +9318,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
-      "helpers": ["ini_file"],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
       "inline": true
     },
     {
@@ -9424,6 +9423,7 @@
         "LV Config Write Pathlist.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "from pathlib import Path",
         "import sys"
@@ -9438,8 +9438,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + ';'.join('' if _p is None else str(_p) for _p in {value}) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
-      "helpers": ["ini_file"],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + ';'.join('' if _p is None else str(_p) for _p in {value}) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
       "inline": true
     },
     {
@@ -9466,6 +9465,7 @@
         "LV Config Remove.vi"
       ],
       "imports": [
+        "from .ini import IniFile",
         "import configparser",
         "import re",
         "import sys",
@@ -9481,8 +9481,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = _IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    _cfg.save(_ini)",
-      "helpers": ["ini_file"],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    _cfg.save(_ini)",
       "inline": true
     },
     {
