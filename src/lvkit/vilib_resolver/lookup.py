@@ -18,6 +18,7 @@ _ROOT_CLASSES = {
     "user.lib": "userlib",
     "<instrlib>": "instrlib",
     "instr.lib": "instrlib",
+    "<resource>": "resource",
 }
 
 

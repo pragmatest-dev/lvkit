@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 104,
+  "count": 113,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -7575,6 +7575,523 @@
         }
       ],
       "python_code": "_file = getattr({refnum}, 'buffer', {refnum})\n# NI, Set File Position: from 0 start, 1 end, 2 current\n_file.seek({pos_offset}, [0, 2, 1][{pos_mode}])\n_text = {string}\nif {convert_eol}:\n    # NI forums (convert eol - exactly what does it mean?): \"convert any EOL char combination to the type of EOL that is supported by the current OS\"\n    _text = re.sub(r'\\r\\n|\\r|\\n', lambda _match: os.linesep, _text)\n_file.write(_text.encode('utf-8', 'surrogateescape'))\n{mark_after_write} = _file.tell()\n{dup_refnum} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read String",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a string setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read String.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The string stored under key."
+        },
+        {
+          "name": "config file path",
+          "index": 5,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "config_file_path",
+          "description": "The INI file to read; unwired, the LabVIEW.ini of the package.",
+          "default": ""
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": ""
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read String.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_given = {config_file_path}\n_ini = Path(_given) if _given is not None and Path(_given) != Path('') else Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\n{value} = {default_value} if _text is None else re.sub(r'\\\\(\\\\|[01][0-9A-F])', lambda _m: '\\\\' if _m.group(1) == '\\\\' else chr(int(_m.group(1), 16)), _text)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Boolean",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a boolean setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Boolean.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The boolean stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": false
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Boolean.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\n{value} = {default_value}\nif _text is not None and _text.casefold() in ('true', 'yes', 'on', 't', 'y', '1'):\n    {value} = True\nelif _text is not None and _text.casefold() in ('false', 'no', 'off', 'f', 'n', '0'):\n    {value} = False",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Numeric (I32)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a numeric setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Numeric (I32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The numeric stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Numeric (I32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\ntry:\n    {value} = {default_value} if _text is None else int(_text, 10)\nexcept ValueError:\n    {value} = {default_value}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Color",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a color setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Color.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The color stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Color.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\ntry:\n    {value} = {default_value} if _text is None else int(_text, 16)\nexcept ValueError:\n    {value} = {default_value}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write String",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a string setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write String.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The string to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write String.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write Boolean",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a boolean setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write Boolean.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The boolean to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write Boolean.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write Color",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a color setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write Color.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The color to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write Color.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\nwith open(_ini, 'w', encoding='utf-8') as _file:\n    _cfg.write(_file, space_around_delimiters=False)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Remove",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Removes a setting from the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Remove.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Remove.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    with open(_ini, 'w', encoding='utf-8') as _file:\n        _cfg.write(_file, space_around_delimiters=False)",
+      "inline": true
+    },
+    {
+      "name": "Get LabVIEW Preferences (INI) File Path",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Returns the path of the LabVIEW INI file. Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/Get LabVIEW Preferences (INI) File Path.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "LabVIEW Preferences (INI) File Path",
+          "index": 3,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "labview_preferences_ini_file_path",
+          "description": "The path of the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "Get LabVIEW Preferences (INI) File Path.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "python_code": "{labview_preferences_ini_file_path} = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'",
       "inline": true
     }
   ]

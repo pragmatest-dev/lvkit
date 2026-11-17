@@ -518,7 +518,7 @@ GENERATED_MODULE_NAMES = frozenset(
         "fnmatch",
         "functools", "gc", "getpass", "grpc", "hightime",
         "importlib", "inspect", "io", "ipaddress", "json", "keyword", "locale", "math",
-        "ni", "nidaqmx",
+        "configparser", "ni", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nitypes", "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa",
         "random", "re",

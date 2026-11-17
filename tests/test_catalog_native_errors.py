@@ -17,6 +17,7 @@ from lvkit.primitive_resolver import NativeError
 DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
 
 FILE_PATH_OPS = [("FileNotFoundError", 7), ("PermissionError", 8), ("OSError", 6)]
+INI_FILE_OPS = [("PermissionError", 8), ("OSError", 6)]
 FILE_REFNUM_OPS = [("OSError", 6)]
 COPY_MOVE = [
     ("FileNotFoundError", 7),
@@ -164,6 +165,14 @@ PRIMITIVES = {
     "file-io:Add File to Zip": FILE_PATH_OPS,
     "file-io:Close Zip File": FILE_PATH_OPS,
     "file-io:Read Characters From File": FILE_PATH_OPS,
+    "file-io:LV Config Read String": INI_FILE_OPS,
+    "file-io:LV Config Read Boolean": INI_FILE_OPS,
+    "file-io:LV Config Read Numeric (I32)": INI_FILE_OPS,
+    "file-io:LV Config Read Color": INI_FILE_OPS,
+    "file-io:LV Config Write String": INI_FILE_OPS,
+    "file-io:LV Config Write Boolean": INI_FILE_OPS,
+    "file-io:LV Config Write Color": INI_FILE_OPS,
+    "file-io:LV Config Remove": INI_FILE_OPS,
     "file-io:Write Characters To File": FILE_PATH_OPS,
     "file-io:Open File+": FILE_PATH_OPS,
     "file-io:Read File+ (string)": FILE_PATH_OPS,
