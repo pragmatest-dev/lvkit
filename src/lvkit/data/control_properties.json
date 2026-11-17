@@ -34,6 +34,10 @@
       "codes": [[104102914]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/controls.html"
     },
+    "class_id": {
+      "codes": [[103970816]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/classid.html"
+    },
     "label_text": {
       "codes": [[104013829, 103995392]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/label.html"

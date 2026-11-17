@@ -11,7 +11,8 @@ documentation says what it does.
 
 A Property Node on a wired control reference (no binding) reads a few properties
 that are the reference's own: its ``Value``, its ``Indicator`` flag, its
-``Label.Text`` and, of a cluster, its ``Controls[]`` (``ReferenceRow``).
+``Label.Text``, its ``ClassID`` and, of a cluster, its ``Controls[]``
+(``ReferenceRow``).
 
 The graph (which VIs touch their panel while running) and code generation (what a
 row generates) both read this, so it sits outside both.
@@ -51,12 +52,14 @@ class ControlProperty:
 class ReferenceRow(Enum):
     """What a row of a Property Node on a control reference is, when it is one of
     the control's own: its ``Value``, whether it is an ``Indicator``, the text of
-    its ``Label``, and, of a cluster, the references to its ``Controls[]``."""
+    its ``Label``, its ``ClassID`` (``control_classes.json``) and, of a cluster, the
+    references to its ``Controls[]``."""
 
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
     CLUSTER_CONTROLS = "cluster_controls"
+    CLASS_ID = "class_id"
 
 
 @dataclass(frozen=True)

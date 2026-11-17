@@ -25,6 +25,7 @@ from typing import Literal
 import hightime
 from pydantic import BaseModel
 
+from .control_classes import vi_server_class
 from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
 from .lv_type_codes import (
@@ -1077,6 +1078,14 @@ class FPTerminal(Terminal):
     # mirrors that shape instead (see render/scene.py's frame-path lookup).
     parent: str | None = None
     frame: str | int | None = None
+
+    @property
+    def vi_server_class(self) -> str | None:
+        """The VI Server class of this control (Digital, Ring, Enum, ...) from its
+        front-panel class and its type's kind (``control_classes.json``); None for
+        a front-panel class with no recorded VI Server class."""
+        kind = self.lv_type.kind if self.lv_type is not None else None
+        return vi_server_class(self.control_type, kind)
 
 
 class DisableStructureKind(StrEnum):

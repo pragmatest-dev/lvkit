@@ -20,7 +20,11 @@ that module, and these rows read them:
 - ``Indicator`` (.../control/indicator.html, "If TRUE, the front panel object is an
   indicator. If FALSE, the object is a control") is ``.indicator``;
 - ``Label.Text`` (.../control/label.html, "Reference to the label object. You can
-  use this reference with the Text properties") is ``.label``.
+  use this reference with the Text properties") is ``.label``;
+- ``ClassID`` (.../generic/classid.html, "This integer uniquely identifies the class
+  of a LabVIEW object") is ``.class_id``: NI's number of the control's VI Server
+  class (``control_classes.json``), error 1 naming the control for one whose
+  front-panel class has no recorded VI Server class.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
 by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
@@ -65,6 +69,7 @@ class PanelRow(Enum):
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
     CLUSTER_CONTROLS = "cluster_controls"
+    CLASS_ID = "class_id"
 
 
 _REFERENCE_ROWS = {
@@ -72,6 +77,7 @@ _REFERENCE_ROWS = {
     ReferenceRow.INDICATOR: PanelRow.INDICATOR,
     ReferenceRow.LABEL_TEXT: PanelRow.LABEL_TEXT,
     ReferenceRow.CLUSTER_CONTROLS: PanelRow.CLUSTER_CONTROLS,
+    ReferenceRow.CLASS_ID: PanelRow.CLASS_ID,
 }
 
 _CONTROL_ATTRIBUTE = {
@@ -79,6 +85,7 @@ _CONTROL_ATTRIBUTE = {
     PanelRow.INDICATOR: "indicator",
     PanelRow.LABEL_TEXT: "label",
     PanelRow.CLUSTER_CONTROLS: "controls",
+    PanelRow.CLASS_ID: "class_id",
 }
 
 

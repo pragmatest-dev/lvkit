@@ -29,7 +29,15 @@ the label LabVIEW shows for each (``codegen/panel_description.py``)::
         variants=["any"],
         order=["list_", "thing_out", "x", "y"],
         states={"x": {"visible": False, "disabled": 2}},
+        classes={"x": "Digital", "y": "Digital"},
     )
+
+``classes`` maps the name of each control and indicator whose front-panel class has
+a VI Server class (``control_classes.json``) to that class's name; the ``Control``
+of a reference reads it as its ``class_id``, NI's number for the class (``CLASS_IDS``,
+NI's published ClassID table), so a VI that tells a control's kind by ClassID takes
+the same case LabVIEW does. A control with no class recorded raises error 1 naming it
+when its ``class_id`` is read.
 
 ``states`` maps the name of each control or indicator that is stored in a state
 other than the default (hidden, disabled or greyed out) to its properties, by the
@@ -101,6 +109,8 @@ here because it reports the VIs as run (the function objects that carry ``panel`
 
 from __future__ import annotations
 
+from lvkit.control_classes import class_ids
+
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
 PANEL_VALUES_NAME = "PanelValues"
@@ -123,7 +133,7 @@ PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
 # if you try to run a VI using the run method while the target VI is running or
 # reserved for running."
 
-PANELS_MODULE_SOURCE = '''"""The front panel of a VI."""
+_PANELS_MODULE_TEMPLATE = '''"""The front panel of a VI."""
 
 from __future__ import annotations
 
@@ -142,6 +152,10 @@ from .live_io import LiveIO
 from .variants import LVType, Variant
 
 ABORT_POLL = 0.1
+
+# NI's ClassID number of each VI Server class (the ClassID property,
+# properties-and-methods/vi-server/generic/classid.html).
+CLASS_IDS: dict[str, int] = __CLASS_IDS__
 
 
 class PanelError(LabVIEWError):
@@ -177,7 +191,9 @@ def raise_empty_variant(label: str) -> NoReturn:
 class Control:
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
     it is an ``indicator`` and its ``value``, which is the panel's value of it. A
-    cluster's ``controls`` are a reference to each of its fields, in field order."""
+    cluster's ``controls`` are a reference to each of its fields, in field order.
+    ``class_name`` is its VI Server class (``Digital``, ``Enum``, ...), None when
+    the panel records none."""
 
     def __init__(
         self,
@@ -186,11 +202,13 @@ class Control:
         label: str,
         indicator: bool,
         fields: Sequence[Any] | None = None,
+        class_name: str | None = None,
     ) -> None:
         self.panel = panel
         self.name = name
         self.label = label
         self.indicator = indicator
+        self.class_name = class_name
         self._fields = (
             None
             if fields is None
@@ -216,8 +234,27 @@ class Control:
         self.panel.put_variant(self.name, variant)
 
     @property
+    def class_id(self) -> int:
+        """The ClassID property of the reference: NI's number of the control's VI
+        Server class; error 1 naming the control when the panel records no class
+        for it or NI lists no number for the class."""
+        found = CLASS_IDS.get(self.class_name) if self.class_name else None
+        if found is None:
+            raise PanelError(
+                code=1,
+                source="Control.class_id",
+                message=f'"{self.label}" has no VI Server class number: '
+                + (
+                    f"its class is {self.class_name!r}"
+                    if self.class_name
+                    else "the panel records no class for it"
+                ),
+            )
+        return found
+
+    @property
     def controls(self) -> list[Control]:
-        """The Controls[] of a cluster: a reference to each of its fields, in
+        """The Controls[] of a cluster:a reference to each of its fields, in
         cluster order, the same object each time; error 1026 for a control that is
         not a cluster."""
         if self._fields is None:
@@ -388,8 +425,10 @@ class PanelValues:
         types: Mapping[str, LVType] | None = None,
         variants: Sequence[str] | None = None,
         states: Mapping[str, Mapping[str, Any]] | None = None,
+        classes: Mapping[str, str] | None = None,
     ) -> None:
         clusters = clusters or {}
+        classes = classes or {}
         self._properties: dict[str, dict[str, Any]] = {
             name: dict(held) for name, held in (states or {}).items()
         }
@@ -401,7 +440,12 @@ class PanelValues:
         self._order = list(order or [*self._controls, *self._indicators])
         self._refs = {
             name: Control(
-                self, name, label, name in self._indicators, clusters.get(name)
+                self,
+                name,
+                label,
+                name in self._indicators,
+                clusters.get(name),
+                classes.get(name),
             )
             for name, label in {**self._controls, **self._indicators}.items()
         }
@@ -619,6 +663,7 @@ class Panel(PanelValues):
         types: Mapping[str, LVType] | None = None,
         variants: Sequence[str] | None = None,
         states: Mapping[str, Mapping[str, Any]] | None = None,
+        classes: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -629,6 +674,7 @@ class Panel(PanelValues):
             types=types,
             variants=variants,
             states=states,
+            classes=classes,
         )
         self.function = function
         self._results = dict(results or {})
@@ -890,3 +936,7 @@ def as_control(reference: Any) -> Control:
         )
     return reference
 '''
+
+PANELS_MODULE_SOURCE = _PANELS_MODULE_TEMPLATE.replace(
+    "__CLASS_IDS__", repr(class_ids())
+)

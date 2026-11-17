@@ -31,6 +31,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``states``: the name of each control or indicator the file stores hidden, disabled
   or greyed out to its properties by member name (``{"x": {"visible": False}}``),
   what a panel starts the control in (``control_property_state.stored_states``);
+- ``classes``: the name of each control or indicator whose front-panel class has a
+  VI Server class to that class's name (``FPTerminal.vi_server_class``), what its
+  reference's ClassID reads (``control_classes``);
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -257,6 +260,21 @@ def panel_statements(
                         )
                         for stored in states.values()
                     ],
+                ),
+            )
+        )
+    classes = {
+        names[t.id]: found
+        for t, _ in objects
+        if isinstance(t, FPTerminal) and (found := t.vi_server_class) is not None
+    }
+    if classes:
+        keywords.append(
+            (
+                "classes",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in classes],
+                    values=[ast.Constant(value=found) for found in classes.values()],
                 ),
             )
         )
