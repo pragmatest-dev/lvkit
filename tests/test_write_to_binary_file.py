@@ -117,6 +117,18 @@ def test_prepend_size_false_writes_the_array_alone() -> None:
     assert stream.getvalue() == struct.pack(">2d", 1.0, 2.0)
 
 
+def test_prepend_size_false_writes_the_string_alone_and_reads_back_as_bytes() -> None:
+    # NI: "If prepend array or string size? is FALSE, LabVIEW does not include the
+    # size information"; Read from Binary File with its data type unwired reads
+    # those bytes back as count bytes.
+    stream = io.BytesIO()
+    _write(STR, prefix=False).function("hello", stream)
+    assert stream.getvalue() == b"hello"
+    stream.seek(0)
+    read = _read(STR, count=5, type_wired=False)
+    assert read.function(stream).d == "hello"  # type: ignore[attr-defined]
+
+
 def test_a_path_is_created_and_its_contents_replaced(tmp_path: Path) -> None:
     generated = _write(I32, file=PATH)
     target = tmp_path / "out.bin"

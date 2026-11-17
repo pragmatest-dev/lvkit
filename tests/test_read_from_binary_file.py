@@ -42,18 +42,24 @@ def _read(
     with_error: bool = False,
     gaps: list[Gap] | None = None,
     file_wired: bool = True,
+    type_wired: bool = True,
 ) -> Generated:
-    """A VI whose Read from Binary File reads its ``f`` control as ``data_type``;
-    ``count`` and ``order`` are wired from constants when given."""
+    """A VI whose Read from Binary File reads its ``f`` control as ``data_type``
+    (left unwired when ``type_wired`` is False); ``count`` and ``order`` are wired
+    from constants when given."""
     terminals: list[tuple[int, str, LVType | None]] = [
         (5, "input", data_type),
         (11, "input", file),
         (2, "output", result or data_type),
     ]
-    wires = [("c5", "rb:5"), ("rb:2", "fp:d")]
+    wires = [("rb:2", "fp:d")]
+    if type_wired:
+        wires.append(("c5", "rb:5"))
     if file_wired:
         wires.append(("fp:f", "rb:11"))
-    constants: dict[str, tuple[object, LVType]] = {"c5": (0, data_type)}
+    constants: dict[str, tuple[object, LVType]] = (
+        {"c5": (0, data_type)} if type_wired else {}
+    )
     outputs: dict[str, LVType] = {"d": result or data_type}
     inputs: dict[str, LVType] = {"f": file}
     if count is not None:
@@ -148,6 +154,70 @@ def test_a_count_under_minus_one_is_an_error() -> None:
     generated = _read(I32, count=-2, result=array("NumInt32"), with_error=True)
     data, error = result_values(generated.function(io.BytesIO(bytes(8)), None))
     assert data == []
+    assert error.status is True
+    assert "-2" in error.message
+
+
+# NI: "count is the number of data elements to read. Data elements can be bytes or
+# instances of data type"; with the data type unwired the elements are bytes and
+# the string read has no size ahead of it.
+
+
+def test_a_string_data_type_wired_reads_count_strings_each_with_its_size() -> None:
+    generated = _read(STR, count=2, result=array("String"))
+    stream = io.BytesIO(struct.pack(">I", 2) + b"ab" + struct.pack(">I", 1) + b"cX")
+    assert result_values(generated.function(stream))[0] == ["ab", "c"]
+    assert stream.tell() == 11
+
+
+def test_a_string_data_type_wired_against_bytes_without_size_is_error_4() -> None:
+    generated = _read(STR, count=2, result=array("String"), with_error=True)
+    data, error = result_values(generated.function(io.BytesIO(b"abcd"), None))
+    assert error.code == 4
+    assert data == []
+
+
+def test_an_array_data_type_wired_reads_count_arrays_each_with_its_size() -> None:
+    generated = _read(
+        array("NumInt16"), count=2, result=array("NumInt16", rank=2)
+    )
+    stream = io.BytesIO(struct.pack(">I2h", 2, 1, 2) + struct.pack(">I1h", 1, 3))
+    assert result_values(generated.function(stream))[0] == [[1, 2], [3]]
+
+
+def test_an_unwired_data_type_reads_count_bytes_as_one_string() -> None:
+    generated = _read(STR, count=5, type_wired=False)
+    stream = io.BytesIO(b"hello world")
+    assert result_values(generated.function(stream))[0] == "hello"
+    assert stream.tell() == 5
+    assert "struct" not in generated.source
+
+
+def test_an_unwired_data_type_and_count_reads_one_byte() -> None:
+    generated = _read(STR, type_wired=False)
+    stream = io.BytesIO(b"\x00\x00\x00\x02hi")
+    assert result_values(generated.function(stream))[0] == "\x00"
+    assert stream.tell() == 1
+
+
+def test_an_unwired_data_type_with_minus_one_reads_to_the_end_of_the_file() -> None:
+    generated = _read(STR, count=-1, type_wired=False)
+    stream = io.BytesIO(b"skip-the-rest\xff")
+    stream.seek(5)
+    assert result_values(generated.function(stream))[0] == "the-rest\xff"
+
+
+def test_an_unwired_data_type_short_of_count_keeps_the_bytes_and_is_error_4() -> None:
+    generated = _read(STR, count=10, type_wired=False, with_error=True)
+    data, error = result_values(generated.function(io.BytesIO(b"abc"), None))
+    assert data == "abc"
+    assert (error.status, error.code) == (True, 4)
+
+
+def test_an_unwired_data_type_with_a_count_under_minus_one_is_an_error() -> None:
+    generated = _read(STR, count=-2, type_wired=False, with_error=True)
+    data, error = result_values(generated.function(io.BytesIO(b"abc"), None))
+    assert data == ""
     assert error.status is True
     assert "-2" in error.message
 

@@ -6,7 +6,19 @@ starting at the current file position to be count instances of data type. If the
 type is an array, string, or cluster containing an array or string, the function
 assumes that each instance of that data type contains size information."
 
-* ``data type``: the type of one instance. It is read the way Unflatten From
+* ``data type`` unwired: ``count`` is in bytes and ``data`` is those bytes as a
+  string, with no size ahead of it. NI's page: "count is the number of data
+  elements to read. Data elements can be bytes or instances of data type"; the
+  book "LabVIEW for Everyone" (Advanced File IO, flylib.com/books/en/3.352.1.175/1/):
+  "If you wire the data type input (recommended), then the count input assumes
+  you're telling it to count data points (elements), not bytes ... If you do not
+  wire the data type input, then the count input assumes you're telling it how many
+  bytes to read"; the forum answer that the default type is a string (forums.ni.com
+  reading-bytes-from-a-binary-file-directly-what-format-specifier/td-p/3903138).
+  OpenG's Compare File (Binary) reads its blocks this way. ``count`` unwired is one
+  byte; -1 is every byte to the end of the file; fewer bytes left than ``count``
+  keeps the bytes read and gives error 4, as NI says of elements.
+* ``data type`` wired: the type of one instance. It is read the way Unflatten From
   String reads a value, with the ``struct`` calls for that type
   (``codegen/flat.py``), big-endian, native or little-endian by ``byte order``
   (0, 1, 2; default big-endian), every string or array carrying its size.
@@ -112,6 +124,23 @@ def _read_many(n: _Names, size: int | None, reader: str, count: str) -> str:
     )
 
 
+def _read_bytes(n: _Names, count: str) -> str:
+    """Statements that read ``count`` bytes (every one with -1) into the string
+    ``n.value``, which keeps the bytes read when the file ends before ``count``."""
+    return (
+        f"{n.value} = ''\n"
+        f"if {count} < -1:\n"
+        f"    raise ValueError('count is ' + str({count}) + "
+        "'; it must be -1 or more')\n"
+        f"{n.data} = {n.file}.read({count} if {count} >= 0 else -1)\n"
+        f"{n.value} = {n.data}.decode('latin-1')\n"
+        f"{n.end} = len({n.data})\n"
+        f"if {count} >= 0 and {n.end} < {count}:\n"
+        "    raise EOFError('End of file encountered after ' + "
+        f"str({n.end}) + ' bytes')\n"
+    )
+
+
 @register_op_fragment("READ_FROM_BINARY_FILE")
 def read_from_binary_file(
     node: PrimitiveNode, ctx: CodeGenContext
@@ -146,12 +175,15 @@ def read_from_binary_file(
             node,
         )
     order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
-    try:
-        layout = layout_of(type_term.lv_type)
-    except UnsupportedLayout as error:
-        raise unsupported_layout_error(node, error) from error
-    reader = Functions(ctx, order).reader(layout, True)
-    size = layout.fixed_size()
+    typed = input_expression(ctx, node, 5) is not None
+    reader, size = "", None
+    if typed:
+        try:
+            layout = layout_of(type_term.lv_type)
+        except UnsupportedLayout as error:
+            raise unsupported_layout_error(node, error) from error
+        reader = Functions(ctx, order).reader(layout, True)
+        size = layout.fixed_size()
 
     statements: list[ast.stmt] = []
     data_term = terminal(node, "output", 2)
@@ -180,11 +212,12 @@ def read_from_binary_file(
         start=ctx.make_output_var("file_start", node.id),
     )
     default = ast.unparse(type_default(ctx, type_term.lv_type))
-    reading = (
-        _read_one(names, size, reader, default)
-        if count_var is None
-        else _read_many(names, size, reader, count_var)
-    )
+    if not typed:
+        reading = _read_bytes(names, count_var or "1")
+    elif count_var is None:
+        reading = _read_one(names, size, reader, default)
+    else:
+        reading = _read_many(names, size, reader, count_var)
     reading = (
         f"{names.start} = {file}.tell()\n"
         + reading

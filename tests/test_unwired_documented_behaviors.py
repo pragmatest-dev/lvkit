@@ -252,11 +252,11 @@ def test_an_unwired_count_of_binary_elements_reads_one_element() -> None:
         [("fp:file", "rb:11"), ("rb:2", "fp:data")],
         gaps=gaps,
     )
-    # NI: "By default, the function returns a single data element"; a string
-    # instance carries its size.
+    # NI: "By default, the function returns a single data element"; with the data
+    # type unwired the elements are bytes, so that is one byte.
     assert gaps == []
-    stream = io.BytesIO(b"\x00\x00\x00\x02hiXY")
-    assert generated.function(stream).data == "hi"  # type: ignore[attr-defined]
+    stream = io.BytesIO(b"hiXY")
+    assert generated.function(stream).data == "h"  # type: ignore[attr-defined]
 
 
 def test_a_tag_constant_is_its_text_not_a_quoted_copy_of_it() -> None:
