@@ -81,7 +81,7 @@ from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
-from . import method_call, primitive, subvi
+from . import front_panel_title, method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
@@ -736,11 +736,14 @@ def vi_property_read(
     """The read of a property of a VI reference as Python reads it from the
     function: Name is the function's name, Path its file, Description its
     docstring (the VI's description), Exec.State the state of its front panel
-    (``Panel.state``: 1 Idle, 2 Run top level while it runs).
+    (``Panel.state``: 1 Idle, 2 Run top level while it runs), Front Panel
+    Window:Title its ``window_title`` (``front_panel_title``).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if not is_on_vi_reference(node) or len(prop.segments) != 1:
         return None
+    if front_panel_title.is_title_row(prop):
+        return front_panel_title.read(reference)
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.__name__")

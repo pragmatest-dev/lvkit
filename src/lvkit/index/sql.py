@@ -132,6 +132,8 @@ VIEWS: dict[str, _View] = {
             "always calls its parent implementation first",
             "exec_print_after_exec": "1 if 'Print panel after execution' is enabled",
             # -- window_* : VI Properties -> Window Appearance ---------------
+            "window_title": "the custom window title, or NULL when the window "
+            "title is the VI name",
             "window_show_title_bar": "1 if the front panel window shows a title bar",
             "window_show_menu_bar": "1 if the front panel window shows a menu bar",
             "window_show_toolbar": "1 if the front panel window shows a toolbar",

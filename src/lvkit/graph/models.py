@@ -909,6 +909,9 @@ class WindowProps:
     ``can_*``/``transparent`` fields come from ``<Flags12>``.
     """
 
+    # The custom Window title, from the file's ``<TITL>`` block; None when the
+    # file has none: the window's title is then the VI's name ("Same as VI name").
+    window_title: str | None = None
     show_title_bar: bool = False  # ShowTitleBar
     show_menu_bar: bool = False  # ShowMenuBar
     show_toolbar: bool = False  # ToolBarVisible

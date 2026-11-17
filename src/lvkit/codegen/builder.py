@@ -42,7 +42,7 @@ from .input_default import build_input_defaults, is_none_defaulted
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .nodes.feedback import feedback_master_of
-from .nodes.front_panel_title import entry_title
+from .nodes.front_panel_title import window_title_statement
 from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
@@ -198,8 +198,6 @@ def function_body(
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
-    # A VI that writes the Title of its own window keeps it in a variable.
-    body.extend(entry_title(ctx))
     # A VI that reads Visible or Disabled of its own controls keeps each in a
     # module variable seeded to the state the file stores.
     body.extend(entry_property_states(ctx))
@@ -498,6 +496,7 @@ def build_module_ast(
         vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
+    module_body.append(window_title_statement(ctx, vi_name, func_def.name))
     module_body.extend(
         function_panel_statements(
             vi_context,

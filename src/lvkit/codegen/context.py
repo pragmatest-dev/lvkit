@@ -207,9 +207,6 @@ class CodeGenContext:
     # (``panel_hooks.entry_events``), set when its function starts; one per
     # function, copied to child contexts.
     events_var: str | None = None
-    # The variable that holds the Title of the VI's own front panel window
-    # (``nodes/front_panel_title.entry_title``), set when its function starts.
-    window_title_var: str | None = None
     # The module variable that holds the Visible or Disabled state of a control
     # the VI reads, by (terminal id, property member)
     # (``control_property_state.entry_property_states``). One per function,
@@ -656,7 +653,6 @@ class CodeGenContext:
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
             events_var=self.events_var,
-            window_title_var=self.window_title_var,
             property_states=self.property_states,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module

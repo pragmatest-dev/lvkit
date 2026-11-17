@@ -842,6 +842,7 @@ def project_vi_facts(
         exec_allow_debugging=properties.execution.allow_debugging,
         exec_always_calls_parent=properties.execution.always_calls_parent,
         exec_print_after_exec=properties.execution.print_after_exec,
+        window_title=properties.window.window_title,
         window_show_title_bar=properties.window.show_title_bar,
         window_show_menu_bar=properties.window.show_menu_bar,
         window_show_toolbar=properties.window.show_toolbar,

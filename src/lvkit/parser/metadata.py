@@ -368,7 +368,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     front_panel = root.find(".//LVSR/Section/FrontPanel")
     flags0c = root.find(".//LVSR/Section/Flags0C")
     flags12 = root.find(".//LVSR/Section/Flags12")
+    title = root.find(".//TITL/Section/String")
     result["window"] = {
+        # The custom Window title (<TITL>); a VI with no such block uses its own
+        # name ("Same as VI name"), which is None here.
+        "window_title": None if title is None else (title.text or ""),
         "show_title_bar": _bool_attr(front_panel, "ShowTitleBar"),
         "show_menu_bar": _bool_attr(front_panel, "ShowMenuBar"),
         "show_toolbar": _bool_attr(front_panel, "ToolBarVisible"),

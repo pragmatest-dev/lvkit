@@ -33,6 +33,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
+from ..nodes.front_panel_title import window_title_statement
 from ..panel_description import NamedTerminal, panel_statements
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..panel_names import panel_names
@@ -188,11 +189,12 @@ class _MethodBuilderMixin:
         python_name: str | None,
         accessor: PropertyRole | None,
     ) -> list[ast.stmt]:
-        """The ``panel`` of the method, set after its class: its connector-pane
-        controls by the parameter of the method (``self`` for the class wire), its
-        indicators by the field of its result and a class output that is the object
-        the method ran on by ``self``; the controls and indicators off the
-        connector pane have no parameter or field. The panel of a property's getter
+        """The ``window_title`` and ``panel`` of the method, set after its class.
+        The panel has its connector-pane controls by the parameter of the method
+        (``self`` for the class wire), its indicators by the field of its result and
+        a class output that is the object the method ran on by ``self``; the
+        controls and indicators off the connector pane have no parameter or field.
+        The panel of a property's getter
         is on ``Class.name.fget`` and a setter's on ``Class.name.fset``; they return
         no result object, so their indicators are held only."""
         outputs = _outputs_by_index(vi_context)
@@ -217,15 +219,18 @@ class _MethodBuilderMixin:
         target = f"{self._model.name}.{member}"
         if accessor is not None:
             target += ".fget" if accessor is PropertyRole.GETTER else ".fset"
-        return panel_statements(
-            ctx,
-            target,
-            panel_names(vi_context, names),
-            controls,
-            indicators,
-            self._lazy,
-            passed,
-        )
+        return [
+            window_title_statement(ctx, ctx.vi_name or vi_context.name, target),
+            *panel_statements(
+                ctx,
+                target,
+                panel_names(vi_context, names),
+                controls,
+                indicators,
+                self._lazy,
+                passed,
+            ),
+        ]
 
     def _return_stmt(
         self,

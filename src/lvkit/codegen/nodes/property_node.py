@@ -12,6 +12,7 @@ from lvkit.control_properties import (
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
+from lvkit.graph.vi_reference import is_on_vi_reference
 from lvkit.models import FPTerminal, PropertyDef, Terminal
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
@@ -282,7 +283,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     A row on a wired reference is Python only where Python has the value: a VI
     reference's Name, Path, Description and Exec.State
-    (``vi_reference.vi_property_read``) and the rows of the front panel's own
+    (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
+    and a write: ``front_panel_title``) and the rows of the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
     Indicator and Label.Text, and a write of a control's Value); every other read,
     and every other write, is a gap naming the property and the reference's
@@ -376,11 +378,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     "Unwired property write default is unqualified", node
                 )
             row = panel_reference.panel_row(node, prop)
-            if row is None or not panel_reference.is_writable(row):
+            title = is_on_vi_reference(
+                node
+            ) and front_panel_title.is_title_row(prop)
+            if not title and (row is None or not panel_reference.is_writable(row)):
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
+            if title:
+                statements.append(front_panel_title.write(ref_var, value))
+                continue
+            assert row is not None
             statements.append(
                 panel_reference.write(
                     ref_var, value, ctx, is_variant_type(term.lv_type)

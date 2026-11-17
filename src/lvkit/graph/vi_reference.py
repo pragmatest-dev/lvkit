@@ -188,19 +188,6 @@ class VIReferenceMixin(WireOriginMixin):
             )
         )
 
-    def has_own_window_title_node(self, vi_name: str) -> bool:
-        """Whether the VI's diagram holds a Property Node of its own window's
-        Title."""
-        return any(
-            self.acts_on_own_window_title(n, vi_name) for n in self.iter_nodes(vi_name)
-        )
-
-    def writes_a_window_title(self, vi_name: str) -> bool:
-        """Whether the VI's diagram writes the Title of its own window anywhere."""
-        return any(
-            self.writes_own_window_title(n, vi_name) for n in self.iter_nodes(vi_name)
-        )
-
     def _reference_is_own(self, node: PrimitiveNode, vi_name: str) -> bool:
         """Whether the node's VI reference is unwired (the default VI object) or
         resolves to ``vi_name``."""
