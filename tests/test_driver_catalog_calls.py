@@ -21,6 +21,7 @@ from tests.helpers import build_graph
 TASKS = "<vilib>/DAQmx/configure/task.llb"
 TIMING = "<vilib>/DAQmx/configure/timing.llb"
 TRIGGER = "<vilib>/DAQmx/configure/trigger.llb"
+CREATE = "<vilib>/DAQmx/create/channels.llb"
 FGEN = "<instrlib>/niFgen/niFgen.llb"
 _REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
 _DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
@@ -193,7 +194,7 @@ def test_an_unwired_input_the_call_labels_takes_its_number_from_the_label(
     tmp_path: Path,
 ) -> None:
     gaps: list[Gap] = []
-    _generate(
+    source = _generate(
         tmp_path,
         name="DAQmx Timing.vi",
         path=f"{TIMING}/DAQmx Timing (Implicit).vi",
@@ -205,8 +206,124 @@ def test_an_unwired_input_the_call_labels_takes_its_number_from_the_label(
         ],
         gaps=gaps,
     )
-    # The input is found (no "unmapped" gap); NI's page gives it no default.
-    assert [g.kind for g in gaps] == ["unknown_default"]
+    # NI's page gives samples per channel no default; 1000 is the maintainer's
+    # assumed value (2026-11-16, nidaqmx cfg_implicit_timing).
+    assert gaps == []
+    calls: list[dict[str, object]] = []
+
+    class FakeTiming:
+        def cfg_implicit_timing(self, **kwargs: object) -> None:
+            calls.append(kwargs)
+
+    class FakeTask:
+        timing = FakeTiming()
+
+    _run_call(source, ".cfg_implicit_timing(", {"task": FakeTask(), "mode": 10178})
+    assert calls == [{"sample_mode": 10178, "samps_per_chan": 1000}]
+
+
+def test_sample_clock_timing_unwired_samples_per_channel_is_1000(
+    tmp_path: Path,
+) -> None:
+    gaps: list[Gap] = []
+    source = _generate(
+        tmp_path,
+        name="DAQmx Timing.vi",
+        path=f"{TIMING}/DAQmx Timing (Sample Clock).vi",
+        selector="Sample Clock",
+        terminals=[
+            (0, "input", "task/channels in", _REF, "task"),
+            (1, "input", "rate", _DBL, "rate"),
+            (2, "input", "sample mode", _I32, "mode"),
+            (3, "input", "samples per channel", _I32, ""),
+        ],
+        gaps=gaps,
+    )
+    assert gaps == []
+    calls: list[dict[str, object]] = []
+
+    class FakeTiming:
+        def cfg_samp_clk_timing(self, **kwargs: object) -> None:
+            calls.append(kwargs)
+
+    class FakeTask:
+        timing = FakeTiming()
+
+    _run_call(
+        source,
+        ".cfg_samp_clk_timing(",
+        {"task": FakeTask(), "rate": 1000.0, "mode": 10178},
+    )
+    assert calls == [{"rate": 1000.0, "sample_mode": 10178, "samps_per_chan": 1000}]
+
+
+def test_ao_voltage_channel_unwired_limits_are_minus_10_to_10(tmp_path: Path) -> None:
+    gaps: list[Gap] = []
+    source = _generate(
+        tmp_path,
+        name="DAQmx Create Virtual Channel.vi",
+        path=f"{CREATE}/DAQmx Create Channel (AO-Voltage-Basic).vi",
+        selector="AO Voltage",
+        terminals=[
+            (0, "input", "task/channels in", _REF, "task"),
+            (5, "input", "physical channels", _I32, "chan"),
+            (2, "input", "minimum value", _DBL, ""),
+            (1, "input", "maximum value", _DBL, ""),
+            (4, "output", "task out", _REF, ""),
+        ],
+        gaps=gaps,
+    )
+    assert gaps == []
+    calls: list[tuple[object, dict[str, object]]] = []
+
+    class FakeChannels:
+        def add_ao_voltage_chan(self, channel: object, **kwargs: object) -> None:
+            calls.append((channel, kwargs))
+
+    class FakeTask:
+        ao_channels = FakeChannels()
+
+    _run_call(source, ".add_ao_voltage_chan(", {"task": FakeTask(), "chan": "Dev1/ao0"})
+    assert calls == [("Dev1/ao0", {"min_val": -10.0, "max_val": 10.0})]
+
+
+def test_scope_horizontal_timing_unwired_inputs_take_nis_documented_defaults(
+    tmp_path: Path,
+) -> None:
+    gaps: list[Gap] = []
+    source = _generate(
+        tmp_path,
+        name="niScope Configure Horizontal Timing.vi",
+        path="<instrlib>/niScope/niScope.llb/niScope Configure Horizontal Timing.vi",
+        selector=None,
+        terminals=[
+            (0, "input", "instrument handle", _REF, "session"),
+            (1, "input", "min sample rate", _DBL, ""),
+            (2, "input", "min record length", _I32, ""),
+            (3, "input", "reference position", _DBL, ""),
+            (4, "input", "number of records", _I32, ""),
+            (5, "input", "enforce realtime", _BOOL, ""),
+            (6, "output", "instrument handle out", _REF, ""),
+        ],
+        gaps=gaps,
+    )
+    assert gaps == []
+    calls: list[dict[str, object]] = []
+
+    class FakeSession:
+        def configure_horizontal_timing(self, **kwargs: object) -> None:
+            calls.append(kwargs)
+
+    _run_call(source, ".configure_horizontal_timing(", {"session": FakeSession()})
+    assert calls == [
+        {
+            "min_sample_rate": 20000000.0,
+            "min_num_pts": 1000,
+            "ref_position": 50.0,
+            "num_records": 1,
+            "enforce_realtime": True,
+        }
+    ]
 
 
 def test_a_selector_wrapped_over_two_lines_finds_the_variant(tmp_path: Path) -> None:
@@ -283,12 +400,29 @@ def test_start_trigger_digital_edge_passes_the_source_and_the_edge(
     assert calls == [("/Dev1/PFI0", _FakeEdge.FALLING)]
 
 
-def test_start_trigger_with_the_edge_unwired_is_a_gap_as_nis_page_gives_no_default(
-    tmp_path: Path,
-) -> None:
+def test_start_trigger_with_the_edge_unwired_is_rising(tmp_path: Path) -> None:
+    # NI's page gives edge no default; Rising (10280) is the maintainer's assumed
+    # value (2026-11-16, nidaqmx cfg_dig_edge_start_trig).
     gaps: list[Gap] = []
-    _trigger(tmp_path, gaps, edge_wired=False)
-    assert [g.kind for g in gaps] == ["unknown_default"]
+    source = _trigger(tmp_path, gaps, edge_wired=False)
+    assert gaps == []
+    calls: list[tuple[str, object]] = []
+
+    class FakeStartTrigger:
+        def cfg_dig_edge_start_trig(
+            self, trigger_source: str, trigger_edge: object
+        ) -> None:
+            calls.append((trigger_source, trigger_edge))
+
+    class FakeTask:
+        triggers = type("T", (), {"start_trigger": FakeStartTrigger()})()
+
+    _run_call(
+        source,
+        ".cfg_dig_edge_start_trig(",
+        {"task": FakeTask(), "source": "/Dev1/PFI0", "Edge": _FakeEdge},
+    )
+    assert calls == [("/Dev1/PFI0", _FakeEdge.RISING)]
 
 
 def test_ni_fgen_is_done_reads_the_session(tmp_path: Path) -> None:

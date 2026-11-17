@@ -1631,7 +1631,7 @@
     },
     {
       "name": "DAQmx Create Virtual Channel (AO Voltage).vi",
-      "description": "Creates AO Voltage channel.",
+      "description": "Creates AO Voltage channel. maximum value 10.0 and minimum value -10.0 when unwired: assumed (maintainer 2026-11-16), NI states no default; nidaqmx add_ao_voltage_chan min_val=-10.0, max_val=10.0.",
       "python_code": "{task_in}.ao_channels.add_ao_voltage_chan({physical_channel}, min_val={min_val}, max_val={max_val})",
       "inline": true,
       "imports": [
@@ -1656,13 +1656,15 @@
           "name": "minimum value",
           "direction": "input",
           "python_param": "min_val",
-          "index": 2
+          "index": 2,
+          "default": -10.0
         },
         {
           "name": "maximum value",
           "direction": "input",
           "python_param": "max_val",
-          "index": 1
+          "index": 1,
+          "default": 10.0
         },
         {
           "name": "task out",
@@ -2382,7 +2384,7 @@
     },
     {
       "name": "DAQmx Timing (Sample Clock).vi",
-      "description": "Configures Sample Clock timing.",
+      "description": "Configures Sample Clock timing. samples per channel is 1000 when unwired: assumed (maintainer 2026-11-16), NI's page states no default; nidaqmx cfg_samp_clk_timing samps_per_chan=1000.",
       "python_code": "{task_in}.timing.cfg_samp_clk_timing(rate={rate}, sample_mode={sample_mode}, samps_per_chan={samps_per_chan})",
       "inline": true,
       "imports": [
@@ -2409,7 +2411,8 @@
         {
           "name": "samples per channel",
           "direction": "input",
-          "python_param": "samps_per_chan"
+          "python_param": "samps_per_chan",
+          "default": 1000
         },
         {
           "name": "task out",
@@ -2426,7 +2429,7 @@
     },
     {
       "name": "DAQmx Timing (Implicit).vi",
-      "description": "Configures Implicit timing.",
+      "description": "Configures Implicit timing. samples per channel is 1000 when unwired: assumed (maintainer 2026-11-16), NI's page states no default; nidaqmx cfg_implicit_timing samps_per_chan=1000.",
       "python_code": "{task_in}.timing.cfg_implicit_timing(sample_mode={sample_mode}, samps_per_chan={samps_per_chan})",
       "inline": true,
       "imports": [
@@ -2448,7 +2451,8 @@
         {
           "name": "samples per channel",
           "direction": "input",
-          "python_param": "samps_per_chan"
+          "python_param": "samps_per_chan",
+          "default": 1000
         },
         {
           "name": "task out",
@@ -2465,7 +2469,7 @@
     },
     {
       "name": "DAQmx Trigger (Digital Edge).vi",
-      "description": "Configures the task to start acquiring or generating samples on a rising or falling edge of a digital signal. NI lists edge as Falling (10171) or Rising (10280) and gives it no default.",
+      "description": "Configures the task to start acquiring or generating samples on a rising or falling edge of a digital signal. NI lists edge as Falling (10171) or Rising (10280) and gives it no default; Rising (10280) when unwired is assumed (maintainer 2026-11-16): nidaqmx cfg_dig_edge_start_trig trigger_edge=Edge.RISING.",
       "python_code": "{task_in}.triggers.start_trigger.cfg_dig_edge_start_trig(trigger_source={trigger_source}, trigger_edge=Edge({edge}))",
       "inline": true,
       "imports": [
@@ -2490,7 +2494,8 @@
           "name": "edge",
           "direction": "input",
           "python_param": "edge",
-          "index": 7
+          "index": 7,
+          "default": 10280
         },
         {
           "name": "task out",

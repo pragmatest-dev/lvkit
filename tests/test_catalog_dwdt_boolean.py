@@ -16,7 +16,6 @@ import numpy
 import pytest
 from nitypes.waveform import DigitalWaveform
 
-from lvkit.codegen.gaps import Gap
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import array, scalar
 from tests.vilib_caller import BOOL, DBL, I32, STRING, run_catalog_call
@@ -98,11 +97,14 @@ def _to_digital(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     flags: list[list[bool]],
-    rate: float,
+    rate: float | None,
     mode: int | None = None,
 ) -> DigitalWaveform:
-    inputs: dict[str, Any] = {"flags": (11, BOOLEAN_ARRAY), "rate": (10, DBL)}
-    arguments: dict[str, Any] = {"flags": flags, "rate": rate}
+    inputs: dict[str, Any] = {"flags": (11, BOOLEAN_ARRAY)}
+    arguments: dict[str, Any] = {"flags": flags}
+    if rate is not None:
+        inputs["rate"] = (10, DBL)
+        arguments["rate"] = rate
     if mode is not None:
         inputs["mode"] = (9, MODE)
         arguments["mode"] = mode
@@ -206,22 +208,10 @@ def test_an_empty_boolean_array_is_a_waveform_with_no_samples(
     assert wave.data.shape == (0, 0)
 
 
-def test_boolean_array_to_digital_with_no_sample_rate_wired_is_a_gap(
+def test_boolean_array_to_digital_unwired_sample_rate_is_an_assumed_1_khz(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """NI documents no default for sample rate, so a call that leaves it unwired
-    (as the LabVIEW-DAQ callers do) is a gap rather than a guessed rate."""
-    gaps: list[Gap] = []
-    with pytest.raises(NotImplementedError):
-        run_catalog_call(
-            tmp_path,
-            monkeypatch,
-            TO_DIGITAL,
-            TO_DIGITAL_PANE,
-            {"flags": (11, BOOLEAN_ARRAY)},
-            {"wave": (3, DIGITAL_WAVEFORM)},
-            {"flags": [[True]]},
-            gaps=gaps,
-            runtime_not_implemented=True,
-        )
-    assert [gap.kind for gap in gaps] == ["unknown_default"]
+    """NI documents no default for sample rate; 1 kHz is the maintainer's assumed
+    value (2026-11-16), the default of the sibling Digital Pattern Generator."""
+    wave = _to_digital(tmp_path, monkeypatch, [[True]], None)
+    assert wave.timing.sample_interval.total_seconds() == pytest.approx(0.001)

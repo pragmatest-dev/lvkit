@@ -907,7 +907,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "sample_rate",
-          "description": "sample rate specifies the frequency in samples per second of the output digital waveform."
+          "description": "sample rate specifies the frequency in samples per second of the output digital waveform. NI states no default; 1000.0 (1 kHz) when unwired is assumed (maintainer 2026-11-16): the sibling Digital Pattern Generator (Ramp) in dwdtops.llb documents \"The default is 1 kHz\".",
+          "default": 1000.0
         },
         {
           "name": "mode",
