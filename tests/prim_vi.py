@@ -52,6 +52,7 @@ def generate(
     indicators: dict[str, LVType],
     vi_name: str = "Prim Test.vi",
     gaps: list[Gap] | None = None,
+    obj_flags: int = 0,
 ) -> tuple[str, Callable[..., Any]]:
     """The module generated for a VI whose controls (in the order given) feed the
     primitive ``prim_id`` and whose indicators read it, and the function in it.
@@ -88,6 +89,7 @@ def generate(
         vi_path=vi_name,
         name=name,
         prim_id=prim_id,
+        obj_flags=obj_flags,
         terminals=[
             Terminal(
                 id=f"prim:{pin.direction}{pin.index}",

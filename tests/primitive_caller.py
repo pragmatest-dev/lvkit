@@ -21,6 +21,7 @@ def run_primitive(
     gaps: list[Gap] | None = None,
     name: str = "Primitive",
     constants: Mapping[int, tuple[Any, Any]] | None = None,
+    obj_flags: int = 0,
 ) -> tuple[str, Any]:
     """The generated VI's source and the result of running it.
 
@@ -54,6 +55,7 @@ def run_primitive(
         {label: lv_type for label, (_, lv_type) in outputs.items()},
         vi_name="Caller.vi",
         gaps=gaps,
+        obj_flags=obj_flags,
     )
     if os.environ.get("DUMP"):
         print(source)

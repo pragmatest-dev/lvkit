@@ -481,6 +481,7 @@
     "1127": {
       "name": "In Range and Coerce",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/in-range-and-coerce.html",
+      "op": "IN_RANGE_AND_COERCE",
       "terminals": [
         {
           "index": 0,
@@ -513,10 +514,6 @@
           "type": "NumFloat64"
         }
       ],
-      "python_code": {
-        "in_range": "in_2 <= in_3 <= in_4",
-        "coercedx": "max(min(in_2, in_4), min(in_3, max(in_2, in_4)))"
-      },
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
     },

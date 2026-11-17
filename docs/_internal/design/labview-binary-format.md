@@ -1961,6 +1961,16 @@ NI: "This function appends platform-dependent, end-of-line (EOL) characters to t
 
 The menu item is checked by default, so the bit set is Convert EOL on and a VI that writes a JSON file's line feeds as they are is the one with it off. The same bit is the Regular Expression mode of Search and Replace String (above); `ops/write_to_text_file.py` reads it from the node's `obj_flags`. Only one node has it clear, so this one VI is the whole evidence for the clear state. Read from Text File (8070) nodes carry 33555072 or 100663936 (0x6000280: 0x4000000 also set), another option bit that is not decoded.
 
+## In Range and Coerce records Include Lower/Upper Limit in the node's `objFlags` (bits 0x200000 and 0x100000) — UNVERIFIED
+
+In the 60 `prim` elements of `primResID` 1127 in the extraction cache (the maintainer's count), 34 have `<objFlags>3145728</objFlags>` (0x300000) and 26 have `<objFlags>2097152</objFlags>` (0x200000). Bit 0x200000 is set on all 60; bit 0x100000 varies.
+
+The behaviour is documented outside the file: the node's right-click menu has "Include lower limit" and "Include upper limit"; by default the lower limit is included and the upper limit excluded; the settings affect only `In Range?`, and `coerced(x)` always clamps to the exact limits (forums.ni.com/t5/LabVIEW/Upper-Limit-In-Range-and-Coerce/td-p/1951401 and its page 2; Idea Exchange idi-p/4428096, which asks for include-upper as the default). A third-party scripting tool carries the same two settings as the attributes `includeLow` / `includeHigh` (github.com/Zuehlke/labview-mcp issue 106; there an absent attribute excludes both, unlike the editor default).
+
+Reading 0x200000 as Include Lower Limit and 0x100000 as Include Upper Limit is the maintainer's decision (2026-11-16, from that web search). It fits the default, since 2097152 (only 0x200000) is lower included and upper excluded, but no source states which bit is which, so it stays UNVERIFIED. Checked and not distinguishing: a 2097152 node (`vi-da3f61738cb57879`, SET_ActiveLayer.vi) and a 3145728 node (`vi-dc6fdf7948327a25`, SET_Origin.vi) have the same terminals, the same `dco` flags and the same `primIndex` 118, so `objFlags` is the only record of the setting in the file. In SET_ActiveLayer.vi only `coerced(x)` is wired, so no corpus caller examined shows the effect on `In Range?`. The Elements/Aggregates compare mode is not decoded (maintainer, 2026-11-16).
+
+`ops/in_range_and_coerce.py` reads the two bits from the node's `obj_flags`; a node with no `objFlags` takes the default.
+
 ## Coerce To Type's input 0 is `x` and input 1 is `type`, in every corpus caller
 
 NI lists `type` first, then `x` (labview-api-ref, `functions/coerce-to-type.html`: "`type` ... wire a constant or control of the desired data type to `type`. LabVIEW ignores any data in the constant or control wired to `type`"), so the page's order is not the pane's. A `prim` element of `primResID` 2402 has the terminals `parmIndex` 0 and 1 (inputs) and 2 (output). In the 17 nodes of the 9 distinct block diagrams in the extraction cache, the terminal that only names a type is always input 1 and the data is always input 0:
