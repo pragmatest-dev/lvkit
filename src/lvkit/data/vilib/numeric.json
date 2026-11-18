@@ -994,18 +994,21 @@
       "inline": true
     },
     {
-      "name": "Enum to Array of Enums",
+      "name": "Enum to Array of Enums.vim",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/numeric/enum-to-array-of-enums-vim.html",
       "category": "Numeric",
       "description": "Creates an array of enums with the same number of elements as values in the enum.",
-      "vi_path": null,
+      "vi_path": "vi.lib/numeric/Enum to Array of Enums.vim",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "complete",
+      "op": "ENUM_TO_ARRAY_OF_ENUMS",
+      "inline": true,
+      "imports": [],
       "terminals": [
         {
           "name": "enum",
-          "index": null,
+          "index": 1,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -1014,7 +1017,7 @@
         },
         {
           "name": "array of enums",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
