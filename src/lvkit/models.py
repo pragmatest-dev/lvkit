@@ -155,6 +155,32 @@ class VariantData:
     attributes: tuple[tuple[str, VariantData], ...] = ()
 
 
+@dataclass(frozen=True)
+class SavedTag:
+    """A tag a VI, a library or a class saves with its file: its ``name`` and its
+    ``value``, the Variant the Tag methods of the VI Server read and write. A value
+    lvkit does not decode has no ``value``, and ``undecoded`` says why (the tag is
+    still listed, and reading it at run time is an error naming it)."""
+
+    name: str
+    value: VariantData | None
+    undecoded: str | None = None
+
+    def type_text(self) -> str | None:
+        """The type of the value the tag holds, None for an empty Variant or a
+        value that is not decoded."""
+        held = self.value.value_type if self.value is not None else None
+        return held.type_descriptor() if held is not None else None
+
+    def value_text(self) -> str | None:
+        """The value as the views show it (a string as its quoted literal), None
+        for a value that is not decoded."""
+        if self.value is None:
+            return None
+        shown = plain_structured(self.value)
+        return shown if isinstance(shown, str) else str(shown)
+
+
 def plain_structured(value: object) -> object:
     """``value`` as a front-panel default shows it: a Variant is the display text
     ``Variant()`` when empty, else the value it holds; arrays and clusters are

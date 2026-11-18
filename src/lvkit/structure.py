@@ -24,11 +24,13 @@ from lvkit.models import (
     ClusterField,
     LVType,
     LVTypeKind,
+    SavedTag,
     WireLineStyle,
     WireStyle,
 )
 from lvkit.parser.metadata import _decode_pth0_components
 from lvkit.parser.models import ParsedDependencyRef
+from lvkit.parser.saved_tags import read_property_tags
 
 from .type_names import ROOT_CLASS
 from .vi_files import (
@@ -123,6 +125,8 @@ class LVClass:
     # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
     # ~100% of classes; None if absent.
     version: str | None = None
+    # The tags the class file saves: its ``<Property>`` elements, in file order.
+    tags: list[SavedTag] = field(default_factory=list)
     # The FULL ancestor chain, nearest-first (immediate parent -> ... ->
     # root) -- built by recursively following parent_class and resolving each
     # ancestor's own .lvclass file on disk (see _build_ancestor_chain). Best
@@ -145,6 +149,8 @@ class LVLibrary:
     path: Path
     version: str | None = None
     members: list[LVLibraryMember] = field(default_factory=list)
+    # The tags the library file saves: its ``<Property>`` elements, in file order.
+    tags: list[SavedTag] = field(default_factory=list)
 
 
 @dataclass
@@ -609,6 +615,7 @@ def parse_lvclass(lvclass_path: Path | str, roots: LibraryRoots) -> LVClass:
         version=version,
         ancestors=ancestors,
         wire_style=_parse_wire_style(root),
+        tags=read_property_tags(root),
     )
 
 
@@ -1060,6 +1067,7 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         path=lvlib_path,
         version=version,
         members=members,
+        tags=read_property_tags(root),
     )
 
 
