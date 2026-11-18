@@ -724,6 +724,9 @@ class ParsedFPControl:
     label_visible: bool = True
     caption_visible: bool = False
     enum_values: list[str] = field(default_factory=list)
+    # A Combo Box saved with this many drop-down strings whose form is not decoded
+    # (0: none, or not a Combo Box); ``enum_values`` is then empty.
+    undecoded_strings: int = 0
     # A ring's own item values (``ringSparseValues``), parallel to
     # ``enum_values``, when they differ from the ordinals -- for an `indArr`,
     # its ring ELEMENT's. Empty for a ring numbered 0, 1, 2, ... and for every

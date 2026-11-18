@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import GraphNode, VIContext
 from lvkit.models import FPTerminal, LVType, LVTypeKind
@@ -21,15 +23,18 @@ RING_STRINGS_CODE = (104056839,)
 STRINGS = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=STRING)
 
 
-def combo(vi: str, saved: list[str]) -> FPTerminal:
-    """The Combo Box control ``c`` of ``vi``, saved with the strings ``saved``."""
+def combo(vi: str, saved: list[str] | int) -> FPTerminal:
+    """The Combo Box control ``c`` of ``vi``, saved with the strings ``saved``, or
+    (an int) with that many strings of a form that is not decoded."""
     terminal = pane(
         vi, "input", "c", STRING, "c", 0, tab_index=0, control_type="stdComboBox"
     )
+    if isinstance(saved, int):
+        return terminal.model_copy(update={"undecoded_strings": saved})
     return terminal.model_copy(update={"enum_values": saved})
 
 
-def target(saved: list[str]) -> Any:
+def target(saved: list[str] | int) -> Any:
     """A VI with the Combo Box ``c`` (saved with ``saved``), the number ``n`` and the
     indicator ``out``."""
 
@@ -96,7 +101,7 @@ def writer(vi: str) -> tuple[VIContext, list[GraphNode]]:
     )
 
 
-def project_with(tmp_path: Path, saved: list[str]) -> Project:
+def project_with(tmp_path: Path, saved: list[str] | int) -> Project:
     project = Project(tmp_path)
     project.add_vi("Target", target(saved))
     project.add_vi("Reader", reader)
@@ -156,6 +161,21 @@ def test_a_write_is_what_the_next_read_gives_and_the_views_are_told(
         module("writer").writer(ctl=combo_ref, items=items)
         items.append("y")
         assert module("reader").reader(ctl=combo_ref).strings == ["x"]
+
+
+def test_saved_strings_that_are_not_decoded_raise_on_a_read_before_a_write(
+    tmp_path: Path,
+) -> None:
+    package = project_with(tmp_path, 2).generate()
+    assert "undecoded_strings={'c': 2}" in package.sources["target"]
+    assert "'strings'" not in package.sources["target"].split("undecoded")[0]
+    with package.use() as module:
+        combo_ref = by_label(module)["c"]
+        with pytest.raises(NotImplementedError, match="'c'.*2 saved strings"):
+            module("reader").reader(ctl=combo_ref)
+        written = module("writer").writer(ctl=combo_ref, items=["a"])
+        assert written.error_out is None
+        assert module("reader").reader(ctl=combo_ref).strings == ["a"]
 
 
 def test_a_control_that_is_not_a_combo_box_has_no_strings(tmp_path: Path) -> None:

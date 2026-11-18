@@ -249,6 +249,12 @@ class Control:
         in. A control the panel holds no state of ``prop`` for is not one this
         property belongs to: error 1026."""
         held = self.panel.property_of(self.name, prop, _NO_STATE)
+        if held is _NO_STATE and self.name in self.panel.undecoded_strings:
+            raise NotImplementedError(
+                f"Strings[] of the Combo Box {self.label!r} read before any "
+                f"write: its {self.panel.undecoded_strings[self.name]} saved "
+                "strings are in a form the conversion does not decode"
+            )
         if held is _NO_STATE:
             raise PanelError(
                 code=1026,
@@ -452,7 +458,9 @@ class PanelValues:
         states: Mapping[str, Mapping[str, Any]] | None = None,
         classes: Mapping[str, str] | None = None,
         front_panel_classes: Mapping[str, str] | None = None,
+        undecoded_strings: Mapping[str, int] | None = None,
     ) -> None:
+        self.undecoded_strings = dict(undecoded_strings or {})
         clusters = clusters or {}
         classes = classes or {}
         front_panel_classes = front_panel_classes or {}
@@ -702,6 +710,7 @@ class Panel(PanelValues):
         states: Mapping[str, Mapping[str, Any]] | None = None,
         classes: Mapping[str, str] | None = None,
         front_panel_classes: Mapping[str, str] | None = None,
+        undecoded_strings: Mapping[str, int] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -714,6 +723,7 @@ class Panel(PanelValues):
             states=states,
             classes=classes,
             front_panel_classes=front_panel_classes,
+            undecoded_strings=undecoded_strings,
         )
         self.function = function
         self._results = dict(results or {})

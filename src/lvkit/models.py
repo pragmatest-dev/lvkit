@@ -1066,6 +1066,9 @@ class FPTerminal(Terminal):
     tab_index: int | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
+    # A Combo Box saved with this many drop-down strings whose form is not decoded
+    # (0: none, or not a Combo Box).
+    undecoded_strings: int = 0
     # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
     # set only when the heap places this terminal inside a case/event/disable
     # frame or a stacked-sequence frame via an sRN's termList (a control used

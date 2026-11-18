@@ -168,7 +168,7 @@ def _tabbing_order(
 
 
 def _name_map(
-    keyword: str, entries: Iterable[tuple[str, str | None]]
+    keyword: str, entries: Iterable[tuple[str, str | int | None]]
 ) -> tuple[str, ast.Dict] | None:
     """``keyword={name: value}`` of the entries with a value (a label is "" for an
     object with none), None when there are none."""
@@ -275,6 +275,10 @@ def panel_statements(
                 for t in fp_objects
                 if t.vi_server_class is None
             ],
+        ),
+        _name_map(
+            "undecoded_strings",
+            [(names[t.id], t.undecoded_strings or None) for t in fp_objects],
         ),
     ):
         if entry is not None:

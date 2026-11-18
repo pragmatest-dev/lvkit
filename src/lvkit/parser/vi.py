@@ -2297,11 +2297,15 @@ def _parse_ddo(
     ring_values: list[int] = []
     if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
-    if control_type == "stdComboBox" and combo_box_saved_item_count(ddo):
+    undecoded_strings = (
+        combo_box_saved_item_count(ddo) if control_type == "stdComboBox" else 0
+    )
+    if undecoded_strings:
         warnings.warn(
-            f"the Combo Box {name!r} is saved with strings in its drop-down list, "
-            "which no corpus VI has, so their form is not read: its Strings[] "
-            "starts empty",
+            f"the Combo Box {name!r} is saved with {undecoded_strings} strings in "
+            "its drop-down list, which no corpus VI has, so their form is not "
+            "read: a read of its Strings[] before any write raises "
+            "NotImplementedError",
             stacklevel=2,
         )
     if control_type == "stdRing":
@@ -2450,6 +2454,7 @@ def _parse_ddo(
         children=children,
         parts=_parse_fp_parts(ddo, fonts),
         enum_values=enum_values,
+        undecoded_strings=undecoded_strings,
         ring_values=ring_values,
         cluster_geom=cluster_geom,
         element_default_value=element_default_value,

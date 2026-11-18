@@ -550,6 +550,7 @@ class ConstructionMixin:
                 default_value=_default_for(ctrl, lv_type),
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
+                undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
             )
             vi_terminals.append(terminal)
 
@@ -1323,6 +1324,7 @@ class ConstructionMixin:
             default_value=_default_for(ctrl, lv_type),
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
+            undecoded_strings=ctrl.undecoded_strings,
         )
 
     def _connect_subvi_calls(

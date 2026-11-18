@@ -50,7 +50,11 @@ def starting_state(control: FPTerminal, member: str) -> StateValue | None:
         return None if control.starts_hidden is None else not control.starts_hidden
     if member == "disabled":
         return control.enable_state
-    if member == "strings" and control.control_type == "stdComboBox":
+    if (
+        member == "strings"
+        and control.control_type == "stdComboBox"
+        and not control.undecoded_strings
+    ):
         return list(control.enum_values)
     return None
 

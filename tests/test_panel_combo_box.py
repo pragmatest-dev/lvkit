@@ -157,8 +157,11 @@ def test_a_combo_box_saved_with_strings_is_warned_about_not_read_silently(
     out = vi.indicator("out", STR, ddo_class="stdString")
     vi.wire(combo, out)
     project.add(vi)
-    with pytest.warns(UserWarning, match="Combo Box 'c' is saved with strings"):
-        project.generate(NAME, panel=True)
+    with pytest.warns(UserWarning, match="Combo Box 'c' is saved with 2 strings"):
+        package = project.generate(NAME, panel=True)
+    written = (package.root / f"{STEM}.py").read_text(encoding="utf-8")
+    assert "undecoded_strings={'c': 2}" in written
+    assert "'strings'" not in written
 
 
 def test_strings_is_shown_by_a_combo_box_and_by_no_other_kind() -> None:
