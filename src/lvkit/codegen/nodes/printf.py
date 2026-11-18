@@ -25,6 +25,7 @@ from ..gaps import gap_of, raise_statement
 from ..labview_format import (
     _lv_decode_escapes,
     _lv_default_code,
+    _lv_float_field,
     _lv_format_into_string,
     _lv_negative_float_reason,
     _lv_parse,
@@ -175,6 +176,24 @@ def _number_value(
     else:
         base = arg
     precision = 6 if spec.precision is None else spec.precision
+    if spec.code in ("g", "p") or "#" in spec.flags:
+        ctx.add_import("import re")
+        _add_helpers(ctx, _lv_float_field)
+        return _formatted(
+            _call(
+                "_lv_float_field",
+                base,
+                ast.Constant(value=spec.code),
+                _number(precision),
+                ast.Constant(value=spec.significant),
+                _number(spec.plus),
+                _number("#" in spec.flags),
+                _number(spec.width),
+                _number(spec.left),
+                _number(spec.zero),
+            ),
+            "",
+        )
     if spec.code == "e":
         _add_helpers(ctx, _lv_scientific)
         return _formatted(
@@ -268,7 +287,7 @@ def _literal_format(
             parts.append(_string_value(piece, arg, kind))
         else:
             number = _number_value(piece, arg, kind, ctx, negative_gaps)
-            if point is not None and piece.code in ("e", "f"):
+            if point is not None and piece.code in ("e", "f", "g", "p"):
                 number = _with_point(number, point)
             parts.append(number)
     if not any(isinstance(p, ast.FormattedValue) for p in parts):

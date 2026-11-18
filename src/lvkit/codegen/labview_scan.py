@@ -71,7 +71,29 @@ if TYPE_CHECKING:
 
 # The conversion codes a scan reads: signed decimal, floating point (``f``, ``g``
 # and ``e`` read the same text), hexadecimal and string.
-_CODES = "dfgexs"
+_CODES = "dfgexsp"
+# The SI prefix letters ``%p`` reads and the power of ten each stands for (NI's
+# pages do not list them; the letters are the SI prefixes, with ``u`` for micro as
+# NI forum posts show).
+_SI_EXPONENTS = {
+    "y": -24,
+    "z": -21,
+    "a": -18,
+    "f": -15,
+    "p": -12,
+    "n": -9,
+    "u": -6,
+    "m": -3,
+    "k": 3,
+    "M": 6,
+    "G": 9,
+    "T": 12,
+    "P": 15,
+    "E": 18,
+    "Z": 21,
+    "Y": 24,
+}
+_SI_LETTERS = "".join(_SI_EXPONENTS)
 _SET = re.compile(r"%(\d*)\[(\^?\]?[^\]]*)\]")
 _TRUE_WORDS = ("Y", "T", "TRUE", "ON", "YES", "y", "t", "true", "on", "yes")
 _FALSE_WORDS = ("F", "FALSE", "OFF", "NO", "f", "false", "off", "no")
@@ -287,6 +309,9 @@ def _field(piece: ScanSpec | ScanSet, kind: FormatKind) -> ScanField:
         number = (
             'float({g}.replace(",", "."))' if piece.decimal == "," else "float({g})"
         )
+        if spec.code == "p":
+            text += f"(?:[{_SI_LETTERS}](?![A-Za-z]))?"
+            number = _si_number(piece.decimal)
     return ScanField(text, _as_kind(number, spec, kind), True)
 
 
@@ -299,7 +324,7 @@ def _unsupported(piece: ScanSpec) -> str | None:
     elif spec.code == ";":
         part = "the system decimal separator"
     elif spec.flags:
-        part = "a flag"
+        part = "a modifier (NI: scanning uses %[Width]Conversion Code, no modifiers)"
     elif spec.precision is not None or spec.bare_precision:
         part = "a precision"
     elif spec.significant is not None:
@@ -350,6 +375,21 @@ def _time_field(piece: ScanSpec, kind: FormatKind) -> ScanField:
         )
         value = f"({value} - {epoch}).total_seconds()"
     return ScanField(scan.pattern, value, False, scan.imports)
+
+
+def _si_number(decimal: str) -> str:
+    """The expression of the number an SI-notation text (``%p``) reads: the
+    number, scaled by its prefix letter when it ends in one (the text of a prefix
+    followed by another letter, as in ``10.0kHz``, is not taken as a prefix: NI
+    forum reports, "Bug with Scan from String using SI (%p) format code" and "SI
+    Notation in Scan Value and Scan from String issue": "10.0k" reads 10000,
+    "10.0kHz" reads 10, "12uA" reads 12)."""
+    plain = '{g}.replace(",", ".")' if decimal == "," else "{g}"
+    exponents = ", ".join(f'"{c}": "{e}"' for c, e in _SI_EXPONENTS.items())
+    return (
+        f"(float({plain}[:-1] + 'e' + {{{{{exponents}}}}}[{{g}}[-1]]) "
+        f"if {{g}}[-1:] in {_SI_LETTERS!r} else float({plain}))"
+    )
 
 
 def _decimal_pattern(width: int) -> str:
@@ -413,7 +453,7 @@ def _as_kind(number: str, spec: _LvSpecifier, kind: FormatKind) -> str:
     """The expression that turns the number ``number`` a numeric code reads into
     the value of an output of ``kind``."""
     if kind.kind == "float":
-        return number if spec.code in "fge" else f"float({number})"
+        return number if spec.code in "fgep" else f"float({number})"
     if kind.kind == "bool":
         return f"{number} > 0.5"
     if kind.kind == "complex":
@@ -426,8 +466,8 @@ def _as_kind(number: str, spec: _LvSpecifier, kind: FormatKind) -> str:
         # behavior with Error In for Scan From String function",
         # m-p/3134009) says "2+2" does not parse as 2+0i: the scan stops after
         # "2". NI's "Valid Format Specifiers for Numeric Data Types" lets a
-        # complex type use f, e, g, p, # and ^; only f, e and g are read here.
-        if spec.code in "fge":
+        # complex type use f, e, g, p, # and ^; f, e, g and p are read here.
+        if spec.code in "fgep":
             return f"complex({number}, 0.0)"
         raise ValueError(
             f"Scan From String specifier {spec.text!r} (code {spec.code!r} into "

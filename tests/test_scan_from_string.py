@@ -603,7 +603,74 @@ _RUN_TIME_CASES = [
     ("%s", [COLOR], "Purple"),
     ("%^<%Y-%m-%dT%H:%M:%S%3u>T", [TIME], "2026-11-16T10:20:30.123Z"),
     ("%^<%H:%M>T", [DBL], "05:30"),
+    ("%p", [DBL], "12M"),
+    ("%p", [DBL], "12.00M"),
+    ("%p", [DBL], "10.0kHz"),
+    ("%,;%p", [DBL], "1,5k"),
+    ("%p %p", [DBL, DBL], "3u 4m"),
+    ("%p", [CPLX], "2.5n"),
 ]
+
+# NI, Format Specifier Syntax Examples, SI Notation (%p): format ``%.2p`` writes
+# 12000000 as "12.00M" and ``%_2p`` as "12M"; a scan reads them back. Forum
+# reports ("Bug with Scan from String using SI (%p) format code"): "10.0k" reads
+# 10000, "10.0kHz" reads 10.
+_SI_CASES = [
+    ("12.00M", 12000000.0, ""),
+    ("12M", 12000000.0, ""),
+    ("1.5k", 1500.0, ""),
+    ("3u", 3e-6, ""),
+    ("-2.5m", -0.0025, ""),
+    ("7", 7.0, ""),
+    ("1y", 1e-24, ""),
+    ("1Y", 1e24, ""),
+    ("10.0k", 10000.0, ""),
+    ("10.0kHz", 10.0, "kHz"),
+    ("12uA", 12.0, "uA"),
+    ("5k rest", 5000.0, " rest"),
+    ("  5k", 5000.0, ""),
+]
+
+
+@pytest.mark.parametrize(("text", "value", "remaining"), _SI_CASES)
+def test_an_si_prefix_scales_the_number_it_follows(
+    text: str, value: float, remaining: str
+) -> None:
+    for read in (_result, _wired_result):
+        result = read("%p", [DBL], text)
+        assert _values(result, 1) == [pytest.approx(value, rel=1e-12)]
+        assert result.remaining == remaining
+
+
+def test_what_a_format_writes_with_p_a_scan_reads_back() -> None:
+    for number in (12000000.0, 0.0015, -3.5e-9, 42.0):
+        written = _lv_format_into_string("%.3p", "", [(number, "float", 64, [])])
+        assert _values(_result("%p", [DBL], written), 1) == [
+            pytest.approx(number, rel=1e-3)
+        ]
+
+
+def test_the_si_prefix_scan_is_written_into_the_module_with_no_lvkit_import() -> None:
+    source, _ = _scan("%p", [DBL])
+    assert "lvkit" not in source
+    assert "re.match(" in source
+
+
+@pytest.mark.parametrize("format_text", ["%#f", "%#d", "%#p", "%+p", "%#g"])
+def test_a_scan_reads_no_modifier(format_text: str) -> None:
+    gaps: list[Gap] = []
+    _, function = _scan(format_text, [DBL], gaps=gaps)
+    assert len(gaps) == 1
+    assert "a modifier" in gaps[0].message
+    with pytest.raises(NotImplementedError, match="no modifiers"):
+        function(text="1")
+
+
+def test_p_into_an_integer_output_is_a_gap() -> None:
+    gaps: list[Gap] = []
+    _scan("%p", [I32], gaps=gaps)
+    assert len(gaps) == 1
+    assert "'%p'" in gaps[0].message
 
 
 @pytest.mark.parametrize(("format_text", "outputs", "text"), _RUN_TIME_CASES)

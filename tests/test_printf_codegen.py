@@ -173,6 +173,39 @@ CASES: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("String: %10.6s", [("Hello, World", STRING)], "String:     Hello,"),
     ("%2$s %1$s", [("Smith", STRING), ("John", STRING)], "John Smith"),
     ("%%", [], "%"),
+    # NI, Format Specifier Syntax Examples: Automatic Formatting (%g) and SI
+    # Notation (%p); the ``#`` modifier "Removes trailing zeros".
+    ("%#g", [(12.00, DBL)], "12"),
+    ("%#g", [(12000000.0, DBL)], "1.2E+7"),
+    ("%.2p", [(12000000.0, DBL)], "12.00M"),
+    ("%_2p", [(12000000.0, DBL)], "12M"),
+    ("%#g", [(0.5, DBL)], "0.5"),
+    ("%#g", [(0.00001234, DBL)], "1.234E-5"),
+    ("%#.3g", [(1234.5, DBL)], "1.23E+3"),
+    ("%#f", [(12.5, DBL)], "12.5"),
+    ("%#f", [(12.0, DBL)], "12"),
+    ("%#.3e", [(12.67, DBL)], "1.267E+1"),
+    ("%#e", [(1.5, DBL)], "1.5E+0"),
+    ("%#8.2f|", [(1.5, DBL)], "     1.5|"),
+    ("%.2p", [(0.0015, DBL)], "1.50m"),
+    ("%.1p", [(1500.0, DBL)], "1.5k"),
+    ("%.0p", [(5e-6, DBL)], "5u"),
+    ("%.2p", [(-12000000.0, DBL)], "-12.00M"),
+    ("%.2p", [(0.0, DBL)], "0.00"),
+    ("%.2p", [(12.0, DBL)], "12.00"),
+    ("%p", [(1500.0, DBL)], "1.500000k"),
+    ("%+.2p", [(1500.0, DBL)], "+1.50k"),
+    ("%#.2p", [(12000000.0, DBL)], "12M"),
+    ("%#.2p", [(1500.0, DBL)], "1.5k"),
+    ("%_3p", [(1234.0, DBL)], "1.23k"),
+    ("%#_3p", [(1500.0, DBL)], "1.5k"),
+    ("%8.1p|", [(1500.0, DBL)], "    1.5k|"),
+    ("%-8.1p|", [(1500.0, DBL)], "1.5k    |"),
+    ("%.2p", [(1e-24, DBL)], "1.00y"),
+    ("%.2p", [(1e24, DBL)], "1.00Y"),
+    ("%.2p", [(3 + 4j, COMPLEX)], "3.00"),
+    ("%,;%.2p", [(1500.0, DBL)], "1,50k"),
+    ("%#.2p %.1p", [(12000000.0, DBL), (2500.0, DBL)], "12M 2.5k"),
     # NI, Format Specifier Syntax, Localization Codes: they take no input and write
     # nothing; they set the decimal separator of all further numbers until the next
     # ``%;``.
@@ -382,10 +415,39 @@ def test_the_diagram_helpers_are_copied_only_when_used() -> None:
     assert "def _lv_scientific" in scientific
 
 
+# What NI's pages leave open raises where it runs, naming the value.
+OPEN_AT_RUN_TIME: list[tuple[str, float, str]] = [
+    ("%_3p", 1500.0, "whether a last digit of 0 is written"),
+    ("%.2p", 999.9996, "rounds to the next SI prefix"),
+    ("%.2p", 1e30, "has no SI prefix"),
+    ("%.2p", NAN, "'p' for nan"),
+    ("%_1p", 12000000.0, "1 significant digits for 12000000.0"),
+    ("%#.0g", 12.0, "precision of 0"),
+    ("%#g", 0.0001234, "exponent -4"),
+]
+
+
+@pytest.mark.parametrize("wired_format", [False, True], ids=["diagram", "wired"])
+@pytest.mark.parametrize(
+    ("format_text", "value", "part"),
+    OPEN_AT_RUN_TIME,
+    ids=[repr(case[0]) + repr(case[1]) for case in OPEN_AT_RUN_TIME],
+)
+def test_what_ni_leaves_open_raises_where_it_runs(
+    format_text: str, value: float, part: str, wired_format: bool
+) -> None:
+    with pytest.raises(NotImplementedError, match="Format Into String") as raised:
+        _run(format_text, [(value, DBL)], wired_format=wired_format)
+    assert part in str(raised.value)
+
+
 GAPS: list[tuple[str, list[tuple[Any, LVType]], str]] = [
     ("%_3g", [(1.5, DBL)], "'%_3g' (significant digits)"),
-    ("%g", [(1.5, DBL)], "'%g' (conversion code 'g')"),
-    ("%p", [(1.5, DBL)], "'%p' (conversion code 'p')"),
+    ("%g", [(1.5, DBL)], "'%g' (code 'g' without the '#' modifier)"),
+    ("%p", [(1, I32)], "'%p' (code 'p' with a int input)"),
+    ("%#g", [(1, I32)], "'%#g' ('#' modifier)"),
+    ("%#d", [(1, I32)], "'%#d' ('#' modifier)"),
+    ("%_2e", [(1.5, DBL)], "'%_2e' (significant digits)"),
     ("%t", [(1.5, DBL)], "'%t' (conversion code 't')"),
     ("%T", [(1.5, DBL)], "'%T' (conversion code 'T')"),
     ("%q", [(1.5, DBL)], "'%q' (conversion code 'q')"),
