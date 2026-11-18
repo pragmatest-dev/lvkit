@@ -169,6 +169,56 @@ def test_a_labelled_constant_is_named_by_its_label(
     assert seen.value == 5
 
 
+def test_a_subvi_output_is_named_by_its_indicators_label(
+    project: Project,  # noqa: F811
+) -> None:
+    caller = Vi(NAME)
+    variant_type = caller.add_type(_VARIANT)
+    call = caller.subvi("Read.vi", Reading=(0, I32, True))
+    to_variant = caller.primitive(
+        8201, [("Variant", 0, variant_type, True), ("anything", 1, I32, False)]
+    )
+    caller.wire(call["Reading"], to_variant["anything"])
+    caller.wire(to_variant["Variant"], caller.indicator("seen", variant_type))
+    project.add(caller)
+    callee = Vi("Read.vi")
+    callee.indicator("Reading", I32)
+    project.add(callee)
+    seen = project.generate(NAME).function().seen
+    assert seen.name == "Reading"
+    assert seen.type == project.generate(NAME).variants.LV_I32
+
+
+def test_a_function_output_has_no_name(project: Project) -> None:  # noqa: F811
+    """The ``data`` output of Variant To Data is a function's: no label."""
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    first = vi.primitive(
+        8201, [("Variant", 0, variant_type, True), ("anything", 1, I32, False)]
+    )
+    vi.wire(vi.control("x", I32, REQUIRED), first["anything"])
+    to_data = vi.primitive(
+        8003,
+        [
+            ("error in", 0, 6, False),
+            ("error out", 3, 6, True),
+            ("Variant", 8, variant_type, False),
+            ("type", 9, I32, False),
+            ("data", 11, I32, True),
+        ],
+    )
+    vi.wire(first["Variant"], to_data["Variant"])
+    second = vi.primitive(
+        8201, [("Variant", 0, variant_type, True), ("anything", 1, I32, False)]
+    )
+    vi.wire(to_data["data"], second["anything"])
+    vi.wire(second["Variant"], vi.indicator("seen", variant_type))
+    vi.wire(to_data["error out"], vi.error_out())
+    project.add(vi)
+    seen = project.generate(NAME).function(5).seen
+    assert (seen.value, seen.name) == (5, "")
+
+
 def test_an_unlabelled_constant_has_no_name_and_the_plain_type_string(
     project: Project,  # noqa: F811
 ) -> None:

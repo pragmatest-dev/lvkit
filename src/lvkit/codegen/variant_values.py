@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lvkit.graph.models import ConstantNode
+from lvkit.graph.models import ConstantNode, VINode
 from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 
@@ -49,8 +49,13 @@ def variant_label(ctx: CodeGenContext, source: Terminal | None) -> str:
     Information returns as its ``name`` and the variant's type string records: the
     label the graph keeps for the wire's source. That is the label of a control or
     indicator (``FPTerminal.name``), the field label of a Bundle or Unbundle By Name
-    lane (``Terminal.display_name``) and the label of a constant (``label``);
-    "" when the source records none."""
+    lane (``Terminal.display_name``), the label of a constant (``label``) and the
+    label of a subVI output (``Terminal.name``: the label the calling VI records for
+    the called VI's connector-pane slot, its indicator's). A function's output has
+    none: NI's pages and the forum threads searched (forums.ni.com "Get the type of
+    the data in a variant", "Cluster Element Names") say only that the name is the
+    label of the data, an output indicator's by default, and none says a function's
+    terminal gives its type one; "" when the source records none."""
     if source is None:
         return ""
     if isinstance(source, FPTerminal):
@@ -60,7 +65,11 @@ def variant_label(ctx: CodeGenContext, source: Terminal | None) -> str:
     if ctx.graph is None:
         return ""
     node = ctx.graph.get_graph_node(ctx.graph.terminal_node_id(source.id))
-    return (node.label or "") if isinstance(node, ConstantNode) else ""
+    if isinstance(node, ConstantNode):
+        return node.label or ""
+    if isinstance(node, VINode):
+        return source.name or ""
+    return ""
 
 
 def as_variant(
