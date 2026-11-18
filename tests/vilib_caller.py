@@ -62,6 +62,7 @@ def run_catalog_call(
     calls: Sequence[Mapping[str, Any]] | None = None,
     instance_defaults: dict[int, str | None] | None = None,
     classes: Mapping[str, str] | None = None,
+    typedefs: Mapping[str, str] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -80,6 +81,8 @@ def run_catalog_call(
     what each input control of the instance holds when unwired, by slot.
     ``classes`` adds classes to the project: each class file name (``A.lvclass``)
     with the source of the module generated for it, written beside the caller.
+    ``typedefs`` does the same for typedef controls (``Animal.ctl``); a type whose
+    ``file_key`` is ``/Animal.ctl`` is that file's class.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -96,6 +99,13 @@ def run_catalog_call(
         module_file = package / f"{Path(class_file).stem.lower()}.py"
         module_file.write_text(class_source, encoding="utf-8")
         class_files[f"/{class_file}"] = module_file
+    for typedef_file, typedef_source in (typedefs or {}).items():
+        graph._dep_graph.add_node(  # noqa: SLF001
+            f"/{typedef_file}", node_type=NodeType.TYPEDEF
+        )
+        module_file = package / f"{Path(typedef_file).stem.lower()}.py"
+        module_file.write_text(typedef_source, encoding="utf-8")
+        class_files[f"/{typedef_file}"] = module_file
     resolver = create_import_resolver(
         "pkg",
         package,
