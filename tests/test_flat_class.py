@@ -238,6 +238,17 @@ def test_a_child_class_writes_every_level_oldest_ancestor_first(
         ) == (3, "x", 9)
 
 
+def test_only_an_unflatten_of_a_class_catches_the_class_failure(
+    tmp_path: Path,
+) -> None:
+    project = classes(tmp_path)
+    project.add_vi("OfNumber", unflatten_only(INT))
+    project.add_vi("OfClass", unflatten_only(BASE))
+    package = project.generate()
+    assert "FlattenedClassError" not in package.sources["ofnumber"]
+    assert "FlattenedClassError" in package.sources["ofclass"]
+
+
 def test_labview_object_flattens_as_level_zero(tmp_path: Path) -> None:
     project = classes(tmp_path)
     project.add_vi("RoundTrip", round_trip(LABVIEW_OBJECT))

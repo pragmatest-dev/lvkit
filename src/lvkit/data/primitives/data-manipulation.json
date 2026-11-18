@@ -255,7 +255,8 @@
           "exception": "FlattenedClassError",
           "base": "Exception",
           "code": 1403,
-          "code_attribute": "code"
+          "code_attribute": "code",
+          "only_with_class": true
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",

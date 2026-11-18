@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import AnyGraphNode
-from lvkit.models import ScalarValue
+from lvkit.models import ScalarValue, contains_class_instance
 from lvkit.primitive_resolver import NativeError, PrimitiveEntry
 from lvkit.vilib_resolver import VIEntry
 
@@ -118,6 +118,15 @@ def catch_failures(
 ) -> CodeFragment:
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
+    failures = tuple(
+        f
+        for f in catalog.failures
+        if not f.only_with_class
+        or any(
+            contains_class_instance(t.lv_type)
+            for t in getattr(node, "terminals", None) or ()
+        )
+    )
     _, outputs = own_error_terminals(node, ctx)
     # A class of the operation's own is raised whether or not it is caught; it
     # is registered with the module's other helpers, one definition per name,
@@ -126,7 +135,7 @@ def catch_failures(
     # all raise EmptyOrRelativePathError), so its definition names the error, not
     # the node.
     written: dict[str, str] = {}
-    for failure in catalog.failures:
+    for failure in failures:
         if failure.base is not None:
             written[failure.exception] = ctx.add_module_function(
                 own_exception_class(failure)
@@ -134,7 +143,7 @@ def catch_failures(
     renamed = {old: new for old, new in written.items() if old != new}
     if renamed:
         fragment.statements = [_rename(s, renamed) for s in fragment.statements]
-    if not catalog.failures or not fragment.statements:
+    if not failures or not fragment.statements:
         return fragment
     # With no error out wired the failure has nowhere to go: the VI's automatic
     # error handling decides. On, it stays a Python exception; off, it is
@@ -163,7 +172,7 @@ def catch_failures(
     )
     exception = ctx.make_output_var("exception", node.id)
     handlers = []
-    for failure in catalog.failures:
+    for failure in failures:
         if failure.module is not None:
             fragment.imports.add(exception_import(failure))
         body = list(defaults)

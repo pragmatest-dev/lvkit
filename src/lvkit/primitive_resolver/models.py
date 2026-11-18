@@ -105,6 +105,9 @@ class NativeError(BaseModel):
     # for it; ``code`` is then None); the message is its text when absent.
     code_expression: str | None = None
     message_expression: str | None = None
+    # The failure is listed only for a node whose terminals hold a class object
+    # (the failure of reading class data).
+    only_with_class: bool = False
 
 
 class LiveIOWhenInput(BaseModel):
