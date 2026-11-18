@@ -66,16 +66,16 @@ def test_temporary_directory() -> None:
     assert fn().path == Path(tempfile.gettempdir())
 
 
-def test_default_directory_is_a_gap_with_its_reason() -> None:
-    _, fn = generate(
+def test_default_directory_is_the_user_home_folder() -> None:
+    source, fn = generate(
         1427,
         "Default Directory",
         [Pin(0, "output", scalar("Path"), sink="path")],
         {},
         {"path": scalar("Path")},
     )
-    with pytest.raises(NotImplementedError, match="current directory"):
-        fn()
+    assert "lvkit" not in source
+    assert fn().path == Path.home()
 
 
 def _set_size(tmp_path: Path, refnum_type=None):
