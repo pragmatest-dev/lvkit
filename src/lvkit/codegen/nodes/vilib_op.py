@@ -30,6 +30,7 @@ from ..output_binding import bind_output
 from ..picture_values import TEMPLATES
 from . import (
     class_default_value,
+    class_name,
     elapsed_time,
     get_type_information,
     grpc_any,
@@ -98,6 +99,7 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "TYPE_DESCRIPTOR_CODE": _type_descriptor_code,
     "ELAPSED_TIME": elapsed_time.generate,
     "GET_LV_CLASS_DEFAULT_VALUE": class_default_value.generate,
+    "GET_LV_CLASS_NAME": class_name.generate,
     "GET_TYPE_INFORMATION": get_type_information.generate,
     "GET_ARRAY_INFORMATION": variant_type_parts.array_information,
     "GET_CLUSTER_INFORMATION": variant_type_parts.cluster_information,

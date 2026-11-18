@@ -532,14 +532,17 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-name-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the name of the class of the object.",
-      "vi_path": null,
+      "vi_path": "vi.lib/Utility/LVClass/Get LV Class Name.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "complete",
+      "op": "GET_LV_CLASS_NAME",
+      "inline": true,
+      "imports": [],
       "terminals": [
         {
           "name": "object",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -548,7 +551,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -557,7 +560,7 @@
         },
         {
           "name": "class name",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -566,7 +569,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
