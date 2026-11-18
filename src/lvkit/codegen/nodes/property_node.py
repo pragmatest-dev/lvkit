@@ -291,7 +291,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
     and a write: ``front_panel_title``) and the rows of the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
-    Indicator and Label.Text, and a write of a control's Value); every other read,
+    Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
+    Strings[], read and written through the panel); every other read,
     and every other write, is a gap naming the property and the reference's
     class. Implicit control bindings are rejected unless the node is bound to a
     control of the VI. Error-cluster terminals are not read here: the node's error
@@ -360,7 +361,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
             row = panel_reference.panel_row(node, prop)
-            if row is not None:
+            listed = panel_reference.property_row(node, prop)
+            if listed is not None:
+                reflected = panel_reference.read_property(listed, ref_var, ctx)
+                panel_read = True
+            elif row is not None:
                 reflected = panel_reference.read(
                     row, ref_var, ctx, is_variant_type(term.lv_type)
                 )
@@ -383,14 +388,25 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     "Unwired property write default is unqualified", node
                 )
             row = panel_reference.panel_row(node, prop)
+            listed = panel_reference.property_row(node, prop)
             title = is_on_vi_reference(
                 node
             ) and front_panel_title.is_title_row(prop)
-            if not title and (row is None or not panel_reference.is_writable(row)):
+            if (
+                not title
+                and listed is None
+                and (row is None or not panel_reference.is_writable(row))
+            ):
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
+            if listed is not None:
+                statements.append(
+                    panel_reference.write_property(listed, ref_var, value, ctx)
+                )
+                panel_read = True
+                continue
             if title:
                 statements.append(front_panel_title.write(ref_var, value))
                 continue

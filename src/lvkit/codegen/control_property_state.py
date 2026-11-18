@@ -1,10 +1,11 @@
-"""The Visible and Disabled state of a control the VI's diagram reads.
+"""The Visible, Disabled and Strings[] state of a control the VI's diagram reads.
 
-A Property Node row that reads ``Visible`` or ``Disabled`` of a control of its own
-VI gives the state the control has now: the last value a Property Node of the VI
-wrote, else the state the VI file stores for the control (``FPTerminal.starts_hidden``
-and ``FPTerminal.enable_state``, read from the front panel's flags by
-``parser/flags.py``). Only the VI's own Property Nodes change either property, so
+A Property Node row that reads ``Visible``, ``Disabled`` or a Combo Box's
+``Strings[]`` of a control of its own VI gives the state the control has now: the
+last value a Property Node of the VI wrote, else the state the VI file stores for
+the control (``FPTerminal.starts_hidden`` and ``FPTerminal.enable_state``, read from
+the front panel's flags by ``parser/flags.py``; a Combo Box's strings, its
+``FPTerminal.enum_values``). The VI's own Property Nodes change these properties, so
 a module variable, seeded to the stored state, holds it. Like an indicator a Local
 Variable reads (``local_indicators``), the variable keeps its value from one call
 of the VI to the next, as the control keeps its state in LabVIEW. A write of the
@@ -29,34 +30,53 @@ from lvkit.models import FPTerminal
 from .ast_utils import build_assign, node_owned_name
 from .context import CodeGenContext
 
-STATE_MEMBERS = ("visible", "disabled")
+STATE_MEMBERS = ("visible", "disabled", "strings")
 """The ``ControlProperty.member`` of the properties that start from the stored
 state of the control."""
 
+StateValue = bool | int | list[str]
+"""A property's state: ``Visible`` a bool, ``Disabled`` its enum value, a Combo
+Box's ``Strings[]`` the list of its drop-down strings."""
 
-def starting_state(control: FPTerminal, member: str) -> bool | int | None:
+
+def starting_state(control: FPTerminal, member: str) -> StateValue | None:
     """The value the file stores for the property ``member`` of ``control``:
-    ``Visible`` as a bool, ``Disabled`` as its enum value; None when the file does
-    not record it (or ``member`` is not one of ``STATE_MEMBERS``)."""
+    ``Visible`` as a bool, ``Disabled`` as its enum value, a Combo Box's
+    ``Strings[]`` as its list of strings (the parser records the items of a
+    Combo Box in ``enum_values``); None when the file does not record it (or
+    ``member`` is not one of ``STATE_MEMBERS``, or the control is not a Combo Box
+    for ``Strings[]``)."""
     if member == "visible":
         return None if control.starts_hidden is None else not control.starts_hidden
     if member == "disabled":
         return control.enable_state
+    if member == "strings" and control.control_type == "stdComboBox":
+        return list(control.enum_values)
     return None
 
 
 DEFAULT_STATES: dict[str, bool | int] = {"visible": True, "disabled": 0}
-"""The state of each of ``STATE_MEMBERS`` for a control in LabVIEW's default."""
+"""The state of each of ``STATE_MEMBERS`` that has a default (a control in
+LabVIEW's default state); a property with none (``Strings[]``) is always held."""
 
 
-def stored_states(control: FPTerminal) -> dict[str, bool | int]:
+def state_expression(state: StateValue) -> ast.expr:
+    """The Python expression of the state ``state``."""
+    if isinstance(state, list):
+        return ast.List(elts=[ast.Constant(value=s) for s in state], ctx=ast.Load())
+    return ast.Constant(value=state)
+
+
+def stored_states(control: FPTerminal) -> dict[str, StateValue]:
     """The properties of ``control`` that the file stores in a state other than
-    the default (hidden, disabled, greyed out), by member name: what the panel
-    starts the control in."""
-    states: dict[str, bool | int] = {}
+    the default (hidden, disabled, greyed out), and those with no default (a Combo
+    Box's strings), by member name: what the panel starts the control in."""
+    states: dict[str, StateValue] = {}
     for member in STATE_MEMBERS:
         state = starting_state(control, member)
-        if state is not None and state != DEFAULT_STATES[member]:
+        if state is not None and (
+            member not in DEFAULT_STATES or state != DEFAULT_STATES[member]
+        ):
             states[member] = state
     return states
 
@@ -90,7 +110,7 @@ def entry_property_states(ctx: CodeGenContext) -> list[ast.stmt]:
             if state is None or key in ctx.property_states:
                 continue
             name = node_owned_name(f"_lv_{listed.member}", ctx.function_name, bound.id)
-            ctx.add_state_global(name, ast.Constant(value=state), owner=bound.id)
+            ctx.add_state_global(name, state_expression(state), owner=bound.id)
             ctx.property_states[key] = name
             names.append(name)
     if not names:

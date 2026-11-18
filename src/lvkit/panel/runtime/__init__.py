@@ -21,7 +21,14 @@ from .widgets import (
     string_port,
 )
 from .widgets_array import array_control, array_indicator, array_port
-from .widgets_choice import choice_control, choice_indicator, choice_port
+from .widgets_choice import (
+    choice_control,
+    choice_indicator,
+    choice_port,
+    combo_control,
+    combo_indicator,
+    combo_port,
+)
 from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_error import error_control, error_indicator, error_port
 from .widgets_opaque import (
@@ -53,6 +60,9 @@ __all__ = [
     "cluster_control",
     "cluster_indicator",
     "cluster_port",
+    "combo_control",
+    "combo_indicator",
+    "combo_port",
     "error_control",
     "error_indicator",
     "error_port",

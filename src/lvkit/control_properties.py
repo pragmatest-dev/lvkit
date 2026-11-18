@@ -71,6 +71,7 @@ class _Table:
     inherited_signaling: frozenset[int]
     class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
+    reference_properties: dict[str, frozenset[str]]
     reinit_to_default: frozenset[int]
 
 
@@ -105,6 +106,11 @@ def _table() -> _Table:
             for name, entry in raw["reference_rows"].items()
             for path in entry["codes"]
         },
+        reference_properties={
+            name: frozenset(members)
+            for name, members in raw["reference_properties"].items()
+            if not name.startswith("_")
+        },
         reinit_to_default=frozenset(raw["methods"]["reinit_to_default"]["codes"]),
     )
 
@@ -126,6 +132,20 @@ def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty |
     table = _table()
     key = ".".join(str(code) for code in codes)
     return table.classes.get(class_name, {}).get(key) or table.inherited.get(key)
+
+
+def reference_property(
+    class_name: str, codes: Sequence[int]
+) -> ControlProperty | None:
+    """The listed property that the row with property ``codes`` on a wired control
+    reference of class ``class_name`` is, when the panel reads and writes it for
+    that class (``reference_properties`` of ``control_properties.json``); None for
+    any other row."""
+    listed = control_property(class_name, codes)
+    if listed is None:
+        return None
+    allowed = _table().reference_properties.get(class_name, frozenset())
+    return listed if listed.member in allowed else None
 
 
 def is_value_row(class_name: str, codes: Sequence[int]) -> bool:

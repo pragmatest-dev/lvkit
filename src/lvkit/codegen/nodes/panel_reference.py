@@ -24,7 +24,14 @@ that module, and these rows read them:
 - ``ClassID`` (.../generic/classid.html, "This integer uniquely identifies the class
   of a LabVIEW object") is ``.class_id``: NI's number of the control's VI Server
   class (``control_classes.json``); a control whose front-panel class has no
-  recorded VI Server class raises NotImplementedError naming it, built when read.
+  recorded VI Server class raises NotImplementedError naming it, built when read;
+- ``Strings[]`` of a Combo Box reference (NI: .../control/string/combobox/
+  strings.html, "Array of the strings from which you can select in the combo box
+  control", read and write, settable while the VI runs) is
+  ``as_control(reference).get_property("strings")`` / ``.set_property("strings",
+  value)``: the panel holds the property like any other control property
+  (``reference_properties`` of ``control_properties.json``), a read gives the last
+  write, else the strings the control is saved with, and its views show a write.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
 by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
@@ -38,7 +45,12 @@ from __future__ import annotations
 import ast
 from enum import Enum
 
-from lvkit.control_properties import ReferenceRow, reference_row
+from lvkit.control_properties import (
+    ControlProperty,
+    ReferenceRow,
+    reference_property,
+    reference_row,
+)
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.vi_reference import is_on_vi_reference
 from lvkit.models import PropertyDef
@@ -100,6 +112,40 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
         return PanelRow.CONTROLS if codes == [PANEL_CONTROLS_PROPERTY_CODE] else None
     found = reference_row(class_name, codes)
     return _REFERENCE_ROWS[found] if found is not None else None
+
+
+def property_row(node: PrimitiveNode, prop: PropertyDef) -> ControlProperty | None:
+    """The listed property of the control the Property Node row ``prop`` of ``node``
+    reads or writes through the panel (``reference_properties`` of
+    ``control_properties.json``: a Combo Box's Strings[]); None for any other
+    row."""
+    if is_on_vi_reference(node):
+        return None
+    return reference_property(
+        node.object_name or "", [segment.code for segment in prop.segments]
+    )
+
+
+def read_property(
+    listed: ControlProperty, reference: str, ctx: CodeGenContext
+) -> ast.expr:
+    """The Python value of the property ``listed`` of the control ``reference``
+    holds: the last write, else the state the control is saved in."""
+    ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
+    return parse_expr(f"{AS_CONTROL_NAME}({reference}).get_property({listed.member!r})")
+
+
+def write_property(
+    listed: ControlProperty, reference: str, value: str, ctx: CodeGenContext
+) -> ast.stmt:
+    """The call that sets the property ``listed`` of the control ``reference``
+    holds to ``value``."""
+    ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
+    return ast.Expr(
+        value=parse_expr(
+            f"{AS_CONTROL_NAME}({reference}).set_property({listed.member!r}, {value})"
+        )
+    )
 
 
 def is_writable(row: PanelRow) -> bool:

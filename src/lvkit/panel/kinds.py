@@ -24,6 +24,7 @@ class PanelKind(Enum):
     BOOLEAN = ("bool", "stdBool", ("bool",), ())
     STRING = ("string", "stdString", ("str",), ())
     PATH = ("path", "stdPath", ("Path | None",), ())
+    COMBO = ("combo", "stdComboBox", ("str",), ())
     ENUM = ("choice", "stdEnum", ("int",), ())
     RING = ("choice", "stdRing", ("int",), ())
     ARRAY = ("array", "indArr", (), (LVTypeKind.ARRAY,))
@@ -82,7 +83,8 @@ _LIMITS = _FOCUS | {"minimum", "maximum"}
 # container applies Disabled to the inputs inside it). What remains unshown has no
 # widget meaning: Key Focus on a kind with no single focusable input (an indicator,
 # a complex number's two boxes, a cluster, an array, an error cluster, a variant's
-# text) and Minimum / Maximum on anything but a number control.
+# text), Minimum / Maximum on anything but a number control, and Strings on
+# anything but a Combo Box.
 SHOWN_PROPERTIES: dict[tuple[PanelKind, bool], frozenset[str]] = {
     (PanelKind.NUMBER, False): _LIMITS,
     (PanelKind.NUMBER, True): _DISABLE,
@@ -94,6 +96,8 @@ SHOWN_PROPERTIES: dict[tuple[PanelKind, bool], frozenset[str]] = {
     (PanelKind.STRING, True): _DISABLE,
     (PanelKind.PATH, False): _FOCUS,
     (PanelKind.PATH, True): _DISABLE,
+    (PanelKind.COMBO, False): _FOCUS | {"strings"},
+    (PanelKind.COMBO, True): _DISABLE | {"strings"},
     (PanelKind.ENUM, False): _FOCUS,
     (PanelKind.ENUM, True): _DISABLE,
     (PanelKind.RING, False): _FOCUS,

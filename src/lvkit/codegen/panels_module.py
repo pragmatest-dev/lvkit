@@ -78,7 +78,10 @@ reference to the object reads: its ``label``, whether it is an ``indicator``, an
 its ``value`` (read and written through the panel, as Ctrl Val does). The
 ``controls`` of a cluster's ``Control`` are a ``Field`` for each field of the
 cluster, in field order: the field's label, the cluster's indicator flag, and the
-field of the cluster's value as ``value``.
+field of the cluster's value as ``value``. ``Control.get_property(prop)`` and
+``Control.set_property(prop, value)`` read and write a control property the panel
+holds (a Combo Box's ``"strings"``): the read is the last write, else the state in
+``states``; the write is held and told to the views.
 
 The panel holds every value by name, so two controls with the same label (or a
 control and an indicator) each keep their own. ``order`` lists every name in the
@@ -190,6 +193,9 @@ def raise_empty_variant(label: str) -> NoReturn:
     )
 
 
+_NO_STATE = object()
+
+
 class Control:
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
     it is an ``indicator`` and its ``value``, which is the panel's value of it. A
@@ -236,6 +242,25 @@ class Control:
     @variant.setter
     def variant(self, variant: Variant) -> None:
         self.panel.put_variant(self.name, variant)
+
+    def get_property(self, prop: str) -> Any:
+        """The state of the property ``prop`` of the control (``"strings"``, a Combo
+        Box's drop-down list): the last write, else the state the control is saved
+        in. A control the panel holds no state of ``prop`` for is not one this
+        property belongs to: error 1026."""
+        held = self.panel.property_of(self.name, prop, _NO_STATE)
+        if held is _NO_STATE:
+            raise PanelError(
+                code=1026,
+                source="Control.get_property",
+                message=f'"{self.label}" has no {prop} property.',
+            )
+        return copy.copy(held)
+
+    def set_property(self, prop: str, value: Any) -> None:
+        """Set the property ``prop`` of the control: the panel holds it and tells
+        its views."""
+        self.panel.set_property(self.name, prop, copy.copy(value))
 
     @property
     def class_id(self) -> int:
@@ -532,6 +557,15 @@ class PanelValues:
         with self._lock:
             return dict(self._properties.get(name, {}))
 
+    def set_property(self, name: str, prop: str, value: Any) -> None:
+        """Set the property ``prop`` of the control or indicator ``name``: the panel
+        holds it (a view that is built later starts from it) and tells the
+        views."""
+        self._check(name)
+        with self._lock:
+            self._properties.setdefault(name, {})[prop] = value
+        self._tell("property_changed", name, prop, value)
+
     def note_property(self, name: str, prop: str, value: Any) -> None:
         """A view tells the panel that the user changed the property ``prop`` of
         ``name`` (the control got the keyboard focus). No view is told."""
@@ -822,9 +856,7 @@ class Panel(PanelValues):
         """The function set the property ``prop`` of ``name``: the panel holds it
         (a view that is built later starts from it) and tells the views."""
         if self.holds(name):
-            with self._lock:
-                self._properties.setdefault(name, {})[prop] = value
-            self._tell("property_changed", name, prop, value)
+            self.set_property(name, prop, value)
 
     def _live_get_property(self, name: str, prop: str, held: Any) -> Any:
         """The panel's state of the property ``prop`` of ``name``; ``held`` (the

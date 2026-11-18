@@ -58,7 +58,7 @@ from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
-from .control_property_state import stored_states
+from .control_property_state import state_expression, stored_states
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
@@ -258,7 +258,7 @@ def panel_statements(
                     values=[
                         ast.Dict(
                             keys=[ast.Constant(value=member) for member in stored],
-                            values=[ast.Constant(value=v) for v in stored.values()],
+                            values=[state_expression(v) for v in stored.values()],
                         )
                         for stored in states.values()
                     ],

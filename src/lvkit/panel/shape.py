@@ -37,7 +37,7 @@ def _scalar_default(
         return value if isinstance(value, complex) else 0j
     if kind is PanelKind.BOOLEAN:
         return value if isinstance(value, bool) else False
-    if kind is PanelKind.STRING:
+    if kind in (PanelKind.STRING, PanelKind.COMBO):
         return value if isinstance(value, str) else ""
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return value

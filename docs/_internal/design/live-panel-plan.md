@@ -462,6 +462,16 @@ A listed property a widget kind cannot show is a gap the panel generator warns a
 
 A Property Node row (on a control, or on a VI reference) that has no Python meaning is a gap: the generated code warns at generation and raises where the node would run, as every gap does (CLAUDE.md "ONE rule for every gap"). The listed control properties (10.2) and a VI reference's Name, Path and Exec.State (`vi_reference.vi_property_read`) are the rows that have one; no row is silently ignored.
 
+### 10.9 A Combo Box's `Strings[]` (built 2026-11-18, on the 10.2 table, 10.5 panel side, 10.6 D17 reads and 15.6 control references)
+
+Extends, replaces nothing: `Strings[]` (Combo Box code 104099843) was already a listed write in the 10.2 table; the panel side drew no Combo Box at all, and a read, and a write through a control reference, were gaps. Corpus: one gap, `Populate Font ComboBox.vi` (ni-labview-icon-editor) writes `Strings[]` of a `CmbBox` control reference (the `CmbBox Refnum` input); the 80 modules that import it carry the gap.
+
+- **Starting state (D17 extended).** The parser reads the Combo Box's saved strings into `enum_values` like an enum's or ring's items; every corpus Combo Box stores none (`labview-binary-format.md`, `comboBoxValues`), a non-empty `comboBoxValues` is warned about. `control_property_state.starting_state(control, "strings")` is that list for a `stdComboBox`, and `stored_states` always holds it (no default to leave out), so the generated panel description carries `states={'c': {'strings': []}}`.
+- **Bound Property Node.** A read is `live_io.get_property(<Enum>.C, <PropertyEnum>.STRINGS, <module variable>)` (the D17 mechanism: the last write, else the stored strings); a write is `live_io.set_property` (10.3). Unchanged mechanism, a list as the state.
+- **Control reference** (`control_properties.json` `reference_properties`: members a Property Node on a reference of that class reads and writes through the panel; `CmbBox: ["strings"]`): `as_control(ref).get_property("strings")` reads the panel's held state (the last write, else the saved strings) and `as_control(ref).set_property("strings", value)` holds it on the panel (`PanelValues.set_property`) and tells the views (`property_changed`), the call `live_io.set_property` makes for the VI's own control. A control the panel holds no strings state for (not a Combo Box) is error 1026 on the node's error out.
+- **NiceGUI view.** `PanelKind.COMBO` (`stdComboBox`, string value): `ui.select` with typed text (`new_value_mode="add-unique"`); its `strings` applier (`runtime/properties.py` `STRINGS`) replaces the list, keeping the text the control holds selectable. `SHOWN_PROPERTIES` lists `strings` for the Combo Box only.
+- **Ring and Enum `Strings[]`: not extended.** The Ring's table entry stays a bound write and a reference stays a gap: a ring stores the value each string stands for (`ring_values`), which the panel's property state does not hold, so replacing its strings has no value rule of this design (NI's Ring `Strings[]` page: "Use the Strings And Values [] property to specify custom values"). It needs its own decision.
+
 ## 11. One `live_io` object instead of hook parameters (DECIDED: maintainer, 2026-11-10, "Nice, approved")
 
 ### 11.1 What changes

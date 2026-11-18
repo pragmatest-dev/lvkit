@@ -94,7 +94,12 @@ from .fp_heap_type import (
     ring_sparse_values,
 )
 from .fp_listbox import read_listbox
-from .fp_parts import parse_bounds, parse_fp_parts_list, parse_multi_label_buf
+from .fp_parts import (
+    combo_box_saved_item_count,
+    parse_bounds,
+    parse_fp_parts_list,
+    parse_multi_label_buf,
+)
 from .fp_pictures import attach_panel_pictures
 from .fp_structure import read_panel_layout
 from .front_panel import (
@@ -2292,6 +2297,13 @@ def _parse_ddo(
     ring_values: list[int] = []
     if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
+    if control_type == "stdComboBox" and combo_box_saved_item_count(ddo):
+        warnings.warn(
+            f"the Combo Box {name!r} is saved with strings in its drop-down list, "
+            "which no corpus VI has, so their form is not read: its Strings[] "
+            "starts empty",
+            stacklevel=2,
+        )
     if control_type == "stdRing":
         ring_values = ring_sparse_values(ddo)
 
