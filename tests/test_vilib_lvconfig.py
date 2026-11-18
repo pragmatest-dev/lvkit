@@ -359,13 +359,13 @@ def test_read_pathlist_splits_the_vi_search_path_example_on_semicolons(
         "<userlib>:\\*",
         "<instrlib>:\\*",
     ]
-    assert all(isinstance(p, Path) for p in result.value)
+    assert all(isinstance(p, str) for p in result.value)
 
 
 def test_write_pathlist_then_read_back_and_the_file_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    paths = [Path("a/b"), Path("<vilib>:\\*"), Path("c")]
+    paths = [Path("a/b"), "<vilib>:\\*", Path("c")]
     run_catalog_call(
         tmp_path,
         monkeypatch,
@@ -375,8 +375,10 @@ def test_write_pathlist_then_read_back_and_the_file_text(
         outputs={},
         arguments={"key": "Paths", "value": paths},
     )
+    # LabVIEW writes platform-native paths to its own ini (LabVIEW wiki,
+    # "LabVIEW configuration file/Paths": defaultdir="C:\Program Files\...\").
     assert _ini(tmp_path).read_text(encoding="utf-8") == (
-        '[LabVIEW]\nPaths="a/b;<vilib>:\\*;c"\n'
+        f'[LabVIEW]\nPaths="{Path("a/b")};<vilib>:\\*;c"\n'
     )
     result = _read_pathlist(tmp_path, monkeypatch, key="paths", default=[])
     assert result.value == paths

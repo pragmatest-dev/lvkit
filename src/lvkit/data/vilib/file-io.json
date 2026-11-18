@@ -9387,7 +9387,7 @@
           "code": 6
         }
       ],
-      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\nif _text is None:\n    {value} = {default_value}\nelif _text == '':\n    {value} = []\nelse:\n    {value} = [Path(_p) if _p != '' else None for _p in _text.split(';')]",
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\nif _text is None:\n    {value} = {default_value}\nelif _text == '':\n    {value} = []\nelse:\n    {value} = [None if _p == '' else (_p if _p.startswith('<') else Path(_p)) for _p in _text.split(';')]",
       "inline": true
     },
     {
