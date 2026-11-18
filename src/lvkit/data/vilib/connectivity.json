@@ -3926,51 +3926,53 @@
       "name": "Open Registry Key",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/open-registry-key-vi.html",
       "category": "Connectivity",
-      "description": "Opens a reference to a key or subkey in the Windows registry.",
-      "vi_path": null,
+      "description": "Opens a reference to a key or subkey in the Windows registry. Sources (public): the terminal indices are those the corpus callers' call nodes record (JKI VI Tester, the icon editor). NI's Windows Registry Access VIs palette is Windows-only ('Windows Registry Access VIs'; NI Knowledge Base kA00Z0000019LskSAE lists them among the VIs NI Linux Real-Time targets do not support); NI names no error for another platform, so generated Python raises NotImplementedError naming the platform when it runs. A registry refnum is a dict(hKey=<winreg key handle>, hRemoteKey=<handle from winreg.ConnectRegistry or None>), the two fields of NI's registry refnum. A Windows failure is the LabVIEW error NI's 'Windows Registry Access Error Codes' lists: Windows error 2 and 3 (key or value not found) -603, 5 (access denied) -604 (NI forum forums.ni.com/t5/LabVIEW/error-604-by-open-registry-key-in-Windows-7/td-p/1605254: -604 from Open Registry Key without write access), 6 -602, 53 -620, 259 -605, 1722 -619, 1009 to 1021 -606 to -618 (NI's descriptions for those are the Windows system error texts in the same order), any other -600. The root key and security access mask inputs are NI's enums (index = the position NI lists: root key 0 HKEY_CLASSES_ROOT to 6 HKEY_DYN_DATA, access mask 0 KEY_QUERY_VALUE to 9 KEY_READ | KEY_WRITE), written as winreg's constants; registry view is NI's numeric 0 Default, 8 KEY_WOW64_32KEY, 9 KEY_WOW64_64KEY. A machine name opens the key through winreg.ConnectRegistry on that networked machine.",
+      "vi_path": "<vilib>/registry/registry.llb/Open Registry Key.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "machine (local)",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is a handle to the open key."
+        },
+        {
+          "name": "registry view",
+          "index": 6,
+          "direction": "input",
+          "type": "NumUInt16",
+          "enum_values": null,
+          "python_param": "registry_view",
+          "description": "registry view specifies whether to open a 32-bit key or a 64-bit key on a 64-bit operating system.",
+          "default": 0
+        },
+        {
+          "name": "machine (local)",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
           "enum_values": null,
           "python_param": "machine",
-          "description": "machine is the name of the networked machine."
-        },
-        {
-          "name": "root key (HKEY_LOCAL_MACHINE)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "root_key",
-          "description": "root key is the Windows registry root key."
-        },
-        {
-          "name": "subkey",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "subkey",
-          "description": "subkey is the name of a subkey of root key. A beginning backslash character \\ might cause an error."
-        },
-        {
-          "name": "security access mask (KEY_READ | KEY_WRITE)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "security_access_mask",
-          "description": "security access mask is the access rights to assign the key."
+          "description": "machine is the name of the networked machine. The default is the local machine.",
+          "default": ""
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -3978,34 +3980,53 @@
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "registry view",
-          "index": null,
+          "name": "security access mask (KEY_READ | KEY_WRITE)",
+          "index": 9,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "registry_view",
-          "description": "registry view specifies whether to open a 32-bit key or a 64-bit key on a 64-bit operating system.",
-          "default": 0
+          "python_param": "security_access_mask",
+          "description": "security access mask is the access rights to assign the key.",
+          "default": 9
         },
         {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "subkey",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
           "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is a handle to the open key."
+          "python_param": "subkey",
+          "description": "subkey is the name of a subkey of root key. A beginning backslash character \\ might cause an error.",
+          "default": ""
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
+          "name": "root key (HKEY_LOCAL_MACHINE)",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "root_key",
+          "description": "root key is the Windows registry root key.",
+          "default": 2
         }
-      ]
+      ],
+      "match_names": [
+        "Open Registry Key.vi"
+      ],
+      "imports": [],
+      "errors": [
+        {
+          "exception": "RegistryViewError",
+          "base": "ValueError",
+          "code": -600
+        },
+        {
+          "exception": "OSError",
+          "code_expression": "dict([(2, -603), (3, -603), (5, -604), (6, -602), (53, -620), (259, -605), (1722, -619)] + [(w, 403 - w) for w in range(1009, 1022)]).get(getattr({exception}, 'winerror', None), -600)"
+        }
+      ],
+      "python_code": "import sys\nif sys.platform != 'win32':\n    raise NotImplementedError('Open Registry Key: the Windows registry is not available on ' + sys.platform)\nimport winreg\n_roots = ('HKEY_CLASSES_ROOT', 'HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE', 'HKEY_USERS', 'HKEY_PERFORMANCE_DATA', 'HKEY_CURRENT_CONFIG', 'HKEY_DYN_DATA')\n_masks = (winreg.KEY_QUERY_VALUE, winreg.KEY_SET_VALUE, winreg.KEY_CREATE_SUB_KEY, winreg.KEY_ENUMERATE_SUB_KEYS, winreg.KEY_NOTIFY, winreg.KEY_CREATE_LINK, winreg.KEY_READ, winreg.KEY_WRITE, winreg.KEY_ALL_ACCESS, winreg.KEY_READ | winreg.KEY_WRITE)\n_views = dict([(0, 0), (8, winreg.KEY_WOW64_32KEY), (9, winreg.KEY_WOW64_64KEY)])\nif {registry_view} not in _views:\n    raise RegistryViewError('Open Registry Key: registry view is ' + repr({registry_view}) + ', not 0, 8 or 9')\n_base = getattr(winreg, _roots[{root_key}])\n_remote = None\nif {machine}:\n    _remote = winreg.ConnectRegistry({machine} if {machine}.startswith('\\\\\\\\') else '\\\\\\\\' + {machine}, _base)\n    _base = _remote\ntry:\n    _key = winreg.OpenKeyEx(_base, {subkey}, 0, _masks[{security_access_mask}] | _views[{registry_view}])\nexcept OSError:\n    if _remote is not None:\n        _remote.Close()\n    raise\n{refnum_out} = dict(hKey=_key, hRemoteKey=_remote)",
+      "inline": true
     },
     {
       "name": "Create Registry Key",
@@ -4122,78 +4143,15 @@
       "name": "Query Registry Key Info",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/query-registry-key-info-vi.html",
       "category": "Connectivity",
-      "description": "Retrieves information about keys.",
-      "vi_path": null,
+      "description": "Retrieves information about keys. Sources (public): the terminal indices are those the corpus callers' call nodes record (JKI VI Tester, the icon editor). NI's Windows Registry Access VIs palette is Windows-only ('Windows Registry Access VIs'; NI Knowledge Base kA00Z0000019LskSAE lists them among the VIs NI Linux Real-Time targets do not support); NI names no error for another platform, so generated Python raises NotImplementedError naming the platform when it runs. A registry refnum is a dict(hKey=<winreg key handle>, hRemoteKey=<handle from winreg.ConnectRegistry or None>), the two fields of NI's registry refnum. A Windows failure is the LabVIEW error NI's 'Windows Registry Access Error Codes' lists: Windows error 2 and 3 (key or value not found) -603, 5 (access denied) -604 (NI forum forums.ni.com/t5/LabVIEW/error-604-by-open-registry-key-in-Windows-7/td-p/1605254: -604 from Open Registry Key without write access), 6 -602, 53 -620, 259 -605, 1722 -619, 1009 to 1021 -606 to -618 (NI's descriptions for those are the Windows system error texts in the same order), any other -600. The call is advapi32's RegQueryInfoKeyW through ctypes (winreg has no key class and no longest name or data lengths); value info is (numValues, maxValueNameLen, maxValueDataLen) and subkey info (numSubKeys, maxSubKeyLen, maxSubKeyClassLen), the fields NI's refnum and clusters name.",
+      "vi_path": "<vilib>/registry/registry.llb/Query Registry Key Info.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is a handle to the open key."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is a handle to the open key."
-        },
-        {
-          "name": "class",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "class_",
-          "description": "class specifies the class (object type) of the key."
-        },
-        {
-          "name": "value info",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "value_info",
-          "description": "value info is the set of parameters describing the set of values and data."
-        },
-        {
-          "name": "maxValueNameLen",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "maxvaluenamelen",
-          "description": "maxValueNameLen is the length of the longest value name under the key specified by hKey."
-        },
-        {
-          "name": "maxValueDataLen",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "maxvaluedatalen",
-          "description": "maxValueDataLen is the length of the longest datum under the key specified by hKey."
-        },
-        {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -4201,33 +4159,77 @@
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
+          "name": "value info",
+          "index": 1,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "value_info",
+          "description": "value info is the set of parameters describing the set of values and data: numValues, the number of values under the key; maxValueNameLen, the length of the longest value name; maxValueDataLen, the length of the longest datum."
+        },
+        {
+          "name": "class",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "class_",
+          "description": "class specifies the class (object type) of the key."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is a handle to the open key."
+        },
+        {
           "name": "subkey info",
-          "index": null,
+          "index": 4,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "subkey_info",
-          "description": "subkey info is the set of parameters describing the subkeys."
+          "description": "subkey info is the set of parameters describing the subkeys: numSubKeys, the number of subkeys under the key; maxSubKeyLen, the length of the longest subkey name; maxSubKeyClassLen, the length of the longest class name."
         },
         {
-          "name": "maxSubKeyLen",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "maxsubkeylen",
-          "description": "maxSubKeyLen is the length of the longest subkey name under the key specified by hKey."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "maxSubKeyClassLen",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "maxsubkeyclasslen",
-          "description": "maxSubKeyClassLen is the length of the longest class name under the key specified by hKey."
+          "python_param": "refnum",
+          "description": "refnum is a handle to the open key."
         }
-      ]
+      ],
+      "match_names": [
+        "Query Registry Key Info.vi"
+      ],
+      "imports": [],
+      "errors": [
+        {
+          "exception": "RegistryRefnumError",
+          "base": "ValueError",
+          "code": -602
+        },
+        {
+          "exception": "OSError",
+          "code_expression": "dict([(2, -603), (3, -603), (5, -604), (6, -602), (53, -620), (259, -605), (1722, -619)] + [(w, 403 - w) for w in range(1009, 1022)]).get(getattr({exception}, 'winerror', None), -600)"
+        }
+      ],
+      "python_code": "import sys\nif sys.platform != 'win32':\n    raise NotImplementedError('Query Registry Key Info: the Windows registry is not available on ' + sys.platform)\nimport winreg\n_ref = {refnum}\nif not isinstance(_ref, dict) or 'hKey' not in _ref:\n    raise RegistryRefnumError('Query Registry Key Info: ' + repr(_ref) + ' is not an open registry key')\nimport ctypes\n_advapi32 = ctypes.WinDLL('advapi32')\n_class = ctypes.create_unicode_buffer(256)\n_class_len = ctypes.c_uint32(256)\n_subkeys, _max_subkey, _max_class, _values, _max_name, _max_data = (ctypes.c_uint32() for _ in range(6))\nwhile True:\n    _status = _advapi32.RegQueryInfoKeyW(ctypes.c_void_p(int(_ref['hKey'])), _class, ctypes.byref(_class_len), None, ctypes.byref(_subkeys), ctypes.byref(_max_subkey), ctypes.byref(_max_class), ctypes.byref(_values), ctypes.byref(_max_name), ctypes.byref(_max_data), None, None)\n    if _status != 234:\n        break\n    _class = ctypes.create_unicode_buffer(_class_len.value + 1)\n    _class_len = ctypes.c_uint32(_class_len.value + 1)\nif _status != 0:\n    _failure = OSError(None, 'RegQueryInfoKeyW returned Windows error ' + str(_status), None, _status)\n    _failure.winerror = _status\n    raise _failure\n{refnum_out} = _ref\n{class_} = _class.value\n{value_info} = (_values.value, _max_name.value, _max_data.value)\n{subkey_info} = (_subkeys.value, _max_subkey.value, _max_class.value)",
+      "inline": true
     },
     {
       "name": "Enum Registry Keys",
@@ -4318,24 +4320,24 @@
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/close-registry-key-vi.html",
       "category": "Connectivity",
-      "description": "Closes a key in the Windows registry.",
-      "vi_path": null,
+      "description": "Closes a key in the Windows registry. Sources (public): the terminal indices are those the corpus callers' call nodes record (JKI VI Tester, the icon editor). NI's Windows Registry Access VIs palette is Windows-only ('Windows Registry Access VIs'; NI Knowledge Base kA00Z0000019LskSAE lists them among the VIs NI Linux Real-Time targets do not support); NI names no error for another platform, so generated Python raises NotImplementedError naming the platform when it runs. A registry refnum is a dict(hKey=<winreg key handle>, hRemoteKey=<handle from winreg.ConnectRegistry or None>), the two fields of NI's registry refnum. A Windows failure is the LabVIEW error NI's 'Windows Registry Access Error Codes' lists: Windows error 2 and 3 (key or value not found) -603, 5 (access denied) -604 (NI forum forums.ni.com/t5/LabVIEW/error-604-by-open-registry-key-in-Windows-7/td-p/1605254: -604 from Open Registry Key without write access), 6 -602, 53 -620, 259 -605, 1722 -619, 1009 to 1021 -606 to -618 (NI's descriptions for those are the Windows system error texts in the same order), any other -600. Closing a refnum that is not an open registry key is error -602, Invalid registry refnum.",
+      "vi_path": "<vilib>/registry/registry.llb/Close Registry Key.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is a handle to the open key."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -4343,15 +4345,32 @@
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "refnum",
+          "index": 7,
+          "direction": "input",
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "refnum",
+          "description": "refnum is a handle to the open key."
         }
-      ]
+      ],
+      "match_names": [
+        "Close Registry Key.vi"
+      ],
+      "imports": [],
+      "errors": [
+        {
+          "exception": "RegistryRefnumError",
+          "base": "ValueError",
+          "code": -602
+        },
+        {
+          "exception": "OSError",
+          "code_expression": "dict([(2, -603), (3, -603), (5, -604), (6, -602), (53, -620), (259, -605), (1722, -619)] + [(w, 403 - w) for w in range(1009, 1022)]).get(getattr({exception}, 'winerror', None), -600)"
+        }
+      ],
+      "python_code": "import sys\nif sys.platform != 'win32':\n    raise NotImplementedError('Close Registry Key: the Windows registry is not available on ' + sys.platform)\nimport winreg\n_ref = {refnum}\nif not isinstance(_ref, dict) or 'hKey' not in _ref:\n    raise RegistryRefnumError('Close Registry Key: ' + repr(_ref) + ' is not an open registry key')\n_ref['hKey'].Close()\nif _ref['hRemoteKey'] is not None:\n    _ref['hRemoteKey'].Close()",
+      "inline": true
     },
     {
       "name": "Delete Registry Key",
@@ -4423,106 +4442,15 @@
       "name": "Enum Registry Values Simple",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/enum-registry-values-simple-vi.html",
       "category": "Connectivity",
-      "description": "Enumerates the values for the specified key or subkey. If retrieve data? is TRUE, the VI returns DWORD data and String/Binary data in addition to values and simple data types. Use this VI with the Query Registry Key Info VI.",
-      "vi_path": null,
+      "description": "Enumerates the values for the specified key or subkey. If retrieve data? is TRUE, the VI returns DWORD data and String/Binary data in addition to values and simple data types. Use this VI with the Query Registry Key Info VI. Sources (public): the terminal indices are those the corpus callers' call nodes record (JKI VI Tester, the icon editor). NI's Windows Registry Access VIs palette is Windows-only ('Windows Registry Access VIs'; NI Knowledge Base kA00Z0000019LskSAE lists them among the VIs NI Linux Real-Time targets do not support); NI names no error for another platform, so generated Python raises NotImplementedError naming the platform when it runs. A registry refnum is a dict(hKey=<winreg key handle>, hRemoteKey=<handle from winreg.ConnectRegistry or None>), the two fields of NI's registry refnum. A Windows failure is the LabVIEW error NI's 'Windows Registry Access Error Codes' lists: Windows error 2 and 3 (key or value not found) -603, 5 (access denied) -604 (NI forum forums.ni.com/t5/LabVIEW/error-604-by-open-registry-key-in-Windows-7/td-p/1605254: -604 from Open Registry Key without write access), 6 -602, 53 -620, 259 -605, 1722 -619, 1009 to 1021 -606 to -618 (NI's descriptions for those are the Windows system error texts in the same order), any other -600. The number of values is value info's numValues; reading past the last value is error -605. The simple data type is String (0) for REG_SZ and REG_EXPAND_SZ, DWORD (2) for REG_DWORD and Binary (1) for every other type, whose data is the bytes the registry stores. NI's page does not say how the data arrays line up with values; each of the three data arrays has one element per value, an empty string or 0 where the value is of the other kind, and is empty when retrieve data? is FALSE (searches of forums.ni.com, lavag.org and NI docs found no description of the alignment).",
+      "vi_path": "<vilib>/registry/registry.llb/Enum Registry Values Simple.vi",
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is a handle to the open key."
-        },
-        {
-          "name": "retrieve data? (F)",
-          "index": 10,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "retrieve_data",
-          "description": "retrieve data? retrieves data and data types, if TRUE.",
-          "default": false
-        },
-        {
-          "name": "value info",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "value_info",
-          "description": "value info is the set of parameters describing the set of values and data."
-        },
-        {
-          "name": "maxValueNameLen",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "maxvaluenamelen",
-          "description": "maxValueNameLen is the length of the longest value name under the key specified by hKey."
-        },
-        {
-          "name": "maxValueDataLen",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "maxvaluedatalen",
-          "description": "maxValueDataLen is the length of the longest datum under the key specified by hKey."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "DWORD data",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "dword_data",
-          "description": "DWORD data is an array of data of Windows registry type DWORD ."
-        },
-        {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is a handle to the open key."
-        },
-        {
-          "name": "values",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "values",
-          "description": "values is an array of value names."
-        },
-        {
-          "name": "simple data types",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "simple_data_types",
-          "description": "simple data types is an array of simplified Windows registry data types."
-        },
-        {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -4530,15 +4458,105 @@
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "String/Binary data",
-          "index": null,
+          "name": "simple data types",
+          "index": 1,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "stringbinary_data",
+          "python_param": "simple_data_types",
+          "description": "simple data types is an array of simplified Windows registry data types (String 0, Binary 1, DWORD 2)."
+        },
+        {
+          "name": "values",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "values",
+          "description": "values is an array of value names."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is a handle to the open key."
+        },
+        {
+          "name": "String/Binary data",
+          "index": 4,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "string_binary_data",
           "description": "String/Binary data is an array of data of Windows registry type 'String' or 'Binary'."
+        },
+        {
+          "name": "DWORD data",
+          "index": 5,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "dword_data",
+          "description": "DWORD data is an array of data of Windows registry type DWORD."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value info",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "value_info",
+          "description": "value info is the set of parameters describing the set of values and data."
+        },
+        {
+          "name": "retrieve data? (F)",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "retrieve_data",
+          "description": "retrieve data? retrieves data and data types, if TRUE.",
+          "default": false
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is a handle to the open key."
         }
-      ]
+      ],
+      "match_names": [
+        "Enum Registry Values Simple.vi"
+      ],
+      "imports": [],
+      "errors": [
+        {
+          "exception": "RegistryRefnumError",
+          "base": "ValueError",
+          "code": -602
+        },
+        {
+          "exception": "OSError",
+          "code_expression": "dict([(2, -603), (3, -603), (5, -604), (6, -602), (53, -620), (259, -605), (1722, -619)] + [(w, 403 - w) for w in range(1009, 1022)]).get(getattr({exception}, 'winerror', None), -600)"
+        }
+      ],
+      "python_code": "import sys\nif sys.platform != 'win32':\n    raise NotImplementedError('Enum Registry Values Simple: the Windows registry is not available on ' + sys.platform)\nimport winreg\n_ref = {refnum}\nif not isinstance(_ref, dict) or 'hKey' not in _ref:\n    raise RegistryRefnumError('Enum Registry Values Simple: ' + repr(_ref) + ' is not an open registry key')\n{refnum_out} = _ref\n{values} = []\n{simple_data_types} = []\n{string_binary_data} = []\n{dword_data} = []\nfor _index in range({value_info}[0]):\n    _name, _data, _type = winreg.EnumValue(_ref['hKey'], _index)\n    if _type == winreg.REG_DWORD:\n        _kind = 2\n    elif _type in (winreg.REG_SZ, winreg.REG_EXPAND_SZ):\n        _kind = 0\n    else:\n        _kind = 1\n        _raw = _data if isinstance(_data, bytes) else ('\\0'.join(_data) + '\\0\\0').encode('utf-16-le') if isinstance(_data, list) else _data.to_bytes(8, 'little') if isinstance(_data, int) else b''\n    {values}.append(_name)\n    {simple_data_types}.append(_kind)\n    if {retrieve_data}:\n        {string_binary_data}.append(_data if _kind == 0 else _raw.decode('latin-1') if _kind == 1 else '')\n        {dword_data}.append(_data if _kind == 2 else 0)",
+      "inline": true
     },
     {
       "name": "Read Registry Value Simple",
@@ -4610,60 +4628,33 @@
       "name": "Read Registry Value Simple STR",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/registry/registry-llb/read-registry-value-simple-str-vi.html",
       "category": "Connectivity",
-      "description": "Reads data and the simplified data type from a registry value. If the key or value does not exist or an unrecoverable error occurs, the VI returns the default data. Wire data to the default data input to determine the polymorphic instance to use or manually select the instance. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National ",
-      "vi_path": null,
+      "description": "Reads data and the simplified data type from a registry value. If the key or value does not exist or an unrecoverable error occurs, the VI returns the default data. Sources (public): the terminal indices are those the corpus callers' call nodes record (JKI VI Tester, the icon editor). NI's Windows Registry Access VIs palette is Windows-only ('Windows Registry Access VIs'; NI Knowledge Base kA00Z0000019LskSAE lists them among the VIs NI Linux Real-Time targets do not support); NI names no error for another platform, so generated Python raises NotImplementedError naming the platform when it runs. A registry refnum is a dict(hKey=<winreg key handle>, hRemoteKey=<handle from winreg.ConnectRegistry or None>), the two fields of NI's registry refnum. A Windows failure is the LabVIEW error NI's 'Windows Registry Access Error Codes' lists: Windows error 2 and 3 (key or value not found) -603, 5 (access denied) -604 (NI forum forums.ni.com/t5/LabVIEW/error-604-by-open-registry-key-in-Windows-7/td-p/1605254: -604 from Open Registry Key without write access), 6 -602, 53 -620, 259 -605, 1722 -619, 1009 to 1021 -606 to -618 (NI's descriptions for those are the Windows system error texts in the same order), any other -600. On that fallback the error out is the error that came in (NI's sentence says the VI returns the default data) and the simple data type is String (0); a REG_DWORD value gives the default data and the type DWORD (2) since this instance returns a string; Binary (1) data is the stored bytes as a string.",
+      "vi_path": "<vilib>/registry/registry.llb/Read Registry Value Simple STR.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is a handle to the open key."
-        },
-        {
-          "name": "value",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "value",
-          "description": "value is the name of the registry value."
-        },
-        {
-          "name": "default data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "default_data",
-          "description": "default data is the data to return if value is not found or if an unrecoverable error occurs."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "refnum out",
-          "index": null,
+          "name": "error out",
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is the reference number of the configuration data."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "String/Binary data",
+          "index": 1,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string_binary_data",
+          "description": "String/Binary data is the data of Windows registry type String or Binary."
         },
         {
           "name": "simple data type",
-          "index": null,
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -4671,24 +4662,58 @@
           "description": "simple data type is the simplified Windows registry type."
         },
         {
-          "name": "String/Binary data",
-          "index": null,
+          "name": "refnum out",
+          "index": 3,
           "direction": "output",
-          "type": null,
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "stringbinary_data",
-          "description": "String/Binary data is the data of Windows registry type String or Binary ."
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 6,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default data",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_data",
+          "description": "default data is the data to return if value is not found or if an unrecoverable error occurs.",
+          "default": ""
+        },
+        {
+          "name": "value",
+          "index": 8,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the name of the registry value."
+        },
+        {
+          "name": "refnum",
+          "index": 9,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is a handle to the open key."
         }
-      ]
+      ],
+      "match_names": [
+        "Read Registry Value Simple STR.vi"
+      ],
+      "imports": [],
+      "python_code": "import sys\nif sys.platform != 'win32':\n    raise NotImplementedError('Read Registry Value Simple STR: the Windows registry is not available on ' + sys.platform)\nimport winreg\n{refnum_out} = {refnum}\n{string_binary_data} = {default_data}\n{simple_data_type} = 0\ntry:\n    _data, _type = winreg.QueryValueEx({refnum}['hKey'], {value})\nexcept (OSError, TypeError, KeyError):\n    _data, _type = None, None\nif _type is not None:\n    if _type == winreg.REG_DWORD:\n        _kind = 2\n    elif _type in (winreg.REG_SZ, winreg.REG_EXPAND_SZ):\n        _kind = 0\n    else:\n        _kind = 1\n        _raw = _data if isinstance(_data, bytes) else ('\\0'.join(_data) + '\\0\\0').encode('utf-16-le') if isinstance(_data, list) else _data.to_bytes(8, 'little') if isinstance(_data, int) else b''\n    {simple_data_type} = _kind\n    if _kind == 0:\n        {string_binary_data} = _data\n    elif _kind == 1:\n        {string_binary_data} = _raw.decode('latin-1')",
+      "inline": true
     },
     {
       "name": "Read Registry Value Simple U32 VI",

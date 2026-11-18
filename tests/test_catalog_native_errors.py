@@ -35,6 +35,10 @@ COPY_MOVE = [
     ("OSError", 6),
 ]
 RELEASED_QUEUE = [("ShutDown", 1122)]
+# Windows Registry Access VIs: the OSError's code is computed from its Windows
+# error number (NI's "Windows Registry Access Error Codes").
+REGISTRY_REFNUM = [("RegistryRefnumError", -602), ("OSError", None)]
+REGISTRY_OPEN = [("RegistryViewError", -600), ("OSError", None)]
 DELETE = [
     ("EmptyOrRelativePathError", 1430),
     ("InvalidPathError", 1),
@@ -226,6 +230,10 @@ PRIMITIVES = {
     "addons:Write Call Response.vim": [("RpcError", None)],
     "addons:Client Complete Streaming Call.vi": [("RpcError", None)],
     "addons:UnpackFromAny.vim": [("DecodeError", None)],
+    "connectivity:Open Registry Key": REGISTRY_OPEN,
+    "connectivity:Close Registry Key": REGISTRY_REFNUM,
+    "connectivity:Query Registry Key Info": REGISTRY_REFNUM,
+    "connectivity:Enum Registry Values Simple": REGISTRY_REFNUM,
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
