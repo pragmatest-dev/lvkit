@@ -6,7 +6,8 @@ generating (``labview_scan.scan_plan``). A format string wired from a value the
 code computes needs the same translation at run time, so the package gets
 ``scan.py``: the source of that translator, copied from the modules the generator
 imports (``labview_scan``, ``labview_scan_time``, ``labview_format``'s
-``_lv_parse`` and ``_lv_decode_escapes``, and ``FormatKind``), so the pattern and
+``_lv_parse``, ``_lv_decode_escapes`` and ``_lv_default_code``, and
+``FormatKind``), so the pattern and
 the conversion of each output are the ones a constant format gets and the two
 cannot differ. Nothing is re-typed: the module's body is the bodies of those
 modules (``ast.unparse``) with their imports replaced by the header below.
@@ -33,6 +34,7 @@ from . import labview_scan, labview_scan_time
 from .labview_format import (
     FormatKind,
     _lv_decode_escapes,
+    _lv_default_code,
     _lv_parse,
     helper_sources,
 )
@@ -143,7 +145,7 @@ def _module_source() -> str:
     parts = [
         _HEADER,
         inspect.getsource(FormatKind),
-        *helper_sources(_lv_parse, _lv_decode_escapes),
+        *helper_sources(_lv_parse, _lv_decode_escapes, _lv_default_code),
         _body(labview_scan_time),
         _body(labview_scan),
     ]

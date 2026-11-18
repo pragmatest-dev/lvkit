@@ -38,6 +38,14 @@ the original poster only feared the order might matter. The longest label is
 the recorded choice. An empty label is a gap (a forum report says an enum whose
 first item is empty fails to scan back).
 
+A complex output reads one real number into its real part, the imaginary part 0
+(a recorded deduction, the maintainer's decision, 2026-11-17: NI's Format Into
+String page: "For complex numeric data types, this function converts only the real
+component", and a scan reads what a format writes; an NI engineer on
+forums.ni.com, "Odd behavior with Error In for Scan From String function",
+m-p/3134009: "2+2" does not parse as 2+0i, the scan stops after "2"). With no
+format string it reads ``%f``, the code Format Into String writes it with.
+
 The pattern reads as far as the input matches: each specifier and the text
 before it sit in a group that is optional given the one before, so the number of
 specifiers scanned is the last group that matched, and a scan that stops early
@@ -50,7 +58,12 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .labview_format import _lv_decode_escapes, _lv_parse, _LvSpecifier
+from .labview_format import (
+    _lv_decode_escapes,
+    _lv_default_code,
+    _lv_parse,
+    _LvSpecifier,
+)
 from .labview_scan_time import time_scan
 
 if TYPE_CHECKING:
@@ -71,6 +84,7 @@ _DEFAULT_CODES = {
     "enum": "%s",
     "int": "%d",
     "float": "%f",
+    "complex": _lv_default_code("complex"),
 }
 
 
@@ -403,16 +417,21 @@ def _as_kind(number: str, spec: _LvSpecifier, kind: FormatKind) -> str:
     if kind.kind == "bool":
         return f"{number} > 0.5"
     if kind.kind == "complex":
-        # NI's pages do not give the text a complex output reads. The forum
-        # threads found (forums.ni.com "Odd behavior with Error In for Scan From
-        # String function", td-p/3133984; "String to Complex Number",
-        # ta-p/3526278) give "a+bi" as the standard form and say the scan is
-        # greedy, but leave open whether "2+2" reads as 2+0i, whether spaces
-        # around the sign and "j" are accepted, and what "2i" alone reads.
+        # A recorded deduction (the maintainer's decision, 2026-11-17): a
+        # complex output reads one real number, the same text the specifier
+        # reads for a real output, into the real part; the imaginary part is 0.
+        # Evidence: NI's Format Into String page says "For complex numeric data
+        # types, this function converts only the real component" (a scan reads
+        # what a format writes), and an NI engineer on forums.ni.com ("Odd
+        # behavior with Error In for Scan From String function",
+        # m-p/3134009) says "2+2" does not parse as 2+0i: the scan stops after
+        # "2". NI's "Valid Format Specifiers for Numeric Data Types" lets a
+        # complex type use f, e, g, p, # and ^; only f, e and g are read here.
+        if spec.code in "fge":
+            return f"complex({number}, 0.0)"
         raise ValueError(
-            f"Scan From String specifier {spec.text!r} (into a complex output: "
-            "NI does not document the text a complex output reads, and forum "
-            "reports leave its edge cases open) has no conversion"
+            f"Scan From String specifier {spec.text!r} (code {spec.code!r} into "
+            "a complex output) has no conversion"
         )
     if kind.kind == "int" and spec.code in "dx":
         low, high = _range(kind)

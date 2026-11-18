@@ -16,6 +16,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.labview_format import _lv_format_into_string
 from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
@@ -317,6 +318,37 @@ def test_an_unwired_format_reads_each_output_by_its_type() -> None:
     assert _values(_result(None, [I32, DBL, STRING], "1 2.5 z"), 3) == [1, 2.5, "z"]
 
 
+CPLX = primitive("NumComplex128")
+
+
+@pytest.mark.parametrize(
+    ("format_text", "text"),
+    [(None, "1.5"), ("%g", "1.5"), ("%f", "1.5"), ("%e", "1.5E+0")],
+)
+def test_a_complex_output_reads_a_real_number_into_its_real_part(
+    format_text: str | None, text: str
+) -> None:
+    assert _values(_result(format_text, [CPLX], text), 1) == [complex(1.5, 0.0)]
+
+
+def test_a_complex_output_stops_after_the_real_part_of_a_sum() -> None:
+    result = _result("%f", [CPLX], "2+2")
+    assert _values(result, 1) == [complex(2, 0)]
+    assert result.remaining == "+2"
+
+
+def test_what_a_format_writes_for_a_complex_value_a_scan_reads_back() -> None:
+    written = _lv_format_into_string("%f", "", [(complex(2.5, 7), "complex", 128, [])])
+    assert written == "2.500000"
+    assert _values(_result("%f", [CPLX], written), 1) == [complex(2.5, 0)]
+
+
+def test_a_complex_format_wired_at_run_time_reads_what_a_constant_one_reads() -> None:
+    for format_text in ("%g", "%f", "%e"):
+        wired = _wired_result(format_text, [CPLX], "-1.5e3")
+        assert _values(wired, 1) == [complex(-1500, 0)]
+
+
 def test_the_pattern_is_written_into_the_module_with_no_lvkit_import() -> None:
     source, _ = _scan("%d:%d", [I32, I32])
     assert "re.match(" in source
@@ -333,7 +365,7 @@ def test_the_pattern_is_written_into_the_module_with_no_lvkit_import() -> None:
         ("%3f", [DBL], "width with a floating-point code"),
         ("%f", [I32], "into a int output"),
         ("%d", [STRING], "a number into a string output"),
-        ("%g", [primitive("NumComplex128")], "NI does not document the text"),
+        ("%d", [primitive("NumComplex128")], "code 'd' into a complex output"),
         ("%s", [I32], "a string into a int output"),
         ("%d", [I32, I32], "1 specifiers and the node has 2 outputs"),
     ],
