@@ -63,7 +63,19 @@ def _inline_expression(lv_type: LVType) -> str:
         encoded: tuple[int, ...] | None = tuple(type_string.encode(lv_type))
     except type_string.TypeStringError:
         encoded = None
-    return f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r}{_refnum_arguments(lv_type)})"
+    return (
+        f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r}"
+        f"{_refnum_arguments(lv_type)}{_typedef_argument(lv_type)})"
+    )
+
+
+def _typedef_argument(lv_type: LVType) -> str:
+    """The keyword argument of the type of a type definition's instance that
+    records what its code does not: that it is one, and the type definition's
+    name (``typedef_name``, as the file records it: library, then the ``.ctl``)."""
+    if not lv_type.typedef_name:
+        return ""
+    return f", typedef_name={lv_type.typedef_name!r}"
 
 
 def _refnum_arguments(lv_type: LVType) -> str:
@@ -184,7 +196,9 @@ class LVType:
     and, where it has one, the bytes of its type string. A refnum also records
     what its code does not: its kind (``refnum_kind``, ``Queue``, ``LVObjCtl``,
     ...), the VI Server class of a generic reference (``server_class``, ``VI`` or
-    ``Application``) and the type of what a typed refnum refers to (``strict``)."""
+    ``Application``) and the type of what a typed refnum refers to (``strict``).
+    An instance of a type definition records the definition's name
+    (``typedef_name``); every other type has none."""
 
     code: int
     name: str
@@ -192,6 +206,7 @@ class LVType:
     refnum_kind: str | None = None
     server_class: str | None = None
     strict: LVType | None = None
+    typedef_name: str | None = None
 
 
 @dataclass

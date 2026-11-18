@@ -2,7 +2,8 @@
 type-descriptor code of its variant is. The generated code reads the code the
 ``Variant`` records and looks it up in a dict literal of the items the caller's
 Type output holds; a code that names several items by itself raises where the node
-runs. Name, Type Definition and Type Definition Info are gaps when wired."""
+runs. Type Definition and Type Definition Info read the type definition name the
+variant records."""
 
 from __future__ import annotations
 
@@ -13,9 +14,11 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.variants_module import lv_type_expression
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
-from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind
+from lvkit.models import ClusterField, EnumValue, FPTerminal, LVType, LVTypeKind
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from lvkit.variant_type_items import item_values_by_code
 from lvkit.vilib_resolver import VIEntry, VILibResolver
 from tests.helpers import build_graph, exec_generated, generated_variants
@@ -54,11 +57,23 @@ _DATA_TYPE = LVType(
 )
 _TEXT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 _BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+_TIMESTAMP = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
+_INFO = LVType(
+    kind=LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[ClusterField("Name", _TEXT), ClusterField("Timestamp", _TIMESTAMP)],
+    typedef_name="NI_Data Type.lvlib:Type Definition Info.ctl",
+)
 # The caller returns each output of the call it wires: name -> (index, type).
 _OUTPUTS = {
     "type": (3, _DATA_TYPE),
     "name": (2, _TEXT),
     "type_definition": (1, _BOOL),
+    "type_definition_info": (4, _INFO),
 }
 
 
@@ -194,16 +209,44 @@ def test_the_name_alone_writes_no_type_lookup(monkeypatch: pytest.MonkeyPatch) -
     assert _run(source)(generated_variants().Variant(1, None, {}, "x")).name == "x"
 
 
-@pytest.mark.parametrize("output", ["type_definition"])
-def test_an_output_a_variant_does_not_record_is_a_gap(
-    output: str, monkeypatch: pytest.MonkeyPatch
+def test_a_variant_of_a_type_definition_records_it(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     gaps: list[Gap] = []
-    source = _generate([output], monkeypatch, gaps)
+    source = _generate(["type_definition", "type_definition_info"], monkeypatch, gaps)
+    assert gaps == []
+    caller = _run(source)
+    v = generated_variants()
+    name = "Lib.lvlib:Point.ctl"
+    plain = caller(v.Variant(5, v.LV_I32))
+    assert plain.type_definition is False
+    assert plain.type_definition_info.name == ""
+    typedef_type = v.LVType(0x3, "Lib.lvlib:Mode.ctl", None, typedef_name=name)
+    typedef = caller(v.Variant(5, typedef_type))
+    assert typedef.type_definition is True
+    assert typedef.type_definition_info.name == name
+    assert caller(v.Variant()).type_definition is False
+
+
+def test_the_package_writes_the_typedef_name_of_a_type_definition() -> None:
+    typedef = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="NumInt32",
+        typedef_name="Lib.lvlib:Mode.ctl",
+    )
+    plain = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    assert "typedef_name='Lib.lvlib:Mode.ctl'" in lv_type_expression(typedef).text
+    assert lv_type_expression(plain).text == "LV_I32"
+
+
+def test_a_wrongly_recorded_info_cluster_is_a_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_OUTPUTS, "type_definition_info", (4, _TEXT))
+    gaps: list[Gap] = []
+    _generate(["type_definition_info"], monkeypatch, gaps)
     assert len(gaps) == 1
-    assert "is wired" in gaps[0].detail
-    with pytest.raises(NotImplementedError):
-        _run(source)(None)
+    assert "Type Definition Info" in gaps[0].detail
 
 
 def test_an_unwired_type_writes_no_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
