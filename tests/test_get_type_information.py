@@ -57,6 +57,7 @@ _DATA_TYPE = LVType(
 )
 _TEXT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 _BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+_STAMP = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
 _TIMESTAMP = LVType(
     kind=LVTypeKind.PRIMITIVE,
     underlying_type="MeasureData",
@@ -65,7 +66,7 @@ _TIMESTAMP = LVType(
 _INFO = LVType(
     kind=LVTypeKind.CLUSTER,
     underlying_type="Cluster",
-    fields=[ClusterField("Name", _TEXT), ClusterField("Timestamp", _TIMESTAMP)],
+    fields=[ClusterField("Name", _TEXT), ClusterField("Timestamp", _STAMP)],
     typedef_name="NI_Data Type.lvlib:Type Definition Info.ctl",
 )
 # The caller returns each output of the call it wires: name -> (index, type).
@@ -225,6 +226,7 @@ def test_a_variant_of_a_type_definition_records_it(
     typedef = caller(v.Variant(5, typedef_type))
     assert typedef.type_definition is True
     assert typedef.type_definition_info.name == name
+    assert typedef.type_definition_info.timestamp == 0
     assert caller(v.Variant()).type_definition is False
 
 

@@ -31,7 +31,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.lv_type_codes import is_string_type_name
+from lvkit.lv_type_codes import INTEGER_TYPE_NAMES, is_string_type_name
 from lvkit.models import LVType, Terminal, TerminalDirection
 from lvkit.variant_type_items import item_values_by_code
 from lvkit.vilib_resolver import VIEntry
@@ -107,19 +107,25 @@ def _type_definition_fragment(
     return CodeFragment(statements=ast.parse(source).body, bindings=bindings)
 
 
+def _field_role(field_type: LVType | None) -> str:
+    """``name`` for a string field, ``timestamp`` for a time stamp or integer one."""
+    if field_type is None:
+        return ""
+    if is_string_type_name(field_type.underlying_type):
+        return "name"
+    if field_type.is_timestamp or field_type.underlying_type in INTEGER_TYPE_NAMES:
+        return "timestamp"
+    return ""
+
+
 def _info_cluster(node: VINode, info: Terminal, name: str) -> str:
     """The value of the ``type definition info`` cluster: its string field is the
-    definition's name (empty when there is none), its Timestamp field the 0 default."""
+    definition's name (empty when there is none), its Timestamp field the 0
+    default (the pane records it as an unsigned integer; a timestamp type is also
+    accepted)."""
     lv_type = info.lv_type
     fields = lv_type.fields if lv_type is not None and lv_type.fields else []
-    kinds = [
-        "name"
-        if f.type is not None and is_string_type_name(f.type.underlying_type)
-        else "timestamp"
-        if f.type is not None and f.type.is_timestamp
-        else ""
-        for f in fields
-    ]
+    kinds = [_field_role(f.type) for f in fields]
     if lv_type is None or sorted(kinds) != ["name", "timestamp"]:
         raise ConversionGap(
             "the Type Definition Info output is not recorded as a cluster of a "
@@ -128,7 +134,7 @@ def _info_cluster(node: VINode, info: Terminal, name: str) -> str:
         )
 
     def value(field_type: LVType | None) -> ast.expr:
-        if field_type is not None and field_type.is_timestamp:
+        if _field_role(field_type) == "timestamp":
             return type_default_expr(field_type)
         return parse_expr(f"{name} or ''")
 
