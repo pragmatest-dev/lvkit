@@ -502,6 +502,7 @@ class LoadingMixin:
         def class_private_data_key(self, key: str) -> str | None: ...
         def key_label(self, key: str) -> str: ...
         def recorded_type_key(self, file_key: str, lv_type: LVType) -> str | None: ...
+        def is_strict_typedef(self, lv_type: LVType) -> bool: ...
         def _record_members(
             self, container_key: str, members: dict[str, ListedMethod | None]
         ) -> None: ...
@@ -814,6 +815,7 @@ class LoadingMixin:
         types = metadata.type_map.values() if metadata is not None else ()
         for lv_type in type_names(types):
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
+            lv_type.strict_typedef = self.is_strict_typedef(lv_type)
 
     def _record_key(
         self, ref: ParsedDependencyRef, caller_file: Path
@@ -2012,6 +2014,12 @@ class LoadingMixin:
             # The types the control's records are applied to
             # (``_store_type_records``) are the ones its root and fields are.
             type_map = parsed.metadata.type_map
+            if parsed.file_metadata is not None:
+                # The control's own properties: its type-definition kind (plain
+                # or strict) is what an instance of it is told by.
+                self._vi_properties[str(ctl_path.resolve())] = _build_vi_properties(
+                    parsed.file_metadata
+                )
         except (RuntimeError, OSError, ValueError, ET.ParseError) as exc:
             # Only an unreadable file is "unreadable"; anything else (a malformed
             # extraction, a parse bug) is an lvkit error. Either way the control's

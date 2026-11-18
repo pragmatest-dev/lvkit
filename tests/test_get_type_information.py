@@ -7,6 +7,7 @@ variant records."""
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.panel_types import panel_type_keywords
 from lvkit.codegen.variants_module import lv_type_expression
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
@@ -290,8 +292,16 @@ def test_the_graph_tells_a_strict_type_definition_from_a_plain_one() -> None:
     assert graph.is_strict_typedef(instance("/lib/Strict.ctl")) is True
     assert graph.is_strict_typedef(instance("/lib/Plain.ctl")) is False
     assert graph.is_strict_typedef(instance("/lib/Missing.ctl")) is False
-    assert "strict_typedef=True" in lv_type_expression(instance("x"), True).text
-    assert "strict_typedef" not in lv_type_expression(instance("x")).text
+    strict = instance("/lib/Strict.ctl")
+    strict.strict_typedef = graph.is_strict_typedef(strict)
+    plain = instance("/lib/Plain.ctl")
+    plain.strict_typedef = graph.is_strict_typedef(plain)
+    # One expression for the type, read off it: a variant's type and a panel
+    # control's type of the same strict type definition are written alike.
+    assert "strict_typedef=True" in lv_type_expression(strict).text
+    assert "strict_typedef" not in lv_type_expression(plain).text
+    panel = panel_type_keywords([("mode", strict)])
+    assert lv_type_expression(strict).text in ast.unparse(panel.keywords[0][1])
 
 
 def test_the_package_writes_the_typedef_name_of_a_type_definition() -> None:

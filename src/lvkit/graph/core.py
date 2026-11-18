@@ -440,6 +440,7 @@ class InMemoryVIGraph(
         # render.style.wire_style.
         if parsed_type.classname or parsed_type.typedef_name:
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
+            lv_type.strict_typedef = self.is_strict_typedef(lv_type)
         if parsed_type.classname:
             class_key = self.class_type_key(lv_type)
             if class_key is not None:

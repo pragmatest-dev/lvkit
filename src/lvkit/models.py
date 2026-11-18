@@ -381,6 +381,10 @@ class LVType:
     # for. Every lookup of a class's or typedef's fields, wire style or private
     # data reads this key, never the name.
     file_key: str | None = field(default=None, compare=False)
+    # True when the typedef file ``file_key`` names is a strict type definition
+    # (its ``StrictTypeDefVI``); stamped with ``file_key``. ``compare=False``: it
+    # is what the file is, not type identity.
+    strict_typedef: bool = field(default=False, compare=False)
     description: str | None = None
     # Why this type could not be read from the file, when the VI records a
     # descriptor that did not decode; None for a type that read cleanly.
