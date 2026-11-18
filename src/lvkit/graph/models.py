@@ -894,7 +894,8 @@ class ExecutionProps:
     auto_preallocate_arrays: bool = False  # AllowAutoPrealloc
     inline: bool = False  # ShouldInline (<Execution2>)
     inlinable: bool = False  # InlinableDiagram (<Execution2>)
-    auto_error_handling: bool = False  # DefaultErrorHandling (<Execution2>)
+    # DefaultErrorHandling (<Execution2>); None when the VI has no <Execution2>
+    auto_error_handling: bool | None = None
     allow_debugging: bool = False  # DebugCapable (<Instrument>)
     always_calls_parent: bool = False  # AlwaysCallsParent (<Execution2>)
     # "Clear indicators when called": ClearIndMask (<Execution2>)

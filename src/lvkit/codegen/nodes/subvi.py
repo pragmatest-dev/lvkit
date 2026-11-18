@@ -38,7 +38,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..ini_module import imports_ini
 from ..label_names import python_label
-from ..native_failure import CatalogFailures, catch_failures
+from ..native_failure import CatalogFailures, catch_failures, raise_unwired_error
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -118,7 +118,11 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     )
     # The called function takes the error in and decides whether to skip.
     return CodeFragment(
-        statements=[*parts.prelude, stmt],
+        statements=[
+            *parts.prelude,
+            stmt,
+            *raise_unwired_error(node, parts.bindings, ctx),
+        ],
         bindings=parts.bindings,
         runs_on_error=True,
     )

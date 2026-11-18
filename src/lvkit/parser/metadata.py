@@ -358,7 +358,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "auto_preallocate_arrays": _bool_attr(execution, "AllowAutoPrealloc"),
         "inline": _bool_attr(execution2, "ShouldInline"),
         "inlinable": _bool_attr(execution2, "InlinableDiagram"),
-        "auto_error_handling": _bool_attr(execution2, "DefaultErrorHandling"),
+        # A VI whose save record pylabview leaves unparsed has no <Execution2>:
+        # the setting is unknown (None), not off.
+        "auto_error_handling": None
+        if execution2 is None
+        else _bool_attr(execution2, "DefaultErrorHandling"),
         "allow_debugging": _bool_attr(instrument, "DebugCapable"),
         "always_calls_parent": _bool_attr(execution2, "AlwaysCallsParent"),
         "clear_indicators_when_called": _bool_attr(execution2, "ClearIndMask"),

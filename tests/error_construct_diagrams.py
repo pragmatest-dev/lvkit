@@ -108,8 +108,10 @@ def subvi_chain(project: Project) -> str:
 
 def unwired_error_in(project: Project) -> str:
     """``Step A.vi`` then ``Step B.vi`` whose error in is not wired: B takes A's
-    result and its error out is the VI's error out; A's error out goes nowhere."""
+    result and its error out is the VI's error out; A's error out goes nowhere,
+    so the VI's Automatic Error Handling is off and A's failure is dropped."""
     vi, x, ein, result, eout = _x_error_result()
+    vi.execution2 = {"DefaultErrorHandling": "0"}
     a, b = vi.step("Step A.vi"), vi.step("Step B.vi")
     vi.wire(x, a["x"])
     vi.wire(ein, a["error in"])

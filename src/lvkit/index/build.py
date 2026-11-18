@@ -838,7 +838,7 @@ def project_vi_facts(
         exec_auto_preallocate_arrays=(properties.execution.auto_preallocate_arrays),
         exec_inline=properties.execution.inline,
         exec_inlinable=properties.execution.inlinable,
-        exec_auto_error_handling=properties.execution.auto_error_handling,
+        exec_auto_error_handling=bool(properties.execution.auto_error_handling),
         exec_allow_debugging=properties.execution.allow_debugging,
         exec_always_calls_parent=properties.execution.always_calls_parent,
         exec_print_after_exec=properties.execution.print_after_exec,
