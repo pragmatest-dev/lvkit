@@ -18,7 +18,14 @@ import networkx as nx
 from ..class_property import property_role
 from ..library_folders import library_location
 from ..load_mode import LoadMode
-from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
+from ..models import (
+    ClusterField,
+    FPTerminal,
+    LVType,
+    SavedTag,
+    Terminal,
+    TerminalDirection,
+)
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
@@ -116,6 +123,7 @@ class QueryMixin:
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
+    _vi_tags: dict[str, list[SavedTag]]
     _layouts: dict[str, Layout]
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
@@ -1310,6 +1318,10 @@ class QueryMixin:
         """The .NET assemblies the VI calls, and the link records that could not
         be read."""
         return self._vi_dotnet_assemblies.get(vi_name, VIDotNetAssemblies())
+
+    def get_vi_tags(self, vi_name: str) -> list[SavedTag]:
+        """The tags the VI saves with its file, in file order."""
+        return list(self._vi_tags.get(vi_name, ()))
 
     def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
         """The VI's OWN front-panel layout (every control, not just the

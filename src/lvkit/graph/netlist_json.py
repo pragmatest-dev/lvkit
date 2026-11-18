@@ -612,6 +612,16 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
             else None
         ),
     }
+    if module.tags:
+        result["tags"] = [
+            {
+                "name": tag.name,
+                "type": tag.type_text(),
+                "value": tag.value_text(),
+                "undecoded": tag.undecoded,
+            }
+            for tag in module.tags
+        ]
     if verbose:
         # The lvnet §7 ``uses :`` dependency manifest -- populated by
         # ``build_netlist_from_graph`` (``NetlistModule.dependencies``

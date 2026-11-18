@@ -15,6 +15,7 @@ from enum import Enum, StrEnum
 from ..models import (
     DisableStructureKind,
     LVType,
+    SavedTag,
     ScalarValue,
     TunnelMode,
 )
@@ -966,6 +967,9 @@ class NetlistModule:
     # inside it (emergent state, not a user setting). Same
     # netlist_to_dict-only carry-through as ``properties`` above.
     health: VIHealth = field(default_factory=VIHealth)
+    # The tags the VI saves with its file; ``netlist_to_dict``-only carry-through
+    # like ``properties`` (``describe.py`` has its own ``## Tags`` section).
+    tags: list[SavedTag] = field(default_factory=list)
     # The owning class's context when this VI is a .lvclass method -- the
     # describe.py ``## Class`` section's JSON counterpart. None for a non-
     # method VI. Same netlist_to_dict-only carry-through as the two above.

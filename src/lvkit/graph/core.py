@@ -23,6 +23,7 @@ from ..models import (
     ClusterField,
     LVType,
     LVTypeKind,
+    SavedTag,
     WireStyle,
     contains_class_instance,
 )
@@ -254,6 +255,8 @@ class InMemoryVIGraph(
         self._vi_health: dict[str, VIHealth] = {}
         # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
         self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
+        # The tags each VI saves with its file (its ``VITS`` block), in file order.
+        self._vi_tags: dict[str, list[SavedTag]] = {}
         # The folders <vilib> / <userlib> / <instrlib> path tokens name, in order,
         # and the VI Search Path for files not at their recorded path.
         self._vilib_roots: tuple[Path, ...] = ()
@@ -372,6 +375,7 @@ class InMemoryVIGraph(
         self._vi_properties.clear()
         self._vi_health.clear()
         self._vi_dotnet_assemblies.clear()
+        self._vi_tags.clear()
         self._layouts.clear()
         self._parse_cache = None
 

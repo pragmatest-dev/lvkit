@@ -2718,6 +2718,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         components=components,
         properties=ctx.properties,
         health=ctx.health,
+        tags=graph.get_vi_tags(vi_name),
         class_context=_build_class_context(graph, vi_name),
         connector_pane=connector_pane,
         dependencies=dependencies,

@@ -16,6 +16,7 @@ from ..models import (
     FPTerminal,
     LVType,
     LVTypeKind,
+    SavedTag,
     ScalarValue,
     Terminal,
     TunnelTerminal,
@@ -125,6 +126,10 @@ def describe_vi(
     # emergent state, not a user setting). Terse: shown only when broken;
     # verbose (-v): every field shown, healthy or not.
     lines.extend(_describe_health(ctx, show_all=verbose))
+
+    # The tags the VI saves with its file (its ``VITS`` block): shown whenever it
+    # saves any.
+    lines.extend(_describe_tags(graph.get_vi_tags(vi_name)))
 
     # Connector pane, in canonical order (errors last, Required first, then pane
     # geometry). Terse: unmarked is the baseline; only the exceptions annotate --
@@ -583,6 +588,27 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
         if show_all or val:
             lines.append(f"  {f.name}: {bool_str(val)}")
     lines.append(f"  is_broken: {bool_str(health.is_broken)}")
+    lines.append("")
+    return lines
+
+
+def _describe_tags(tags: list[SavedTag]) -> list[str]:
+    """The ``## Tags`` section: each tag the VI saves as ``name: type = value``
+    (``name: Variant()`` for an empty Variant, ``name: (not decoded: <reason>)``
+    for a value lvkit does not read); nothing when it saves none."""
+    if not tags:
+        return []
+    lines = ["## Tags"]
+    for tag in tags:
+        if tag.value is None:
+            lines.append(f"  {tag.name}: (not decoded: {tag.undecoded})")
+            continue
+        type_text = tag.type_text()
+        lines.append(
+            f"  {tag.name}: {type_text} = {tag.value_text()}"
+            if type_text is not None
+            else f"  {tag.name}: Variant()"
+        )
     lines.append("")
     return lines
 

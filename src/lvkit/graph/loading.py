@@ -36,7 +36,7 @@ from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
 from ..library_folders import is_symbolic_root
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
-from ..models import ClusterField, LVType, Terminal
+from ..models import ClusterField, LVType, SavedTag, Terminal
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -49,6 +49,7 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE
+from ..parser.saved_tags import read_vi_tags_beside
 from ..project_folders import project_relative, project_root
 from ..run_report import (
     CacheWriteError,
@@ -426,6 +427,7 @@ class LoadingMixin:
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
+    _vi_tags: dict[str, list[SavedTag]]
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
     _instrlib_roots: tuple[Path, ...]
@@ -1657,6 +1659,8 @@ class LoadingMixin:
             )
             self._vi_properties[vi_key] = _build_vi_properties(poly_metadata)
             self._vi_health[vi_key] = _build_vi_health(poly_metadata)
+            if main_xml is not None:
+                self._vi_tags[vi_key] = read_vi_tags_beside(main_xml)
             self._vi_dotnet_assemblies[vi_key] = VIDotNetAssemblies(
                 assemblies=metadata.dotnet_assemblies,
                 unreadable=[
