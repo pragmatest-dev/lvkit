@@ -55,7 +55,7 @@ def lv_type_code_and_name(lv_type: LVType) -> tuple[int, str]:
     return code, lv_type.type_ref() or lv_type.type_descriptor()
 
 
-def _inline_expression(lv_type: LVType) -> str:
+def _inline_expression(lv_type: LVType, strict_typedef: bool = False) -> str:
     """``LVType(code, name, type string)`` for ``lv_type``: its type-descriptor
     code, its name and its type string where it has one."""
     code, name = lv_type_code_and_name(lv_type)
@@ -65,17 +65,21 @@ def _inline_expression(lv_type: LVType) -> str:
         encoded = None
     return (
         f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r}"
-        f"{_refnum_arguments(lv_type)}{_typedef_argument(lv_type)})"
+        f"{_refnum_arguments(lv_type)}{_typedef_argument(lv_type, strict_typedef)})"
     )
 
 
-def _typedef_argument(lv_type: LVType) -> str:
-    """The keyword argument of the type of a type definition's instance that
-    records what its code does not: that it is one, and the type definition's
-    name (``typedef_name``, as the file records it: library, then the ``.ctl``)."""
+def _typedef_argument(lv_type: LVType, strict_typedef: bool) -> str:
+    """The keyword arguments of the type of a type definition's instance that
+    record what its code does not: that it is one, the type definition's name
+    (``typedef_name``, as the file records it: library, then the ``.ctl``) and
+    whether the definition is a strict one (``strict_typedef``)."""
     if not lv_type.typedef_name:
         return ""
-    return f", typedef_name={lv_type.typedef_name!r}"
+    text = f", typedef_name={lv_type.typedef_name!r}"
+    if strict_typedef:
+        text += ", strict_typedef=True"
+    return text
 
 
 def _refnum_arguments(lv_type: LVType) -> str:
@@ -163,10 +167,13 @@ class TypeExpression(NamedTuple):
     names: tuple[str, ...]
 
 
-def lv_type_expression(lv_type: LVType) -> TypeExpression:
+def lv_type_expression(
+    lv_type: LVType, strict_typedef: bool = False
+) -> TypeExpression:
     """The expression of the package's ``LVType`` for ``lv_type``: the name of the
-    constant of ``variants`` that is that type, else ``LVType(...)`` written out."""
-    inline = _inline_expression(lv_type)
+    constant of ``variants`` that is that type, else ``LVType(...)`` written out.
+    ``strict_typedef`` records that its type definition is a strict one."""
+    inline = _inline_expression(lv_type, strict_typedef)
     constant = _CONSTANTS.get(inline)
     if constant is not None:
         return TypeExpression(constant, (constant,))
@@ -198,7 +205,8 @@ class LVType:
     ...), the VI Server class of a generic reference (``server_class``, ``VI`` or
     ``Application``) and the type of what a typed refnum refers to (``strict``).
     An instance of a type definition records the definition's name
-    (``typedef_name``); every other type has none."""
+    (``typedef_name``) and whether that definition is a strict one
+    (``strict_typedef``); every other type has none."""
 
     code: int
     name: str
@@ -207,6 +215,7 @@ class LVType:
     server_class: str | None = None
     strict: LVType | None = None
     typedef_name: str | None = None
+    strict_typedef: bool = False
 
 
 @dataclass

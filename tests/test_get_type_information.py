@@ -16,7 +16,15 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.variants_module import lv_type_expression
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext, VINode, Wire
+from lvkit.graph.models import (
+    KindProps,
+    TypedefStatus,
+    VIContext,
+    VINode,
+    VIProperties,
+    Wire,
+)
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, EnumValue, FPTerminal, LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from lvkit.variant_type_items import item_values_by_code
@@ -228,6 +236,62 @@ def test_a_variant_of_a_type_definition_records_it(
     assert typedef.type_definition_info.name == name
     assert typedef.type_definition_info.timestamp == 0
     assert caller(v.Variant()).type_definition is False
+
+
+def test_the_timestamp_of_a_strict_type_definition_raises_when_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gaps: list[Gap] = []
+    source = _generate(["type_definition", "type_definition_info"], monkeypatch, gaps)
+    assert gaps == []
+    caller = _run(source)
+    v = generated_variants()
+    name = "Lib.lvlib:Mode.ctl"
+    loose = v.LVType(0x3, name, None, typedef_name=name)
+    strict = v.LVType(0x3, name, None, typedef_name=name, strict_typedef=True)
+    # Not strict: the 0 NI gives.
+    assert caller(v.Variant(5, loose)).type_definition_info.timestamp == 0
+    # Strict, only the Name read: no raise.
+    strict_info = caller(v.Variant(5, strict)).type_definition_info
+    assert strict_info.name == name
+    # Strict, the Timestamp read: raises, naming the definition.
+    with pytest.raises(NotImplementedError, match=r"strict type definition 'Lib"):
+        strict_info.timestamp
+    assert "Mode.ctl" in _message(strict_info)
+
+
+def _message(info) -> str:
+    try:
+        info.timestamp
+    except NotImplementedError as refusal:
+        return str(refusal)
+    return ""
+
+
+def test_the_graph_tells_a_strict_type_definition_from_a_plain_one() -> None:
+    graph = InMemoryVIGraph()
+    for key, status in (
+        ("/lib/Strict.ctl", TypedefStatus.STRICT_TYPEDEF),
+        ("/lib/Plain.ctl", TypedefStatus.TYPEDEF),
+    ):
+        graph._dep_graph.add_node(key, node_type=NodeType.TYPEDEF)
+        graph._vi_properties[key] = VIProperties(
+            kind=KindProps(typedef_status=status)
+        )
+
+    def instance(key: str) -> LVType:
+        return LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="NumInt32",
+            typedef_name="Lib.lvlib:T.ctl",
+            file_key=key,
+        )
+
+    assert graph.is_strict_typedef(instance("/lib/Strict.ctl")) is True
+    assert graph.is_strict_typedef(instance("/lib/Plain.ctl")) is False
+    assert graph.is_strict_typedef(instance("/lib/Missing.ctl")) is False
+    assert "strict_typedef=True" in lv_type_expression(instance("x"), True).text
+    assert "strict_typedef" not in lv_type_expression(instance("x")).text
 
 
 def test_the_package_writes_the_typedef_name_of_a_type_definition() -> None:

@@ -36,7 +36,12 @@ from lvkit.models import LVType, Terminal, TerminalDirection
 from lvkit.variant_type_items import item_values_by_code
 from lvkit.vilib_resolver import VIEntry
 
-from ..ast_utils import cluster_default_expr, parse_expr, type_default_expr
+from ..ast_utils import (
+    cluster_default_expr,
+    field_attribute_names,
+    parse_expr,
+    type_default_expr,
+)
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .grpc_pane import terminal_of, wired
@@ -85,14 +90,23 @@ def _type_definition_fragment(
     strict type definition. Otherwise, Timestamp returns 0". The variant's type
     records the definition's name (``variants.LVType.typedef_name``); an empty
     variant and a type that is not an instance of a definition give FALSE and an
-    empty name. The edit time of the ``.ctl`` file is not in the VI, so the
-    timestamp is the 0 NI gives for a type that is not a strict type definition."""
+    empty name. The edit time of the ``.ctl`` file is recorded in no saved file
+    (labview-binary-format.md), so the timestamp is the 0 NI gives for a type that
+    is not a strict type definition, and for a strict one (the generated
+    ``LVType.strict_typedef``, set where the variant is made, ``variant_values``)
+    reading the Timestamp field raises ``NotImplementedError`` naming the
+    definition. The info cluster of a strict definition is a ``SimpleNamespace``
+    whose ``timestamp`` is a property that raises, so a read of the Name alone
+    does not raise; a cluster with no field names (a tuple) raises where it is
+    made."""
     variant = wired(node, entry, "variant", ctx)
     if variant is None:
         raise ConversionGap("no variant is wired to it", node)
     recorded = ctx.make_output_var("variant_type", node.id)
+    strict = ctx.make_output_var("strict_typedef", node.id)
     source = (
         f"{recorded} = {variant}.type\n"
+        f"{strict} = {recorded} is not None and {recorded}.strict_typedef\n"
         f"{recorded} = {recorded}.typedef_name if {recorded} is not None else None\n"
     )
     bindings: dict[str, str] = {}
@@ -102,9 +116,42 @@ def _type_definition_fragment(
         bindings[flag.id] = var
     if info is not None and ctx.is_wired(info.id):
         var = ctx.make_output_var("type_definition_info", node.id)
-        source += f"{var} = {_info_cluster(node, info, recorded)}\n"
+        source += _info_statements(node, ctx, info, var, recorded, strict)
         bindings[info.id] = var
     return CodeFragment(statements=ast.parse(source).body, bindings=bindings)
+
+
+def _info_statements(
+    node: VINode, ctx: CodeGenContext, info: Terminal, var: str, name: str, strict: str
+) -> str:
+    """The statements that bind ``var`` to the ``type definition info`` cluster:
+    the one of a type that is not a strict definition (Timestamp 0), and for a
+    strict one the cluster whose Timestamp raises when read. The refusal's text is
+    built at run time from the definition's name."""
+    cluster, stamp = _info_cluster(node, info, name)
+    plain = ast.unparse(cluster)
+    refusal = (
+        "NotImplementedError(f'Get Type Information Timestamp of the strict type "
+        f"definition {{{name}!r}}: the .ctl\\'s last edit time is not recorded in "
+        "any saved file')"
+    )
+    if not isinstance(cluster, ast.Call) or stamp is None:
+        return f"if {strict}:\n    raise {refusal}\n{var} = {plain}\n"
+    cls = ctx.make_output_var("strict_info", node.id)
+    kept = ", ".join(
+        f"{k.arg}={ast.unparse(k.value)}" for k in cluster.keywords if k.arg != stamp
+    )
+    return (
+        f"if {strict}:\n"
+        f"    class {cls}(SimpleNamespace):\n"
+        f"        @property\n"
+        f"        def {stamp}(self):\n"
+        f"            raise {refusal}\n"
+        f"\n"
+        f"    {var} = {cls}({kept})\n"
+        f"else:\n"
+        f"    {var} = {plain}\n"
+    )
 
 
 def _field_role(field_type: LVType | None) -> str:
@@ -118,11 +165,14 @@ def _field_role(field_type: LVType | None) -> str:
     return ""
 
 
-def _info_cluster(node: VINode, info: Terminal, name: str) -> str:
-    """The value of the ``type definition info`` cluster: its string field is the
-    definition's name (empty when there is none), its Timestamp field the 0
-    default (the pane records it as an unsigned integer; a timestamp type is also
-    accepted)."""
+def _info_cluster(
+    node: VINode, info: Terminal, name: str
+) -> tuple[ast.expr, str | None]:
+    """The value of the ``type definition info`` cluster and the attribute name of
+    its Timestamp field (None when the cluster has no attribute names): its string
+    field is the definition's name (empty when there is none), its Timestamp field
+    the 0 default (the pane records it as an unsigned integer; a timestamp type is
+    also accepted)."""
     lv_type = info.lv_type
     fields = lv_type.fields if lv_type is not None and lv_type.fields else []
     kinds = [_field_role(f.type) for f in fields]
@@ -138,7 +188,12 @@ def _info_cluster(node: VINode, info: Terminal, name: str) -> str:
             return type_default_expr(field_type)
         return parse_expr(f"{name} or ''")
 
-    return ast.unparse(cluster_default_expr(lv_type, value))
+    cluster = cluster_default_expr(lv_type, value)
+    stamp = None
+    if lv_type.typedef_name:
+        names = field_attribute_names(f.name for f in fields)
+        stamp = names[kinds.index("timestamp")]
+    return cluster, stamp
 
 
 def _type_fragment(

@@ -41,6 +41,7 @@ from .models import (
     StubVIInfo,
     SubVICall,
     TerminalRef,
+    TypedefStatus,
     VIContext,
     VIDotNetAssemblies,
     VIHealth,
@@ -471,6 +472,20 @@ class QueryMixin:
         ):
             return None
         return key
+
+    def is_strict_typedef(self, lv_type: LVType) -> bool:
+        """Whether ``lv_type`` is an instance of a strict type definition: the
+        loaded control file it is (``type_key``) records ``StrictTypeDefVI``
+        (``KindProps.typedef_status``). False for a type that denotes no loaded
+        control."""
+        key = self.type_key(lv_type)
+        if key is None:
+            return False
+        properties = self._vi_properties.get(key)
+        return (
+            properties is not None
+            and properties.kind.typedef_status is TypedefStatus.STRICT_TYPEDEF
+        )
 
     def class_method(self, class_key: str, method: str) -> tuple[str, str] | None:
         """``(owner_key, path)`` of the file that declares ``method`` for the

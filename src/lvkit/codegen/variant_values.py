@@ -31,7 +31,8 @@ def is_variant_type(lv_type: LVType | None) -> bool:
 def type_expression(ctx: CodeGenContext, lv_type: LVType) -> str:
     """The expression of the package's ``LVType`` for ``lv_type`` (a constant of
     ``variants`` or ``LVType(...)`` written out), its names imported."""
-    expression = lv_type_expression(lv_type)
+    strict = ctx.graph is not None and ctx.graph.is_strict_typedef(lv_type)
+    expression = lv_type_expression(lv_type, strict)
     ctx.import_variant(*expression.names)
     return expression.text
 
