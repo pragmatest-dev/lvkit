@@ -136,14 +136,15 @@ def test_a_typed_variant_flattens_with_its_type_and_writes_its_type_string() -> 
     # A type known when the code is generated flattens the variant's value.
     assert ".value" in generated.source and "pickle" not in generated.source
     type_string, data = result_values(generated.function(7))
-    assert type_string == [4, 3]
+    # The control is labelled x, so its descriptor ends in that label.
+    assert type_string == encode(I32, "x")
     assert data.encode("latin-1").hex() == "00000007"
     assert "pickle" not in generated.source
 
 
 def test_a_typed_cluster_flattens_as_nis_flattened_data_page() -> None:
     type_string, data = result_values(to_string(record()).function(("ABC", 4)))
-    assert type_string == encode(record())
+    assert type_string == encode(record(), "x")
     assert data.encode("latin-1").hex() == "000000034142430004"
 
 

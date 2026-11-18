@@ -58,7 +58,7 @@ from lvkit.parser.td_pool import RawTD, TdPool
 VARIABLE_SIZE = 0xFFFF
 _MAX_SIZE = 0x7FFF
 # The flag in the type code's high byte that a name follows the descriptor.
-_NAME_FLAG = 0x4000
+NAME_FLAG = 0x4000
 
 # The numbers the page documents, by type code (physical quantities carry base
 # units and are not written).
@@ -189,7 +189,7 @@ def _sized(words: list[int], name: str | None = None) -> list[int]:
         if len(text) % 2:
             text += b"\x00"
         words = [
-            words[0] | _NAME_FLAG,
+            words[0] | NAME_FLAG,
             *words[1:],
             *struct.unpack(f">{len(text) // 2}H", text),
         ]

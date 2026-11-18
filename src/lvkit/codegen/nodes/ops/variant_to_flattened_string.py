@@ -38,7 +38,7 @@ from ...flat import Functions, UnsupportedLayout, layout_of, render_parts
 from ...fragment import CodeFragment
 from . import register_op_fragment
 from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
-from ._variant_flat import variant_static_type
+from ._variant_flat import variant_static_label, variant_static_type
 
 
 def _flatten_at_run_time(
@@ -92,7 +92,8 @@ def variant_to_flattened_string(
     bindings: dict[str, str] = {}
     try:
         layout = layout_of(lv_type)
-        numbers = repr(encode(lv_type))
+        label = variant_static_label(ctx, node)
+        numbers = repr(encode(lv_type, label or None))
     except UnsupportedLayout as error:
         raise unsupported_layout_error(node, error) from error
     except TypeStringError as error:

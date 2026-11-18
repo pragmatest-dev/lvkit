@@ -308,13 +308,26 @@ class Vi:
     # -- nodes --------------------------------------------------------------
 
     def constant(
-        self, type_id: int, hex_value: str, *, nested_type: int | None = None
+        self,
+        type_id: int,
+        hex_value: str,
+        *,
+        nested_type: int | None = None,
+        label: str | None = None,
     ) -> int:
         """A diagram constant holding the saved value ``hex_value``.
         ``nested_type`` gives it a display object whose first control has that
-        type, ahead of the constant's own type as in a saved cluster constant."""
+        type, ahead of the constant's own type as in a saved cluster constant.
+        ``label`` gives it a visible label."""
         uid = self.next_uid(2)
         ddo = ""
+        if label is not None:
+            ddo = (
+                '<ddo class="stdNum"><partsList>'
+                '<SL__arrayElement class="label"><objFlags>0</objFlags>'
+                f'<textRec><text>"{label}"</text></textRec></SL__arrayElement>'
+                "</partsList></ddo>"
+            )
         if nested_type is not None:
             ddo = (
                 '<ddo class="stdClust"><partsList><SL__arrayElement class="stdString">'

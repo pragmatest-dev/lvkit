@@ -14,6 +14,8 @@ a refnum, a waveform, a path, a class) raises ``NotImplementedError`` naming it.
 
 from __future__ import annotations
 
+from lvkit.type_string import NAME_FLAG
+
 _WRITER_SOURCE = '''
 
 # The writer of flattened data by a variant's type (the inverse of the reader).
@@ -91,9 +93,30 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
     raise _unwritable(lv_type)
 
 
+_NAME_FLAG = $NAME_FLAG
+
+
+def _labelled(numbers: tuple[int, ...], label: str) -> list[int]:
+    """The type string ``numbers`` ending in ``label``: the name flag set in the
+    type code, the label after the descriptor as a Pascal string padded to an even
+    number of bytes, and the size word counting it."""
+    raw = label.encode("latin-1")
+    if len(raw) > 0xFF:
+        raise ValueError("a label longer than 255 bytes")
+    text = bytes([len(raw)]) + raw
+    if len(text) % 2:
+        text += b"\\x00"
+    words = [w & 0xFFFF for w in numbers]
+    words[0] += len(text)
+    words[1] |= _NAME_FLAG
+    words += struct.unpack(f">{len(text) // 2}H", text)
+    return [w - 0x10000 if w & 0x8000 else w for w in words]
+
+
 def variant_to_flattened(variant: Variant) -> tuple[list[int], str]:
-    """The type string (a list of 16-bit numbers) the variant's type records and
-    its value flattened, as a ``latin-1`` string."""
+    """The type string (a list of 16-bit numbers) the variant's type records, ending
+    in the variant's name when it has one, and its value flattened, as a ``latin-1``
+    string."""
     lv_type = variant.type
     if lv_type is None or lv_type.type_string is None:
         raise NotImplementedError(
@@ -102,10 +125,12 @@ def variant_to_flattened(variant: Variant) -> tuple[list[int], str]:
             + ", which records no type string"
         )
     data = _flatten_value(variant.value, lv_type)
+    if variant.name:
+        return _labelled(lv_type.type_string, variant.name), data.decode("latin-1")
     return list(lv_type.type_string), data.decode("latin-1")
 '''
 
 
 def flat_writer_source() -> str:
-    """The writer's source."""
-    return _WRITER_SOURCE
+    """The writer's source, the name flag written from the encoder's."""
+    return _WRITER_SOURCE.replace("$NAME_FLAG", hex(NAME_FLAG))

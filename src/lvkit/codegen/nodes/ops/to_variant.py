@@ -40,4 +40,4 @@ def to_variant(
         raise ConversionGap("To Variant has no input of a known type", node)
     if is_variant_type(lv_type):
         return {"variant": "in_1"}
-    return {"variant": as_variant(ctx, "in_1", lv_type, variant_label(source))}
+    return {"variant": as_variant(ctx, "in_1", lv_type, variant_label(ctx, source))}

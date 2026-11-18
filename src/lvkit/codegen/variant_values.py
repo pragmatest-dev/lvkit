@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lvkit.graph.models import ConstantNode
 from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 
@@ -43,12 +44,23 @@ def is_array_or_cluster(lv_type: LVType) -> bool:
     )
 
 
-def variant_label(source: Terminal | None) -> str:
+def variant_label(ctx: CodeGenContext, source: Terminal | None) -> str:
     """The label of the data a wire carries into a variant, which Get Type
-    Information returns as its ``name``: the label of the control or indicator the
-    data is (``FPTerminal.name``); "" for a wire that comes out of a node, which
-    carries no label of its own."""
-    return (source.name or "") if isinstance(source, FPTerminal) else ""
+    Information returns as its ``name`` and the variant's type string records: the
+    label the graph keeps for the wire's source. That is the label of a control or
+    indicator (``FPTerminal.name``), the field label of a Bundle or Unbundle By Name
+    lane (``Terminal.display_name``) and the label of a constant (``label``);
+    "" when the source records none."""
+    if source is None:
+        return ""
+    if isinstance(source, FPTerminal):
+        return source.name or ""
+    if source.nmux_role == "list":
+        return source.display_name or ""
+    if ctx.graph is None:
+        return ""
+    node = ctx.graph.get_graph_node(ctx.graph.terminal_node_id(source.id))
+    return (node.label or "") if isinstance(node, ConstantNode) else ""
 
 
 def as_variant(
@@ -56,7 +68,8 @@ def as_variant(
 ) -> str:
     """``Variant(<expr>, <its type>)``: ``expr`` copied one level first when it is
     an array or a cluster, as To Variant copies its data. A ``label`` (see
-    ``variant_label``) is the variant's ``name``."""
+    ``variant_label``) is the variant's ``name``; the type string a variant is
+    flattened with ends in it (``flat_writer``)."""
     type_expr = type_expression(ctx, source_type)
     value = expr
     if is_array_or_cluster(source_type):
@@ -116,7 +129,7 @@ def wrap_if_coerced(
     source = _coerced_source(ctx, terminal_id, source_id)
     if source is None or source.lv_type is None:
         return expr
-    return as_variant(ctx, expr, source.lv_type, variant_label(source))
+    return as_variant(ctx, expr, source.lv_type, variant_label(ctx, source))
 
 
 def variant_input(
@@ -135,4 +148,4 @@ def variant_input(
     source = _source(ctx, term.id, None)
     if source is None or source.lv_type is None or is_variant_type(source.lv_type):
         return value
-    return as_variant(ctx, value, source.lv_type, variant_label(source))
+    return as_variant(ctx, value, source.lv_type, variant_label(ctx, source))
