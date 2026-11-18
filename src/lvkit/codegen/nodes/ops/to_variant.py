@@ -1,8 +1,9 @@
 """To Variant (prim 8201).
 
 in_1 = the data (any type) -> out index 0 = the variant holding it and its type.
-The type is the type of the wire feeding the input, always in the VI; a Variant
-wired in passes through unchanged.
+The type is the type of the wire feeding the input, always in the VI, and the
+variant's ``name`` is that wire's label when it is a control or indicator
+(``variant_label``); a Variant wired in passes through unchanged.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.primitive_resolver import ResolvedPrimitive
 
-from ...variant_values import as_variant, is_variant_type
+from ...variant_values import as_variant, is_variant_type, variant_label
 from . import register_context_op
 from ._flat_node import terminal
 
@@ -39,4 +40,4 @@ def to_variant(
         raise ConversionGap("To Variant has no input of a known type", node)
     if is_variant_type(lv_type):
         return {"variant": "in_1"}
-    return {"variant": as_variant(ctx, "in_1", lv_type)}
+    return {"variant": as_variant(ctx, "in_1", lv_type, variant_label(source))}

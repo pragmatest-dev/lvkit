@@ -11,12 +11,16 @@ the code 0 (the rule ``Get TDEnum from Data`` follows, variant-values.md). A cod
 the table does not list (a waveform, a refnum or class, which the code alone does
 not tell apart from other items) raises ``NotImplementedError`` where the node runs.
 
-``name`` is, on NI's forum, "the label of the data" the variant was made from
-("Get type info in malleable VI returns VIM input control name", forums.ni.com
-td-p/4234698: "the name of the data that gets embedded in the variant is taken from
-the calling VI"), which a variant does not record, so a node that wires ``name`` is
-a gap; so are ``type definition`` and ``type definition info``, which a variant's
-type does not record either.
+``name`` "returns the name of the data type stored in variant" (NI's page). On NI's
+forum it is "the label of the data" the variant was made from ("Get type info in
+malleable VI returns VIM input control name", forums.ni.com td-p/4234698: "the name
+of the data that gets embedded in the variant is taken from the calling VI"). The
+generated ``Variant`` records it as ``Variant.name``, set where the variant is made
+from a control or indicator's wire (``variant_values.variant_label``); a variant
+made from any other wire, an empty variant and one read from a flattened string
+have the name "" (NI's page does not say what they return; the wire out of a node
+carries no label we have read). ``type definition`` and ``type definition info``,
+which a variant's type does not record, stay gaps.
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import TerminalDirection
+from lvkit.models import Terminal, TerminalDirection
 from lvkit.variant_type_items import item_values_by_code
 from lvkit.vilib_resolver import VIEntry
 
@@ -34,8 +38,6 @@ from ..fragment import CodeFragment
 from .grpc_pane import terminal_of, wired
 
 _NOT_RECORDED = {
-    "name": "NI defines it as the label of the data the variant was made from, "
-    "which a variant does not record",
     "type_definition": "a variant does not record whether its type is a type "
     "definition",
     "type_definition_info": "a variant does not record the type definition's "
@@ -55,8 +57,28 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
                 node,
             )
     out = terminal_of(node, entry, "type", TerminalDirection.OUTPUT)
+    name = terminal_of(node, entry, "name", TerminalDirection.OUTPUT)
+    if name is not None and ctx.is_wired(name.id):
+        variant = wired(node, entry, "variant", ctx)
+        if variant is None:
+            raise ConversionGap("no variant is wired to it", node)
+        name_var = ctx.make_output_var("name", node.id)
+        fragment = CodeFragment(
+            statements=ast.parse(f"{name_var} = {variant}.name\n").body,
+            bindings={name.id: name_var},
+        )
+        if out is None or not ctx.is_wired(out.id):
+            return fragment
+        return fragment + _type_fragment(node, ctx, entry, out)
     if out is None or not ctx.is_wired(out.id):
         return CodeFragment.empty()
+    return _type_fragment(node, ctx, entry, out)
+
+
+def _type_fragment(
+    node: VINode, ctx: CodeGenContext, entry: VIEntry, out: Terminal
+) -> CodeFragment:
+    """The ``Type`` output: the ``Data Type`` item of the variant's code."""
     items = item_values_by_code(out.lv_type) if out.lv_type is not None else None
     if items is None:
         raise ConversionGap(

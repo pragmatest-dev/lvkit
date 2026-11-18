@@ -169,15 +169,18 @@ class LVType:
 
 @dataclass
 class Variant:
-    """A variant: the data, its type (None for an empty variant) and its named
-    attributes, each a variant."""
+    """A variant: the data, its type (None for an empty variant), its named
+    attributes, each a variant, and its ``name``, the label of the control or
+    indicator the data was made from ("" when it came from no labelled data). The
+    name is not part of what two variants are equal by."""
 
     value: Any = None
     type: LVType | None = None
     attributes: dict[str, Variant] = field(default_factory=dict)
+    name: str = field(default="", compare=False)
 
     def __copy__(self) -> Variant:
-        return Variant(self.value, self.type, dict(self.attributes))
+        return Variant(self.value, self.type, dict(self.attributes), self.name)
 '''
 
 

@@ -173,7 +173,28 @@ def test_a_code_that_names_several_items_raises_where_it_runs(
         _run(source)(v.Variant(None, v.LVType(code, name, None)))
 
 
-@pytest.mark.parametrize("output", ["name", "type_definition"])
+def test_the_name_is_the_label_the_variant_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gaps: list[Gap] = []
+    source = _generate(["name", "type"], monkeypatch, gaps)
+    assert gaps == []
+    caller = _run(source)
+    v = generated_variants()
+    result = caller(v.Variant(5, v.LV_I32, {}, "Voltage"))
+    assert (result.name, result.type_) == ("Voltage", _item("I32"))
+    # A variant made from no labelled data, and an empty one, have no name.
+    assert caller(v.Variant(5, v.LV_I32)).name == ""
+    assert caller(v.Variant()).name == ""
+
+
+def test_the_name_alone_writes_no_type_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = _generate(["name"], monkeypatch, [])
+    assert "variant_type" not in source
+    assert _run(source)(generated_variants().Variant(1, None, {}, "x")).name == "x"
+
+
+@pytest.mark.parametrize("output", ["type_definition"])
 def test_an_output_a_variant_does_not_record_is_a_gap(
     output: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
