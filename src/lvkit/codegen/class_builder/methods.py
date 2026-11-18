@@ -35,6 +35,7 @@ from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
 from ..nodes.call_chain import vi_name_statement
 from ..nodes.front_panel_title import window_title_statement
+from ..nodes.tag_methods import tags_statements
 from ..panel_description import NamedTerminal, panel_statements
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..panel_names import panel_names
@@ -223,6 +224,7 @@ class _MethodBuilderMixin:
         return [
             window_title_statement(ctx, ctx.vi_name or vi_context.name, target),
             vi_name_statement(ctx, ctx.vi_name or vi_context.name, target),
+            *tags_statements(ctx, ctx.vi_name or vi_context.name, target),
             *panel_statements(
                 ctx,
                 target,

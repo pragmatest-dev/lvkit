@@ -110,6 +110,14 @@ carries: its LabVIEW qualified name (``Lib.lvlib:Class.lvclass:Method.vi``).
 the ``vi_name`` of every VI function on it, the VI it is called from first. It lives
 here because it reports the VIs as run (the function objects that carry ``panel``,
 ``window_title`` and ``vi_name``), which is what this module's ``panel_of`` reaches.
+
+The tags of a VI (Tag.Get Tag, Tag.Set Tag and Tag.Remove Tag on its reference) are
+a third attribute the VI's function carries, ``function.tags``, a ``Tags``: the tags
+the VI's file saves (its ``VITS`` block) and what the program sets. A VI that saves
+none has no ``tags`` until the first Set Tag; ``tags_of(reference)`` is the ``Tags``
+of the VI a reference holds, made on first use. A saved value the conversion does
+not decode is an ``UndecodedTag``, and reading it raises NotImplementedError naming
+the VI and the tag (``codegen/nodes/tag_methods.py``).
 """
 
 from __future__ import annotations
@@ -124,6 +132,9 @@ PANEL_OF_NAME = "panel_of"
 AS_PANEL_NAME = "as_panel"
 AS_CONTROL_NAME = "as_control"
 CALL_CHAIN_NAME = "call_chain"
+TAGS_NAME = "Tags"
+TAGS_OF_NAME = "tags_of"
+UNDECODED_TAG_NAME = "UndecodedTag"
 # What a node that calls a method of a panel imports where it runs.
 PANEL_CALL_IMPORTS = f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}"
 
@@ -962,6 +973,80 @@ def call_chain() -> list[str]:
             names.append(name)
         frame = frame.f_back
     return names
+
+
+class UndecodedTag:
+    """The value of a saved tag the conversion did not decode, with the reason."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+
+class Tags:
+    """The tags of a VI: each name with its ``Variant``, and which tags are saved
+    with the file (persistent). A tag the file saves is persistent; Set Tag gives
+    the persistence of the tag it writes."""
+
+    def __init__(
+        self, owner: str, saved: Mapping[str, Variant | UndecodedTag] | None = None
+    ) -> None:
+        self.owner = owner
+        self._values: dict[str, Variant | UndecodedTag] = dict(saved or {})
+        self._persistent = set(self._values)
+
+    def _read(self, name: str) -> Variant:
+        value = self._values[name]
+        if isinstance(value, UndecodedTag):
+            raise NotImplementedError(
+                f"Tag {name!r} of {self.owner} is saved in a form the conversion "
+                f"does not decode: {value.reason}"
+            )
+        return value
+
+    def get(self, name: str) -> tuple[bool, bool, Variant]:
+        """``(found, is_persistent, value)`` of the tag ``name``: a tag that does
+        not exist is not found, with no value (an empty Variant)."""
+        if name not in self._values:
+            return False, False, Variant()
+        return True, name in self._persistent, self._read(name)
+
+    def set(
+        self, name: str, value: Variant, persistent: bool = False, old: bool = False
+    ) -> tuple[bool, Variant]:
+        """Set the tag ``name`` and give ``(True, the value it had)`` (an empty
+        Variant when it had none); ``old`` is whether the caller reads that value,
+        which is an error for a tag saved in a form the conversion does not
+        decode."""
+        before = self._read(name) if old and name in self._values else Variant()
+        self._values[name] = value
+        if persistent:
+            self._persistent.add(name)
+        else:
+            self._persistent.discard(name)
+        return True, before
+
+    def remove(self, name: str, old: bool = False) -> tuple[bool, Variant]:
+        """Remove the tag ``name`` and give ``(removed, the value it had)``; a tag
+        that does not exist is not removed (``old`` as in ``set``)."""
+        if name not in self._values:
+            return False, Variant()
+        before = self._read(name) if old else Variant()
+        del self._values[name]
+        self._persistent.discard(name)
+        return True, before
+
+
+def tags_of(reference: Any) -> Tags:
+    """The tags of the VI ``reference`` holds (its function), made on first use;
+    error 1026 for a reference that holds no VI."""
+    tags = getattr(reference, "tags", None)
+    if isinstance(tags, Tags):
+        return tags
+    owner = getattr(reference, "vi_name", None)
+    if isinstance(owner, str):
+        reference.tags = Tags(owner)
+        return reference.tags
+    raise PanelError(code=1026, source="tags_of", message="VI Reference is invalid.")
 
 
 def as_panel(reference: Any) -> PanelValues:

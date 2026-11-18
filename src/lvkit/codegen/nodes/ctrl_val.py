@@ -104,7 +104,7 @@ def reference_value(node: PrimitiveNode, ctx: CodeGenContext) -> str:
     return value
 
 
-def _input_value(
+def input_value(
     node: PrimitiveNode, ctx: CodeGenContext, index: int, default: str
 ) -> str:
     """The expression wired to the input at ``index``, else ``default``."""
@@ -121,12 +121,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     result = terminal_at(node, "output", _RESULT)
     if node.method_code == CTRL_VAL_SET_CODE:
         value = variant_input(ctx, node, terminal_at(node, "input", _VALUE))
-        name = _input_value(node, ctx, _NAME, repr(""))
+        name = input_value(node, ctx, _NAME, repr(""))
         call = f"{panel}.set_variant({name}, {value})"
     elif node.method_code == CTRL_VAL_GET_CODE:
-        call = f"{panel}.get_variant({_input_value(node, ctx, _NAME, repr(''))})"
+        call = f"{panel}.get_variant({input_value(node, ctx, _NAME, repr(''))})"
     else:
-        controls = _input_value(node, ctx, _CONTROLS, "False")
+        controls = input_value(node, ctx, _CONTROLS, "False")
         call = f"{panel}.get_all_variants({controls})"
 
     bindings: dict[str, str] = {}
