@@ -234,6 +234,28 @@ def test_a_variant_of_unknown_type_flattens_as_the_type_it_records(
     assert back.type.type_string == given.type.type_string
 
 
+@pytest.mark.parametrize(
+    ("lv_type", "default_value"),
+    [
+        (I32, 0),
+        (STR, ""),
+        (scalar("Boolean"), False),
+        (array("NumInt32", 2), []),
+        (record(), ("", 0)),
+    ],
+)
+def test_a_typed_variant_holding_no_value_flattens_the_types_default(
+    lv_type: LVType, default_value: object
+) -> None:
+    flatten = unknown_type_flatten()
+    variants = generated_variants()
+    empty = variants.Variant(None, variants.type_from_string(encode(lv_type)))
+    type_string, data = result_values(flatten.function(empty))
+    _, default_data = result_values(to_string(lv_type).function(default_value))
+    assert data == default_data
+    assert [w & 0xFFFF for w in type_string] == [w & 0xFFFF for w in encode(lv_type)]
+
+
 def test_a_variant_of_unknown_type_with_no_writable_type_raises_naming_it() -> None:
     flatten = unknown_type_flatten()
     variants = generated_variants()

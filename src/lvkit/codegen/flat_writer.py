@@ -43,8 +43,20 @@ def _array_items(value: Any, dimensions: int) -> list:
 
 def _flatten_value(value: Any, lv_type: LVType) -> bytes:
     """The bytes of ``value`` of the type ``lv_type`` in LabVIEW's flattened form
-    (big-endian, sizes prepended)."""
+    (big-endian, sizes prepended). A variant that holds no value (``None``) is
+    the type's default: zero, False, an empty string or array, a cluster of
+    defaults."""
     info = read_type(lv_type)
+    if value is None and info.kind in ("number", "enum"):
+        value = 0
+    elif value is None and info.kind == "boolean":
+        value = False
+    elif value is None and info.kind == "string":
+        value = ""
+    elif value is None and info.kind == "array":
+        value = []
+    elif value is None and info.kind == "cluster":
+        value = [None] * len(info.fields)
     if info.kind in ("number", "enum"):
         name = _number_name(info)
         if name not in _FLAT_NUMBERS:
