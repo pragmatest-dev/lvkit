@@ -15,6 +15,7 @@ import pytest
 from lvkit import type_string
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.variants_module import lv_type_expression
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext, VINode, Wire
 from lvkit.lv_type_codes import TD_FULL_TYPE
@@ -24,6 +25,7 @@ from lvkit.models import (
     FPTerminal,
     LVType,
     LVTypeKind,
+    ServerClass,
 )
 from lvkit.vilib_resolver import VIEntry, VILibResolver
 from tests.helpers import build_graph, exec_generated, generated_variants
@@ -66,6 +68,15 @@ _REPRESENTATION = _enum(
     "Byte", "Unsigned Long", "Unsigned Word", "Unsigned Byte", "Complex Extended",
     "Complex Double", "Complex Single", "Quad", "Unsigned Quad", "Fixed-Point",
 )
+_REFNUM_TYPE = _enum(
+    "NotARefnum", "UnknownRefnum", "Generic", "Datalog", "ByteStream", "Device",
+    "Occurence", "TCPNetConnection", "Auto", "Menu", "Imaq", "Hardware",
+    "DataSocket", "Visa", "IVI", "UDPNetConnection", "Notifier", "Queue", "Irda",
+    "EventReg", "DotNet", "UserEvent", "Callback", "UNUSED_EMPTY_POSITION",
+    "BlueToothNetConnection", "LVObjApp", "LVObjVI", "LVObjUnknown", "GenericClass",
+    "UserDefinedRefnumTag", "DataValue", "RT FIFO", "TDMS File",
+)
+_SERVER_TYPE = _enum("NoType", "kLVObjApp", "kLVObjVI", "kLVObjGeneric")
 _UNITS = LVType(LVTypeKind.ARRAY, underlying_type="Array", element_type=_I32)
 _ELEMENT = {
     "Get Array Information.vi": {
@@ -79,7 +90,11 @@ _ELEMENT = {
         "units": (2, _UNITS),
         "names": (3, _NAMES),
     },
-    "Get Refnum Information.vi": {"reference": (3, _enum("Queue"))},
+    "Get Refnum Information.vi": {
+        "reference": (3, _REFNUM_TYPE),
+        "strict": (2, _VARIANT),
+        "generic": (1, _SERVER_TYPE),
+    },
     "Get Waveform Information.vi": {"y": (3, _VARIANT)},
 }
 
@@ -300,16 +315,101 @@ def test_numeric_information_refuses_a_non_numeric_and_a_number_with_a_unit(
         _caller(source)(v.Variant(1.0, v.LVType(0x19, "SGL with unit", (4, 0x19))))
 
 
-@pytest.mark.parametrize(
-    ("file", "output"),
-    [("Get Refnum Information.vi", "reference"), ("Get Waveform Information.vi", "y")],
-)
-def test_refnum_and_waveform_information_stay_gaps(
-    file: str, output: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_waveform_information_stays_a_gap(monkeypatch: pytest.MonkeyPatch) -> None:
     gaps: list[Gap] = []
-    source = _generate(file, [output], monkeypatch, gaps)
+    source = _generate("Get Waveform Information.vi", ["y"], monkeypatch, gaps)
     assert len(gaps) == 1
     assert "records only the" in gaps[0].detail
     with pytest.raises(NotImplementedError):
         _caller(source)(None)
+
+
+def _refnum_variant(refnum: LVType):
+    """A variant of a refnum of the type ``refnum``, the type written the way the
+    generator writes it into a module."""
+    v = generated_variants()
+    expression = lv_type_expression(refnum)
+    return v.Variant(None, eval(expression.text, vars(v)))  # noqa: S307
+
+
+def _queue(element: LVType) -> LVType:
+    return LVType(
+        LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue",
+        element_type=element,
+    )
+
+
+def test_refnum_information_reads_the_kind_and_the_strict_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gaps: list[Gap] = []
+    source = _generate(
+        "Get Refnum Information.vi", ["reference", "strict", "generic"],
+        monkeypatch, gaps,
+    )
+    assert gaps == []
+    assert "lvkit" not in source
+    v = generated_variants()
+    result = _caller(source)(_refnum_variant(_queue(_scalar("NumInt32"))))
+    assert result.reference == _REFNUM_TYPE.values["Queue"].value
+    assert result.strict == v.Variant(0, v.LV_I32)
+    assert result.generic == _SERVER_TYPE.values["NoType"].value
+
+
+@pytest.mark.parametrize(
+    ("kind", "label"),
+    [
+        ("NotifierRef", "Notifier"), ("UserEvent", "UserEvent"),
+        ("TCPNetConn", "TCPNetConnection"), ("VisaRef", "Visa"),
+        ("FIFORef", "RT FIFO"), ("TDMSFile", "TDMS File"),
+        ("DataValueRef", "DataValue"), ("Occurrence", "Occurence"),
+    ],
+)
+def test_refnum_information_names_each_kind_by_its_item(
+    kind: str, label: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _generate("Get Refnum Information.vi", ["reference"], monkeypatch, [])
+    refnum = LVType(LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type=kind)
+    result = _caller(source)(_refnum_variant(refnum))
+    assert result.reference == _REFNUM_TYPE.values[label].value
+
+
+def test_a_generic_vi_server_reference_is_named_by_its_class(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _generate("Get Refnum Information.vi", ["reference"], monkeypatch, [])
+    for server_class, label in ((ServerClass.VI, "LVObjVI"),
+                                (ServerClass.APPLICATION, "LVObjApp")):
+        refnum = LVType(
+            LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="LVObjCtl",
+            server_class=server_class,
+        )
+        result = _caller(source)(_refnum_variant(refnum))
+        assert result.reference == _REFNUM_TYPE.values[label].value
+
+
+def test_a_refnum_with_no_strict_type_gives_an_empty_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _generate("Get Refnum Information.vi", ["strict"], monkeypatch, [])
+    refnum = LVType(LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Menu")
+    assert _caller(source)(_refnum_variant(refnum)).strict == (
+        generated_variants().Variant()
+    )
+
+
+def test_refnum_information_refuses_what_it_cannot_name_or_is_not_a_refnum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _generate("Get Refnum Information.vi", ["reference"], monkeypatch, [])
+    unlisted = LVType(
+        LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="UDClassInst",
+        classname="Lib.lvlib:Thing.lvclass",
+    )
+    with pytest.raises(NotImplementedError, match="UDClassInst"):
+        _caller(source)(_refnum_variant(unlisted))
+    v = generated_variants()
+    with pytest.raises(ValueError, match="String is not a refnum"):
+        _caller(source)(v.Variant("x", v.LV_String))
+    with pytest.raises(ValueError, match="an empty variant is not a refnum"):
+        _caller(source)(v.Variant())

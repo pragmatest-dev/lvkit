@@ -17,10 +17,11 @@ the forum threads searched (forums.ni.com "Get Array Information vi decoding the
 output", "Possible bug NI_Data Type.lvlib Get Cluster Information.vi"); the catalog
 entries leave it the generic error code, an unsettled default. A number with a
 unit, a fixed-point number and the Bounded dimension kind are not read
-(``NotImplementedError`` where the node runs). A refnum, a waveform or a LabVIEW
-class is not recorded in any type string lvkit writes (the type of a refnum or
-of a waveform is its code alone), so Get Refnum Information and Get Waveform
-Information are gaps (``gap_refnum``, ``gap_waveform``).
+(``NotImplementedError`` where the node runs). A refnum is recorded by its code
+and the kind, VI Server class and strict type its ``LVType`` carries
+(``variants_module``), which Get Refnum Information reads (``refnum_information``).
+A waveform is in no type string lvkit writes (its type is its code alone), so Get
+Waveform Information is a gap (``gap_waveform``).
 """
 
 from __future__ import annotations
@@ -31,13 +32,14 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.lv_type_codes import TD_FULL_TYPE
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
-from lvkit.variant_type_items import representation_values
+from lvkit.variant_type_items import refnum_type_values, representation_values
 from lvkit.vilib_resolver import VIEntry
 
 from ..ast_utils import field_attribute_names
 from ..cluster_members import is_anonymous_cluster
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..variants_module import VARIANT_NAME
 from .grpc_pane import terminal_of, wired
 
 _UNIT_CODES = tuple(
@@ -220,14 +222,85 @@ def numeric_information(
     return _finish(source, bindings)
 
 
-def gap_refnum(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
-    """Get Refnum Information: a refnum's kind is in no type string lvkit writes
-    (a refnum is recorded by its code alone), so the call is a gap."""
-    raise ConversionGap(
-        "a variant of a refnum records only the refnum's code, not its kind or "
-        "strict type, so Get Refnum Information cannot read them",
-        node,
-    )
+def _enum_value(
+    term: Terminal, label: str, node: VINode, enum_name: str
+) -> int:
+    """The value of the item ``label`` of the enum the output ``term`` carries."""
+    values = term.lv_type.values if term.lv_type is not None else None
+    if not values or label not in values:
+        raise ConversionGap(
+            f"the {term.name or enum_name} output is not recorded as the items "
+            f"of the {enum_name} enum (no item {label!r})",
+            node,
+        )
+    return values[label].value
+
+
+def refnum_information(
+    node: VINode, ctx: CodeGenContext, entry: VIEntry
+) -> CodeFragment:
+    """One call of ``Get Refnum Information.vi``.
+
+    NI: "reference type returns the data type of the refnum stored in variant",
+    "strict type returns the strict type of the refnum stored in variant" and "VI
+    Server generic type returns the specific VI Server class type. VI Server
+    generic type is valid only if reference type is LVObjUnknown"; it "returns an
+    error if variant does not contain a refnum". The variant's ``LVType`` records
+    the refnum's kind, VI Server class and strict type (``variants_module``). The
+    kind is the item of the caller's ``Refnum Type`` enum that
+    ``variant_type_items.refnum_type_values`` gives; a refnum it does not list raises
+    where the node runs. Every refnum listed is not an LVObjUnknown one, so the VI
+    Server generic type is the enum's ``NoType`` item. The strict type is a variant
+    of the type the refnum refers to (a Queue's element) holding its default, an
+    empty variant for a refnum with none."""
+    info, source = _reading(node, entry, ctx, ("refnum",), "a refnum")
+    recorded = f"{info}.type"
+    bindings: dict[str, str] = {}
+    reference = _output(node, entry, "reference_type", ctx)
+    generic = _output(node, entry, "vi_server_generic_type", ctx)
+    if reference is not None or generic is not None:
+        enum = terminal_of(node, entry, "reference_type", TerminalDirection.OUTPUT)
+        table = (
+            refnum_type_values(enum.lv_type)
+            if enum is not None and enum.lv_type is not None
+            else {}
+        )
+        if not table:
+            raise ConversionGap(
+                "the Reference Type output is not recorded as the items of the "
+                "Refnum Type enum, so the value of each refnum's item is not known",
+                node,
+            )
+        item = ctx.make_output_var("reference_item", node.id)
+        literal = "{" + ", ".join(f"{k!r}: {v}" for k, v in table.items()) + "}"
+        source += (
+            f"{item} = {literal}.get(({recorded}.refnum_kind, "
+            f"{recorded}.server_class))\n"
+            f"if {item} is None:\n"
+            "    raise NotImplementedError(\n"
+            f"        f'{entry.name}: the refnum {{{recorded}.name}} (kind "
+            f"{{{recorded}.refnum_kind!r}}, VI Server class "
+            f"{{{recorded}.server_class!r}}) is not one item of the Refnum Type "
+            "enum'\n"
+            "    )\n"
+        )
+        if reference is not None:
+            bindings[reference.id] = item
+        if generic is not None:
+            var = ctx.make_output_var("vi_server_generic_type", node.id)
+            no_type = _enum_value(generic, "NoType", node, "VI Server Generic Type")
+            source += f"{var} = {no_type}\n"
+            bindings[generic.id] = var
+    strict = _output(node, entry, "strict_type", ctx)
+    if strict is not None:
+        var = ctx.make_output_var("strict_type", node.id)
+        source += (
+            f"{var} = {VARIANT_NAME}()\n"
+            f"if {recorded}.strict is not None:\n"
+            f"    {var} = {_data_type(f'{recorded}.strict')}\n"
+        )
+        bindings[strict.id] = var
+    return _finish(source, bindings)
 
 
 def gap_waveform(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:

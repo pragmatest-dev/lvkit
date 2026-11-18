@@ -104,7 +104,7 @@ _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] 
     "GET_ARRAY_INFORMATION": variant_type_parts.array_information,
     "GET_CLUSTER_INFORMATION": variant_type_parts.cluster_information,
     "GET_NUMERIC_INFORMATION": variant_type_parts.numeric_information,
-    "GET_REFNUM_INFORMATION": variant_type_parts.gap_refnum,
+    "GET_REFNUM_INFORMATION": variant_type_parts.refnum_information,
     "GET_WAVEFORM_INFORMATION": variant_type_parts.gap_waveform,
     "PROTO_ENUM_TO_LV_ENUM": grpc_enum.proto_to_lv,
     "LV_ENUM_TO_PROTO_ENUM": grpc_enum.lv_to_proto,

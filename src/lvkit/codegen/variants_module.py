@@ -63,7 +63,28 @@ def _inline_expression(lv_type: LVType) -> str:
         encoded: tuple[int, ...] | None = tuple(type_string.encode(lv_type))
     except type_string.TypeStringError:
         encoded = None
-    return f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r})"
+    return f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r}{_refnum_arguments(lv_type)})"
+
+
+def _refnum_arguments(lv_type: LVType) -> str:
+    """The keyword arguments of a refnum's ``LVType`` that record what a type code
+    alone does not: its kind (``refnum_kind``, a ``REFNUM_TYPE`` name), the VI
+    Server class of a generic reference (``server_class``) and the strict type of
+    a typed refnum (``strict``, the type of what it refers to: a Queue's element).
+    A strict type that has no type-descriptor code is recorded by its name alone."""
+    if lv_type.underlying_type != "Refnum" or lv_type.ref_type is None:
+        return ""
+    text = f", refnum_kind={lv_type.ref_type!r}"
+    if lv_type.server_class is not None:
+        text += f", server_class={lv_type.server_class.value!r}"
+    element = lv_type.element_type
+    if element is not None:
+        try:
+            strict = _inline_expression(element)
+        except ConversionGap:
+            strict = f"{LV_TYPE_NAME}(0, {element.type_descriptor()!r})"
+        text += f", strict={strict}"
+    return text
 
 
 # The scalar types whose ``LVType`` is fixed, by the type-descriptor name of each.
@@ -160,11 +181,17 @@ from typing import Any
 @dataclass(frozen=True)
 class LVType:
     """A LabVIEW type: the type-descriptor ``code``, its ``name`` for messages
-    and, where it has one, the bytes of its type string."""
+    and, where it has one, the bytes of its type string. A refnum also records
+    what its code does not: its kind (``refnum_kind``, ``Queue``, ``LVObjCtl``,
+    ...), the VI Server class of a generic reference (``server_class``, ``VI`` or
+    ``Application``) and the type of what a typed refnum refers to (``strict``)."""
 
     code: int
     name: str
     type_string: tuple[int, ...] | None = None
+    refnum_kind: str | None = None
+    server_class: str | None = None
+    strict: LVType | None = None
 
 
 @dataclass

@@ -225,6 +225,7 @@ PRIMITIVES = {
     "cluster-class-variant:Get Array Information.vi": [("ValueError", None)],
     "cluster-class-variant:Get Cluster Information.vi": [("ValueError", None)],
     "cluster-class-variant:Get Numeric Information.vi": [("ValueError", None)],
+    "cluster-class-variant:Get Refnum Information.vi": [("ValueError", None)],
     "addons:Start Server.vi": [("RpcError", None)],
     "addons:Read Call Request.vim": [("RpcError", None)],
     "addons:Write Call Response.vim": [("RpcError", None)],

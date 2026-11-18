@@ -1325,7 +1325,12 @@
       "status": "complete",
       "op": "GET_REFNUM_INFORMATION",
       "inline": true,
-      "imports": []
+      "imports": [],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
     },
     {
       "name": "Get Waveform Information.vi",

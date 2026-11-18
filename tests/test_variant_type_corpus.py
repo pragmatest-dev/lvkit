@@ -128,7 +128,7 @@ def test_get_array_element_td_is_the_element_descriptor(
     assert result.type_descriptor == type_string.encode(_scalar("NumFloat64"))
 
 
-def test_variant_to_json_text_reads_the_type_and_keeps_the_refnum_and_waveform_gaps(
+def test_variant_to_json_text_reads_the_type_and_the_refnum_and_keeps_the_waveform_gap(
     tmp_path: Path,
 ) -> None:
     package = _generate(
@@ -137,7 +137,8 @@ def test_variant_to_json_text_reads_the_type_and_keeps_the_refnum_and_waveform_g
     source = next(package.rglob("variant_to_json_text.py")).read_text()
     assert "read_type(" in source
     assert "number_of_dimensions" in source
-    assert "Get Refnum Information cannot read" in source
+    assert "refnum_kind" in source
+    assert "Get Refnum Information cannot read" not in source
 
 
 _LABELLED_CLUSTER = LVType(
