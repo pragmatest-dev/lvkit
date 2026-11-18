@@ -21,19 +21,16 @@ dependencies, which Python has no counterpart of.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.vi_files import class_stem
 from lvkit.vilib_resolver import VIEntry
 
-from ..ast_utils import build_assign, module_part, parse_expr
-from ..class_model import python_class_name
+from ..ast_utils import build_assign, parse_expr
+from ..class_model import class_module, python_class_name
 from ..computed_path import PATH_FROM_HERE, computed_path_module_key, path_from
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from .grpc_pane import output_of, wired
 
@@ -57,14 +54,8 @@ def _classes_table(ctx: CodeGenContext) -> None:
     module_key = computed_path_module_key(ctx)
     entries: dict[str, tuple[str, str]] = {}
     for class_key in ctx.graph.list_class_keys():
-        spec = (
-            resolver.package_spec(class_key)
-            if isinstance(resolver, ImportResolver)
-            else "."
-        )
-        module = spec + module_part(class_stem(Path(class_key).name))
         entries[path_from(resolver, class_key, module_key)] = (
-            module,
+            class_module(resolver, class_key),
             python_class_name(class_key),
         )
     ctx.add_module_global(

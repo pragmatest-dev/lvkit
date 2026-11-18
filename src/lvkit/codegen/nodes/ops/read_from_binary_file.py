@@ -179,7 +179,7 @@ def read_from_binary_file(
     reader, size = "", None
     if typed:
         try:
-            layout = layout_of(type_term.lv_type)
+            layout = layout_of(type_term.lv_type, ctx)
         except UnsupportedLayout as error:
             raise unsupported_layout_error(node, error) from error
         reader = Functions(ctx, order).reader(layout, True)

@@ -99,6 +99,17 @@ class CatalogFailures:
         )
 
 
+def own_exception_class(failure: NativeError) -> ast.ClassDef:
+    """The class definition of the exception ``failure`` makes of the operation's
+    own (``failure.base`` is its built-in base)."""
+    [definition] = ast.parse(
+        f"class {failure.exception}({failure.base}):\n"
+        f'    """LabVIEW error {failure.code}."""'
+    ).body
+    assert isinstance(definition, ast.ClassDef)
+    return definition
+
+
 def catch_failures(
     node: AnyGraphNode,
     fragment: CodeFragment,
@@ -117,12 +128,9 @@ def catch_failures(
     written: dict[str, str] = {}
     for failure in catalog.failures:
         if failure.base is not None:
-            [definition] = ast.parse(
-                f"class {failure.exception}({failure.base}):\n"
-                f'    """LabVIEW error {failure.code}."""'
-            ).body
-            assert isinstance(definition, ast.ClassDef)
-            written[failure.exception] = ctx.add_module_function(definition)
+            written[failure.exception] = ctx.add_module_function(
+                own_exception_class(failure)
+            )
     renamed = {old: new for old, new in written.items() if old != new}
     if renamed:
         fragment.statements = [_rename(s, renamed) for s in fragment.statements]

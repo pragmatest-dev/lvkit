@@ -165,7 +165,7 @@ PRIMITIVES = {
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8003:Variant To Data": [("TypeError", 91)],
-    "1165:Unflatten From String": [("error", 116)],
+    "1165:Unflatten From String": [("error", 116), ("FlattenedClassError", 1403)],
     "8202:Flattened String To Variant": [("error", 116)],
     "8083:List Folder": FILE_PATH_OPS,
     "9111:Enqueue Element": RELEASED_QUEUE,

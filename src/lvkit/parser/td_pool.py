@@ -225,8 +225,13 @@ class TdPool:
     descriptor that did not decode has an ``unreadable_type`` and its reason in
     ``failures``."""
 
-    def __init__(self, tds: list[RawTD]):
+    def __init__(self, tds: list[RawTD], class_refnum_old_field: bool = True):
+        """``class_refnum_old_field`` says the pool is of a file older than LabVIEW
+        8.6.1, whose class refnums carry the 4-byte field
+        ``_CLASS_REFNUM_OLD_FIELD_BYTES`` (a pool block exists only in such files);
+        a flattened Variant of a newer file has none."""
         self.tds = tds
+        self.class_refnum_old_field = class_refnum_old_field
         self.lvtypes: list[LVType] = []
         self.names: list[str | None] = []
         self.failures: dict[int, str] = {}
@@ -416,7 +421,7 @@ class TdPool:
             event_rows = tuple(rows)
             label_off = 6 + 8 * nrows
         elif kind == REFNUM_TYPE.UDClassInst:
-            items, label_off = _read_class_items(body)
+            items, label_off = _read_class_items(body, self.class_refnum_old_field)
             classname = ":".join(items)
             class_file = items[-1] if items else None
         elif kind == REFNUM_TYPE.LVObjCtl:
@@ -467,13 +472,13 @@ class TdPool:
         ), label
 
 
-def _read_class_items(body: bytes) -> tuple[list[str], int]:
+def _read_class_items(body: bytes, old_field: bool) -> tuple[list[str], int]:
     """A class refnum's class name parts, and the offset just past them: after the
-    2-byte kind, a 2-byte field and the old 4-byte field, a length byte covers the
-    names. A name that ends in a zero byte is a list of length-prefixed parts
-    ended by a zero length; otherwise the bytes are one name. The whole is padded
-    to an even size."""
-    pos = 2 + 2 + _CLASS_REFNUM_OLD_FIELD_BYTES
+    2-byte kind, a 2-byte field and (``old_field``) the old 4-byte field, a length
+    byte covers the names. A name that ends in a zero byte is a list of
+    length-prefixed parts ended by a zero length; otherwise the bytes are one
+    name. The whole is padded to an even size."""
+    pos = 2 + 2 + (_CLASS_REFNUM_OLD_FIELD_BYTES if old_field else 0)
     if pos >= len(body):
         raise PoolError("its body is shorter than its type's layout")
     total = body[pos]

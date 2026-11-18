@@ -806,20 +806,23 @@ def walk_operands(
     )
 
 
-def layout_of(lv_type: LVType | None) -> Layout:
+def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layout:
     """The layout of a terminal's type; raises ``UnsupportedLayout`` for a type
-    this does not flatten."""
+    this does not flatten. ``ctx`` is the module being written: a class value
+    needs its graph to list the classes it can hold, so with none it is a gap."""
     if lv_type is None:
         raise UnsupportedLayout("a value with no known type")
     if lv_type.kind == LVTypeKind.ARRAY:
-        return Sequence(layout_of(lv_type.element_type), lv_type.dimensions or 1)
+        return Sequence(
+            layout_of(lv_type.element_type, ctx), lv_type.dimensions or 1
+        )
     if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields:
         names = unique_names(f.name for f in lv_type.fields)
         return Record(
             label=lv_type.typedef_name or lv_type.classname or "cluster",
             named=bool(lv_type.typedef_name or lv_type.classname),
             fields=tuple(
-                Field(to_var_name(name), layout_of(field.type))
+                Field(to_var_name(name), layout_of(field.type, ctx))
                 for field, name in zip(lv_type.fields, names)
             ),
         )
@@ -827,10 +830,15 @@ def layout_of(lv_type: LVType | None) -> Layout:
         return TimeStamp()
     underlying = lv_type.underlying_type or ""
     if lv_type.ref_type == _CLASS_REF_TYPE:
-        raise UnsupportedLayout(
-            f"a LabVIEW class value ({lv_type.classname or 'a class'}), which "
-            "flattens as its class name and its data, not as a reference"
-        )
+        if ctx is None:
+            raise UnsupportedLayout(
+                f"a LabVIEW class value ({lv_type.classname or 'a class'}), which "
+                "flattens as its class name and its data, not as a reference"
+            )
+        # flat_class builds on this module, so it is imported where it is used.
+        from .flat_class import class_layout
+
+        return class_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
         return Integer("I", "c_uint32", 4)
     if underlying == "Refnum":

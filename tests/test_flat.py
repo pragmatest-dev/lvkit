@@ -232,9 +232,11 @@ def test_layouts_of_wire_types() -> None:
     assert layout_of(visa) == Text()  # flattened as a string
 
 
-def test_a_class_value_has_no_layout_and_is_not_a_32_bit_reference() -> None:
-    """A class value is an object, flattened as its class name and its data: it is
-    not the 4-byte integer a reference is."""
+def test_a_class_value_with_no_module_has_no_layout_and_is_not_a_reference() -> None:
+    """A class value is an object, flattened as its class name and its data, so it
+    is never the 4-byte integer a reference is; with no module (no graph) to list
+    the classes it can hold it has no layout (``tests/test_flat_class.py`` runs
+    the layout of a loaded class)."""
     value = LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",

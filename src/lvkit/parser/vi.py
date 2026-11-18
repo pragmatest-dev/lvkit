@@ -2695,7 +2695,9 @@ def _variant_head(
     if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
         return None
     count = int.from_bytes(data[4:8], "big")
-    read = read_descriptors(data, 8, count)
+    # The version is BCD: 0x08610000 is LabVIEW 8.6.1.
+    old_class_field = int.from_bytes(data[:4], "big") < 0x08610000
+    read = read_descriptors(data, 8, count, old_class_field)
     if read is None:
         return None
     descriptors, pos = read

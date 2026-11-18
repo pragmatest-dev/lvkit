@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -77,3 +78,51 @@ def test_the_properties_of_a_library_file_are_its_tags() -> None:
         ("NI.Lib.SourceVersion", None, None),
     ]
     assert tags[3].undecoded == "its property type Int has no read"
+
+
+# The ``LVClassPrivateDataDfltData`` variants of two corpus VIs (``vi_VITS.bin``
+# values, saved by LabVIEW 20 and 17). The first is the default private data of a
+# class whose one field, ``History``, holds a class object: its descriptors are a
+# class refnum (type code 0x70, kind 0x1E, the qualified name
+# ``lv_icon.lvlib:History.lvlib:History.lvclass``) in a cluster, and the value is
+# the flattened object (level 1, the name section padded to 4, version 0). The
+# second is a class whose one field is a TCP connection refnum (kind 5).
+HISTORY_DEFAULT_VARIANT = (
+    "2000800000000002003e4070001e00002d0d6c765f69636f6e2e6c766c69620d486973746f72"
+    "792e6c766c69620f486973746f72792e6c76636c6173730007486973746f727900184050000100"
+    "000e556e646f205265646f20436f72650000010001000000012d0d6c765f69636f6e2e6c766c69"
+    "620d486973746f72792e6c766c69620f486973746f72792e6c76636c61737300000000000000"
+    "0000000000000000"
+)
+TCP_DEFAULT_VARIANT = (
+    "17008000000000020010407000050854435020436f6e6e0000144050000100000b434c492e6c76"
+    "636c617373000100010000000000000000"
+)
+DEFAULT_DATA = "LVClassPrivateDataDfltData"
+
+
+def _tag_of(variant_hex: str, tmp_path: Path) -> SavedTag:
+    variant = bytes.fromhex(variant_hex)
+    block = (
+        struct.pack(">I", 1)
+        + struct.pack(">I", len(DEFAULT_DATA))
+        + DEFAULT_DATA.encode()
+        + struct.pack(">I", len(variant))
+        + variant
+    )
+    [tag] = saved_from_bytes(tmp_path, block.hex())
+    return tag
+
+
+def test_a_class_default_data_holding_a_class_object_reads(tmp_path: Path) -> None:
+    tag = _tag_of(HISTORY_DEFAULT_VARIANT, tmp_path)
+    assert tag.undecoded is None
+    assert tag.value is not None
+    assert tag.value.value == {"History": "History.lvclass"}
+
+
+def test_a_class_default_data_holding_a_refnum_reads(tmp_path: Path) -> None:
+    tag = _tag_of(TCP_DEFAULT_VARIANT, tmp_path)
+    assert tag.undecoded is None
+    assert tag.value is not None
+    assert list(tag.value.value) == ["TCP Conn"]

@@ -50,7 +50,7 @@ def unflatten_from_string(
     prefix = bool(constant_input(ctx, node, 10, True))
     order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
     try:
-        layout = layout_of(value_term.lv_type if value_term else None)
+        layout = layout_of(value_term.lv_type if value_term else None, ctx)
     except UnsupportedLayout as error:
         raise unsupported_layout_error(node, error) from error
     statements, value_var, rest = read_flattened(

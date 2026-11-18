@@ -72,7 +72,7 @@ def write_to_binary_file(
     prefix = bool(constant_input(ctx, node, 5, True))
     order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
     try:
-        layout = layout_of(data_term.lv_type if data_term else None)
+        layout = layout_of(data_term.lv_type if data_term else None, ctx)
     except UnsupportedLayout as error:
         raise unsupported_layout_error(node, error) from error
     statements: list[ast.stmt] = []
