@@ -61,6 +61,8 @@ BYTE_ORDER_PREFIX = {0: ">", 1: "=", 2: "<"}
 # Refnum kinds that do not flatten as a 32-bit integer (NI's "Flattened Data":
 # VISA, IVI and user-defined tags flatten as strings or several values).
 _STRING_REFNUMS = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"})
+# The refnum kind of a LabVIEW class value: a by-value object, not a handle.
+_CLASS_REF_TYPE = "UDClassInst"
 
 
 class UnsupportedLayout(Exception):
@@ -824,6 +826,11 @@ def layout_of(lv_type: LVType | None) -> Layout:
     if lv_type.is_timestamp:
         return TimeStamp()
     underlying = lv_type.underlying_type or ""
+    if lv_type.ref_type == _CLASS_REF_TYPE:
+        raise UnsupportedLayout(
+            f"a LabVIEW class value ({lv_type.classname or 'a class'}), which "
+            "flattens as its class name and its data, not as a reference"
+        )
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
         return Integer("I", "c_uint32", 4)
     if underlying == "Refnum":

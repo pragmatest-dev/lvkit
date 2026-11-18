@@ -10,7 +10,15 @@ from datetime import UTC, datetime
 import hightime
 import pytest
 
-from lvkit.codegen.flat import Integer, Real, Record, Sequence, Text, layout_of
+from lvkit.codegen.flat import (
+    Integer,
+    Real,
+    Record,
+    Sequence,
+    Text,
+    UnsupportedLayout,
+    layout_of,
+)
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.native_vi import array, generate, node, scalar
@@ -222,6 +230,19 @@ def test_layouts_of_wire_types() -> None:
     )
     assert layout_of(byte_stream) == Integer("I", "c_uint32", 4)
     assert layout_of(visa) == Text()  # flattened as a string
+
+
+def test_a_class_value_has_no_layout_and_is_not_a_32_bit_reference() -> None:
+    """A class value is an object, flattened as its class name and its data: it is
+    not the 4-byte integer a reference is."""
+    value = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Lib.lvlib:Thing.lvclass",
+    )
+    with pytest.raises(UnsupportedLayout, match="Lib.lvlib:Thing.lvclass"):
+        layout_of(value)
 
 
 def test_integers_wrap_around_at_their_width() -> None:
