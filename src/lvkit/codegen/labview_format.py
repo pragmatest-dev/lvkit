@@ -289,8 +289,9 @@ def _lv_general(value, precision, plus):
         )
     if precision < 1:
         raise NotImplementedError(
-            "Format Into String code 'g' with a precision of 0 has no conversion: "
-            "NI's docs do not say what it writes"
+            "Format Into String code 'g' with a precision of " + str(precision)
+            + " for " + str(value) + " has no conversion: NI's docs do not say "
+            "what it writes"
         )
     exponent = int(format(value, f".{precision - 1}e").split("e")[1])
     if value == 0:

@@ -7,14 +7,20 @@ The shared modules (``errors``, ``variants``, ``live_io``, ``panels``, ``scan``,
 check of an unusual value met at run time and names that value: its message is
 built when it runs. A fixed-text raise there would also mark every module that
 imports the shared one as holding a gap.
+
+The same holds for the helper modules whose functions are copied into the
+generated modules that use them (Format Into String's and Scan From String's
+run-time conversions).
 """
 
 from __future__ import annotations
 
 import ast
+import inspect
 
 import pytest
 
+from lvkit.codegen import labview_format, labview_scan, labview_scan_time
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.grpc_server_module import GRPC_SERVER_MODULE_SOURCE
 from lvkit.codegen.ini_module import INI_MODULE_SOURCE
@@ -33,6 +39,9 @@ SOURCES = {
     "panels": PANELS_MODULE_SOURCE,
     "scan": SCAN_MODULE_SOURCE,
     "variants": VARIANTS_MODULE_SOURCE,
+    "labview_format (copied helpers)": inspect.getsource(labview_format),
+    "labview_scan (copied helpers)": inspect.getsource(labview_scan),
+    "labview_scan_time (copied helpers)": inspect.getsource(labview_scan_time),
 }
 
 
