@@ -1546,6 +1546,16 @@ class QueryMixin:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
 
+    def is_in_packed_library(self, vi_name: str) -> bool:
+        """Whether a packed project library (``.lvlibp``) contains the VI: one of
+        the owners its own ``LIBN`` block records is a ``.lvlibp`` file (NI, Is In
+        Packed Library: "Returns TRUE if a packed project library contains the
+        VI")."""
+        metadata = self._vi_metadata.get(vi_name)
+        return metadata is not None and any(
+            owner.lower().endswith(".lvlibp") for owner in metadata.owning_libraries
+        )
+
     def get_class_hierarchy(self, class_key: str) -> ClassHierarchyInfo | None:
         """Get hierarchy info for one loaded class: parent, children,
         documented methods, and fields (own + inherited).

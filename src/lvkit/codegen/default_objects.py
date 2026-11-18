@@ -21,8 +21,9 @@ _PATH = Path(__file__).with_name("default_objects.json")
 @dataclass(frozen=True)
 class DefaultObjectProperty:
     """One documented property: NI's name for it, the expression that is its
-    value (with ``{function}`` and ``{callees}`` for the generating VI's own
-    function and the functions it calls) and the imports that expression needs."""
+    value (with ``{function}``, ``{callees}`` and ``{in_packed_library}`` for the
+    generating VI's own function, the functions it calls and whether a packed
+    library holds it) and the imports that expression needs."""
 
     name: str
     python: str

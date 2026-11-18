@@ -68,6 +68,11 @@ def _default_object_expression(
 ) -> str:
     """``value.python`` with the generating VI's function and callees written in."""
     expression = value.python.replace("{function}", ctx.this_vi_expression())
+    if "{in_packed_library}" in expression:
+        packed = ctx.graph is not None and ctx.graph.is_in_packed_library(
+            ctx.vi_name or ""
+        )
+        expression = expression.replace("{in_packed_library}", repr(packed))
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
     return expression
