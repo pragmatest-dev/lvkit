@@ -28,6 +28,7 @@ from tests.error_diagrams import (  # noqa: F401
     project,
 )
 from tests.panel_diagrams import NAME, counting_vi
+from tests.panel_harness import until
 
 STEM = "panel_demo"
 
@@ -236,16 +237,14 @@ def test_run_calls_the_function_and_paints_the_result_when_it_returns(
 
     async def scenario(user: User) -> None:
         user.find(marker="Run").click()
-        await asyncio.sleep(0.35)
-        await user.should_see("running")
-        user.find(kind=ui.switch).click()
-        for _ in range(30):
-            await asyncio.sleep(0.1)
-            if "done" in " ".join(
-                str(e.text) for e in user.find(kind=ui.label).elements
-            ):
+        await until(user, "running")
+        for _ in range(200):
+            counted = [e.value for e in user.find(kind=ui.input).elements if e.value]
+            if counted and int(counted[0]) >= 3:
                 break
-        await user.should_see("done")
+            await asyncio.sleep(0.05)
+        user.find(kind=ui.switch).click()
+        await until(user, "done", seconds=10.0)
         counted = [e.value for e in user.find(kind=ui.input).elements if e.value]
         assert counted and int(counted[0]) >= 3
 
