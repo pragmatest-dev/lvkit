@@ -839,6 +839,11 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
         from .flat_class import class_layout
 
         return class_layout(lv_type, ctx)
+    if underlying in ("Set", "Map"):
+        # flat_collection builds on this module, so it is imported where it is used.
+        from .flat_collection import collection_layout
+
+        return collection_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
         return Integer("I", "c_uint32", 4)
     if underlying == "Refnum":
