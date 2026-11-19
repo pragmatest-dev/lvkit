@@ -40,18 +40,20 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         _record("VIVI", [name], ["", name], _SAME_LIBRARY, 10 + i)
         for i, name in enumerate(variants)
     )
-    text = slot.read_text()
+    text = slot.read_text(encoding="utf-8")
     text = text.replace("</Section></LIvi>", f"{records}</Section></LIvi>")
     text = text.replace(
         "</VI>",
         '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
     )
-    slot.write_text(text)
+    slot.write_text(text, encoding="utf-8")
     return built
 
 
 def test_the_variants_are_named_as_their_calls_name_them(poly: _Tree) -> None:
-    root = ET.fromstring(poly.extract(poly.root / "Sub/wrap.vi")[2].read_text())
+    root = ET.fromstring(
+        poly.extract(poly.root / "Sub/wrap.vi")[2].read_text(encoding="utf-8")
+    )
     info = parse_polymorphic_info(root)
     assert info["variants"] == ["Lib.lvlib:v1.vi", "Lib.lvlib:v2.vi"]
 
@@ -69,6 +71,6 @@ def test_generate_writes_a_function_per_variant_with_no_gap(
     out = tmp_path / "gen"
     result = generate_python(poly.root / "Sub/wrap.vi", out)
     assert not result["gaps"]
-    wrap = next(out.rglob("wrap.py")).read_text()
+    wrap = next(out.rglob("wrap.py")).read_text(encoding="utf-8")
     assert "def v1(" in wrap and "def v2(" in wrap
     assert not list(out.rglob("v1.py"))

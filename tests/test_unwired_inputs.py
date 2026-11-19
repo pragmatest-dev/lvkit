@@ -47,7 +47,7 @@ def test_an_unwired_input_the_code_never_reads_is_no_gap(tmp_path: Path) -> None
     )
     assert gaps == []
     source = tmp_path / "t.txt"
-    source.write_text("hello")
+    source.write_text("hello", encoding="utf-8")
     assert generated.function(str(source)).text == "hello"  # type: ignore[operator]
 
 

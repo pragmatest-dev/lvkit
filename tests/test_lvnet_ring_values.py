@@ -96,7 +96,8 @@ def _ring_control(
     (tmp_path / "T_FPHb.xml").write_text(
         front_panel_xml(
             {20: "mode"}, {}, pane={0: 20}, rings={20: (default, items, [2, 3, 4])}
-        )
+        ),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [increment(10)], [srn(800, [fp_terminal(5020, 20)])], [wire(901, 5020, 13)]

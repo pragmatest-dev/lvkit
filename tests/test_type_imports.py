@@ -362,6 +362,7 @@ class TestSameDerivedName:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stdout
 
@@ -423,5 +424,6 @@ class TestSameFunctionName:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stdout

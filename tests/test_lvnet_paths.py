@@ -86,7 +86,8 @@ def test_a_path_control_default_is_written_by_its_type(
     tmp_path: Path, name: str, saved: bytes, text: str
 ) -> None:
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({20: "p"}, {}, pane={0: 20}, paths={20: saved})
+        front_panel_xml({20: "p"}, {}, pane={0: 20}, paths={20: saved}),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [increment(10, PATH)],
@@ -109,7 +110,10 @@ def _generated_function(tmp_path: Path, saved: bytes):
     """The generated function of a VI whose indicator ``result`` shows the Path
     constant ``saved``, with the source."""
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])})
+        front_panel_xml(
+            {}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])}
+        ),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [],
@@ -243,7 +247,10 @@ def test_an_absolute_path_with_an_empty_volume_is_a_gap(tmp_path: Path) -> None:
 
 def _constant_views_for_function(tmp_path: Path, saved: bytes) -> Views:
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])})
+        front_panel_xml(
+            {}, {30: "result"}, pane={0: 30}, paths={30: path_bytes(2, [])}
+        ),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [],
@@ -273,7 +280,8 @@ def _flag_function(tmp_path: Path, prim_res_id: int, saved: bytes):
     """The generated function of a VI whose Boolean indicator ``result`` is the
     primitive ``prim_res_id`` applied to the Path constant ``saved``."""
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30})
+        front_panel_xml({}, {30: "result"}, pane={0: 30}),
+        encoding="utf-8",
     )
     node = one_input_primitive(10, prim_res_id, PATH, out_type=BOOL)
     xml = root_diagram(
@@ -337,7 +345,8 @@ def test_a_path_control_default_reads_the_same_in_describe(tmp_path: Path) -> No
     (tmp_path / "T_FPHb.xml").write_text(
         front_panel_xml(
             {20: "p"}, {}, pane={0: 20}, paths={20: path_bytes(0, [b"C", b"x"])}
-        )
+        ),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [increment(10, PATH)],
@@ -358,7 +367,8 @@ def test_a_control_named_like_an_imported_module_does_not_hide_it(
             {30: "result"},
             pane={0: 20, 1: 30},
             paths={30: path_bytes(2, [])},
-        )
+        ),
+        encoding="utf-8",
     )
     saved = path_bytes(0, [b"D", b"data"])
     xml = root_diagram(

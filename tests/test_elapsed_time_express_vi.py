@@ -272,7 +272,7 @@ def test_kill_service_reads_its_elapsed_time_settings_from_the_file(
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
     result = generate_python(vi, tmp_path)
-    source = Path(result["vi_paths"][str(vi.resolve())]).read_text()
+    source = Path(result["vi_paths"][str(vi.resolve())]).read_text(encoding="utf-8")
     assert "time_has_elapsed = elapsed_time >= 5.0" in source
     assert (
         "if time_has_elapsed:\n"

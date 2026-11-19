@@ -50,9 +50,9 @@ def _main(blocks: str) -> str:
 
 
 def _load(tmp_path: Path, blocks: str) -> tuple[InMemoryVIGraph, str]:
-    (tmp_path / "T.xml").write_text(_main(blocks))
+    (tmp_path / "T.xml").write_text(_main(blocks), encoding="utf-8")
     bd = tmp_path / "T_BDHb.xml"
-    bd.write_text(root_diagram([], [], []))
+    bd.write_text(root_diagram([], [], []), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd)
     return graph, graph.list_vis()[0]
@@ -102,7 +102,7 @@ def test_a_member_is_named_by_the_class_that_lists_it(tmp_path: Path) -> None:
 
 
 def test_the_own_class_record_is_named_by_the_libn_chain(tmp_path: Path) -> None:
-    (tmp_path / "T.xml").write_text(_main(_LIBN + _LIVI))
+    (tmp_path / "T.xml").write_text(_main(_LIBN + _LIVI), encoding="utf-8")
     owners = ["Lib.lvlib", "C.lvclass"]
     refs = parse_xml_link_path_refs(parsed_xml(tmp_path / "T.xml"), owners)
     assert [(r.name, r.qualified_name) for r in refs] == [
@@ -192,7 +192,7 @@ def test_an_unloaded_own_class_is_named_by_its_file_on_disk(tmp_path: Path) -> N
     """The VI's LIBN spells its class ``C.lvclass``; the class file beside it,
     which its ``VILB`` record names, is ``c.lvclass``: the VI is named by the
     file without the class being loaded."""
-    (tmp_path / "c.lvclass").write_text("<LVClass />")
+    (tmp_path / "c.lvclass").write_text("<LVClass />", encoding="utf-8")
     graph, vi = _load(tmp_path, _LIBN + _LIVI)
     assert graph.vi_display_name(vi) == "Lib.lvlib:c.lvclass:T.vi"
     assert not any(graph.is_class(k) for k in graph._dep_graph if "c.lvclass" in k)

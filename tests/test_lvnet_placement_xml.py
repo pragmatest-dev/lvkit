@@ -23,7 +23,7 @@ from tests.test_lvnet_identity import _assert_graph_identity
 
 
 def _views(tmp_path: Path, xml: str, front_panel: str = cases.FRONT_PANEL) -> Views:
-    (tmp_path / "T_FPHb.xml").write_text(front_panel)
+    (tmp_path / "T_FPHb.xml").write_text(front_panel, encoding="utf-8")
     return load(tmp_path, xml)
 
 

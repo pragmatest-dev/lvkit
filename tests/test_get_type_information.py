@@ -40,7 +40,7 @@ _CATALOG = (
 _ENTRY = VIEntry.model_validate(
     next(
         e
-        for e in json.loads(_CATALOG.read_text())["entries"]
+        for e in json.loads(_CATALOG.read_text(encoding="utf-8"))["entries"]
         if e["name"] == "Get Type Information.vi"
     )
 )

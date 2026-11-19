@@ -175,6 +175,7 @@ def test_facts_fingerprint_skips_only_non_facts_dirs():
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
     closure_dirs = set(json.loads(out.stdout.strip().splitlines()[-1]))
     escaped = closure_dirs & store_mod._FINGERPRINT_SKIP_DIRS

@@ -86,7 +86,7 @@ def test_an_outside_vi_page_is_under_its_own_project_folder(
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     libs = tmp_path.resolve() / "elsewhere" / "libs"
     libs.mkdir(parents=True)
-    (libs / "Libs.lvproj").write_text("")
+    (libs / "Libs.lvproj").write_text("", encoding="utf-8")
     helper = libs / "Helper.vi"
     graph = _graph(project, str(helper))
     graph._source_paths[str(helper)] = helper  # noqa: SLF001
@@ -218,7 +218,7 @@ def test_an_outside_vi_index_section_is_its_repository(
     v1 = repo / "gRPC" / "v1"
     v1.mkdir(parents=True)
     (repo / ".git").mkdir()
-    (v1 / "v1.lvproj").write_text("")
+    (v1 / "v1.lvproj").write_text("", encoding="utf-8")
     vi = v1 / "Create Client.vi"
     graph = _graph(project, str(vi))
     graph._source_paths[str(vi)] = vi  # noqa: SLF001

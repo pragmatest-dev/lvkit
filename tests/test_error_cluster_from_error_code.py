@@ -81,8 +81,8 @@ _MAIN_XML = """<?xml version='1.0' encoding='utf-8'?>
 
 
 def _graph(tmp_path: Path) -> tuple[InMemoryVIGraph, str]:
-    (tmp_path / "Caller_BDHb.xml").write_text(_BD_XML)
-    (tmp_path / "Caller.xml").write_text(_MAIN_XML)
+    (tmp_path / "Caller_BDHb.xml").write_text(_BD_XML, encoding="utf-8")
+    (tmp_path / "Caller.xml").write_text(_MAIN_XML, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Caller_BDHb.xml")
     return graph, graph.list_vis()[0]

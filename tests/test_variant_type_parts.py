@@ -100,7 +100,7 @@ _ELEMENT = {
 
 
 def _entry(file: str) -> VIEntry:
-    entries = json.loads(_CATALOG.read_text())["entries"]
+    entries = json.loads(_CATALOG.read_text(encoding="utf-8"))["entries"]
     return VIEntry.model_validate(next(e for e in entries if e["name"] == file))
 
 

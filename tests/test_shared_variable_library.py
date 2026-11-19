@@ -80,7 +80,7 @@ def _generated_package(
     import both: ``(sv_sample module, shared_variables module)``."""
     root = tmp_path / "svpkg"
     root.mkdir()
-    (root / "__init__.py").write_text("")
+    (root / "__init__.py").write_text("", encoding="utf-8")
     modules = PackageModules.from_graph(graph, [vi])
     resolver = create_import_resolver(
         "svpkg",
@@ -93,7 +93,7 @@ def _generated_package(
         graph.get_vi_context(vi), vi, graph=graph, import_resolver=resolver
     )
     assert "lvkit" not in source
-    (root / "sv_sample.py").write_text(source)
+    (root / "sv_sample.py").write_text(source, encoding="utf-8")
     modules.write(root)
     write_support_modules(root)
     monkeypatch.syspath_prepend(str(tmp_path))

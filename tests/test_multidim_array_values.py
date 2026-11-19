@@ -203,7 +203,7 @@ _VCTP = """<LVSR><VCTP>
 
 def _types(tmp_path: Path, descs: str) -> dict[int, LVType]:
     path = tmp_path / "vi.xml"
-    path.write_text(_VCTP.format(descs=descs))
+    path.write_text(_VCTP.format(descs=descs), encoding="utf-8")
     return parse_vctp_types(path)
 
 

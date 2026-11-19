@@ -198,7 +198,7 @@ def _bd_xml(
 
 def _load(tmp_path: Path, **kwargs: bool | int) -> tuple[InMemoryVIGraph, str]:
     bd_xml = tmp_path / "SeqLocal_BDHb.xml"
-    bd_xml.write_text(_bd_xml(**kwargs))  # type: ignore[arg-type]
+    bd_xml.write_text(_bd_xml(**kwargs), encoding="utf-8")  # type: ignore[arg-type]
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     return graph, graph.list_vis()[0]

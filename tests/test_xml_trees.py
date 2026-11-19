@@ -46,7 +46,7 @@ def test_parse_vi_parses_each_xml_file_once(
 
 def test_a_scope_shares_one_root_across_spellings_of_a_path(tmp_path: Path) -> None:
     xml = tmp_path / "a.xml"
-    xml.write_text("<root />")
+    xml.write_text("<root />", encoding="utf-8")
     with xml_scope():
         assert parsed_xml(xml) is parsed_xml(tmp_path / "." / "a.xml")
 
@@ -55,7 +55,7 @@ def test_outside_a_scope_each_call_parses_again(
     tmp_path: Path, parse_counts: Counter[Path]
 ) -> None:
     xml = tmp_path / "a.xml"
-    xml.write_text("<root />")
+    xml.write_text("<root />", encoding="utf-8")
     assert parsed_xml(xml) is not parsed_xml(xml)
     assert parse_counts[xml.resolve()] == 2
 
@@ -64,7 +64,7 @@ def test_a_scope_ends_with_its_block(
     tmp_path: Path, parse_counts: Counter[Path]
 ) -> None:
     xml = tmp_path / "a.xml"
-    xml.write_text("<root />")
+    xml.write_text("<root />", encoding="utf-8")
     with xml_scope():
         first = parsed_xml(xml)
     with xml_scope():

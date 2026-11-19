@@ -284,7 +284,7 @@ def test_format_date_time_string_runs_on_the_timestamp() -> None:
 def test_the_last_modified_time_of_a_file_is_a_utc_timestamp(tmp_path: Any) -> None:
     path_type = scalar("Path")
     file = tmp_path / "f.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     _, fn = generate(
         FILE_INFO,
         "File Info",
@@ -317,7 +317,9 @@ def test_a_package_that_holds_a_timestamp_lists_hightime(
     vi.wire(when, out)
     project.add(vi)
     package = project.generate(name)
-    assert (package.root / "requirements.txt").read_text() == "hightime\n"
+    assert (package.root / "requirements.txt").read_text(
+        encoding="utf-8"
+    ) == "hightime\n"
     assert package.function(_later(3)).out == _later(3)
 
 

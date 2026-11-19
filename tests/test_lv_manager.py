@@ -67,7 +67,7 @@ def test_get_info_is_os_stat_into_the_552_byte_record(tmp_path: Path) -> None:
 def test_get_info_of_a_directory_counts_its_entries(tmp_path: Path) -> None:
     clfn_test, _ = _file_info()
     for name in ("a", "b", "c"):
-        (tmp_path / name).write_text(name)
+        (tmp_path / name).write_text(name, encoding="utf-8")
     fields = struct.unpack_from(
         "=iiiiiIIiihh", bytes(clfn_test(str(tmp_path), [0] * 552).info)
     )
@@ -94,7 +94,7 @@ def test_set_info_is_chmod_and_utime_from_the_record(tmp_path: Path) -> None:
     )
     assert "os.chmod(file, _record.permissions & 4095)" in source
     target = tmp_path / "data.bin"
-    target.write_text("x")
+    target.write_text("x", encoding="utf-8")
     os.chmod(target, 0o600)
     record = get(str(target), [0] * 552).info
     head = list(struct.unpack_from("=iiiiiIIiihh", bytes(record)))

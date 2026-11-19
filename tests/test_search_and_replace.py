@@ -325,7 +325,7 @@ def _bd_xml(flags: str) -> str:
 )
 def test_node_records_its_flags(tmp_path: Path, flags: str, expected: int) -> None:
     bd_xml = tmp_path / "SR_BDHb.xml"
-    bd_xml.write_text(_bd_xml(flags))
+    bd_xml.write_text(_bd_xml(flags), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     name = graph.list_vis()[0]
@@ -337,7 +337,7 @@ def test_node_records_its_flags(tmp_path: Path, flags: str, expected: int) -> No
 
 def test_describe_and_lvnet_show_the_node_terminals(tmp_path: Path) -> None:
     bd_xml = tmp_path / "SR_BDHb.xml"
-    bd_xml.write_text(_bd_xml("<objFlags>33554432</objFlags>"))
+    bd_xml.write_text(_bd_xml("<objFlags>33554432</objFlags>"), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     name = graph.list_vis()[0]

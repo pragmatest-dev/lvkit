@@ -200,6 +200,7 @@ def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
         check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert proc.returncode in (0, 3), proc.stderr  # 3: partial, a gap warned
 

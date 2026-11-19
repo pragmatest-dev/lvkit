@@ -147,7 +147,7 @@ def test_browse_lists_the_folder_on_the_server_and_selecting_fills_the_field(
     project: Project,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "result.csv").write_text("x")
+    (tmp_path / "result.csv").write_text("x", encoding="utf-8")
     project.add(_path_vi())
     package = project.generate(NAME, panel=True)
     panel = panel_of(package, STEM)

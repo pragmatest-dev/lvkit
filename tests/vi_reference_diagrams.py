@@ -285,8 +285,8 @@ def load(
     """A caller VI with the given diagram and the VI ``Callee.vi`` it can call,
     in one graph; ``callee_terminals`` are the callee's connector pane. A Static
     VI Reference on the diagram names the callee."""
-    (tmp_path / CALLEE_FILE).write_text(diagram([], []))
-    (tmp_path / CALLER_FILE).write_text(diagram(nodes, wires))
+    (tmp_path / CALLEE_FILE).write_text(diagram([], []), encoding="utf-8")
+    (tmp_path / CALLER_FILE).write_text(diagram(nodes, wires), encoding="utf-8")
     graph = InMemoryVIGraph()
     callee = graph.load_vi(tmp_path / CALLEE_FILE)
     caller = graph.load_vi(tmp_path / CALLER_FILE)

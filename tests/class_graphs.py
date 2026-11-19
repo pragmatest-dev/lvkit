@@ -333,9 +333,13 @@ class Project:
         gaps = gaps if gaps is not None else []
         out = self.tmp_path / "pkg"
         out.mkdir(exist_ok=True)
-        (out / "__init__.py").write_text("")
-        (out / f"{ERRORS_MODULE_NAME}.py").write_text(ERRORS_MODULE_SOURCE)
-        (out / f"{VARIANTS_MODULE_NAME}.py").write_text(VARIANTS_MODULE_SOURCE)
+        (out / "__init__.py").write_text("", encoding="utf-8")
+        (out / f"{ERRORS_MODULE_NAME}.py").write_text(
+            ERRORS_MODULE_SOURCE, encoding="utf-8"
+        )
+        (out / f"{VARIANTS_MODULE_NAME}.py").write_text(
+            VARIANTS_MODULE_SOURCE, encoding="utf-8"
+        )
         for key in self.vis.values():
             for class_key in self.classes.values():
                 graph._dep_graph.add_edge(key, class_key)  # noqa: SLF001
@@ -375,8 +379,12 @@ class Project:
         for module, source in sources.items():
             (out / f"{module}.py").write_text(source, encoding="utf-8")
         if any(f".{PANELS_MODULE_NAME} import" in s for s in sources.values()):
-            (out / f"{PANELS_MODULE_NAME}.py").write_text(PANELS_MODULE_SOURCE)
-            (out / f"{LIVE_IO_MODULE_NAME}.py").write_text(LIVE_IO_MODULE_SOURCE)
+            (out / f"{PANELS_MODULE_NAME}.py").write_text(
+                PANELS_MODULE_SOURCE, encoding="utf-8"
+            )
+            (out / f"{LIVE_IO_MODULE_NAME}.py").write_text(
+                LIVE_IO_MODULE_SOURCE, encoding="utf-8"
+            )
         return Package(out, sources, gaps)
 
 

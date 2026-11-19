@@ -98,7 +98,7 @@ def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) 
     folder = tmp_path / "folder"
     folder.mkdir()
     for name in ("a", "b"):
-        (folder / name).write_text(name)
+        (folder / name).write_text(name, encoding="utf-8")
 
     info = module.file_info__ogtk(file=folder, file_info=SimpleNamespace()).file_info
 
@@ -330,7 +330,7 @@ def test_read_discovery_service_key_file(
 ) -> None:
     module = generated_vi(_vi(_KEY_FILE_VI))
     key_file = tmp_path / "key.json"
-    key_file.write_text('{"insecurePort": "31763"}')
+    key_file.write_text('{"insecurePort": "31763"}', encoding="utf-8")
 
     result = module.read_discovery_service_key_file(key_file_path=key_file)
 

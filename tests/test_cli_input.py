@@ -67,7 +67,7 @@ def test_an_input_the_command_takes_passes_the_check(
     if name.endswith("/"):
         path.mkdir()
     else:
-        path.write_text("")
+        path.write_text("", encoding="utf-8")
     assert input_usage_error(path, _KINDS[command]) is None
     assert capsys.readouterr().err == ""
 
@@ -99,7 +99,7 @@ def test_a_file_of_the_wrong_kind_is_a_usage_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     bad = tmp_path / "Bad.txt"
-    bad.write_text("not a VI\n")
+    bad.write_text("not a VI\n", encoding="utf-8")
     code = _lvkit(monkeypatch, _argv(command, bad, tmp_path))
     captured = capsys.readouterr()
     assert code == 2

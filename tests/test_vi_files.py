@@ -39,7 +39,7 @@ def fake_extraction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Every VI file "extracts" to one empty block diagram, so loading a
     placeholder file by any extension needs no LabVIEW binary."""
     bd_xml = tmp_path / "Tiny_BDHb.xml"
-    bd_xml.write_text(_BD_XML)
+    bd_xml.write_text(_BD_XML, encoding="utf-8")
     monkeypatch.setattr(
         "lvkit.graph.loading.extract_vi_xml",
         lambda _path, roots: (bd_xml, None, None),

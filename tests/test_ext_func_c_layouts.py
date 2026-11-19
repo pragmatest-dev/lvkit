@@ -81,7 +81,7 @@ def library(tmp_path_factory: pytest.TempPathFactory) -> str:
         pytest.skip("no C compiler")
     directory = tmp_path_factory.mktemp("clib")
     source = directory / "layouts.c"
-    source.write_text(_SOURCE)
+    source.write_text(_SOURCE, encoding="utf-8")
     target = directory / "layouts.so"
     subprocess.run(
         [compiler, "-shared", "-fPIC", "-o", str(target), str(source)], check=True

@@ -201,7 +201,7 @@ def _load(
     tmp_path: Path, second_value: int, *, tunnel: bool = False, layout: bool = False
 ) -> tuple[InMemoryVIGraph, str]:
     bd_xml = tmp_path / "SameName_BDHb.xml"
-    bd_xml.write_text(_bd_xml(second_value, tunnel=tunnel))
+    bd_xml.write_text(_bd_xml(second_value, tunnel=tunnel), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml, layout=layout)
     return graph, graph.list_vis()[0]
@@ -458,7 +458,7 @@ def test_generate_with_a_load_problem_says_partial(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     bd_xml = tmp_path / "SameName_BDHb.xml"
-    bd_xml.write_text(_bd_xml(1))
+    bd_xml.write_text(_bd_xml(1), encoding="utf-8")
     generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE)
     out = capsys.readouterr().out
     assert (
@@ -478,7 +478,7 @@ def test_diff_names_a_repeated_frame_by_its_value(tmp_path: Path) -> None:
             start = text.index(f'<SL__arrayElement class="prim" uid="{_WAIT_1}">')
             end = text.index("</SL__arrayElement>", text.index("<bounds>", start))
             text = text[:start] + text[end + len("</SL__arrayElement>") :]
-        bd_xml.write_text(text)
+        bd_xml.write_text(text, encoding="utf-8")
         graph = InMemoryVIGraph()
         graph.load_vi(bd_xml)
         graphs.append((graph, graph.list_vis()[0]))
@@ -523,7 +523,7 @@ def test_two_disable_frames_for_one_value_name_the_structure(
     tmp_path: Path, kind: DisableStructureKind, name: str
 ) -> None:
     bd_xml = tmp_path / "Disable_BDHb.xml"
-    bd_xml.write_text(_DISABLE_BD_XML)
+    bd_xml.write_text(_DISABLE_BD_XML, encoding="utf-8")
     bd = parse_vi(bd_xml=bd_xml).block_diagram
     (disable,) = bd.disable_structures
     assert repeated_frame_problems(bd, "Disable.vi") == []
@@ -551,7 +551,7 @@ def test_generate_counts_a_problem_found_twice_once(
 
     monkeypatch.setattr(loading, "repeated_frame_problems", twice)
     bd_xml = tmp_path / "SameName_BDHb.xml"
-    bd_xml.write_text(_bd_xml(2))
+    bd_xml.write_text(_bd_xml(2), encoding="utf-8")
     run = RunProblems()
     generate_python(bd_xml, tmp_path / "out", mode=LoadMode.NONE, run=run)
     out = capsys.readouterr().out

@@ -65,7 +65,8 @@ def test_a_package_with_a_requiring_node_gets_requirements_txt(
     _catalog_entry(monkeypatch, ["zzz-pkg", "npTDMS"])
     _sum_vi(project, nodes=2)
     package = project.generate(NAME)
-    assert (package.root / "requirements.txt").read_text() == "npTDMS\nzzz-pkg\n"
+    requirements = (package.root / "requirements.txt").read_text(encoding="utf-8")
+    assert requirements == "npTDMS\nzzz-pkg\n"
     assert package.function(2, 3).total == 8
 
 

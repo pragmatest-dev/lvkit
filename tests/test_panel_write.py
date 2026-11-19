@@ -84,7 +84,7 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     compile(source, "panel", "exec")
     root = package.root.name
     imported = {
@@ -101,7 +101,7 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
     }
     assert f"from {root}.{STEM} import {STEM} as vi_function, PanelDemoValue" in source
     for helper in (package.root / "controls").glob("*.py"):
-        text = helper.read_text()
+        text = helper.read_text(encoding="utf-8")
         assert "lvkit" not in text.replace("``lvkit.panel.write``", "")
 
 
@@ -110,7 +110,7 @@ def test_controls_are_stacked_in_rows_and_columns_in_the_order_of_their_bounds(
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     # Stop (40, 20, 70, 120) and Count (40, 160, 62, 300) share the first row,
     # Stop on the left; Offset (110, 20, 132, 160) is a second row.
     assert "position:absolute" not in source
@@ -291,7 +291,7 @@ def test_a_control_the_panel_has_no_widget_for_is_a_gap_that_raises_when_built(
     assert package.gaps[0].reason == (
         "the panel has no widget for a stdSlide control of type int"
     )
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     assert "raise NotImplementedError(" in source
     panel = _panel(package)
     with pytest.raises(NotImplementedError, match="stdSlide control of type int"):

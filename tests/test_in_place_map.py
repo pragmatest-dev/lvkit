@@ -150,7 +150,8 @@ def _generate(
                 4: 34,
                 5: 35,
             },
-        )
+        ),
+        encoding="utf-8",
     )
     constants = [] if action is None else [constant(700, I32, action)]
     wires = [
@@ -443,7 +444,9 @@ def test_the_border_nodes_are_nets_of_the_structure_in_the_views(
     value one supplies to the body is ``get<k>``, a value the body feeds one is
     ``put<k>`` (map, key, default value, value, action in terminal order)."""
     _generate(tmp_path, action=1)
-    views = load(tmp_path, (tmp_path / "T_BDHb.xml").read_text(), MAP_TYPES)
+    views = load(
+        tmp_path, (tmp_path / "T_BDHb.xml").read_text(encoding="utf-8"), MAP_TYPES
+    )
     assert views.diagram == (
         "    in-place-element (id 100) :\n"
         "      function Increment_150 : Increment\n"

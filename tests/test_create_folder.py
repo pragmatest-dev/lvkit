@@ -84,14 +84,14 @@ def test_an_existing_folder_or_file_is_error_10(
     folder = tmp_path / "there"
     folder.mkdir()
     file = tmp_path / "file.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     for existing in (folder, file):
         result = package.function(existing)
         assert (result.error_out.status, result.error_out.code) == (True, 10)
         assert result.error_out.source == "Create Folder"
         assert result.created == Path("")
         assert result.cancelled is False
-    assert file.read_text() == "x"
+    assert file.read_text(encoding="utf-8") == "x"
 
 
 def test_an_empty_or_relative_path_is_error_1430(
@@ -122,7 +122,7 @@ def test_a_folder_under_a_file_is_an_error(
 ) -> None:
     package = _create(project)
     file = tmp_path / "file.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     assert package.function(file / "sub").error_out.status is True
 
 

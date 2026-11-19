@@ -163,6 +163,6 @@ def write_versions(
     for side, case in (("before", before), ("after", after)):
         path = folder / side / "Frames_BDHb.xml"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(bd_xml(case))
+        path.write_text(bd_xml(case), encoding="utf-8")
         paths.append(path)
     return paths[0], paths[1]

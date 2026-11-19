@@ -172,7 +172,7 @@ def describe_and_lvnet(
 ) -> tuple[str, str]:
     """``describe`` and ``lvnet`` text of a VI holding just the primitive."""
     bd_xml = tmp_path / "Prim_BDHb.xml"
-    bd_xml.write_text(block_diagram_xml(prim_id, parm_indices))
+    bd_xml.write_text(block_diagram_xml(prim_id, parm_indices), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     vi_name = graph.list_vis()[0]

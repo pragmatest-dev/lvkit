@@ -109,7 +109,7 @@ def test_an_invalid_data_file_raises(tmp_path, monkeypatch):
         "value_layouts": {},
         "flavors": {"Int8Waveform": {"value": {"layout": "missing"}}},
     }
-    (tmp_path / "measure_data.json").write_text(json.dumps(bad))
+    (tmp_path / "measure_data.json").write_text(json.dumps(bad), encoding="utf-8")
     monkeypatch.setattr(measure_data, "_bundled_data_dir", lambda: tmp_path)
     monkeypatch.setattr(measure_data, "_TABLE", None)
     with pytest.raises(ValueError, match="undefined layout"):

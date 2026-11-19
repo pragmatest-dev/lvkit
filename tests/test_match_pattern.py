@@ -398,7 +398,7 @@ def test_describe_and_lvnet_show_the_node_terminals(tmp_path) -> None:
     from lvkit.graph.render_lvnet import render_lvnet
 
     bd_xml = tmp_path / "MP_BDHb.xml"
-    bd_xml.write_text(_bd_xml())
+    bd_xml.write_text(_bd_xml(), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     vi_name = graph.list_vis()[0]

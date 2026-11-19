@@ -75,8 +75,8 @@ def _terminal_names(tmp_path: Path, tokens: list[str]) -> list[str | None]:
         strings,
     )
     assert main != base._MAIN_XML
-    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML)
-    (tmp_path / "Caller.xml").write_text(main)
+    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML, encoding="utf-8")
+    (tmp_path / "Caller.xml").write_text(main, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Caller_BDHb.xml")
     vi = graph.list_vis()[0]
@@ -132,8 +132,8 @@ def test_call_relative_to_a_vilib_caller_gets_the_catalog_terminals(
         "<String />\n<String>Error Cluster From Error Code.vi</String>",
     )
     assert main != base._MAIN_XML
-    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML)
-    (tmp_path / "Caller.xml").write_text(main)
+    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML, encoding="utf-8")
+    (tmp_path / "Caller.xml").write_text(main, encoding="utf-8")
 
     def names(caller_path: list[str] | None) -> list[str | None]:
         graph = InMemoryVIGraph()

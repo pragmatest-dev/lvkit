@@ -1459,6 +1459,7 @@ def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
         capture_output=True,
         text=True,
         check=False,
+        encoding="utf-8",
     )
     if repo_toplevel.returncode != 0:
         print(
@@ -1493,6 +1494,7 @@ def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
             capture_output=True,
             text=True,
             check=False,
+            encoding="utf-8",
         )
         if result.returncode != 0:
             print(

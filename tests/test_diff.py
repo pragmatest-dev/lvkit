@@ -430,6 +430,7 @@ class TestNetlistFormDiffOnJKIPair:
                 capture_output=True,
                 text=True,
                 timeout=60,
+                encoding="utf-8",
             )
             assert result.returncode == 0, result.stderr
             digests.append(result.stdout.strip())
@@ -1139,7 +1140,7 @@ class TestDisableStructureInnerChange:
         str,
     ]:
         p = tmp_path / f"{name}_BDHb.xml"
-        p.write_text(text)
+        p.write_text(text, encoding="utf-8")
         graph = InMemoryVIGraph()
         graph.load_vi(str(p))
         return graph, graph.list_vis()[0]

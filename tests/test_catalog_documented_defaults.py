@@ -311,7 +311,7 @@ def test_the_pen_style_is_inside_the_pen_cluster_not_a_pane_input(
 )
 def test_the_dialog_prompt_input_is_named_prompt(function_name: str) -> None:
     catalog = Path(__file__).parents[1] / "src/lvkit/data/vilib/file-io.json"
-    entries = json.loads(catalog.read_text())["entries"]
+    entries = json.loads(catalog.read_text(encoding="utf-8"))["entries"]
     entry = next(e for e in entries if e["name"] == function_name)
     names = [t["name"] for t in entry["terminals"]]
     assert "prompt" in names

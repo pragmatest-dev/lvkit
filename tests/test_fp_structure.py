@@ -137,7 +137,8 @@ def _panel(tmp_path: Path, hierarchy: str) -> ParsedFrontPanel:
     path = tmp_path / "vi_FPHb.xml"
     path.write_text(
         '<SL__rootObject class="oHExt" uid="1"><root class="supC" uid="10">'
-        f"{hierarchy}</root></SL__rootObject>"
+        f"{hierarchy}</root></SL__rootObject>",
+        encoding="utf-8",
     )
     return _parse_front_panel(path, _EMPTY_BD)
 
@@ -351,7 +352,8 @@ def test_grouper_holds_a_control_and_a_decoration(tmp_path: Path) -> None:
 def test_a_panel_without_pane_hierarchy_has_no_layout(tmp_path: Path) -> None:
     path = tmp_path / "vi_FPHb.xml"
     path.write_text(
-        '<SL__rootObject class="oHExt"><root class="supC"></root></SL__rootObject>'
+        '<SL__rootObject class="oHExt"><root class="supC"></root></SL__rootObject>',
+        encoding="utf-8",
     )
     panel = _parse_front_panel(path, _EMPTY_BD)
     assert panel.layout is None
@@ -371,7 +373,8 @@ def test_unknown_object_classes_and_missing_bounds_are_reported(
             '<SL__arrayElement class="cosm" uid="4"><image><ImageResID>1</ImageResID>'
             "</image></SL__arrayElement>",
         )
-        + "</root></SL__rootObject>"
+        + "</root></SL__rootObject>",
+        encoding="utf-8",
     )
     layout, unread = read_panel_layout(parsed_xml(path), {})
     assert isinstance(layout, ParsedFPPane)

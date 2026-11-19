@@ -148,7 +148,8 @@ def test_node_records_its_flags(tmp_path: Path, flags: str, expected: int) -> No
         '<zPlaneList elements="0" /><nodeList elements="1">'
         '<SL__arrayElement class="prim" uid="10"><primResID>1127</primResID>'
         f'{flags}<termList elements="3">{terms}</termList></SL__arrayElement>'
-        '</nodeList><signalList elements="0" /></root></SL__rootObject>'
+        '</nodeList><signalList elements="0" /></root></SL__rootObject>',
+        encoding="utf-8",
     )
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)

@@ -44,6 +44,7 @@ def test_create_bar_graph_draws_a_bar_of_each_color(
         text=True,
         timeout=300,
         check=False,
+        encoding="utf-8",
     )
     assert done.returncode in (0, 3), f"{done.stdout}\n{done.stderr}"
     package = next(p for p in tmp_path.iterdir() if p.is_dir())

@@ -74,7 +74,9 @@ def test_the_catalog_vi_and_what_only_it_calls_get_no_diagram_module(
     modules = _generate(project, tmp_path, "caller_a")
     assert any(m.endswith("get_system_directory.py") for m in modules)
     assert not [m for m in modules if m.endswith(("helper.py", "deep.py"))]
-    source = next((tmp_path / "gen").rglob("get_system_directory.py")).read_text()
+    source = next((tmp_path / "gen").rglob("get_system_directory.py")).read_text(
+        encoding="utf-8"
+    )
     assert "def _get_system_directory_path" in source
 
 

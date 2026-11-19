@@ -2055,14 +2055,19 @@ class Service:
     assert_method_imports_are_read(written)
     out = tmp_path / "pkg"
     out.mkdir()
-    (out / "__init__.py").write_text("")
-    (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
-    write_support_modules(out)
-    (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
-    (out / "typedefs.py").write_text(
-        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n"
+    (out / "__init__.py").write_text("", encoding="utf-8")
+    (out / "errors.py").write_text(
+        "class LabVIEWError(Exception):\n    pass\n", encoding="utf-8"
     )
-    (out / "service.py").write_text(written + "\n")
+    write_support_modules(out)
+    (out / "helper.py").write_text(
+        "def helper(x):\n    return x + 1\n", encoding="utf-8"
+    )
+    (out / "typedefs.py").write_text(
+        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n",
+        encoding="utf-8",
+    )
+    (out / "service.py").write_text(written + "\n", encoding="utf-8")
     with Package(out, {"service": written}, []).use() as module:
         service = module("service").Service()
         assert service.stop() == 2

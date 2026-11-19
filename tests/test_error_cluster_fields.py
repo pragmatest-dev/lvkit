@@ -90,7 +90,9 @@ def test_a_typedef_named_error_keeps_its_fields_in_describe_and_lvnet(
     tmp_path: Path,
 ) -> None:
     xml = tmp_path / "vi.xml"
-    xml.write_text(f"<RSRC><VCTP><Section>{_VCTP}</Section></VCTP></RSRC>")
+    xml.write_text(
+        f"<RSRC><VCTP><Section>{_VCTP}</Section></VCTP></RSRC>", encoding="utf-8"
+    )
     types = parse_vctp_types(xml)
     filtered, ps2000, real = types[5], types[6], types[7]
 

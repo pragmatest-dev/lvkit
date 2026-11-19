@@ -25,7 +25,7 @@ MESSAGE_MAKER = (
 def _generate(vi: Path, tmp_path: Path) -> tuple[str, list[str]]:
     result = generate_python(vi, tmp_path, userlib_root=OPENG_USER_LIB)
     written = Path(result["vi_paths"][str(vi.resolve())])
-    return written.read_text(), [gap.reason for gap in result["gaps"]]
+    return written.read_text(encoding="utf-8"), [gap.reason for gap in result["gaps"]]
 
 
 def _type_gaps(vi: Path, tmp_path: Path) -> tuple[str, list[str]]:

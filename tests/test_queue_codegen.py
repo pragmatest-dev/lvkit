@@ -430,7 +430,7 @@ def package(tmp_path: Path, vis: dict[str, Vi], reverse: bool = False) -> Path:
     package in the opposite order."""
     root = tmp_path / "pkg"
     root.mkdir(parents=True)
-    (root / "__init__.py").write_text("")
+    (root / "__init__.py").write_text("", encoding="utf-8")
     items = list(vis.items())
     if reverse:
         items.reverse()
@@ -440,7 +440,7 @@ def package(tmp_path: Path, vis: dict[str, Vi], reverse: bool = False) -> Path:
         resolver = create_import_resolver(
             "pkg", root, paths, root / f"{module}.py", package_modules=modules
         )
-        (root / f"{module}.py").write_text(vi.source(resolver, graph))
+        (root / f"{module}.py").write_text(vi.source(resolver, graph), encoding="utf-8")
     assert [p.name for p in modules.write(root)] == ["queues.py"]
     write_support_modules(root)
     return root
@@ -480,17 +480,17 @@ def test_a_named_queue_is_one_queue_in_the_queues_module(
     tmp_path: Path, imported
 ) -> None:
     root = package(tmp_path, named_producer_and_consumer())
-    assert (root / "queues.py").read_text() == (
+    assert (root / "queues.py").read_text(encoding="utf-8") == (
         '"""Named queues shared by the package. Releasing a queue shuts it down '
         '(queue.ShutDown), which needs Python 3.13 or later."""\n'
         "from __future__ import annotations\n"
         "from queue import Queue\n"
         "work_items: Queue = Queue(maxsize=0)"
     )
-    producer_source = (root / "producer.py").read_text()
+    producer_source = (root / "producer.py").read_text(encoding="utf-8")
     assert "from . import queues as shared_queues\n" in producer_source
     assert "queue = shared_queues.work_items\n" in producer_source
-    assert "lvkit" not in producer_source + (root / "consumer.py").read_text()
+    assert "lvkit" not in producer_source + (root / "consumer.py").read_text(encoding="utf-8")
     produce = imported("pkg.producer").producer
     consume = imported("pkg.consumer").consumer
     produce(11)
@@ -549,7 +549,7 @@ def test_the_shared_modules_do_not_depend_on_the_order_of_the_vis(
             "created": created_vi("Work Items", "Created.vi"),
         }
         root = package(folder, vis, reverse=order_reversed)
-        return {f.name: f.read_text() for f in root.glob("queues.py")}
+        return {f.name: f.read_text(encoding="utf-8") for f in root.glob("queues.py")}
 
     forward = written(False, tmp_path / "forward")
     backward = written(True, tmp_path / "backward")
@@ -590,10 +590,10 @@ def test_a_name_computed_at_run_time_is_an_entry_of_by_name(
     )
     assert (
         (root / "queues.py")
-        .read_text()
+        .read_text(encoding="utf-8")
         .endswith("from queue import Queue\nby_name: dict[str, Queue] = {}")
     )
-    producer_source = (root / "producer.py").read_text()
+    producer_source = (root / "producer.py").read_text(encoding="utf-8")
     assert (
         "queue = shared_queues.by_name.setdefault(label, Queue(maxsize=0))\n"
         in producer_source
@@ -641,12 +641,12 @@ def test_created_is_true_only_the_first_time_a_name_is_obtained(
             "by_label": created_vi(None, "ByLabel.vi"),
         },
     )
-    source = (root / "by_constant.py").read_text()
+    source = (root / "by_constant.py").read_text(encoding="utf-8")
     assert "created = 'Work Items' not in shared_queues.obtained\n" in source
     assert "shared_queues.obtained.add('Work Items')" in source
     assert (
         "created = label not in shared_queues.by_name\n"
-        in (root / "by_label.py").read_text()
+        in (root / "by_label.py").read_text(encoding="utf-8")
     )
     constant = imported("pkg.by_constant").byconstant
     computed = imported("pkg.by_label").bylabel
@@ -707,7 +707,7 @@ def test_releasing_the_queue_ends_a_consumer_waiting_on_it(
         tmp_path,
         {"consumer": consumer, "closer": release_vi(True)},
     )
-    assert "shutdown(immediate=True)" in (root / "closer.py").read_text()
+    assert "shutdown(immediate=True)" in (root / "closer.py").read_text(encoding="utf-8")
     consume = imported("pkg.consumer").consumer
     close = imported("pkg.closer").closer
     outcome: list[BaseException] = []

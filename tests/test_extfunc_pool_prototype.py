@@ -110,6 +110,6 @@ def test_a_labview_85_node_generates_ctypes_code(tmp_path: Path) -> None:
         "usbpt104Lib/usbpt104GetValue.vi"
     )
     result = generate_python(vi, tmp_path)
-    source = Path(result["vi_paths"][str(vi.resolve())]).read_text()
+    source = Path(result["vi_paths"][str(vi.resolve())]).read_text(encoding="utf-8")
     assert "prototype could not be read" not in source
     assert "UsbPt104GetValue" in source

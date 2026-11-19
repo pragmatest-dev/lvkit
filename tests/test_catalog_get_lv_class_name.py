@@ -70,7 +70,7 @@ def _classes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     )
     out = tmp_path / "classes"
     out.mkdir()
-    (out / "__init__.py").write_text("")
+    (out / "__init__.py").write_text("", encoding="utf-8")
     paths = {
         _PARENT: out / "parent.py",
         _CHILD: out / "child.py",
@@ -80,7 +80,7 @@ def _classes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         resolver = create_import_resolver(
             "classes", out, paths, path, caller_key=key, graph=graph
         )
-        path.write_text(build_type_module(graph, key, resolver))
+        path.write_text(build_type_module(graph, key, resolver), encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
     return {
         "Parent": importlib.import_module("classes.parent").Parent,

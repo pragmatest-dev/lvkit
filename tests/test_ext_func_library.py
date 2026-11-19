@@ -213,7 +213,7 @@ class Project:
         self.libs = self.root / "vis" / "libs"
         self.libs.mkdir(parents=True)
         self.vi_folder.mkdir(parents=True)
-        (self.root / "p.lvproj").write_text("")
+        (self.root / "p.lvproj").write_text("", encoding="utf-8")
         self.result: dict | None = None
 
     def write_vi(self, typed: str, tokens: list[str], function: str) -> Path:
@@ -245,9 +245,9 @@ class Project:
             bd[:signals]
             + '    <signalList elements="0" />\n  </root>\n</SL__rootObject>\n'
         )
-        (self.vi_folder / "Clfn_BDHb.xml").write_text(bd)
+        (self.vi_folder / "Clfn_BDHb.xml").write_text(bd, encoding="utf-8")
         path = self.vi_folder / "Clfn.xml"
-        path.write_text(main)
+        path.write_text(main, encoding="utf-8")
         return self.vi_folder / "Clfn_BDHb.xml"
 
     def generate(self, vi: Path) -> Path:
@@ -301,7 +301,7 @@ def test_a_project_library_is_copied_and_loaded_from_its_copy(
         "vis/libs/vendorlib_64.framework/vendorlib_64",
         "vis/libs/vendorlib_64.so",
     ]
-    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert (
         "def _vendorlib_():\n"
         "    return getattr(ctypes, 'WinDLL', ctypes.CDLL)(os.path.join("
@@ -320,7 +320,7 @@ def test_a_project_library_is_copied_and_loaded_from_its_copy(
 def test_a_library_it_needs_in_the_project_is_copied_too(project: Project) -> None:
     compiler = _compiler()
     for name, text in (("b", _C_SOURCE_B), ("a", _C_SOURCE_A)):
-        (project.libs / f"{name}.c").write_text(text)
+        (project.libs / f"{name}.c").write_text(text, encoding="utf-8")
     subprocess.run(
         [compiler, "-shared", "-fPIC", "-o", str(project.libs / "libb.so"),
          str(project.libs / "b.c")],
@@ -372,7 +372,7 @@ def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
         "vendor_libs/__init__.py",
         "vendor_libs/clfn_bdhbxml.py",
     ]
-    source = (out / "vendor_libs/clfn_bdhbxml.py").read_text()
+    source = (out / "vendor_libs/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert (
         "os.path.join(os.path.dirname(__file__), _library_file('Vendor Lib**.*'))"
     ) in source
@@ -390,7 +390,7 @@ def test_a_project_library_that_is_not_on_disk_is_a_gap(
     vi = project.write_vi("vendorlib.*", ["", "..", "libs", "vendorlib.dll"], "swap")
     out = project.generate(vi)
     assert not list(out.rglob("*.error.py"))
-    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     reason = "no file vendorlib.dll or vendorlib.so or vendorlib.framework is in"
     assert reason in source
     assert "raise NotImplementedError(" in source
@@ -430,7 +430,7 @@ def test_a_library_beside_a_user_lib_vi_is_copied_beside_its_module(
     out = Path(project.result["output_dir"])
 
     assert "userlib/vendor/libs/vendorlib.so" in _tree(out)
-    source = (out / "userlib/vendor/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "userlib/vendor/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert (
         "os.path.join(os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')"
     ) in source
@@ -462,7 +462,7 @@ def test_a_project_copy_placed_by_its_userlib_path_takes_its_library_along(
     module = out / "userlib/vendor/sub/clfn_bdhbxml.py"
     assert (
         "os.path.join(os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')"
-    ) in module.read_text()
+    ) in module.read_text(encoding="utf-8")
     assert (module.parent / ".." / "libs" / "vendorlib.so").resolve().is_file()
 
 
@@ -474,7 +474,7 @@ def test_a_relative_path_through_a_folder_and_back_finds_the_library(
     vi = project.write_vi("vendorlib.so", tokens, "f")
     out = project.generate(vi)
     assert "vis/libs/vendorlib.so" in _tree(out)
-    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert "os.path.dirname(__file__), '..', 'libs', 'vendorlib.so')" in source
 
 
@@ -557,7 +557,7 @@ def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> No
     vi = project.write_vi("outside.so", ["", "..", "..", "..", "..", "outside.so"], "f")
     out = project.generate(vi)
     assert not [p for p in _tree(out) if p.endswith(".so")]
-    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert (
         _loader("_outside_so", "getattr(ctypes, 'WinDLL', ctypes.CDLL)('outside.so')")
         in source
@@ -581,7 +581,7 @@ def test_a_path_above_the_drives_root_folder_is_loaded_by_name(
     vi = project.write_vi("vendorlib.so", tokens, "f")
     out = project.generate(vi)
     assert not [p for p in _tree(out) if p.endswith(".so")]
-    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text(encoding="utf-8")
     assert (
         _loader(
             "_vendorlib_so",

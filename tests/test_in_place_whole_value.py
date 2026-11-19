@@ -93,7 +93,8 @@ def _structure(*, with_body: bool) -> str:
 
 def _run(tmp_path: Path, *, with_body: bool, value: int) -> object:
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({30: "x"}, {31: "y"}, pane={0: 30, 1: 31})
+        front_panel_xml({30: "x"}, {31: "y"}, pane={0: 30, 1: 31}),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [_structure(with_body=with_body)],

@@ -141,7 +141,7 @@ def test_set_permissions_sets_the_nine_bits(tmp_path: Path) -> None:
     source, fn = _permissions(mode=True)
     assert "lvkit" not in source
     target = tmp_path / "f"
-    target.write_text("x")
+    target.write_text("x", encoding="utf-8")
     assert fn(target, 0o640).out == target
     assert stat.S_IMODE(target.stat().st_mode) == 0o640
 
@@ -150,7 +150,7 @@ def test_set_permissions_sets_the_nine_bits(tmp_path: Path) -> None:
 def test_unwired_permissions_leave_them_unchanged(tmp_path: Path) -> None:
     _, fn = _permissions()
     target = tmp_path / "f"
-    target.write_text("x")
+    target.write_text("x", encoding="utf-8")
     target.chmod(0o604)
     fn(target)
     assert stat.S_IMODE(target.stat().st_mode) == 0o604
@@ -164,7 +164,7 @@ def test_empty_owner_and_group_are_not_set(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(shutil, "chown", lambda *args: calls.append(args))
     _, fn = _permissions(owner=True, group=True)
     target = tmp_path / "f"
-    target.write_text("x")
+    target.write_text("x", encoding="utf-8")
     fn(target, "", "")
     assert calls == []
     fn(target, "alice", "")

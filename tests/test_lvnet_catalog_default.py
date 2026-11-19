@@ -94,7 +94,8 @@ def test_an_input_nothing_documents_is_the_bare_default(tmp_path: Path) -> None:
 def test_a_behaviour_the_function_writes_is_executed(tmp_path: Path) -> None:
     """Number To Decimal String with `width` unwired pads nothing."""
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30})
+        front_panel_xml({}, {30: "result"}, pane={0: 30}),
+        encoding="utf-8",
     )
     node = primitive(10, NUMBER_TO_DECIMAL_STRING, [(1, I32), (2, I32)], out_type=STR)
     xml = root_diagram(
@@ -281,7 +282,8 @@ def test_string_subset_with_length_unwired_returns_the_rest_of_the_string(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30})
+        front_panel_xml({}, {30: "result"}, pane={0: 30}),
+        encoding="utf-8",
     )
     node = primitive(10, STRING_SUBSET, [(1, I32), (2, I32), (3, STR)], out_type=STR)
     xml = root_diagram(
@@ -326,7 +328,8 @@ def _vilib_call_lvnet(
 <SL__rootObject class="oHExt" uid="1"><root class="diag" uid="2">
 <zPlaneList elements="0" /><nodeList elements="1">
 <SL__arrayElement class="iUse" uid="20"><termList elements="{len(terminals)}">
-{terms}</termList></SL__arrayElement></nodeList></root></SL__rootObject>"""
+{terms}</termList></SL__arrayElement></nodeList></root></SL__rootObject>""",
+        encoding="utf-8",
     )
     strings = "".join(f"<String>{escape(token)}</String>" for token in path_tokens)
     (tmp_path / "Caller.xml").write_text(
@@ -335,7 +338,8 @@ def _vilib_call_lvnet(
 <LinkSaveQualName><String>{vi_name}</String></LinkSaveQualName>
 <LinkSavePathRef>{strings}</LinkSavePathRef>
 <LinkOffsetList><Offset>0x14</Offset></LinkOffsetList>
-</IUVI></BDHP></Section></LIbd></LVSR>"""
+</IUVI></BDHP></Section></LIbd></LVSR>""",
+        encoding="utf-8",
     )
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Caller_BDHb.xml")

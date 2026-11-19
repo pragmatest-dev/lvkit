@@ -1809,6 +1809,7 @@ def test_render_vi_file_determinism_across_hash_seeds():
             capture_output=True,
             text=True,
             timeout=60,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -2105,6 +2106,7 @@ def test_render_vi_file_determinism_across_hash_seeds_stacked_seq():
             capture_output=True,
             text=True,
             timeout=60,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -2136,6 +2138,7 @@ def test_render_vi_file_determinism_across_hash_seeds_case_vi():
             capture_output=True,
             text=True,
             timeout=60,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())
@@ -2249,6 +2252,7 @@ def test_render_vi_file_determinism_cpdarith_invert_bubble():
             capture_output=True,
             text=True,
             timeout=60,
+            encoding="utf-8",
         )
         assert result.returncode == 0, result.stderr
         digests.append(result.stdout.strip())

@@ -152,7 +152,7 @@ def test_global_vi_interface_is_its_controls_in_front_panel_order() -> None:
 def test_every_global_variable_node_in_the_corpus_resolves_its_global_vi() -> None:
     callers = Path(__file__).with_name("global_variable_callers.txt")
     total = resolved = 0
-    for line in callers.read_text().splitlines():
+    for line in callers.read_text(encoding="utf-8").splitlines():
         vi = Path(line.strip())
         if not vi.exists():
             continue

@@ -955,7 +955,9 @@ def test_every_vi_has_a_panel_with_or_without_the_panel_output(
         with pytest.MonkeyPatch.context() as patch:
             patch.setattr("lvkit.graph.loading.extract_vi_xml", diagrams.extract)
             package = diagrams.generate(NAME, panel=with_panel)
-        sources[with_panel] = (package.root / "panel_demo.py").read_text()
+        sources[with_panel] = (package.root / "panel_demo.py").read_text(
+            encoding="utf-8"
+        )
         diagrams.close()
     assert sources[False] == sources[True]
     assert "panel_demo.panel = Panel(panel_demo," in sources[False]

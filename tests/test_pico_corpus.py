@@ -45,12 +45,14 @@ def test_call_library_nodes_call_the_whole_function_name() -> None:
 
 def test_index_array_of_a_gap_constant_generates(tmp_path: Path) -> None:
     written = _written(GET_READINGS, tmp_path)
-    assert not written.name.endswith(".error.py"), written.read_text()[:300]
+    assert not written.name.endswith(".error.py"), written.read_text(encoding="utf-8")[
+        :300
+    ]
 
 
 def test_an_error_codes_typedef_unbundles_into_its_fields(tmp_path: Path) -> None:
     written = _written(ERROR_HANDLER, tmp_path)
-    source = written.read_text()
+    source = written.read_text(encoding="utf-8")
     assert not written.name.endswith(".error.py"), source[:300]
     assert "len(None)" not in source
 
@@ -65,7 +67,7 @@ def test_an_unbundle_element_stored_as_minus_one_carries_the_error_the_and_reads
     """Issue #243: the element names no field and has no type, so it carries the
     merged error; the And's input is recorded as an error cluster, so it reads
     the error's status."""
-    source = _written(STREAMING, tmp_path).read_text()
+    source = _written(STREAMING, tmp_path).read_text(encoding="utf-8")
     assert "stores its field index as -1" not in source
     assert (
         " = (merged_error is not None and merged_error.status) and greater_or_equal\n"
@@ -74,7 +76,7 @@ def test_an_unbundle_element_stored_as_minus_one_carries_the_error_the_and_reads
 
 
 def test_a_bundle_into_a_waveform_builds_the_value(tmp_path: Path) -> None:
-    source = _written(WRITE_TDMS, tmp_path).read_text()
+    source = _written(WRITE_TDMS, tmp_path).read_text(encoding="utf-8")
     # A waveform is a nitypes AnalogWaveform.
     assert "nitypes.waveform.AnalogWaveform.from_array_1d(" in source
     assert "SimpleNamespace(t0=" not in source
@@ -93,7 +95,7 @@ def test_move_block_in_the_buffer_vis_copies_bytes_between_blocks(
     import importlib
 
     written = _written(WRITE_BUFFER, tmp_path)
-    assert "ctypes.memmove" in written.read_text()
+    assert "ctypes.memmove" in written.read_text(encoding="utf-8")
     monkeypatch.syspath_prepend(str(written.parent.parent))
     module = importlib.import_module(f"{written.parent.name}.{written.stem}")
     block = (ctypes.c_int16 * 4)(0, 0, 0, 0)
@@ -105,7 +107,7 @@ def test_move_block_in_the_buffer_vis_copies_bytes_between_blocks(
 
 def test_move_block_callers_no_longer_gap_on_it(tmp_path: Path) -> None:
     for vi in (WRITE_BUFFER, READ_BUFFER, SET_ETS):
-        source = _written(vi, tmp_path).read_text()
+        source = _written(vi, tmp_path).read_text(encoding="utf-8")
         assert "LabVIEW:MoveBlock" not in source, vi.name
         assert "ctypes.memmove" in source, vi.name
 

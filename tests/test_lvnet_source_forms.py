@@ -59,7 +59,8 @@ def _two_controls_with_one_label(tmp_path: Path) -> Views:
     """Controls 20 and 30 are both labelled ``x``; Increment_10 reads the first
     (terminal 5020), Increment_20 the second (terminal 5030)."""
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({20: "x", 30: "x"}, {}, pane={0: 20, 1: 30})
+        front_panel_xml({20: "x", 30: "x"}, {}, pane={0: 20, 1: 30}),
+        encoding="utf-8",
     )
     xml = root_diagram(
         [increment(10), increment(20)],

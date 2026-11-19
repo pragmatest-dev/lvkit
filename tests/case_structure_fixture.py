@@ -216,7 +216,9 @@ def case_structure_views(
     and no ``SelectStringArray``, so the frames carry no values of their own.
     ``enum_items`` are the item names of an ``"enum"`` selector.
     """
-    (tmp_path / "Case.xml").write_text(_main_xml(selector, enum_items))
+    (tmp_path / "Case.xml").write_text(
+        _main_xml(selector, enum_items), encoding="utf-8"
+    )
     bd_xml = tmp_path / "Case_BDHb.xml"
     bd_xml.write_text(
         _bd_xml(
@@ -224,7 +226,8 @@ def case_structure_views(
             frames,
             default_frame=default_frame,
             stored_values=stored_values,
-        )
+        ),
+        encoding="utf-8",
     )
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)

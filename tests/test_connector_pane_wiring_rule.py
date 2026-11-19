@@ -73,7 +73,7 @@ def test_parse_connector_pane_types_uses_the_type_conp_points_to(
     """The first Function TypeDesc is an unrelated interface; CONP names the
     second. A slot with Flags 0x0000 is Optional, not unreadable."""
     main_xml = tmp_path / "vi.xml"
-    main_xml.write_text(_MAIN_XML)
+    main_xml.write_text(_MAIN_XML, encoding="utf-8")
     pane = ParsedConnectorPane(
         pattern_id=0,
         slots=[

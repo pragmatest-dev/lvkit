@@ -52,7 +52,9 @@ def _views(
     front-panel control it references; with ``read``, an Increment reading it)."""
     nodes = [srn(800, [fp_terminal(5010, 10)])] if control else []
     if control:
-        (tmp_path / "T_FPHb.xml").write_text(front_panel_xml({10: control}, {}))
+        (tmp_path / "T_FPHb.xml").write_text(
+            front_panel_xml({10: control}, {}), encoding="utf-8"
+        )
     ddo = _CONTROL_DDO if control else None
     structures = [reference_constant(80, label, type_id, ddo)]
     wires = []
@@ -147,7 +149,9 @@ def test_the_line_needs_a_handle_and_a_target() -> None:
 def test_two_controls_with_one_label_say_which_is_referenced(tmp_path: Path) -> None:
     """Controls 10 and 20 are both labelled ``Tree``; the constant references the
     second (ddo 201), which the verbose text names by its terminal."""
-    (tmp_path / "T_FPHb.xml").write_text(front_panel_xml({10: "Tree", 20: "Tree"}, {}))
+    (tmp_path / "T_FPHb.xml").write_text(
+        front_panel_xml({10: "Tree", 20: "Tree"}, {}), encoding="utf-8"
+    )
     xml = root_diagram(
         [reference_constant(80, "Ref", CONTROL_TYPE, 201)],
         [srn(800, [fp_terminal(5010, 10), fp_terminal(5020, 20)])],

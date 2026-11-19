@@ -206,7 +206,8 @@ def _two_vis_with_a_gap_each(
     folder = first.parent
     for suffix in ("_BDHb.xml", ".xml"):
         (folder / f"Second{suffix}").write_text(
-            (folder / f"Clfn{suffix}").read_text()
+            (folder / f"Clfn{suffix}").read_text(encoding="utf-8"),
+            encoding="utf-8",
         )
     monkeypatch.setattr(
         "lvkit.graph.loading.rglob_vi_files",

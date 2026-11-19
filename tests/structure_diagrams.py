@@ -222,9 +222,9 @@ class Views:
 
 
 def load(tmp_path: Path, xml: str, types: list[str] = TYPES) -> Views:
-    (tmp_path / "T.xml").write_text(main_xml(types))
+    (tmp_path / "T.xml").write_text(main_xml(types), encoding="utf-8")
     bd = tmp_path / "T_BDHb.xml"
-    bd.write_text(xml)
+    bd.write_text(xml, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd)
     vi = graph.list_vis()[0]

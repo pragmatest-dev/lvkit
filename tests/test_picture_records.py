@@ -41,7 +41,9 @@ def _stored(drawing: bytes) -> bytes:
 
 
 def _icon_library() -> bytes:
-    return bytes.fromhex((DATA / "picture_icon_library_272.hex").read_text().strip())
+    return bytes.fromhex(
+        (DATA / "picture_icon_library_272.hex").read_text(encoding="utf-8").strip()
+    )
 
 
 def test_the_white_icon_is_one_copy_pixmap_record() -> None:

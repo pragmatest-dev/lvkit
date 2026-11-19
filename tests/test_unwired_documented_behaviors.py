@@ -171,7 +171,7 @@ def test_every_create_virtual_channel_records_the_new_task_behavior() -> None:
     catalog = Path(__file__).parents[1] / "src/lvkit/data/drivers/daqmx.json"
     names = [
         e["name"]
-        for e in json.loads(catalog.read_text())["entries"]
+        for e in json.loads(catalog.read_text(encoding="utf-8"))["entries"]
         if e["name"].startswith("DAQmx Create Virtual Channel (")
     ]
     assert len(names) == 30

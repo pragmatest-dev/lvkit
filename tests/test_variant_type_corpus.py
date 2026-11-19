@@ -64,6 +64,7 @@ def _generate(vi: Path, out: Path, *, exit_codes: tuple[int, ...] = (0,)) -> Pat
         text=True,
         timeout=300,
         check=False,
+        encoding="utf-8",
     )
     assert done.returncode in exit_codes, f"{done.stdout}\n{done.stderr}"
     return next(p for p in out.iterdir() if p.is_dir())
@@ -134,7 +135,7 @@ def test_variant_to_json_text_reads_the_type_and_the_refnum_and_keeps_the_wavefo
     package = _generate(
         SAMPLES / "JSONtext/Variant to JSON Text.vi", tmp_path, exit_codes=(0, 3)
     )
-    source = next(package.rglob("variant_to_json_text.py")).read_text()
+    source = next(package.rglob("variant_to_json_text.py")).read_text(encoding="utf-8")
     assert "read_type(" in source
     assert "number_of_dimensions" in source
     assert "refnum_kind" in source

@@ -40,6 +40,7 @@ def test_light_entrypoint_does_not_import_engine(entry: str) -> None:
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert res.returncode == 0, (
         f"importing {entry!r} pulled the heavy engine "

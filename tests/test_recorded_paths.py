@@ -119,7 +119,7 @@ def test_an_absent_catalog_vi_beside_its_caller_uses_the_catalog(
         out,
         vilib_root=built.root / "vilib",
     )
-    source = next(out.rglob("aother.py")).read_text()
+    source = next(out.rglob("aother.py")).read_text(encoding="utf-8")
     assert "NotImplementedError" not in source
     assert "get_system_directory" in source
     assert not result["gaps"]

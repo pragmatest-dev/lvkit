@@ -382,10 +382,10 @@ def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
     d.type_terminal(loaded, 31, d.typed_vi_reference())
     package = tmp_path / "generated_refs"
     (package / "sub").mkdir(parents=True)
-    (package / "__init__.py").write_text("")
-    (package / "sub" / "__init__.py").write_text("")
-    (package / "callee.py").write_text(_CALLEE)
-    (package / "sub" / "refs.py").write_text(_source(loaded))
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    (package / "callee.py").write_text(_CALLEE, encoding="utf-8")
+    (package / "sub" / "refs.py").write_text(_source(loaded), encoding="utf-8")
     sys.path.insert(0, str(tmp_path))
     try:
         refs = importlib.import_module("generated_refs.sub.refs")
@@ -406,10 +406,10 @@ def test_a_computed_path_with_backslashes_is_read_like_one_with_slashes(
     d.type_terminal(loaded, 31, d.typed_vi_reference())
     package = tmp_path / "generated_refs"
     (package / "sub").mkdir(parents=True)
-    (package / "__init__.py").write_text("")
-    (package / "sub" / "__init__.py").write_text("")
-    (package / "sub" / "callee.py").write_text(_CALLEE)
-    (package / "refs.py").write_text(_source(loaded))
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    (package / "sub" / "callee.py").write_text(_CALLEE, encoding="utf-8")
+    (package / "refs.py").write_text(_source(loaded), encoding="utf-8")
     sys.path.insert(0, str(tmp_path))
     try:
         refs = importlib.import_module("generated_refs.refs")
@@ -756,11 +756,11 @@ def _package(
 ) -> Iterator[object]:
     package = tmp_path / "generated_refs"
     package.mkdir()
-    (package / "__init__.py").write_text("")
-    (package / "errors.py").write_text(ERRORS_MODULE_SOURCE)
-    (package / "variants.py").write_text(VARIANTS_MODULE_SOURCE)
-    (package / f"{module}.py").write_text(callee)
-    (package / "refs.py").write_text(source)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "errors.py").write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
+    (package / "variants.py").write_text(VARIANTS_MODULE_SOURCE, encoding="utf-8")
+    (package / f"{module}.py").write_text(callee, encoding="utf-8")
+    (package / "refs.py").write_text(source, encoding="utf-8")
     sys.path.insert(0, str(tmp_path))
     try:
         yield importlib.import_module("generated_refs.refs")
@@ -855,6 +855,7 @@ def test_a_program_that_forgets_a_never_ending_call_exits(tmp_path: Path) -> Non
             text=True,
             timeout=30,
             check=True,
+            encoding="utf-8",
         )
         assert finished.stdout.strip() == "returned"
 

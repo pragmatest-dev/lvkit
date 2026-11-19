@@ -153,12 +153,13 @@ def _load(
     the LabVIEW version that saved it (none recorded for None)."""
     dataspace = "" if slots is None else _dataspace(slots)
     (tmp_path / "T.xml").write_text(
-        main_xml(TYPES).replace("</RSRC>", _vers(version) + dataspace + "</RSRC>")
+        main_xml(TYPES).replace("</RSRC>", _vers(version) + dataspace + "</RSRC>"),
+        encoding="utf-8",
     )
     bd = tmp_path / "T_BDHb.xml"
-    bd.write_text(bd_xml)
+    bd.write_text(bd_xml, encoding="utf-8")
     if fp_xml is not None:
-        (tmp_path / "T_FPHb.xml").write_text(fp_xml)
+        (tmp_path / "T_FPHb.xml").write_text(fp_xml, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd)
     vi = graph.list_vis()[0]

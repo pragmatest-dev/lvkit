@@ -110,7 +110,7 @@ def test_two_mcp_calls_for_one_project_build_its_catalog_once(
     (tmp_path / ".git").mkdir()
     store = init_project_store(tmp_path)
     vi = tmp_path / "Foo.vi"
-    vi.write_text("not a VI")
+    vi.write_text("not a VI", encoding="utf-8")
 
     for _ in range(2):
         run = new_run(vi)

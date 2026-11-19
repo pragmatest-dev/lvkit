@@ -39,7 +39,7 @@ def test_root_class_is_plain_and_child_descends_from_parent_only(
 ) -> None:
     out = tmp_path / "pkg"
     out.mkdir()
-    (out / "__init__.py").write_text("")
+    (out / "__init__.py").write_text("", encoding="utf-8")
     base, child = "/src/Base.lvclass", "/src/Child.lvclass"
     paths = {base: out / "base.py", child: out / "child.py"}
     graph = _graph(base, child)
@@ -49,7 +49,7 @@ def test_root_class_is_plain_and_child_descends_from_parent_only(
             "pkg", out, paths, path, caller_key=key, graph=graph
         )
         sources[key] = build_type_module(graph, key, resolver)
-        path.write_text(sources[key])
+        path.write_text(sources[key], encoding="utf-8")
     assert "lvkit" not in sources[base] + sources[child]
     assert "class Base:\n" in sources[base]
     assert "class Child(Base):\n" in sources[child]

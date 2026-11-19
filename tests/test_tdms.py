@@ -181,7 +181,8 @@ def test_a_file_is_created_with_properties_and_data(
 ) -> None:
     _chain(project, operation=2, element=I16)
     package = project.generate(NAME)
-    assert (package.root / "requirements.txt").read_text() == "npTDMS\nnumpy\n"
+    requirements = (package.root / "requirements.txt").read_text(encoding="utf-8")
+    assert requirements == "npTDMS\nnumpy\n"
     target = tmp_path / "run.tdms"
     result = package.function(
         target,

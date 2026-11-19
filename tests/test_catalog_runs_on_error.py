@@ -105,7 +105,7 @@ def _marked(directory: str) -> set[str]:
     primitive, that carries the field (which must be ``true``)."""
     marked: set[str] = set()
     for path in sorted((DATA / directory).glob("*.json")):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         if directory == "vilib":
             entries = [(path.stem, e) for e in data.get("entries", [])]
         else:

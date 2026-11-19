@@ -86,7 +86,8 @@ def test_vctp_cluster_records_labels(tmp_path: Path) -> None:
                     <TypeDesc TypeID="2" />
                 </TypeDesc>
             </Section></VCTP></RSRC>
-        """)
+        """),
+        encoding="utf-8",
     )
     assert _flags(parse_vctp_types(xml_path)[3].fields) == [
         ("a", True),

@@ -65,7 +65,7 @@ def _inline_text(text: str) -> str:
 
 def _write(tmp_path: Path, xml: str) -> Path:
     bd_xml = tmp_path / "Expr_BDHb.xml"
-    bd_xml.write_text(xml)
+    bd_xml.write_text(xml, encoding="utf-8")
     return bd_xml
 
 

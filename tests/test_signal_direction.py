@@ -91,7 +91,7 @@ def test_a_signal_listing_the_input_first_gives_the_node_its_inputs(tmp_path) ->
     from lvkit.graph.models import PrimitiveNode
 
     bd_xml = tmp_path / "Sig_BDHb.xml"
-    bd_xml.write_text(_AND_BD)
+    bd_xml.write_text(_AND_BD, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     name = graph.list_vis()[0]

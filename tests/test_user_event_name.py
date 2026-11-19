@@ -91,6 +91,7 @@ def test_describe_shows_the_event_name(vi_path: Path, expected: str) -> None:
         text=True,
         env={**os.environ, "BROWSER": "true"},
         check=True,
+        encoding="utf-8",
     ).stdout
     assert f"UserEvent refnum{{{expected}" in out
 

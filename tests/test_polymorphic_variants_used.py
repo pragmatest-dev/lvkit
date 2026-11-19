@@ -143,12 +143,14 @@ def _poly_tree(
         _record("VIVI", [name], ["", folder, name], 0, 10 + i)
         for i, (folder, name) in enumerate(variants)
     )
-    text = slot.read_text().replace("</Section></LIvi>", f"{records}</Section></LIvi>")
+    text = slot.read_text(encoding="utf-8").replace(
+        "</Section></LIvi>", f"{records}</Section></LIvi>"
+    )
     text = text.replace(
         "</VI>",
         '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
     )
-    slot.write_text(text)
+    slot.write_text(text, encoding="utf-8")
     for caller, picks in callers.items():
         calls = []
         for variant in picks:
@@ -192,16 +194,18 @@ def test_a_call_runs_the_variant_its_caller_records(
     result = generate_python(poly.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    assert without_panel_attributes((package / "main.py").read_text()).splitlines()[
-        1:
-    ] == [
+    assert without_panel_attributes(
+        (package / "main.py").read_text(encoding="utf-8")
+    ).splitlines()[1:] == [
         "from .wrap import array",
         "",
         "def main():",
         "    array()",
     ]
     assert (
-        without_panel_attributes((package / "wrap.py").read_text()).splitlines()
+        without_panel_attributes(
+            (package / "wrap.py").read_text(encoding="utf-8")
+        ).splitlines()
         == _WRAP_MODULE
     )
     main = _run(package, "main")
@@ -223,7 +227,7 @@ def test_two_callers_each_call_the_variant_they_record(
     package = out / built.root.name
     calls = {
         caller: without_panel_attributes(
-            (package / f"{caller}.py").read_text()
+            (package / f"{caller}.py").read_text(encoding="utf-8")
         ).splitlines()[1:]
         for caller in ("main", "other")
     }
@@ -244,7 +248,9 @@ def test_one_caller_of_two_variants_imports_each_by_its_own_name(
     result = generate_python(built.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    lines = without_panel_attributes((package / "main.py").read_text()).splitlines()
+    lines = without_panel_attributes(
+        (package / "main.py").read_text(encoding="utf-8")
+    ).splitlines()
     assert lines[1:3] == ["from .wrap import array", "from .wrap import scalar"]
     assert lines[3:] == ["", "def main():", "    array()", "    scalar()"]
     _run(package, "main").main()
@@ -262,7 +268,9 @@ def test_variants_that_call_one_subvi_import_it_once(
     result = generate_python(built.root / "main.vi", out)
     assert not result["gaps"]
     package = out / "main"
-    assert without_panel_attributes((package / "wrap.py").read_text()).splitlines() == [
+    assert without_panel_attributes(
+        (package / "wrap.py").read_text(encoding="utf-8")
+    ).splitlines() == [
         '"""The variants of the polymorphic VI wrap.vi."""',
         "from __future__ import annotations",
         "from .shared.helper import helper",
@@ -353,7 +361,7 @@ def test_a_call_that_records_no_variant_is_a_gap(
     )
     assert "Partial: 1 VIs generated, 1 with gaps (1 gaps)" in captured.out
     package = out / "main"
-    source = without_panel_attributes((package / "main.py").read_text())
+    source = without_panel_attributes((package / "main.py").read_text(encoding="utf-8"))
     assert f"raise NotImplementedError('{_NO_VARIANT}\\ngap kind: " in source
     assert not (package / "wrap.py").exists()
     with pytest.raises(NotImplementedError, match="records no variant"):
@@ -385,7 +393,7 @@ def test_a_variants_module_level_code_is_kept_and_paths_are_project_relative(
     monkeypatch.setattr(pipeline, "build_module", with_state)
     out = tmp_path / "gen"
     generate_python(poly.root / "main.vi", out)
-    source = next(out.rglob("wrap.py")).read_text()
+    source = next(out.rglob("wrap.py")).read_text(encoding="utf-8")
     assert "_lv_state_kept = None" in source
     assert str(poly.root) not in source
     assert source.startswith('"""The variants of the polymorphic VI wrap.vi."""\n')
@@ -643,7 +651,9 @@ def test_easy_write_xml_file_runs_the_scalar_file_exists(tmp_path: Path) -> None
     ]
     assert len(calls) == 1 and calls[0].variant_key is None
     assert Path(graph.call_variant(calls[0])).name == "File Exists - Scalar__ogtk.vi"
-    source = next((tmp_path / "gen").rglob("easy_write_xml_file.py")).read_text()
+    source = next((tmp_path / "gen").rglob("easy_write_xml_file.py")).read_text(
+        encoding="utf-8"
+    )
     assert "Path(xml_file_path).exists()" in source
     assert not [g for g in result["gaps"] if "File Exists" in g.reason]
 
@@ -654,7 +664,7 @@ def test_a_polymorphic_module_imports_only_what_it_reads(
     """Its variants use no path: the module does not import ``Path``."""
     out = tmp_path / "gen"
     generate_python(poly.root / "main.vi", out)
-    source = next(out.rglob("wrap.py")).read_text()
+    source = next(out.rglob("wrap.py")).read_text(encoding="utf-8")
     assert "from pathlib import Path" not in source
     bound = [
         alias.asname or alias.name

@@ -70,7 +70,7 @@ def _vi(
 
 def _run(source: str, tmp_path: Path):
     path = tmp_path / "user.py"
-    path.write_text(source)
+    path.write_text(source, encoding="utf-8")
     namespace: dict = {"__file__": str(path)}
     exec_generated(source, namespace, str(path))  # noqa: S102
     return str(namespace["user"]().user)

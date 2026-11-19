@@ -255,14 +255,14 @@ def _declared() -> dict[str, list[NativeError]]:
     found: dict[str, list[NativeError]] = {}
     for path in sorted((DATA / "primitives").glob("*.json")):
         for prim_id, entry in (
-            json.loads(path.read_text()).get("primitives") or {}
+            json.loads(path.read_text(encoding="utf-8")).get("primitives") or {}
         ).items():
             if isinstance(entry, dict) and "errors" in entry:
                 found[f"{prim_id}:{entry['name']}"] = [
                     NativeError.model_validate(e) for e in entry["errors"]
                 ]
     for path in sorted((DATA / "vilib").glob("*.json")):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         for entry in data.get("entries", []) if isinstance(data, dict) else []:
             if "errors" in entry:
                 found[f"{path.stem}:{entry['name']}"] = [

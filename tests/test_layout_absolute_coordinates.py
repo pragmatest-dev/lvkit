@@ -80,7 +80,8 @@ def test_absolute_coordinates_by_saved_version(
     main = tmp_path / "vi.xml"
     main.write_text(
         f'<LVSR><vers><Section><Version Major="{major}" Minor="{minor}"/>'
-        "</Section></vers></LVSR>"
+        "</Section></vers></LVSR>",
+        encoding="utf-8",
     )
     assert absolute_coordinates(main) is expected
 

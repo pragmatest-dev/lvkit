@@ -135,6 +135,7 @@ def _run(page: Path, fragment: str = "") -> dict:
         text=True,
         timeout=180,
         check=False,
+        encoding="utf-8",
     )
     found = re.search(r'<pre id="lvkit-result">(.*?)</pre>', done.stdout, re.S)
     assert found, done.stderr[-2000:]
@@ -148,7 +149,9 @@ def _viewer(
     body = diff_vi_files(*paths, fmt="html", warm_index=False)
     assert body is not None
     page = tmp_path / "viewer.html"
-    page.write_text(f"{body.body}<script>{_SNAPSHOT_JS}{script}</script>")
+    page.write_text(
+        f"{body.body}<script>{_SNAPSHOT_JS}{script}</script>", encoding="utf-8"
+    )
     return page
 
 
@@ -284,7 +287,9 @@ def test_the_rendered_selector_steps_frames_and_shows_their_labels(
     assert svg is not None
     page = tmp_path / "render.html"
     script = f"{_REPORT_JS}{_RENDER_STEPS_JS}"
-    page.write_text(f"<html><body>{svg}<script>{script}</script></body></html>")
+    page.write_text(
+        f"<html><body>{svg}<script>{script}</script></body></html>", encoding="utf-8"
+    )
     out = _run(page)
     assert "600:0" in out["initial"]["shown"] and "1" in out["initial"]["labels"]
     assert "600:1" in out["next"]["shown"] and "2" in out["next"]["labels"]

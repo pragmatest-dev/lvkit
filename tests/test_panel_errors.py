@@ -61,7 +61,7 @@ def test_an_error_cluster_is_an_error_widget_not_a_gap(
     project.add(_passthrough())
     package = project.generate(NAME, panel=True)
     assert [g for g in package.gaps if g.kind == "unsupported_control"] == []
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     assert "error_control(values, 'error_in')" in source
     assert "error_indicator(values, 'error_out')" in source
     assert (package.root / "errors.py").exists()

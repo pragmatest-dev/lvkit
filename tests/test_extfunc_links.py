@@ -64,8 +64,8 @@ def _loaded(
     bd = _BD_XML.replace(
         '<nodeName>"DoWork"</nodeName>', f'<nodeName>"{node_name}"</nodeName>'
     )
-    (tmp_path / "Clfn_BDHb.xml").write_text(bd)
-    (tmp_path / "Clfn.xml").write_text(main)
+    (tmp_path / "Clfn_BDHb.xml").write_text(bd, encoding="utf-8")
+    (tmp_path / "Clfn.xml").write_text(main, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Clfn_BDHb.xml")
     return graph, graph.list_vis()[0]

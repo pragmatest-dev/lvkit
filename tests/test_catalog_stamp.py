@@ -46,7 +46,11 @@ def _write_entry(store: Path, prim_id: str, name: str) -> None:
     """Make the store's ``primitives.json`` define ``prim_id`` as ``name`` (the
     other entries it defines stay)."""
     path = store / "primitives.json"
-    data = json.loads(path.read_text()) if path.exists() else {"primitives": {}}
+    data = (
+        json.loads(path.read_text(encoding="utf-8"))
+        if path.exists()
+        else {"primitives": {}}
+    )
     entry = dict(PrimitiveResolver().get_by_id(int(prim_id)) or {})
     entry["name"] = name
     data["primitives"][prim_id] = entry
@@ -188,7 +192,7 @@ def test_an_edit_makes_the_cached_render_stale_only_for_a_vi_that_uses_it(
     render()
     assert hit()
     unrelated = store / "primitives.json"
-    data = json.loads(unrelated.read_text())
+    data = json.loads(unrelated.read_text(encoding="utf-8"))
     data["primitives"]["99999"] = {"name": "Nobody uses this"}
     unrelated.write_text(json.dumps(data), encoding="utf-8")
     assert hit()
