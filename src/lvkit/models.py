@@ -1098,6 +1098,9 @@ class FPTerminal(Terminal):
     # (no front panel, or flags that leave the Disabled value open).
     starts_hidden: bool | None = None
     enable_state: int | None = None
+    # A Boolean control's Mechanical Action (0-5, NI's order); None for any other
+    # control, or when the flags name none.
+    mechanical_action: int | None = None
     control_type: str | None = None
     # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
     # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike

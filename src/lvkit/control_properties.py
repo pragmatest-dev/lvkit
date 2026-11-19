@@ -77,6 +77,7 @@ class _Table:
     class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
     reference_properties: dict[str, frozenset[str]]
+    saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
 
 
@@ -120,8 +121,20 @@ def _table() -> _Table:
             for name, members in raw["reference_properties"].items()
             if not name.startswith("_")
         },
+        saved_defaults={
+            name: dict(members)
+            for name, members in raw["saved_defaults"].items()
+            if not name.startswith("_")
+        },
         reinit_to_default=frozenset(raw["methods"]["reinit_to_default"]["codes"]),
     )
+
+
+def saved_defaults() -> dict[str, dict[str, Any]]:
+    """The value of each saved property (``ControlProperty.settable_while_running``
+    False) on a control of each VI Server class that the control has when nothing
+    else is recorded: ``{"Boolean": {"mech_action": 0}}``."""
+    return {name: dict(members) for name, members in _table().saved_defaults.items()}
 
 
 def is_reinit_to_default(method_code: int | None) -> bool:

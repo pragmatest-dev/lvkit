@@ -83,6 +83,7 @@ from .flags import (
     is_inverted_terminal,
     is_method_row_input,
     is_output_terminal,
+    mechanical_action,
     starting_enable_state,
     starts_hidden,
 )
@@ -2451,6 +2452,11 @@ def _parse_ddo(
         shows_as_indicator=is_indicator(safe_int(ddo.find("objFlags"))),
         starts_hidden=starts_hidden(safe_int(ddo.find("objFlags"))),
         starting_enable_state=starting_enable_state(safe_int(ddo.find("objFlags"))),
+        mechanical_action=(
+            mechanical_action(safe_int(ddo.find("objFlags")))
+            if control_type == "stdBool"
+            else None
+        ),
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),

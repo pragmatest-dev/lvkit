@@ -49,7 +49,9 @@ widget in it and a running VI's ``get_property`` reads it.
 
 ``saved`` maps the name of each control or indicator that has a property the file
 saves and a running VI cannot change (NI: "Settable when the VI is running: No", an
-Enum's ``Strings[]``) to those properties by member name; ``Control.get_property``
+Enum's ``Strings[]`` and a Boolean's ``MechAction``) to those properties by member
+name, leaving out one that is the default of the control's VI Server class
+(``SAVED_DEFAULTS``: a Boolean's Switch When Pressed); ``Control.get_property``
 reads them after the state a write or the file's flags set.
 
 ``controls`` maps the name of each control to its label; a control whose name is a
@@ -128,6 +130,7 @@ the VI and the tag (``codegen/nodes/tag_methods.py``).
 from __future__ import annotations
 
 from lvkit.control_classes import class_ids
+from lvkit.control_properties import saved_defaults
 
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
@@ -177,6 +180,10 @@ ABORT_POLL = 0.1
 # NI's ClassID number of each VI Server class (the ClassID property,
 # properties-and-methods/vi-server/generic/classid.html).
 CLASS_IDS: dict[str, int] = __CLASS_IDS__
+
+# The saved property a control of each VI Server class has when its panel lists none
+# (``control_properties.json`` ``saved_defaults``).
+SAVED_DEFAULTS: dict[str, dict[str, Any]] = __SAVED_DEFAULTS__
 
 
 class PanelError(LabVIEWError):
@@ -268,6 +275,8 @@ class Control:
         held = self.panel.property_of(self.name, prop, _NO_STATE)
         if held is _NO_STATE:
             held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
+        if held is _NO_STATE and self.class_name is not None:
+            held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
         if held is _NO_STATE and self.name in self.panel.undecoded_strings:
             raise NotImplementedError(
                 f"Strings[] of the Combo Box {self.label!r} read before any "
@@ -1083,4 +1092,4 @@ def as_control(reference: Any) -> Control:
 
 PANELS_MODULE_SOURCE = _PANELS_MODULE_TEMPLATE.replace(
     "__CLASS_IDS__", repr(class_ids())
-)
+).replace("__SAVED_DEFAULTS__", repr(saved_defaults()))

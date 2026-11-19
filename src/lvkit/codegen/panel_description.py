@@ -33,7 +33,8 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   what a panel starts the control in (``control_property_state.stored_states``);
 - ``saved``: the name of each control or indicator that has a property the file saves
   and a running VI cannot change to those properties by member name
-  (``{"e": {"strings": ["a", "b"]}}``: an Enum's items,
+  (``{"e": {"strings": ["a", "b"]}, "b": {"mech_action": 4}}``: an Enum's items, a
+  Boolean's Mechanical Action when it is not Switch When Pressed,
   ``control_property_state.saved_properties``), what a reference's ``get_property``
   reads;
 - ``classes``: the name of each control or indicator whose front-panel class has a

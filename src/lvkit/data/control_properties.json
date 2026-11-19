@@ -3,7 +3,12 @@
   "reference_properties": {
     "_comment": "The listed properties (by class entry in 'classes', by member) that a Property Node on a wired reference of that class reads and writes through the panel: a write is held by the panel and shown by its views, a read gives the last write, else the strings the control is saved with. NI's page for Combo Box Strings[] (Read/Write, settable while the VI runs): 'Array of the strings from which you can select in the combo box control.' An entry with \"settable_while_running\": false is a property the file saves and a running VI cannot change (NI's page: Enum Strings[] 'If the string is an enumerated type control, you cannot write this property when the VI is running.'): a read gives the saved value (``Control.get_property``, the panel's ``saved``), a write is a gap.",
     "CmbBox": ["strings"],
-    "Enum": ["strings"]
+    "Enum": ["strings"],
+    "Bool": ["mech_action"]
+  },
+  "saved_defaults": {
+    "_comment": "The value a saved property has on a control of this VI Server class (control_classes.json) when the panel's saved keyword lists none: the generated panel leaves it out. A Boolean's Mechanical Action 0 is Switch When Pressed, what the saved flags of a Boolean in its default state decode to (labview-binary-format.md, 'A Boolean's mechanical action is in its ddo objFlags').",
+    "Boolean": {"mech_action": 0}
   },
   "value_codes": {
     "inherited": [104013842],
@@ -243,6 +248,15 @@
         "member": "strings",
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/string/combobox/strings.html"
+      }
+    },
+    "Bool": {
+      "104019976": {
+        "name": "Mechanical Action",
+        "member": "mech_action",
+        "value": "enum",
+        "settable_while_running": false,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/boolean/mechanicalaction.html"
       }
     },
     "Enum": {

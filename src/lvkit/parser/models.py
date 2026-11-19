@@ -690,6 +690,9 @@ class ParsedFPControl:
     # greyed out; None when the flags leave it open). See ``parser/flags.py``.
     starts_hidden: bool = False
     starting_enable_state: int | None = 0
+    # A Boolean control's Mechanical Action (0-5, NI's order), from the same
+    # ``objFlags``; None for any other control, or flags that name none.
+    mechanical_action: int | None = None
     # This control's own resolved LabVIEW type, from the VI's VCTP type map
     # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
     # connector-pane terminal's type comes from. Real per-control identity

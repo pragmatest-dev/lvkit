@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.control_properties import control_property
+from lvkit.control_properties import control_property, saved_defaults
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import FPTerminal
@@ -67,24 +67,30 @@ def starting_state(control: FPTerminal, member: str) -> StateValue | None:
 def saved_value(control: FPTerminal, member: str) -> StateValue | None:
     """The value of the property ``member`` that the file saves for ``control`` and
     a running VI cannot change (``ControlProperty.settable_while_running`` False): an
-    Enum's ``Strings[]``, its items; None for a control that has no such property."""
+    Enum's ``Strings[]``, its items, and a Boolean's ``MechAction``, its Mechanical
+    Action number; None for a control that has no such property (or whose file does
+    not record it)."""
     if member == "strings" and control.vi_server_class == "Enum":
         return list(control.enum_values)
+    if member == "mech_action" and control.control_type == "stdBool":
+        return control.mechanical_action
     return None
 
 
-SAVED_MEMBERS = ("strings",)
+SAVED_MEMBERS = ("strings", "mech_action")
 """The ``ControlProperty.member`` of the properties a control is saved with
 (``saved_value``)."""
 
 
 def saved_properties(control: FPTerminal) -> dict[str, StateValue]:
-    """Every property ``control`` is saved with, by member name: what the panel
-    holds for a reference to read (``Panel`` ``saved=``)."""
+    """Every property ``control`` is saved with that is not the default of its VI
+    Server class (``control_properties.saved_defaults``), by member name: what the
+    panel holds for a reference to read (``Panel`` ``saved=``)."""
+    defaults = saved_defaults().get(control.vi_server_class or "", {})
     found: dict[str, StateValue] = {}
     for member in SAVED_MEMBERS:
         value = saved_value(control, member)
-        if value is not None:
+        if value is not None and value != defaults.get(member):
             found[member] = value
     return found
 
