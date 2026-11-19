@@ -80,7 +80,9 @@ def _reading(
     ctx.import_variant("read_type", "type_default")
     recorded = ctx.make_output_var("variant_type", node.id)
     info = ctx.make_output_var("type_info", node.id)
-    shown = f"{recorded}.name if {recorded} is not None else 'an empty variant'"
+    # Double quotes: this expression goes inside a single-quoted f-string, and
+    # Python 3.11 does not allow an f-string to reuse its own quote inside {}.
+    shown = f'{recorded}.name if {recorded} is not None else "an empty variant"'
     source = f"{recorded} = {variant}.type\n"
     if unread_codes:
         source += (
