@@ -37,6 +37,11 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   Boolean's Mechanical Action when it is not Switch When Pressed,
   ``control_property_state.saved_properties``), what a reference's ``get_property``
   reads;
+- ``elements``: the name of each array control or indicator to the element its Array
+  Element property is a reference to, ``(class, front_panel_class, saved)``: the
+  element's VI Server class name (None when it has none), its front-panel class
+  when it has no VI Server class, and the properties it is saved with, as ``saved``
+  above;
 - ``classes``: the name of each control or indicator whose front-panel class has a
   VI Server class to that class's name (``FPTerminal.vi_server_class``), what its
   reference's ClassID reads (``control_classes``), and ``front_panel_classes``: the
@@ -66,6 +71,7 @@ from lvkit.models import FPTerminal, Terminal
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
 from .control_property_state import (
     StateValue,
+    element_saved_properties,
     saved_properties,
     state_expression,
     stored_states,
@@ -192,17 +198,37 @@ def _name_map(
     )
 
 
+def _member_dict(held: dict[str, StateValue]) -> ast.Dict:
+    """``{member: value}`` as a dict expression."""
+    return ast.Dict(
+        keys=[ast.Constant(value=member) for member in held],
+        values=[state_expression(v) for v in held.values()],
+    )
+
+
 def _property_dict(found: dict[str, dict[str, StateValue]]) -> ast.Dict:
     """``{name: {member: value}}`` as a dict expression."""
     return ast.Dict(
         keys=[ast.Constant(value=name) for name in found],
-        values=[
-            ast.Dict(
-                keys=[ast.Constant(value=member) for member in held],
-                values=[state_expression(v) for v in held.values()],
-            )
-            for held in found.values()
+        values=[_member_dict(held) for held in found.values()],
+    )
+
+
+def _element_spec(terminal: FPTerminal) -> ast.Tuple:
+    """``(class, front_panel_class, saved)`` of the element of the array control
+    ``terminal``: its VI Server class name (None when the front-panel class has
+    none), its front-panel class when it has none (what a ClassID read names), and
+    the properties it is saved with (``element_saved_properties``)."""
+    class_name = terminal.element_vi_server_class
+    return ast.Tuple(
+        elts=[
+            ast.Constant(value=class_name),
+            ast.Constant(
+                value=terminal.element_control_type if class_name is None else None
+            ),
+            _member_dict(element_saved_properties(terminal)),
         ],
+        ctx=ast.Load(),
     )
 
 
@@ -290,6 +316,19 @@ def panel_statements(
         if found:
             keywords.append((keyword, _property_dict(found)))
     fp_objects = [t for t, _ in objects if isinstance(t, FPTerminal)]
+    elements = {
+        names[t.id]: _element_spec(t) for t in fp_objects if t.element_control_type
+    }
+    if elements:
+        keywords.append(
+            (
+                "elements",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in elements],
+                    values=list(elements.values()),
+                ),
+            )
+        )
     for entry in (
         _name_map("classes", [(names[t.id], t.vi_server_class) for t in fp_objects]),
         _name_map(

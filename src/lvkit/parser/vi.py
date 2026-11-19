@@ -2337,6 +2337,8 @@ def _parse_ddo(
     cluster_geom = None
     element_default_value = None
     element_lv_type: LVType | None = None
+    element_control_type: str | None = None
+    element_mechanical_action: int | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
         children = _parse_cluster_fields(
@@ -2421,6 +2423,11 @@ def _parse_ddo(
 
         if element is not None:
             element_class = element.get("class")
+            element_control_type = element_class
+            if element_class == "stdBool":
+                element_mechanical_action = mechanical_action(
+                    safe_int(element.find("objFlags"))
+                )
             if element_class == "stdClust":
                 elem_clust_defaults = (
                     elem_defaults if isinstance(elem_defaults, dict) else None
@@ -2457,6 +2464,8 @@ def _parse_ddo(
             if control_type == "stdBool"
             else None
         ),
+        element_control_type=element_control_type,
+        element_mechanical_action=element_mechanical_action,
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),

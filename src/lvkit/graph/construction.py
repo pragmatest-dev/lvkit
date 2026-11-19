@@ -572,6 +572,10 @@ class ConstructionMixin:
                 starts_hidden=ctrl.starts_hidden if ctrl else None,
                 enable_state=ctrl.starting_enable_state if ctrl else None,
                 mechanical_action=ctrl.mechanical_action if ctrl else None,
+                element_control_type=ctrl.element_control_type if ctrl else None,
+                element_mechanical_action=(
+                    ctrl.element_mechanical_action if ctrl else None
+                ),
                 fp_dco_uid=fp_term.fp_dco_uid,
                 tab_index=fp.tab_index(fp_term.fp_dco_uid) if fp else None,
                 control_type=ctrl.control_type if ctrl else None,
@@ -1350,6 +1354,8 @@ class ConstructionMixin:
             starts_hidden=ctrl.starts_hidden,
             enable_state=ctrl.starting_enable_state,
             mechanical_action=ctrl.mechanical_action,
+            element_control_type=ctrl.element_control_type,
+            element_mechanical_action=ctrl.element_mechanical_action,
             fp_dco_uid=ctrl.uid,
             tab_index=tab_index,
             control_type=ctrl.control_type,

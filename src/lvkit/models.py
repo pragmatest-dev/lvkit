@@ -1102,6 +1102,11 @@ class FPTerminal(Terminal):
     # control, or when the flags name none.
     mechanical_action: int | None = None
     control_type: str | None = None
+    # For an array control: the front-panel class of its element control and a
+    # Boolean element's Mechanical Action (what the Array Element property's
+    # reference reads); None for any other control.
+    element_control_type: str | None = None
+    element_mechanical_action: int | None = None
     # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
     # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike
     # ``id`` (which carries the BD ``fPTerm`` heap uid), this is the front-panel
@@ -1139,6 +1144,16 @@ class FPTerminal(Terminal):
         a front-panel class with no recorded VI Server class."""
         kind = self.lv_type.kind if self.lv_type is not None else None
         return vi_server_class(self.control_type, kind)
+
+    @property
+    def element_vi_server_class(self) -> str | None:
+        """The VI Server class of this array control's element (what the Array
+        Element property's reference is), by the element's front-panel class and its
+        type's kind; None for a control that is no array, or an element whose
+        front-panel class has no recorded VI Server class."""
+        element = self.lv_type.element_type if self.lv_type is not None else None
+        kind = element.kind if element is not None else None
+        return vi_server_class(self.element_control_type, kind)
 
 
 class DisableStructureKind(StrEnum):

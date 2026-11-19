@@ -11,8 +11,8 @@ documentation says what it does.
 
 A Property Node on a wired control reference (no binding) reads a few properties
 that are the reference's own: its ``Value``, its ``Indicator`` flag, its
-``Label.Text``, its ``ClassID`` and, of a cluster, its ``Controls[]``
-(``ReferenceRow``).
+``Label.Text``, its ``ClassID`` and, of a cluster, its ``Controls[]`` and, of an
+array, its ``Array Element`` (``ReferenceRow``).
 
 The graph (which VIs touch their panel while running) and code generation (what a
 row generates) both read this, so it sits outside both.
@@ -58,13 +58,15 @@ class ReferenceRow(Enum):
     """What a row of a Property Node on a control reference is, when it is one of
     the control's own: its ``Value``, whether it is an ``Indicator``, the text of
     its ``Label``, its ``ClassID`` (``control_classes.json``) and, of a cluster, the
-    references to its ``Controls[]``."""
+    references to its ``Controls[]`` and, of an array, the reference to its ``Array
+    Element``."""
 
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
     CLUSTER_CONTROLS = "cluster_controls"
     CLASS_ID = "class_id"
+    ARRAY_ELEMENT = "array_element"
 
 
 @dataclass(frozen=True)
@@ -194,8 +196,9 @@ def is_value_signaling_row(class_name: str, codes: Sequence[int]) -> bool:
 def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:
     """The own property of a control reference that the row with property ``codes``
     on a reference of class ``class_name`` is: ``Value`` (the generic code, or the
-    class's strict or own one), ``Indicator``, ``Label.Text`` or a cluster's
-    ``Controls[]``; None for any other row."""
+    class's strict or own one), ``Indicator``, ``Label.Text``, ``ClassID``, a
+    cluster's ``Controls[]`` or an array's ``Array Element``; None for any other
+    row."""
     if is_value_row(class_name, codes):
         return ReferenceRow.VALUE
     return _table().reference_rows.get(tuple(codes))

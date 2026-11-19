@@ -25,6 +25,13 @@ that module, and these rows read them:
   of a LabVIEW object") is ``.class_id``: NI's number of the control's VI Server
   class (``control_classes.json``); a control whose front-panel class has no
   recorded VI Server class raises NotImplementedError naming it, built when read;
+- ``Array Element`` of an array reference (NI: .../generic/gobject/control/array/
+  arrayelement.html, "Reference to the array element. The properties of the array
+  apply to all elements in the array.", read only, not settable while the VI runs)
+  is ``as_control(reference).array_element``: a reference to the element, a control
+  of the element's class (``panels_module.Element``), whose own value, label and
+  states the panel does not record (reading them raises NotImplementedError naming
+  the array);
 - ``Strings[]`` of a Combo Box reference (NI: .../control/string/combobox/
   strings.html, "Array of the strings from which you can select in the combo box
   control", read and write, settable while the VI runs) is
@@ -32,6 +39,12 @@ that module, and these rows read them:
   value)``: the panel holds the property like any other control property
   (``reference_properties`` of ``control_properties.json``), a read gives the last
   write, else the strings the control is saved with, and its views show a write.
+
+- ``Strings[]`` of an Enum reference and ``MechAction`` of a Boolean reference
+  (``reference_properties``, ``settable_while_running`` false: NI "you cannot write
+  this property when the VI is running" for an enumerated type control, "Settable
+  when the VI is running: No" for MechAction) are read the same way, from what the
+  file saves (``saved`` of the panel); a write is a gap.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
 by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
@@ -82,6 +95,7 @@ class PanelRow(Enum):
     LABEL_TEXT = "label_text"
     CLUSTER_CONTROLS = "cluster_controls"
     CLASS_ID = "class_id"
+    ARRAY_ELEMENT = "array_element"
 
 
 _REFERENCE_ROWS = {
@@ -90,6 +104,7 @@ _REFERENCE_ROWS = {
     ReferenceRow.LABEL_TEXT: PanelRow.LABEL_TEXT,
     ReferenceRow.CLUSTER_CONTROLS: PanelRow.CLUSTER_CONTROLS,
     ReferenceRow.CLASS_ID: PanelRow.CLASS_ID,
+    ReferenceRow.ARRAY_ELEMENT: PanelRow.ARRAY_ELEMENT,
 }
 
 _CONTROL_ATTRIBUTE = {
@@ -98,6 +113,7 @@ _CONTROL_ATTRIBUTE = {
     PanelRow.LABEL_TEXT: "label",
     PanelRow.CLUSTER_CONTROLS: "controls",
     PanelRow.CLASS_ID: "class_id",
+    PanelRow.ARRAY_ELEMENT: "array_element",
 }
 
 

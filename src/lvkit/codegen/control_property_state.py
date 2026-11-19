@@ -95,6 +95,25 @@ def saved_properties(control: FPTerminal) -> dict[str, StateValue]:
     return found
 
 
+def element_saved_properties(control: FPTerminal) -> dict[str, StateValue]:
+    """The ``saved_properties`` of the element of the array ``control``: an Enum
+    element's ``Strings[]`` (the parser's ``enum_values`` of an array are its
+    element's) and a Boolean element's ``MechAction``, leaving out one that is the
+    default of the element's VI Server class."""
+    element_class = control.element_vi_server_class
+    found: dict[str, StateValue] = {}
+    if element_class == "Enum":
+        found["strings"] = list(control.enum_values)
+    if (
+        control.element_control_type == "stdBool"
+        and control.element_mechanical_action is not None
+    ):
+        default = saved_defaults().get(element_class or "", {}).get("mech_action")
+        if control.element_mechanical_action != default:
+            found["mech_action"] = control.element_mechanical_action
+    return found
+
+
 DEFAULT_STATES: dict[str, bool | int] = {"visible": True, "disabled": 0}
 """The state of each of ``STATE_MEMBERS`` that has a default (a control in
 LabVIEW's default state); a property with none (``Strings[]``) is always held."""

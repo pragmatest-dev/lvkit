@@ -54,6 +54,12 @@ name, leaving out one that is the default of the control's VI Server class
 (``SAVED_DEFAULTS``: a Boolean's Switch When Pressed); ``Control.get_property``
 reads them after the state a write or the file's flags set.
 
+``elements`` maps the name of each array control or indicator to the element its
+Array Element property is a reference to, ``(class, front_panel_class, saved)``
+(``codegen/panel_description.py``): ``Control.array_element`` is an ``Element``, a
+control of that class (its ``class_id``) holding the properties the element is saved
+with, whose own value, label and states the panel does not record.
+
 ``controls`` maps the name of each control to its label; a control whose name is a
 parameter of the function is passed to it by a run, any other (a control off the
 connector pane) is held only; ``defaults`` a name to the function that makes the
@@ -235,6 +241,7 @@ class Control:
         fields: Sequence[Any] | None = None,
         class_name: str | None = None,
         front_panel_class: str | None = None,
+        element: Sequence[Any] | None = None,
     ) -> None:
         self.panel = panel
         self.name = name
@@ -247,6 +254,22 @@ class Control:
             if fields is None
             else [Field(self, label, key, *rest) for label, key, *rest in fields]
         )
+        self._element = None if element is None else Element(self, *element)
+
+    def _named(self) -> str:
+        """The control as a message names it."""
+        return self.label
+
+    def _held(self, prop: str) -> Any:
+        """The state of ``prop`` the panel holds for the control: the last write
+        or the state the file's flags give, else what the control is saved with,
+        else the default of its class (``_NO_STATE`` for none)."""
+        held = self.panel.property_of(self.name, prop, _NO_STATE)
+        if held is _NO_STATE:
+            held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
+        if held is _NO_STATE and self.class_name is not None:
+            held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
+        return held
 
     @property
     def value(self) -> Any:
@@ -272,11 +295,7 @@ class Control:
         in, else what it is saved with that a run cannot change (``saved``: an
         Enum's ``"strings"``). A control the panel holds no state of ``prop`` for is
         not one this property belongs to: error 1026."""
-        held = self.panel.property_of(self.name, prop, _NO_STATE)
-        if held is _NO_STATE:
-            held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
-        if held is _NO_STATE and self.class_name is not None:
-            held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
+        held = self._held(prop)
         if held is _NO_STATE and self.name in self.panel.undecoded_strings:
             raise NotImplementedError(
                 f"Strings[] of the Combo Box {self.label!r} read before any "
@@ -287,7 +306,7 @@ class Control:
             raise PanelError(
                 code=1026,
                 source="Control.get_property",
-                message=f'"{self.label}" has no {prop} property.',
+                message=f'"{self._named()}" has no {prop} property.',
             )
         return copy.copy(held)
 
@@ -305,7 +324,7 @@ class Control:
         found = CLASS_IDS.get(self.class_name) if self.class_name else None
         if found is None:
             raise NotImplementedError(
-                f"ClassID of the control {self.label!r}: its front-panel class "
+                f"ClassID of the control {self._named()!r}: its front-panel class "
                 f"{self.front_panel_class or self.class_name!r} has no VI Server "
                 "class in the conversion's table"
             )
@@ -323,6 +342,97 @@ class Control:
                 message="Control Reference is invalid.",
             )
         return list(self._fields)
+
+    @property
+    def array_element(self) -> Control:
+        """The Array Element property of an array: the reference to its element
+        control, the same object each time; error 1026 for a control that is not
+        an array."""
+        if self._element is None:
+            raise PanelError(
+                code=1026,
+                source="Control.array_element",
+                message="Control Reference is invalid.",
+            )
+        return self._element
+
+
+class Element(Control):
+    """The element of the array control ``parent``, which its Array Element property
+    gives a reference to (NI: "Reference to the array element. The properties of the
+    array apply to all elements in the array. If you want to read the data value of
+    a specific array element, use the Index Array function to index the array
+    first."). It is a control of the element's own class (``class_name``, so its
+    ``class_id``), with the properties the element is saved with (``saved``: an Enum
+    element's ``"strings"``); what the panel records of the array alone (its value,
+    its label, its states, its fields) is not the element's, so those raise
+    NotImplementedError naming the array."""
+
+    def __init__(
+        self,
+        parent: Control,
+        class_name: str | None,
+        front_panel_class: str | None,
+        saved: Mapping[str, Any],
+    ) -> None:
+        super().__init__(
+            parent.panel,
+            parent.name,
+            parent.label,
+            parent.indicator,
+            None,
+            class_name,
+            front_panel_class,
+        )
+        self.parent = parent
+        self._saved = dict(saved)
+
+    def _named(self) -> str:
+        return f"an element of {self.parent.label}"
+
+    def _unknown(self, what: str) -> NotImplementedError:
+        return NotImplementedError(
+            f"{what} of an element of the array {self.parent.label!r}: the "
+            "conversion reads an element reference's class and saved properties "
+            "only"
+        )
+
+    def _held(self, prop: str) -> Any:
+        held = self._saved.get(prop, _NO_STATE)
+        if held is _NO_STATE and self.class_name is not None:
+            held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
+        return held
+
+    @property
+    def label(self) -> str:
+        raise self._unknown("Label.Text")
+
+    @label.setter
+    def label(self, value: str) -> None:
+        pass
+
+    @property
+    def value(self) -> Any:
+        raise self._unknown("Value")
+
+    @value.setter
+    def value(self, value: Any) -> None:
+        raise self._unknown("Value")
+
+    @property
+    def variant(self) -> Variant:
+        raise self._unknown("Value")
+
+    @variant.setter
+    def variant(self, variant: Variant) -> None:
+        raise self._unknown("Value")
+
+    def set_property(self, prop: str, value: Any) -> None:
+        raise self._unknown(f"Setting {prop}")
+
+    @property
+    def controls(self) -> list[Control]:
+        raise self._unknown("Controls[]")
 
 
 class Field(Control):
@@ -488,12 +598,14 @@ class PanelValues:
         front_panel_classes: Mapping[str, str] | None = None,
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
+        elements: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
         self.undecoded_strings = dict(undecoded_strings or {})
         self.saved = {name: dict(held) for name, held in (saved or {}).items()}
         clusters = clusters or {}
         classes = classes or {}
         front_panel_classes = front_panel_classes or {}
+        elements = elements or {}
         self._properties: dict[str, dict[str, Any]] = {
             name: dict(held) for name, held in (states or {}).items()
         }
@@ -512,6 +624,7 @@ class PanelValues:
                 clusters.get(name),
                 classes.get(name),
                 front_panel_classes.get(name),
+                elements.get(name),
             )
             for name, label in {**self._controls, **self._indicators}.items()
         }
@@ -742,6 +855,7 @@ class Panel(PanelValues):
         front_panel_classes: Mapping[str, str] | None = None,
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
+        elements: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -756,6 +870,7 @@ class Panel(PanelValues):
             front_panel_classes=front_panel_classes,
             undecoded_strings=undecoded_strings,
             saved=saved,
+            elements=elements,
         )
         self.function = function
         self._results = dict(results or {})
